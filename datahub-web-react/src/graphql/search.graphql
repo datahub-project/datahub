@@ -37,6 +37,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    glossaryTerms {
+                        ...glossaryTerms
+                    }
                 }
                 ... on CorpUser {
                     username
@@ -137,6 +140,19 @@ query getSearchResults($input: SearchInput!) {
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                }
+                ... on GlossaryTerm {
+                    name
+                    glossaryTermInfo {
+                        definition
+                        termSource
+                        sourceRef
+                        sourceUrl
+                        customProperties {
+                            key
+                            value
+                        }
                     }
                 }
             }

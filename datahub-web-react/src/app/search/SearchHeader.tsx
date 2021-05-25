@@ -5,6 +5,7 @@ import styled, { useTheme } from 'styled-components';
 
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
+import AnalyticsLink from './AnalyticsLink';
 
 const HeaderTitle = styled(Typography.Title)`
     && {
@@ -28,7 +29,7 @@ const styles = {
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    logoImage: { width: '36px', height: '32px' },
+    logoImage: { height: '32px', width: 'auto' },
 };
 
 type Props = {
@@ -44,6 +45,12 @@ type Props = {
 const defaultProps = {
     authenticatedUserPictureLink: undefined,
 };
+
+const NavGroup = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+`;
 
 /**
  * A header containing a Logo, Search Bar view, & an account management dropdown.
@@ -74,7 +81,10 @@ export const SearchHeader = ({
                 onSearch={onSearch}
                 onQueryChange={onQueryChange}
             />
-            <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
+            <NavGroup>
+                <AnalyticsLink />
+                <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
+            </NavGroup>
         </Header>
     );
 };

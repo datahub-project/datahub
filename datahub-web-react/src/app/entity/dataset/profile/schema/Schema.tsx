@@ -4,7 +4,6 @@ import { Button, Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
-
 import TypeIcon from './TypeIcon';
 import {
     Schema,
@@ -16,11 +15,14 @@ import {
     GlobalTagsUpdate,
     EditableSchemaFieldInfo,
     EditableSchemaFieldInfoUpdate,
+    EntityType,
+    GlossaryTerms,
 } from '../../../../../types.generated';
-import TagGroup from '../../../../shared/tags/TagGroup';
+import TagTermGroup from '../../../../shared/tags/TagTermGroup';
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import DescriptionField from './SchemaDescriptionField';
+import analytics, { EventType, EntityActionType } from '../../../../analytics';
 
 const MAX_FIELD_PATH_LENGTH = 100;
 const ViewRawButtonContainer = styled.div`
@@ -34,6 +36,7 @@ const LighterText = styled(Typography.Text)`
 `;
 
 export type Props = {
+    urn: string;
     schema?: Schema | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     updateEditableSchema: (
@@ -52,8 +55,8 @@ const defaultColumns = [
         dataIndex: 'type',
         key: 'type',
         align: 'left' as AlignType,
-        render: (type: SchemaFieldDataType) => {
-            return <TypeIcon type={type} />;
+        render: (type: SchemaFieldDataType, record: SchemaField) => {
+            return <TypeIcon type={type} nativeDataType={record.nativeDataType} />;
         },
     },
     {
@@ -103,7 +106,7 @@ function convertEditableSchemaMetadataForUpdate(
     };
 }
 
-export default function SchemaView({ schema, editableSchemaMetadata, updateEditableSchema }: Props) {
+export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema }: Props) {
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
     const [descHoveredIndex, setDescHoveredIndex] = useState<string | undefined>(undefined);
     const [showRaw, setShowRaw] = useState(false);
@@ -162,17 +165,28 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
 
     const onUpdateTags = (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => {
         if (!record) return Promise.resolve();
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateSchemaTags,
+            entityType: EntityType.Dataset,
+            entityUrn: urn,
+        });
         const newFieldInfo: EditableSchemaFieldInfoUpdate = {
             fieldPath: record?.fieldPath,
             description: record?.description,
             globalTags: update,
         };
-
         return updateSchema(newFieldInfo, record);
     };
 
     const onUpdateDescription = (updatedDescription: string, record?: EditableSchemaFieldInfo) => {
         if (!record) return Promise.resolve();
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateSchemaDescription,
+            entityType: EntityType.Dataset,
+            entityUrn: urn,
+        });
         const newFieldInfo: EditableSchemaFieldInfoUpdate = {
             fieldPath: record?.fieldPath,
             description: updatedDescription,
@@ -195,14 +209,15 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
         );
     };
 
-    const tagGroupRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
+    const tagAndTermRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
             (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
         );
         return (
-            <TagGroup
+            <TagTermGroup
                 uneditableTags={tags}
                 editableTags={relevantEditableFieldInfo?.globalTags}
+                glossaryTerms={record.glossaryTerms as GlossaryTerms}
                 canRemove
                 canAdd={tagHoveredIndex === `${record.fieldPath}-${rowIndex}`}
                 onOpenModal={() => setTagHoveredIndex(undefined)}
@@ -229,12 +244,12 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
         }),
     };
 
-    const tagColumn = {
+    const tagAndTermColumn = {
         width: 400,
-        title: 'Tags',
+        title: 'Tags & Terms',
         dataIndex: 'globalTags',
         key: 'tag',
-        render: tagGroupRender,
+        render: tagAndTermRender,
         onCell: (record: SchemaField, rowIndex: number | undefined) => ({
             onMouseEnter: () => {
                 setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
@@ -243,6 +258,14 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
                 setTagHoveredIndex(undefined);
             },
         }),
+    };
+
+    const getRawSchema = (schemaValue) => {
+        try {
+            return JSON.stringify(JSON.parse(schemaValue), null, 2);
+        } catch (e) {
+            return schemaValue;
+        }
     };
 
     return (
@@ -257,14 +280,14 @@ export default function SchemaView({ schema, editableSchemaMetadata, updateEdita
                     <pre>
                         <code>
                             {schema?.platformSchema?.__typename === 'TableSchema' &&
-                                JSON.stringify(JSON.parse(schema.platformSchema.schema), null, 2)}
+                                getRawSchema(schema.platformSchema.schema)}
                         </code>
                     </pre>
                 </Typography.Text>
             ) : (
                 rows.length > 0 && (
                     <Table
-                        columns={[...defaultColumns, descriptionColumn, tagColumn]}
+                        columns={[...defaultColumns, descriptionColumn, tagAndTermColumn]}
                         dataSource={rows}
                         rowKey="fieldPath"
                         expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}

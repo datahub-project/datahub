@@ -8,15 +8,17 @@ import {
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
-import { Dataset, EntityType, GlobalTags } from '../../../../types.generated';
+import { Dataset, EntityType, GlobalTags, GlossaryTerms } from '../../../../types.generated';
 import LineageView from './Lineage';
 import { Properties as PropertiesView } from '../../shared/Properties';
 import DocumentsView from './Documentation';
 import DatasetHeader from './DatasetHeader';
 import { Message } from '../../../shared/Message';
-import TagGroup from '../../../shared/tags/TagGroup';
+import TagTermGroup from '../../../shared/tags/TagTermGroup';
 import useIsLineageMode from '../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
+import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -35,6 +37,7 @@ const EMPTY_ARR: never[] = [];
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
+    const user = useGetAuthenticatedUser();
     const [updateDataset] = useUpdateDatasetMutation({
         update(cache, { data: newDataset }) {
             cache.modify({
@@ -72,11 +75,18 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 path: TabType.Schema.toLowerCase(),
                 content: (
                     <SchemaView
+                        urn={urn}
                         schema={schema}
                         editableSchemaMetadata={editableSchemaMetadata}
-                        updateEditableSchema={(update) =>
-                            updateDataset({ variables: { input: { urn, editableSchemaMetadata: update } } })
-                        }
+                        updateEditableSchema={(update) => {
+                            analytics.event({
+                                type: EventType.EntityActionEvent,
+                                actionType: EntityActionType.UpdateSchemaDescription,
+                                entityType: EntityType.Dataset,
+                                entityUrn: urn,
+                            });
+                            return updateDataset({ variables: { input: { urn, editableSchemaMetadata: update } } });
+                        }}
                     />
                 ),
             },
@@ -87,9 +97,15 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     <OwnershipView
                         owners={(ownership && ownership.owners) || EMPTY_ARR}
                         lastModifiedAt={(ownership && ownership.lastModified?.time) || 0}
-                        updateOwnership={(update) =>
-                            updateDataset({ variables: { input: { urn, ownership: update } } })
-                        }
+                        updateOwnership={(update) => {
+                            analytics.event({
+                                type: EventType.EntityActionEvent,
+                                actionType: EntityActionType.UpdateOwnership,
+                                entityType: EntityType.Dataset,
+                                entityUrn: urn,
+                            });
+                            return updateDataset({ variables: { input: { urn, ownership: update } } });
+                        }}
                     />
                 ),
             },
@@ -108,10 +124,17 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 path: 'docs',
                 content: (
                     <DocumentsView
+                        authenticatedUserUrn={user?.urn}
                         documents={institutionalMemory?.elements || EMPTY_ARR}
-                        updateDocumentation={(update) =>
-                            updateDataset({ variables: { input: { urn, institutionalMemory: update } } })
-                        }
+                        updateDocumentation={(update) => {
+                            analytics.event({
+                                type: EventType.EntityActionEvent,
+                                actionType: EntityActionType.UpdateDocumentation,
+                                entityType: EntityType.Dataset,
+                                entityUrn: urn,
+                            });
+                            return updateDataset({ variables: { input: { urn, institutionalMemory: update } } });
+                        }}
                     />
                 ),
             },
@@ -128,15 +151,33 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     )}/${urn}?is_lineage_mode=${isLineageMode}`}
                     title={data.dataset.name}
                     tags={
-                        <TagGroup
+                        <TagTermGroup
                             editableTags={data.dataset?.globalTags as GlobalTags}
+                            glossaryTerms={data.dataset?.glossaryTerms as GlossaryTerms}
                             canAdd
                             canRemove
-                            updateTags={(globalTags) => updateDataset({ variables: { input: { urn, globalTags } } })}
+                            updateTags={(globalTags) => {
+                                analytics.event({
+                                    type: EventType.EntityActionEvent,
+                                    actionType: EntityActionType.UpdateTags,
+                                    entityType: EntityType.Dataset,
+                                    entityUrn: urn,
+                                });
+                                return updateDataset({ variables: { input: { urn, globalTags } } });
+                            }}
                         />
                     }
+                    tagCardHeader={data.dataset?.glossaryTerms ? 'Tags & Terms' : 'Tags'}
                     tabs={getTabs(data.dataset as Dataset)}
                     header={getHeader(data.dataset as Dataset)}
+                    onTabChange={(tab: string) => {
+                        analytics.event({
+                            type: EventType.EntitySectionViewEvent,
+                            entityType: EntityType.Dataset,
+                            entityUrn: urn,
+                            section: tab,
+                        });
+                    }}
                 />
             )}
         </>

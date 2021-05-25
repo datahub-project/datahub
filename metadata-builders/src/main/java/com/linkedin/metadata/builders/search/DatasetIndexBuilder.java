@@ -2,6 +2,7 @@ package com.linkedin.metadata.builders.search;
 
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DatasetUrn;
@@ -12,14 +13,18 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.search.DatasetDocument;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
+import com.linkedin.schema.EditableSchemaFieldInfo;
+import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+
 
 @Slf4j
 public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
@@ -29,8 +34,8 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
 
   @Nonnull
   private static String buildBrowsePath(@Nonnull DatasetUrn urn) {
-    return ("/" + urn.getOriginEntity() + "/"  + urn.getPlatformEntity().getPlatformNameEntity() + "/" + urn.getDatasetNameEntity())
-        .replace('.', '/').toLowerCase();
+    return ("/" + urn.getOriginEntity() + "/" + urn.getPlatformEntity().getPlatformNameEntity() + "/"
+        + urn.getDatasetNameEntity()).replace('.', '/').toLowerCase();
   }
 
   /**
@@ -41,8 +46,7 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
    */
   @Nonnull
   private static DatasetDocument setUrnDerivedFields(@Nonnull DatasetUrn urn) {
-    return new DatasetDocument()
-        .setName(urn.getDatasetNameEntity())
+    return new DatasetDocument().setName(urn.getDatasetNameEntity())
         .setOrigin(urn.getOriginEntity())
         .setPlatform(urn.getPlatformEntity().getPlatformNameEntity())
         .setUrn(urn)
@@ -52,26 +56,23 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull Ownership ownership) {
     final StringArray owners = BuilderUtils.getCorpUserOwners(ownership);
-    return new DatasetDocument()
-        .setUrn(urn)
-        .setHasOwners(!owners.isEmpty())
-        .setOwners(owners);
+    return new DatasetDocument().setUrn(urn).setHasOwners(!owners.isEmpty()).setOwners(owners);
   }
 
   @Nonnull
   private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull Status status) {
-    return new DatasetDocument()
-        .setUrn(urn)
-        .setRemoved(status.isRemoved());
+    return new DatasetDocument().setUrn(urn).setRemoved(status.isRemoved());
   }
 
   @Nonnull
-  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull DatasetDeprecation deprecation) {
+  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn,
+      @Nonnull DatasetDeprecation deprecation) {
     return new DatasetDocument().setUrn(urn).setDeprecated(deprecation.isDeprecated());
   }
 
   @Nonnull
-  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull DatasetProperties datasetProperties) {
+  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn,
+      @Nonnull DatasetProperties datasetProperties) {
     final DatasetDocument doc = new DatasetDocument().setUrn(urn);
     if (datasetProperties.getDescription() != null) {
       doc.setDescription(datasetProperties.getDescription());
@@ -84,7 +85,43 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
       @Nonnull SchemaMetadata schemaMetadata) {
     final StringArray fieldPaths = new StringArray(
         schemaMetadata.getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toList()));
-    return new DatasetDocument().setUrn(urn).setHasSchema(true).setFieldPaths(fieldPaths);
+    final StringArray fieldDescriptions = new StringArray(schemaMetadata.getFields()
+        .stream()
+        .map(SchemaField::getDescription)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList()));
+    final StringArray fieldTags = new StringArray(schemaMetadata.getFields()
+        .stream()
+        .map(SchemaField::getGlobalTags)
+        .filter(Objects::nonNull)
+        .flatMap(globalTags -> globalTags.getTags().stream())
+        .map(tag -> tag.getTag().getName())
+        .collect(Collectors.toSet()));
+    return new DatasetDocument().setUrn(urn)
+        .setHasSchema(true)
+        .setFieldPaths(fieldPaths)
+        .setFieldDescriptions(fieldDescriptions)
+        .setFieldTags(fieldTags);
+  }
+
+  @Nonnull
+  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn,
+      @Nonnull EditableSchemaMetadata editableSchemaMetadata) {
+    final StringArray fieldDescriptions = new StringArray(editableSchemaMetadata.getEditableSchemaFieldInfo()
+        .stream()
+        .map(EditableSchemaFieldInfo::getDescription)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList()));
+    final StringArray fieldTags = new StringArray(editableSchemaMetadata.getEditableSchemaFieldInfo()
+        .stream()
+        .map(EditableSchemaFieldInfo::getGlobalTags)
+        .filter(Objects::nonNull)
+        .flatMap(globalTags -> globalTags.getTags().stream())
+        .map(tag -> tag.getTag().getName())
+        .collect(Collectors.toSet()));
+    return new DatasetDocument().setUrn(urn)
+        .setEditedFieldDescriptions(fieldDescriptions)
+        .setEditedFieldTags(fieldTags);
   }
 
   @Nonnull
@@ -98,13 +135,26 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
   }
 
   @Nonnull
-  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn,
-      @Nonnull GlobalTags globalTags) {
+  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn, @Nonnull GlobalTags globalTags) {
     return new DatasetDocument().setUrn(urn)
-        .setTags(new StringArray(globalTags.getTags()
-            .stream()
-            .map(tag -> tag.getTag().getName())
-            .collect(Collectors.toList())));
+        .setTags(new StringArray(
+            globalTags.getTags().stream().map(tag -> tag.getTag().getName()).collect(Collectors.toList())));
+  }
+
+  @Nonnull
+  private DatasetDocument getDocumentToUpdateFromAspect(@Nonnull DatasetUrn urn,
+                                                        @Nonnull GlossaryTerms glossaryTerms) {
+    return new DatasetDocument().setUrn(urn)
+            .setGlossaryTerms(new StringArray(glossaryTerms.getTerms()
+                    .stream()
+                    .map(term -> {
+                      String name = term.getUrn().getNameEntity();
+                      if (name.contains(".")) {
+                        String[] nodes = name.split(Pattern.quote("."));
+                        return nodes[nodes.length - 1];
+                      }
+                      return name;
+                    }).collect(Collectors.toList())));
   }
 
   @Nonnull
@@ -119,12 +169,16 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
         return getDocumentToUpdateFromAspect(urn, aspect.getOwnership());
       } else if (aspect.isSchemaMetadata()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getSchemaMetadata());
+      } else if (aspect.isEditableSchemaMetadata()) {
+        return getDocumentToUpdateFromAspect(urn, aspect.getEditableSchemaMetadata());
       } else if (aspect.isStatus()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getStatus());
       } else if (aspect.isUpstreamLineage()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getUpstreamLineage());
       } else if (aspect.isGlobalTags()) {
         return getDocumentToUpdateFromAspect(urn, aspect.getGlobalTags());
+      } else if (aspect.isGlossaryTerms()) {
+        return getDocumentToUpdateFromAspect(urn, aspect.getGlossaryTerms());
       }
       return null;
     }).filter(Objects::nonNull).collect(Collectors.toList());

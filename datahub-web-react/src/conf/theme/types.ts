@@ -24,6 +24,7 @@ export type Theme = {
     };
     content: {
         title: string;
+        subtitle?: string;
         homepage: {
             homepageMessage: string;
         };

@@ -26,11 +26,7 @@
     },
     "description": {
       "type": "text",
-      "fields": {
-        "keyword": {
-          "type": "keyword"
-        }
-      }
+      "analyzer": "delimit"
     },
     "hasOwners": {
       "type": "boolean"
@@ -81,6 +77,34 @@
         }
       },
       "normalizer": "my_normalizer"
+    },
+    "fieldDescriptions": {
+      "type": "text",
+      "analyzer": "delimit"
+    },
+    "fieldTags": {
+      "type": "keyword",
+      "normalizer": "my_normalizer",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "custom_ngram"
+        }
+      }
+    },
+    "editedFieldDescriptions": {
+      "type": "text",
+      "analyzer": "delimit"
+    },
+    "editedFieldTags": {
+      "type": "keyword",
+      "normalizer": "my_normalizer",
+      "fields": {
+        "ngram": {
+          "type": "text",
+          "analyzer": "custom_ngram"
+        }
+      }
     },
     "num_downstream_datasets": {
       "type": "long"

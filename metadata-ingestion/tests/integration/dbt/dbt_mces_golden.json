@@ -115,7 +115,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -129,7 +130,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -143,7 +145,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -157,7 +160,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "amount",
@@ -171,7 +175,8 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -185,7 +190,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -268,7 +274,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -282,7 +289,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "amount",
@@ -296,7 +304,8 @@
                                 },
                                 "nativeDataType": "numeric",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -474,7 +483,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -488,7 +498,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "amount",
@@ -502,7 +513,8 @@
                                 },
                                 "nativeDataType": "numeric",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "email",
@@ -516,7 +528,8 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -589,7 +602,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -603,7 +617,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -617,7 +632,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -631,7 +647,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "amount",
@@ -645,7 +662,8 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -659,7 +677,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -732,7 +751,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -746,7 +766,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -760,7 +781,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -774,7 +796,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "amount",
@@ -788,7 +811,8 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -802,7 +826,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -875,7 +900,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -889,7 +915,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -903,7 +930,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -917,7 +945,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "amount",
@@ -931,7 +960,8 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -945,7 +975,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1018,7 +1049,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -1032,7 +1064,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -1046,7 +1079,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -1060,7 +1094,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "amount",
@@ -1074,7 +1109,8 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -1088,7 +1124,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1161,7 +1198,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -1175,7 +1213,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -1189,7 +1228,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -1203,7 +1243,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "amount",
@@ -1217,7 +1258,8 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -1231,7 +1273,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1304,7 +1347,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "customer_id",
@@ -1318,7 +1362,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "staff_id",
@@ -1332,7 +1377,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "rental_id",
@@ -1346,7 +1392,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "amount",
@@ -1360,7 +1407,8 @@
                                 },
                                 "nativeDataType": "numeric(5,2)",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "payment_date",
@@ -1374,7 +1422,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1447,7 +1496,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "store_id",
@@ -1461,7 +1511,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "first_name",
@@ -1475,7 +1526,8 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "last_name",
@@ -1489,7 +1541,8 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "email",
@@ -1503,7 +1556,8 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "address_id",
@@ -1517,7 +1571,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "activebool",
@@ -1531,7 +1586,8 @@
                                 },
                                 "nativeDataType": "boolean",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "create_date",
@@ -1545,7 +1601,8 @@
                                 },
                                 "nativeDataType": "date",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "last_update",
@@ -1559,7 +1616,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "active",
@@ -1573,7 +1631,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1646,7 +1705,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "address",
@@ -1660,7 +1720,8 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "address2",
@@ -1674,7 +1735,8 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "district",
@@ -1688,7 +1750,8 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "city_id",
@@ -1702,7 +1765,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "postal_code",
@@ -1716,7 +1780,8 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "phone",
@@ -1730,7 +1795,8 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "last_update",
@@ -1744,7 +1810,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
@@ -1817,7 +1884,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "city",
@@ -1831,7 +1899,8 @@
                                 },
                                 "nativeDataType": "text",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "country_id",
@@ -1845,7 +1914,8 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             },
                             {
                                 "fieldPath": "last_update",
@@ -1859,7 +1929,8 @@
                                 },
                                 "nativeDataType": "timestamp with time zone",
                                 "recursive": false,
-                                "globalTags": null
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,

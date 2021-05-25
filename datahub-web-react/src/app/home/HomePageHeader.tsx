@@ -8,8 +8,11 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { GetSearchResultsQuery, useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
+import { useIsAnalyticsEnabledQuery } from '../../graphql/analytics.generated';
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { EntityType } from '../../types.generated';
+import analytics, { EventType } from '../analytics';
+import AnalyticsLink from '../search/AnalyticsLink';
 
 const Background = styled.div`
     width: 100%;
@@ -41,6 +44,7 @@ const styles = {
     searchContainer: { width: '100%', marginTop: '40px' },
     logoImage: { width: 140 },
     searchBox: { width: 540, margin: '40px 0px' },
+    subtitle: { marginTop: '28px', color: '#FFFFFF', fontSize: 12 },
     subHeaderLabel: { marginTop: '-16px', color: '#FFFFFF', fontSize: 12 },
 };
 
@@ -60,6 +64,12 @@ const HeaderContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
+`;
+
+const NavGroup = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 function getSuggestionFieldsFromResult(result: GetSearchResultsQuery): string[] {
@@ -98,11 +108,23 @@ function sortRandom() {
 export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const { data } = useGetAuthenticatedUser();
+    const user = useGetAuthenticatedUser();
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
     const themeConfig = useTheme();
 
+    const { data } = useIsAnalyticsEnabledQuery();
+    const isAnalyticsEnabled = data && data.isAnalyticsEnabled;
+
     const onSearch = (query: string) => {
+        if (query.trim().length === 0) {
+            return;
+        }
+        analytics.event({
+            type: EventType.SearchEvent,
+            query,
+            pageNumber: 1,
+            originPath: window.location.pathname,
+        });
         navigateToSearchUrl({
             query,
             history,
@@ -154,20 +176,26 @@ export const HomePageHeader = () => {
         <Background>
             <Row justify="space-between" style={styles.navBar}>
                 <WelcomeText>
-                    {data && (
+                    {user && (
                         <>
-                            Welcome back, <b>{data?.corpUser?.info?.firstName || data?.corpUser?.username}</b>.
+                            Welcome back, <b>{user.info?.firstName || user.username}</b>.
                         </>
                     )}
                 </WelcomeText>
-                <ManageAccount
-                    urn={data?.corpUser?.urn || ''}
-                    pictureLink={data?.corpUser?.editableInfo?.pictureLink || ''}
-                    name={data?.corpUser?.info?.firstName || data?.corpUser?.username || undefined}
-                />
+                <NavGroup>
+                    {isAnalyticsEnabled && <AnalyticsLink />}
+                    <ManageAccount
+                        urn={user?.urn || ''}
+                        pictureLink={user?.editableInfo?.pictureLink || ''}
+                        name={user?.info?.firstName || user?.username || undefined}
+                    />
+                </NavGroup>
             </Row>
             <HeaderContainer>
                 <Image src={themeConfig.assets.logoUrl} preview={false} style={styles.logoImage} />
+                {themeConfig.content.subtitle && (
+                    <Typography.Text style={styles.subtitle}>{themeConfig.content.subtitle}</Typography.Text>
+                )}
                 <AutoComplete
                     style={styles.searchBox}
                     options={suggestionsData?.autoComplete?.suggestions.map((result: string) => ({

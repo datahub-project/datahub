@@ -1,4 +1,4 @@
-from datahub.entrypoints import datahub
+from datahub.entrypoints import main
 
 if __name__ == "__main__":
-    datahub(prog_name="python3 -m datahub")
+    main(prog_name="python3 -m datahub")

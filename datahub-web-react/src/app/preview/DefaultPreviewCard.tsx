@@ -1,23 +1,25 @@
-import { Avatar, Divider, Image, Row, Space, Tag, Typography } from 'antd';
+import { Divider, Image, Row, Space, Tag, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { EntityType, GlobalTags } from '../../types.generated';
+import { GlobalTags, Owner, GlossaryTerms } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
-import CustomAvatar from '../shared/avatar/CustomAvatar';
-import TagGroup from '../shared/tags/TagGroup';
+import AvatarsGroup from '../shared/avatar/AvatarsGroup';
+import TagTermGroup from '../shared/tags/TagTermGroup';
 
 interface Props {
     name: string;
     logoUrl?: string;
+    logoComponent?: JSX.Element;
     url: string;
     description: string;
     type?: string;
     platform?: string;
     qualifier?: string | null;
     tags?: GlobalTags;
-    owners?: Array<{ urn: string; name?: string; photoUrl?: string }>;
+    owners?: Array<Owner> | null;
     snippet?: React.ReactNode;
+    glossaryTerms?: GlossaryTerms;
 }
 
 const DescriptionParagraph = styled(Typography.Paragraph)`
@@ -27,11 +29,16 @@ const DescriptionParagraph = styled(Typography.Paragraph)`
     }
 `;
 
+const PreviewImage = styled(Image)`
+    max-height: 48px;
+    width: auto;
+    object-fit: contain;
+`;
+
 const styles = {
     row: { width: '100%', marginBottom: '0px' },
     leftColumn: { maxWidth: '75%' },
     rightColumn: { maxWidth: '25%' },
-    logoImage: { width: '48px' },
     name: { fontSize: '18px' },
     typeName: { color: '#585858' },
     platformName: { color: '#585858' },
@@ -41,6 +48,7 @@ const styles = {
 export default function DefaultPreviewCard({
     name,
     logoUrl,
+    logoComponent,
     url,
     description,
     type,
@@ -49,23 +57,28 @@ export default function DefaultPreviewCard({
     tags,
     owners,
     snippet,
+    glossaryTerms,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+
     return (
         <Row style={styles.row} justify="space-between">
             <Space direction="vertical" align="start" size={28} style={styles.leftColumn}>
                 <Link to={url}>
                     <Space direction="horizontal" size={20} align="center">
-                        {logoUrl && <Image style={styles.logoImage} src={logoUrl} preview />}
+                        {logoUrl ? <PreviewImage src={logoUrl} preview /> : logoComponent || ''}
+
                         <Space direction="vertical" size={8}>
                             <Typography.Text strong style={styles.name}>
                                 {name}
                             </Typography.Text>
-                            <Space split={<Divider type="vertical" />} size={16}>
-                                <Typography.Text>{type}</Typography.Text>
-                                <Typography.Text strong>{platform}</Typography.Text>
-                                {qualifier && <Tag>{qualifier}</Tag>}
-                            </Space>
+                            {(type || platform || qualifier) && (
+                                <Space split={<Divider type="vertical" />} size={16}>
+                                    <Typography.Text>{type}</Typography.Text>
+                                    <Typography.Text strong>{platform}</Typography.Text>
+                                    {qualifier && <Tag>{qualifier}</Tag>}
+                                </Space>
+                            )}
                         </Space>
                     </Space>
                 </Link>
@@ -81,18 +94,9 @@ export default function DefaultPreviewCard({
             <Space direction="vertical" align="end" size={36} style={styles.rightColumn}>
                 <Space direction="vertical" size={12}>
                     <Typography.Text strong>{owners && owners.length > 0 ? 'Owned By' : ''}</Typography.Text>
-                    <Avatar.Group maxCount={4}>
-                        {owners?.map((owner) => (
-                            <CustomAvatar
-                                key={owner.urn}
-                                name={owner.name}
-                                url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${owner.urn}`}
-                                photoUrl={owner.photoUrl}
-                            />
-                        ))}
-                    </Avatar.Group>
+                    <AvatarsGroup owners={owners} entityRegistry={entityRegistry} maxCount={4} />
                 </Space>
-                <TagGroup editableTags={tags} maxShow={3} />
+                <TagTermGroup glossaryTerms={glossaryTerms} editableTags={tags} maxShow={3} />
             </Space>
         </Row>
     );
