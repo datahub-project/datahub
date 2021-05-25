@@ -16,6 +16,7 @@ import com.linkedin.dataset.DatasetKey;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.experimental.Entity;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.aspect.DatasetAspectArray;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
@@ -257,7 +258,8 @@ public final class Datasets extends BaseBrowsableEntityResource<
   public Task<Dataset> get(@Nonnull ComplexResourceKey<DatasetKey, EmptyRecord> key,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
       final Entity entity = _entityService.getEntity(new DatasetUrn(
           key.getKey().getPlatform(),
@@ -277,7 +279,8 @@ public final class Datasets extends BaseBrowsableEntityResource<
       @Nonnull Set<ComplexResourceKey<DatasetKey, EmptyRecord>> keys,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
       final Map<ComplexResourceKey<DatasetKey, EmptyRecord>, Dataset> entities = new HashMap<>();
@@ -302,7 +305,9 @@ public final class Datasets extends BaseBrowsableEntityResource<
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
-    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
       final SearchResult searchResult = _entitySearchDao.search(
@@ -415,7 +420,8 @@ public final class Datasets extends BaseBrowsableEntityResource<
   public Task<DatasetSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
       try {
         final Entity entity = _entityService.getEntity(

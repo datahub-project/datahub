@@ -13,6 +13,7 @@ import com.linkedin.datajob.DataJob;
 import com.linkedin.datajob.DataJobKey;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.experimental.Entity;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.DataJobAspect;
 import com.linkedin.metadata.aspect.DataJobAspectArray;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
@@ -198,7 +199,8 @@ public class DataJobs extends BaseBrowsableEntityResource<
   public Task<DataJob> get(@Nonnull ComplexResourceKey<DataJobKey, EmptyRecord> key,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
       final Entity entity = _entityService.getEntity(new DataJobUrn(
           key.getKey().getDataFlow(),
@@ -217,7 +219,8 @@ public class DataJobs extends BaseBrowsableEntityResource<
       @Nonnull Set<ComplexResourceKey<DataJobKey, EmptyRecord>> keys,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
       final Map<ComplexResourceKey<DataJobKey, EmptyRecord>, DataJob> entities = new HashMap<>();
@@ -241,7 +244,8 @@ public class DataJobs extends BaseBrowsableEntityResource<
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
       final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
@@ -274,7 +278,9 @@ public class DataJobs extends BaseBrowsableEntityResource<
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
-    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
       final SearchResult searchResult = _entitySearchDao.search(
@@ -361,7 +367,8 @@ public class DataJobs extends BaseBrowsableEntityResource<
   public Task<DataJobSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
       final Entity entity;
       try {

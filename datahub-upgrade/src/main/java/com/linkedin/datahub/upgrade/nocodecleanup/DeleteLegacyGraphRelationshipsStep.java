@@ -4,7 +4,8 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.metadata.graph.Neo4jGraphClient;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.Neo4jGraphService;
 import java.util.function.Function;
 
 
@@ -13,9 +14,9 @@ public class DeleteLegacyGraphRelationshipsStep implements UpgradeStep<Void> {
 
   private final String deletePattern = "com.linkedin.*";
 
-  private final Neo4jGraphClient _graphClient;
+  private final GraphService _graphClient;
 
-  public DeleteLegacyGraphRelationshipsStep(final Neo4jGraphClient graphClient) {
+  public DeleteLegacyGraphRelationshipsStep(final GraphService graphClient) {
     _graphClient = graphClient;
   }
 
@@ -33,7 +34,7 @@ public class DeleteLegacyGraphRelationshipsStep implements UpgradeStep<Void> {
   public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
     return (context) -> {
       try {
-        _graphClient.removeNodesMatchingLabel(deletePattern);
+        ((Neo4jGraphService) _graphClient).removeNodesMatchingLabel(deletePattern);
       } catch (Exception e) {
         return new DefaultUpgradeStepResult<>(
             id(),

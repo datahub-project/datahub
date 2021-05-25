@@ -8,9 +8,9 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.metadata.ModelUtils;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
-import com.linkedin.metadata.entity.ebean.EbeanEntityService;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.EntitySpec;
@@ -20,6 +20,8 @@ import io.ebean.EbeanServer;
 import io.ebean.PagedList;
 import java.net.URISyntaxException;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -27,16 +29,19 @@ import java.util.function.Function;
 
 public class DataMigrationStep implements UpgradeStep<Void> {
 
-  private static final String BROWSE_PATHS_ASPECT_NAME = ModelUtils.getAspectNameFromSchema(new BrowsePaths().schema());
+  private static final int DEFAULT_BATCH_SIZE = 1000;
+  private static final long DEFAULT_BATCH_DELAY_MS = 250;
+
+  private static final String BROWSE_PATHS_ASPECT_NAME = PegasusUtils.getAspectNameFromSchema(new BrowsePaths().schema());
 
   private final EbeanServer _server;
-  private final EbeanEntityService _entityService;
+  private final EntityService _entityService;
   private final SnapshotEntityRegistry _entityRegistry;
   private final Set<Urn> urnsWithBrowsePath = new HashSet<>();
 
   public DataMigrationStep(
       final EbeanServer server,
-      final EbeanEntityService entityService,
+      final EntityService entityService,
       final SnapshotEntityRegistry entityRegistry) {
     _server = server;
     _entityService = entityService;
@@ -63,7 +68,7 @@ public class DataMigrationStep implements UpgradeStep<Void> {
 
       int totalRowsMigrated = 0;
       int start = 0;
-      int count = 1000;
+      int count = getBatchSize(context.parsedArgs());
       while (start < rowCount) {
 
         context.report().addLine(String.format("Reading rows %s through %s from legacy aspects table.", start, start + count));
@@ -105,7 +110,7 @@ public class DataMigrationStep implements UpgradeStep<Void> {
           // 4. Extract new aspect name from Aspect schema
           final String newAspectName;
           try {
-            newAspectName = ModelUtils.getAspectNameFromSchema(aspectRecord.schema());
+            newAspectName = PegasusUtils.getAspectNameFromSchema(aspectRecord.schema());
           } catch (Exception e) {
             return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
                 String.format("Failed to retrieve @Aspect name from schema %s, urn %s: %s",
@@ -168,7 +173,7 @@ public class DataMigrationStep implements UpgradeStep<Void> {
 
         start = start + count;
         try {
-          TimeUnit.SECONDS.sleep(1);
+          TimeUnit.MILLISECONDS.sleep(getBatchDelayMs(context.parsedArgs()));
         } catch (InterruptedException e) {
           throw new RuntimeException("Thread interrupted while sleeping after successful batch migration.");
         }
@@ -201,5 +206,23 @@ public class DataMigrationStep implements UpgradeStep<Void> {
         .orderBy()
         .asc(EbeanAspectV2.URN_COLUMN)
         .findPagedList();
+  }
+
+  private int getBatchSize(final Map<String, Optional<String>> parsedArgs) {
+    int resolvedBatchSize = DEFAULT_BATCH_SIZE;
+    if (parsedArgs.containsKey(NoCodeUpgrade.BATCH_SIZE_ARG_NAME)
+        && parsedArgs.get(NoCodeUpgrade.BATCH_SIZE_ARG_NAME).isPresent()) {
+      resolvedBatchSize = Integer.parseInt(parsedArgs.get(NoCodeUpgrade.BATCH_SIZE_ARG_NAME).get());
+    }
+    return resolvedBatchSize;
+  }
+
+  private long getBatchDelayMs(final Map<String, Optional<String>> parsedArgs) {
+    long resolvedBatchDelayMs = DEFAULT_BATCH_DELAY_MS;
+    if (parsedArgs.containsKey(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME)
+        && parsedArgs.get(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME).isPresent()) {
+      resolvedBatchDelayMs = Long.parseLong(parsedArgs.get(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME).get());
+    }
+    return resolvedBatchDelayMs;
   }
 }

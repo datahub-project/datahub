@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 
-import static com.linkedin.metadata.ModelUtils.urnToEntityName;
+import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
@@ -184,5 +184,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
     return RestliUtils.toTask(() -> new StringArray(_entityBrowseDao.getBrowsePaths(urnToEntityName(urn), urn)));
+  }
+
+  @Action(name = "setWritable")
+  @Nonnull
+  public void setWriteable() {
+    _entityService.setWritable();
   }
 }

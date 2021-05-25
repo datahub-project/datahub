@@ -9,9 +9,9 @@ import com.linkedin.dataset.DownstreamArray;
 import com.linkedin.dataset.DownstreamLineage;
 import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamLineage;
-import com.linkedin.metadata.ModelUtils;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
@@ -55,8 +55,8 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
   private EntityService _entityService;
 
   @Inject
-  @Named("neo4jGraphClient")
-  private GraphClient _graphClient;
+  @Named("graphService")
+  private GraphService _graphService;
 
   public DownstreamLineageResource() {
     super();
@@ -69,7 +69,7 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
 
     return RestliUtils.toTask(() -> {
 
-      final List<DatasetUrn> downstreamUrns = _graphClient.findRelatedUrns(
+      final List<DatasetUrn> downstreamUrns = _graphService.findRelatedUrns(
           "dataset",
           newFilter("urn", datasetUrn.toString()),
           "dataset",
@@ -91,7 +91,7 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
             final RecordTemplate upstreamLineageRecord =
                 _entityService.getLatestAspect(
                     ds,
-                    ModelUtils.getAspectNameFromSchema(new UpstreamLineage().schema())
+                    PegasusUtils.getAspectNameFromSchema(new UpstreamLineage().schema())
                 );
             if (upstreamLineageRecord != null) {
               final UpstreamLineage upstreamLineage = new UpstreamLineage(upstreamLineageRecord.data());

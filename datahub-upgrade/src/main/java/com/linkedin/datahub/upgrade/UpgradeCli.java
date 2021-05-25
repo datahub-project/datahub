@@ -20,7 +20,7 @@ public class UpgradeCli implements CommandLineRunner {
     @CommandLine.Option(names = {"-u", "--upgrade-id"})
     String upgradeId;
 
-    @CommandLine.Option(names = {"-a", "--args"})
+    @CommandLine.Option(names = {"-a", "--arg"})
     List<String> args;
   }
 

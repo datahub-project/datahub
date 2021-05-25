@@ -17,8 +17,8 @@ RUN cd datahub-src && cp datahub-upgrade/build/libs/datahub-upgrade.jar ../datah
 
 FROM base as prod-install
 COPY --from=prod-build /datahub-upgrade.jar /datahub/datahub-upgrade/bin/
-COPY --from=prod-build /datahub-src/docker/datahub-upgrade/upgrade.sh /datahub/datahub-upgrade/scripts/
-RUN chmod +x /datahub/datahub-upgrade/scripts/upgrade.sh
+COPY --from=prod-build /datahub-src/docker/datahub-upgrade/start.sh /datahub/datahub-upgrade/scripts/
+RUN chmod +x /datahub/datahub-upgrade/scripts/start.sh
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -31,6 +31,11 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
-ENV UPGRADE_ID=""
 
-CMD /datahub/datahub-upgrade/scripts/upgrade.sh
+# Upgrade CLI Arguments
+ENV UPGRADE_ID=""
+ENV ARG_1="ignore"
+ENV ARG_2="ignore"
+ENV ARG_3="ignore"
+
+CMD /datahub/datahub-upgrade/scripts/start.sh

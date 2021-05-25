@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.metadata.graph.GraphClient;
-import com.linkedin.metadata.graph.Neo4jGraphClient;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.Neo4jGraphService;
 import org.neo4j.driver.Driver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -12,14 +12,14 @@ import org.springframework.context.annotation.DependsOn;
 import javax.annotation.Nonnull;
 
 @Configuration
-public class GraphQueryDaoFactory {
+public class GraphServiceFactory {
     @Autowired
     ApplicationContext applicationContext;
 
     @Nonnull
     @DependsOn({"neo4jDriver"})
-    @Bean(name = "neo4jGraphClient")
-    protected GraphClient createInstance() {
-        return new Neo4jGraphClient(applicationContext.getBean(Driver.class));
+    @Bean(name = "graphService")
+    protected GraphService createInstance() {
+        return new Neo4jGraphService(applicationContext.getBean(Driver.class));
     }
 }

@@ -7,12 +7,12 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+public interface GraphService {
 
-public interface GraphClient {
-  public void addEdge(final Edge edge);
+  void addEdge(final Edge edge);
 
   @Nonnull
-  public List<String> findRelatedUrns(
+  List<String> findRelatedUrns(
       @Nullable final String sourceType,
       @Nonnull final Filter sourceEntityFilter,
       @Nullable final String destinationType,
@@ -22,9 +22,9 @@ public interface GraphClient {
       final int offset,
       final int count);
 
-  public void removeNode(@Nonnull final Urn urn);
+  void removeNode(@Nonnull final Urn urn);
 
-  public void removeEdgeTypesFromNode(
+  void removeEdgeTypesFromNode(
       @Nonnull final Urn urn,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter);

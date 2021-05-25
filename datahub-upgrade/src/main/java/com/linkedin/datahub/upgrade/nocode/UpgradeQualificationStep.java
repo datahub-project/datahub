@@ -30,7 +30,7 @@ public class UpgradeQualificationStep implements UpgradeStep<Void> {
   public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
     return (context) -> {
 
-      if (context.args().contains("force-upgrade")) {
+      if (context.parsedArgs().containsKey(NoCodeUpgrade.FORCE_UPGRADE_ARG_NAME)) {
         return new DefaultUpgradeStepResult<>(
             id(),
             UpgradeStepResult.Result.SUCCEEDED,

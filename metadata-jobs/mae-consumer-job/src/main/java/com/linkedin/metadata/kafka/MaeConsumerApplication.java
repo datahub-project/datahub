@@ -9,7 +9,7 @@ import org.springframework.boot.autoconfigure.elasticsearch.rest.RestClientAutoC
 public class MaeConsumerApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(MaeConsumerApplication.class, args);
+        Class<?>[] primarySources = {MaeConsumerApplication.class, MaeConsumerConfig.class};
+        SpringApplication.run(primarySources, args);
     }
-
 }

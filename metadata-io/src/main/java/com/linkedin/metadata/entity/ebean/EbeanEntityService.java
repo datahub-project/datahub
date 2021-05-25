@@ -25,7 +25,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
 
-import static com.linkedin.metadata.ModelUtils.*;
+import static com.linkedin.metadata.PegasusUtils.*;
 
 
 /**
@@ -278,5 +278,10 @@ public class EbeanEntityService extends EntityService {
     final AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
     final RecordDataSchema aspectSchema = aspectSpec.getPegasusSchema();
     return RecordUtils.toRecordTemplate(getDataTemplateClassFromSchema(aspectSchema, RecordTemplate.class), jsonAspect);
+  }
+
+  @Nonnull
+  public void setWritable() {
+    _entityDao.setWritable();
   }
 }

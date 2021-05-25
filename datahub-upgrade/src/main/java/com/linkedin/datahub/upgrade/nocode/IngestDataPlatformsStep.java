@@ -8,8 +8,8 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.dataplatform.DataPlatformInfo;
-import com.linkedin.metadata.ModelUtils;
-import com.linkedin.metadata.entity.ebean.EbeanEntityService;
+import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.resources.dataplatform.utils.DataPlatformsUtil;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -19,9 +19,9 @@ import java.util.function.Function;
 
 public class IngestDataPlatformsStep implements UpgradeStep<Void> {
 
-  private final EbeanEntityService _entityService;
+  private final EntityService _entityService;
 
-  public IngestDataPlatformsStep(final EbeanEntityService entityService) {
+  public IngestDataPlatformsStep(final EntityService entityService) {
     _entityService = entityService;
   }
 
@@ -56,7 +56,7 @@ public class IngestDataPlatformsStep implements UpgradeStep<Void> {
 
         _entityService.ingestAspect(
             entry.getKey(),
-            ModelUtils.getAspectNameFromSchema(entry.getValue().schema()),
+            PegasusUtils.getAspectNameFromSchema(entry.getValue().schema()),
             entry.getValue(),
             auditStamp
         );

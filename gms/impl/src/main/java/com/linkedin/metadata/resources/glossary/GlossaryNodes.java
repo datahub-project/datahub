@@ -9,6 +9,7 @@ import com.linkedin.glossary.GlossaryNodeKey;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.GlossaryNodeAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
@@ -168,7 +169,8 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
   public Task<GlossaryNode> get(@Nonnull ComplexResourceKey<GlossaryNodeKey, EmptyRecord> key,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
       final Entity entity = _entityService.getEntity(new GlossaryNodeUrn(
           key.getKey().getName()), projectedAspects);
@@ -183,7 +185,8 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
       @Nonnull Set<ComplexResourceKey<GlossaryNodeKey, EmptyRecord>> keys,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
       final Map<ComplexResourceKey<GlossaryNodeKey, EmptyRecord>, GlossaryNode> entities = new HashMap<>();
@@ -207,7 +210,8 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
       final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
@@ -257,7 +261,9 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
-    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
       final SearchResult searchResult = _entitySearchDao.search(
@@ -300,7 +306,8 @@ public final class GlossaryNodes extends BaseSearchableEntityResource<
   public Task<GlossaryNodeSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
       final Entity entity;
       try {

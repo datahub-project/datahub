@@ -8,6 +8,7 @@ import com.linkedin.experimental.Entity;
 import com.linkedin.identity.CorpGroup;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.identity.CorpGroupResourceKey;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.CorpGroupAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
@@ -144,7 +145,8 @@ public final class CorpGroups extends BaseSearchableEntityResource<
   public Task<CorpGroup> get(@Nonnull ComplexResourceKey<CorpGroupResourceKey, EmptyRecord> key,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
       final Entity entity = _entityService.getEntity(new CorpGroupUrn(
           key.getKey().getName()), projectedAspects);
@@ -162,7 +164,8 @@ public final class CorpGroups extends BaseSearchableEntityResource<
       @Nonnull Set<ComplexResourceKey<CorpGroupResourceKey, EmptyRecord>> keys,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
       final Map<ComplexResourceKey<CorpGroupResourceKey, EmptyRecord>, CorpGroup> entities = new HashMap<>();
@@ -186,7 +189,9 @@ public final class CorpGroups extends BaseSearchableEntityResource<
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
-    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
       final SearchResult searchResult = _entitySearchDao.search(
@@ -245,7 +250,8 @@ public final class CorpGroups extends BaseSearchableEntityResource<
   public Task<CorpGroupSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-        Arrays.asList(aspectNames));
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
       final Entity entity;
       try {

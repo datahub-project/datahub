@@ -8,6 +8,7 @@ import com.linkedin.dataprocess.DataProcess;
 import com.linkedin.dataprocess.DataProcessInfo;
 import com.linkedin.dataprocess.DataProcessResourceKey;
 import com.linkedin.experimental.Entity;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.DataProcessAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
@@ -167,7 +168,8 @@ public class DataProcesses extends BaseSearchableEntityResource<
     public Task<DataProcess> get(@Nonnull ComplexResourceKey<DataProcessResourceKey, EmptyRecord> key,
                                  @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-            Arrays.asList(aspectNames));
+            Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+                .collect(Collectors.toList()));
         return RestliUtils.toTask(() -> {
             final Entity entity = _entityService.getEntity(new DataProcessUrn(
                 key.getKey().getOrchestrator(),
@@ -187,7 +189,8 @@ public class DataProcesses extends BaseSearchableEntityResource<
             @Nonnull Set<ComplexResourceKey<DataProcessResourceKey, EmptyRecord>> keys,
             @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-            Arrays.asList(aspectNames));
+            Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+                .collect(Collectors.toList()));
         return RestliUtils.toTask(() -> {
 
             final Map<ComplexResourceKey<DataProcessResourceKey, EmptyRecord>, DataProcess> entities = new HashMap<>();
@@ -213,7 +216,8 @@ public class DataProcesses extends BaseSearchableEntityResource<
         @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
         @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
         final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-            Arrays.asList(aspectNames));
+            Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+                .collect(Collectors.toList()));
         return RestliUtils.toTask(() -> {
 
             final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
@@ -246,7 +250,9 @@ public class DataProcesses extends BaseSearchableEntityResource<
                                                                             @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
                                                                             @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
                                                                             @PagingContextParam @Nonnull PagingContext pagingContext) {
-        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+            Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+                .collect(Collectors.toList()));
         return RestliUtils.toTask(() -> {
 
             final SearchResult searchResult = _entitySearchDao.search(
@@ -306,7 +312,8 @@ public class DataProcesses extends BaseSearchableEntityResource<
     public Task<DataProcessSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
                                                  @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
         final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
-            Arrays.asList(aspectNames));
+            Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+                .collect(Collectors.toList()));
         return RestliUtils.toTask(() -> {
             try {
                 final Entity entity = _entityService.getEntity(
