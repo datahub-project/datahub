@@ -78,17 +78,9 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "indexSettings" : [ {
-                "addToDefaultQuery" : true,
-                "indexType" : "URN"
-              }, {
-                "addToDefaultQuery" : true,
-                "boostScore" : 0.1,
-                "indexType" : "PARTIAL_URN"
-              }, {
-                "indexType" : "BOOLEAN",
-                "overrideFieldName" : "hasTags"
-              } ]
+              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "hasValuesFieldName" : "hasTags",
+              "queryByDefault" : true
             }
           } ]
         }
@@ -109,10 +101,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false,
       "Searchable" : {
-        "fieldName" : "removed",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ]
+        "fieldType" : "BOOLEAN"
       }
     } ],
     "Aspect" : {
@@ -155,10 +144,7 @@
           "type" : "boolean",
           "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
           "Searchable" : {
-            "fieldName" : "active",
-            "indexSettings" : [ {
-              "indexType" : "BOOLEAN"
-            } ],
+            "fieldType" : "BOOLEAN",
             "weightsPerFieldValue" : {
               "true" : 2.0
             }
@@ -173,10 +159,8 @@
           "type" : "com.linkedin.common.EmailAddress",
           "doc" : "email address of this user",
           "Searchable" : {
-            "fieldName" : "emails",
-            "indexSettings" : [ {
-              "indexType" : "KEYWORD_LOWERCASE"
-            } ]
+            "fieldType" : "KEYWORD",
+            "queryByDefault" : true
           }
         }, {
           "name" : "title",
@@ -184,11 +168,8 @@
           "doc" : "title of this user",
           "optional" : true,
           "Searchable" : {
-            "fieldName" : "title",
-            "indexSettings" : [ {
-              "addToDefaultQuery" : true,
-              "indexType" : "KEYWORD_LOWERCASE"
-            } ]
+            "fieldType" : "KEYWORD",
+            "queryByDefault" : true
           }
         }, {
           "name" : "managerUrn",
@@ -201,10 +182,8 @@
           },
           "Searchable" : {
             "fieldName" : "managerLdap",
-            "indexSettings" : [ {
-              "addToDefaultQuery" : true,
-              "indexType" : "URN"
-            } ]
+            "fieldType" : "URN",
+            "queryByDefault" : true
           }
         }, {
           "name" : "departmentId",
@@ -232,15 +211,10 @@
           "doc" : "Common name of this user, format is firstName + lastName (split by a whitespace)",
           "optional" : true,
           "Searchable" : {
-            "fieldName" : "fullName",
-            "indexSettings" : [ {
-              "addToDefaultQuery" : true,
-              "boostScore" : 4.0,
-              "indexType" : "TEXT"
-            }, {
-              "indexType" : "PARTIAL"
-            } ],
-            "isDefaultAutocomplete" : true
+            "boostScore" : 10.0,
+            "enableAutocomplete" : true,
+            "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+            "queryByDefault" : true
           }
         }, {
           "name" : "countryCode",
@@ -276,11 +250,8 @@
           "default" : [ ],
           "Searchable" : {
             "/*" : {
-              "fieldName" : "teams",
-              "indexSettings" : [ {
-                "addToDefaultQuery" : true,
-                "indexType" : "TEXT"
-              } ]
+              "fieldType" : "TEXT",
+              "queryByDefault" : true
             }
           }
         }, {
@@ -293,11 +264,8 @@
           "default" : [ ],
           "Searchable" : {
             "/*" : {
-              "fieldName" : "teams",
-              "indexSettings" : [ {
-                "addToDefaultQuery" : true,
-                "indexType" : "TEXT"
-              } ]
+              "fieldType" : "TEXT",
+              "queryByDefault" : true
             }
           }
         }, {
@@ -350,14 +318,10 @@
         "type" : "string",
         "doc" : "The name of the AD/LDAP user.",
         "Searchable" : {
+          "boostScore" : 2.0,
           "fieldName" : "ldap",
-          "indexSettings" : [ {
-            "addToDefaultQuery" : true,
-            "boostScore" : 2.0,
-            "indexType" : "TEXT"
-          }, {
-            "indexType" : "PARTIAL"
-          } ]
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "queryByDefault" : true
         }
       } ],
       "Aspect" : {

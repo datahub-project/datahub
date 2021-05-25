@@ -260,10 +260,8 @@ public class SearchRequestHandler {
       if (oneTermAggResult.isEmpty()) {
         continue;
       }
-      // Remove the .keyword suffix from the field name
-      String fieldName = entry.getKey().substring(0, entry.getKey().lastIndexOf("."));
       final AggregationMetadata aggregationMetadata =
-          new AggregationMetadata().setName(fieldName).setAggregations(new LongMap(oneTermAggResult));
+          new AggregationMetadata().setName(entry.getKey()).setAggregations(new LongMap(oneTermAggResult));
       aggregationMetadataList.add(aggregationMetadata);
     }
 

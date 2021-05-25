@@ -130,12 +130,8 @@
       },
       "Searchable" : {
         "fieldName" : "owners",
-        "indexSettings" : [ {
-          "indexType" : "URN"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasOwners"
-        } ]
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasOwners"
       }
     }, {
       "name" : "type",
@@ -219,10 +215,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false,
       "Searchable" : {
-        "fieldName" : "removed",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ]
+        "fieldType" : "BOOLEAN"
       }
     } ],
     "Aspect" : {
@@ -286,12 +279,8 @@
           "Searchable" : {
             "/*" : {
               "fieldName" : "inputs",
-              "indexSettings" : [ {
-                "indexType" : "KEYWORD_LOWERCASE"
-              }, {
-                "indexType" : "COUNT",
-                "overrideFieldName" : "numInputDatasets"
-              } ]
+              "fieldType" : "URN",
+              "numValuesFieldName" : "numInputDatasets"
             }
           }
         }, {
@@ -311,12 +300,8 @@
           "Searchable" : {
             "/*" : {
               "fieldName" : "outputs",
-              "indexSettings" : [ {
-                "indexType" : "KEYWORD_LOWERCASE"
-              }, {
-                "indexType" : "COUNT",
-                "overrideFieldName" : "numOutputDatasets"
-              } ]
+              "fieldType" : "URN",
+              "numValuesFieldName" : "numOutputDatasets"
             }
           }
         } ],
@@ -342,38 +327,26 @@
         "type" : "string",
         "doc" : "Process name i.e. an ETL job name",
         "Searchable" : {
-          "fieldName" : "name",
-          "indexSettings" : [ {
-            "addToDefaultQuery" : true,
-            "boostScore" : 4.0,
-            "indexType" : "KEYWORD"
-          } ]
+          "boostScore" : 4.0,
+          "enableAutocomplete" : true,
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "queryByDefault" : true
         }
       }, {
         "name" : "orchestrator",
         "type" : "string",
         "doc" : "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn",
         "Searchable" : {
-          "fieldName" : "orchestrator",
-          "indexSettings" : [ {
-            "addToDefaultQuery" : true,
-            "indexType" : "KEYWORD_LOWERCASE"
-          }, {
-            "indexType" : "PARTIAL"
-          } ],
-          "isDefaultAutocomplete" : true
+          "enableAutocomplete" : true,
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "queryByDefault" : true
         }
       }, {
         "name" : "origin",
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where dataset belongs to or where it was generated.",
         "Searchable" : {
-          "fieldName" : "origin",
-          "indexSettings" : [ {
-            "indexType" : "KEYWORD_LOWERCASE"
-          }, {
-            "indexType" : "PARTIAL"
-          } ]
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
         }
       } ],
       "Aspect" : {

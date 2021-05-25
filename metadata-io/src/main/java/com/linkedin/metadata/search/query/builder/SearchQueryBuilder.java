@@ -45,6 +45,10 @@ public class SearchQueryBuilder {
     textQuery.defaultOperator(Operator.AND);
 
     for (SearchableFieldSpec fieldSpec : entitySpec.getSearchableFieldSpecs()) {
+      if(!fieldSpec.getSearchableAnnotation().isQueryByDefault()) {
+        continue;
+      }
+
       String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
       double boostScore = fieldSpec.getSearchableAnnotation().getBoostScore();
       keywordLowercaseQuery.field(fieldName, (float) (boostScore));

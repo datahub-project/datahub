@@ -106,17 +106,9 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "indexSettings" : [ {
-                "addToDefaultQuery" : true,
-                "indexType" : "URN"
-              }, {
-                "addToDefaultQuery" : true,
-                "boostScore" : 0.1,
-                "indexType" : "PARTIAL_URN"
-              }, {
-                "indexType" : "BOOLEAN",
-                "overrideFieldName" : "hasTags"
-              } ]
+              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "hasValuesFieldName" : "hasTags",
+              "queryByDefault" : true
             }
           } ]
         }
@@ -137,10 +129,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false,
       "Searchable" : {
-        "fieldName" : "removed",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ]
+        "fieldType" : "BOOLEAN"
       }
     } ],
     "Aspect" : {

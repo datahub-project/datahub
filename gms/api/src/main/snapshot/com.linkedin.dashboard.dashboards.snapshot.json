@@ -55,9 +55,7 @@
       "Searchable" : {
         "/*" : {
           "fieldName" : "browsePaths",
-          "indexSettings" : [ {
-            "indexType" : "BROWSE_PATH"
-          } ]
+          "fieldType" : "BROWSE_PATH"
         }
       }
     } ],
@@ -228,17 +226,9 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "indexSettings" : [ {
-                "addToDefaultQuery" : true,
-                "indexType" : "URN"
-              }, {
-                "addToDefaultQuery" : true,
-                "boostScore" : 0.1,
-                "indexType" : "PARTIAL_URN"
-              }, {
-                "indexType" : "BOOLEAN",
-                "overrideFieldName" : "hasTags"
-              } ]
+              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "hasValuesFieldName" : "hasTags",
+              "queryByDefault" : true
             }
           } ]
         }
@@ -263,12 +253,8 @@
       },
       "Searchable" : {
         "fieldName" : "owners",
-        "indexSettings" : [ {
-          "indexType" : "URN"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasOwners"
-        } ]
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasOwners"
       }
     }, {
       "name" : "type",
@@ -352,10 +338,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false,
       "Searchable" : {
-        "fieldName" : "removed",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ]
+        "fieldType" : "BOOLEAN"
       }
     } ],
     "Aspect" : {
@@ -408,36 +391,19 @@
           "type" : "string",
           "doc" : "Title of the dashboard",
           "Searchable" : {
-            "fieldName" : "title",
-            "indexSettings" : [ {
-              "addToDefaultQuery" : true,
-              "boostScore" : 8.0,
-              "indexType" : "KEYWORD"
-            }, {
-              "addToDefaultQuery" : true,
-              "boostScore" : 4.0,
-              "indexType" : "TEXT"
-            }, {
-              "addToDefaultQuery" : true,
-              "boostScore" : 0.5,
-              "indexType" : "PARTIAL"
-            } ],
-            "isDefaultAutocomplete" : true
+            "boostScore" : 10.0,
+            "enableAutocomplete" : true,
+            "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+            "queryByDefault" : true
           }
         }, {
           "name" : "description",
           "type" : "string",
           "doc" : "Detailed description about the dashboard",
           "Searchable" : {
-            "fieldName" : "description",
-            "indexSettings" : [ {
-              "addToDefaultQuery" : true,
-              "boostScore" : 1.0,
-              "indexType" : "TEXT"
-            }, {
-              "indexType" : "BOOLEAN",
-              "overrideFieldName" : "hasDescription"
-            } ]
+            "fieldType" : "TEXT",
+            "hasValuesFieldName" : "hasDescription",
+            "queryByDefault" : true
           }
         }, {
           "name" : "charts",
@@ -469,10 +435,7 @@
           "optional" : true,
           "Searchable" : {
             "addToFilters" : true,
-            "fieldName" : "access",
-            "indexSettings" : [ {
-              "indexType" : "BOOLEAN"
-            } ]
+            "fieldType" : "KEYWORD"
           }
         }, {
           "name" : "lastRefreshed",
@@ -518,14 +481,10 @@
         "doc" : "The name of the dashboard tool such as looker, redash etc.",
         "Searchable" : {
           "addToFilters" : true,
+          "boostScore" : 4.0,
           "fieldName" : "tool",
-          "indexSettings" : [ {
-            "addToDefaultQuery" : true,
-            "boostScore" : 4.0,
-            "indexType" : "KEYWORD"
-          }, {
-            "indexType" : "PARTIAL"
-          } ]
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "queryByDefault" : true
         }
       }, {
         "name" : "dashboardId",

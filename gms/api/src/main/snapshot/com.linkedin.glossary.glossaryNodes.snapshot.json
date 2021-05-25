@@ -72,12 +72,8 @@
       },
       "Searchable" : {
         "fieldName" : "owners",
-        "indexSettings" : [ {
-          "indexType" : "URN"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasOwners"
-        } ]
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasOwners"
       }
     }, {
       "name" : "type",
@@ -161,10 +157,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false,
       "Searchable" : {
-        "fieldName" : "removed",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ]
+        "fieldType" : "BOOLEAN"
       }
     } ],
     "Aspect" : {
@@ -190,12 +183,8 @@
           "type" : "string",
           "doc" : "Definition of business node",
           "Searchable" : {
-            "fieldName" : "definition",
-            "indexSettings" : [ {
-              "indexType" : "TEXT"
-            }, {
-              "indexType" : "PARTIAL"
-            } ]
+            "fieldType" : "TEXT",
+            "queryByDefault" : true
           }
         }, {
           "name" : "parentNode",
@@ -244,12 +233,7 @@
         "name" : "name",
         "type" : "string",
         "Searchable" : {
-          "fieldName" : "name",
-          "indexSettings" : [ {
-            "indexType" : "TEXT"
-          }, {
-            "indexType" : "PARTIAL"
-          } ]
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
         }
       } ],
       "Aspect" : {

@@ -90,12 +90,12 @@ public class SettingsBuilder {
     ImmutableMap.Builder<String, Object> analyzers = ImmutableMap.builder();
     // Analyzer for partial matching (i.e. autocomplete) - Prefix matching of each token
     analyzers.put("partial", ImmutableMap.<String, Object>builder().put("tokenizer", "main_tokenizer")
-        .put("filter", ImmutableList.of("lowercase", "custom_delimiter", "partial_filter"))
+        .put("filter", ImmutableList.of("custom_delimiter", "lowercase", "partial_filter"))
         .build());
 
     // Analyzer for text tokenized into words (split by spaces, periods, and slashes)
     analyzers.put("word_delimited", ImmutableMap.<String, Object>builder().put("tokenizer", "main_tokenizer")
-        .put("filter", ImmutableList.of("lowercase", "custom_delimiter"))
+        .put("filter", ImmutableList.of("custom_delimiter", "lowercase"))
         .build());
 
     // Analyzer for splitting by slashes (used to get depth of browsePath)

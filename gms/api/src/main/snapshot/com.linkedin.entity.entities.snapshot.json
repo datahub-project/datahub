@@ -85,36 +85,19 @@
       "type" : "string",
       "doc" : "Title of the chart",
       "Searchable" : {
-        "fieldName" : "title",
-        "indexSettings" : [ {
-          "addToDefaultQuery" : true,
-          "boostScore" : 8.0,
-          "indexType" : "KEYWORD_LOWERCASE"
-        }, {
-          "addToDefaultQuery" : true,
-          "boostScore" : 4.0,
-          "indexType" : "TEXT"
-        }, {
-          "addToDefaultQuery" : true,
-          "boostScore" : 0.5,
-          "indexType" : "PARTIAL"
-        } ],
-        "isDefaultAutocomplete" : true
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+        "queryByDefault" : true
       }
     }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Detailed description about the chart",
       "Searchable" : {
-        "fieldName" : "description",
-        "indexSettings" : [ {
-          "addToDefaultQuery" : true,
-          "boostScore" : 1.0,
-          "indexType" : "TEXT"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasDescription"
-        } ]
+        "fieldType" : "TEXT",
+        "hasValuesFieldName" : "hasDescription",
+        "queryByDefault" : true
       }
     }, {
       "name" : "lastModified",
@@ -201,10 +184,7 @@
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
-        "fieldName" : "type",
-        "indexSettings" : [ {
-          "indexType" : "KEYWORD"
-        } ]
+        "fieldType" : "KEYWORD"
       }
     }, {
       "name" : "access",
@@ -223,12 +203,7 @@
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
-        "fieldName" : "access",
-        "indexSettings" : [ {
-          "indexType" : "KEYWORD"
-        }, {
-          "indexType" : "PARTIAL"
-        } ]
+        "fieldType" : "KEYWORD"
       }
     }, {
       "name" : "lastRefreshed",
@@ -262,10 +237,7 @@
       "doc" : "Chart query type",
       "Searchable" : {
         "addToFilters" : true,
-        "fieldName" : "queryType",
-        "indexSettings" : [ {
-          "indexType" : "KEYWORD"
-        } ]
+        "fieldType" : "KEYWORD"
       }
     } ],
     "Aspect" : {
@@ -320,9 +292,7 @@
       "Searchable" : {
         "/*" : {
           "fieldName" : "browsePaths",
-          "indexSettings" : [ {
-            "indexType" : "BROWSE_PATH"
-          } ]
+          "fieldType" : "BROWSE_PATH"
         }
       }
     } ],
@@ -661,10 +631,7 @@
       "type" : "boolean",
       "doc" : "Whether the entity is deprecated.",
       "Searchable" : {
-        "fieldName" : "deprecated",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ],
+        "fieldType" : "BOOLEAN",
         "weightsPerFieldValue" : {
           "true" : 0.5
         }
@@ -749,17 +716,9 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "indexSettings" : [ {
-                "addToDefaultQuery" : true,
-                "indexType" : "URN"
-              }, {
-                "addToDefaultQuery" : true,
-                "boostScore" : 0.1,
-                "indexType" : "PARTIAL_URN"
-              }, {
-                "indexType" : "BOOLEAN",
-                "overrideFieldName" : "hasTags"
-              } ]
+              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "hasValuesFieldName" : "hasTags",
+              "queryByDefault" : true
             }
           } ]
         }
@@ -990,12 +949,8 @@
       },
       "Searchable" : {
         "fieldName" : "owners",
-        "indexSettings" : [ {
-          "indexType" : "URN"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasOwners"
-        } ]
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasOwners"
       }
     }, {
       "name" : "type",
@@ -1079,10 +1034,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false,
       "Searchable" : {
-        "fieldName" : "removed",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ]
+        "fieldType" : "BOOLEAN"
       }
     } ],
     "Aspect" : {
@@ -1117,36 +1069,19 @@
       "type" : "string",
       "doc" : "Title of the dashboard",
       "Searchable" : {
-        "fieldName" : "title",
-        "indexSettings" : [ {
-          "addToDefaultQuery" : true,
-          "boostScore" : 8.0,
-          "indexType" : "KEYWORD"
-        }, {
-          "addToDefaultQuery" : true,
-          "boostScore" : 4.0,
-          "indexType" : "TEXT"
-        }, {
-          "addToDefaultQuery" : true,
-          "boostScore" : 0.5,
-          "indexType" : "PARTIAL"
-        } ],
-        "isDefaultAutocomplete" : true
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+        "queryByDefault" : true
       }
     }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Detailed description about the dashboard",
       "Searchable" : {
-        "fieldName" : "description",
-        "indexSettings" : [ {
-          "addToDefaultQuery" : true,
-          "boostScore" : 1.0,
-          "indexType" : "TEXT"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasDescription"
-        } ]
+        "fieldType" : "TEXT",
+        "hasValuesFieldName" : "hasDescription",
+        "queryByDefault" : true
       }
     }, {
       "name" : "charts",
@@ -1178,10 +1113,7 @@
       "optional" : true,
       "Searchable" : {
         "addToFilters" : true,
-        "fieldName" : "access",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ]
+        "fieldType" : "KEYWORD"
       }
     }, {
       "name" : "lastRefreshed",
@@ -1203,20 +1135,10 @@
       "type" : "string",
       "doc" : "Flow name",
       "Searchable" : {
-        "fieldName" : "name",
-        "indexSettings" : [ {
-          "addToDefaultQuery" : true,
-          "boostScore" : 4.0,
-          "indexType" : "KEYWORD_LOWERCASE"
-        }, {
-          "addToDefaultQuery" : true,
-          "indexType" : "TEXT"
-        }, {
-          "addToDefaultQuery" : true,
-          "boostScore" : 0.5,
-          "indexType" : "PARTIAL"
-        } ],
-        "isDefaultAutocomplete" : true
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+        "queryByDefault" : true
       }
     }, {
       "name" : "description",
@@ -1224,11 +1146,9 @@
       "doc" : "Flow description",
       "optional" : true,
       "Searchable" : {
-        "fieldName" : "description",
-        "indexSettings" : [ {
-          "addToDefaultQuery" : true,
-          "indexType" : "TEXT"
-        } ]
+        "fieldType" : "TEXT",
+        "hasValuesFieldName" : "hasDescription",
+        "queryByDefault" : true
       }
     }, {
       "name" : "project",
@@ -1236,12 +1156,7 @@
       "doc" : "Optional project/namespace associated with the flow",
       "optional" : true,
       "Searchable" : {
-        "fieldName" : "project",
-        "indexSettings" : [ {
-          "indexType" : "KEYWORD"
-        }, {
-          "indexType" : "PARTIAL"
-        } ]
+        "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
       }
     } ],
     "Aspect" : {
@@ -1258,20 +1173,10 @@
       "type" : "string",
       "doc" : "Job name",
       "Searchable" : {
-        "fieldName" : "name",
-        "indexSettings" : [ {
-          "addToDefaultQuery" : true,
-          "boostScore" : 4.0,
-          "indexType" : "KEYWORD_LOWERCASE"
-        }, {
-          "addToDefaultQuery" : true,
-          "indexType" : "TEXT"
-        }, {
-          "addToDefaultQuery" : true,
-          "boostScore" : 0.5,
-          "indexType" : "PARTIAL"
-        } ],
-        "isDefaultAutocomplete" : true
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+        "queryByDefault" : true
       }
     }, {
       "name" : "description",
@@ -1279,11 +1184,9 @@
       "doc" : "Job description",
       "optional" : true,
       "Searchable" : {
-        "fieldName" : "description",
-        "indexSettings" : [ {
-          "addToDefaultQuery" : true,
-          "indexType" : "TEXT"
-        } ]
+        "fieldType" : "TEXT",
+        "hasValuesFieldName" : "hasDescription",
+        "queryByDefault" : true
       }
     }, {
       "name" : "type",
@@ -1328,12 +1231,8 @@
       "Searchable" : {
         "/*" : {
           "fieldName" : "inputs",
-          "indexSettings" : [ {
-            "indexType" : "URN"
-          }, {
-            "indexType" : "COUNT",
-            "overrideFieldName" : "numInputDatasets"
-          } ]
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numInputDatasets"
         }
       }
     }, {
@@ -1352,12 +1251,8 @@
       "Searchable" : {
         "/*" : {
           "fieldName" : "outputs",
-          "indexSettings" : [ {
-            "indexType" : "URN"
-          }, {
-            "indexType" : "COUNT",
-            "overrideFieldName" : "numOutputDatasets"
-          } ]
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numOutputDatasets"
         }
       }
     } ],
@@ -1438,12 +1333,8 @@
       "Searchable" : {
         "/*" : {
           "fieldName" : "inputs",
-          "indexSettings" : [ {
-            "indexType" : "KEYWORD_LOWERCASE"
-          }, {
-            "indexType" : "COUNT",
-            "overrideFieldName" : "numInputDatasets"
-          } ]
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numInputDatasets"
         }
       }
     }, {
@@ -1463,12 +1354,8 @@
       "Searchable" : {
         "/*" : {
           "fieldName" : "outputs",
-          "indexSettings" : [ {
-            "indexType" : "KEYWORD_LOWERCASE"
-          }, {
-            "indexType" : "COUNT",
-            "overrideFieldName" : "numOutputDatasets"
-          } ]
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numOutputDatasets"
         }
       }
     } ],
@@ -1485,10 +1372,7 @@
       "type" : "boolean",
       "doc" : "Whether the dataset is deprecated by owner.",
       "Searchable" : {
-        "fieldName" : "deprecated",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ],
+        "fieldType" : "BOOLEAN",
         "weightsPerFieldValue" : {
           "true" : 0.5
         }
@@ -1557,13 +1441,9 @@
       "doc" : "Documentation of the dataset",
       "optional" : true,
       "Searchable" : {
-        "fieldName" : "description",
-        "indexSettings" : [ {
-          "indexType" : "TEXT"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasDescription"
-        } ]
+        "fieldType" : "TEXT",
+        "hasValuesFieldName" : "hasDescription",
+        "queryByDefault" : true
       }
     }, {
       "name" : "uri",
@@ -1623,9 +1503,7 @@
       },
       "Searchable" : {
         "fieldName" : "upstreams",
-        "indexSettings" : [ {
-          "indexType" : "URN"
-        } ]
+        "fieldType" : "URN"
       }
     }, {
       "name" : "type",
@@ -1687,14 +1565,10 @@
                     "doc" : "The name of the dashboard tool such as looker, redash etc.",
                     "Searchable" : {
                       "addToFilters" : true,
+                      "boostScore" : 4.0,
                       "fieldName" : "tool",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 4.0,
-                        "indexType" : "KEYWORD"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "chartId",
@@ -1836,14 +1710,10 @@
                     "type" : "string",
                     "doc" : "The name of the AD/LDAP user.",
                     "Searchable" : {
+                      "boostScore" : 2.0,
                       "fieldName" : "ldap",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 2.0,
-                        "indexType" : "TEXT"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   } ],
                   "Aspect" : {
@@ -1860,10 +1730,7 @@
                     "type" : "boolean",
                     "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
                     "Searchable" : {
-                      "fieldName" : "active",
-                      "indexSettings" : [ {
-                        "indexType" : "BOOLEAN"
-                      } ],
+                      "fieldType" : "BOOLEAN",
                       "weightsPerFieldValue" : {
                         "true" : 2.0
                       }
@@ -1878,10 +1745,8 @@
                     "type" : "com.linkedin.common.EmailAddress",
                     "doc" : "email address of this user",
                     "Searchable" : {
-                      "fieldName" : "emails",
-                      "indexSettings" : [ {
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      } ]
+                      "fieldType" : "KEYWORD",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "title",
@@ -1889,11 +1754,8 @@
                     "doc" : "title of this user",
                     "optional" : true,
                     "Searchable" : {
-                      "fieldName" : "title",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      } ]
+                      "fieldType" : "KEYWORD",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "managerUrn",
@@ -1906,10 +1768,8 @@
                     },
                     "Searchable" : {
                       "fieldName" : "managerLdap",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "indexType" : "URN"
-                      } ]
+                      "fieldType" : "URN",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "departmentId",
@@ -1937,15 +1797,10 @@
                     "doc" : "Common name of this user, format is firstName + lastName (split by a whitespace)",
                     "optional" : true,
                     "Searchable" : {
-                      "fieldName" : "fullName",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 4.0,
-                        "indexType" : "TEXT"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ],
-                      "isDefaultAutocomplete" : true
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "countryCode",
@@ -1977,11 +1832,8 @@
                     "default" : [ ],
                     "Searchable" : {
                       "/*" : {
-                        "fieldName" : "teams",
-                        "indexSettings" : [ {
-                          "addToDefaultQuery" : true,
-                          "indexType" : "TEXT"
-                        } ]
+                        "fieldType" : "TEXT",
+                        "queryByDefault" : true
                       }
                     }
                   }, {
@@ -1994,11 +1846,8 @@
                     "default" : [ ],
                     "Searchable" : {
                       "/*" : {
-                        "fieldName" : "teams",
-                        "indexSettings" : [ {
-                          "addToDefaultQuery" : true,
-                          "indexType" : "TEXT"
-                        } ]
+                        "fieldType" : "TEXT",
+                        "queryByDefault" : true
                       }
                     }
                   }, {
@@ -2049,14 +1898,10 @@
                     "doc" : "The name of the dashboard tool such as looker, redash etc.",
                     "Searchable" : {
                       "addToFilters" : true,
+                      "boostScore" : 4.0,
                       "fieldName" : "tool",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 4.0,
-                        "indexType" : "KEYWORD"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "dashboardId",
@@ -2104,41 +1949,25 @@
                     "type" : "string",
                     "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
                     "Searchable" : {
-                      "fieldName" : "orchestrator",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "flowId",
                     "type" : "string",
                     "doc" : "Unique Identifier of the data flow",
                     "Searchable" : {
-                      "fieldName" : "flowId",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 4.0,
-                        "indexType" : "KEYWORD"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ],
-                      "isDefaultAutocomplete" : true
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "cluster",
                     "type" : "string",
                     "doc" : "Cluster where the flow is executed",
                     "Searchable" : {
-                      "fieldName" : "cluster",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "indexType" : "KEYWORD"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   } ],
                   "Aspect" : {
@@ -2183,26 +2012,16 @@
                     "doc" : "Standardized data processing flow urn representing the flow for the job",
                     "Searchable" : {
                       "fieldName" : "dataFlow",
-                      "indexSettings" : [ {
-                        "indexType" : "URN"
-                      }, {
-                        "indexType" : "PARTIAL_URN"
-                      } ]
+                      "fieldType" : "URN_WITH_PARTIAL_MATCHING"
                     }
                   }, {
                     "name" : "jobId",
                     "type" : "string",
                     "doc" : "Unique Identifier of the data job",
                     "Searchable" : {
-                      "fieldName" : "project",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 4.0,
-                        "indexType" : "KEYWORD"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ],
-                      "isDefaultAutocomplete" : true
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   } ],
                   "Aspect" : {
@@ -2244,42 +2063,28 @@
                   "fields" : [ {
                     "name" : "platform",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "Data platform urn associated with the dataset"
+                    "doc" : "Data platform urn associated with the dataset",
+                    "Searchable" : {
+                      "addToFilters" : true,
+                      "fieldType" : "URN"
+                    }
                   }, {
                     "name" : "name",
                     "type" : "string",
                     "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
                     "Searchable" : {
-                      "fieldName" : "name",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 1000.0,
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      }, {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 8.0,
-                        "indexType" : "PATTERN"
-                      }, {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 4.0,
-                        "indexType" : "PARTIAL_PATTERN"
-                      }, {
-                        "addToDefaultQuery" : true,
-                        "indexType" : "PARTIAL_LONG"
-                      } ],
-                      "isDefaultAutocomplete" : true
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "origin",
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where dataset belongs to or where it was generated.",
                     "Searchable" : {
-                      "fieldName" : "origin",
-                      "indexSettings" : [ {
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "addToFilters" : true,
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
                     }
                   } ],
                   "Aspect" : {
@@ -2441,18 +2246,8 @@
                           "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
                           "Searchable" : {
                             "fieldName" : "fieldPaths",
-                            "indexSettings" : [ {
-                              "addToDefaultQuery" : true,
-                              "indexType" : "KEYWORD_LOWERCASE"
-                            }, {
-                              "addToDefaultQuery" : true,
-                              "boostScore" : 0.2,
-                              "indexType" : "PATTERN"
-                            }, {
-                              "indexType" : "PARTIAL_PATTERN"
-                            }, {
-                              "indexType" : "PARTIAL_LONG"
-                            } ]
+                            "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                            "queryByDefault" : true
                           }
                         }, {
                           "name" : "jsonPath",
@@ -2470,12 +2265,10 @@
                           "doc" : "Description",
                           "optional" : true,
                           "Searchable" : {
+                            "boostScore" : 0.1,
                             "fieldName" : "fieldDescriptions",
-                            "indexSettings" : [ {
-                              "addToDefaultQuery" : true,
-                              "boostScore" : 0.125,
-                              "indexType" : "TEXT"
-                            } ]
+                            "fieldType" : "TEXT",
+                            "queryByDefault" : true
                           }
                         }, {
                           "name" : "type",
@@ -2597,16 +2390,10 @@
                           "optional" : true,
                           "Searchable" : {
                             "/tags/*/tag" : {
+                              "boostScore" : 0.5,
                               "fieldName" : "fieldTags",
-                              "indexSettings" : [ {
-                                "addToDefaultQuery" : true,
-                                "boostScore" : 0.5,
-                                "indexType" : "URN"
-                              }, {
-                                "addToDefaultQuery" : true,
-                                "boostScore" : 0.1,
-                                "indexType" : "PARTIAL_URN"
-                              } ]
+                              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+                              "queryByDefault" : true
                             }
                           }
                         }, {
@@ -2700,12 +2487,10 @@
                           "doc" : "Description",
                           "optional" : true,
                           "Searchable" : {
+                            "boostScore" : 0.1,
                             "fieldName" : "editedFieldDescriptions",
-                            "indexSettings" : [ {
-                              "addToDefaultQuery" : true,
-                              "boostScore" : 0.125,
-                              "indexType" : "TEXT"
-                            } ]
+                            "fieldType" : "TEXT",
+                            "queryByDefault" : true
                           }
                         }, {
                           "name" : "globalTags",
@@ -2714,16 +2499,10 @@
                           "optional" : true,
                           "Searchable" : {
                             "/tags/*/tag" : {
+                              "boostScore" : 0.5,
                               "fieldName" : "editedFieldTags",
-                              "indexSettings" : [ {
-                                "addToDefaultQuery" : true,
-                                "boostScore" : 0.5,
-                                "indexType" : "URN"
-                              }, {
-                                "addToDefaultQuery" : true,
-                                "boostScore" : 0.1,
-                                "indexType" : "PARTIAL_URN"
-                              } ]
+                              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+                              "queryByDefault" : true
                             }
                           }
                         } ]
@@ -2771,38 +2550,26 @@
                     "type" : "string",
                     "doc" : "Process name i.e. an ETL job name",
                     "Searchable" : {
-                      "fieldName" : "name",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 4.0,
-                        "indexType" : "KEYWORD"
-                      } ]
+                      "boostScore" : 4.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "orchestrator",
                     "type" : "string",
                     "doc" : "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn",
                     "Searchable" : {
-                      "fieldName" : "orchestrator",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ],
-                      "isDefaultAutocomplete" : true
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "origin",
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where dataset belongs to or where it was generated.",
                     "Searchable" : {
-                      "fieldName" : "origin",
-                      "indexSettings" : [ {
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
                     }
                   } ],
                   "Aspect" : {
@@ -2887,49 +2654,26 @@
                     "type" : "com.linkedin.common.Urn",
                     "doc" : "Standardized platform urn for the model",
                     "Searchable" : {
-                      "fieldName" : "platform",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 0.055,
-                        "indexType" : "URN"
-                      } ]
+                      "boostScore" : 0.1,
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "name",
                     "type" : "string",
                     "doc" : "Name of the MLModel",
                     "Searchable" : {
-                      "fieldName" : "name",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 1000.0,
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      }, {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 8.0,
-                        "indexType" : "PATTERN"
-                      }, {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 8.0,
-                        "indexType" : "PARTIAL_PATTERN"
-                      }, {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 0.125,
-                        "indexType" : "PARTIAL_LONG"
-                      } ],
-                      "isDefaultAutocomplete" : true
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "origin",
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where model belongs to or where it was generated",
                     "Searchable" : {
-                      "fieldName" : "name",
-                      "indexSettings" : [ {
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
                     }
                   } ],
                   "Aspect" : {
@@ -2947,15 +2691,9 @@
                     "doc" : "Documentation of the MLModel",
                     "optional" : true,
                     "Searchable" : {
-                      "fieldName" : "description",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 0.035,
-                        "indexType" : "TEXT"
-                      }, {
-                        "indexType" : "BOOLEAN",
-                        "overrideFieldName" : "hasDescription"
-                      } ]
+                      "fieldType" : "TEXT",
+                      "hasValuesFieldName" : "hasDescription",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "date",
@@ -2973,16 +2711,8 @@
                     "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
                     "optional" : true,
                     "Searchable" : {
-                      "fieldName" : "type",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 0.01,
-                        "indexType" : "KEYWORD"
-                      }, {
-                        "indexType" : "TEXT"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "hyperParameters",
@@ -3448,18 +3178,10 @@
                     "type" : "string",
                     "doc" : "The unique tag name",
                     "Searchable" : {
-                      "fieldName" : "name",
-                      "indexSettings" : [ {
-                        "addToDefaultQuery" : true,
-                        "boostScore" : 8.0,
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      }, {
-                        "addToDefaultQuery" : true,
-                        "indexType" : "TEXT"
-                      }, {
-                        "indexType" : "PARTIAL_SHORT"
-                      } ],
-                      "isDefaultAutocomplete" : true
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   } ],
                   "Aspect" : {
@@ -3520,12 +3242,9 @@
                     "name" : "name",
                     "type" : "string",
                     "Searchable" : {
-                      "fieldName" : "name",
-                      "indexSettings" : [ {
-                        "indexType" : "TEXT"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                      "queryByDefault" : true
                     }
                   } ],
                   "Aspect" : {
@@ -3542,12 +3261,8 @@
                     "type" : "string",
                     "doc" : "Definition of business term",
                     "Searchable" : {
-                      "fieldName" : "definition",
-                      "indexSettings" : [ {
-                        "indexType" : "TEXT"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "fieldType" : "TEXT",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "parentNode",
@@ -3559,10 +3274,7 @@
                     "type" : "string",
                     "doc" : "Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL",
                     "Searchable" : {
-                      "fieldName" : "termSource",
-                      "indexSettings" : [ {
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      } ]
+                      "fieldType" : "KEYWORD"
                     }
                   }, {
                     "name" : "sourceRef",
@@ -3570,10 +3282,7 @@
                     "doc" : "External Reference to the business-term",
                     "optional" : true,
                     "Searchable" : {
-                      "fieldName" : "sourceRef",
-                      "indexSettings" : [ {
-                        "indexType" : "KEYWORD_LOWERCASE"
-                      } ]
+                      "fieldType" : "KEYWORD"
                     }
                   }, {
                     "name" : "sourceUrl",
@@ -3628,12 +3337,7 @@
                     "name" : "name",
                     "type" : "string",
                     "Searchable" : {
-                      "fieldName" : "name",
-                      "indexSettings" : [ {
-                        "indexType" : "TEXT"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
                     }
                   } ],
                   "Aspect" : {
@@ -3650,12 +3354,8 @@
                     "type" : "string",
                     "doc" : "Definition of business node",
                     "Searchable" : {
-                      "fieldName" : "definition",
-                      "indexSettings" : [ {
-                        "indexType" : "TEXT"
-                      }, {
-                        "indexType" : "PARTIAL"
-                      } ]
+                      "fieldType" : "TEXT",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "parentNode",
@@ -3978,10 +3678,12 @@
           "type" : "string"
         }, {
           "name" : "field",
-          "type" : "string"
+          "type" : "string",
+          "optional" : true
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter"
+          "type" : "com.linkedin.metadata.query.Filter",
+          "optional" : true
         }, {
           "name" : "limit",
           "type" : "int"

@@ -99,12 +99,8 @@
       },
       "Searchable" : {
         "fieldName" : "owners",
-        "indexSettings" : [ {
-          "indexType" : "URN"
-        }, {
-          "indexType" : "BOOLEAN",
-          "overrideFieldName" : "hasOwners"
-        } ]
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasOwners"
       }
     }, {
       "name" : "type",
@@ -188,10 +184,7 @@
       "doc" : "whether the entity is removed or not",
       "default" : false,
       "Searchable" : {
-        "fieldName" : "removed",
-        "indexSettings" : [ {
-          "indexType" : "BOOLEAN"
-        } ]
+        "fieldType" : "BOOLEAN"
       }
     } ],
     "Aspect" : {
@@ -226,12 +219,8 @@
           "type" : "string",
           "doc" : "Definition of business term",
           "Searchable" : {
-            "fieldName" : "definition",
-            "indexSettings" : [ {
-              "indexType" : "TEXT"
-            }, {
-              "indexType" : "PARTIAL"
-            } ]
+            "fieldType" : "TEXT",
+            "queryByDefault" : true
           }
         }, {
           "name" : "parentNode",
@@ -243,10 +232,7 @@
           "type" : "string",
           "doc" : "Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL",
           "Searchable" : {
-            "fieldName" : "termSource",
-            "indexSettings" : [ {
-              "indexType" : "KEYWORD_LOWERCASE"
-            } ]
+            "fieldType" : "KEYWORD"
           }
         }, {
           "name" : "sourceRef",
@@ -254,10 +240,7 @@
           "doc" : "External Reference to the business-term",
           "optional" : true,
           "Searchable" : {
-            "fieldName" : "sourceRef",
-            "indexSettings" : [ {
-              "indexType" : "KEYWORD_LOWERCASE"
-            } ]
+            "fieldType" : "KEYWORD"
           }
         }, {
           "name" : "sourceUrl",
@@ -314,12 +297,9 @@
         "name" : "name",
         "type" : "string",
         "Searchable" : {
-          "fieldName" : "name",
-          "indexSettings" : [ {
-            "indexType" : "TEXT"
-          }, {
-            "indexType" : "PARTIAL"
-          } ]
+          "enableAutocomplete" : true,
+          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "queryByDefault" : true
         }
       } ],
       "Aspect" : {

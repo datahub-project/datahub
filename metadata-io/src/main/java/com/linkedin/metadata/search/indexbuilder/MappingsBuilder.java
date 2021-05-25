@@ -53,6 +53,7 @@ public class MappingsBuilder {
         // Add keyword subfield without lowercase filter
         subFields.put("keyword", ImmutableMap.of("type", "keyword"));
       }
+      mappingForField.put("fields", subFields);
     } else if (fieldType == FieldType.BROWSE_PATH) {
       mappingForField.put("type", "text");
       mappingForField.put("fields",
@@ -70,6 +71,7 @@ public class MappingsBuilder {
         // Add keyword subfield with fielddata set to true for aggregation queries
         subFields.put("keyword", ImmutableMap.of("type", "text", "analyzer", "urn_component", "fielddata", true));
       }
+      mappingForField.put("fields", subFields);
     } else if (fieldType == FieldType.BOOLEAN) {
       mappingForField.put("type", "boolean");
     } else if (fieldType == FieldType.COUNT) {
