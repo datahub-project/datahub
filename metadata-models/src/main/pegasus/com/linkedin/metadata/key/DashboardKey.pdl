@@ -13,11 +13,10 @@ record DashboardKey {
   */
   @Searchable = {
     "fieldName": "tool",
-    "indexSettings": [
-      { "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 4.0 },
-      { "indexType": "PARTIAL" }
-    ],
-    "addToFilters": true
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "addToFilters": true,
+    "boostScore": 4.0
   }
   dashboardTool: string
 

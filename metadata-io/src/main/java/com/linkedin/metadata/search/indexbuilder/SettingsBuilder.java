@@ -11,12 +11,18 @@ import java.util.Optional;
  * Builder for generating settings for elasticsearch indices
  */
 public class SettingsBuilder {
+  private static final Map<String, Object> settings = buildSettings();
+
   private SettingsBuilder() {
   }
 
-  public static Map<String, Object> getSettings(Optional<Integer> maxNgramDiff) {
+  public static Map<String, Object> getSettings() {
+    return settings;
+  }
+
+  private static Map<String, Object> buildSettings() {
     ImmutableMap.Builder<String, Object> settings = ImmutableMap.builder();
-    maxNgramDiff.ifPresent(diff -> settings.put("max_ngram_diff", diff));
+    settings.put("max_ngram_diff", 17);
     settings.put("analysis", ImmutableMap.<String, Object>builder().put("filter", buildFilters())
         .put("tokenizer", buildTokenizers())
         .put("normalizer", buildNormalizers())
@@ -31,18 +37,6 @@ public class SettingsBuilder {
     filters.put("partial_filter", ImmutableMap.<String, Object>builder().put("type", "edge_ngram")
         .put("min_gram", 3)
         .put("max_gram", 20)
-        .build());
-
-    // Filter to allow partial matches on each token with shorter query
-    filters.put("partial_filter_short", ImmutableMap.<String, Object>builder().put("type", "edge_ngram")
-        .put("min_gram", 1)
-        .put("max_gram", 20)
-        .build());
-
-    // Filter to allow partial matches on each token with longer query
-    filters.put("partial_filter_long", ImmutableMap.<String, Object>builder().put("type", "edge_ngram")
-        .put("min_gram", 3)
-        .put("max_gram", 50)
         .build());
 
     // Filter to split string into words
@@ -69,9 +63,9 @@ public class SettingsBuilder {
     tokenizers.put("slash_tokenizer",
         ImmutableMap.<String, Object>builder().put("type", "pattern").put("pattern", "[/]").build());
 
-    // Tokenize by slash and period (i.e. for tokenizing dataset name / field name)
-    tokenizers.put("pattern_tokenizer",
-        ImmutableMap.<String, Object>builder().put("type", "pattern").put("pattern", "[./]").build());
+    // Tokenize by slash, period (i.e. for tokenizing dataset name / field name), and spaces
+    tokenizers.put("main_tokenizer",
+        ImmutableMap.<String, Object>builder().put("type", "pattern").put("pattern", "[ ./]").build());
 
     // Tokenize for urns
     tokenizers.put("urn_char_group",
@@ -95,22 +89,12 @@ public class SettingsBuilder {
   private static Map<String, Object> buildAnalyzers() {
     ImmutableMap.Builder<String, Object> analyzers = ImmutableMap.builder();
     // Analyzer for partial matching (i.e. autocomplete) - Prefix matching of each token
-    analyzers.put("partial", ImmutableMap.<String, Object>builder().put("tokenizer", "whitespace")
+    analyzers.put("partial", ImmutableMap.<String, Object>builder().put("tokenizer", "main_tokenizer")
         .put("filter", ImmutableList.of("lowercase", "custom_delimiter", "partial_filter"))
         .build());
 
-    // Analyzer for partial matching for short queries
-    analyzers.put("partial_short", ImmutableMap.<String, Object>builder().put("tokenizer", "whitespace")
-        .put("filter", ImmutableList.of("lowercase", "custom_delimiter", "partial_filter_short"))
-        .build());
-
-    // Analyzer for partial matching for long queries
-    analyzers.put("partial_long", ImmutableMap.<String, Object>builder().put("tokenizer", "whitespace")
-        .put("filter", ImmutableList.of("lowercase", "custom_delimiter", "partial_filter_long"))
-        .build());
-
-    // Analyzer for text tokenized into words
-    analyzers.put("word_delimited", ImmutableMap.<String, Object>builder().put("tokenizer", "whitespace")
+    // Analyzer for text tokenized into words (split by spaces, periods, and slashes)
+    analyzers.put("word_delimited", ImmutableMap.<String, Object>builder().put("tokenizer", "main_tokenizer")
         .put("filter", ImmutableList.of("lowercase", "custom_delimiter"))
         .build());
 
@@ -124,27 +108,17 @@ public class SettingsBuilder {
         .put("filter", ImmutableList.of("lowercase"))
         .build());
 
-    // Analyzer for fields delimited by periods and slashes
-    analyzers.put("pattern", ImmutableMap.<String, Object>builder().put("tokenizer", "pattern_tokenizer")
-        .put("filter", ImmutableList.of("lowercase"))
-        .build());
-
-    // Analyzer for partial matching on fields delimited by periods and slashes
-    analyzers.put("partial_pattern", ImmutableMap.<String, Object>builder().put("tokenizer", "pattern_tokenizer")
-        .put("filter", ImmutableList.of("lowercase", "partial_filter"))
-        .build());
-
-    // Analyzer for partial matching on fields delimited by periods and slashes
+    // Analyzer for case-insensitive exact matching - Only used when building queries
     analyzers.put("custom_keyword", ImmutableMap.<String, Object>builder().put("tokenizer", "keyword")
         .put("filter", ImmutableList.of("lowercase", "asciifolding"))
         .build());
 
-    // Analyzer for urns
+    // Analyzer for getting urn components
     analyzers.put("urn_component", ImmutableMap.<String, Object>builder().put("tokenizer", "urn_char_group")
         .put("filter", ImmutableList.of("lowercase", "urn_stop_filter"))
         .build());
 
-    // Analyzer for urns
+    // Analyzer for partial matching urn components
     analyzers.put("partial_urn_component", ImmutableMap.<String, Object>builder().put("tokenizer", "urn_char_group")
         .put("filter", ImmutableList.of("lowercase", "urn_stop_filter", "partial_filter"))
         .build());

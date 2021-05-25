@@ -15,13 +15,10 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
    * Flow name
    */
   @Searchable = {
-    "fieldName": "name",
-    "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true, "boostScore": 4.0 },
-      { "indexType": "TEXT", "addToDefaultQuery": true },
-      { "indexType": "PARTIAL", "addToDefaultQuery": true, "boostScore": 0.5 }
-    ],
-    "isDefaultAutocomplete": true
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "enableAutocomplete": true,
+    "boostScore": 10.0
   }
   name: string
 
@@ -29,8 +26,9 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
    * Flow description
    */
   @Searchable = {
-    "fieldName": "description",
-    "indexSettings": [{ "indexType": "TEXT", "addToDefaultQuery": true }]
+    "fieldType": "TEXT",
+    "queryByDefault": true,
+    "hasValuesFieldName": "hasDescription"
   }
   description: optional string
 
@@ -38,8 +36,7 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
    * Optional project/namespace associated with the flow
    */
   @Searchable = {
-    "fieldName": "project",
-    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
   }
   project: optional string
 }

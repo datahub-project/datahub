@@ -15,10 +15,8 @@ record Owner {
   }
   @Searchable = {
     "fieldName": "owners",
-    "indexSettings": [
-      { "indexType": "URN" },
-      { "indexType": "BOOLEAN", "overrideFieldName": "hasOwners" }
-    ]
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasOwners"
   }
   owner: Urn
 

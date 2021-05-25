@@ -15,10 +15,7 @@ record DataJobKey {
   */
   @Searchable = {
     "fieldName": "dataFlow",
-    "indexSettings": [
-      { "indexType": "URN" },
-      { "indexType": "PARTIAL_URN" }
-    ]
+    "fieldType": "URN_WITH_PARTIAL_MATCHING"
   }
   flow: Urn
 
@@ -26,12 +23,9 @@ record DataJobKey {
   * Unique Identifier of the data job
   */
   @Searchable = {
-    "fieldName": "project",
-    "indexSettings": [
-      { "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 4.0 },
-      { "indexType": "PARTIAL" }
-    ],
-    "isDefaultAutocomplete": true
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "enableAutocomplete": true
   }
   jobId: string
 }

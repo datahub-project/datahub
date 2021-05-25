@@ -14,8 +14,10 @@ record DataProcessKey {
   * Process name i.e. an ETL job name
   */
   @Searchable = {
-    "fieldName": "name",
-    "indexSettings": [{ "indexType": "KEYWORD", "addToDefaultQuery": true, "boostScore": 4.0 }]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "enableAutocomplete": true,
+    "boostScore": 4.0
   }
   name: string
 
@@ -24,12 +26,9 @@ record DataProcessKey {
   * TODO: Migrate towards something that can be validated like DataPlatform urn
   */
   @Searchable = {
-    "fieldName": "orchestrator",
-    "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true },
-      { "indexType": "PARTIAL" }
-    ],
-    "isDefaultAutocomplete": true
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "enableAutocomplete": true
   }
   orchestrator: string
 
@@ -37,8 +36,7 @@ record DataProcessKey {
   * Fabric type where dataset belongs to or where it was generated.
   */
   @Searchable = {
-    "fieldName": "origin",
-    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }, { "indexType": "PARTIAL" }]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
   }
   origin: FabricType
 }

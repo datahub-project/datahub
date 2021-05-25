@@ -14,12 +14,8 @@ record SchemaField {
    */
   @Searchable = {
     "fieldName": "fieldPaths",
-    "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true },
-      { "indexType": "PATTERN", "addToDefaultQuery": true, "boostScore": 0.2 },
-      { "indexType": "PARTIAL_PATTERN" },
-      { "indexType": "PARTIAL_LONG" }
-    ]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true
   }
   fieldPath: SchemaFieldPath
 
@@ -38,7 +34,9 @@ record SchemaField {
    */
   @Searchable = {
     "fieldName": "fieldDescriptions",
-    "indexSettings": [{ "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 0.125 }]
+    "fieldType": "TEXT",
+    "queryByDefault": true,
+    "boostScore": 0.1
   }
   description: optional string
 
@@ -61,13 +59,12 @@ record SchemaField {
    * Tags associated with the field
    */
   @Searchable = {
-      "/tags/*/tag": {
-        "fieldName": "fieldTags",
-        "indexSettings": [
-          { "indexType": "URN", "addToDefaultQuery": true, "boostScore": 0.5 },
-          { "indexType": "PARTIAL_URN", "addToDefaultQuery": true, "boostScore": 0.1 }
-        ]
-      }
+    "/tags/*/tag": {
+      "fieldName": "fieldTags",
+      "fieldType": "URN_WITH_PARTIAL_MATCHING",
+      "queryByDefault": true,
+      "boostScore": 0.5
+    }
   }
   globalTags: optional GlobalTags
 

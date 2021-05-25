@@ -6,7 +6,7 @@ import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.dao.utils.ESUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexSetting;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.AggregationMetadata;
 import com.linkedin.metadata.query.AggregationMetadataArray;
 import com.linkedin.metadata.query.Criterion;
@@ -74,16 +74,18 @@ public class SearchRequestHandler {
   public Set<String> getFacetFields() {
     return _entitySpec.getSearchableFieldSpecs()
         .stream()
-        .filter(SearchableFieldSpec::addToFilters)
-        .map(SearchableFieldSpec::getFieldName)
+        .map(SearchableFieldSpec::getSearchableAnnotation)
+        .filter(SearchableAnnotation::isAddToFilters)
+        .map(SearchableAnnotation::getFieldName)
         .collect(Collectors.toSet());
   }
 
   public Set<String> getDefaultQueryFieldNames() {
     return _entitySpec.getSearchableFieldSpecs()
         .stream()
-        .filter(fieldSpec -> fieldSpec.getIndexSettings().stream().anyMatch(IndexSetting::isAddToDefaultQuery))
-        .map(SearchableFieldSpec::getFieldName)
+        .map(SearchableFieldSpec::getSearchableAnnotation)
+        .filter(SearchableAnnotation::isQueryByDefault)
+        .map(SearchableAnnotation::getFieldName)
         .collect(Collectors.toSet());
   }
 
@@ -161,7 +163,8 @@ public class SearchRequestHandler {
   public List<AggregationBuilder> getAggregations(@Nullable Filter filter) {
     List<AggregationBuilder> aggregationBuilders = new ArrayList<>();
     for (String facet : _facetFields) {
-      AggregationBuilder aggBuilder = AggregationBuilders.terms(facet).field(facet).size(_maxTermBucketSize);
+      // All facet fields must have subField keyword
+      AggregationBuilder aggBuilder = AggregationBuilders.terms(facet).field(facet + ".keyword").size(_maxTermBucketSize);
       Optional.ofNullable(filter).map(Filter::getCriteria).ifPresent(criteria -> {
         for (Criterion criterion : criteria) {
           if (!_facetFields.contains(criterion.getField()) || criterion.getField().equals(facet)) {
@@ -254,8 +257,13 @@ public class SearchRequestHandler {
 
     for (Map.Entry<String, Aggregation> entry : searchResponse.getAggregations().getAsMap().entrySet()) {
       final Map<String, Long> oneTermAggResult = extractTermAggregations((ParsedTerms) entry.getValue());
+      if (oneTermAggResult.isEmpty()) {
+        continue;
+      }
+      // Remove the .keyword suffix from the field name
+      String fieldName = entry.getKey().substring(0, entry.getKey().lastIndexOf("."));
       final AggregationMetadata aggregationMetadata =
-          new AggregationMetadata().setName(entry.getKey()).setAggregations(new LongMap(oneTermAggResult));
+          new AggregationMetadata().setName(fieldName).setAggregations(new LongMap(oneTermAggResult));
       aggregationMetadataList.add(aggregationMetadata);
     }
 

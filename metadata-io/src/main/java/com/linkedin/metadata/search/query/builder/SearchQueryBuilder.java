@@ -2,9 +2,8 @@ package com.linkedin.metadata.search.query.builder;
 
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexSetting;
-import java.util.Optional;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
@@ -13,12 +12,19 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
+import org.gradle.internal.impldep.com.google.common.collect.ImmutableSet;
 
 
 public class SearchQueryBuilder {
 
   private static final String KEYWORD_LOWERCASE_ANALYZER = "custom_keyword";
   private static final String TEXT_ANALYZER = "word_delimited";
+
+  private static final Set<FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
+      ImmutableSet.of(FieldType.TEXT, FieldType.TEXT_WITH_PARTIAL_MATCHING, FieldType.URN,
+          FieldType.URN_WITH_PARTIAL_MATCHING);
+  private static final Set<FieldType> TYPES_WITH_NGRAM_SUBFIELD =
+      ImmutableSet.of(FieldType.TEXT_WITH_PARTIAL_MATCHING, FieldType.URN_WITH_PARTIAL_MATCHING);
 
   private SearchQueryBuilder() {
   }
@@ -29,10 +35,6 @@ public class SearchQueryBuilder {
 
   private static QueryBuilder buildInternalQuery(@Nonnull EntitySpec entitySpec, @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-
-    // Key word queries do exact matching between document value and query
-    QueryStringQueryBuilder keywordQuery = QueryBuilders.queryStringQuery(query);
-    keywordQuery.defaultOperator(Operator.AND);
     // Key word lowercase queries do case agnostic exact matching between document value and query
     QueryStringQueryBuilder keywordLowercaseQuery = QueryBuilders.queryStringQuery(query);
     keywordLowercaseQuery.analyzer(KEYWORD_LOWERCASE_ANALYZER);
@@ -43,36 +45,20 @@ public class SearchQueryBuilder {
     textQuery.defaultOperator(Operator.AND);
 
     for (SearchableFieldSpec fieldSpec : entitySpec.getSearchableFieldSpecs()) {
-      boolean isFirst = true;
-      for (IndexSetting setting : fieldSpec.getIndexSettings()) {
-        if (setting.isAddToDefaultQuery()) {
-          // First setting uses the original field name unless overridden
-          String fieldName = isFirst ? fieldSpec.getFieldName()
-              : fieldSpec.getFieldName() + "." + SearchableAnnotation.SUBFIELD_BY_TYPE.get(setting.getIndexType());
-          // Override name if the overrideFieldName is set
-          String finalFieldName = setting.getOverrideFieldName().orElse(fieldName);
-          switch (setting.getIndexType()) {
-            case BOOLEAN:
-            case COUNT:
-            case KEYWORD:
-              addField(keywordQuery, finalFieldName, setting.getBoostScore());
-              break;
-            case KEYWORD_LOWERCASE:
-              addField(keywordLowercaseQuery, finalFieldName, setting.getBoostScore());
-              break;
-            default:
-              addField(textQuery, finalFieldName, setting.getBoostScore());
-              break;
-          }
-        }
-        isFirst = false;
+      String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
+      double boostScore = fieldSpec.getSearchableAnnotation().getBoostScore();
+      keywordLowercaseQuery.field(fieldName, (float) (boostScore));
+
+      FieldType fieldType = fieldSpec.getSearchableAnnotation().getFieldType();
+      if (TYPES_WITH_DELIMITED_SUBFIELD.contains(fieldType)) {
+        textQuery.field(fieldName + ".delimited", (float) (boostScore * 0.4));
+      }
+      if (TYPES_WITH_NGRAM_SUBFIELD.contains(fieldType)) {
+        textQuery.field(fieldName + ".ngram", (float) (boostScore * 0.1));
       }
     }
 
     // Only add the queries in if corresponding fields exist
-    if (!keywordQuery.fields().isEmpty()) {
-      finalQuery.should(keywordQuery);
-    }
     if (!keywordLowercaseQuery.fields().isEmpty()) {
       finalQuery.should(keywordLowercaseQuery);
     }
@@ -82,23 +68,16 @@ public class SearchQueryBuilder {
     return finalQuery;
   }
 
-  private static void addField(@Nonnull QueryStringQueryBuilder queryBuilder, @Nonnull String fieldName,
-      Optional<Double> boostScore) {
-    if (boostScore.isPresent()) {
-      queryBuilder.field(fieldName, boostScore.get().floatValue());
-    } else {
-      queryBuilder.field(fieldName);
-    }
-  }
-
   private static FunctionScoreQueryBuilder.FilterFunctionBuilder[] buildFilterFunctions(
       @Nonnull EntitySpec entitySpec) {
     return entitySpec.getSearchableFieldSpecs()
         .stream()
-        .flatMap(fieldSpec -> fieldSpec.getWeightsPerFieldValue()
+        .flatMap(fieldSpec -> fieldSpec.getSearchableAnnotation()
+            .getWeightsPerFieldValue()
             .entrySet()
             .stream()
-            .map(entry -> buildFilterFunction(fieldSpec.getFieldName(), entry.getKey(), entry.getValue())))
+            .map(entry -> buildFilterFunction(fieldSpec.getSearchableAnnotation().getFieldName(), entry.getKey(),
+                entry.getValue())))
         .toArray(FunctionScoreQueryBuilder.FilterFunctionBuilder[]::new);
   }
 

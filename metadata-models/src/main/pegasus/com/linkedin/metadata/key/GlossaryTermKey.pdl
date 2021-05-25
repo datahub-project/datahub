@@ -12,8 +12,9 @@ import com.linkedin.common.Urn
 record GlossaryTermKey {
 
   @Searchable = {
-    "fieldName": "name",
-    "indexSettings": [{ "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "enableAutocomplete": true
   }
   name: string
 

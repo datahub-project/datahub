@@ -15,7 +15,7 @@ record BrowsePaths {
   @Searchable = {
     "/*": {
       "fieldName": "browsePaths",
-      "indexSettings": [{"indexType": "BROWSE_PATH"}]
+      "fieldType": "BROWSE_PATH"
     }
   }
   paths: array[string]

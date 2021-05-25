@@ -16,8 +16,7 @@ record CorpUserInfo {
    * Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools
    */
   @Searchable = {
-    "fieldName": "active",
-    "indexSettings": [{ "indexType": "BOOLEAN" }],
+    "fieldType": "BOOLEAN",
     "weightsPerFieldValue": { "true": 2.0 }
   }
   active: boolean
@@ -31,8 +30,8 @@ record CorpUserInfo {
    * email address of this user
    */
   @Searchable = {
-    "fieldName": "emails",
-    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE" }]
+    "fieldType": "KEYWORD",
+    "queryByDefault": true
   }
   email: EmailAddress
 
@@ -40,8 +39,8 @@ record CorpUserInfo {
    * title of this user
    */
   @Searchable = {
-    "fieldName": "title",
-    "indexSettings": [{ "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true }]
+    "fieldType": "KEYWORD",
+    "queryByDefault": true
   }
   title: optional string
 
@@ -54,7 +53,8 @@ record CorpUserInfo {
   }
   @Searchable = {
     "fieldName": "managerLdap",
-    "indexSettings": [{ "indexType": "URN", "addToDefaultQuery": true }]
+    "fieldType": "URN",
+    "queryByDefault": true
   }
   managerUrn: optional CorpuserUrn
 
@@ -82,12 +82,10 @@ record CorpUserInfo {
    * Common name of this user, format is firstName + lastName (split by a whitespace)
    */
   @Searchable = {
-    "fieldName": "fullName",
-    "indexSettings": [
-      { "indexType": "TEXT", "addToDefaultQuery": true, "boostScore": 4.0 },
-      { "indexType": "PARTIAL" }
-    ],
-    "isDefaultAutocomplete": true
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "enableAutocomplete": true,
+    "boostScore": 10.0
   }
   fullName: optional string
 

@@ -3,16 +3,9 @@ package com.linkedin.metadata.search.indexbuilder;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.SearchableFieldSpec;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexSetting;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation.IndexType;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +37,7 @@ public class IndexBuilder {
   public void buildIndex() throws IOException {
     log.info("Setting up index: {}", indexName);
     Map<String, Object> mappings = MappingsBuilder.getMappings(entitySpec);
-    Map<String, Object> settings = SettingsBuilder.getSettings(getMaxNgramDiff());
+    Map<String, Object> settings = SettingsBuilder.getSettings();
 
     // Check if index exists
     boolean exists = searchClient.indices().exists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
@@ -143,28 +136,5 @@ public class IndexBuilder {
     createIndexRequest.settings(settings);
     searchClient.indices().create(createIndexRequest, RequestOptions.DEFAULT);
     log.info("Created index {}", indexName);
-  }
-
-  // Get maximum diff between max_gram and min_gram, which are only set for partial filters
-  private Optional<Integer> getMaxNgramDiff() {
-    Set<IndexType> allIndexTypes = entitySpec.getSearchableFieldSpecs()
-        .stream()
-        .map(SearchableFieldSpec::getIndexSettings)
-        .flatMap(List::stream)
-        .map(IndexSetting::getIndexType)
-        .collect(Collectors.toSet());
-    if (allIndexTypes.contains(IndexType.PARTIAL_LONG)) {
-      // max_gram: 50, min_gram: 3
-      return Optional.of(47);
-    }
-    if (allIndexTypes.contains(IndexType.PARTIAL_SHORT)) {
-      // max_gram: 20, min_gram: 1
-      return Optional.of(19);
-    }
-    if (allIndexTypes.contains(IndexType.PARTIAL) || allIndexTypes.contains(IndexType.PARTIAL_PATTERN)) {
-      // max_gram: 20, min_gram: 3
-      return Optional.of(17);
-    }
-    return Optional.empty();
   }
 }

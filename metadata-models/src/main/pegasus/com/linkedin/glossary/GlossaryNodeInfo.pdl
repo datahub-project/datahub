@@ -14,8 +14,8 @@ record GlossaryNodeInfo {
    * Definition of business node
    */
   @Searchable = {
-    "fieldName": "definition",
-    "indexSettings": [{ "indexType": "TEXT" }, { "indexType": "PARTIAL" }]
+    "fieldType": "TEXT",
+    "queryByDefault": true
   }
   definition: string
 

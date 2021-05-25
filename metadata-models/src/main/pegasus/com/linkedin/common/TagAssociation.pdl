@@ -10,11 +10,9 @@ record TagAssociation {
   */
   @Searchable = {
     "fieldName": "tags",
-    "indexSettings": [
-      { "indexType": "URN", "addToDefaultQuery": true },
-      { "indexType": "PARTIAL_URN", "addToDefaultQuery": true, "boostScore": 0.1 },
-      { "indexType": "BOOLEAN", "overrideFieldName": "hasTags" }
-    ]
+    "fieldType": "URN_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "hasValuesFieldName": "hasTags"
   }
   tag: TagUrn
 }

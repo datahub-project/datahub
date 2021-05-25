@@ -15,10 +15,7 @@ record DatasetKey {
   * Data platform urn associated with the dataset
   */
   @Searchable = {
-    "fieldName": "platform",
-    "indexSettings": [
-      { "indexType": "KEYWORD_URN" }
-    ],
+    "fieldType": "URN",
     "addToFilters": true
   }
   platform: Urn
@@ -27,14 +24,10 @@ record DatasetKey {
   * Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>
   */
   @Searchable = {
-    "fieldName": "name",
-    "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE", "addToDefaultQuery": true, "boostScore": 1000.0 },
-      { "indexType": "PATTERN", "addToDefaultQuery": true, "boostScore": 8.0 },
-      { "indexType": "PARTIAL_PATTERN", "addToDefaultQuery": true, "boostScore": 4.0 },
-      { "indexType": "PARTIAL_LONG", "addToDefaultQuery": true }
-    ],
-    "isDefaultAutocomplete": true
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "queryByDefault": true,
+    "enableAutocomplete": true,
+    "boostScore": 10.0
   }
   name: string
 
@@ -42,11 +35,7 @@ record DatasetKey {
   * Fabric type where dataset belongs to or where it was generated.
   */
   @Searchable = {
-    "fieldName": "origin",
-    "indexSettings": [
-      { "indexType": "KEYWORD_LOWERCASE" },
-      { "indexType": "PARTIAL" }
-    ],
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
     "addToFilters": true
   }
   origin: FabricType
