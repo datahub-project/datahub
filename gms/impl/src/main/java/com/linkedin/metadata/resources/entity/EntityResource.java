@@ -186,9 +186,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(() -> new StringArray(_entityBrowseDao.getBrowsePaths(urnToEntityName(urn), urn)));
   }
 
+  /*
+  Used to enable writes in GMS after data migration is complete
+   */
   @Action(name = "setWritable")
   @Nonnull
-  public void setWriteable() {
-    _entityService.setWritable();
+  public Task<Void> setWriteable() {
+    return RestliUtils.toTask(() -> {
+      _entityService.setWritable();
+      return null;
+    });
   }
 }
