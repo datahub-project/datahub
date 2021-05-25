@@ -85,16 +85,12 @@ public class SearchableAnnotation {
       ImmutableSet.of(IndexType.KEYWORD, IndexType.KEYWORD_LOWERCASE, IndexType.KEYWORD_URN);
 
   @Nonnull
-  public static SearchableAnnotation fromPegasusAnnotationObject(
-      @Nonnull final Object annotationObj,
-      @Nonnull final String context
-  ) {
+  public static SearchableAnnotation fromPegasusAnnotationObject(@Nonnull final Object annotationObj,
+      @Nonnull final String context) {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
-      throw new ModelValidationException(String.format(
-          "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
-          ANNOTATION_NAME,
-          context
-      ));
+      throw new ModelValidationException(
+          String.format("Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
+              ANNOTATION_NAME, context));
     }
 
     Map map = (Map) annotationObj;
@@ -102,34 +98,30 @@ public class SearchableAnnotation {
     if (!fieldName.isPresent()) {
       throw new ModelValidationException(String.format(
           "Failed to validate @%s annotation declared at %s: Invalid field 'fieldName'. Expected field of type String",
-          ANNOTATION_NAME,
-          context
-      ));
+          ANNOTATION_NAME, context));
     }
     final Optional<Boolean> isDefaultAutocomplete =
         AnnotationUtils.getField(map, "isDefaultAutocomplete", Boolean.class);
-    final Optional<Boolean> addToFilters = AnnotationUtils.getField(map, "addToDefaultQuery", Boolean.class);
+    final Optional<Boolean> addToFilters = AnnotationUtils.getField(map, "addToFilters", Boolean.class);
     final Optional<List> indexSettingsList = AnnotationUtils.getField(map, "indexSettings", List.class);
     if (!indexSettingsList.isPresent() || indexSettingsList.get().isEmpty()) {
       throw new ModelValidationException(String.format(
           "Failed to validate @%s annotation declared at %s: Invalid field 'indexSettings'. Expected field of type List to not be empty",
-          ANNOTATION_NAME,
-          context
-        ));
+          ANNOTATION_NAME, context));
     }
     final List<IndexSetting> indexSettings = new ArrayList<>(indexSettingsList.get().size());
     for (Object indexSettingObj : indexSettingsList.get()) {
       indexSettings.add(SearchableAnnotation.getIndexSettingFromObject(indexSettingObj, context));
     }
 
-    // If the field is being added to filters, the first index setting must be of type KEYWORD
+    // If the field is being added to filters, the first index setting must be of type keyword
     if (addToFilters.orElse(false)) {
-      if (indexSettings.get(0).getIndexType() != IndexType.KEYWORD) {
+      if (!FILTERABLE_INDEX_TYPES.contains(indexSettings.get(0).getIndexType())) {
         throw new ModelValidationException(
-            String.format("Failed to validate @%s annotation declared at %s: Fields with addToDefaultQuery ",
-                ANNOTATION_NAME,
-                context)
-            + "set to true, must have a setting of type KEYWORD as it's first index setting");
+            String.format("Failed to validate @%s annotation declared at %s: Fields with addToFilters ",
+                ANNOTATION_NAME, context)
+                + "set to true, must have a setting of type KEYWORD as it's first index setting. Current type: "
+                + indexSettings.get(0).getIndexType());
       }
     }
 
@@ -140,16 +132,12 @@ public class SearchableAnnotation {
   }
 
   @Nonnull
-  private static IndexSetting getIndexSettingFromObject(
-      @Nonnull final Object indexSettingObj,
-      @Nonnull final String context
-  ) {
+  private static IndexSetting getIndexSettingFromObject(@Nonnull final Object indexSettingObj,
+      @Nonnull final String context) {
     if (!Map.class.isAssignableFrom(indexSettingObj.getClass())) {
       throw new ModelValidationException(String.format(
           "Failed to validate @%s annotation declared at %s: Invalid value type provided for indexSettings (Expected Map)",
-          ANNOTATION_NAME,
-          context
-      ));
+          ANNOTATION_NAME, context));
     }
 
     Map map = (Map) indexSettingObj;
@@ -157,9 +145,7 @@ public class SearchableAnnotation {
     if (!indexType.isPresent() || !EnumUtils.isValidEnum(IndexType.class, indexType.get())) {
       throw new ModelValidationException(String.format(
           "Failed to validate @%s annotation declared at %s: Invalid field 'indexType'. Invalid indexType provided. Valid types are %s",
-          ANNOTATION_NAME,
-          context,
-          Arrays.toString(IndexType.values())));
+          ANNOTATION_NAME, context, Arrays.toString(IndexType.values())));
     }
 
     final Optional<Boolean> addToDefaultQuery = AnnotationUtils.getField(map, "addToDefaultQuery", Boolean.class);

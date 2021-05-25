@@ -68,7 +68,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldName": "access",
-    "indexSettings": [{ "indexType": "BOOLEAN" }],
+    "indexSettings": [{ "indexType": "KEYWORD" }, { "indexType": "PARTIAL" }],
     "addToFilters": true
   }
   access: optional AccessLevel
