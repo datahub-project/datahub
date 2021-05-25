@@ -6,6 +6,7 @@ import io.ebean.EbeanServerFactory;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
 import javax.annotation.Nonnull;
+import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 
 
@@ -18,7 +19,6 @@ public class EbeanEntityServiceTest {
   public void setupTest() {
     _server = EbeanServerFactory.create(createTestingH2ServerConfig());
     _mockProducer = Mockito.mock(KafkaMetadataEventProducer.class);
-    _dummyAuditStamp = makeAuditStamp("foo", 1234);
   }
 
 
