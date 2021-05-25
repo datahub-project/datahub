@@ -34,8 +34,8 @@ ENV JAVA_OPTS=""
 
 # Upgrade CLI Arguments
 ENV UPGRADE_ID=""
-ENV ARG_1=""
-ENV ARG_2=""
-ENV ARG_3=""
+ENV ARG_1="ignore"
+ENV ARG_2="ignore"
+ENV ARG_3="ignore"
 
 CMD /datahub/datahub-upgrade/scripts/start.sh

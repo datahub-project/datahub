@@ -1,7 +1,7 @@
 package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
-import com.linkedin.metadata.graph.Neo4jGraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import io.ebean.EbeanServerFactory;
 import io.ebean.config.ServerConfig;
 import javax.annotation.Nonnull;
@@ -21,11 +21,11 @@ public class NoCodeCleanupConfig {
   ApplicationContext applicationContext;
 
   @Bean(name = "noCodeCleanup")
-  @DependsOn({"gmsEbeanServiceConfig", "neo4jGraphClient"})
+  @DependsOn({"gmsEbeanServiceConfig", "graphService"})
   @Nonnull
   public NoCodeCleanupUpgrade createInstance() {
     final ServerConfig serverConfig = applicationContext.getBean(ServerConfig.class);
-    final Neo4jGraphClient graphClient = applicationContext.getBean(Neo4jGraphClient.class);
+    final GraphService graphClient = applicationContext.getBean(GraphService.class);
     if (!serverConfig.getPackages().contains(EBEAN_MODEL_PACKAGE)) {
       serverConfig.getPackages().add(EBEAN_MODEL_PACKAGE);
     }

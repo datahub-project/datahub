@@ -11,7 +11,7 @@ import com.linkedin.metadata.builders.search.SnapshotProcessor;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Edge;
-import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.kafka.elasticsearch.JsonElasticEvent;
 import com.linkedin.metadata.models.EntitySpec;
@@ -56,18 +56,18 @@ public class MetadataAuditEventsProcessor {
   private ElasticsearchConnector elasticSearchConnector;
   private SnapshotProcessor snapshotProcessor;
 
-  private GraphClient _graphClient;
+  private GraphService _graphService;
 
   private Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders;
   private IndexConvention indexConvention;
 
   public MetadataAuditEventsProcessor(RestHighLevelClient elasticSearchClient,
-      ElasticsearchConnector elasticSearchConnector, SnapshotProcessor snapshotProcessor, GraphClient graphClient,
+      ElasticsearchConnector elasticSearchConnector, SnapshotProcessor snapshotProcessor, GraphService graphService,
       Set<BaseIndexBuilder<? extends RecordTemplate>> indexBuilders, IndexConvention indexConvention) {
     this.elasticSearchClient = elasticSearchClient;
     this.elasticSearchConnector = elasticSearchConnector;
     this.snapshotProcessor = snapshotProcessor;
-    this._graphClient = graphClient;
+    this._graphService = graphService;
     this.indexBuilders = indexBuilders;
     this.indexConvention = indexConvention;
     log.info("registered index builders {}", indexBuilders);
@@ -142,9 +142,9 @@ public class MetadataAuditEventsProcessor {
       }
     }
     if (edgesToAdd.size() > 0) {
-      _graphClient.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
+      _graphService.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
           createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
-      edgesToAdd.forEach(edge -> _graphClient.addEdge(edge));
+      edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
     }
   }
 

@@ -3,7 +3,7 @@ package com.linkedin.datahub.upgrade.nocodecleanup;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
-import com.linkedin.metadata.graph.Neo4jGraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import io.ebean.EbeanServer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -18,7 +18,7 @@ public class NoCodeCleanupUpgrade implements Upgrade {
   // Upgrade requires the EbeanServer.
   public NoCodeCleanupUpgrade(
       final EbeanServer server,
-      final Neo4jGraphClient graphClient) {
+      final GraphService graphClient) {
     _steps = buildUpgradeSteps(
         server,
         graphClient);
@@ -46,7 +46,7 @@ public class NoCodeCleanupUpgrade implements Upgrade {
 
   private List<UpgradeStep<?>> buildUpgradeSteps(
       final EbeanServer server,
-      final Neo4jGraphClient graphClient) {
+      final GraphService graphClient) {
     final List<UpgradeStep<?>> steps = new ArrayList<>();
     steps.add(new NoCodeUpgradeQualificationStep(server));
     steps.add(new DeleteAspectTableStep(server));

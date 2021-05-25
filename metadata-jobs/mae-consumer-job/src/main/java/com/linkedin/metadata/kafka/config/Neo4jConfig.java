@@ -1,7 +1,7 @@
 package com.linkedin.metadata.kafka.config;
 
-import com.linkedin.metadata.graph.GraphClient;
-import com.linkedin.metadata.graph.Neo4jGraphClient;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.Neo4jGraphService;
 import org.neo4j.driver.Driver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,10 +22,10 @@ public class Neo4jConfig {
   private final Driver neo4jDriver;
 
   @Bean
-  public GraphClient graphClient() {
-    Neo4jGraphClient graphWriterDAO;
+  public GraphService graphClient() {
+    Neo4jGraphService graphWriterDAO;
     try {
-      graphWriterDAO = new Neo4jGraphClient(neo4jDriver);
+      graphWriterDAO = new Neo4jGraphService(neo4jDriver);
     } catch (Exception e) {
       throw new RuntimeException("Error in initializing Neo4j." + e.toString());
     }
