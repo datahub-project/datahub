@@ -56,6 +56,7 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
             }
             final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
             _specs.add(fieldSpec);
+            _searchFieldNames.add(annotation.getFieldName());
           }
         }
       } else if (isValidPrimitiveType((PrimitiveDataSchema) currentSchema)) {
@@ -67,7 +68,13 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
               SearchableAnnotation.fromPegasusAnnotationObject(annotationObj, getSchemaFieldName(path),
                   currentSchema.getType(), path.toString());
           final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
+          if (_searchFieldNames.contains(annotation.getFieldName())) {
+            throw new ModelValidationException(
+                String.format("Entity has multiple searchable fields with the same field name %s",
+                    annotation.getFieldName()));
+          }
           _specs.add(fieldSpec);
+          _searchFieldNames.add(annotation.getFieldName());
         }
       }
     }

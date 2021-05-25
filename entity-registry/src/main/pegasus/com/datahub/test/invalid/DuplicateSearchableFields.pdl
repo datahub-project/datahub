@@ -6,17 +6,13 @@ namespace com.datahub.test.invalid
 record DuplicateSearchableFields {
   @Searchable = {
     "fieldName": "textField",
-    "indexSettings": [
-      { "indexType": "KEYWORD" }
-    ]
+    "fieldType": "KEYWORD"
   }
   textField: string
 
   @Searchable = {
     "fieldName": "textField",
-    "indexSettings": [
-      { "indexType": "KEYWORD" }
-    ]
+    "fieldType": "KEYWORD"
   }
   textField2: string
 }

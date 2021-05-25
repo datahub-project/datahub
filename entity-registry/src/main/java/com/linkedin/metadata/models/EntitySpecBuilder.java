@@ -70,10 +70,6 @@ public class EntitySpecBuilder {
     // 0. Validate the Snapshot definition
     final RecordDataSchema entitySnapshotRecordSchema = validateSnapshot(entitySnapshotSchema);
 
-    if (entitySnapshotRecordSchema == null) {
-      return null;
-    }
-
     // 1. Parse information about the entity from the "entity" annotation.
     final Object entityAnnotationObj = entitySnapshotRecordSchema.getProperties().get(EntityAnnotation.ANNOTATION_NAME);
 
@@ -149,10 +145,6 @@ public class EntitySpecBuilder {
   AspectSpec buildAspectSpec(@Nonnull final DataSchema aspectDataSchema) {
 
     final RecordDataSchema aspectRecordSchema = validateAspect(aspectDataSchema);
-
-    if (aspectRecordSchema == null) {
-      return null;
-    }
 
     final Object aspectAnnotationObj = aspectRecordSchema.getProperties().get(AspectAnnotation.ANNOTATION_NAME);
 

@@ -12,18 +12,14 @@ record TestEntityInfo {
 
   @Searchable = {
     "fieldName": "textField",
-    "indexSettings": [
-      { "indexType": "TEXT" }
-    ]
+    "fieldType": "TEXT"
   }
   textField: optional string
 
   @Searchable = {
    "/*": {
     "fieldName": "textArrayField",
-    "indexSettings": [
-      { "indexType": "PARTIAL" }
-    ]
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
    }
   }
   textArrayField: array[string]
@@ -45,9 +41,7 @@ record TestEntityInfo {
   nestedRecordField: record SimpleNestedRecord1 {
    @Searchable = {
      "fieldName": "nestedIntegerField",
-     "indexSettings": [
-       { "indexType": "PARTIAL" }
-     ]
+     "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
    }
    nestedIntegerField: int
 
@@ -61,9 +55,7 @@ record TestEntityInfo {
   nestedRecordArrayField: array[record SimpleNestedRecord2 {
     @Searchable = {
      "fieldName": "nestedArrayIntegerField",
-     "indexSettings": [
-       { "indexType": "KEYWORD" }
-     ]
+     "fieldType": "KEYWORD"
     }
     nestedArrayIntegerField: int
 

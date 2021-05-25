@@ -5,12 +5,8 @@ namespace com.datahub.test.invalid
 }
 record InvalidSearchableFieldType {
   @Searchable = {
-    "fieldName": "recordField",
-    "indexSettings": [
-      { "indexType": "KEYWORD" }
-    ]
+    "fieldName": "textField",
+    "fieldType": "INVALID_TYPE"
   }
-  recordField: record TestRecord {
-      testField: optional string
-  }
+  textField: string
 }

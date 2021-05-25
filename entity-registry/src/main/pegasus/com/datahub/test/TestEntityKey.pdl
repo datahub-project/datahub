@@ -16,9 +16,7 @@ record TestEntityKey {
    */
   @Searchable = {
     "fieldName": "keyPart1",
-    "indexSettings": [
-      { "indexType": "TEXT" }
-    ]
+    "fieldType": "TEXT"
   }
   keyPart1: string
 
@@ -36,9 +34,7 @@ record TestEntityKey {
    */
    @Searchable = {
      "fieldName": "keyPart3",
-     "indexSettings": [
-       { "indexType": "KEYWORD" }
-     ]
+     "fieldType": "KEYWORD"
    }
   keyPart3: enum KeyPartEnum {
     VALUE_1
