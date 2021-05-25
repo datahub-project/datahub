@@ -102,7 +102,7 @@ class FeastSource(Source):
             docker_client = docker.from_env()
             docker_client.containers.run(
                 "feast-ingest",
-                f'ingest.py --core_url="{self.config.core_url}" --output_path=/out.json',
+                f'python3 ingest.py --core_url="{self.config.core_url}" --output_path=/out.json',
                 # allow the image to access the core URL if on host
                 network_mode="host",
                 # mount the tempfile so the Docker image has access

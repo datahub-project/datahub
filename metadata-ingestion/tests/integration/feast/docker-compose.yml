@@ -19,6 +19,17 @@ services:
       - /opt/feast/feast-core.jar
       - --spring.config.location=classpath:/application.yml,file:/etc/feast/application.yml
 
+  setup:
+    image: feast-ingest
+    volumes:
+      - ./make_tests.py:/app/make_tests.py
+      - ./wait-for-it.sh:/app/wait-for-it.sh
+    depends_on:
+      - core
+    command:
+      ./wait-for-it.sh testfeast:6565 -- python3 make_tests.py
+      # - ls
+
   db:
     image: postgres:12-alpine
     environment:

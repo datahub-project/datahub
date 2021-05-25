@@ -17,6 +17,3 @@ RUN python -m pip install -r requirements.txt
 
 # Copy everything else
 COPY . ./
-
-CMD ["ingest.py"]
-ENTRYPOINT ["python3"]
