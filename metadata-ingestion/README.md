@@ -348,6 +348,7 @@ source:
     password: pass
     provider: db | ldap
     connect_uri: http://localhost:8088
+    env: "PROD" # Optional, default is "PROD"
 ```
 
 See documentation for superset's `/security/login` at https://superset.apache.org/docs/rest-api for more details on superset's login api.
@@ -504,6 +505,7 @@ source:
     connect_uri: "mongodb://localhost"
     username: admin
     password: password
+    env: "PROD" # Optional, default is "PROD"
     authMechanism: "DEFAULT"
     options: {}
     database_pattern: {}
