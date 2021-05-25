@@ -1,0 +1,22 @@
+namespace com.datahub.test.invalid
+
+@Aspect = {
+  "name": "invalidAspect"
+}
+record DuplicateSearchableFields {
+  @Searchable = {
+    "fieldName": "textField",
+    "indexSettings": [
+      { "indexType": "KEYWORD" }
+    ]
+  }
+  textField: string
+
+  @Searchable = {
+    "fieldName": "textField",
+    "indexSettings": [
+      { "indexType": "KEYWORD" }
+    ]
+  }
+  textField2: string
+}

@@ -1,0 +1,14 @@
+namespace com.datahub.test.invalid
+
+@Aspect = {
+  "name": "invalidAspect"
+}
+record InvalidRelationshipFieldType {
+  @Relationship = {
+    "name": "MyRelationship",
+    "entityTypes": []
+  }
+  recordField: record TestRecord {
+      testField: optional string
+  }
+}

@@ -1,0 +1,14 @@
+namespace com.datahub.test.invalid
+
+@Aspect = {
+  "name": "invalidAspect"
+}
+record InvalidSearchableIndexType {
+  @Searchable = {
+    "fieldName": "textField",
+    "indexSettings": [
+      { "indexType": "INVALID_TYPE" }
+    ]
+  }
+  textField: string
+}

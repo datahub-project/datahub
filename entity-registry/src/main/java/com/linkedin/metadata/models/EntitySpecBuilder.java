@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.gradle.internal.impldep.com.google.common.annotations.VisibleForTesting;
 
 
 @Slf4j
@@ -30,7 +31,6 @@ public class EntitySpecBuilder {
   private static final String ASPECTS_FIELD_NAME = "aspects";
 
   public static SchemaAnnotationHandler _searchHandler = new PegasusSchemaAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
-  public static SchemaAnnotationHandler _browseHandler = new PegasusSchemaAnnotationHandlerImpl(BrowsePathFieldSpecExtractor.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _relationshipHandler = new PegasusSchemaAnnotationHandlerImpl(RelationshipAnnotation.ANNOTATION_NAME);
 
   private final Set<String> _entityNames = new HashSet<>();
@@ -145,7 +145,8 @@ public class EntitySpecBuilder {
   }
 
 
-  private AspectSpec buildAspectSpec(@Nonnull final DataSchema aspectDataSchema) {
+  @VisibleForTesting
+  AspectSpec buildAspectSpec(@Nonnull final DataSchema aspectDataSchema) {
 
     final RecordDataSchema aspectRecordSchema = validateAspect(aspectDataSchema);
 
@@ -168,10 +169,6 @@ public class EntitySpecBuilder {
           SchemaAnnotationProcessor.process(Collections.singletonList(_relationshipHandler),
               aspectRecordSchema, new SchemaAnnotationProcessor.AnnotationProcessOption());
 
-      final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedBrowseResult =
-          SchemaAnnotationProcessor.process(Collections.singletonList(_browseHandler),
-              aspectRecordSchema, new SchemaAnnotationProcessor.AnnotationProcessOption());
-
       // Extract Searchable Field Specs
       final SearchableFieldSpecExtractor searchableFieldSpecExtractor = new SearchableFieldSpecExtractor();
       final DataSchemaRichContextTraverser searchableFieldSpecTraverser =
@@ -184,12 +181,6 @@ public class EntitySpecBuilder {
           new DataSchemaRichContextTraverser(relationshipFieldSpecExtractor);
       relationshipFieldSpecTraverser.traverse(processedRelationshipResult.getResultSchema());
 
-      // Extract Browsable Field Specs
-      final BrowsePathFieldSpecExtractor browsePathFieldSpecExtractor = new BrowsePathFieldSpecExtractor();
-      final DataSchemaRichContextTraverser browsePathFieldSpecTraverser =
-          new DataSchemaRichContextTraverser(browsePathFieldSpecExtractor);
-      browsePathFieldSpecTraverser.traverse(processedBrowseResult.getResultSchema());
-
       // Capture the list of entity names from relationships extracted.
       _relationshipFieldSpecs.addAll(relationshipFieldSpecExtractor.getSpecs());
 
@@ -197,7 +188,6 @@ public class EntitySpecBuilder {
           aspectAnnotation,
           searchableFieldSpecExtractor.getSpecs(),
           relationshipFieldSpecExtractor.getSpecs(),
-          browsePathFieldSpecExtractor.getSpecs(),
           aspectRecordSchema);
     }
 
