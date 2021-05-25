@@ -67,7 +67,7 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
-      "metadata-ingestion/README",
+      "metadata-ingestion/adding-source",
       "docs/what/graph",
       "docs/what/search-index",
       "docs/how/add-new-aspect",

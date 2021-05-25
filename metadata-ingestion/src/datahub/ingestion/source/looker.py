@@ -393,7 +393,7 @@ class LookerDashboardSource(Source):
         )
         for element in elements:
             self.reporter.report_charts_scanned()
-            if element.id is not None and self.source_config.chart_pattern.allowed(
+            if element.id is not None and not self.source_config.chart_pattern.allowed(
                 element.id
             ):
                 self.reporter.report_charts_dropped(element.id)
