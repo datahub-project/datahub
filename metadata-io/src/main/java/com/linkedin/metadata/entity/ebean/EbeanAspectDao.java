@@ -89,6 +89,11 @@ public class EbeanAspectDao {
   // while its storage is being migrated
   private boolean _canWrite = true;
 
+  public void setConnectionValidated(boolean validated) {
+    _connectionValidated = validated;
+    _canWrite = validated;
+  }
+
   private boolean validateConnection() {
     if (_connectionValidated) {
       return true;

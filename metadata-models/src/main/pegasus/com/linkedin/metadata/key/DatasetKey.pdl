@@ -35,7 +35,7 @@ record DatasetKey {
   * Fabric type where dataset belongs to or where it was generated.
   */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
+    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
     "addToFilters": true
   }
   origin: FabricType

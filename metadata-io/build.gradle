@@ -5,7 +5,6 @@ configurations {
 }
 
 dependencies {
-  implementation 'org.testng:testng:7.1.0'
   compile project(':entity-registry')
   compile project(':metadata-utils')
   compile project(':metadata-builders')
@@ -15,25 +14,29 @@ dependencies {
   compile project(':metadata-events:mxe-utils-avro-1.7')
   compile project(path: ':metadata-models')
 
+  compile spec.product.pegasus.data
+  compile spec.product.pegasus.generator
+
   compile externalDependency.lombok
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
   compile externalDependency.kafkaClients
   compile externalDependency.gmaEbeanDao
-  compile spec.product.pegasus.data
-  compile spec.product.pegasus.generator
-
   compile externalDependency.gmaDaoApi
   compile externalDependency.gmaRestliResources
   compile externalDependency.gmaElasticsearchDao
+  compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
 
   implementation gradleApi()
   annotationProcessor externalDependency.lombok
 
-  compile externalDependency.neo4jHarness
-
+  testCompile externalDependency.testng
+  testCompile externalDependency.h2
+  testCompile externalDependency.neo4jHarness
   testCompile externalDependency.mockito
+  testCompile externalDependency.iStackCommons
+  testCompile project(':test-models')
 }
 
 project.compileJava {
