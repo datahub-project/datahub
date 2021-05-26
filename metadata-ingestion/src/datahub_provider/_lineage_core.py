@@ -51,7 +51,7 @@ def send_lineage_to_datahub(
     )
 
     dag: "DAG" = context["dag"]
-    task = context["task"]
+    task: "BaseOperator" = context["task"]
 
     # TODO: capture context
     # context dag_run
@@ -150,6 +150,10 @@ def send_lineage_to_datahub(
                 models.DataJobInputOutputClass(
                     inputDatasets=_entities_to_urn_list(inlets or []),
                     outputDatasets=_entities_to_urn_list(outlets or []),
+                    inputDatajobs=[
+                        builder.make_data_job_urn_with_flow(flow_urn, task_id)
+                        for task_id in task.upstream_task_ids
+                    ],
                 ),
                 *ownership_aspect,
                 *tags_aspect,
