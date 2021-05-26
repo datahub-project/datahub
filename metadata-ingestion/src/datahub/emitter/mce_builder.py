@@ -52,6 +52,25 @@ def make_data_job_urn(
     )
 
 
+def make_entity_urn(platform: str, entity_name: str, env: str) -> str:
+
+    return f"urn:li:mlEntity:(urn:li:dataPlatform:{platform},{entity_name},{env}))"
+
+
+def make_feature_urn(
+    platform: str, featureset_name: str, feature_name: str, env: str
+) -> str:
+
+    return f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},{featureset_name},{feature_name},{env}))"
+
+
+def make_featureset_urn(platform: str, featureset_name: str, env: str) -> str:
+
+    return (
+        f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},{featureset_name},{env}))"
+    )
+
+
 def make_lineage_mce(
     upstream_urns: List[str],
     downstream_urn: str,

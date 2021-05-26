@@ -5,6 +5,7 @@ from typing import Dict, Iterable, List
 
 import docker
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -115,15 +116,14 @@ class FeastSource(Source):
 
             platform = "feast"
 
-            get_feature_urn = (
-                lambda feature_name: f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},{feature_name},{self.config.env}))"
-            )
             # ingest features
             for feature in ingest["features"]:
 
                 # create snapshot instance for the feature
                 feature_snapshot = MLFeatureSnapshot(
-                    urn=get_feature_urn(feature["name"]),
+                    urn=builder.make_feature_urn(
+                        platform, feature["table"], feature["name"], self.config.env
+                    ),
                     aspects=[],
                 )
 
@@ -141,15 +141,14 @@ class FeastSource(Source):
                 self.report.report_workunit(wu)
                 yield wu
 
-            get_entity_urn = (
-                lambda entity_name: f"urn:li:mlEntity:(urn:li:dataPlatform:{platform},{entity_name},{self.config.env}))"
-            )
             # ingest entities
             for entity in ingest["entities"]:
 
                 # create snapshot instance for the entity
                 entity_snapshot = MLEntitySnapshot(
-                    urn=get_entity_urn(entity["name"]),
+                    urn=builder.make_entity_urn(
+                        platform, entity["name"], self.config.env
+                    ),
                     aspects=[],
                 )
 
@@ -171,16 +170,26 @@ class FeastSource(Source):
             # ingest tables
             for table in ingest["tables"]:
 
-                # create snapshot instance for the featureset
                 featureset_snapshot = MLFeatureSetSnapshot(
-                    urn=f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},{table['name']},{self.config.env}))",
+                    urn=builder.make_featureset_urn(
+                        platform, table["name"], self.config.env
+                    ),
                     aspects=[],
                 )
+
                 featureset_snapshot.aspects.append(
                     MLFeatureSetPropertiesClass(
                         name=table["name"],
-                        mlFeatures=[get_feature_urn(x) for x in table["features"]],
-                        mlEntities=[get_entity_urn(x) for x in table["entities"]],
+                        mlFeatures=[
+                            builder.make_feature_urn(
+                                platform, x, feature["name"], self.config.env
+                            )
+                            for x in table["features"]
+                        ],
+                        mlEntities=[
+                            builder.make_entity_urn(platform, x, self.config.env)
+                            for x in table["entities"]
+                        ],
                         batchSource=table.get("batch_source"),
                         streamSource=table.get("stream_source"),
                         batchSourceConfig=table.get("batch_source_config"),

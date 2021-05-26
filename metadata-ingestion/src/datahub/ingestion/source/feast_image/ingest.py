@@ -32,9 +32,7 @@ def cli(core_url, output_path):
     features = sorted(features, key=lambda x: x.name)
     entities = sorted(entities, key=lambda x: x.name)
 
-    parsed_features = [
-        {"name": feature.name, "type": feature.dtype.name} for feature in features
-    ]
+    parsed_features = []
 
     parsed_entities = [
         {
@@ -78,17 +76,26 @@ def cli(core_url, output_path):
         if stream_source_config is not None:
             stream_source_config = json.dumps(stream_source_config)
 
+        for feature in table.features:
+            parsed_features.append(
+                {
+                    "table": table.name,
+                    "name": feature.name,
+                    "type": feature.dtype.name,
+                    "batch_source": batch_source,
+                    "stream_source": stream_source,
+                    "batch_source_config": json.dumps(
+                        table.to_dict()["spec"]["batchSource"]
+                    ),
+                    "stream_source_config": stream_source_config,
+                }
+            )
+
         parsed_tables.append(
             {
                 "name": table.name,
                 "features": features,
                 "entities": entities,
-                "batch_source": batch_source,
-                "stream_source": stream_source,
-                "batch_source_config": json.dumps(
-                    table.to_dict()["spec"]["batchSource"]
-                ),
-                "stream_source_config": stream_source_config,
             }
         )
 
