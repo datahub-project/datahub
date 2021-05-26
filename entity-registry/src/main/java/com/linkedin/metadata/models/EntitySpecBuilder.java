@@ -33,10 +33,29 @@ public class EntitySpecBuilder {
   public static SchemaAnnotationHandler _searchHandler = new PegasusSchemaAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _relationshipHandler = new PegasusSchemaAnnotationHandlerImpl(RelationshipAnnotation.ANNOTATION_NAME);
 
+  private final AnnotationExtractionMode _extractionMode;
   private final Set<String> _entityNames = new HashSet<>();
   private final Set<RelationshipFieldSpec> _relationshipFieldSpecs = new HashSet<>();
 
-  public EntitySpecBuilder() { }
+  public enum AnnotationExtractionMode {
+    /**
+     * Extract all annotations types, the default.
+     */
+    DEFAULT,
+    /**
+     * Skip annotations on aspect record fields, only
+     * parse entity + aspect annotations.
+     */
+    IGNORE_ASPECT_FIELDS
+  }
+
+  public EntitySpecBuilder() {
+    this(AnnotationExtractionMode.DEFAULT);
+  }
+
+  public EntitySpecBuilder(final AnnotationExtractionMode extractionMode) {
+    _extractionMode = extractionMode;
+  }
 
   public List<EntitySpec> buildEntitySpecs(@Nonnull final DataSchema snapshotSchema) {
 
@@ -152,6 +171,15 @@ public class EntitySpecBuilder {
 
       final AspectAnnotation aspectAnnotation =
           AspectAnnotation.fromSchemaProperty(aspectAnnotationObj, aspectRecordSchema.getFullName());
+
+      if (AnnotationExtractionMode.IGNORE_ASPECT_FIELDS.equals(_extractionMode)) {
+        // Short Circuit.
+        return new AspectSpec(
+            aspectAnnotation,
+            Collections.emptyList(),
+            Collections.emptyList(),
+            aspectRecordSchema);
+      }
 
       final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSearchResult =
           SchemaAnnotationProcessor.process(Collections.singletonList(_searchHandler),

@@ -19,8 +19,8 @@ import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.restli.RestliUtils;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.TagDocument;
-import com.linkedin.metadata.search.query.ESSearchDAO;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.parseq.Task;
@@ -82,8 +82,8 @@ public final class Tags extends BaseSearchableEntityResource<
     private EntityService _entityService;
 
     @Inject
-    @Named("esSearchDao")
-    private ESSearchDAO _entitySearchDao;
+    @Named("searchService")
+    private SearchService _searchService;
 
     public Tags() {
         super(TagSnapshot.class, TagAspect.class);
@@ -211,7 +211,7 @@ public final class Tags extends BaseSearchableEntityResource<
         final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
         return RestliUtils.toTask(() -> {
 
-            final SearchResult searchResult = _entitySearchDao.search(
+            final SearchResult searchResult = _searchService.search(
                 "tag",
                 input,
                 filter,
@@ -238,7 +238,7 @@ public final class Tags extends BaseSearchableEntityResource<
                                                  @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
                                                  @ActionParam(PARAM_LIMIT) int limit) {
         return RestliUtils.toTask(() ->
-            _entitySearchDao.autoComplete(
+            _searchService.autoComplete(
                 "tag",
                 query,
                 field,

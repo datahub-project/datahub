@@ -15,12 +15,15 @@ public class IndexConventionImpl implements IndexConvention {
   private final Map<String, String> indexNameMapping = new HashMap<>();
   private final Optional<String> _prefix;
 
+  private final static String VERSION = "v2";
+  private final static String SUFFIX = "index";
+
   public IndexConventionImpl(@Nullable String prefix) {
     _prefix = StringUtils.isEmpty(prefix) ? Optional.empty() : Optional.of(prefix);
   }
 
   private String createIndexName(String baseName) {
-    return (_prefix.map(prefix -> prefix + "_").orElse("") + baseName).toLowerCase();
+    return (_prefix.map(prefix -> prefix + "_").orElse("") + baseName + SUFFIX + "_" + VERSION).toLowerCase();
   }
 
   @Nonnull
@@ -32,7 +35,7 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getIndexName(EntitySpec entitySpec) {
-    return this.getIndexName(entitySpec.getName() + "document_v2");
+    return this.getIndexName(entitySpec.getName());
   }
 
   @Nonnull

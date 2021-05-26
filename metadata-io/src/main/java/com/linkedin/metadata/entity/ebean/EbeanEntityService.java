@@ -8,7 +8,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
-import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
+import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -42,9 +42,9 @@ public class EbeanEntityService extends EntityService {
 
   public EbeanEntityService(
       @Nonnull final EbeanAspectDao entityDao,
-      @Nonnull final EntityKafkaMetadataEventProducer kafkaProducer,
+      @Nonnull final EntityEventProducer eventProducer,
       @Nonnull final EntityRegistry entityRegistry) {
-    super(kafkaProducer, entityRegistry);
+    super(eventProducer, entityRegistry);
     _entityDao = entityDao;
   }
 

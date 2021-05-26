@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.query.builder;
+package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;

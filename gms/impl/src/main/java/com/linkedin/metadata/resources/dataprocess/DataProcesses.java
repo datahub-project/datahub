@@ -25,7 +25,7 @@ import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.DataProcessDocument;
-import com.linkedin.metadata.search.query.ESSearchDAO;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.snapshot.DataProcessSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
@@ -87,8 +87,8 @@ public class DataProcesses extends BaseSearchableEntityResource<
     private EntityService _entityService;
 
     @Inject
-    @Named("esSearchDao")
-    private ESSearchDAO _entitySearchDao;
+    @Named("searchService")
+    private SearchService _searchService;
 
     @Nonnull
     @Override
@@ -223,7 +223,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
             final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
             final SortCriterion searchSortCriterion = sortCriterion != null ? sortCriterion
                 : new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING);
-            final SearchResult filterResults = _entitySearchDao.filter(
+            final SearchResult filterResults = _searchService.filter(
                 "dataProcess",
                 searchFilter,
                 searchSortCriterion,
@@ -255,7 +255,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
                 .collect(Collectors.toList()));
         return RestliUtils.toTask(() -> {
 
-            final SearchResult searchResult = _entitySearchDao.search(
+            final SearchResult searchResult = _searchService.search(
                 "dataProcess",
                 input,
                 filter,
@@ -282,7 +282,7 @@ public class DataProcesses extends BaseSearchableEntityResource<
         @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
         @ActionParam(PARAM_LIMIT) int limit) {
         return RestliUtils.toTask(() ->
-            _entitySearchDao.autoComplete(
+            _searchService.autoComplete(
                 "dataProcess",
                 query,
                 field,

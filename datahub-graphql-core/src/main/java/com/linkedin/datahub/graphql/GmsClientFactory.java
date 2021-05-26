@@ -1,21 +1,12 @@
 package com.linkedin.datahub.graphql;
 
-import com.linkedin.chart.client.Charts;
-import com.linkedin.dashboard.client.Dashboards;
 import com.linkedin.dataplatform.client.DataPlatforms;
-import com.linkedin.dataset.client.Datasets;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.identity.client.CorpUsers;
-import com.linkedin.identity.client.CorpGroups;
 import com.linkedin.lineage.client.Lineages;
 import com.linkedin.lineage.client.Relationships;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
-import com.linkedin.ml.client.MLModels;
 import com.linkedin.restli.client.Client;
-import com.linkedin.tag.client.Tags;
 import com.linkedin.util.Configuration;
-import com.linkedin.datajob.client.DataFlows;
-import com.linkedin.datajob.client.DataJobs;
 import com.linkedin.glossary.client.GlossaryTerms;
 
 /**

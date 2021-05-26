@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.indexbuilder;
+package com.linkedin.metadata.search.utils;
 
 import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.urn.ChartUrn;

@@ -26,7 +26,7 @@ public class SearchDocumentTransformer {
   private SearchDocumentTransformer() {
   }
 
-  public static Optional<JsonNode> transform(final RecordTemplate snapshot, final EntitySpec entitySpec) {
+  public static Optional<String> transform(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     final Map<String, List<SearchableFieldSpec>> searchableFieldSpecsPerAspect = entitySpec.getAspectSpecMap()
         .entrySet()
         .stream()
@@ -39,7 +39,7 @@ public class SearchDocumentTransformer {
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     searchDocument.put("urn", snapshot.data().get("urn").toString());
     extractedFields.forEach((key, value) -> setValue(key, value, searchDocument));
-    return Optional.of(searchDocument);
+    return Optional.of(searchDocument.toString());
   }
 
   public static void setValue(final SearchableFieldSpec fieldSpec, final List<Object> fieldValues,

@@ -9,8 +9,8 @@ import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
-import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
@@ -54,6 +54,7 @@ import static com.linkedin.metadata.PegasusUtils.*;
  * ingestion using {@link #produceMetadataAuditEvent(Urn, RecordTemplate, RecordTemplate)}.
  *
  * TODO: Consider whether we can abstract away virtual versioning semantics to subclasses of this class.
+ * TODO: Extract out a nested 'AspectService'.
  */
 public abstract class EntityService {
 
@@ -63,37 +64,94 @@ public abstract class EntityService {
    */
   public static final long LATEST_ASPECT_VERSION = 0;
 
-  private final EntityKafkaMetadataEventProducer _producer;
+  private final EntityEventProducer _producer;
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
   private Boolean _emitAspectSpecificAuditEvent = false;
 
-  protected EntityService(@Nonnull final EntityKafkaMetadataEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
+  protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;
     _entityRegistry = entityRegistry;
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
   }
 
-  public abstract Map<Urn, List<RecordTemplate>> getLatestAspects(
+  /**
+   * Retrieves the latest aspects corresponding to a batch of {@link Urn}s based on a provided
+   * set of aspect names.
+   *
+   * @param urns set of urns to fetch aspects for
+   * @param aspectNames aspects to fetch for each urn in urns set
+   * @return a map of provided {@link Urn} to a List containing the requested aspects.
+   */
+  protected abstract Map<Urn, List<RecordTemplate>> getLatestAspects(
       @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames);
 
+  /**
+   * Retrieves an aspect having a specific {@link Urn}, name, & version.
+   *
+   * Note that once we drop support for legacy aspect-specific resources,
+   * we should make this a protected method. Only visible for backwards compatibility.
+   *
+   * @param urn an urn associated with the requested aspect
+   * @param aspectName name of the aspect requested
+   * @param version specific version of the aspect being requests
+   * @return the {@link RecordTemplate} representation of the requested aspect object
+   */
   public abstract RecordTemplate getAspect(
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
       long version);
 
+  /**
+   * Retrieves a list of all persisted aspects with a specific name, sorted by corresponding urn.
+   *
+   * Note that once we drop support for legacy 'getAllDataPlatforms' endpoint,
+   * we can drop support for this unless otherwise required. Only visible for backwards compatibility.
+   *
+   * @param aspectName name of the aspect requested
+   * @param start the starting index of the returned aspects, used in pagination
+   * @param count the count of the aspects to be returned, used in pagination
+   * @return a {@link ListResult} of {@link RecordTemplate}s representing the requested aspect.
+   */
   public abstract ListResult<RecordTemplate> listLatestAspects(
       @Nonnull final String aspectName,
       final int start,
       int count);
 
+  /**
+   * Ingests (inserts) a new version of an entity aspect & emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
+   *
+   * Note that in general, this should not be used externally. It is currently serving upgrade scripts and
+   * is as such public.
+   *
+   * @param urn an urn associated with the new aspect
+   * @param aspectName name of the aspect being inserted
+   * @param newValue value of the aspect being inserted
+   * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
+   * @return the {@link RecordTemplate} representation of the written aspect object
+   */
   public abstract RecordTemplate ingestAspect(
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
       @Nonnull final RecordTemplate newValue,
       @Nonnull final AuditStamp auditStamp);
 
+  /**
+   * Updates a particular version of an aspect & optionally emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
+   *
+   * Note that in general, this should not be used externally. It is currently serving upgrade scripts and
+   * is as such public.
+   *
+   * @param urn an urn associated with the aspect to update
+   * @param aspectName name of the aspect being updated
+   * @param newValue new value of the aspect being updated
+   * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
+   * @param version specific version of the aspect being requests
+   * @param emitMae whether a {@link com.linkedin.mxe.MetadataAuditEvent} should be emitted in correspondence upon
+   *                successful update
+   * @return the {@link RecordTemplate} representation of the requested aspect object
+   */
   public abstract RecordTemplate updateAspect(
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
@@ -105,16 +163,6 @@ public abstract class EntityService {
   /**
    * Default implementations. Subclasses should feel free to override if it's more efficient to do so.
    */
-  public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp) {
-    for (final Entity entity : entities) {
-      ingestEntity(entity, auditStamp);
-    }
-  }
-
-  public  void ingestEntity(@Nonnull final Entity entity, @Nonnull final AuditStamp auditStamp) {
-    ingestSnapshotUnion(entity.getValue(), auditStamp);
-  }
-
   public Entity getEntity(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
     return getEntities(Collections.singleton(urn), aspectNames).entrySet().stream()
         .map(Map.Entry::getValue)
@@ -131,93 +179,14 @@ public abstract class EntityService {
     return getAspect(urn, aspectName, LATEST_ASPECT_VERSION);
   }
 
-  public void setEmitAspectSpecificAuditEvent(Boolean emitAspectSpecificAuditEvent) {
-    _emitAspectSpecificAuditEvent = emitAspectSpecificAuditEvent;
-  }
-
-  public Boolean getEmitAspectSpecificAuditEvent() {
-    return _emitAspectSpecificAuditEvent;
-  }
-
-  protected EntityRegistry getEntityRegistry() {
-    return _entityRegistry;
-  }
-
-  protected Set<String> getEntityAspectNames(final Urn entityUrn) {
-    return getEntityAspectNames(urnToEntityName(entityUrn));
-  }
-
-  protected Set<String> getEntityAspectNames(final String entityName) {
-    return _entityToValidAspects.get(entityName);
-  }
-
-  protected void produceMetadataAuditEvent(
-      @Nonnull final Urn urn,
-      @Nullable final RecordTemplate oldValue,
-      @Nonnull final RecordTemplate newValue) {
-    // First, try to create a new and an old snapshot.
-    final Snapshot newSnapshot = buildSnapshot(urn, newValue);
-    Snapshot oldSnapshot = null;
-    if (oldValue != null) {
-      oldSnapshot = buildSnapshot(urn, oldValue);
-    }
-
-    _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot);
-
-    // 4.1 Produce aspect specific MAE after a successful update
-    if (_emitAspectSpecificAuditEvent) {
-      _producer.produceAspectSpecificMetadataAuditEvent(urn, oldValue, newValue);
+  public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp) {
+    for (final Entity entity : entities) {
+      ingestEntity(entity, auditStamp);
     }
   }
 
-  protected Map<Urn, Snapshot> batchGetSnapshotUnion(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
-    return batchGetSnapshotRecord(urns, aspectNames).entrySet()
-        .stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toSnapshotUnion(entry.getValue())));
-  }
-
-  @Nonnull
-  protected Map<Urn, RecordTemplate> batchGetSnapshotRecord(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
-    return batchGetLatestAspectUnions(urns, aspectNames).entrySet()
-        .stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toSnapshotRecord(entry.getKey(), entry.getValue())));
-  }
-
-  @Nonnull
-  protected Map<Urn, List<UnionTemplate>> batchGetLatestAspectUnions(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
-    return getLatestAspects(urns, aspectNames).entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
-          return entry.getValue().stream().map(aspectRecord -> toAspectUnion(entry.getKey(), aspectRecord))
-              .collect(Collectors.toList());
-        }));
-  }
-
-  private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp) {
-    final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
-    final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
-    final List<RecordTemplate> aspectRecordsToIngest = com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
-
-    aspectRecordsToIngest.stream().map(aspect -> {
-      final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());
-      return ingestAspect(urn, aspectName, aspect, auditStamp);
-    }).collect(Collectors.toList());
-  }
-
-  private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
-    final RecordTemplate keyAspectValue = buildKeyAspect(urn);
-    return toSnapshotUnion(
-        toSnapshotRecord(
-            urn,
-            ImmutableList.of(toAspectUnion(urn, keyAspectValue), toAspectUnion(urn, aspectValue))
-        )
-    );
-  }
-
-  protected RecordTemplate buildKeyAspect(@Nonnull final Urn urn) {
-    final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
-    final AspectSpec keySpec = spec.getAspectSpecs().stream().filter(AspectSpec::isKey).findFirst().get();
-    final RecordDataSchema keySchema = keySpec.getPegasusSchema();
-    return EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
+  public  void ingestEntity(@Nonnull final Entity entity, @Nonnull final AuditStamp auditStamp) {
+    ingestSnapshotUnion(entity.getValue(), auditStamp);
   }
 
   @Nonnull
@@ -238,9 +207,56 @@ public abstract class EntityService {
   protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
     return getLatestAspects(urns, aspectNames).entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry ->
-           entry.getValue().stream().map(aspectRecord -> toAspectUnion(entry.getKey(), aspectRecord))
-              .collect(Collectors.toList())
+            entry.getValue().stream().map(aspectRecord -> toAspectUnion(entry.getKey(), aspectRecord))
+                .collect(Collectors.toList())
         ));
+  }
+
+  private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp) {
+    final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
+    final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
+    final List<RecordTemplate> aspectRecordsToIngest = com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
+
+    aspectRecordsToIngest.forEach(aspect -> {
+      final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());
+      ingestAspect(urn, aspectName, aspect, auditStamp);
+    });
+  }
+
+  protected void produceMetadataAuditEvent(
+      @Nonnull final Urn urn,
+      @Nullable final RecordTemplate oldValue,
+      @Nonnull final RecordTemplate newValue) {
+
+    final Snapshot newSnapshot = buildSnapshot(urn, newValue);
+    Snapshot oldSnapshot = null;
+    if (oldValue != null) {
+      oldSnapshot = buildSnapshot(urn, oldValue);
+    }
+
+    _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot);
+
+    // 4.1 Produce aspect specific MAE after a successful update
+    if (_emitAspectSpecificAuditEvent) {
+      _producer.produceAspectSpecificMetadataAuditEvent(urn, oldValue, newValue);
+    }
+  }
+
+  private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
+    final RecordTemplate keyAspectValue = buildKeyAspect(urn);
+    return toSnapshotUnion(
+        toSnapshotRecord(
+            urn,
+            ImmutableList.of(toAspectUnion(urn, keyAspectValue), toAspectUnion(urn, aspectValue))
+        )
+    );
+  }
+
+  protected RecordTemplate buildKeyAspect(@Nonnull final Urn urn) {
+    final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
+    final AspectSpec keySpec = spec.getAspectSpecs().stream().filter(AspectSpec::isKey).findFirst().get();
+    final RecordDataSchema keySchema = keySpec.getPegasusSchema();
+    return EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
   }
 
   protected Entity toEntity(@Nonnull final Snapshot snapshot) {
@@ -293,6 +309,26 @@ public abstract class EntityService {
                 .map(AspectSpec::getName)
                 .collect(Collectors.toSet())
         ));
+  }
+
+  public void setEmitAspectSpecificAuditEvent(Boolean emitAspectSpecificAuditEvent) {
+    _emitAspectSpecificAuditEvent = emitAspectSpecificAuditEvent;
+  }
+
+  public Boolean getEmitAspectSpecificAuditEvent() {
+    return _emitAspectSpecificAuditEvent;
+  }
+
+  protected EntityRegistry getEntityRegistry() {
+    return _entityRegistry;
+  }
+
+  protected Set<String> getEntityAspectNames(final Urn entityUrn) {
+    return getEntityAspectNames(urnToEntityName(entityUrn));
+  }
+
+  protected Set<String> getEntityAspectNames(final String entityName) {
+    return _entityToValidAspects.get(entityName);
   }
 
   public abstract void setWritable();

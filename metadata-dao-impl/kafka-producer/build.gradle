@@ -5,6 +5,7 @@ dependencies {
   compile project(':metadata-events:mxe-registration')
   compile project(':metadata-events:mxe-utils-avro-1.7')
   compile project(':entity-registry')
+  compile project(':metadata-io')
 
   compile externalDependency.gmaDaoApi
   compile externalDependency.kafkaClients

@@ -11,5 +11,6 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   testCompile externalDependency.testng
+  testCompile project(':test-models')
 
 }

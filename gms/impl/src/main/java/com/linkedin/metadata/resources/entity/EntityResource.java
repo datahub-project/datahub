@@ -12,8 +12,7 @@ import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.indexbuilder.BrowsePathUtils;
-import com.linkedin.metadata.search.query.ESBrowseDAO;
-import com.linkedin.metadata.search.query.ESSearchDAO;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
@@ -75,12 +74,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private EntityService _entityService;
 
   @Inject
-  @Named("esSearchDao")
-  private ESSearchDAO _entitySearchDao;
-
-  @Inject
-  @Named("esBrowseDao")
-  private ESBrowseDAO _entityBrowseDao;
+  @Named("searchService")
+  private SearchService _searchService;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -166,7 +161,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count) {
 
-    return RestliUtils.toTask(() -> _entitySearchDao.search(entityName, input, filter, sortCriterion, start, count));
+    return RestliUtils.toTask(() -> _searchService.search(entityName, input, filter, sortCriterion, start, count));
   }
 
   @Action(name = ACTION_AUTOCOMPLETE)
@@ -178,7 +173,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_LIMIT) int limit) {
 
-    return RestliUtils.toTask(() -> _entitySearchDao.autoComplete(entityName, query, field, filter, limit));
+    return RestliUtils.toTask(() -> _searchService.autoComplete(entityName, query, field, filter, limit));
   }
 
   @Action(name = ACTION_BROWSE)
@@ -190,14 +185,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_LIMIT) int limit) {
 
-    return RestliUtils.toTask(() -> _entityBrowseDao.browse(entityName, path, filter, start, limit));
+    return RestliUtils.toTask(() -> _searchService.browse(entityName, path, filter, start, limit));
   }
 
   @Action(name = ACTION_GET_BROWSE_PATHS)
   @Nonnull
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
-    return RestliUtils.toTask(() -> new StringArray(_entityBrowseDao.getBrowsePaths(urnToEntityName(urn), urn)));
+    return RestliUtils.toTask(() -> new StringArray(_searchService.getBrowsePaths(urnToEntityName(urn), urn)));
   }
 
   /*

@@ -8,6 +8,7 @@ import io.ebean.EbeanServer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.elasticsearch.client.RestHighLevelClient;
 
 
 public class NoCodeCleanupUpgrade implements Upgrade {
@@ -18,10 +19,12 @@ public class NoCodeCleanupUpgrade implements Upgrade {
   // Upgrade requires the EbeanServer.
   public NoCodeCleanupUpgrade(
       final EbeanServer server,
-      final GraphService graphClient) {
+      final GraphService graphClient,
+      final RestHighLevelClient searchClient) {
     _steps = buildUpgradeSteps(
         server,
-        graphClient);
+        graphClient,
+        searchClient);
     _cleanupSteps = buildCleanupSteps();
   }
 
@@ -46,11 +49,13 @@ public class NoCodeCleanupUpgrade implements Upgrade {
 
   private List<UpgradeStep<?>> buildUpgradeSteps(
       final EbeanServer server,
-      final GraphService graphClient) {
+      final GraphService graphClient,
+      final RestHighLevelClient searchClient) {
     final List<UpgradeStep<?>> steps = new ArrayList<>();
     steps.add(new NoCodeUpgradeQualificationStep(server));
     steps.add(new DeleteAspectTableStep(server));
     steps.add(new DeleteLegacyGraphRelationshipsStep(graphClient));
+    steps.add(new DeleteLegacySearchIndicesStep(searchClient));
     return steps;
   }
 }

@@ -32,8 +32,7 @@ import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseBrowsableEntityResource;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.ChartDocument;
-import com.linkedin.metadata.search.query.ESBrowseDAO;
-import com.linkedin.metadata.search.query.ESSearchDAO;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.snapshot.ChartSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
@@ -95,12 +94,8 @@ public class Charts extends BaseBrowsableEntityResource<
   private EntityService _entityService;
 
   @Inject
-  @Named("esSearchDao")
-  private ESSearchDAO _entitySearchDao;
-
-  @Inject
-  @Named("esBrowseDao")
-  private ESBrowseDAO _entityBrowseDao;
+  @Named("searchService")
+  private SearchService _searchService;
 
   @Nonnull
   @Override
@@ -249,7 +244,7 @@ public class Charts extends BaseBrowsableEntityResource<
       final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
       final SortCriterion searchSortCriterion = sortCriterion != null ? sortCriterion
           : new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING);
-      final SearchResult filterResults = _entitySearchDao.filter(
+      final SearchResult filterResults = _searchService.filter(
           "chart",
           searchFilter,
           searchSortCriterion,
@@ -281,7 +276,7 @@ public class Charts extends BaseBrowsableEntityResource<
             .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
-      final SearchResult searchResult = _entitySearchDao.search(
+      final SearchResult searchResult = _searchService.search(
           "chart",
           input,
           filter,
@@ -308,7 +303,7 @@ public class Charts extends BaseBrowsableEntityResource<
       @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
       @ActionParam(PARAM_LIMIT) int limit) {
     return RestliUtils.toTask(() ->
-        _entitySearchDao.autoComplete(
+        _searchService.autoComplete(
             "chart",
             query,
             field,
@@ -324,7 +319,7 @@ public class Charts extends BaseBrowsableEntityResource<
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_LIMIT) int limit) {
     return RestliUtils.toTask(() ->
-        _entityBrowseDao.browse(
+        _searchService.browse(
             "chart",
             path,
             filter,
@@ -339,7 +334,7 @@ public class Charts extends BaseBrowsableEntityResource<
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = "urn", typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
     return RestliUtils.toTask(() ->
-        new StringArray(_entityBrowseDao.getBrowsePaths(
+        new StringArray(_searchService.getBrowsePaths(
             "chart",
             urn))
     );

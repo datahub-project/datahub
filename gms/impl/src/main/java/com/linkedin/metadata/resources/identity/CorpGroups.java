@@ -23,7 +23,7 @@ import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.CorpGroupDocument;
-import com.linkedin.metadata.search.query.ESSearchDAO;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.snapshot.CorpGroupSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
@@ -80,8 +80,8 @@ public final class CorpGroups extends BaseSearchableEntityResource<
   private EntityService _entityService;
 
   @Inject
-  @Named("esSearchDao")
-  private ESSearchDAO _entitySearchDao;
+  @Named("searchService")
+  private SearchService _searchService;
 
   public CorpGroups() {
     super(CorpGroupSnapshot.class, CorpGroupAspect.class);
@@ -194,7 +194,7 @@ public final class CorpGroups extends BaseSearchableEntityResource<
             .collect(Collectors.toList()));
     return RestliUtils.toTask(() -> {
 
-      final SearchResult searchResult = _entitySearchDao.search(
+      final SearchResult searchResult = _searchService.search(
           "corpGroup",
           input,
           filter,
@@ -220,7 +220,7 @@ public final class CorpGroups extends BaseSearchableEntityResource<
       @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
       @ActionParam(PARAM_LIMIT) int limit) {
     return RestliUtils.toTask(() ->
-        _entitySearchDao.autoComplete(
+        _searchService.autoComplete(
             "corpGroup",
             query,
             field,
