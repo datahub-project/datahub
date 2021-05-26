@@ -37,7 +37,7 @@ describe('DataJobProfile', () => {
         );
 
         await waitFor(() => expect(queryAllByText('DataFlowInfoName').length).toBeGreaterThanOrEqual(1));
-        const rawButton = getByText('Tasks');
+        const rawButton = getByText('Task');
         fireEvent.click(rawButton);
         await waitFor(() => expect(getByTestId('dataflow-jobs-list')).toBeInTheDocument());
         await waitFor(() => expect(queryAllByText('DataJobInfoName3').length).toBeGreaterThanOrEqual(1));
