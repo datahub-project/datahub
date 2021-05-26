@@ -51,6 +51,7 @@ class FeastConfig(ConfigModel):
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
     core_url: str = "localhost:6565"
     env: str = DEFAULT_ENV
+    use_local_build: bool = False
 
 
 @dataclass
@@ -101,8 +102,18 @@ class FeastSource(Source):
         with tempfile.NamedTemporaryFile(suffix=".json") as tf:
 
             docker_client = docker.from_env()
+
+            # image to use for initial feast extraction
+            feast_image = "feast-ingest"
+
+            # build the image locally if specified
+            if self.config.use_local_build:
+                image, _ = docker_client.images.build(path="../feast_image/")
+
+                feast_image = image.id
+
             docker_client.containers.run(
-                "feast-ingest",
+                feast_image,
                 f'python3 ingest.py --core_url="{self.config.core_url}" --output_path=/out.json',
                 # allow the image to access the core URL if on host
                 network_mode="host",
@@ -132,6 +143,10 @@ class FeastSource(Source):
                     MLFeaturePropertiesClass(
                         name=feature["name"],
                         dataType=self.get_field_type(feature["type"], feature["name"]),
+                        # TODO: update this
+                        sourceDataset=builder.make_dataset_urn(
+                            "test", "test", self.config.env
+                        ),
                     )
                 )
 
