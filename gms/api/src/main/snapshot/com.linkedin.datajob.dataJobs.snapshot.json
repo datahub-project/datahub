@@ -455,7 +455,11 @@
           "name" : "flowUrn",
           "type" : "com.linkedin.common.DataFlowUrn",
           "doc" : "DataFlow urn that this job is part of",
-          "optional" : true
+          "optional" : true,
+          "Relationship" : {
+            "entityTypes" : [ "dataFlow" ],
+            "name" : "IsPartOf"
+          }
         } ],
         "Aspect" : {
           "name" : "dataJobInfo"

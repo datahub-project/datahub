@@ -1210,7 +1210,11 @@
       "name" : "flowUrn",
       "type" : "com.linkedin.common.DataFlowUrn",
       "doc" : "DataFlow urn that this job is part of",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "dataFlow" ],
+        "name" : "IsPartOf"
+      }
     } ],
     "Aspect" : {
       "name" : "dataJobInfo"
@@ -3743,6 +3747,12 @@
         "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
       }, {
         "name" : "ingest",
+        "parameters" : [ {
+          "name" : "entity",
+          "type" : "com.linkedin.experimental.Entity"
+        } ]
+      }, {
+        "name" : "ingest_update",
         "parameters" : [ {
           "name" : "entity",
           "type" : "com.linkedin.experimental.Entity"

@@ -18,7 +18,6 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.DatasetAspect;
-import com.linkedin.metadata.aspect.DatasetAspectArray;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
@@ -35,7 +34,6 @@ import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseBrowsableEntityResource;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.DatasetDocument;
-import com.linkedin.metadata.search.indexbuilder.BrowsePathUtils;
 import com.linkedin.metadata.search.query.ESBrowseDAO;
 import com.linkedin.metadata.search.query.ESSearchDAO;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
@@ -402,8 +400,6 @@ public final class Datasets extends BaseBrowsableEntityResource<
   public Task<Void> ingest(@ActionParam(PARAM_SNAPSHOT) @Nonnull DatasetSnapshot snapshot) {
     return RestliUtils.toTask(() -> {
           try {
-            final DatasetAspectArray aspects = snapshot.getAspects();
-            aspects.add(DatasetAspect.create(BrowsePathUtils.buildBrowsePath(snapshot.getUrn())));
             final AuditStamp auditStamp =
                 new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
             _entityService.ingestEntity(new Entity().setValue(Snapshot.create(snapshot)), auditStamp);
