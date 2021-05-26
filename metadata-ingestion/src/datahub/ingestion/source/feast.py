@@ -87,15 +87,15 @@ class FeastSource(Source):
             parent_name:
                 name of table (for logging)
         """
-        TypeClass = _field_type_mapping.get(field_type)
+        enum_type = _field_type_mapping.get(field_type)
 
-        if TypeClass is None:
+        if enum_type is None:
             self.report.report_warning(
                 parent_name, f"unable to map type {field_type} to metadata schema"
             )
-            TypeClass = MLFeatureDataType.USELESS
+            enum_type = MLFeatureDataType.USELESS
 
-        return TypeClass
+        return enum_type
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         with tempfile.NamedTemporaryFile(suffix=".json") as tf:
