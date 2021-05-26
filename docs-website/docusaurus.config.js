@@ -34,6 +34,11 @@ module.exports = {
           position: "right",
         },
         {
+          to: "docs/saas",
+          label: "SaaS",
+          position: "right",
+        },
+        {
           href: "https://github.com/linkedin/datahub",
           label: "GitHub",
           position: "right",
