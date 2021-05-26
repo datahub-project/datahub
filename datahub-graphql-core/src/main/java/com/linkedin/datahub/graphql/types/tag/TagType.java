@@ -115,6 +115,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, TAG_SEARCH_CONFIG.getFacetFields());
+        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
         final AutoCompleteResult result = _tagClient.autoComplete("tag", query, field, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
