@@ -117,7 +117,6 @@ export const HomePageHeader = () => {
     const isAnalyticsEnabled = data && data.isAnalyticsEnabled;
 
     const onSearch = (query: string, type?: EntityType) => {
-        console.log('onSearch---', query, type);
         if (!query || query.trim().length === 0) {
             return;
         }
