@@ -1004,9 +1004,6 @@ class MLFeatureDataTypeClass(object):
     A useless feature has high cardinality. An example would be bank account numbers that were generated randomly."""
     USELESS = "USELESS"
     
-    """Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc."""
-    CONTINUOUS = "CONTINUOUS"
-    
     """Nominal data is made of discrete values with no numerical relationship between the different categories — mean and median are meaningless.
     Animal species is one example. For example, pig is not higher than bird and lower than fish."""
     NOMINAL = "NOMINAL"
@@ -1053,6 +1050,9 @@ class MLFeatureDataTypeClass(object):
     
     """Set Data Type ex: set, frozenset"""
     SET = "SET"
+    
+    """Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc."""
+    CONTINUOUS = "CONTINUOUS"
     
     
 class OwnerClass(DictWrapper):
@@ -3391,7 +3391,7 @@ class MLFeatureSetSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSetSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["MLFeatureSetPropertiesClass", "MLEntityPropertiesClass"]],
+        aspects: List[Union["OwnershipClass", "MLFeatureSetPropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]],
     ):
         super().__init__()
         
@@ -3423,13 +3423,13 @@ class MLFeatureSetSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["MLFeatureSetPropertiesClass", "MLEntityPropertiesClass"]]:
+    def aspects(self) -> List[Union["OwnershipClass", "MLFeatureSetPropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]:
         """Getter: The list of metadata aspects associated with the MLFeatureSet. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["MLFeatureSetPropertiesClass", "MLEntityPropertiesClass"]]) -> None:
+    def aspects(self, value: List[Union["OwnershipClass", "MLFeatureSetPropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the MLFeatureSet. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -4059,6 +4059,7 @@ class MLFeaturePropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties")
     def __init__(self,
+        source: str,
         name: Union[None, str]=None,
         description: Union[None, str]=None,
         dataType: Union[None, Union[str, "MLFeatureDataTypeClass"]]=None,
@@ -4070,6 +4071,7 @@ class MLFeaturePropertiesClass(DictWrapper):
         self.description = description
         self.dataType = dataType
         self.version = version
+        self.source = source
     
     @classmethod
     def construct_with_defaults(cls) -> "MLFeaturePropertiesClass":
@@ -4083,6 +4085,7 @@ class MLFeaturePropertiesClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.dataType = self.RECORD_SCHEMA.field_map["dataType"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
+        self.source = str()
     
     
     @property
@@ -4131,6 +4134,18 @@ class MLFeaturePropertiesClass(DictWrapper):
     def version(self, value: Union[None, "VersionTagClass"]) -> None:
         """Setter: Version of the MLFeature"""
         self._inner_dict['version'] = value
+    
+    
+    @property
+    def source(self) -> str:
+        """Getter: Source of the MLFeature"""
+        return self._inner_dict.get('source')  # type: ignore
+    
+    
+    @source.setter
+    def source(self, value: str) -> None:
+        """Setter: Source of the MLFeature"""
+        self._inner_dict['source'] = value
     
     
 class MLFeatureSetPropertiesClass(DictWrapper):
