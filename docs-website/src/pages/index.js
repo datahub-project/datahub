@@ -89,9 +89,9 @@ const features = [
       <>
         DataHub has pre-built integrations with your favorite systems: Kafka,
         Airflow, MySQL, SQL Server, Postgres, LDAP, Snowflake, Hive, BigQuery,
-        and <Link to={"docs/metadata-ingestion"}>many others</Link>. The community
-        is continuously adding more integrations, so this list keeps getting
-        longer and longer.
+        and <Link to={"docs/metadata-ingestion"}>many others</Link>. The
+        community is continuously adding more integrations, so this list keeps
+        getting longer and longer.
       </>
     ),
   },
