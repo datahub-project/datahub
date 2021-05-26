@@ -14,7 +14,7 @@ record DatasetDeprecation {
    * Whether the dataset is deprecated by owner.
    */
   @Searchable = {
-    "fieldType": "BOOLEAN"
+    "fieldType": "BOOLEAN",
     "weightsPerFieldValue": { "true": 0.5 }
   }
   deprecated: boolean

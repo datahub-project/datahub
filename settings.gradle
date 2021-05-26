@@ -34,5 +34,6 @@ include 'docs-website'
 include 'metadata-io'
 include 'entity-registry'
 include 'datahub-upgrade'
+include 'test-models'
 
 startParameter.excludedTaskNames << ':datahub-web:build'

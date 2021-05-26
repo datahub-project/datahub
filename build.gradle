@@ -63,6 +63,7 @@ project.ext.externalDependency = [
     'h2': 'com.h2database:h2:1.4.196',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
+    'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
     'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.9.7',
     'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.9.7',
     'javatuples': 'org.javatuples:javatuples:1.2',

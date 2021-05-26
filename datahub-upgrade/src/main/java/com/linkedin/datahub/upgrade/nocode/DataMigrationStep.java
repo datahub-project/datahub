@@ -163,20 +163,18 @@ public class DataMigrationStep implements UpgradeStep<Void> {
           totalRowsMigrated++;
         }
         context.report().addLine(String.format("Successfully migrated %s rows", totalRowsMigrated));
-
-        if (totalRowsMigrated != rowCount) {
-          return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
-              String.format("Number of rows migrated %s does not equal the number of input rows %s...",
-                  totalRowsMigrated,
-                  rowCount));
-        }
-
         start = start + count;
         try {
           TimeUnit.MILLISECONDS.sleep(getBatchDelayMs(context.parsedArgs()));
         } catch (InterruptedException e) {
           throw new RuntimeException("Thread interrupted while sleeping after successful batch migration.");
         }
+      }
+      if (totalRowsMigrated != rowCount) {
+        return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
+            String.format("Number of rows migrated %s does not equal the number of input rows %s...",
+                totalRowsMigrated,
+                rowCount));
       }
       return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
