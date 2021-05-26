@@ -53,7 +53,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | lookml        | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
 | kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
 | druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| dbt           | _no additional dependencies_                               | DBT source                          |
+| dbt           | _no additional dependencies_                               | dbt source                          |
 | datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API          |
 | datahub-kafka | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka             |
 
@@ -595,19 +595,19 @@ source:
     filename: ./path/to/mce/file.json
 ```
 
-### DBT `dbt`
+### dbt `dbt`
 
-Pull metadata from DBT output files:
+Pull metadata from dbt artifacts files:
 
 - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
   - This file contains model, source and lineage data.
 - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
   - This file contains schema data.
-  - DBT does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
+  - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
 - target_platform:
-  - The data platform you are enriching with DBT metadata.
+  - The data platform you are enriching with dbt metadata.
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
-- load_schema:
+- load_schemas:
   - Load schemas from dbt catalog file, not necessary when the underlying data platform already has this data.
 
 ```yml
@@ -616,9 +616,11 @@ source:
   config:
     manifest_path: "./path/dbt/manifest_file.json"
     catalog_path: "./path/dbt/catalog_file.json"
-    target_platform: "postgres" # optional eg postgres, snowflake etc.
-    load_schema: True / False
+    target_platform: "postgres" # optional, eg "postgres", "snowflake", etc.
+    load_schemas: True or False
 ```
+
+Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
 
 ### Kafka Connect `kafka-connect`
 

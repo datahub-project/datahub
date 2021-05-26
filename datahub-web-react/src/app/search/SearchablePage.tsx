@@ -5,7 +5,8 @@ import { useTheme } from 'styled-components';
 
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
+import { EntityType } from '../../types.generated';
+import { useGetAutoCompleteAllResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
@@ -16,7 +17,7 @@ const styles = {
 
 interface Props extends React.PropsWithChildren<any> {
     initialQuery?: string;
-    onSearch?: (query: string) => void;
+    onSearch?: (query: string, type?: EntityType) => void;
     onAutoComplete?: (query: string) => void;
 }
 
@@ -35,10 +36,10 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     const themeConfig = useTheme();
 
     const user = useGetAuthenticatedUser();
-    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery();
+    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
 
-    const search = (query: string) => {
-        if (query.trim().length === 0) {
+    const search = (query: string, type?: EntityType) => {
+        if (!query || query.trim().length === 0) {
             return;
         }
         analytics.event({
@@ -47,7 +48,9 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
             pageNumber: 1,
             originPath: window.location.pathname,
         });
+
         navigateToSearchUrl({
+            type,
             query,
             history,
             entityRegistry,
@@ -58,7 +61,6 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
         getAutoCompleteResults({
             variables: {
                 input: {
-                    type: entityRegistry.getDefaultSearchEntityType(),
                     query,
                 },
             },
@@ -71,12 +73,16 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
                 initialQuery={initialQuery as string}
                 placeholderText={themeConfig.content.search.searchbarMessage}
                 suggestions={
-                    (suggestionsData && suggestionsData?.autoComplete && suggestionsData.autoComplete.suggestions) || []
+                    (suggestionsData &&
+                        suggestionsData?.autoCompleteForAll &&
+                        suggestionsData.autoCompleteForAll.suggestions) ||
+                    []
                 }
                 onSearch={onSearch || search}
                 onQueryChange={onAutoComplete || autoComplete}
                 authenticatedUserUrn={user?.urn || ''}
                 authenticatedUserPictureLink={user?.editableInfo?.pictureLink}
+                entityRegistry={entityRegistry}
             />
             <div style={styles.children}>{children}</div>
         </Layout>

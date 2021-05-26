@@ -101,6 +101,7 @@ const hardcoded_titles = {
   "README.md": "Introduction",
   "docs/demo.md": "Demo",
 };
+const hardcoded_hide_title = ["README.md"];
 
 const hardcoded_descriptions = {
   // Only applied if title is also overridden.
@@ -131,6 +132,9 @@ function markdown_guess_title(
     title = hardcoded_titles[filepath];
     if (filepath in hardcoded_descriptions) {
       contents.data.description = hardcoded_descriptions[filepath];
+    }
+    if (filepath in hardcoded_hide_title) {
+      contents.data.hide_title = true;
     }
   } else {
     // Find first h1 header and use it as the title.

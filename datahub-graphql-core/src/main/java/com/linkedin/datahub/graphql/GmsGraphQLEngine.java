@@ -35,6 +35,7 @@ import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
+import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForAllResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
@@ -213,6 +214,8 @@ public class GmsGraphQLEngine {
                         new SearchResolver(SEARCHABLE_TYPES)))
                 .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                         new AutoCompleteResolver(SEARCHABLE_TYPES)))
+                .dataFetcher("autoCompleteForAll", new AuthenticatedResolver<>(
+                        new AutoCompleteForAllResolver(SEARCHABLE_TYPES)))
                 .dataFetcher("browse", new AuthenticatedResolver<>(
                         new BrowseResolver(BROWSABLE_TYPES)))
                 .dataFetcher("browsePaths", new AuthenticatedResolver<>(

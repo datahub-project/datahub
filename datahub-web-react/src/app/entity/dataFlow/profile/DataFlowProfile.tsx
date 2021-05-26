@@ -15,6 +15,7 @@ import { Properties as PropertiesView } from '../../shared/Properties';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
+import { topologicalSort } from '../../../../utils/sort/topologicalSort';
 
 /**
  * Responsible for display the DataFlow Page
@@ -77,7 +78,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Task,
                 path: TabType.Task.toLowerCase(),
-                content: <DataFlowDataJobs dataJobs={dataJobs?.entities || []} />,
+                content: <DataFlowDataJobs dataJobs={topologicalSort(dataJobs?.entities || [])} />,
             },
         ];
     };
