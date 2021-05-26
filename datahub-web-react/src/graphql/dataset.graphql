@@ -36,8 +36,10 @@ query getDataset($urn: String!) {
         institutionalMemory {
             elements {
                 url
-                author
-                authorUsername
+                author {
+                    urn
+                    username
+                }
                 description
                 created {
                     actor

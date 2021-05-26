@@ -1,7 +1,12 @@
 import { Button, Form, Input, Space, Table, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType, InstitutionalMemoryMetadata, InstitutionalMemoryUpdate } from '../../../../types.generated';
+import {
+    CorpUser,
+    EntityType,
+    InstitutionalMemoryMetadata,
+    InstitutionalMemoryUpdate,
+} from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 
 export type Props = {
@@ -56,8 +61,7 @@ export default function Documentation({
         () =>
             stagedDocs.map((doc, index) => ({
                 key: index,
-                author: doc.author,
-                authorUsername: doc.authorUsername,
+                author: { urn: doc.author.urn, username: doc.author.username, type: EntityType.CorpUser },
                 url: doc.url,
                 description: doc.description,
                 createdAt: doc.created.time,
@@ -78,8 +82,7 @@ export default function Documentation({
         const newDoc = {
             url: '',
             description: '',
-            author: authorUrn,
-            authorUsername,
+            author: { urn: authorUrn, username: authorUsername, type: EntityType.CorpUser },
             created: {
                 time: Date.now(),
             },
@@ -97,12 +100,12 @@ export default function Documentation({
                 return {
                     url: row.url,
                     description: row.description,
-                    author: doc.author,
+                    author: doc.author.urn,
                     createdAt: doc.created.time,
                 };
             }
             return {
-                author: doc.author,
+                author: doc.author.urn,
                 url: doc.url,
                 description: doc.description,
                 createdAt: doc.created.time,
@@ -121,7 +124,7 @@ export default function Documentation({
     const onDelete = (index: number) => {
         const newDocs = stagedDocs.filter((_, i) => !(index === i));
         const updatedInstitutionalMemory = newDocs.map((doc) => ({
-            author: doc.author,
+            author: doc.author.urn,
             url: doc.url,
             description: doc.description,
         }));
@@ -155,10 +158,8 @@ export default function Documentation({
         {
             title: 'Author',
             dataIndex: 'author',
-            render: (authorUrn: string, record: any) => (
-                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${authorUrn}`}>
-                    {record.authorUsername}
-                </Link>
+            render: (user: CorpUser) => (
+                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}>{user.username}</Link>
             ),
         },
         {

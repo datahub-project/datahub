@@ -241,8 +241,7 @@ export const dataset3 = {
         elements: [
             {
                 url: 'https://www.google.com',
-                author: 'urn:li:corpuser:datahub',
-                authorUsername: 'datahub',
+                author: { urn: 'urn:li:corpuser:datahub', username: 'datahub', type: EntityType.CorpUser },
                 description: 'This only points to Google',
                 created: {
                     actor: 'urn:li:corpuser:1',

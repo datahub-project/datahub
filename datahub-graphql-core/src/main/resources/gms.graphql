@@ -503,12 +503,7 @@ type InstitutionalMemoryMetadata {
     """
     The author of this metadata
     """
-    author: String!
-
-    """
-    The author's username of this metadata
-    """
-    authorUsername: String!
+    author: CorpUser!
 
     """
     An AuditStamp corresponding to the creation of this resource
