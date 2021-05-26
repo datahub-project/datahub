@@ -4059,7 +4059,7 @@ class MLFeaturePropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties")
     def __init__(self,
-        source: str,
+        sourceDataset: str,
         name: Union[None, str]=None,
         description: Union[None, str]=None,
         dataType: Union[None, Union[str, "MLFeatureDataTypeClass"]]=None,
@@ -4071,7 +4071,7 @@ class MLFeaturePropertiesClass(DictWrapper):
         self.description = description
         self.dataType = dataType
         self.version = version
-        self.source = source
+        self.sourceDataset = sourceDataset
     
     @classmethod
     def construct_with_defaults(cls) -> "MLFeaturePropertiesClass":
@@ -4085,7 +4085,7 @@ class MLFeaturePropertiesClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.dataType = self.RECORD_SCHEMA.field_map["dataType"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.source = str()
+        self.sourceDataset = str()
     
     
     @property
@@ -4137,15 +4137,15 @@ class MLFeaturePropertiesClass(DictWrapper):
     
     
     @property
-    def source(self) -> str:
+    def sourceDataset(self) -> str:
         """Getter: Source of the MLFeature"""
-        return self._inner_dict.get('source')  # type: ignore
+        return self._inner_dict.get('sourceDataset')  # type: ignore
     
     
-    @source.setter
-    def source(self, value: str) -> None:
+    @sourceDataset.setter
+    def sourceDataset(self, value: str) -> None:
         """Setter: Source of the MLFeature"""
-        self._inner_dict['source'] = value
+        self._inner_dict['sourceDataset'] = value
     
     
 class MLFeatureSetPropertiesClass(DictWrapper):
