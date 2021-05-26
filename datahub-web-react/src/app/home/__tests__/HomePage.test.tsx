@@ -6,14 +6,15 @@ import { mocks } from '../../../Mocks';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
 
 describe('HomePage', () => {
-    it('renders', () => {
-        render(
+    it('renders', async () => {
+        const { getByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <HomePage />
                 </TestPageContainer>
             </MockedProvider>,
         );
+        await waitFor(() => expect(getByTestId('search-input')).toBeInTheDocument());
     });
 
     it('renders browsable entities', async () => {
@@ -28,18 +29,26 @@ describe('HomePage', () => {
     });
 
     it('renders autocomplete results', async () => {
-        const { getByTestId, queryByTitle } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
+        const { getByTestId, queryAllByText } = render(
+            <MockedProvider
+                mocks={mocks}
+                addTypename={false}
+                defaultOptions={{
+                    watchQuery: { fetchPolicy: 'no-cache' },
+                    query: { fetchPolicy: 'no-cache' },
+                }}
+            >
                 <TestPageContainer>
                     <HomePage />
                 </TestPageContainer>
             </MockedProvider>,
         );
         const searchInput = getByTestId('search-input');
+        await waitFor(() => expect(searchInput).toBeInTheDocument());
         fireEvent.change(searchInput, { target: { value: 't' } });
 
-        await waitFor(() => expect(queryByTitle('The Great Test Dataset')).toBeInTheDocument());
-        await waitFor(() => expect(queryByTitle('Some other test')).toBeInTheDocument());
+        await waitFor(() => expect(queryAllByText('The Great Test Dataset').length).toBeGreaterThanOrEqual(1));
+        expect(queryAllByText('Some other test').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders search suggestions', async () => {

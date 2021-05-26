@@ -4,6 +4,7 @@ import { GetDataJobDocument } from './graphql/dataJob.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
 import {
     GetAutoCompleteResultsDocument,
+    GetAutoCompleteAllResultsDocument,
     GetSearchResultsDocument,
     GetSearchResultsQuery,
 } from './graphql/search.generated';
@@ -27,6 +28,18 @@ const user1 = {
     editableInfo: {
         pictureLink: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
     },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
+    },
 };
 
 const user2 = {
@@ -44,6 +57,18 @@ const user2 = {
     },
     editableInfo: {
         pictureLink: null,
+    },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
     },
 };
 
@@ -890,19 +915,23 @@ export const mocks = [
     },
     {
         request: {
-            query: GetAutoCompleteResultsDocument,
+            query: GetAutoCompleteAllResultsDocument,
             variables: {
                 input: {
-                    type: 'DATASET',
                     query: 't',
                 },
             },
         },
         result: {
             data: {
-                autoComplete: {
+                autoCompleteForAll: {
                     query: 't',
-                    suggestions: ['The Great Test Dataset', 'Some other test'],
+                    suggestions: [
+                        {
+                            type: EntityType.Dataset,
+                            suggestions: ['The Great Test Dataset', 'Some other test'],
+                        },
+                    ],
                 },
             },
         },
