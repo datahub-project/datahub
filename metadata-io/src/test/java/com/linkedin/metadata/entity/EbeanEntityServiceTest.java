@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
@@ -25,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
-import org.gradle.internal.impldep.com.google.common.collect.ImmutableSet;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -212,7 +212,6 @@ public class EbeanEntityServiceTest {
     ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(aspectName, 2, 2);
     assertEquals(1, batch2.getValues().size());
     assertTrue(DataTemplateUtil.areEqual(writeAspect3,  batch2.getValues().get(0)));
-
   }
 
   @Test

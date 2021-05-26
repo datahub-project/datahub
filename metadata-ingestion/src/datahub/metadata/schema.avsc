@@ -1447,6 +1447,12 @@
                         ],
                         "doc": "DataFlow urn that this job is part of",
                         "default": null,
+                        "Relationship": {
+                          "entityTypes": [
+                            "dataFlow"
+                          ],
+                          "name": "IsPartOf"
+                        },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.DataFlowUrn"
                         }

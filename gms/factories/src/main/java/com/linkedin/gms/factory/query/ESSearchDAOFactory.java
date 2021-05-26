@@ -3,7 +3,7 @@ package com.linkedin.gms.factory.query;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.search.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 

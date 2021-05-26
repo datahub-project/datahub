@@ -15,7 +15,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.search.indexbuilder.BrowsePathUtils;
+import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import io.ebean.EbeanServer;
 import io.ebean.PagedList;
 import java.net.URISyntaxException;
