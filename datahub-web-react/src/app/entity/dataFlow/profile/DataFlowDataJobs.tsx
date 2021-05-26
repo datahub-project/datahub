@@ -27,6 +27,7 @@ export default function DataFlowDataJobs({ dataJobs }: Props) {
             renderItem={(item) => (
                 <DataJobItem>{entityRegistry.renderPreview(EntityType.DataJob, PreviewType.PREVIEW, item)}</DataJobItem>
             )}
+            data-testid="dataflow-jobs-list"
         />
     );
 }

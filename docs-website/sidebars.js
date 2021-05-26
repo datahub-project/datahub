@@ -37,6 +37,7 @@ module.exports = {
       "docs/roadmap",
       "docs/CONTRIBUTING",
       "docs/demo",
+      "docs/saas",
     ],
     "Getting Started": [
       // Serves as user guides.
