@@ -6,14 +6,16 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 export const Logo = (props) => {
   const siteConfig = useDocusaurusContext().siteConfig;
   return (
-    <ThemedImage
-      alt="DataHub Logo"
-      sources={{
-          light: useBaseUrl(siteConfig.themeConfig.navbar.logo.src),
-          dark: useBaseUrl(siteConfig.themeConfig.navbar.logo.srcDark),
-      }}
-      {...props}
-    />
+    <div style={{display: "flex"}}>
+      <ThemedImage
+        alt="DataHub Logo"
+        sources={{
+            light: useBaseUrl(siteConfig.themeConfig.navbar.logo.src),
+            dark: useBaseUrl(siteConfig.themeConfig.navbar.logo.srcDark),
+        }}
+        {...props}
+      />
+    </div>
   )
 };
 
