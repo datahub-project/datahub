@@ -134,7 +134,6 @@ function markdown_guess_title(
       contents.data.description = hardcoded_descriptions[filepath];
     }
     if (hardcoded_hide_title.includes(filepath)) {
-      console.log('here');
       contents.data.hide_title = true;
     }
   } else {
