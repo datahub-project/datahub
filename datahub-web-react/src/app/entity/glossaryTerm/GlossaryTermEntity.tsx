@@ -3,6 +3,7 @@ import { BookFilled, BookOutlined } from '@ant-design/icons';
 import { EntityType, GlossaryTerm } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
+import GlossaryTermProfile from './profile/GlossaryTermProfile';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -41,7 +42,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getCollectionName = () => 'Business Glossary';
 
-    renderProfile = (urn: string) => <div>Coming soon.... {urn}</div>;
+    renderProfile: (urn: string) => JSX.Element = (_) => <GlossaryTermProfile />;
 
     renderSearch = () => <div />;
 
