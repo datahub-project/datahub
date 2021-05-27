@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.metadata.key.ServiceKey
+import com.linkedin.service.ServiceInfo
+import com.linkedin.common.BrowsePaths
+
+/**
+ * Service Info
+ */
+typeref ServiceAspect = union[
+  ServiceKey,
+  ServiceInfo,
+  BrowsePaths
+]

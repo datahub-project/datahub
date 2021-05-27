@@ -6,15 +6,14 @@ import com.linkedin.common.FabricType
  * Key for a Data Process
  */
 @Aspect = {
-  "name": "dataProcessKey",
-  "isKey": true
+  "name": "dataProcessKey"
 }
 record DataProcessKey {
   /**
   * Process name i.e. an ETL job name
   */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 4.0
@@ -26,7 +25,7 @@ record DataProcessKey {
   * TODO: Migrate towards something that can be validated like DataPlatform urn
   */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "enableAutocomplete": true
   }
@@ -36,7 +35,7 @@ record DataProcessKey {
   * Fabric type where dataset belongs to or where it was generated.
   */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
+    "fieldType": "TEXT_PARTIAL"
   }
   origin: FabricType
 }

@@ -8,8 +8,7 @@ import com.linkedin.metadata.aspect.DataFlowAspect
  */
 @Entity = {
   "name": "dataFlow",
-  "searchable": true,
-  "browsable": true
+  "keyAspect": "dataFlowKey"
 }
 record DataFlowSnapshot {
 

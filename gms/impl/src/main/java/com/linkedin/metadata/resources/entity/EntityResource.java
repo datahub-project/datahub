@@ -2,8 +2,10 @@ package com.linkedin.metadata.resources.entity;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.experimental.Entity;
+import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
@@ -11,8 +13,8 @@ import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtils;
-import com.linkedin.metadata.search.indexbuilder.BrowsePathUtils;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
@@ -118,19 +120,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = ACTION_INGEST)
   @Nonnull
   public Task<Void> ingest(@ActionParam(PARAM_ENTITY) @Nonnull Entity entity) throws URISyntaxException {
-    BrowsePathUtils.addBrowsePathIfNotExists(entity.getValue());
-    // TODO Correctly audit ingestions.
-    final AuditStamp auditStamp =
-        new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
-    return RestliUtils.toTask(() -> {
-      _entityService.ingestEntity(entity, auditStamp);
-      return null;
-    });
-  }
+    final Set<String> projectedAspects = new HashSet<>(Arrays.asList("browsePaths"));
+    final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(entity.getValue());
+    final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
+    final Entity browsePathEntity = _entityService.getEntity(urn, projectedAspects);
+    BrowsePathUtils.addBrowsePathIfNotExists(entity.getValue(), browsePathEntity.getValue());
 
-  @Action(name = "ingest_update")
-  @Nonnull
-  public Task<Void> ingestUpdate(@ActionParam(PARAM_ENTITY) @Nonnull Entity entity) throws URISyntaxException {
     // TODO Correctly audit ingestions.
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));

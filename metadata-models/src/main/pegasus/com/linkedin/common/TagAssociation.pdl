@@ -10,7 +10,7 @@ record TagAssociation {
   */
   @Searchable = {
     "fieldName": "tags",
-    "fieldType": "URN_WITH_PARTIAL_MATCHING",
+    "fieldType": "URN_PARTIAL",
     "queryByDefault": true,
     "hasValuesFieldName": "hasTags"
   }

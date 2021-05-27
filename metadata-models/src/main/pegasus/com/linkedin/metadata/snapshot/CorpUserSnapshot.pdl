@@ -8,8 +8,7 @@ import com.linkedin.metadata.aspect.CorpUserAspect
  */
 @Entity = {
   "name": "corpuser",
-  "searchable": true,
-  "browsable": true
+  "keyAspect": "corpUserKey"
 }
 record CorpUserSnapshot {
 

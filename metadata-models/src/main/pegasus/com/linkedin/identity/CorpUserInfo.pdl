@@ -82,7 +82,7 @@ record CorpUserInfo {
    * Common name of this user, format is firstName + lastName (split by a whitespace)
    */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0

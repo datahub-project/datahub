@@ -51,7 +51,7 @@ public class EntityClient {
 
     private static final EntitiesRequestBuilders ENTITIES_REQUEST_BUILDERS = new EntitiesRequestBuilders();
 
-    private static final String ACTION_INGEST = "ingest_update";
+    private static final String ACTION_INGEST = "ingest";
     private static final String PARAM_ENTITY = "entity";
     private static final String RESOURCE_NAME = "entities";
 
@@ -184,7 +184,7 @@ public class EntityClient {
         final ActionRequestBuilder builder =
             new ActionRequestBuilder(RESOURCE_NAME, Void.class, resourceSpec, RestliRequestOptions.DEFAULT_OPTIONS);
 
-        builder.name("ingest_update");
+        builder.name("ingest");
         builder.addParam(entityFieldDef, entity);
 
         final Request request = builder.build();

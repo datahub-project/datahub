@@ -8,8 +8,7 @@ import com.linkedin.metadata.aspect.ChartAspect
  */
 @Entity = {
   "name": "chart",
-  "searchable": true,
-  "browsable": true
+  "keyAspect": "chartKey"
 }
 record ChartSnapshot {
 

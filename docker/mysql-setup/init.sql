@@ -19,14 +19,14 @@ create table if not exists metadata_aspect_v2 (
 CREATE TABLE temp_metadata_aspect_v2 LIKE metadata_aspect_v2;
 INSERT INTO temp_metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
-  'com.linkedin.identity.CorpUserInfo',
+  'corpUserInfo',
   0,
   '{"displayName":"Data Hub","active":true,"fullName":"Data Hub","email":"datahub@linkedin.com"}',
   now(),
   'urn:li:principal:datahub'
 ), (
   'urn:li:corpuser:datahub',
-  'com.linkedin.identity.CorpUserEditableInfo',
+  'corpUserEditableInfo',
   0,
   '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"}',
   now(),

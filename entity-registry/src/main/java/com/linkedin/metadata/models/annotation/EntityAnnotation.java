@@ -15,12 +15,10 @@ public class EntityAnnotation {
 
   public static final String ANNOTATION_NAME = "Entity";
   private static final String NAME_FIELD = "name";
-  private static final String SEARCHABLE_FIELD = "searchable";
-  private static final String BROWSABLE_FIELD = "browsable";
+  private static final String KEY_ASPECT_FIELD = "keyAspect";
 
   String name;
-  boolean searchable;
-  boolean browsable;
+  String keyAspect;
 
   @Nonnull
   public static EntityAnnotation fromSchemaProperty(
@@ -36,7 +34,10 @@ public class EntityAnnotation {
     }
 
     Map map = (Map) annotationObj;
+
     final Optional<String> name = AnnotationUtils.getField(map, NAME_FIELD, String.class);
+    final Optional<String> keyAspect = AnnotationUtils.getField(map, KEY_ASPECT_FIELD, String.class);
+
     if (!name.isPresent()) {
       throw new ModelValidationException(
           String.format(
@@ -46,10 +47,16 @@ public class EntityAnnotation {
               NAME_FIELD
           ));
     }
+    if (!keyAspect.isPresent()) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: Invalid field '%s'. Expected type String",
+              ANNOTATION_NAME,
+              context,
+              KEY_ASPECT_FIELD
+          ));
+    }
 
-    final Optional<Boolean> searchable = AnnotationUtils.getField(map, SEARCHABLE_FIELD, Boolean.class);
-    final Optional<Boolean> browsable = AnnotationUtils.getField(map, BROWSABLE_FIELD, Boolean.class);
-
-    return new EntityAnnotation(name.get(), searchable.orElse(false), browsable.orElse(false));
+    return new EntityAnnotation(name.get(), keyAspect.get());
   }
 }

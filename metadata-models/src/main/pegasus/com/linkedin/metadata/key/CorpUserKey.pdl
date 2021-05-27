@@ -4,8 +4,7 @@ namespace com.linkedin.metadata.key
  * Key for a CorpUser
  */
 @Aspect = {
-  "name": "corpUserKey",
-  "isKey": true
+  "name": "corpUserKey"
 }
 record CorpUserKey {
   /**
@@ -13,7 +12,7 @@ record CorpUserKey {
   */
   @Searchable = {
     "fieldName": "ldap",
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "boostScore": 2.0
   }

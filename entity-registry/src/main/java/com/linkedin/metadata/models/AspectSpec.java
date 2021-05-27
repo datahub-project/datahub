@@ -41,10 +41,6 @@ public class AspectSpec {
     return _aspectAnnotation.getName();
   }
 
-  public Boolean isKey() {
-    return _aspectAnnotation.getIsKey();
-  }
-
   public Map<String, SearchableFieldSpec> getSearchableFieldSpecMap() {
     return _searchableFieldSpecs;
   }

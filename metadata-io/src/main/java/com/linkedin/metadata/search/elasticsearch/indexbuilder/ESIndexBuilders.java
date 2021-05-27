@@ -15,12 +15,10 @@ public class ESIndexBuilders {
 
   public void buildAll() {
     for (EntitySpec entitySpec : entityRegistry.getEntitySpecs()) {
-      if (entitySpec.isSearchable() || entitySpec.isBrowsable()) {
-        try {
-          new IndexBuilder(searchClient, entitySpec, indexConvention.getIndexName(entitySpec)).buildIndex();
-        } catch (IOException e) {
-          e.printStackTrace();
-        }
+      try {
+        new IndexBuilder(searchClient, entitySpec, indexConvention.getIndexName(entitySpec)).buildIndex();
+      } catch (IOException e) {
+        e.printStackTrace();
       }
     }
   }

@@ -1640,7 +1640,6 @@
     "type" : "record",
     "name" : "DatasetSnapshot",
     "namespace" : "com.linkedin.metadata.snapshot",
-    "doc" : "A metadata snapshot for a specific dataset entity.",
     "fields" : [ {
       "name" : "urn",
       "type" : "com.linkedin.common.DatasetUrn",

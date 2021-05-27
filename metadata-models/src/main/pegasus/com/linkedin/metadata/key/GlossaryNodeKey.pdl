@@ -7,13 +7,12 @@ import com.linkedin.common.FabricType
  * Key for a GlossaryNode
  */
 @Aspect = {
-  "name": "glossaryNodeKey",
-  "isKey": true
+  "name": "glossaryNodeKey"
 }
 record GlossaryNodeKey {
 
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
+    "fieldType": "TEXT_PARTIAL"
   }
   name: string
 

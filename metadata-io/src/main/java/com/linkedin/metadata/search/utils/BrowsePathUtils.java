@@ -60,14 +60,18 @@ public class BrowsePathUtils {
     }
   }
 
-  public static void addBrowsePathIfNotExists(Snapshot snapshot) throws URISyntaxException {
+  public static void addBrowsePathIfNotExists(Snapshot snapshot, Snapshot snapshotWithExistingBrowse)
+      throws URISyntaxException {
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshot);
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
     final BrowsePaths defaultBrowsePaths = buildBrowsePath(urn);
 
     if (urn.getEntityType().equals("dataset")) {
       final DatasetAspectArray aspects = snapshot.getDatasetSnapshot().getAspects();
+      final DatasetAspectArray aspectsWithExistingBrowse = snapshotWithExistingBrowse.getDatasetSnapshot().getAspects();
       boolean hasBrowse = aspects.stream()
+          .filter(datasetAspect -> datasetAspect.isBrowsePaths()).findFirst().isPresent()
+          || aspectsWithExistingBrowse.stream()
           .filter(datasetAspect -> datasetAspect.isBrowsePaths()).findFirst().isPresent();
       if (!hasBrowse) {
         aspects.add(DatasetAspect.create(defaultBrowsePaths));
@@ -75,7 +79,10 @@ public class BrowsePathUtils {
     }
     if (urn.getEntityType().equals("chart")) {
       final ChartAspectArray aspects = snapshot.getChartSnapshot().getAspects();
+      final ChartAspectArray aspectsWithExistingBrowse = snapshotWithExistingBrowse.getChartSnapshot().getAspects();
       boolean hasBrowse = aspects.stream()
+          .filter(datasetAspect -> datasetAspect.isBrowsePaths()).findFirst().isPresent()
+          || aspectsWithExistingBrowse.stream()
           .filter(datasetAspect -> datasetAspect.isBrowsePaths()).findFirst().isPresent();
       if (!hasBrowse) {
         aspects.add(ChartAspect.create(defaultBrowsePaths));
@@ -83,7 +90,10 @@ public class BrowsePathUtils {
     }
     if (urn.getEntityType().equals("dashboard")) {
       final DashboardAspectArray aspects = snapshot.getDashboardSnapshot().getAspects();
+      final DashboardAspectArray aspectsWithExistingBrowse = snapshotWithExistingBrowse.getDashboardSnapshot().getAspects();
       boolean hasBrowse = aspects.stream()
+          .filter(datasetAspect -> datasetAspect.isBrowsePaths()).findFirst().isPresent()
+          || aspectsWithExistingBrowse.stream()
           .filter(datasetAspect -> datasetAspect.isBrowsePaths()).findFirst().isPresent();
       if (!hasBrowse) {
         aspects.add(DashboardAspect.create(defaultBrowsePaths));
@@ -91,7 +101,10 @@ public class BrowsePathUtils {
     }
     if (urn.getEntityType().equals("dataJob")) {
       final DataJobAspectArray aspects = snapshot.getDataJobSnapshot().getAspects();
+      final DataJobAspectArray aspectsWithExistingBrowse = snapshotWithExistingBrowse.getDataJobSnapshot().getAspects();
       boolean hasBrowse = aspects.stream()
+          .filter(datasetAspect -> datasetAspect.isBrowsePaths()).findFirst().isPresent()
+          || aspectsWithExistingBrowse.stream()
           .filter(datasetAspect -> datasetAspect.isBrowsePaths()).findFirst().isPresent();
       if (!hasBrowse) {
         aspects.add(DataJobAspect.create(defaultBrowsePaths));
@@ -99,7 +112,10 @@ public class BrowsePathUtils {
     }
     if (urn.getEntityType().equals("dataFlow")) {
       final DataFlowAspectArray aspects = snapshot.getDataFlowSnapshot().getAspects();
+      final DataFlowAspectArray aspectsWithExistingBrowse = snapshotWithExistingBrowse.getDataFlowSnapshot().getAspects();
       boolean hasBrowse = aspects.stream()
+          .filter(datasetAspect -> datasetAspect.isBrowsePaths()).findFirst().isPresent()
+          || aspectsWithExistingBrowse.stream()
           .filter(datasetAspect -> datasetAspect.isBrowsePaths()).findFirst().isPresent();
       if (!hasBrowse) {
         aspects.add(DataFlowAspect.create(defaultBrowsePaths));

@@ -78,8 +78,6 @@ public class EntitySpecBuilderTest {
     // Assert on Entity Spec
     final EntitySpec testEntitySpec = validEntitySpecs.get(0);
     assertEquals("testEntity", testEntitySpec.getName());
-    assertEquals(Boolean.TRUE, testEntitySpec.isBrowsable());
-    assertEquals(Boolean.TRUE, testEntitySpec.isSearchable());
 
     // Assert on Aspect Specs
     final Map<String, AspectSpec> aspectSpecMap = testEntitySpec.getAspectSpecMap();
@@ -99,7 +97,6 @@ public class EntitySpecBuilderTest {
   }
 
   private void validateTestEntityKey(final AspectSpec keyAspectSpec) {
-    assertEquals(Boolean.TRUE, keyAspectSpec.isKey());
     assertEquals("testEntityKey", keyAspectSpec.getName());
     assertEquals(new TestEntityKey().schema().getFullName(), keyAspectSpec.getPegasusSchema().getFullName());
 
@@ -121,7 +118,6 @@ public class EntitySpecBuilderTest {
 
 
   private void validateBrowsePaths(final AspectSpec browsePathAspectSpec) {
-    assertEquals(Boolean.FALSE, browsePathAspectSpec.isKey());
     assertEquals("browsePaths", browsePathAspectSpec.getName());
     assertEquals(new BrowsePaths().schema().getFullName(), browsePathAspectSpec.getPegasusSchema().getFullName());
     assertEquals(1, browsePathAspectSpec.getSearchableFieldSpecs().size());
@@ -130,7 +126,6 @@ public class EntitySpecBuilderTest {
   }
 
   private void validateTestEntityInfo(final AspectSpec testEntityInfo) {
-    assertEquals(Boolean.FALSE, testEntityInfo.isKey());
     assertEquals("testEntityInfo", testEntityInfo.getName());
     assertEquals(new TestEntityInfo().schema().getFullName(), testEntityInfo.getPegasusSchema().getFullName());
 
@@ -143,12 +138,12 @@ public class EntitySpecBuilderTest {
         .getSearchableAnnotation().getFieldType());
     assertEquals("textArrayField", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("textArrayField", "*").toString()).getSearchableAnnotation().getFieldName());
-    assertEquals(SearchableAnnotation.FieldType.TEXT_WITH_PARTIAL_MATCHING, testEntityInfo.getSearchableFieldSpecMap().get(
+    assertEquals(SearchableAnnotation.FieldType.TEXT_PARTIAL, testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("textArrayField", "*").toString())
         .getSearchableAnnotation().getFieldType());
     assertEquals("nestedIntegerField", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("nestedRecordField", "nestedIntegerField").toString()).getSearchableAnnotation().getFieldName());
-    assertEquals(SearchableAnnotation.FieldType.TEXT_WITH_PARTIAL_MATCHING, testEntityInfo.getSearchableFieldSpecMap().get(
+    assertEquals(SearchableAnnotation.FieldType.TEXT_PARTIAL, testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("nestedRecordField", "nestedIntegerField").toString())
         .getSearchableAnnotation().getFieldType());
     assertEquals("nestedArrayIntegerField", testEntityInfo.getSearchableFieldSpecMap().get(
