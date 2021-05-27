@@ -15,8 +15,9 @@ type Props = {
 export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, size = 'default' }: Props) {
     return (
         <Avatar.Group maxCount={maxCount} size={size}>
-            {(owners || [])?.map((owner) => (
-                <div data-testid={`avatar-tag-${owner.owner.urn}`} key={owner.owner.urn}>
+            {(owners || [])?.map((owner, key) => (
+                // eslint-disable-next-line react/no-array-index-key
+                <div data-testid={`avatar-tag-${owner.owner.urn}`} key={`${owner.owner.urn}-${key}`}>
                     {owner.owner.__typename === 'CorpUser' ? (
                         <CustomAvatar
                             name={owner.owner.info?.fullName || owner.owner.info?.firstName || owner.owner.info?.email}
