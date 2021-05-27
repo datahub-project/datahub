@@ -87,12 +87,6 @@
         "type" : "com.linkedin.experimental.Entity"
       } ]
     }, {
-      "name" : "ingest_update",
-      "parameters" : [ {
-        "name" : "entity",
-        "type" : "com.linkedin.experimental.Entity"
-      } ]
-    }, {
       "name" : "search",
       "parameters" : [ {
         "name" : "entity",

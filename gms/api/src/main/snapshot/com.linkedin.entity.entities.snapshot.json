@@ -2064,7 +2064,6 @@
         }, {
           "type" : "record",
           "name" : "DatasetSnapshot",
-          "doc" : "A metadata snapshot for a specific dataset entity.",
           "fields" : [ {
             "name" : "urn",
             "type" : "com.linkedin.common.DatasetUrn",
@@ -3747,12 +3746,6 @@
         "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
       }, {
         "name" : "ingest",
-        "parameters" : [ {
-          "name" : "entity",
-          "type" : "com.linkedin.experimental.Entity"
-        } ]
-      }, {
-        "name" : "ingest_update",
         "parameters" : [ {
           "name" : "entity",
           "type" : "com.linkedin.experimental.Entity"
