@@ -84,14 +84,12 @@ plugins: Dict[str, Set[str]] = {
     "oracle": sql_common | {"cx_Oracle"},
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
+    "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "mongodb": {"pymongo>=3.11"},
     "superset": {"requests"},
     "glue": {"boto3"},
 }
-if is_py37_or_newer:
-    plugins["lookml"] = {"lkml>=1.1.0", "sql-metadata==1.12.0"}
-
 
 base_dev_requirements = {
     *base_requirements,
@@ -130,6 +128,7 @@ base_dev_requirements = {
 }
 
 if is_py37_or_newer:
+    # The lookml plugin only works on Python 3.7 or newer.
     base_dev_requirements = base_dev_requirements.union(
         {dependency for plugin in ["lookml"] for dependency in plugins[plugin]}
     )
@@ -161,6 +160,7 @@ entry_points = {
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
+        "lookml = datahub.ingestion.source.lookml:LookMLSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.mysql:MySQLSource",
@@ -178,11 +178,6 @@ entry_points = {
     ],
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }
-
-if is_py37_or_newer:
-    entry_points["datahub.ingestion.source.plugins"].append(
-        "lookml = datahub.ingestion.source.lookml:LookMLSource"
-    )
 
 
 setuptools.setup(
