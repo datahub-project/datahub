@@ -73,7 +73,7 @@ const NavGroup = styled.div`
     justify-content: center;
 `;
 
-function getSuggestionFieldsFromResult(result: GetSearchResultsQuery): string[] {
+function getSuggestionFieldsFromResult(result: GetSearchResultsQuery | undefined): string[] {
     return (
         (result?.search?.searchResults
             ?.map((searchResult) => searchResult.entity)
