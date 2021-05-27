@@ -14,11 +14,11 @@ namespace com.linkedin.common
   "doc" : "Standardized MLPrimaryKey identifier.",
   "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
   "fields" : [ {
-    "name" : "mlPrimaryKeyNamespace",
+    "name" : "namespace",
     "type" : "string",
     "doc" : "Namespace for the MLPrimaryKey"
   }, { "type" : "string",
-    "name" : "mlPrimaryKeyName",
+    "name" : "name",
     "doc" : "Name of the MLPrimaryKey",
     "maxLength" : 210
   }],
