@@ -52,27 +52,20 @@ def cli(core_url, output_path):
         stream_source = None
 
         if isinstance(table.batch_source, BigQuerySource):
-
             batch_source = "BigQuerySource"
 
         if isinstance(table.batch_source, FileSource):
-
             batch_source = "FileSource"
 
         if isinstance(table.stream_source, KafkaSource):
-
             stream_source = "KafkaSource"
 
         if isinstance(table.stream_source, KinesisSource):
-
             stream_source = "KinesisSource"
 
         stream_source_config = table.to_dict()["spec"].get("streamSource")
 
-        if stream_source_config is not None:
-            stream_source_config = json.dumps(stream_source_config)
-
-        batch_source_config = json.dumps(table.to_dict()["spec"]["batchSource"])
+        batch_source_config = table.to_dict()["spec"]["batchSource"]
 
         # sort features by name for consistent outputs
         features = sorted(
