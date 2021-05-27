@@ -30,7 +30,7 @@ record MLPrimaryKeyProperties {
   version: optional VersionTag
 
   /**
-  * Source of the MLFeature
+  * Source of the MLPrimaryKey
   */
   sourceDatasets: array[union[Urn]]
 }
