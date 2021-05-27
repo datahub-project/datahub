@@ -226,7 +226,7 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "fieldType" : "URN_PARTIAL",
               "hasValuesFieldName" : "hasTags",
               "queryByDefault" : true
             }
@@ -393,7 +393,7 @@
           "Searchable" : {
             "boostScore" : 10.0,
             "enableAutocomplete" : true,
-            "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+            "fieldType" : "TEXT_PARTIAL",
             "queryByDefault" : true
           }
         }, {
@@ -483,7 +483,7 @@
           "addToFilters" : true,
           "boostScore" : 4.0,
           "fieldName" : "tool",
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       }, {
@@ -492,7 +492,6 @@
         "doc" : "Unique id for the dashboard. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, dashboard URL could be used here for Looker such as 'looker.linkedin.com/dashboards/1234'"
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "dashboardKey"
       }
     }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
@@ -774,9 +773,8 @@
       "doc" : "The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : true,
-      "name" : "dashboard",
-      "searchable" : true
+      "keyAspect" : "dashboardKey",
+      "name" : "dashboard"
     }
   }, {
     "type" : "record",

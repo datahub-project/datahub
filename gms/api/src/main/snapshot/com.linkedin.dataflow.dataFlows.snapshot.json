@@ -188,7 +188,7 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "fieldType" : "URN_PARTIAL",
               "hasValuesFieldName" : "hasTags",
               "queryByDefault" : true
             }
@@ -365,7 +365,7 @@
           "Searchable" : {
             "boostScore" : 10.0,
             "enableAutocomplete" : true,
-            "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+            "fieldType" : "TEXT_PARTIAL",
             "queryByDefault" : true
           }
         }, {
@@ -384,7 +384,7 @@
           "doc" : "Optional project/namespace associated with the flow",
           "optional" : true,
           "Searchable" : {
-            "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
+            "fieldType" : "TEXT_PARTIAL"
           }
         } ],
         "Aspect" : {
@@ -424,7 +424,7 @@
         "type" : "string",
         "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
         "Searchable" : {
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       }, {
@@ -433,7 +433,7 @@
         "doc" : "Unique Identifier of the data flow",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       }, {
@@ -441,12 +441,11 @@
         "type" : "string",
         "doc" : "Cluster where the flow is executed",
         "Searchable" : {
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "dataFlowKey"
       }
     }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
@@ -728,9 +727,8 @@
       "doc" : "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : true,
-      "name" : "dataFlow",
-      "searchable" : true
+      "keyAspect" : "dataFlowKey",
+      "name" : "dataFlow"
     }
   }, {
     "type" : "record",

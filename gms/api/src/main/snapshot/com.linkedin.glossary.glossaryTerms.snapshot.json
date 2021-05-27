@@ -298,12 +298,11 @@
         "type" : "string",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "glossaryTermKey"
       }
     }, "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
@@ -585,9 +584,8 @@
       "doc" : "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : true,
-      "name" : "glossaryTerm",
-      "searchable" : true
+      "keyAspect" : "glossaryTermKey",
+      "name" : "glossaryTerm"
     }
   }, {
     "type" : "record",

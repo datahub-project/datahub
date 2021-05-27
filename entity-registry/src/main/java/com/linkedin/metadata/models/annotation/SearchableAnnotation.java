@@ -106,7 +106,7 @@ public class SearchableAnnotation {
       case DOUBLE:
         return FieldType.COUNT;
       default:
-        return FieldType.KEYWORD;
+        return FieldType.TEXT;
     }
   }
 

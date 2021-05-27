@@ -200,12 +200,11 @@
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "tagKey"
       }
     }, "com.linkedin.common.Ownership", {
@@ -429,9 +428,8 @@
       "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : true,
-      "name" : "tag",
-      "searchable" : true
+      "keyAspect" : "tagKey",
+      "name" : "tag"
     }
   }, {
     "type" : "record",

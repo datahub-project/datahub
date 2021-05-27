@@ -119,7 +119,6 @@
         "doc" : "Data platform name i.e. hdfs, oracle, espresso"
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "dataPlatformKey"
       }
     }, "com.linkedin.dataplatform.DataPlatformInfo" ]
@@ -141,9 +140,8 @@
       "doc" : "The list of metadata aspects associated with the data platform. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : false,
-      "name" : "dataPlatform",
-      "searchable" : false
+      "keyAspect" : "dataPlatformKey",
+      "name" : "dataPlatform"
     }
   } ],
   "schema" : {

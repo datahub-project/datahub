@@ -124,7 +124,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(entity.getValue());
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
     final Entity browsePathEntity = _entityService.getEntity(urn, projectedAspects);
-    BrowsePathUtils.addBrowsePathIfNotExists(entity.getValue(), browsePathEntity.getValue());
+    BrowsePathUtils.addBrowsePathIfNotExists(entity.getValue(), browsePathEntity);
 
     // TODO Correctly audit ingestions.
     final AuditStamp auditStamp =
