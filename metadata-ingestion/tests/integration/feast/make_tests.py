@@ -1,3 +1,5 @@
+import socket
+
 from feast import Client
 from feast.data_format import ParquetFormat
 from feast.data_source import FileSource
@@ -86,3 +88,19 @@ if __name__ == "__main__":
 
     # commit the tables to the feature store
     test_client.apply([table_1, table_2, table_3])
+
+    print("make_tests.py setup finished")
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # listen to port 6789 once done so test script knows when to start ingestion
+    server_address = ("localhost", 6789)
+    sock.bind(server_address)
+
+    sock.listen(1)
+
+    print("make_tests.py listening on 6789")
+
+    while True:
+        # Wait for a connection
+        connection, client_address = sock.accept()

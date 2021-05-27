@@ -20,6 +20,7 @@ services:
       - --spring.config.location=classpath:/application.yml,file:/etc/feast/application.yml
 
   setup:
+    container_name: "testfeast_setup"
     # build from the same Feast image used for ingestion
     build: ../../../src/datahub/ingestion/source/feast_image/
     volumes:
@@ -27,6 +28,9 @@ services:
       - ./wait-for-it.sh:/app/wait-for-it.sh
     depends_on:
       - core
+    # listen to this port once test cases have been imported, so test script can see when done
+    ports:
+      - 6789:6789
     # wait for Feast to start, then insert test data
     command: ./wait-for-it.sh testfeast:6565 -- python3 make_tests.py
 

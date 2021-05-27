@@ -18,6 +18,9 @@ def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
     ) as docker_services:
         wait_for_port(docker_services, "testfeast", 6565)
 
+        # container listens to this port once test cases have been setup
+        wait_for_port(docker_services, "testfeast_setup", 6789)
+
         # Run the metadata ingestion pipeline.
         pipeline = Pipeline.create(
             {

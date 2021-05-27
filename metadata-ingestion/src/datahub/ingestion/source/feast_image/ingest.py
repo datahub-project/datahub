@@ -24,22 +24,9 @@ def cli(core_url, output_path):
     client = Client(core_url=core_url)
 
     tables = client.list_feature_tables()
-    features = client.list_features_by_ref().values()
-    entities = client.list_entities()
 
     # sort tables by name for consistent outputs
     tables = sorted(tables, key=lambda x: x.name)
-    features = sorted(features, key=lambda x: x.name)
-    entities = sorted(entities, key=lambda x: x.name)
-
-    parsed_entities = [
-        {
-            "name": entity.name,
-            "type": entity.value_type.name,
-            "description": entity.description,
-        }
-        for entity in entities
-    ]
 
     parsed_tables = []
 
@@ -51,17 +38,36 @@ def cli(core_url, output_path):
         batch_source = None
         stream_source = None
 
+        # platform and name for constructing URN later on
+        batch_source_platform = "unknown"
+        stream_source_platform = "unknown"
+        batch_source_name = "unknown"
+        stream_source_name = "unknown"
+
         if isinstance(table.batch_source, BigQuerySource):
             batch_source = "BigQuerySource"
+            batch_source_platform = "bigquery"
+            batch_source_name = table.batch_source.bigquery_options.table_ref
 
         if isinstance(table.batch_source, FileSource):
             batch_source = "FileSource"
+            batch_source_platform = "file"
+            batch_source_name = table.batch_source.file_options.file_url.replace(
+                "/", "."
+            )
+
+            if batch_source_name.startswith("file:.."):
+                batch_source_name = batch_source_name[7:]
 
         if isinstance(table.stream_source, KafkaSource):
             stream_source = "KafkaSource"
+            stream_source_platform = "kafka"
+            stream_source_name = table.stream_source.kafka_options.topic
 
         if isinstance(table.stream_source, KinesisSource):
             stream_source = "KinesisSource"
+            stream_source_platform = "kinesis"
+            stream_source_name = f"{table.stream_source.kinesis_options.region}-{table.stream_source.kinesis_options.stream_name}"
 
         stream_source_config = table.to_dict()["spec"].get("streamSource")
         batch_source_config = table.to_dict()["spec"]["batchSource"]
@@ -71,6 +77,17 @@ def cli(core_url, output_path):
         ]
         raw_entities = sorted(raw_entities, key=lambda x: x.name)
 
+        source_info = {
+            "batch_source": batch_source,
+            "stream_source": stream_source,
+            "batch_source_config": batch_source_config,
+            "stream_source_config": stream_source_config,
+            "batch_source_platform": batch_source_platform,
+            "stream_source_platform": stream_source_platform,
+            "batch_source_name": batch_source_name,
+            "stream_source_name": stream_source_name,
+        }
+
         # sort entities by name for consistent outputs
         entities = sorted(
             [
@@ -78,10 +95,7 @@ def cli(core_url, output_path):
                     "name": x.name,
                     "type": x.value_type.name,
                     "description": x.description,
-                    "batch_source": batch_source,
-                    "stream_source": stream_source,
-                    "batch_source_config": batch_source_config,
-                    "stream_source_config": stream_source_config,
+                    **source_info,
                 }
                 for x in raw_entities
             ],
@@ -91,14 +105,7 @@ def cli(core_url, output_path):
         # sort features by name for consistent outputs
         features = sorted(
             [
-                {
-                    "name": x.name,
-                    "type": x.dtype.name,
-                    "batch_source": batch_source,
-                    "stream_source": stream_source,
-                    "batch_source_config": batch_source_config,
-                    "stream_source_config": stream_source_config,
-                }
+                {"name": x.name, "type": x.dtype.name, **source_info}
                 for x in table.features
             ],
             key=lambda x: x["name"],

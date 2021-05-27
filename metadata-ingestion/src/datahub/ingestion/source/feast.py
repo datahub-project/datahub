@@ -149,11 +149,17 @@ class FeastSource(Source):
                             dataType=self.get_field_type(
                                 entity["type"], entity["name"]
                             ),
-                            # TODO: update this
                             sourceDatasets=[
                                 builder.make_dataset_urn(
-                                    "test", "test", self.config.env
-                                )
+                                    entity["batch_source_platform"],
+                                    entity["batch_source_name"],
+                                    self.config.env,
+                                ),
+                                builder.make_dataset_urn(
+                                    entity["stream_source_platform"],
+                                    entity["stream_source_name"],
+                                    self.config.env,
+                                ),
                             ],
                         )
                     )
@@ -182,11 +188,17 @@ class FeastSource(Source):
                             dataType=self.get_field_type(
                                 feature["type"], feature["name"]
                             ),
-                            # TODO: update this
                             sourceDatasets=[
                                 builder.make_dataset_urn(
-                                    "test", "test", self.config.env
-                                )
+                                    feature["batch_source_platform"],
+                                    feature["batch_source_name"],
+                                    self.config.env,
+                                ),
+                                builder.make_dataset_urn(
+                                    feature["stream_source_platform"],
+                                    feature["stream_source_name"],
+                                    self.config.env,
+                                ),
                             ],
                         )
                     )
