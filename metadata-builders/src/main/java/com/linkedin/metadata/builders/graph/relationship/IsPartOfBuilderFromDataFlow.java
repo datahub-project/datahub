@@ -1,7 +1,7 @@
 package com.linkedin.metadata.builders.graph.relationship;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datajob.DataJobInfo;
+import com.linkedin.datajob.DataJobKey;
 import com.linkedin.metadata.builders.graph.GraphBuilder;
 import com.linkedin.metadata.relationship.IsPartOf;
 
@@ -13,19 +13,16 @@ import java.util.ArrayList;
 import static com.linkedin.metadata.dao.internal.BaseGraphWriterDAO.RemovalOption.REMOVE_ALL_EDGES_FROM_SOURCE;
 
 
-public class IsPartOfBuilderFromDataFlow extends BaseRelationshipBuilder<DataJobInfo> {
+public class IsPartOfBuilderFromDataFlow extends BaseRelationshipBuilder<DataJobKey> {
   public IsPartOfBuilderFromDataFlow() {
-    super(DataJobInfo.class);
+    super(DataJobKey.class);
   }
 
   @Nonnull
   @Override
-  public List<GraphBuilder.RelationshipUpdates> buildRelationships(@Nonnull Urn urn, @Nonnull DataJobInfo dataJob) {
-    if (dataJob.getFlowUrn() == null) {
-      return Collections.emptyList();
-    }
+  public List<GraphBuilder.RelationshipUpdates> buildRelationships(@Nonnull Urn sourceUrn, @Nonnull DataJobKey dataJobKey) {
     final List<IsPartOf> dataJobEdges = new ArrayList<>();
-    dataJobEdges.add(new IsPartOf().setSource(urn).setDestination(dataJob.getFlowUrn()));
+    dataJobEdges.add(new IsPartOf().setSource(sourceUrn).setDestination(dataJobKey.getDataFlow()));
     return Collections.singletonList(
         new GraphBuilder.RelationshipUpdates(dataJobEdges, REMOVE_ALL_EDGES_FROM_SOURCE)
     );
