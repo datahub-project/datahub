@@ -1,13 +1,14 @@
 import React from 'react';
 import { List, Typography, Divider } from 'antd';
 import styled from 'styled-components';
-
-import { EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { PreviewType } from '../Entity';
+import { PreviewType } from '../../entity/Entity';
+import { EntityType, SearchResult } from '../../../types.generated';
 
 type Props = {
-    ownerships: { [key in EntityType]?: any[] };
+    searchResult: {
+        [key in EntityType]?: Array<SearchResult>;
+    };
     entityPath?: string;
 };
 
@@ -24,19 +25,17 @@ const ListItem = styled.div`
     margin: 40px;
 `;
 
-export default ({ ownerships, entityPath }: Props) => {
+export default ({ searchResult, entityPath }: Props) => {
     const entityRegistry = useEntityRegistry();
-
     const entityType = entityRegistry.getTypeFromPathName(entityPath || '');
-
     if (!entityType) return null;
 
-    const entitiesToShow = ownerships[entityType] || [];
+    const entitiesToShow = searchResult[entityType] || [];
 
     return (
         <ListContainer>
             <TitleContainer>
-                <Typography.Title level={3}>{entityRegistry.getCollectionName(entityType)} owned</Typography.Title>
+                <Typography.Title level={3}>{entityRegistry.getCollectionName(entityType)}</Typography.Title>
                 <Divider />
             </TitleContainer>
             <List
