@@ -1015,9 +1015,6 @@ class MLFeatureDataTypeClass(object):
     """Binary data is discrete data that can be in only one of two categories — either yes or no, 1 or 0, off or on, etc"""
     BINARY = "BINARY"
     
-    """Bytes data are binary-encoded values that can represent complex objects."""
-    BYTE = "BYTE"
-    
     """Count data is discrete whole number data — no negative numbers here.
     Count data often has many small values, such as zero and one."""
     COUNT = "COUNT"
@@ -1053,6 +1050,9 @@ class MLFeatureDataTypeClass(object):
     
     """Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc."""
     CONTINUOUS = "CONTINUOUS"
+    
+    """Bytes data are binary-encoded values that can represent complex objects."""
+    BYTE = "BYTE"
     
     
 class OwnerClass(DictWrapper):

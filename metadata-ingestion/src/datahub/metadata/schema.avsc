@@ -2754,7 +2754,6 @@
                               "NOMINAL",
                               "ORDINAL",
                               "BINARY",
-                              "BYTE",
                               "COUNT",
                               "TIME",
                               "INTERVAL",
@@ -2765,7 +2764,8 @@
                               "MAP",
                               "SEQUENCE",
                               "SET",
-                              "CONTINUOUS"
+                              "CONTINUOUS",
+                              "BYTE"
                             ],
                             "symbolDocs": {
                               "AUDIO": "Audio Data",

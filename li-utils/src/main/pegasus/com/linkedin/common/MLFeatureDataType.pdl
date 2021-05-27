@@ -29,11 +29,6 @@ enum MLFeatureDataType {
   BINARY
 
   /**
-   * Bytes data are binary-encoded values that can represent complex objects.
-   */
-  BYTE
-
-  /**
    * Count data is discrete whole number data — no negative numbers here.
    * Count data often has many small values, such as zero and one.
    */
@@ -90,4 +85,9 @@ enum MLFeatureDataType {
    * Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc.
    */
   CONTINUOUS
+
+  /**
+   * Bytes data are binary-encoded values that can represent complex objects.
+   */
+  BYTE
 }
