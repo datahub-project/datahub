@@ -2,7 +2,7 @@ name: docker-feast-source docker
 on:
   push:
     branches:
-      - feast-integration
+      - master
     paths-ignore:
       - 'docs/**'
       - '**.md'
@@ -33,9 +33,8 @@ jobs:
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
           echo "SHORT_SHA: $SHORT_SHA"
-          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/.*$,latest\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,latest\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
           echo "tag=$TAG"
-          TAG=latest
           echo "::set-output name=tag::$TAG"
       - name: Check whether publishing enabled
         id: publish
