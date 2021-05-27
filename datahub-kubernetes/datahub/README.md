@@ -66,3 +66,7 @@ helm install datahub datahub/
 | global.credentialsAndCertsSecrets.path | string | `"/mnt/certs"` | Path to mount the SSL certificates |
 | global.credentialsAndCertsSecrets.secureEnv | map | `{}` | Map of SSL config name and the corresponding value in the secret |
 | global.springKafkaConfigurationOverrides | map | `{}` | Map of configuration overrides for accessing kafka |
+| global.elasticsearch.useSSL | bool | `false` | Whether to enable SSL for accessing elasticsearch |
+| global.elasticsearch.auth.username | string | `""` | Elasticsearch username |
+| global.elasticsearch.auth.password.secretRef | string | `""` | Secret that contains the elasticsearch password |
+| global.elasticsearch.auth.password.secretKey | string | `""` | Secret key that contains the elasticsearch password |
