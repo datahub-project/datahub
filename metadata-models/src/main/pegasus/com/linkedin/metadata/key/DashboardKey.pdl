@@ -4,8 +4,7 @@ namespace com.linkedin.metadata.key
  * Key for a Dashboard
  */
 @Aspect = {
-  "name": "dashboardKey",
-  "isKey": true
+  "name": "dashboardKey"
 }
 record DashboardKey {
   /**
@@ -13,7 +12,7 @@ record DashboardKey {
   */
   @Searchable = {
     "fieldName": "tool",
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "addToFilters": true,
     "boostScore": 4.0

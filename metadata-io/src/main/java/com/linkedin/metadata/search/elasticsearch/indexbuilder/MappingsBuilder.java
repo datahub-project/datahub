@@ -41,11 +41,11 @@ public class MappingsBuilder {
         // Add keyword subfield without lowercase filter
         mappingForField.put("fields", ImmutableMap.of("keyword", ImmutableMap.of("type", "keyword")));
       }
-    } else if (fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_WITH_PARTIAL_MATCHING) {
+    } else if (fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL) {
       mappingForField.put("type", "keyword");
       mappingForField.put("normalizer", "keyword_normalizer");
       Map<String, Object> subFields = new HashMap<>();
-      if (fieldType == FieldType.TEXT_WITH_PARTIAL_MATCHING) {
+      if (fieldType == FieldType.TEXT_PARTIAL) {
         subFields.put("ngram", ImmutableMap.of("type", "text", "analyzer", "partial"));
       }
       subFields.put("delimited", ImmutableMap.of("type", "text", "analyzer", "word_delimited"));
@@ -60,11 +60,11 @@ public class MappingsBuilder {
           ImmutableMap.of("length", ImmutableMap.of("type", "token_count", "analyzer", "slash_pattern")));
       mappingForField.put("analyzer", "browse_path_hierarchy");
       mappingForField.put("fielddata", true);
-    } else if (fieldType == FieldType.URN || fieldType == FieldType.URN_WITH_PARTIAL_MATCHING) {
+    } else if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
       mappingForField.put("type", "text");
       mappingForField.put("analyzer", "urn_component");
       Map<String, Object> subFields = new HashMap<>();
-      if (fieldType == FieldType.URN_WITH_PARTIAL_MATCHING) {
+      if (fieldType == FieldType.URN_PARTIAL) {
         subFields.put("ngram", ImmutableMap.of("type", "text", "analyzer", "partial_urn_component"));
       }
       if (addToFilters) {

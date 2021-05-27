@@ -4,8 +4,7 @@ namespace com.linkedin.metadata.key
  * Key for a Data Platform
  */
 @Aspect = {
-  "name": "dataPlatformKey",
-  "isKey": true
+  "name": "dataPlatformKey"
 }
 record DataPlatformKey {
   /**

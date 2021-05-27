@@ -254,7 +254,7 @@ public abstract class EntityService {
 
   protected RecordTemplate buildKeyAspect(@Nonnull final Urn urn) {
     final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
-    final AspectSpec keySpec = spec.getAspectSpecs().stream().filter(AspectSpec::isKey).findFirst().get();
+    final AspectSpec keySpec = spec.getKeyAspectSpec();
     final RecordDataSchema keySchema = keySpec.getPegasusSchema();
     return EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
   }

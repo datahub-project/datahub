@@ -8,8 +8,7 @@ import com.linkedin.metadata.aspect.CorpGroupAspect
  */
 @Entity = {
   "name": "corpGroup",
-  "searchable": false,
-  "browsable": false
+  "keyAspect": "corpGroupKey"
 }
 record CorpGroupSnapshot {
 

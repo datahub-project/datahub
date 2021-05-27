@@ -6,13 +6,12 @@ import com.linkedin.common.Urn
  * Key for a GlossaryTerm
  */
 @Aspect = {
-  "name": "glossaryTermKey",
-  "isKey": true
+  "name": "glossaryTermKey"
 }
 record GlossaryTermKey {
 
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "enableAutocomplete": true
   }

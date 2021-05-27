@@ -58,8 +58,10 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
     if (annotationObj != null) {
       final PathSpec path = new PathSpec(context.getSchemaPathSpec());
       final SearchableAnnotation annotation =
-          SearchableAnnotation.fromPegasusAnnotationObject(annotationObj, getSchemaFieldName(path),
-              currentSchema.getType(), path.toString());
+          SearchableAnnotation.fromPegasusAnnotationObject(
+              annotationObj,
+              getSchemaFieldName(path),
+              currentSchema.getDereferencedType(), path.toString());
       if (_searchFieldNamesToPatch.containsKey(annotation.getFieldName())
           && !_searchFieldNamesToPatch.get(annotation.getFieldName()).equals(context.getSchemaPathSpec().toString())) {
         throw new ModelValidationException(

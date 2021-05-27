@@ -38,7 +38,7 @@ public class PegasusUtils {
   public static String getAspectNameFromSchema(final RecordDataSchema aspectSchema) {
     final Object aspectAnnotationObj = aspectSchema.getProperties().get(AspectAnnotation.ANNOTATION_NAME);
     if (aspectAnnotationObj != null) {
-      return EntityAnnotation.fromSchemaProperty(aspectAnnotationObj, aspectSchema.getFullName()).getName();
+      return AspectAnnotation.fromSchemaProperty(aspectAnnotationObj, aspectSchema.getFullName()).getName();
     }
     throw new IllegalArgumentException(
         String.format("Failed to extract aspect name from provided schema %s", aspectSchema.getName()));

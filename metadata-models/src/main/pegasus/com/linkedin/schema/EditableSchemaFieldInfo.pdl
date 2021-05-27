@@ -28,7 +28,7 @@ record EditableSchemaFieldInfo {
   @Searchable = {
     "/tags/*/tag": {
       "fieldName": "editedFieldTags",
-      "fieldType": "URN_WITH_PARTIAL_MATCHING",
+      "fieldType": "URN_PARTIAL",
       "queryByDefault": true,
       "boostScore": 0.5
     }

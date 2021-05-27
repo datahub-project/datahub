@@ -7,15 +7,14 @@ import com.linkedin.common.FabricType
  * Key for an ML model
  */
 @Aspect = {
-  "name": "mlModelKey",
-  "isKey": true
+  "name": "mlModelKey"
 }
 record MLModelKey {
   /**
   * Standardized platform urn for the model
   */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "boostScore": 0.1
   }
@@ -25,7 +24,7 @@ record MLModelKey {
   * Name of the MLModel
   */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0
@@ -36,7 +35,7 @@ record MLModelKey {
   * Fabric type where model belongs to or where it was generated
   */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
+    "fieldType": "TEXT_PARTIAL"
   }
   origin: FabricType
 }

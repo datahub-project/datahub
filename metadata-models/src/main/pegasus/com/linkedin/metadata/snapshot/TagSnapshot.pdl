@@ -8,8 +8,7 @@ import com.linkedin.metadata.aspect.TagAspect
  */
 @Entity = {
   "name": "tag",
-  "searchable": true,
-  "browsable": true
+  "keyAspect": "tagKey"
 }
 record TagSnapshot {
 

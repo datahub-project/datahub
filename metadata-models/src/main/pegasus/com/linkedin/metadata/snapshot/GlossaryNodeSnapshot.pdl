@@ -8,8 +8,7 @@ import com.linkedin.metadata.aspect.GlossaryNodeAspect
  */
 @Entity = {
   "name": "glossaryNode",
-  "searchable": true,
-  "browsable": true
+  "keyAspect": "glossaryNodeKey"
 }
 record GlossaryNodeSnapshot {
 

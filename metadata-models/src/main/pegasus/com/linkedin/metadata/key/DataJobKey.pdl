@@ -6,8 +6,7 @@ import com.linkedin.common.Urn
  * Key for a Data Job
  */
 @Aspect = {
-  "name": "dataJobKey",
-  "isKey": true
+  "name": "dataJobKey"
 }
 record DataJobKey {
   /**
@@ -15,7 +14,7 @@ record DataJobKey {
   */
   @Searchable = {
     "fieldName": "dataFlow",
-    "fieldType": "URN_WITH_PARTIAL_MATCHING"
+    "fieldType": "URN_PARTIAL"
   }
   flow: Urn
 
@@ -23,7 +22,7 @@ record DataJobKey {
   * Unique Identifier of the data job
   */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "enableAutocomplete": true
   }

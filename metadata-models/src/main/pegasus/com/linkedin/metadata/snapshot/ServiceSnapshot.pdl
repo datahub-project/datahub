@@ -1,0 +1,21 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.Urn
+import com.linkedin.metadata.aspect.ServiceAspect
+
+@Entity = {
+  "name": "service",
+  "keyAspect": "serviceKey"
+}
+record ServiceSnapshot {
+
+  /**
+   * Urn for the service
+   */
+  urn: Urn
+
+  /**
+   * The list of service aspects
+   */
+  aspects: array[ServiceAspect]
+}
