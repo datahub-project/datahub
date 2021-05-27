@@ -70,6 +70,6 @@ jobs:
       - name: Build and Push image
         uses: docker/build-push-action@v2
         with:
-          file: ./metadata-ingestion/src/datahub/ingestion/source/feast_image/Dockerfile
+          context: ./metadata-ingestion/src/datahub/ingestion/source/feast_image
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
