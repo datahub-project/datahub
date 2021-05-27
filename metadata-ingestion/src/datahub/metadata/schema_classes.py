@@ -3980,7 +3980,7 @@ class MLFeaturePropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties")
     def __init__(self,
-        sourceDataset: str,
+        sourceDatasets: List[str],
         name: Union[None, str]=None,
         description: Union[None, str]=None,
         dataType: Union[None, Union[str, "MLFeatureDataTypeClass"]]=None,
@@ -3992,7 +3992,7 @@ class MLFeaturePropertiesClass(DictWrapper):
         self.description = description
         self.dataType = dataType
         self.version = version
-        self.sourceDataset = sourceDataset
+        self.sourceDatasets = sourceDatasets
     
     @classmethod
     def construct_with_defaults(cls) -> "MLFeaturePropertiesClass":
@@ -4006,7 +4006,7 @@ class MLFeaturePropertiesClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.dataType = self.RECORD_SCHEMA.field_map["dataType"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.sourceDataset = str()
+        self.sourceDatasets = list()
     
     
     @property
@@ -4058,15 +4058,15 @@ class MLFeaturePropertiesClass(DictWrapper):
     
     
     @property
-    def sourceDataset(self) -> str:
+    def sourceDatasets(self) -> List[str]:
         """Getter: Source of the MLFeature"""
-        return self._inner_dict.get('sourceDataset')  # type: ignore
+        return self._inner_dict.get('sourceDatasets')  # type: ignore
     
     
-    @sourceDataset.setter
-    def sourceDataset(self, value: str) -> None:
+    @sourceDatasets.setter
+    def sourceDatasets(self, value: List[str]) -> None:
         """Setter: Source of the MLFeature"""
-        self._inner_dict['sourceDataset'] = value
+        self._inner_dict['sourceDatasets'] = value
     
     
 class MLFeatureSetPropertiesClass(DictWrapper):
@@ -4076,21 +4076,13 @@ class MLFeatureSetPropertiesClass(DictWrapper):
     def __init__(self,
         name: str,
         mlFeatures: Union[None, List[str]]=None,
-        mlEntities: Union[None, List[str]]=None,
-        batchSource: Union[None, str]=None,
-        batchSourceConfig: Union[None, str]=None,
-        streamSource: Union[None, str]=None,
-        streamSourceConfig: Union[None, str]=None,
+        mlPrimaryKeys: Union[None, List[str]]=None,
     ):
         super().__init__()
         
         self.name = name
         self.mlFeatures = mlFeatures
-        self.mlEntities = mlEntities
-        self.batchSource = batchSource
-        self.batchSourceConfig = batchSourceConfig
-        self.streamSource = streamSource
-        self.streamSourceConfig = streamSourceConfig
+        self.mlPrimaryKeys = mlPrimaryKeys
     
     @classmethod
     def construct_with_defaults(cls) -> "MLFeatureSetPropertiesClass":
@@ -4102,11 +4094,7 @@ class MLFeatureSetPropertiesClass(DictWrapper):
     def _restore_defaults(self) -> None:
         self.name = str()
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
-        self.mlEntities = self.RECORD_SCHEMA.field_map["mlEntities"].default
-        self.batchSource = self.RECORD_SCHEMA.field_map["batchSource"].default
-        self.batchSourceConfig = self.RECORD_SCHEMA.field_map["batchSourceConfig"].default
-        self.streamSource = self.RECORD_SCHEMA.field_map["streamSource"].default
-        self.streamSourceConfig = self.RECORD_SCHEMA.field_map["streamSourceConfig"].default
+        self.mlPrimaryKeys = self.RECORD_SCHEMA.field_map["mlPrimaryKeys"].default
     
     
     @property
@@ -4134,63 +4122,15 @@ class MLFeatureSetPropertiesClass(DictWrapper):
     
     
     @property
-    def mlEntities(self) -> Union[None, List[str]]:
+    def mlPrimaryKeys(self) -> Union[None, List[str]]:
         """Getter: List of features contained in the feature set"""
-        return self._inner_dict.get('mlEntities')  # type: ignore
+        return self._inner_dict.get('mlPrimaryKeys')  # type: ignore
     
     
-    @mlEntities.setter
-    def mlEntities(self, value: Union[None, List[str]]) -> None:
+    @mlPrimaryKeys.setter
+    def mlPrimaryKeys(self, value: Union[None, List[str]]) -> None:
         """Setter: List of features contained in the feature set"""
-        self._inner_dict['mlEntities'] = value
-    
-    
-    @property
-    def batchSource(self) -> Union[None, str]:
-        """Getter: Batch source of the feature set"""
-        return self._inner_dict.get('batchSource')  # type: ignore
-    
-    
-    @batchSource.setter
-    def batchSource(self, value: Union[None, str]) -> None:
-        """Setter: Batch source of the feature set"""
-        self._inner_dict['batchSource'] = value
-    
-    
-    @property
-    def batchSourceConfig(self) -> Union[None, str]:
-        """Getter: Batch source config of the feature set"""
-        return self._inner_dict.get('batchSourceConfig')  # type: ignore
-    
-    
-    @batchSourceConfig.setter
-    def batchSourceConfig(self, value: Union[None, str]) -> None:
-        """Setter: Batch source config of the feature set"""
-        self._inner_dict['batchSourceConfig'] = value
-    
-    
-    @property
-    def streamSource(self) -> Union[None, str]:
-        """Getter: Streaming source of the feature set"""
-        return self._inner_dict.get('streamSource')  # type: ignore
-    
-    
-    @streamSource.setter
-    def streamSource(self, value: Union[None, str]) -> None:
-        """Setter: Streaming source of the feature set"""
-        self._inner_dict['streamSource'] = value
-    
-    
-    @property
-    def streamSourceConfig(self) -> Union[None, str]:
-        """Getter: Streaming source config of the feature set"""
-        return self._inner_dict.get('streamSourceConfig')  # type: ignore
-    
-    
-    @streamSourceConfig.setter
-    def streamSourceConfig(self, value: Union[None, str]) -> None:
-        """Setter: Streaming source config of the feature set"""
-        self._inner_dict['streamSourceConfig'] = value
+        self._inner_dict['mlPrimaryKeys'] = value
     
     
 class MLModelFactorPromptsClass(DictWrapper):
@@ -4444,7 +4384,7 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties")
     def __init__(self,
-        sourceDataset: str,
+        sourceDatasets: str,
         name: Union[None, str]=None,
         description: Union[None, str]=None,
         dataType: Union[None, Union[str, "MLFeatureDataTypeClass"]]=None,
@@ -4456,7 +4396,7 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
         self.description = description
         self.dataType = dataType
         self.version = version
-        self.sourceDataset = sourceDataset
+        self.sourceDatasets = sourceDatasets
     
     @classmethod
     def construct_with_defaults(cls) -> "MLPrimaryKeyPropertiesClass":
@@ -4470,7 +4410,7 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.dataType = self.RECORD_SCHEMA.field_map["dataType"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.sourceDataset = str()
+        self.sourceDatasets = str()
     
     
     @property
@@ -4522,15 +4462,15 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
     
     
     @property
-    def sourceDataset(self) -> str:
+    def sourceDatasets(self) -> str:
         """Getter: Source of the MLFeature"""
-        return self._inner_dict.get('sourceDataset')  # type: ignore
+        return self._inner_dict.get('sourceDatasets')  # type: ignore
     
     
-    @sourceDataset.setter
-    def sourceDataset(self, value: str) -> None:
+    @sourceDatasets.setter
+    def sourceDatasets(self, value: str) -> None:
         """Setter: Source of the MLFeature"""
-        self._inner_dict['sourceDataset'] = value
+        self._inner_dict['sourceDatasets'] = value
     
     
 class MetricsClass(DictWrapper):

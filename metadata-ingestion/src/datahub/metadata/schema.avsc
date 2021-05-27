@@ -2800,7 +2800,7 @@
                         "default": null
                       },
                       {
-                        "name": "sourceDataset",
+                        "name": "sourceDatasets",
                         "type": [
                           "string"
                         ],
@@ -2879,10 +2879,13 @@
                         "default": null
                       },
                       {
-                        "name": "sourceDataset",
-                        "type": [
-                          "string"
-                        ],
+                        "name": "sourceDatasets",
+                        "type": {
+                          "type": "array",
+                          "items": [
+                            "string"
+                          ]
+                        },
                         "doc": "Source of the MLFeature"
                       }
                     ]
@@ -2940,7 +2943,7 @@
                         "default": null
                       },
                       {
-                        "name": "mlEntities",
+                        "name": "mlPrimaryKeys",
                         "type": [
                           "null",
                           {
@@ -2949,42 +2952,6 @@
                           }
                         ],
                         "doc": "List of features contained in the feature set",
-                        "default": null
-                      },
-                      {
-                        "name": "batchSource",
-                        "type": [
-                          "null",
-                          "string"
-                        ],
-                        "doc": "Batch source of the feature set",
-                        "default": null
-                      },
-                      {
-                        "name": "batchSourceConfig",
-                        "type": [
-                          "null",
-                          "string"
-                        ],
-                        "doc": "Batch source config of the feature set",
-                        "default": null
-                      },
-                      {
-                        "name": "streamSource",
-                        "type": [
-                          "null",
-                          "string"
-                        ],
-                        "doc": "Streaming source of the feature set",
-                        "default": null
-                      },
-                      {
-                        "name": "streamSourceConfig",
-                        "type": [
-                          "null",
-                          "string"
-                        ],
-                        "doc": "Streaming source config of the feature set",
                         "default": null
                       }
                     ]

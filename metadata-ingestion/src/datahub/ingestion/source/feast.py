@@ -127,35 +127,6 @@ class FeastSource(Source):
 
             platform = "feast"
 
-            # ingest features
-            for feature in ingest["features"]:
-
-                # create snapshot instance for the feature
-                feature_snapshot = MLFeatureSnapshot(
-                    urn=builder.make_feature_urn(
-                        platform, feature["table"], feature["name"], self.config.env
-                    ),
-                    aspects=[],
-                )
-
-                # append feature name and type
-                feature_snapshot.aspects.append(
-                    MLFeaturePropertiesClass(
-                        name=feature["name"],
-                        dataType=self.get_field_type(feature["type"], feature["name"]),
-                        # TODO: update this
-                        sourceDataset=builder.make_dataset_urn(
-                            "test", "test", self.config.env
-                        ),
-                    )
-                )
-
-                # make the MCE and workunit
-                mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
-                wu = MetadataWorkUnit(id=feature["name"], mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
-
             # ingest entities
             for entity in ingest["entities"]:
 
@@ -185,6 +156,37 @@ class FeastSource(Source):
             # ingest tables
             for table in ingest["tables"]:
 
+                # ingest features
+                for feature in table["features"]:
+
+                    # create snapshot instance for the feature
+                    feature_snapshot = MLFeatureSnapshot(
+                        urn=builder.make_feature_urn(
+                            platform, table["name"], feature["name"], self.config.env
+                        ),
+                        aspects=[],
+                    )
+
+                    # append feature name and type
+                    feature_snapshot.aspects.append(
+                        MLFeaturePropertiesClass(
+                            name=feature["name"],
+                            dataType=self.get_field_type(
+                                feature["type"], feature["name"]
+                            ),
+                            # TODO: update this
+                            sourceDataset=builder.make_dataset_urn(
+                                "test", "test", self.config.env
+                            ),
+                        )
+                    )
+
+                    # make the MCE and workunit
+                    mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
+                    wu = MetadataWorkUnit(id=feature["name"], mce=mce)
+                    self.report.report_workunit(wu)
+                    yield wu
+
                 featureset_snapshot = MLFeatureSetSnapshot(
                     urn=builder.make_featureset_urn(
                         platform, table["name"], self.config.env
@@ -201,14 +203,10 @@ class FeastSource(Source):
                             )
                             for x in table["features"]
                         ],
-                        mlEntities=[
+                        mlPrimaryKeys=[
                             builder.make_entity_urn(platform, x, self.config.env)
                             for x in table["entities"]
                         ],
-                        batchSource=table.get("batch_source"),
-                        streamSource=table.get("stream_source"),
-                        batchSourceConfig=table.get("batch_source_config"),
-                        streamSourceConfig=table.get("stream_source_config"),
                     )
                 )
 
