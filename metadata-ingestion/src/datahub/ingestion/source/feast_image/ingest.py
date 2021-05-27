@@ -32,8 +32,6 @@ def cli(core_url, output_path):
     features = sorted(features, key=lambda x: x.name)
     entities = sorted(entities, key=lambda x: x.name)
 
-    parsed_features = []
-
     parsed_entities = [
         {
             "name": entity.name,
@@ -47,8 +45,6 @@ def cli(core_url, output_path):
 
     for table in tables:
 
-        # sort features by name for consistent outputs
-        features = sorted([x.name for x in table.features])
         # sort entities by name for consistent outputs
         entities = sorted(table.entities)
 
@@ -76,20 +72,44 @@ def cli(core_url, output_path):
         if stream_source_config is not None:
             stream_source_config = json.dumps(stream_source_config)
 
-        for feature in table.features:
-            parsed_features.append(
+        batch_source_config = json.dumps(table.to_dict()["spec"]["batchSource"])
+
+        # sort features by name for consistent outputs
+        features = sorted(
+            [
                 {
-                    "table": table.name,
-                    "name": feature.name,
-                    "type": feature.dtype.name,
+                    "name": x.name,
+                    "type": x.dtype.name,
                     "batch_source": batch_source,
                     "stream_source": stream_source,
-                    "batch_source_config": json.dumps(
-                        table.to_dict()["spec"]["batchSource"]
-                    ),
+                    "batch_source_config": batch_source_config,
                     "stream_source_config": stream_source_config,
                 }
-            )
+                for x in table.features
+            ],
+            key=lambda x: x["name"],
+        )
+
+        raw_entities = [
+            client.get_entity(entity_name) for entity_name in table.entities
+        ]
+        raw_entities = sorted(raw_entities, key=lambda x: x.name)
+
+        entities = sorted(
+            [
+                {
+                    "name": x.name,
+                    "type": x.value_type.name,
+                    "description": x.description,
+                    "batch_source": batch_source,
+                    "stream_source": stream_source,
+                    "batch_source_config": batch_source_config,
+                    "stream_source_config": stream_source_config,
+                }
+                for x in raw_entities
+            ],
+            key=lambda x: x["name"],
+        )
 
         parsed_tables.append(
             {
@@ -99,20 +119,14 @@ def cli(core_url, output_path):
             }
         )
 
-    output = {
-        "features": parsed_features,
-        "entities": parsed_entities,
-        "tables": parsed_tables,
-    }
-
     if output_path is not None:
 
         with open(output_path, "w") as f:
-            json.dump(output, f)
+            json.dump(parsed_tables, f)
 
     else:
 
-        print(output)
+        print(parsed_tables)
 
 
 if __name__ == "__main__":

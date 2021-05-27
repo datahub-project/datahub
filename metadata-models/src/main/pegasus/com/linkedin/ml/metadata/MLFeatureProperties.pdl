@@ -32,5 +32,5 @@ record MLFeatureProperties {
   /**
   * Source of the MLFeature
   */
-  sourceDataset: union[Urn]
+  sourceDataset: array[union[Urn]]
 }
