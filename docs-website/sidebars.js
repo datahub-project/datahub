@@ -111,6 +111,7 @@ module.exports = {
       "docs/how/kafka-config",
       "docker/README",
       "datahub-kubernetes/README",
+      "docs/deploy/aws",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms-graphql-service/README",
