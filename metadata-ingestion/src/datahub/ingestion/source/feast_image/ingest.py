@@ -52,10 +52,13 @@ def cli(core_url, output_path):
         if isinstance(table.batch_source, FileSource):
             batch_source = "FileSource"
             batch_source_platform = "file"
+
+            # replace slashes because the react frontend can't parse them correctly
             batch_source_name = table.batch_source.file_options.file_url.replace(
                 "/", "."
             )
 
+            # replace redundant file prefix
             if batch_source_name.startswith("file:.."):
                 batch_source_name = batch_source_name[7:]
 
@@ -69,6 +72,7 @@ def cli(core_url, output_path):
             stream_source_platform = "kinesis"
             stream_source_name = f"{table.stream_source.kinesis_options.region}-{table.stream_source.kinesis_options.stream_name}"
 
+        # currently unused in MCE outputs, but useful for debugging
         stream_source_config = table.to_dict()["spec"].get("streamSource")
         batch_source_config = table.to_dict()["spec"]["batchSource"]
 

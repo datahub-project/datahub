@@ -52,14 +52,14 @@ def make_data_job_urn(
     )
 
 
-def make_entity_urn(
+def make_ml_primary_key_urn(
     platform: str, feature_set_name: str, entity_name: str, env: str
 ) -> str:
 
-    return f"urn:li:mlEntity:(urn:li:dataPlatform:{platform},{feature_set_name},{entity_name},{env}))"
+    return f"urn:li:mlPrimaryKey:(urn:li:dataPlatform:{platform},{feature_set_name},{entity_name},{env}))"
 
 
-def make_feature_urn(
+def make_ml_feature_urn(
     platform: str,
     feature_set_name: str,
     feature_name: str,
@@ -69,7 +69,7 @@ def make_feature_urn(
     return f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},{feature_set_name},{feature_name},{env}))"
 
 
-def make_featureset_urn(platform: str, featureset_name: str, env: str) -> str:
+def make_ml_feature_set_urn(platform: str, featureset_name: str, env: str) -> str:
 
     return (
         f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},{featureset_name},{env}))"
