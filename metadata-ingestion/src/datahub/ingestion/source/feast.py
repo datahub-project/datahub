@@ -12,15 +12,15 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    MLEntitySnapshot,
     MLFeatureSetSnapshot,
     MLFeatureSnapshot,
+    MLPrimaryKeySnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    MLEntityPropertiesClass,
     MLFeaturePropertiesClass,
     MLFeatureSetPropertiesClass,
+    MLPrimaryKeyPropertiesClass,
 )
 
 # map Feast types to DataHub classes
@@ -127,36 +127,44 @@ class FeastSource(Source):
 
             platform = "feast"
 
-            # ingest entities
-            for entity in ingest["entities"]:
-
-                # create snapshot instance for the entity
-                entity_snapshot = MLEntitySnapshot(
-                    urn=builder.make_entity_urn(
-                        platform, entity["name"], self.config.env
-                    ),
-                    aspects=[],
-                )
-
-                # append entity name and type
-                entity_snapshot.aspects.append(
-                    MLEntityPropertiesClass(
-                        name=entity["name"],
-                        description=entity["description"],
-                        dataType=self.get_field_type(entity["type"], entity["name"]),
-                    )
-                )
-
-                # make the MCE and workunit
-                mce = MetadataChangeEvent(proposedSnapshot=entity_snapshot)
-                wu = MetadataWorkUnit(id=entity["name"], mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
-
             # ingest tables
-            for table in ingest["tables"]:
+            for table in ingest:
 
-                # ingest features
+                # ingest entities in table
+                for entity in table["entities"]:
+
+                    # create snapshot instance for the entity
+                    entity_snapshot = MLPrimaryKeySnapshot(
+                        urn=builder.make_entity_urn(
+                            platform, table["name"], entity["name"], self.config.env
+                        ),
+                        aspects=[],
+                    )
+
+                    # append entity name and type
+                    entity_snapshot.aspects.append(
+                        MLPrimaryKeyPropertiesClass(
+                            name=entity["name"],
+                            description=entity["description"],
+                            dataType=self.get_field_type(
+                                entity["type"], entity["name"]
+                            ),
+                            # TODO: update this
+                            sourceDatasets=[
+                                builder.make_dataset_urn(
+                                    "test", "test", self.config.env
+                                )
+                            ],
+                        )
+                    )
+
+                    # make the MCE and workunit
+                    mce = MetadataChangeEvent(proposedSnapshot=entity_snapshot)
+                    wu = MetadataWorkUnit(id=entity["name"], mce=mce)
+                    self.report.report_workunit(wu)
+                    yield wu
+
+                # ingest features in table
                 for feature in table["features"]:
 
                     # create snapshot instance for the feature
@@ -175,9 +183,11 @@ class FeastSource(Source):
                                 feature["type"], feature["name"]
                             ),
                             # TODO: update this
-                            sourceDataset=builder.make_dataset_urn(
-                                "test", "test", self.config.env
-                            ),
+                            sourceDatasets=[
+                                builder.make_dataset_urn(
+                                    "test", "test", self.config.env
+                                )
+                            ],
                         )
                     )
 
@@ -199,13 +209,18 @@ class FeastSource(Source):
                         name=table["name"],
                         mlFeatures=[
                             builder.make_feature_urn(
-                                platform, x, feature["name"], self.config.env
+                                platform,
+                                table["name"],
+                                feature["name"],
+                                self.config.env,
                             )
-                            for x in table["features"]
+                            for feature in table["features"]
                         ],
                         mlPrimaryKeys=[
-                            builder.make_entity_urn(platform, x, self.config.env)
-                            for x in table["entities"]
+                            builder.make_entity_urn(
+                                platform, table["name"], entity["name"], self.config.env
+                            )
+                            for entity in table["entities"]
                         ],
                     )
                 )

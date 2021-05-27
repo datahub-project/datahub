@@ -4384,7 +4384,7 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties")
     def __init__(self,
-        sourceDatasets: str,
+        sourceDatasets: List[str],
         name: Union[None, str]=None,
         description: Union[None, str]=None,
         dataType: Union[None, Union[str, "MLFeatureDataTypeClass"]]=None,
@@ -4410,7 +4410,7 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.dataType = self.RECORD_SCHEMA.field_map["dataType"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.sourceDatasets = str()
+        self.sourceDatasets = list()
     
     
     @property
@@ -4462,13 +4462,13 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
     
     
     @property
-    def sourceDatasets(self) -> str:
+    def sourceDatasets(self) -> List[str]:
         """Getter: Source of the MLFeature"""
         return self._inner_dict.get('sourceDatasets')  # type: ignore
     
     
     @sourceDatasets.setter
-    def sourceDatasets(self, value: str) -> None:
+    def sourceDatasets(self, value: List[str]) -> None:
         """Setter: Source of the MLFeature"""
         self._inner_dict['sourceDatasets'] = value
     

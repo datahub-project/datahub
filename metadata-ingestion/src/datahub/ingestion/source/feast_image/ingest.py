@@ -64,8 +64,29 @@ def cli(core_url, output_path):
             stream_source = "KinesisSource"
 
         stream_source_config = table.to_dict()["spec"].get("streamSource")
-
         batch_source_config = table.to_dict()["spec"]["batchSource"]
+
+        raw_entities = [
+            client.get_entity(entity_name) for entity_name in table.entities
+        ]
+        raw_entities = sorted(raw_entities, key=lambda x: x.name)
+
+        # sort entities by name for consistent outputs
+        entities = sorted(
+            [
+                {
+                    "name": x.name,
+                    "type": x.value_type.name,
+                    "description": x.description,
+                    "batch_source": batch_source,
+                    "stream_source": stream_source,
+                    "batch_source_config": batch_source_config,
+                    "stream_source_config": stream_source_config,
+                }
+                for x in raw_entities
+            ],
+            key=lambda x: x["name"],
+        )
 
         # sort features by name for consistent outputs
         features = sorted(
@@ -83,32 +104,11 @@ def cli(core_url, output_path):
             key=lambda x: x["name"],
         )
 
-        raw_entities = [
-            client.get_entity(entity_name) for entity_name in table.entities
-        ]
-        raw_entities = sorted(raw_entities, key=lambda x: x.name)
-
-        entities = sorted(
-            [
-                {
-                    "name": x.name,
-                    "type": x.value_type.name,
-                    "description": x.description,
-                    "batch_source": batch_source,
-                    "stream_source": stream_source,
-                    "batch_source_config": batch_source_config,
-                    "stream_source_config": stream_source_config,
-                }
-                for x in raw_entities
-            ],
-            key=lambda x: x["name"],
-        )
-
         parsed_tables.append(
             {
                 "name": table.name,
-                "features": features,
                 "entities": entities,
+                "features": features,
             }
         )
 

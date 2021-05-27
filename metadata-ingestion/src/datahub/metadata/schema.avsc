@@ -2801,9 +2801,12 @@
                       },
                       {
                         "name": "sourceDatasets",
-                        "type": [
-                          "string"
-                        ],
+                        "type": {
+                          "type": "array",
+                          "items": [
+                            "string"
+                          ]
+                        },
                         "doc": "Source of the MLFeature"
                       }
                     ]
