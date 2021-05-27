@@ -13,10 +13,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -40,10 +37,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -67,10 +61,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -94,10 +85,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -121,10 +109,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -148,10 +133,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -175,10 +157,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -202,10 +181,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -229,10 +205,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -256,10 +229,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -283,10 +253,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -310,10 +277,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -337,10 +301,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -364,10 +325,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -391,10 +349,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -418,10 +373,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -481,10 +433,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -508,10 +457,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -557,10 +503,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }
@@ -584,10 +527,7 @@
                         "version": null,
                         "sourceDatasets": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,file:..feast.*,PROD)"
-                            },
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:unknown,unknown,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                             }
                         ]
                     }

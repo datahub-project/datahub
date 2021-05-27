@@ -141,6 +141,26 @@ class FeastSource(Source):
                         aspects=[],
                     )
 
+                    entity_sources = []
+
+                    if entity["batch_source"] is not None:
+                        entity_sources.append(
+                            builder.make_dataset_urn(
+                                entity["batch_source_platform"],
+                                entity["batch_source_name"],
+                                self.config.env,
+                            )
+                        )
+
+                    if entity["stream_source"] is not None:
+                        entity_sources.append(
+                            builder.make_dataset_urn(
+                                entity["stream_source_platform"],
+                                entity["stream_source_name"],
+                                self.config.env,
+                            )
+                        )
+
                     # append entity name and type
                     entity_snapshot.aspects.append(
                         MLPrimaryKeyPropertiesClass(
@@ -149,18 +169,7 @@ class FeastSource(Source):
                             dataType=self.get_field_type(
                                 entity["type"], entity["name"]
                             ),
-                            sourceDatasets=[
-                                builder.make_dataset_urn(
-                                    entity["batch_source_platform"],
-                                    entity["batch_source_name"],
-                                    self.config.env,
-                                ),
-                                builder.make_dataset_urn(
-                                    entity["stream_source_platform"],
-                                    entity["stream_source_name"],
-                                    self.config.env,
-                                ),
-                            ],
+                            sourceDatasets=entity_sources,
                         )
                     )
 
@@ -181,6 +190,26 @@ class FeastSource(Source):
                         aspects=[],
                     )
 
+                    feature_sources = []
+
+                    if feature["batch_source"] is not None:
+                        feature_sources.append(
+                            builder.make_dataset_urn(
+                                feature["batch_source_platform"],
+                                feature["batch_source_name"],
+                                self.config.env,
+                            )
+                        )
+
+                    if feature["stream_source"] is not None:
+                        feature_sources.append(
+                            builder.make_dataset_urn(
+                                feature["stream_source_platform"],
+                                feature["stream_source_name"],
+                                self.config.env,
+                            )
+                        )
+
                     # append feature name and type
                     feature_snapshot.aspects.append(
                         MLFeaturePropertiesClass(
@@ -188,18 +217,7 @@ class FeastSource(Source):
                             dataType=self.get_field_type(
                                 feature["type"], feature["name"]
                             ),
-                            sourceDatasets=[
-                                builder.make_dataset_urn(
-                                    feature["batch_source_platform"],
-                                    feature["batch_source_name"],
-                                    self.config.env,
-                                ),
-                                builder.make_dataset_urn(
-                                    feature["stream_source_platform"],
-                                    feature["stream_source_name"],
-                                    self.config.env,
-                                ),
-                            ],
+                            sourceDatasets=feature_sources,
                         )
                     )
 
