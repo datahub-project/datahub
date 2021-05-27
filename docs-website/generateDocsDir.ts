@@ -133,7 +133,7 @@ function markdown_guess_title(
     if (filepath in hardcoded_descriptions) {
       contents.data.description = hardcoded_descriptions[filepath];
     }
-    if (filepath in hardcoded_hide_title) {
+    if (hardcoded_hide_title.includes(filepath)) {
       contents.data.hide_title = true;
     }
   } else {
