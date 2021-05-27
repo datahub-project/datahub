@@ -26,5 +26,5 @@ record MLFeatureProperties {
   /**
   * Source of the MLFeature
   */
-  sources: array[MLFeatureSourceType]
+  sources: optional array[MLFeatureSourceType]
 }

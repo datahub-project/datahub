@@ -2865,13 +2865,17 @@
                       },
                       {
                         "name": "sources",
-                        "type": {
-                          "type": "array",
-                          "items": [
-                            "string"
-                          ]
-                        },
-                        "doc": "Source of the MLFeature"
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": [
+                              "string"
+                            ]
+                          }
+                        ],
+                        "doc": "Source of the MLFeature",
+                        "default": null
                       }
                     ]
                   },
