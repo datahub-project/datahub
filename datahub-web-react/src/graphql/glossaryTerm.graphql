@@ -1,0 +1,20 @@
+query getGlossaryTerm($urn: String!) {
+    glossaryTerm(urn: $urn) {
+        urn
+        type
+        name
+        ownership {
+            ...ownershipFields
+        }
+        glossaryTermInfo {
+            definition
+            termSource
+            sourceRef
+            sourceUrl
+            customProperties {
+                key
+                value
+            }
+        }
+    }
+}
