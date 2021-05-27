@@ -3980,19 +3980,17 @@ class MLFeaturePropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties")
     def __init__(self,
-        sourceDatasets: List[str],
-        name: Union[None, str]=None,
+        sources: List[str],
         description: Union[None, str]=None,
         dataType: Union[None, Union[str, "MLFeatureDataTypeClass"]]=None,
         version: Union[None, "VersionTagClass"]=None,
     ):
         super().__init__()
         
-        self.name = name
         self.description = description
         self.dataType = dataType
         self.version = version
-        self.sourceDatasets = sourceDatasets
+        self.sources = sources
     
     @classmethod
     def construct_with_defaults(cls) -> "MLFeaturePropertiesClass":
@@ -4002,23 +4000,10 @@ class MLFeaturePropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.name = self.RECORD_SCHEMA.field_map["name"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.dataType = self.RECORD_SCHEMA.field_map["dataType"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.sourceDatasets = list()
-    
-    
-    @property
-    def name(self) -> Union[None, str]:
-        """Getter: Name of the MLFeature"""
-        return self._inner_dict.get('name')  # type: ignore
-    
-    
-    @name.setter
-    def name(self, value: Union[None, str]) -> None:
-        """Setter: Name of the MLFeature"""
-        self._inner_dict['name'] = value
+        self.sources = list()
     
     
     @property
@@ -4058,15 +4043,15 @@ class MLFeaturePropertiesClass(DictWrapper):
     
     
     @property
-    def sourceDatasets(self) -> List[str]:
+    def sources(self) -> List[str]:
         """Getter: Source of the MLFeature"""
-        return self._inner_dict.get('sourceDatasets')  # type: ignore
+        return self._inner_dict.get('sources')  # type: ignore
     
     
-    @sourceDatasets.setter
-    def sourceDatasets(self, value: List[str]) -> None:
+    @sources.setter
+    def sources(self, value: List[str]) -> None:
         """Setter: Source of the MLFeature"""
-        self._inner_dict['sourceDatasets'] = value
+        self._inner_dict['sources'] = value
     
     
 class MLFeatureSetPropertiesClass(DictWrapper):
@@ -4074,13 +4059,13 @@ class MLFeatureSetPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties")
     def __init__(self,
-        name: str,
+        description: Union[None, str]=None,
         mlFeatures: Union[None, List[str]]=None,
         mlPrimaryKeys: Union[None, List[str]]=None,
     ):
         super().__init__()
         
-        self.name = name
+        self.description = description
         self.mlFeatures = mlFeatures
         self.mlPrimaryKeys = mlPrimaryKeys
     
@@ -4092,21 +4077,21 @@ class MLFeatureSetPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.name = str()
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
         self.mlPrimaryKeys = self.RECORD_SCHEMA.field_map["mlPrimaryKeys"].default
     
     
     @property
-    def name(self) -> str:
-        """Getter: Name of the feature set"""
-        return self._inner_dict.get('name')  # type: ignore
+    def description(self) -> Union[None, str]:
+        """Getter: Documentation of the MLFeatureSet"""
+        return self._inner_dict.get('description')  # type: ignore
     
     
-    @name.setter
-    def name(self, value: str) -> None:
-        """Setter: Name of the feature set"""
-        self._inner_dict['name'] = value
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        """Setter: Documentation of the MLFeatureSet"""
+        self._inner_dict['description'] = value
     
     
     @property
@@ -4123,13 +4108,13 @@ class MLFeatureSetPropertiesClass(DictWrapper):
     
     @property
     def mlPrimaryKeys(self) -> Union[None, List[str]]:
-        """Getter: List of features contained in the feature set"""
+        """Getter: List of primary keys in the feature set (if multiple, assumed to act as a composite key)"""
         return self._inner_dict.get('mlPrimaryKeys')  # type: ignore
     
     
     @mlPrimaryKeys.setter
     def mlPrimaryKeys(self, value: Union[None, List[str]]) -> None:
-        """Setter: List of features contained in the feature set"""
+        """Setter: List of primary keys in the feature set (if multiple, assumed to act as a composite key)"""
         self._inner_dict['mlPrimaryKeys'] = value
     
     
@@ -4384,19 +4369,17 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties")
     def __init__(self,
-        sourceDatasets: List[str],
-        name: Union[None, str]=None,
+        sources: List[str],
         description: Union[None, str]=None,
         dataType: Union[None, Union[str, "MLFeatureDataTypeClass"]]=None,
         version: Union[None, "VersionTagClass"]=None,
     ):
         super().__init__()
         
-        self.name = name
         self.description = description
         self.dataType = dataType
         self.version = version
-        self.sourceDatasets = sourceDatasets
+        self.sources = sources
     
     @classmethod
     def construct_with_defaults(cls) -> "MLPrimaryKeyPropertiesClass":
@@ -4406,23 +4389,10 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.name = self.RECORD_SCHEMA.field_map["name"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.dataType = self.RECORD_SCHEMA.field_map["dataType"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.sourceDatasets = list()
-    
-    
-    @property
-    def name(self) -> Union[None, str]:
-        """Getter: Name of the MLPrimaryKey"""
-        return self._inner_dict.get('name')  # type: ignore
-    
-    
-    @name.setter
-    def name(self, value: Union[None, str]) -> None:
-        """Setter: Name of the MLPrimaryKey"""
-        self._inner_dict['name'] = value
+        self.sources = list()
     
     
     @property
@@ -4462,15 +4432,15 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
     
     
     @property
-    def sourceDatasets(self) -> List[str]:
+    def sources(self) -> List[str]:
         """Getter: Source of the MLPrimaryKey"""
-        return self._inner_dict.get('sourceDatasets')  # type: ignore
+        return self._inner_dict.get('sources')  # type: ignore
     
     
-    @sourceDatasets.setter
-    def sourceDatasets(self, value: List[str]) -> None:
+    @sources.setter
+    def sources(self, value: List[str]) -> None:
         """Setter: Source of the MLPrimaryKey"""
-        self._inner_dict['sourceDatasets'] = value
+        self._inner_dict['sources'] = value
     
     
 class MetricsClass(DictWrapper):

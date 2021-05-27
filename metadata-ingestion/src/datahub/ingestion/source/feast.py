@@ -168,12 +168,11 @@ class FeastSource(Source):
                     # append entity name and type
                     entity_snapshot.aspects.append(
                         MLPrimaryKeyPropertiesClass(
-                            name=entity["name"],
                             description=entity["description"],
                             dataType=self.get_field_type(
                                 entity["type"], entity["name"]
                             ),
-                            sourceDatasets=entity_sources,
+                            sources=entity_sources,
                         )
                     )
 
@@ -217,11 +216,10 @@ class FeastSource(Source):
                     # append feature name and type
                     feature_snapshot.aspects.append(
                         MLFeaturePropertiesClass(
-                            name=feature["name"],
                             dataType=self.get_field_type(
                                 feature["type"], feature["name"]
                             ),
-                            sourceDatasets=feature_sources,
+                            sources=feature_sources,
                         )
                     )
 
@@ -240,7 +238,6 @@ class FeastSource(Source):
 
                 featureset_snapshot.aspects.append(
                     MLFeatureSetPropertiesClass(
-                        name=table["name"],
                         mlFeatures=[
                             builder.make_ml_feature_urn(
                                 platform,

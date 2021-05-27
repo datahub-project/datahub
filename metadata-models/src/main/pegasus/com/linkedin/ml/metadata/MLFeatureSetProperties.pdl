@@ -9,9 +9,9 @@ import com.linkedin.common.MLPrimaryKeyUrn
 record MLFeatureSetProperties {
 
   /**
-   * Name of the feature set
+   * Documentation of the MLFeatureSet
    */
-  name: string
+  description: optional string
 
   /**
    * List of features contained in the feature set
@@ -19,7 +19,7 @@ record MLFeatureSetProperties {
   mlFeatures: optional array[MLFeatureUrn]
 
   /**
-   * List of features contained in the feature set
+   * List of primary keys in the feature set (if multiple, assumed to act as a composite key)
    */
   mlPrimaryKeys: optional array[MLPrimaryKeyUrn]
 }

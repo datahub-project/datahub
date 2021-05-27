@@ -2723,15 +2723,6 @@
                     "doc": "Properties associated with a MLPrimaryKey",
                     "fields": [
                       {
-                        "name": "name",
-                        "type": [
-                          "null",
-                          "string"
-                        ],
-                        "doc": "Name of the MLPrimaryKey",
-                        "default": null
-                      },
-                      {
                         "name": "description",
                         "type": [
                           "null",
@@ -2800,7 +2791,7 @@
                         "default": null
                       },
                       {
-                        "name": "sourceDatasets",
+                        "name": "sources",
                         "type": {
                           "type": "array",
                           "items": [
@@ -2846,15 +2837,6 @@
                     "doc": "Properties associated with a MLFeature",
                     "fields": [
                       {
-                        "name": "name",
-                        "type": [
-                          "null",
-                          "string"
-                        ],
-                        "doc": "Name of the MLFeature",
-                        "default": null
-                      },
-                      {
                         "name": "description",
                         "type": [
                           "null",
@@ -2882,7 +2864,7 @@
                         "default": null
                       },
                       {
-                        "name": "sourceDatasets",
+                        "name": "sources",
                         "type": {
                           "type": "array",
                           "items": [
@@ -2929,9 +2911,13 @@
                     "doc": "Properties associated with a MLFeatureSet",
                     "fields": [
                       {
-                        "name": "name",
-                        "type": "string",
-                        "doc": "Name of the feature set"
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the MLFeatureSet",
+                        "default": null
                       },
                       {
                         "name": "mlFeatures",
@@ -2954,7 +2940,7 @@
                             "items": "string"
                           }
                         ],
-                        "doc": "List of features contained in the feature set",
+                        "doc": "List of primary keys in the feature set (if multiple, assumed to act as a composite key)",
                         "default": null
                       }
                     ]

@@ -1,6 +1,5 @@
 namespace com.linkedin.ml.metadata
 
-import com.linkedin.common.Urn
 import com.linkedin.common.MLFeatureDataType
 import com.linkedin.common.VersionTag
 
@@ -8,11 +7,6 @@ import com.linkedin.common.VersionTag
  * Properties associated with a MLPrimaryKey
  */
 record MLPrimaryKeyProperties {
-
-  /**
-   * Name of the MLPrimaryKey
-   */
-  name: optional string
 
   /**
    * Documentation of the MLPrimaryKey
@@ -32,5 +26,5 @@ record MLPrimaryKeyProperties {
   /**
   * Source of the MLPrimaryKey
   */
-  sourceDatasets: array[union[Urn]]
+  sources: array[MLFeatureSourceType]
 }
