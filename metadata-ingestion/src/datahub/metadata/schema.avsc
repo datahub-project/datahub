@@ -2699,7 +2699,7 @@
         },
         {
           "type": "record",
-          "name": "MLEntitySnapshot",
+          "name": "MLPrimaryKeySnapshot",
           "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
           "fields": [
             {
@@ -2707,7 +2707,7 @@
               "type": "string",
               "doc": "URN for the entity the metadata snapshot is associated with.",
               "java": {
-                "class": "com.linkedin.pegasus2avro.common.urn.MLEntityUrn"
+                "class": "com.linkedin.pegasus2avro.common.urn.MLPrimaryKeyUrn"
               }
             },
             {
@@ -2718,9 +2718,9 @@
                   "com.linkedin.pegasus2avro.common.Ownership",
                   {
                     "type": "record",
-                    "name": "MLEntityProperties",
+                    "name": "MLPrimaryKeyProperties",
                     "namespace": "com.linkedin.pegasus2avro.ml.metadata",
-                    "doc": "Properties associated with a MLEntity",
+                    "doc": "Properties associated with a MLPrimaryKey",
                     "fields": [
                       {
                         "name": "name",
@@ -2728,7 +2728,7 @@
                           "null",
                           "string"
                         ],
-                        "doc": "Name of the MLEntity",
+                        "doc": "Name of the MLPrimaryKey",
                         "default": null
                       },
                       {
@@ -2737,7 +2737,7 @@
                           "null",
                           "string"
                         ],
-                        "doc": "Documentation of the MLEntity",
+                        "doc": "Documentation of the MLPrimaryKey",
                         "default": null
                       },
                       {
@@ -2787,7 +2787,7 @@
                             }
                           }
                         ],
-                        "doc": "Data Type of the MLEntity",
+                        "doc": "Data Type of the MLPrimaryKey",
                         "default": null
                       },
                       {
@@ -2796,8 +2796,15 @@
                           "null",
                           "com.linkedin.pegasus2avro.common.VersionTag"
                         ],
-                        "doc": "Version of the MLEntity",
+                        "doc": "Version of the MLPrimaryKey",
                         "default": null
+                      },
+                      {
+                        "name": "sourceDataset",
+                        "type": [
+                          "string"
+                        ],
+                        "doc": "Source of the MLFeature"
                       }
                     ]
                   },
@@ -2806,7 +2813,7 @@
                   "com.linkedin.pegasus2avro.common.Deprecation"
                 ]
               },
-              "doc": "The list of metadata aspects associated with the MLEntity. Depending on the use case, this can either be all, or a selection, of supported aspects."
+              "doc": "The list of metadata aspects associated with the MLPrimaryKey. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
           ]
         },

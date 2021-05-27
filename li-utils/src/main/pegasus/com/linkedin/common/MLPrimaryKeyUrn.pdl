@@ -1,27 +1,27 @@
 namespace com.linkedin.common
 
 /**
- * Standardized MLEntity identifier.
+ * Standardized MLPrimaryKey identifier.
  */
-@java.class = "com.linkedin.common.urn.MLEntityUrn"
+@java.class = "com.linkedin.common.urn.MLPrimaryKeyUrn"
 @validate.`com.linkedin.common.validator.TypedUrnValidator` = {
   "accessible" : true,
   "owningTeam" : "urn:li:internalTeam:datahub",
-  "entityType" : "mlEntity",
+  "entityType" : "mlPrimaryKey",
   "constructable" : true,
   "namespace" : "li",
-  "name" : "MLEntity",
-  "doc" : "Standardized MLEntity identifier.",
+  "name" : "MLPrimaryKey",
+  "doc" : "Standardized MLPrimaryKey identifier.",
   "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
   "fields" : [ {
-    "name" : "mlEntityNamespace",
+    "name" : "mlPrimaryKeyNamespace",
     "type" : "string",
-    "doc" : "Namespace for the MLEntity"
+    "doc" : "Namespace for the MLPrimaryKey"
   }, { "type" : "string",
-    "name" : "mlEntityName",
-    "doc" : "Name of the MLEntity",
+    "name" : "mlPrimaryKeyName",
+    "doc" : "Name of the MLPrimaryKey",
     "maxLength" : 210
   }],
   "maxLength" : 284
 }
-typeref MLEntityUrn = string
+typeref MLPrimaryKeyUrn = string

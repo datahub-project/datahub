@@ -1,7 +1,7 @@
 namespace com.linkedin.ml.metadata
 
 import com.linkedin.common.MLFeatureUrn
-import com.linkedin.common.MLEntityUrn
+import com.linkedin.common.MLPrimaryKeyUrn
 
 /**
  * Properties associated with a MLFeatureSet
@@ -21,7 +21,7 @@ record MLFeatureSetProperties {
   /**
    * List of features contained in the feature set
    */
-  mlEntities: optional array[MLEntityUrn]
+  mlEntities: optional array[MLPrimaryKeyUrn]
 
   /**
    * Batch source of the feature set
