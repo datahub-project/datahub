@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;
+import io.micrometer.core.instrument.search.Search;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -35,6 +36,7 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -48,13 +50,16 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 @Import({GraphServiceFactory.class, SearchServiceFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {
-  @Inject
-  @Named("graphService")
-  private GraphService graphService;
 
-  @Inject
-  @Named("searchService")
-  private SearchService searchService;
+  private final GraphService _graphService;
+  private final SearchService _searchService;
+
+  @Autowired
+  public MetadataAuditEventsProcessor(GraphService graphService, SearchService searchService) {
+    _graphService = graphService;
+    _searchService = searchService;
+    _searchService.configure();
+  }
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"
       + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "avroSerializedKafkaListener")
@@ -117,9 +122,9 @@ public class MetadataAuditEventsProcessor {
     }
     if (edgesToAdd.size() > 0) {
       new Thread(() -> {
-        graphService.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
+        _graphService.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
             createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
-        edgesToAdd.forEach(edge -> graphService.addEdge(edge));
+        edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
       }).start();
     }
   }
@@ -151,6 +156,6 @@ public class MetadataAuditEventsProcessor {
       return;
     }
 
-    searchService.upsertDocument(entitySpec.getName(), searchDocument.get(), docId);
+    _searchService.upsertDocument(entitySpec.getName(), searchDocument.get(), docId);
   }
 }
