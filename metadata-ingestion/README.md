@@ -384,6 +384,7 @@ source:
   config:
     core_url: localhost:6565 # default
     env: "PROD" # Optional, default is "PROD"
+    use_local_build: False # Whether to build Feast ingestion image locally, default is False
 ```
 
 ### Google BigQuery `bigquery`

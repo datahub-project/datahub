@@ -29,6 +29,7 @@ def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
                     "type": "feast",
                     "config": {
                         "core_url": "localhost:6565",
+                        "use_local_build": True,
                     },
                 },
                 "sink": {

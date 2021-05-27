@@ -4463,13 +4463,13 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
     
     @property
     def sourceDatasets(self) -> List[str]:
-        """Getter: Source of the MLFeature"""
+        """Getter: Source of the MLPrimaryKey"""
         return self._inner_dict.get('sourceDatasets')  # type: ignore
     
     
     @sourceDatasets.setter
     def sourceDatasets(self, value: List[str]) -> None:
-        """Setter: Source of the MLFeature"""
+        """Setter: Source of the MLPrimaryKey"""
         self._inner_dict['sourceDatasets'] = value
     
     

@@ -2807,7 +2807,7 @@
                             "string"
                           ]
                         },
-                        "doc": "Source of the MLFeature"
+                        "doc": "Source of the MLPrimaryKey"
                       }
                     ]
                   },

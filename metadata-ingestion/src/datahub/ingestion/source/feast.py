@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List
@@ -108,7 +109,10 @@ class FeastSource(Source):
 
             # build the image locally if specified
             if self.config.use_local_build:
-                image, _ = docker_client.images.build(path="../feast_image/")
+                dirname = os.path.dirname(__file__)
+                image_directory = os.path.join(dirname, "feast_image/")
+
+                image, _ = docker_client.images.build(path=image_directory)
 
                 feast_image = image.id
 
