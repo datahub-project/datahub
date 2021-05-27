@@ -76,7 +76,7 @@ task validateModels(type: JavaExec) {
       "THROW"
   classpath = project.configurations.modelValidation
   debugOptions {
-    enabled = true
+    enabled = false
     port = 5005
   }
 }
