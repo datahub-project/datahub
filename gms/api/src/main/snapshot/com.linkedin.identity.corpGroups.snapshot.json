@@ -106,7 +106,7 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "fieldType" : "URN_PARTIAL",
               "hasValuesFieldName" : "hasTags",
               "queryByDefault" : true
             }
@@ -238,7 +238,6 @@
         "doc" : "The name of the AD/LDAP group."
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "corpGroupKey"
       }
     }, "com.linkedin.identity.CorpGroupInfo", "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
@@ -444,9 +443,8 @@
       "doc" : "The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : false,
-      "name" : "corpGroup",
-      "searchable" : false
+      "keyAspect" : "corpGroupKey",
+      "name" : "corpGroup"
     }
   }, {
     "type" : "record",

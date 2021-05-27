@@ -329,7 +329,7 @@
         "Searchable" : {
           "boostScore" : 4.0,
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       }, {
@@ -338,7 +338,7 @@
         "doc" : "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       }, {
@@ -346,11 +346,10 @@
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where dataset belongs to or where it was generated.",
         "Searchable" : {
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
+          "fieldType" : "TEXT_PARTIAL"
         }
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "dataProcessKey"
       }
     }, "com.linkedin.common.Ownership", "com.linkedin.dataprocess.DataProcessInfo", "com.linkedin.common.Status" ]
@@ -556,9 +555,8 @@
       "doc" : "The list of metadata aspects associated with the data process. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : true,
-      "name" : "dataProcess",
-      "searchable" : true
+      "keyAspect" : "dataProcessKey",
+      "name" : "dataProcess"
     }
   }, {
     "type" : "record",

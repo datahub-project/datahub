@@ -256,7 +256,7 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "fieldType" : "URN_PARTIAL",
               "hasValuesFieldName" : "hasTags",
               "queryByDefault" : true
             }
@@ -420,7 +420,7 @@
           "Searchable" : {
             "boostScore" : 10.0,
             "enableAutocomplete" : true,
-            "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+            "fieldType" : "TEXT_PARTIAL",
             "queryByDefault" : true
           }
         }, {
@@ -566,7 +566,7 @@
         "doc" : "Standardized data processing flow urn representing the flow for the job",
         "Searchable" : {
           "fieldName" : "dataFlow",
-          "fieldType" : "URN_WITH_PARTIAL_MATCHING"
+          "fieldType" : "URN_PARTIAL"
         }
       }, {
         "name" : "jobId",
@@ -574,12 +574,11 @@
         "doc" : "Unique Identifier of the data job",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "dataJobKey"
       }
     }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
@@ -861,9 +860,8 @@
       "doc" : "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : true,
-      "name" : "dataJob",
-      "searchable" : true
+      "keyAspect" : "dataJobKey",
+      "name" : "dataJob"
     }
   }, {
     "type" : "record",

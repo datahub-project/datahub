@@ -48,27 +48,20 @@ public class RelationshipAnnotation {
     }
 
     final Optional<List> entityTypesList = AnnotationUtils.getField(map, ENTITY_TYPES_FIELD, List.class);
-    if (!entityTypesList.isPresent()) {
-      throw new ModelValidationException(
-          String.format(
-              "Failed to validate @%s annotation at %s: Invalid field '%s'. Expected type List<String>",
-              ANNOTATION_NAME,
-              context,
-              ENTITY_TYPES_FIELD
-          ));
-    }
-    final List<String> entityTypes = new ArrayList<>(entityTypesList.get().size());
-    for (Object entityTypeObj : entityTypesList.get()) {
-      if (!String.class.isAssignableFrom(entityTypeObj.getClass())) {
-        throw new ModelValidationException(
-          String.format(
-            "Failed to validate @%s annotation at %s: Invalid field '%s'. Expected type List<String>",
-            ANNOTATION_NAME,
-              context,
-            ENTITY_TYPES_FIELD
-          ));
+    final List<String> entityTypes = new ArrayList<>();
+    if (entityTypesList.isPresent()) {
+      for (Object entityTypeObj : entityTypesList.get()) {
+        if (!String.class.isAssignableFrom(entityTypeObj.getClass())) {
+          throw new ModelValidationException(
+              String.format(
+                  "Failed to validate @%s annotation at %s: Invalid field '%s'. Expected type List<String>",
+                  ANNOTATION_NAME,
+                  context,
+                  ENTITY_TYPES_FIELD
+              ));
+        }
+        entityTypes.add((String) entityTypeObj);
       }
-      entityTypes.add((String) entityTypeObj);
     }
 
     return new RelationshipAnnotation(name.get(), entityTypes);

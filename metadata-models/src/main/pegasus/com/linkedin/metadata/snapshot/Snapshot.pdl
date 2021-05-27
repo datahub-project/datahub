@@ -17,5 +17,6 @@ typeref Snapshot = union[
   MLFeatureSnapshot,
   TagSnapshot,
   GlossaryTermSnapshot,
-  GlossaryNodeSnapshot
+  GlossaryNodeSnapshot,
+  ServiceSnapshot
 ]

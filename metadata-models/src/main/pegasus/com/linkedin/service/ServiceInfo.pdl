@@ -13,10 +13,14 @@ record ServiceInfo {
   /**
    * Description of the service
    */
+  @Searchable = {}
   description: string
 
   /**
    * The owners of the
    */
-  owners: array[Urn]
+  @Relationship = {
+     "name": "OwnedBy"
+  }
+  owner: Urn
 }

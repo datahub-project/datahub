@@ -78,7 +78,7 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "fieldType" : "URN_PARTIAL",
               "hasValuesFieldName" : "hasTags",
               "queryByDefault" : true
             }
@@ -213,7 +213,7 @@
           "Searchable" : {
             "boostScore" : 10.0,
             "enableAutocomplete" : true,
-            "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+            "fieldType" : "TEXT_PARTIAL",
             "queryByDefault" : true
           }
         }, {
@@ -320,12 +320,11 @@
         "Searchable" : {
           "boostScore" : 2.0,
           "fieldName" : "ldap",
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "corpUserKey"
       }
     }, "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
@@ -531,9 +530,8 @@
       "doc" : "The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : true,
-      "name" : "corpuser",
-      "searchable" : true
+      "keyAspect" : "corpUserKey",
+      "name" : "corpuser"
     }
   }, {
     "type" : "record",

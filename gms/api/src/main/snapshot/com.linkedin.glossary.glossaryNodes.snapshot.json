@@ -233,11 +233,10 @@
         "name" : "name",
         "type" : "string",
         "Searchable" : {
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
+          "fieldType" : "TEXT_PARTIAL"
         }
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "glossaryNodeKey"
       }
     }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
@@ -443,9 +442,8 @@
       "doc" : "The list of metadata aspects associated with the GlossaryNode. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : true,
-      "name" : "glossaryNode",
-      "searchable" : true
+      "keyAspect" : "glossaryNodeKey",
+      "name" : "glossaryNode"
     }
   }, {
     "type" : "record",

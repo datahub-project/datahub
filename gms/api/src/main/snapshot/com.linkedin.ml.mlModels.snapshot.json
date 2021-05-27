@@ -481,7 +481,7 @@
         "doc" : "Standardized platform urn for the model",
         "Searchable" : {
           "boostScore" : 0.1,
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       }, {
@@ -491,7 +491,7 @@
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       }, {
@@ -499,11 +499,10 @@
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where model belongs to or where it was generated",
         "Searchable" : {
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
+          "fieldType" : "TEXT_PARTIAL"
         }
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "mlModelKey"
       }
     }, "com.linkedin.common.Ownership", {
@@ -537,7 +536,7 @@
         "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
         "optional" : true,
         "Searchable" : {
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       }, {
@@ -1102,9 +1101,8 @@
       "doc" : "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : true,
-      "name" : "mlModel",
-      "searchable" : true
+      "keyAspect" : "mlModelKey",
+      "name" : "mlModel"
     }
   }, {
     "type" : "record",

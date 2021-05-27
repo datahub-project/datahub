@@ -292,7 +292,7 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "fieldType" : "URN_PARTIAL",
               "hasValuesFieldName" : "hasTags",
               "queryByDefault" : true
             }
@@ -816,7 +816,7 @@
                 "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
                 "Searchable" : {
                   "fieldName" : "fieldPaths",
-                  "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+                  "fieldType" : "TEXT_PARTIAL",
                   "queryByDefault" : true
                 }
               }, {
@@ -962,7 +962,7 @@
                   "/tags/*/tag" : {
                     "boostScore" : 0.5,
                     "fieldName" : "fieldTags",
-                    "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+                    "fieldType" : "URN_PARTIAL",
                     "queryByDefault" : true
                   }
                 }
@@ -1076,7 +1076,7 @@
                   "/tags/*/tag" : {
                     "boostScore" : 0.5,
                     "fieldName" : "editedFieldTags",
-                    "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+                    "fieldType" : "URN_PARTIAL",
                     "queryByDefault" : true
                   }
                 }
@@ -1308,7 +1308,7 @@
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       }, {
@@ -1317,11 +1317,10 @@
         "doc" : "Fabric type where dataset belongs to or where it was generated.",
         "Searchable" : {
           "addToFilters" : true,
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING"
+          "fieldType" : "TEXT_PARTIAL"
         }
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "datasetKey"
       }
     }, "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths" ]
@@ -1653,9 +1652,8 @@
       "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : true,
-      "name" : "dataset",
-      "searchable" : true
+      "keyAspect" : "datasetKey",
+      "name" : "dataset"
     }
   }, {
     "type" : "record",

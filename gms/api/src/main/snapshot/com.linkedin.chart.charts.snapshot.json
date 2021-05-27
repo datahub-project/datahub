@@ -85,19 +85,14 @@
       "type" : "string",
       "doc" : "Title of the chart",
       "Searchable" : {
-        "boostScore" : 10.0,
-        "enableAutocomplete" : true,
-        "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
-        "queryByDefault" : true
+        "fieldType" : "TEXT_PARTIAL"
       }
     }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Detailed description about the chart",
       "Searchable" : {
-        "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription",
-        "queryByDefault" : true
+        "fieldType" : "TEXT"
       }
     }, {
       "name" : "lastModified",
@@ -344,7 +339,7 @@
             "doc" : "Urn of the applied tag",
             "Searchable" : {
               "fieldName" : "tags",
-              "fieldType" : "URN_WITH_PARTIAL_MATCHING",
+              "fieldType" : "URN_PARTIAL",
               "hasValuesFieldName" : "hasTags",
               "queryByDefault" : true
             }
@@ -541,7 +536,7 @@
           "addToFilters" : true,
           "boostScore" : 4.0,
           "fieldName" : "tool",
-          "fieldType" : "TEXT_WITH_PARTIAL_MATCHING",
+          "fieldType" : "TEXT_PARTIAL",
           "queryByDefault" : true
         }
       }, {
@@ -550,7 +545,6 @@
         "doc" : "Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'"
       } ],
       "Aspect" : {
-        "isKey" : true,
         "name" : "chartKey"
       }
     }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
@@ -832,9 +826,8 @@
       "doc" : "The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."
     } ],
     "Entity" : {
-      "browsable" : true,
-      "name" : "chart",
-      "searchable" : true
+      "keyAspect" : "chartKey",
+      "name" : "chart"
     }
   }, {
     "type" : "record",
