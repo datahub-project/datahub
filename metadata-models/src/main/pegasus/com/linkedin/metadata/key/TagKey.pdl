@@ -4,15 +4,14 @@ namespace com.linkedin.metadata.key
  * Key for a Tag
  */
 @Aspect = {
-  "name": "tagKey",
-  "isKey": true
+  "name": "tagKey"
 }
 record TagKey {
   /**
   * The unique tag name
   */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0

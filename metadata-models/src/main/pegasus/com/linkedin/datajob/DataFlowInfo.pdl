@@ -15,7 +15,7 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
    * Flow name
    */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0
@@ -36,7 +36,7 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
    * Optional project/namespace associated with the flow
    */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
+    "fieldType": "TEXT_PARTIAL"
   }
   project: optional string
 }

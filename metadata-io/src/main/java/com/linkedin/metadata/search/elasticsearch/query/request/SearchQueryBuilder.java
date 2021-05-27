@@ -21,10 +21,10 @@ public class SearchQueryBuilder {
   private static final String TEXT_ANALYZER = "word_delimited";
 
   private static final Set<FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
-      ImmutableSet.of(FieldType.TEXT, FieldType.TEXT_WITH_PARTIAL_MATCHING, FieldType.URN,
-          FieldType.URN_WITH_PARTIAL_MATCHING);
+      ImmutableSet.of(FieldType.TEXT, FieldType.TEXT_PARTIAL, FieldType.URN,
+          FieldType.URN_PARTIAL);
   private static final Set<FieldType> TYPES_WITH_NGRAM_SUBFIELD =
-      ImmutableSet.of(FieldType.TEXT_WITH_PARTIAL_MATCHING, FieldType.URN_WITH_PARTIAL_MATCHING);
+      ImmutableSet.of(FieldType.TEXT_PARTIAL, FieldType.URN_PARTIAL);
 
   private SearchQueryBuilder() {
   }

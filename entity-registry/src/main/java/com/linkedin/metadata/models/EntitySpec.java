@@ -35,12 +35,8 @@ public class EntitySpec {
     return _entityAnnotation.getName();
   }
 
-  public Boolean isSearchable() {
-    return _entityAnnotation.isSearchable();
-  }
-
-  public Boolean isBrowsable() {
-    return _entityAnnotation.isBrowsable();
+  public AspectSpec getKeyAspectSpec() {
+    return _aspectSpecs.get(_entityAnnotation.getKeyAspect());
   }
 
   public List<AspectSpec> getAspectSpecs() {

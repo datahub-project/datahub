@@ -5,10 +5,12 @@ import com.linkedin.metadata.models.ModelValidationException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.Value;
 import org.apache.commons.lang3.EnumUtils;
 import org.gradle.internal.impldep.com.google.common.collect.ImmutableMap;
+import org.gradle.internal.impldep.com.google.common.collect.ImmutableSet;
 
 
 /**
@@ -18,6 +20,11 @@ import org.gradle.internal.impldep.com.google.common.collect.ImmutableMap;
 public class SearchableAnnotation {
 
   public static final String ANNOTATION_NAME = "Searchable";
+  private static final Set<FieldType> DEFAULT_QUERY_FIELD_TYPES = ImmutableSet.of(
+      FieldType.TEXT,
+      FieldType.TEXT_PARTIAL,
+      FieldType.URN,
+      FieldType.URN_PARTIAL);
 
   // Name of the field in the search index. Defaults to the field name in the schema
   String fieldName;
@@ -39,7 +46,14 @@ public class SearchableAnnotation {
   Map<Object, Double> weightsPerFieldValue;
 
   public enum FieldType {
-    KEYWORD, TEXT, TEXT_WITH_PARTIAL_MATCHING, BROWSE_PATH, URN, URN_WITH_PARTIAL_MATCHING, BOOLEAN, COUNT
+    KEYWORD,
+    TEXT,
+    TEXT_PARTIAL,
+    BROWSE_PATH,
+    URN,
+    URN_PARTIAL,
+    BOOLEAN,
+    COUNT
   }
 
   @Nonnull
@@ -55,7 +69,7 @@ public class SearchableAnnotation {
     Map map = (Map) annotationObj;
     final Optional<String> fieldName = AnnotationUtils.getField(map, "fieldName", String.class);
     final Optional<String> fieldType = AnnotationUtils.getField(map, "fieldType", String.class);
-    if (!fieldType.isPresent() || !EnumUtils.isValidEnum(FieldType.class, fieldType.get())) {
+    if (fieldType.isPresent() && !EnumUtils.isValidEnum(FieldType.class, fieldType.get())) {
       throw new ModelValidationException(String.format(
           "Failed to validate @%s annotation declared at %s: Invalid field 'fieldType'. Invalid fieldType provided. Valid types are %s",
           ANNOTATION_NAME, context, Arrays.toString(FieldType.values())));
@@ -70,9 +84,39 @@ public class SearchableAnnotation {
 
     final Optional<Map> weightsPerFieldValueMap =
         AnnotationUtils.getField(map, "weightsPerFieldValue", Map.class).map(m -> (Map<Object, Double>) m);
-    return new SearchableAnnotation(fieldName.orElse(schemaFieldName), FieldType.valueOf(fieldType.get()),
-        queryByDefault.orElse(false), enableAutocomplete.orElse(false), addToFilters.orElse(false),
+
+    final FieldType resolvedFieldType = getFieldType(fieldType, schemaDataType);
+    return new SearchableAnnotation(fieldName.orElse(schemaFieldName), resolvedFieldType,
+        getQueryByDefault(queryByDefault, resolvedFieldType), enableAutocomplete.orElse(false), addToFilters.orElse(false),
         boostScore.orElse(1.0), hasValuesFieldName, numValuesFieldName,
         weightsPerFieldValueMap.orElse(ImmutableMap.of()));
+  }
+
+  private static FieldType getFieldType(Optional<String> maybeFieldType, DataSchema.Type schemaDataType) {
+    if (!maybeFieldType.isPresent()) {
+      return getDefaultFieldType(schemaDataType);
+    }
+    return FieldType.valueOf(maybeFieldType.get());
+  }
+
+  private static FieldType getDefaultFieldType(DataSchema.Type schemaDataType) {
+    switch (schemaDataType) {
+      case INT:
+      case FLOAT:
+      case DOUBLE:
+        return FieldType.COUNT;
+      default:
+        return FieldType.KEYWORD;
+    }
+  }
+
+  private static Boolean getQueryByDefault(Optional<Boolean> maybeQueryByDefault, FieldType fieldType) {
+    if (!maybeQueryByDefault.isPresent()) {
+      if (DEFAULT_QUERY_FIELD_TYPES.contains(fieldType)) {
+        return Boolean.TRUE;
+      }
+      return Boolean.FALSE;
+    }
+    return maybeQueryByDefault.get();
   }
 }

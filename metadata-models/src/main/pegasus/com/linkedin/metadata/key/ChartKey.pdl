@@ -4,8 +4,7 @@ namespace com.linkedin.metadata.key
  * Key for a Chart
  */
 @Aspect = {
-  "name": "chartKey",
-  "isKey": true
+  "name": "chartKey"
 }
 record ChartKey {
   /**
@@ -13,7 +12,7 @@ record ChartKey {
   */
   @Searchable = {
     "fieldName": "tool",
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "addToFilters": true,
     "boostScore": 4.0

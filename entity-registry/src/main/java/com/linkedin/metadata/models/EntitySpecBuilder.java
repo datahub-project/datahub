@@ -94,6 +94,8 @@ public class EntitySpecBuilder {
 
     if (entityAnnotationObj != null) {
 
+      EntityAnnotation entityAnnotation = EntityAnnotation.fromSchemaProperty(entityAnnotationObj, entitySnapshotRecordSchema.getFullName());
+
       final ArrayDataSchema aspectArraySchema =
           (ArrayDataSchema) entitySnapshotRecordSchema.getField(ASPECTS_FIELD_NAME).getType().getDereferencedDataSchema();
 
@@ -102,39 +104,33 @@ public class EntitySpecBuilder {
 
       final List<UnionDataSchema.Member> unionMembers = aspectUnionSchema.getMembers();
       final List<AspectSpec> aspectSpecs = new ArrayList<>();
+      boolean foundKeyAspect = false;
       for (final UnionDataSchema.Member member : unionMembers) {
         final AspectSpec spec = buildAspectSpec(member.getType());
         if (spec != null) {
+          // Validate Key Aspect
           aspectSpecs.add(spec);
+          if (spec.getName().equals(entityAnnotation.getKeyAspect())) {
+            foundKeyAspect = true;
+          }
         }
       }
 
-      EntityAnnotation entityAnnotation = EntityAnnotation.fromSchemaProperty(entityAnnotationObj, entitySnapshotRecordSchema.getFullName());
+      if (!foundKeyAspect) {
+        // Didn't find corresponding key aspect
+        failValidation(String.format("Did not find required Key Aspect with name %s in aspects for Entity %s in list of aspects.",
+            entityAnnotation.getKeyAspect(), entityAnnotation.getName()));
+      }
 
       // Validate aspect specs
       Set<String> aspectNames = new HashSet<>();
-      boolean foundKey = false;
       for (final AspectSpec aspectSpec : aspectSpecs) {
         if (aspectNames.contains(aspectSpec.getName())) {
           failValidation(String.format("Could not build entity spec for entity with name %s."
                   + " Found multiple Aspects with the same name %s",
               entityAnnotation.getName(), aspectSpec.getName()));
         }
-        if (aspectSpec.isKey()) {
-          if (foundKey) {
-            failValidation(String.format("Could not build entity spec for entity with name %s."
-                    + " Found multiple Key aspects.",
-                entityAnnotation.getName()));
-          }
-          validateKeyAspect(aspectSpec);
-          foundKey = true;
-        }
         aspectNames.add(aspectSpec.getName());
-      }
-      if (!foundKey) {
-        failValidation(String.format("Could not build entity spec for entity with name %s."
-                + " Did not find a Key aspect.",
-            entityAnnotation.getName()));
       }
 
       // Validate entity name

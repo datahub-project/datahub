@@ -8,8 +8,7 @@ import com.linkedin.metadata.aspect.DatasetAspect
  */
 @Entity = {
   "name": "dataset",
-  "searchable": true,
-  "browsable": true
+  "keyAspect": "datasetKey"
 }
 record DatasetSnapshot {
 

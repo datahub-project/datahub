@@ -7,8 +7,7 @@ import com.linkedin.common.FabricType
  * Key for a Dataset
  */
 @Aspect = {
-  "name": "datasetKey",
-  "isKey": true
+  "name": "datasetKey"
 }
 record DatasetKey {
   /**
@@ -24,7 +23,7 @@ record DatasetKey {
   * Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>
   */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0
@@ -35,7 +34,7 @@ record DatasetKey {
   * Fabric type where dataset belongs to or where it was generated.
   */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "addToFilters": true
   }
   origin: FabricType

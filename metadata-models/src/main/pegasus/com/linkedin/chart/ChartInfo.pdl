@@ -19,10 +19,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Title of the chart
    */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
-    "queryByDefault": true,
-    "enableAutocomplete": true,
-    "boostScore": 10.0
+    "fieldType": "TEXT_PARTIAL",
   }
   title: string
 
@@ -31,8 +28,6 @@ record ChartInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "queryByDefault": true,
-    "hasValuesFieldName": "hasDescription"
   }
   description: string
 

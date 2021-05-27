@@ -36,7 +36,7 @@ record MLModelProperties {
    * Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc
    */
   @Searchable = {
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING",
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true
   }
   type: optional string

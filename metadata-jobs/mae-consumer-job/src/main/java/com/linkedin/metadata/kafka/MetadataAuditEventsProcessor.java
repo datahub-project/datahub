@@ -130,10 +130,6 @@ public class MetadataAuditEventsProcessor {
    * @param snapshot Snapshot
    */
   private void updateElasticsearch(final RecordTemplate snapshot, final EntitySpec entitySpec) {
-    // If entity is not searchable nor browsable do not update ES
-    if (!entitySpec.isSearchable() && !entitySpec.isBrowsable()) {
-      return;
-    }
     String urn = snapshot.data().get("urn").toString();
     Optional<String> searchDocument;
     try {
