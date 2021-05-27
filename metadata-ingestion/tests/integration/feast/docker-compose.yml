@@ -2,14 +2,12 @@ version: "3.7"
 
 services:
   core:
-    image: gcr.io/kf-feast/feast-core:${FEAST_VERSION}
+    image: gcr.io/kf-feast/feast-core:develop
     container_name: "testfeast"
     volumes:
-      - ${FEAST_CORE_CONFIG}:/etc/feast/application.yml
+      - ./core/core.yml:/etc/feast/application.yml
     environment:
       DB_HOST: db
-      FEAST_CORE_CONFIG: /etc/feast/application.yml
-      FEAST_VERSION: develop
     # restart: on-failure
     depends_on:
       - db
