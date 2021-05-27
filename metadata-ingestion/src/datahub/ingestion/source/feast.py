@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass, field
+from shlex import quote
 from typing import Dict, Iterable, List
 
 import docker
@@ -45,6 +46,9 @@ _field_type_mapping: Dict[str, str] = {
 }
 
 DEFAULT_ENV = "PROD"
+
+# image to use for initial feast extraction
+HOSTED_FEAST_IMAGE = "feast-ingest"
 
 
 class FeastConfig(ConfigModel):
@@ -104,8 +108,7 @@ class FeastSource(Source):
 
             docker_client = docker.from_env()
 
-            # image to use for initial feast extraction
-            feast_image = "feast-ingest"
+            feast_image = HOSTED_FEAST_IMAGE
 
             # build the image locally if specified
             if self.config.use_local_build:
@@ -118,7 +121,7 @@ class FeastSource(Source):
 
             docker_client.containers.run(
                 feast_image,
-                f'python3 ingest.py --core_url="{self.config.core_url}" --output_path=/out.json',
+                f"python3 ingest.py --core_url={quote(self.config.core_url)} --output_path=/out.json",
                 # allow the image to access the core URL if on host
                 network_mode="host",
                 # mount the tempfile so the Docker image has access
