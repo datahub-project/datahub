@@ -47,3 +47,6 @@ Current chart version is `0.2.0`
 | serviceAccount.create | bool | `true` |  |
 | serviceAccount.name | string | `nil` |  |
 | tolerations | list | `[]` |  |
+| global.elasticsearch.host | string | `"elasticsearch"` |  |
+| global.elasticsearch.port | string | `"9200"` |  |
+| global.kafka.bootstrap.server | string | `"broker:9092"` |  |
