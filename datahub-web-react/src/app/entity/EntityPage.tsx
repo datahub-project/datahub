@@ -27,7 +27,6 @@ export const EntityPage = ({ entityType }: Props) => {
     const isLineageSupported = entityRegistry.getEntity(entityType).isLineageEnabled();
     const ContainerPage = isBrowsable || isLineageSupported ? BrowsableEntityPage : SearchablePage;
     const isLineageMode = useIsLineageMode();
-    console.log(urn);
     useEffect(() => {
         analytics.event({
             type: EventType.EntityViewEvent,
