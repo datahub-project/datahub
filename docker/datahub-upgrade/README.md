@@ -2,6 +2,10 @@
 
 This container is used to automatically apply upgrades from one version of DataHub to another.
 
-Currently, the only available upgrade is the No Code Data Migration, which transfers data from an old version
-of a SQL table into a new. 
+As of today, there are 2 supported upgrades:
+
+1. No Code Data Migration: Performs a series of pre-flight qualification checks and then migrates metadata_aspect table data
+to metadata_aspect_v2 table. 
+   
+2. No Code Cleanup: Cleanses graph index, search index, and key-value store of legacy DataHub data (metadata_aspect table). 
 

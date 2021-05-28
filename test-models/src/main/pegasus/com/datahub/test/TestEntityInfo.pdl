@@ -19,7 +19,7 @@ record TestEntityInfo {
   @Searchable = {
    "/*": {
     "fieldName": "textArrayField",
-    "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
+    "fieldType": "TEXT_PARTIAL"
    }
   }
   textArrayField: array[string]
@@ -41,7 +41,7 @@ record TestEntityInfo {
   nestedRecordField: record SimpleNestedRecord1 {
    @Searchable = {
      "fieldName": "nestedIntegerField",
-     "fieldType": "TEXT_WITH_PARTIAL_MATCHING"
+     "fieldType": "TEXT_PARTIAL"
    }
    nestedIntegerField: int
 

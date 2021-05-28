@@ -7,9 +7,7 @@ import com.datahub.test.TestEntityKey;
 import com.datahub.test.invalid.DuplicateSearchableFields;
 import com.datahub.test.invalid.InvalidSearchableFieldType;
 import com.datahub.test.invalid.MissingAspectAnnotation;
-import com.datahub.test.invalid.MissingRelationshipEntityTypes;
 import com.datahub.test.invalid.MissingRelationshipName;
-import com.datahub.test.invalid.MissingSearchableFieldType;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.util.List;
@@ -31,13 +29,6 @@ public class EntitySpecBuilderTest {
   }
 
   @Test
-  public void testBuildAspectSpecValidationMissingSearchableFieldType() {
-    assertThrows(ModelValidationException.class, () ->
-        new EntitySpecBuilder().buildAspectSpec(new MissingSearchableFieldType().schema())
-    );
-  }
-
-  @Test
   public void testBuildAspectSpecValidationInvalidSearchableFieldType() {
     assertThrows(ModelValidationException.class, () ->
         new EntitySpecBuilder().buildAspectSpec(new InvalidSearchableFieldType().schema())
@@ -55,13 +46,6 @@ public class EntitySpecBuilderTest {
   public void testBuildAspectSpecValidationMissingRelationshipName() {
     assertThrows(ModelValidationException.class, () ->
         new EntitySpecBuilder().buildAspectSpec(new MissingRelationshipName().schema())
-    );
-  }
-
-  @Test
-  public void testBuildAspectSpecValidationMissingEntityTypes() {
-    assertThrows(ModelValidationException.class, () ->
-        new EntitySpecBuilder().buildAspectSpec(new MissingRelationshipEntityTypes().schema())
     );
   }
 
