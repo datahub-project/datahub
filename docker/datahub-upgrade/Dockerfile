@@ -29,13 +29,4 @@ FROM ${APP_ENV}-install as final
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 USER datahub
 
-ENV JMX_OPTS=""
-ENV JAVA_OPTS=""
-
-# Upgrade CLI Arguments
-ENV UPGRADE_ID=""
-ENV ARG_1="ignore"
-ENV ARG_2="ignore"
-ENV ARG_3="ignore"
-
-CMD /datahub/datahub-upgrade/scripts/start.sh
+ENTRYPOINT ["java", "-jar", "/datahub/datahub-upgrade/bin/datahub-upgrade.jar"]

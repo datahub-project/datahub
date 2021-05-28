@@ -1,4 +1,4 @@
-# No Code Metadata Modeling (v1)
+# No Code Metadata Modeling 
 
 ## Summary of changes
 
