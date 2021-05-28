@@ -6,8 +6,7 @@ import com.linkedin.common.Urn
  * Key for Test Entity entity
  */
 @Aspect = {
- "name": "testEntityKey",
- "isKey": true
+ "name": "testEntityKey"
 }
 record TestEntityKey {
 
