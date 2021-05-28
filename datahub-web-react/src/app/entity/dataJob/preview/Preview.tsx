@@ -27,7 +27,7 @@ export const Preview = ({
     const capitalizedPlatform = capitalizeFirstLetter(platformName);
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.DataJob)}/${urn}`}
+            url={entityRegistry.getEntityUrl(EntityType.DataJob, urn)}
             name={name}
             description={description || ''}
             type="Data Task"

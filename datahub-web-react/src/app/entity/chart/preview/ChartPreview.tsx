@@ -27,7 +27,7 @@ export const ChartPreview = ({
 
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.Chart)}/${urn}`}
+            url={entityRegistry.getEntityUrl(EntityType.Chart, urn)}
             name={name || ''}
             description={description || ''}
             type="Chart"

@@ -152,7 +152,7 @@ export default function TagProfile() {
                                                 onClick={() =>
                                                     navigateToSearchUrl({
                                                         type: type as EntityType,
-                                                        query: `tags:${data?.tag?.name}`,
+                                                        query: `tags:"${data?.tag?.name}"`,
                                                         history,
                                                         entityRegistry,
                                                     })
