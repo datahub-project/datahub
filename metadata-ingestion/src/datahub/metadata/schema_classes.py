@@ -4072,7 +4072,7 @@ class DataProcessSnapshotClass(DictWrapper):
     
     
 class DatasetSnapshotClass(DictWrapper):
-    """A metadata snapshot for a specific dataset entity."""
+    # No docs available.
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot")
     def __init__(self,
