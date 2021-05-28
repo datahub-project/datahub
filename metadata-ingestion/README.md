@@ -372,7 +372,7 @@ source:
 
 Extracts:
 
-- List of feature tables (modeled as `MLFeatureSet`s), features (`MLFeature`s), and entities (`MLPrimaryKey`s)
+- List of feature tables (modeled as `MLFeatureTable`s), features (`MLFeature`s), and entities (`MLPrimaryKey`s)
 - Column types associated with each feature and entity
 
 Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then

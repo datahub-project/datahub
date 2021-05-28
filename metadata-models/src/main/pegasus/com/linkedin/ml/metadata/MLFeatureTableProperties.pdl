@@ -4,12 +4,12 @@ import com.linkedin.common.MLFeatureUrn
 import com.linkedin.common.MLPrimaryKeyUrn
 
 /**
- * Properties associated with a MLFeatureSet
+ * Properties associated with a MLFeatureTable
  */
-record MLFeatureSetProperties {
+record MLFeatureTableProperties {
 
   /**
-   * Documentation of the MLFeatureSet
+   * Documentation of the MLFeatureTable
    */
   description: optional string
 

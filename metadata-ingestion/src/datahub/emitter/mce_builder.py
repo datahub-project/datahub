@@ -69,11 +69,9 @@ def make_ml_feature_urn(
     return f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},{feature_set_name},{feature_name},{env}))"
 
 
-def make_ml_feature_set_urn(platform: str, featureset_name: str, env: str) -> str:
+def make_ml_feature_table_urn(platform: str, featureset_name: str, env: str) -> str:
 
-    return (
-        f"urn:li:mlFeatureSet:(urn:li:dataPlatform:{platform},{featureset_name},{env}))"
-    )
+    return f"urn:li:mlFeatureTable:(urn:li:dataPlatform:{platform},{featureset_name},{env}))"
 
 
 def make_lineage_mce(

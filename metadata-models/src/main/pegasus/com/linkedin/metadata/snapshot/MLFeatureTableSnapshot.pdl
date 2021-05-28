@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.MLFeatureTableUrn
+import com.linkedin.metadata.aspect.MLFeatureTableAspect
+
+/**
+ * MLFeatureTable Snapshot entity details.
+ */
+record MLFeatureTableSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: MLFeatureTableUrn
+
+  /**
+   * The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   */
+  aspects: array[MLFeatureTableAspect]
+}

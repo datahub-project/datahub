@@ -6,7 +6,7 @@ from ......schema_classes import EvaluationDataClass
 from ......schema_classes import IntendedUseClass
 from ......schema_classes import IntendedUserTypeClass
 from ......schema_classes import MLFeaturePropertiesClass
-from ......schema_classes import MLFeatureSetPropertiesClass
+from ......schema_classes import MLFeatureTablePropertiesClass
 from ......schema_classes import MLModelFactorPromptsClass
 from ......schema_classes import MLModelFactorsClass
 from ......schema_classes import MLModelPropertiesClass
@@ -27,7 +27,7 @@ EvaluationData = EvaluationDataClass
 IntendedUse = IntendedUseClass
 IntendedUserType = IntendedUserTypeClass
 MLFeatureProperties = MLFeaturePropertiesClass
-MLFeatureSetProperties = MLFeatureSetPropertiesClass
+MLFeatureTableProperties = MLFeatureTablePropertiesClass
 MLModelFactorPrompts = MLModelFactorPromptsClass
 MLModelFactors = MLModelFactorsClass
 MLModelProperties = MLModelPropertiesClass

@@ -2890,16 +2890,16 @@
         },
         {
           "type": "record",
-          "name": "MLFeatureSetSnapshot",
+          "name": "MLFeatureTableSnapshot",
           "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
-          "doc": "MLFeatureSet Snapshot entity details.",
+          "doc": "MLFeatureTable Snapshot entity details.",
           "fields": [
             {
               "name": "urn",
               "type": "string",
               "doc": "URN for the entity the metadata snapshot is associated with.",
               "java": {
-                "class": "com.linkedin.pegasus2avro.common.urn.MLFeatureSetUrn"
+                "class": "com.linkedin.pegasus2avro.common.urn.MLFeatureTableUrn"
               }
             },
             {
@@ -2910,9 +2910,9 @@
                   "com.linkedin.pegasus2avro.common.Ownership",
                   {
                     "type": "record",
-                    "name": "MLFeatureSetProperties",
+                    "name": "MLFeatureTableProperties",
                     "namespace": "com.linkedin.pegasus2avro.ml.metadata",
-                    "doc": "Properties associated with a MLFeatureSet",
+                    "doc": "Properties associated with a MLFeatureTable",
                     "fields": [
                       {
                         "name": "description",
@@ -2920,7 +2920,7 @@
                           "null",
                           "string"
                         ],
-                        "doc": "Documentation of the MLFeatureSet",
+                        "doc": "Documentation of the MLFeatureTable",
                         "default": null
                       },
                       {
@@ -2954,7 +2954,7 @@
                   "com.linkedin.pegasus2avro.common.Deprecation"
                 ]
               },
-              "doc": "The list of metadata aspects associated with the MLFeatureSet. Depending on the use case, this can either be all, or a selection, of supported aspects."
+              "doc": "The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
           ]
         },

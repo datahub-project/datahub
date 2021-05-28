@@ -14,14 +14,14 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    MLFeatureSetSnapshot,
     MLFeatureSnapshot,
+    MLFeatureTableSnapshot,
     MLPrimaryKeySnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     MLFeaturePropertiesClass,
-    MLFeatureSetPropertiesClass,
+    MLFeatureTablePropertiesClass,
     MLPrimaryKeyPropertiesClass,
 )
 
@@ -232,15 +232,15 @@ class FeastSource(Source):
                     self.report.report_workunit(wu)
                     yield wu
 
-                featureset_snapshot = MLFeatureSetSnapshot(
-                    urn=builder.make_ml_feature_set_urn(
+                featuretable_snapshot = MLFeatureTableSnapshot(
+                    urn=builder.make_ml_feature_table_urn(
                         platform, table["name"], self.config.env
                     ),
                     aspects=[],
                 )
 
-                featureset_snapshot.aspects.append(
-                    MLFeatureSetPropertiesClass(
+                featuretable_snapshot.aspects.append(
+                    MLFeatureTablePropertiesClass(
                         mlFeatures=[
                             builder.make_ml_feature_urn(
                                 platform,
@@ -260,7 +260,7 @@ class FeastSource(Source):
                 )
 
                 # make the MCE and workunit
-                mce = MetadataChangeEvent(proposedSnapshot=featureset_snapshot)
+                mce = MetadataChangeEvent(proposedSnapshot=featuretable_snapshot)
                 wu = MetadataWorkUnit(id=table["name"], mce=mce)
                 self.report.report_workunit(wu)
                 yield wu

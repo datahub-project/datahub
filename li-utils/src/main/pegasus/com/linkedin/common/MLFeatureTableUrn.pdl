@@ -1,22 +1,22 @@
 namespace com.linkedin.common
 
 /**
- * Standardized MLFeatureSet identifier.
+ * Standardized MLFeatureTable identifier.
  */
-@java.class = "com.linkedin.common.urn.MLFeatureSetUrn"
+@java.class = "com.linkedin.common.urn.MLFeatureTableUrn"
 @validate.`com.linkedin.common.validator.TypedUrnValidator` = {
   "accessible" : true,
   "owningTeam" : "urn:li:internalTeam:datahub",
-  "entityType" : "mlFeatureSet",
+  "entityType" : "mlFeatureTable",
   "constructable" : true,
   "namespace" : "li",
-  "name" : "MlFeatureSet",
+  "name" : "MlFeatureTable",
   "doc" : "Standardized feature set identifier.",
   "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
   "fields" : [ {
     "name" : "platform",
     "type" : "com.linkedin.common.urn.DataPlatformUrn",
-    "doc" : "Standardized platform urn for the MLFeatureSet."
+    "doc" : "Standardized platform urn for the MLFeatureTable."
   }, {
     "name" : "name",
     "doc" : "Name of the ML Feature Set",
@@ -25,4 +25,4 @@ namespace com.linkedin.common
   } ],
   "maxLength" : 284
 }
-typeref MLFeatureSetUrn = string
+typeref MLFeatureTableUrn = string

@@ -370,11 +370,11 @@
 {
     "auditHeader": null,
     "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSetSnapshot": {
-            "urn": "urn:li:mlFeatureSet:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes,PROD))",
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+            "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes,PROD))",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties": {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
                         "description": null,
                         "mlFeatures": [
                             "urn:li:mlFeature:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature,PROD))",
@@ -452,11 +452,11 @@
 {
     "auditHeader": null,
     "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSetSnapshot": {
-            "urn": "urn:li:mlFeatureSet:(urn:li:dataPlatform:feast,test_feature_table_no_labels,PROD))",
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+            "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_no_labels,PROD))",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties": {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
                         "description": null,
                         "mlFeatures": [
                             "urn:li:mlFeature:(urn:li:dataPlatform:feast,test_feature_table_no_labels,test_BYTES_feature,PROD))"
@@ -520,11 +520,11 @@
 {
     "auditHeader": null,
     "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSetSnapshot": {
-            "urn": "urn:li:mlFeatureSet:(urn:li:dataPlatform:feast,test_feature_table_single_feature,PROD))",
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+            "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_single_feature,PROD))",
             "aspects": [
                 {
-                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureSetProperties": {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
                         "description": null,
                         "mlFeatures": [
                             "urn:li:mlFeature:(urn:li:dataPlatform:feast,test_feature_table_single_feature,test_BYTES_feature,PROD))"
