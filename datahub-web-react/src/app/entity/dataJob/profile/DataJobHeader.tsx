@@ -38,7 +38,7 @@ export default function DataJobHeader({ dataJob: { urn, ownership, info, dataFlo
                         <Typography.Text>Data Task</Typography.Text>
                         {dataFlow && dataFlow.urn && (
                             <Link to={`/${entityRegistry.getPathName(EntityType.DataFlow)}/${dataFlow.urn}`}>
-                                <PlatFormLink strong>{`Pipeline <${dataFlow.flowId}>`}</PlatFormLink>
+                                <PlatFormLink strong>{`Pipeline: ${dataFlow.flowId}`}</PlatFormLink>
                             </Link>
                         )}
                         {dataFlow && dataFlow?.orchestrator && (
