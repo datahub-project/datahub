@@ -48,7 +48,7 @@ _field_type_mapping: Dict[str, str] = {
 DEFAULT_ENV = "PROD"
 
 # image to use for initial feast extraction
-HOSTED_FEAST_IMAGE = "feast-ingest"
+HOSTED_FEAST_IMAGE = "acryldata/datahub-ingestion-feast-wrapper"
 
 
 class FeastConfig(ConfigModel):
