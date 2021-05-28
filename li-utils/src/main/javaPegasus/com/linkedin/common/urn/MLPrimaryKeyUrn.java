@@ -10,22 +10,22 @@ public final class MLPrimaryKeyUrn extends Urn {
 
   public static final String ENTITY_TYPE = "mlPrimaryKey";
 
-  private final String _mlPrimaryKeyNamespace;
+  private final String _namespace;
 
-  private final String _mlPrimaryKeyName;
+  private final String _name;
 
-  public MLPrimaryKeyUrn(String mlPrimaryKeyNamespace, String mlPrimaryKeyName) {
-    super(ENTITY_TYPE, TupleKey.create(mlPrimaryKeyNamespace, mlPrimaryKeyName));
-    this._mlPrimaryKeyNamespace = mlPrimaryKeyNamespace;
-    this._mlPrimaryKeyName = mlPrimaryKeyName;
+  public MLPrimaryKeyUrn(String namespace, String name) {
+    super(ENTITY_TYPE, TupleKey.create(namespace, name));
+    this._namespace = namespace;
+    this._name = name;
   }
 
   public String getMlPrimaryKeyNameEntity() {
-    return _mlPrimaryKeyName;
+    return _name;
   }
 
   public String getMlPrimaryKeyNamespaceEntity() {
-    return _mlPrimaryKeyNamespace;
+    return _namespace;
   }
 
   public static MLPrimaryKeyUrn createFromString(String rawUrn) throws URISyntaxException {

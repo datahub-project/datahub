@@ -15,13 +15,13 @@ public final class MLFeatureSetUrn extends Urn {
   public static final String ENTITY_TYPE = "mlFeatureSet";
 
   private final DataPlatformUrn _platform;
-  private final String _mlFeatureSetName;
+  private final String _name;
   private final FabricType _origin;
 
-  public MLFeatureSetUrn(DataPlatformUrn platform, String mlFeatureSetName, FabricType origin) {
-    super(ENTITY_TYPE, TupleKey.create(platform, mlFeatureSetName, origin));
+  public MLFeatureSetUrn(DataPlatformUrn platform, String name, FabricType origin) {
+    super(ENTITY_TYPE, TupleKey.create(platform, name, origin));
     this._platform = platform;
-    this._mlFeatureSetName = mlFeatureSetName;
+    this._name = name;
     this._origin = origin;
   }
 
@@ -30,7 +30,7 @@ public final class MLFeatureSetUrn extends Urn {
   }
 
   public String getMlFeatureSetNameEntity() {
-    return _mlFeatureSetName;
+    return _name;
   }
 
   public FabricType getOriginEntity() {
