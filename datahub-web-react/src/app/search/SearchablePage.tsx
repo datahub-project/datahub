@@ -4,13 +4,14 @@ import { useHistory } from 'react-router';
 import { useTheme } from 'styled-components';
 
 import { SearchHeader } from './SearchHeader';
+import { BetaHeader } from './BetaHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetAutoCompleteResultsLazyQuery } from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 
 const styles = {
-    children: { marginTop: 80 },
+    children: { marginTop: 120 },
 };
 
 interface Props extends React.PropsWithChildren<any> {
@@ -68,6 +69,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
                 authenticatedUserUrn={userData?.corpUser?.urn || ''}
                 authenticatedUserPictureLink={userData?.corpUser?.editableInfo?.pictureLink}
             />
+            <BetaHeader />
             <div style={styles.children}>{children}</div>
         </Layout>
     );
