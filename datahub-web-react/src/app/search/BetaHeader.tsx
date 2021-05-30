@@ -34,7 +34,7 @@ export const BetaHeader = () => {
     return (
         <Header style={styles.header as any}>
             <HeaderTitle level={4}>
-                This is a Beta release of the data catalog. More information &nbsp;
+                This is a Beta release of the data catalog. More information&nbsp;
                 <a href="https://klub.klarna.net/team/data-exploration-security/?page_id=311">here</a>. General
                 feedback&nbsp;
                 <a href="https://docs.google.com/forms/d/1U5mTbLDanpwbppx9afwPk5Adi1IctsGWYRRfOh0r7Dg">here</a>. Dataset
