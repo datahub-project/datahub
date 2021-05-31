@@ -4,7 +4,7 @@
 With the No Code metadata initiative, we've introduced various major changes:
 
 1. New Ebean Aspect table (metadata_aspect_v2)
-2. New Elastic Indices (<EntityName>index_v2)
+2. New Elastic Indices
 3. New edge triples. (Remove fully qualified classpath)
 4. Dynamic DataPlatform entities (no more hardcoded DataPlatformInfo.json)
 5. Dynamic Browse Paths (no more hardcoded browse path creation logic)
