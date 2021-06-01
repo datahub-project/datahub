@@ -291,8 +291,6 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
                         dataSource={rows}
                         rowKey="fieldPath"
                         expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
-                        defaultExpandAllRows
-                        expandRowByClick
                         pagination={false}
                     />
                 )

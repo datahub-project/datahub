@@ -69,46 +69,63 @@ export default function DescriptionField({ description, updatedDescription, onHo
     return (
         <DescriptionContainer>
             <DescriptionText>{updatedDescription || description}</DescriptionText>
-            {onHover && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
+            {onHover && (
+                <EditIcon
+                    twoToneColor="#52c41a"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowAddModal(true);
+                    }}
+                />
+            )}
             {showAddModal && (
-                <Modal
-                    title="Update description"
-                    visible
-                    onCancel={onCloseModal}
-                    okButtonProps={{ disabled: !updatedDesc || updatedDesc.length === 0 }}
-                    okText="Update"
-                    footer={
-                        <>
-                            <Button onClick={onCloseModal}>Cancel</Button>
-                            <Button
-                                onClick={onUpdateModal}
-                                disabled={
-                                    !updatedDesc ||
-                                    updatedDesc.length === 0 ||
-                                    updatedDesc === (updatedDescription || description)
-                                }
-                            >
-                                Update
-                            </Button>
-                        </>
-                    }
+                <div
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }}
+                    aria-hidden="true"
                 >
-                    <Form layout="vertical">
-                        {(updatedDescription || description) && (
-                            <Form.Item label={<FormLabel>Original:</FormLabel>}>
-                                <DescriptionTextInModal>{description}</DescriptionTextInModal>
+                    <Modal
+                        title="Update description"
+                        visible
+                        onCancel={onCloseModal}
+                        okButtonProps={{ disabled: !updatedDesc || updatedDesc.length === 0 }}
+                        okText="Update"
+                        footer={
+                            <>
+                                <Button onClick={onCloseModal}>Cancel</Button>
+                                <Button
+                                    onClick={onUpdateModal}
+                                    disabled={
+                                        !updatedDesc ||
+                                        updatedDesc.length === 0 ||
+                                        updatedDesc === (updatedDescription || description)
+                                    }
+                                >
+                                    Update
+                                </Button>
+                            </>
+                        }
+                    >
+                        <Form layout="vertical">
+                            {(updatedDescription || description) && (
+                                <Form.Item label={<FormLabel>Original:</FormLabel>}>
+                                    <DescriptionTextInModal>{description}</DescriptionTextInModal>
+                                </Form.Item>
+                            )}
+                            <Form.Item label={<FormLabel>Updated:</FormLabel>}>
+                                <TextArea
+                                    value={updatedDesc}
+                                    onChange={(e) => setDesc(e.target.value)}
+                                    placeholder="Description"
+                                    autoSize={{ minRows: 2, maxRows: 6 }}
+                                />
                             </Form.Item>
-                        )}
-                        <Form.Item label={<FormLabel>Updated:</FormLabel>}>
-                            <TextArea
-                                value={updatedDesc}
-                                onChange={(e) => setDesc(e.target.value)}
-                                placeholder="Description"
-                                autoSize={{ minRows: 2, maxRows: 6 }}
-                            />
-                        </Form.Item>
-                    </Form>
-                </Modal>
+                        </Form>
+                    </Modal>
+                </div>
             )}
             {updatedDescription && <EditedLabel>(edited)</EditedLabel>}
         </DescriptionContainer>
