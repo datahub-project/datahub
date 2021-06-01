@@ -28,7 +28,6 @@ dependencies {
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
 
-  implementation gradleApi()
   annotationProcessor externalDependency.lombok
 
   testCompile externalDependency.testng

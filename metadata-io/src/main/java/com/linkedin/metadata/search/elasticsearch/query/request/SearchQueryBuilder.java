@@ -3,6 +3,8 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -12,7 +14,6 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
-import org.gradle.internal.impldep.com.google.common.collect.ImmutableSet;
 
 
 public class SearchQueryBuilder {
@@ -21,10 +22,10 @@ public class SearchQueryBuilder {
   private static final String TEXT_ANALYZER = "word_delimited";
 
   private static final Set<FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
-      ImmutableSet.of(FieldType.TEXT, FieldType.TEXT_PARTIAL, FieldType.URN,
-          FieldType.URN_PARTIAL);
+      new HashSet<>(Arrays.asList(FieldType.TEXT, FieldType.TEXT_PARTIAL, FieldType.URN,
+          FieldType.URN_PARTIAL));
   private static final Set<FieldType> TYPES_WITH_NGRAM_SUBFIELD =
-      ImmutableSet.of(FieldType.TEXT_PARTIAL, FieldType.URN_PARTIAL);
+      new HashSet<>(Arrays.asList(FieldType.TEXT_PARTIAL, FieldType.URN_PARTIAL));
 
   private SearchQueryBuilder() {
   }

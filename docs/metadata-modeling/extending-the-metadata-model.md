@@ -246,7 +246,7 @@ Now you are ready to start ingesting metadata for your new entity!
 
 ### (Optional) Step 6: Extend the datahub frontend to view your entity in Graphql & React
 
-At the moment, custom React and Grapqhl code needs to be written to view your entity in Graphql or React. For instructions on how to start extending the graphql graph, see [graphql docs](../../datahub-graphql-core/README.md). Once you’ve done that, you can follow the guide [here](../../datahub-web-react/README.md) to add your entity into the React UI.
+At the moment, custom React and Grapqhl code needs to be written to view your entity in GrapSearchQueryBuilder.javahql or React. For instructions on how to start extending the graphql graph, see [graphql docs](../../datahub-graphql-core/README.md). Once you’ve done that, you can follow the guide [here](../../datahub-web-react/README.md) to add your entity into the React UI.
 
 ## Metadata Annotations
 There are four annotations that tell datahub how to treat certain fields and structs.
