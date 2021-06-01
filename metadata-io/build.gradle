@@ -35,6 +35,7 @@ dependencies {
   testCompile externalDependency.h2
   testCompile externalDependency.neo4jHarness
   testCompile externalDependency.mockito
+  testCompile externalDependency.mockitoInline
   testCompile externalDependency.iStackCommons
   testCompile project(':test-models')
 }
