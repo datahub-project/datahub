@@ -1,6 +1,7 @@
 # No Code Upgrade (In-Place Migration Guide)
 
 ## Summary of changes
+
 With the No Code metadata initiative, we've introduced various major changes:
 
 1. New Ebean Aspect table (metadata_aspect_v2)

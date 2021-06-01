@@ -1,4 +1,4 @@
-# No Code Metadata Modeling 
+# No Code Metadata 
 
 ## Summary of changes
 
@@ -26,11 +26,7 @@ a normal struct.
 
 In doing so, dramatically reducing the level of effort required to add or extend an existing entity.
 
-For more on the design considerations, see the **Design** section below. 
-
-## Migration
-
-TODO: 
+For more on the design considerations, see the **Design** section below.
 
 
 ## Engineering Spec
@@ -132,7 +128,7 @@ As you can see, there are many tied up concepts. Fundamentally changing the mode
 
 The challenge is, how can we meet the requirements without fundamentally altering the model?
 
-## Solution
+## Proposed Solution
 
 In a nutshell, the idea is to consolidate the number of models + code we need to write on a per-entity basis.
 We intend to achieve this by making search index + relationship configuration declarative, specified as part of the model
@@ -144,127 +140,264 @@ with the intention of reducing the overall surface area of GMS.
 During this initiative, we will also seek to make the concepts of Browse Paths and Urns declarative. Browse Paths
 will be provided using a special BrowsePaths aspect. Urns will no longer be strongly typed. 
 
-### Defining an Entity
+To achieve this, we will attempt to generify many components throughout the stack. Currently, many of them are defined on 
+a *per-entity* basis, including
 
-We will outline what the experience of adding a new Entity should look like. We'll name it "MyNewEntity". 
+- Rest.li Resources
+- Index Builders
+- Graph Builders
+- Local, Search, Browse, Graph DAOs
+- Clients 
+- Browse Path Logic
 
-Step 1: Define the Entity Key Aspect
+along with simplifying the number of raw data models that need defined, including 
 
-A key represents the fields that uniquely identify the entity. Previously, these fields were
-part of the Urn Java Class that was defined for each entity. 
+- Rest.li Resource Models
+- Search Document Models
+- Relationship Models
+- Urns + their java classes
 
-In the new world, we will permit specification of a normal PDL struct to represent fields of the primary key. 
-This struct will be used to generate a serialized string key, represented by an Urn. Each field in the key struct
-will be converted into a single part of the Urn's tuple, in order.
+From an architectural PoV, we will move from a before that looks something like this:
+
+![no-code-before](../imgs/no-code-before.png)
+
+to an after that looks like this
+
+![no-code-after](../imgs/no-code-after.png)
+
+That is, a move away from patterns of strong-typing-everywhere to a more generic + flexible world. 
+
+### How will we do it?
+
+We will accomplish this by building the following:
+
+1. Set of custom annotations to permit declarative entity, search, graph configurations
+    - @Entity & @Aspect
+    - @Searchable
+    - @Relationship
+2. Entity Registry: In-memory structures for representing, storing & serving metadata associated with a particular Entity, including search and relationship configurations.
+3. Generic Entity, Search, Graph Service classes: Replaces traditional strongly-typed DAOs with flexible, pluggable APIs that can be used for CRUD, search, and graph across all entities. 
+2. Generic Rest.li Resources: 
+    - 1 permitting reading, writing, searching, autocompleting, and browsing arbitrary entities
+    - 1 permitting reading of arbitrary entity-entity relationship edges
+2. Generic Search Index Builder: Given a MAE and a specification of the Search Configuration for an entity, updates the search index.
+3. Generic Graph Index Builder: Given a MAE and a specification of the Relationship Configuration for an entity, updates the graph index. 
+4. Generic Index + Mappings Builder: Dynamically generates index mappings and creates indices on the fly.
+5. Introduce of special aspects to address other imperative code requirements
+    - BrowsePaths Aspect: Include an aspect to permit customization of the indexed browse paths.
+    - Key aspects: Include "virtual" aspects for representing the fields that uniquely identify an Entity for easy
+    reading by clients of DataHub. 
+
+### Final Developer Experience: Defining an Entity
+
+We will outline what the experience of adding a new Entity should look like. We will imagine we want to define a "Service" entity representing
+online microservices. 
+
+#### Step 1. Add aspects
+
+ServiceKey.pdl
 
 ```
+namespace com.linkedin.metadata.key
+
 /**
- * Key for MyNewEntity
+ * Key for a Service
  */
 @Aspect = {
-  "name": "myNewEntityKey",
-  "isKey": true
+  "name": "serviceKey"
 }
-record MyNewEntityKey {
+record ServiceKey {
   /**
-  * The name of my entity
+  * Name of the service
   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutoComplete": true
+  }
   name: string
-  
-  /**
-  * The environment where my new entity lives. 
-  */
-  origin: FabricType
 }
 ```
 
-Notice that Key aspects are special; they need to be annotated with an @Aspect annotation that contains a field
-"isKey": true. This instructs DataHub that this struct should be considered a primary key for an entity. 
-
-The Urn representation of the Entity Key shown above would be:
-
-```urn:li:<entityType>:(<name>,<origin>)```
-
-Step 2: Define custom aspects
-
-Each aspect represents an independent package of data about a single instance of an entity. To define a new custom aspect for your
-new entity, simply define a PDL record annotated with @Aspect.
+ServiceInfo.pdl
 
 ```
+namespace com.linkedin.service
+
+import com.linkedin.common.Urn
+
+/**
+ * Properties associated with a Tag
+ */
 @Aspect = {
-  "name": "myNewEntityInfo"
+  "name": "serviceInfo"
 }
-record MyNewEntityInfo {
+record ServiceInfo {
 
   /**
-   * displayName of this user ,  e.g.  Hang Zhang(DataHQ)
+   * Description of the service
    */
-  displayName: optional string
-  
-  ...
+  @Searchable = {} 
+  description: string
+
+  /**
+   * The owners of the
+   */
+  @Relationship = {
+     "name": "OwnedBy",
+     "entityTypes": ["corpUser"] 
+  }
+  owner: Urn
 }
 ```
 
-Step 3: Define the Entity Aspect Union
+#### Step 2. Add aspect union.
 
-Today, aspects should be included in a per-entity Aspect union. Any aspects containing metadata about
-an entity should be included. Note that any record appearing in the Union should be annotated with @Aspect.
+ServiceAspect.pdl
 
 ```
 namespace com.linkedin.metadata.aspect
 
-import com.linkedin.metadata.key.MyNewEntityKey
-import com.linkedin.myentity.MyNewEntityInfo
+import com.linkedin.metadata.key.ServiceKey
+import com.linkedin.service.ServiceInfo
+import com.linkedin.common.BrowsePaths
 
 /**
- * A union of all supported metadata aspects for a MyNewEntity
+ * Service Info
  */
-typeref MyNewEntityAspect = union[MyNewEntityKey, MyNewEntityInfo]
+typeref ServiceAspect = union[
+  ServiceKey,
+  ServiceInfo,
+  BrowsePaths
+]
 ```
 
+#### Step 3. Add Snapshot model.
 
-Step 4: Define an Entity Snapshot 
+ServiceSnapshot.pdl
 
 ```
-/**
- * A metadata snapshot for a specific CorpUser entity.
- */
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.Urn
+import com.linkedin.metadata.aspect.ServiceAspect
+
 @Entity = {
-  "name": "myNewEntity",
-  "searchable": true,
-  "browsable": true
+  "name": "service",
+  "keyAspect": "serviceKey"
 }
-record MyNewEntity {
+record ServiceSnapshot {
 
   /**
-   * URN for the entity the metadata snapshot is associated with.
+   * Urn for the service
    */
   urn: Urn
 
   /**
-   * The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   * The list of service aspects
    */
-  aspects: array[MyNewEntityAspect]
+  aspects: array[ServiceAspect]
 }
 ```
 
+#### Step 4. Update Snapshot union.
 
-Step 5: Add the snapshot to the Snapshot.pdl union
+Snapshot.pdl
 
 ```
- /**
-  * A union of all supported metadata snapshot types.
-  */
-  typeref Snapshot = union[
-  .... 
-  MyNewSnapshot
-  ]
+namespace com.linkedin.metadata.snapshot
+
+/**
+ * A union of all supported metadata snapshot types.
+ */
+typeref Snapshot = union[
+  ... 
+  ServiceSnapshot
+]
 ```
 
-### Configuring Searchable Fields
+### Interacting with New Entity
 
-TODO
+1. Write Entity
 
-### Configuring Relationships 
+```
+curl 'http://localhost:8080/entities?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{
+   "entity":{ 
+      "value":{
+         "com.linkedin.metadata.snapshot.ServiceSnapshot":{
+            "urn": "urn:li:service:mydemoservice",
+            "aspects":[
+               {
+                  "com.linkedin.service.ServiceInfo":{
+                     "description":"My demo service",
+                     "owner": "urn:li:corpuser:user1"                     
+                  }
+               },
+               {
+                  "com.linkedin.common.BrowsePaths":{
+                     "paths":[
+                        "/my/custom/browse/path1",
+                        "/my/custom/browse/path2"
+                     ]
+                  }
+               }
+            ]
+         }
+      }
+   }
+}'
+```
 
-TODO 
+2. Read Entity
+
+```
+curl 'http://localhost:8080/entities/urn%3Ali%3Aservice%3Amydemoservice' -H 'X-RestLi-Protocol-Version:2.0.0'
+```
+
+3. Search Entity
+
+```
+curl --location --request POST 'http://localhost:8080/entities?action=search' \
+--header 'X-RestLi-Protocol-Version: 2.0.0' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "input": "My demo",
+    "entity": "service",
+    "start": 0,
+    "count": 10
+}'
+```
+
+4. Autocomplete
+
+```
+curl --location --request POST 'http://localhost:8080/entities?action=autocomplete' \
+--header 'X-RestLi-Protocol-Version: 2.0.0' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "query": "mydem",
+    "entity": "service",
+    "limit": 10
+}'
+```
+
+5. Browse
+
+```
+curl --location --request POST 'http://localhost:8080/entities?action=browse' \
+--header 'X-RestLi-Protocol-Version: 2.0.0' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "path": "/my/custom/browse",
+    "entity": "service",
+    "start": 0,
+    "limit": 10
+}'
+```
+
+6. Relationships
+
+```
+curl --location --request GET 'http://localhost:8080/relationships?direction=INCOMING&urn=urn%3Ali%3Acorpuser%3Auser1&types=OwnedBy' \
+--header 'X-RestLi-Protocol-Version: 2.0.0'
+```
+
