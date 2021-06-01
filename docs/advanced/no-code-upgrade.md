@@ -136,7 +136,6 @@ To see the required environment variables, see the (datahub-upgrade)[../../docke
 
 TODO
 
-
 ## Support 
 
 The Acryl team will be on standby to assist you in your migration. Please do not hesitate to reach out to the following folks if you find trouble with the upgrade
