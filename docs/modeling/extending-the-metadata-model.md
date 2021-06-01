@@ -253,6 +253,8 @@ record DashboardSnapshot {
 }
 ```
 
+If you're extending an existing Entity, you can skip this step. 
+
 ### Step 5: Re-build DataHub to have access to your new or updated entity
 
 Run `/.gradlew build` from the repository root to rebuild Datahub with access to your new entity.
