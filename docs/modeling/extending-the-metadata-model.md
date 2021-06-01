@@ -315,23 +315,22 @@ It takes the following parameters:
 
 ```aidl
 @Searchable = {
-  // Name of the field in the search index. Defaults to the field name in the schema
-  Optional String fieldName;
-  // Type of the field. Defines how the field is indexed and matched
-  // One of      KEYWORD, TEXT, TEXT_PARTIAL, BROWSE_PATH, URN, URN_PARTIAL, BOOLEAN,  COUNT
+  // (Optional) Name of the field in the search index. Defaults to the field name in the schema
+  String fieldName;
+  // Type of the field. Defines how the field is indexed and matched.
   FieldType fieldType;
-  // Whether we should match the field for the default search query
-  Optional boolean queryByDefault;
-  // Whether we should use the field for autocomplete
-  Optional boolean enableAutocomplete;
-  // Whether or not to add field to filters.
-  Optional boolean addToFilters;
-  // Boost multiplier to the match score. Matches on fields with higher boost score ranks higher
-  Optional double boostScore;
-  // If set, add a index field of the given name that checks whether the field exists
-  Optional String hasValuesFieldName;
-  // If set, add a index field of the given name that checks the number of elements
-  Optional String numValuesFieldName;
+  // (Optional) Whether we should match the field for the default search query. True by default for text and urn fields. 
+  boolean queryByDefault;
+  // (Optional) Whether we should use the field for autocomplete. Defaults to false
+  boolean enableAutocomplete;
+  // (Optional) Whether or not to add field to filters. Defaults to false
+  boolean addToFilters;
+  // (Optional) Boost multiplier to the match score. Matches on fields with higher boost score ranks higher. Default to 1.0
+  double boostScore;
+  // (Optional) If set, add an index field of the given name that checks whether the field exists
+  String hasValuesFieldName;
+  // (Optional) If set, add an index field of the given name that checks the number of elements
+  String numValuesFieldName;
   // (Optional) Weights to apply to score for a given value.
   Map<Object, Double> weightsPerFieldValue;
 }
@@ -361,10 +360,46 @@ Now, when Datahub ingests Dashboards, it will index the Dashboard’s title in E
 Dashboards, that query will be used to search on the title index and matching Dashboards will be returned.
 
 The settings for how each field is indexed is defined by the field type. Each field type is associated with a set of
-analyzers Elasticsearch will use to tokenize the field. Such sets are defined in the LINK(MappingsBuider), which
-generates the mappings for the index for each entity given the fields with the search annotations. To customize the set
-of analyzers used to index a certain field, you must add a new field type and define the set of mappings to be applied
-in the LINK(MappingsBuilder).
+analyzers Elasticsearch will use to tokenize the field. Such sets are defined in the MappingsBuider, which generates the
+mappings for the index for each entity given the fields with the search annotations. To customize the set of analyzers
+used to index a certain field, you must add a new field type and define the set of mappings to be applied in the
+MappingsBuilder.
+
+Currently, we have implemented 8 fieldTypes:
+
+1. KEYWORD
+
+Short text fields that only support exact matches, often used only for filtering
+
+2. TEXT
+
+Text fields delimited by spaces/slashes/periods. Default field type for string variables.
+
+3. TEXT_PARTIAL
+
+Text fields delimited by spaces/slashes/periods with partial matching support. Note, partial matching is expensive, so
+this field type should not be applied to fields with long values (like description)
+
+4. BROWSE_PATH
+
+Field type for browse paths. Applies specific mappings for slash delimited paths.
+
+5. URN
+
+Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
+"urn:li:dataplatform:kafka", it will index the platform name "kafka" and ignore the common components
+
+6. URN_PARTIAL
+
+Urn fields where each sub-component inside the urn is indexed with partial matching support.
+
+7. BOOLEAN
+
+Boolean fields used for filtering.
+
+8. COUNT
+
+Count fields used for filtering.
 
 #### @Relationship
 
