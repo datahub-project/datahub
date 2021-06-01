@@ -4,7 +4,7 @@ sidebar_label: Extending the metadata model
 slug: /metadata-modeling/extending-the-metadata-model
 ---
 
-# How do I extend the Metadata model?
+# How to extend the Metadata model
 
 You can extend the metadata model by either creating a new Entity or extending an existing one.
 Unsure if you need to create a new entity or add an aspect to an existing entity?
