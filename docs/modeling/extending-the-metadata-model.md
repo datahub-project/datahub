@@ -1,16 +1,16 @@
 ---
-title: Extending the metadata model
-sidebar_label: Extending the metadata model
-slug: /metadata-modeling/extending-the-metadata-model
+title: Extending the metadata model sidebar_label: Extending the metadata model slug:
+/metadata-modeling/extending-the-metadata-model
 ---
 
 # How do I extend the Metadata model?
 
-You can extend the metadata model by either creating a new Entity or extending an existing one.
-Unsure if you need to create a new entity or add an aspect to an existing entity?
-Read [metadata-model](./metadata-model.md) to understand these two concepts and figure out which one you need to create.
+You can extend the metadata model by either creating a new Entity or extending an existing one. Unsure if you need to
+create a new entity or add an aspect to an existing entity? Read [metadata-model](./metadata-model.md) to understand
+these two concepts and figure out which one you need to create.
 
-We will outline what the experience of adding a new Entity should look like through a real example of adding the Dashboard Entity. If you want to extend an existing Entity or Aspect, you can skip directly to Step 4.
+We will outline what the experience of adding a new Entity should look like through a real example of adding the
+Dashboard Entity. If you want to extend an existing Entity or Aspect, you can skip directly to Step 4.
 
 High level, an entity is made up of
 
@@ -18,15 +18,17 @@ High level, an entity is made up of
 2) a Key Aspect, which uniquely identifies an instance of an entity,
 3) A snapshot, which pais a union of aspects with a serialized key, or urn.
 
-Now we'll walk you through the steps required to create these metadata models, ingest and view your extensions to the model.
-We will use the Dashboard entity as an example. This entity already exists in Datahub, and you can view these files 
-and how they are used.
+Now we'll walk you through the steps required to create these metadata models, ingest and view your extensions to the
+model. We will use the Dashboard entity as an example. This entity already exists in Datahub, and you can view these
+files and how they are used.
 
 ### Step 1: Define the Entity Key Aspect
 
-A key represents the fields that uniquely identify the entity. For those familiar with Datahub’s previous architecture, these fields were previously part of the Urn Java Class that was defined for each entity.
+A key represents the fields that uniquely identify the entity. For those familiar with Datahub’s previous architecture,
+these fields were previously part of the Urn Java Class that was defined for each entity.
 
-This struct will be used to generate a serialized string key, represented by an Urn. Each field in the key struct will be converted into a single part of the Urn's tuple, in the order they are defined.
+This struct will be used to generate a serialized string key, represented by an Urn. Each field in the key struct will
+be converted into a single part of the Urn's tuple, in the order they are defined.
 
 For example,
 
@@ -65,11 +67,16 @@ The Urn representation of the Entity Key shown above would be:
 
 Keys need to be annotated with an @Aspect annotation, This instructs DataHub that this struct can be a part of.
 
-The key can also be annotated with the two index annotations, @Searchable and @Relationship. This tells Datahub to use the fields in the key to create relationships and index fields for search. See Step 4 for more details on the annotation model.
+The key can also be annotated with the two index annotations, @Searchable and @Relationship. This tells Datahub to use
+the fields in the key to create relationships and index fields for search. See Step 4 for more details on the annotation
+model.
 
 ### Step 2: Define the Entity Aspect Union
 
-You must create an Aspect union to define what aspects an entity can contain. Any record appearing in the Union should be annotated with @Aspect. To begin with, your entity’s AspectUnion will just contain the new Key until you create more custom aspects (see Step 4). As you can see, the Dashboard’s aspect union contains its key along with the other custom Aspects it includes.
+You must create an Aspect union to define what aspects an entity can contain. Any record appearing in the Union should
+be annotated with @Aspect. To begin with, your entity’s AspectUnion will just contain the new Key until you create more
+custom aspects (see Step 4). As you can see, the Dashboard’s aspect union contains its key along with the other custom
+Aspects it includes.
 
 ```
 namespace com.linkedin.metadata.aspect
@@ -94,16 +101,19 @@ typeref DashboardAspect = union[
 ]
 ```
 
-The first aspect will always be the Entity’s key. The other aspects can be Dashboard specific, like DashboardInfo, or shared, such as Ownership. This union can be extended over time as you expand the metadata model. You can include any existing type with the @Aspect annotation in your entity’s aspect union or create new ones- Step 4 goes into detail about how to create a new Aspect.
+The first aspect will always be the Entity’s key. The other aspects can be Dashboard specific, like DashboardInfo, or
+shared, such as Ownership. This union can be extended over time as you expand the metadata model. You can include any
+existing type with the @Aspect annotation in your entity’s aspect union or create new ones- Step 4 goes into detail
+about how to create a new Aspect.
 
 ### Step 3: Define an Entity Snapshot
 
-The snapshot describes the format of how an entity is serialized for read and write operations to GMS,
-the generic metadata store. All snapshots have two fields, `urn` of type `Urn` and `snapshot`
+The snapshot describes the format of how an entity is serialized for read and write operations to GMS, the generic
+metadata store. All snapshots have two fields, `urn` of type `Urn` and `snapshot`
 of type `union[Aspect1, Aspect2, ...]`.
 
-The snapshot needs an `@Entity` annotation with the entity’s name.
-The name is used for specifying entity type when searching, using autocomplete, etc.
+The snapshot needs an `@Entity` annotation with the entity’s name. The name is used for specifying entity type when
+searching, using autocomplete, etc.
 
 ```
 namespace com.linkedin.metadata.snapshot
@@ -135,11 +145,10 @@ record DashboardSnapshot {
 
 Step 4: Define custom aspects
 
-Some aspects, like Ownership and GlobalTags, are general purpose,
-and you can include them in your entity’s Aspect union freely.
-They will extend your entity with their attributes all without creating an aspect.
-If you only want to use existing aspects, you can skip to Step 5.
-However, to include attributes that are not included in an existing Aspect, a new Aspect must be created.
+Some aspects, like Ownership and GlobalTags, are general purpose, and you can include them in your entity’s Aspect union
+freely. They will extend your entity with their attributes all without creating an aspect. If you only want to use
+existing aspects, you can skip to Step 5. However, to include attributes that are not included in an existing Aspect, a
+new Aspect must be created.
 
 Let’s look at the DashboardInfo aspect as an example of what goes into a new aspect.
 
@@ -220,39 +229,60 @@ record DashboardInfo includes CustomProperties, ExternalReference {
 }
 ```
 
-The Aspect has four key components: its properties, the @Aspect annotation, the @Searchable annotation and the @Relationship annotation. Let’s break down each part.
+The Aspect has four key components: its properties, the @Aspect annotation, the @Searchable annotation and the
+@Relationship annotation. Let’s break down each part.
 
-- The Aspect’s properties. The record’s properties can be declared as a field on the record, or by including another record in the Aspect’s definition (`record DashboardInfo includes CustomProperties, ExternalReference {`). Properties can be defined as
-pdl primitives, enums, or collections (see [pdl schema documentation](https://linkedin.github.io/rest.li/pdl_schema))
-references to other entities, of type Urn or optionally `<Entity>Urn`
-another pdl record type, even if that type is an Aspect itself
-- The @Aspect annotation. This is used to declare that the record is an Aspect and can be included in an entity’s Snapshot. It also declares an identifier for the aspect so it can be stored and retrieved. Unlike the other two annotations, @Aspect is applied to the entire record rather than a specific field.
-- The @Searchable annotation. This annotation can be applied to any primitive field to indicate that it should be indexed in Elasticsearch and can be searched on. For a complete guide on using the search annotation, see the annotation docs further down in this document.
-- The @Relationship annotations. These annotations create edges between the Snapshot’s Urn and the destination of the annotated field when the snapshots are ingested. @Relationship annotations must be applied to fields of type Urn. In the case of DashboardInfo, the `charts` field is an Array of Urns. The @Relationship annotation cannot be applied directly to an array of Urns. That’s why you see the use of an Annotation override (`”/*”:) to apply the @Relationship annotation to the Urn directly.
-  Read more about overrides in the annotation docs further down on this page.
+- The Aspect’s properties. The record’s properties can be declared as a field on the record, or by including another
+  record in the Aspect’s definition (`record DashboardInfo includes CustomProperties, ExternalReference {`). Properties
+  can be defined as pdl primitives, enums, or collections (
+  see [pdl schema documentation](https://linkedin.github.io/rest.li/pdl_schema))
+  references to other entities, of type Urn or optionally `<Entity>Urn`
+  another pdl record type, even if that type is an Aspect itself
+- The @Aspect annotation. This is used to declare that the record is an Aspect and can be included in an entity’s
+  Snapshot. It also declares an identifier for the aspect so it can be stored and retrieved. Unlike the other two
+  annotations, @Aspect is applied to the entire record rather than a specific field.
+- The @Searchable annotation. This annotation can be applied to any primitive field to indicate that it should be
+  indexed in Elasticsearch and can be searched on. For a complete guide on using the search annotation, see the
+  annotation docs further down in this document.
+- The @Relationship annotations. These annotations create edges between the Snapshot’s Urn and the destination of the
+  annotated field when the snapshots are ingested. @Relationship annotations must be applied to fields of type Urn. In
+  the case of DashboardInfo, the `charts` field is an Array of Urns. The @Relationship annotation cannot be applied
+  directly to an array of Urns. That’s why you see the use of an Annotation override (`”/*”:) to apply the @Relationship
+  annotation to the Urn directly. Read more about overrides in the annotation docs further down on this page.
 
-After you create your Aspect, you need to add it into the Aspect Union of each entity you’d like to attach the aspect to. Refer back to Step 2 for how Aspects are added to Aspect Unions.
+After you create your Aspect, you need to add it into the Aspect Union of each entity you’d like to attach the aspect
+to. Refer back to Step 2 for how Aspects are added to Aspect Unions.
 
 ### Step 5: Re-build datahub to have access to your new or updated entity
 
 Run `/.gradlew build` from the repository root to rebuild Datahub with access to your new entity.
 
-Then, re-deploy gms, mae-consumer and mce-consumer (see [docker development](../../docker/README.md) for details on how to deploy during development). This will allow Datahub to read and write Snapshots of your new entity, along with server search and graph queries for that entity type.
+Then, re-deploy gms, mae-consumer and mce-consumer (see [docker development](../../docker/README.md) for details on how
+to deploy during development). This will allow Datahub to read and write Snapshots of your new entity, along with server
+search and graph queries for that entity type.
 
-To emit snapshots to ingest from the Datahub CLI tool, first install datahub cli locally [following the instructions here](../../metadata-ingestion/developing.md). `./gradlew build` generated the avro schemas your local ingestion cli tool uses earlier. After following the developing guide, you should be able to emit your new event using the local datahub cli.
+To emit snapshots to ingest from the Datahub CLI tool, first install datahub cli
+locally [following the instructions here](../../metadata-ingestion/developing.md). `./gradlew build` generated the avro
+schemas your local ingestion cli tool uses earlier. After following the developing guide, you should be able to emit
+your new event using the local datahub cli.
 
 Now you are ready to start ingesting metadata for your new entity!
 
-
 ### (Optional) Step 6: Extend the datahub frontend to view your entity in GraphQL & React
 
-At the moment, custom React and Grapqhl code needs to be written to view your entity in GraphQL or React. For instructions on how to start extending the GraphQL graph, see [graphql docs](../../datahub-graphql-core/README.md). Once you’ve done that, you can follow the guide [here](../../datahub-web-react/README.md) to add your entity into the React UI.
+At the moment, custom React and Grapqhl code needs to be written to view your entity in GraphQL or React. For
+instructions on how to start extending the GraphQL graph, see [graphql docs](../../datahub-graphql-core/README.md). Once
+you’ve done that, you can follow the guide [here](../../datahub-web-react/README.md) to add your entity into the React
+UI.
 
 ## Metadata Annotations
+
 There are four annotations that tell DataHub how to treat certain fields and structs.
 
 #### @Entity
-This annotation is applied to each Snapshot record, such as DashboardSnapshot.pdl. Each snapshot that is included in Snapshot.pdl must have this annotation.
+
+This annotation is applied to each Snapshot record, such as DashboardSnapshot.pdl. Each snapshot that is included in
+Snapshot.pdl must have this annotation.
 
 It takes the following parameters:
 
@@ -263,9 +293,10 @@ String name;
 }
 ```
 
-
 #### @Aspect
-This annotation is applied to each Aspect record, such as DashboardInfo.pdl. Each aspect that is included in an entity’s AspectUnion must have this annotation.
+
+This annotation is applied to each Aspect record, such as DashboardInfo.pdl. Each aspect that is included in an entity’s
+AspectUnion must have this annotation.
 
 It takes the following parameters:
 
@@ -291,7 +322,7 @@ It takes the following parameters:
   FieldType fieldType;
   // Whether we should match the field for the default search query
   Optional boolean queryByDefault;
-  // Whether we should use the field for default autocomplete
+  // Whether we should use the field for autocomplete
   Optional boolean enableAutocomplete;
   // Whether or not to add field to filters.
   Optional boolean addToFilters;
@@ -320,16 +351,26 @@ Let’s take a look at a real world example using the `title` field of `Dashboar
   title: string
 ```
 
-This annotation is saying that we want to index the title field in Elasticsearch. We want to support partial matches on the title, so queries for `Cust` should return a Dashboard with the title `Customers`. `enableAutocomplete` is set to true, meaning that we can autocomplete on this field when typing into the search bar. Finally, a boostScore of 10 is provided, meaning that we should prioritize matches to title over matches to other fields, such as description, when ranking.
+This annotation is saying that we want to index the title field in Elasticsearch. We want to support partial matches on
+the title, so queries for `Cust` should return a Dashboard with the title `Customers`. `enableAutocomplete` is set to
+true, meaning that we can autocomplete on this field when typing into the search bar. Finally, a boostScore of 10 is
+provided, meaning that we should prioritize matches to title over matches to other fields, such as description, when
+ranking.
 
-Now, when Datahub ingests Dashboards, it will index the Dashboard’s title in Elasticsearch. When a user searches for Dashboards, that query will be used to search on the title index and matching Dashboards will be returned.
+Now, when Datahub ingests Dashboards, it will index the Dashboard’s title in Elasticsearch. When a user searches for
+Dashboards, that query will be used to search on the title index and matching Dashboards will be returned.
 
-The settings for how each field is indexed is defined by the field type. Each field type is associated with a set of analyzers Elasticsearch will use to tokenize the field. Such sets are defined in the LINK(MappingsBuider), which generates the mappings for the index for each entity given the fields with the search annotations. To customize the set of analyzers used to index a certain field, you must add a new field type and define the set of mappings to be applied in the LINK(MappingsBuilder).
-
+The settings for how each field is indexed is defined by the field type. Each field type is associated with a set of
+analyzers Elasticsearch will use to tokenize the field. Such sets are defined in the LINK(MappingsBuider), which
+generates the mappings for the index for each entity given the fields with the search annotations. To customize the set
+of analyzers used to index a certain field, you must add a new field type and define the set of mappings to be applied
+in the LINK(MappingsBuilder).
 
 #### @Relationship
 
-This annotation is applied to fields inside an Aspect. This annotation creates edges between an Entity’s Urn and the destination of the annotated field when the Entity is ingested. @Relationship annotations must be applied to fields of type Urn.
+This annotation is applied to fields inside an Aspect. This annotation creates edges between an Entity’s Urn and the
+destination of the annotated field when the Entity is ingested. @Relationship annotations must be applied to fields of
+type Urn.
 
 It takes the following parameters:
 
@@ -342,7 +383,8 @@ It takes the following parameters:
 }
 ```
 
-Let’s take a look at a real world example to see how this annotation is used. The `Owner.pdl` struct is referenced by the `Ownership.pdl` aspect. `Owned.pdl` contains a relationship to a CorpUser or CorpGroup:
+Let’s take a look at a real world example to see how this annotation is used. The `Owner.pdl` struct is referenced by
+the `Ownership.pdl` aspect. `Owned.pdl` contains a relationship to a CorpUser or CorpGroup:
 
 ```
 namespace com.linkedin.common
@@ -365,11 +407,15 @@ record Owner {
 }
 ```
 
-This annotation says that when we ingest an Entity with an OwnershipAspect, Datahub will create an OwnedBy relationship between that entity and the CorpUser or CorpGroup who owns it.
+This annotation says that when we ingest an Entity with an OwnershipAspect, Datahub will create an OwnedBy relationship
+between that entity and the CorpUser or CorpGroup who owns it.
 
 #### Annotation Overrides
 
-You will not always be able to apply annotations to a primitive field directly. This may be because the field is wrapped in an Array, or because the field is part of a shared struct that many entities reference. In these cases, you need to use annotation overrides. An override is done by specifying a fieldPath to the target field inside the annotation, like so:
+You will not always be able to apply annotations to a primitive field directly. This may be because the field is wrapped
+in an Array, or because the field is part of a shared struct that many entities reference. In these cases, you need to
+use annotation overrides. An override is done by specifying a fieldPath to the target field inside the annotation, like
+so:
 
 ```
  /**
@@ -384,7 +430,8 @@ You will not always be able to apply annotations to a primitive field directly. 
   charts: array[ChartUrn] = [ ]
 ```
 
-This override applies the relationship annotation to each element in the Array, rather than the array itself. This allows a unique Relationship to be created for between the Dashboard and each of its charts.
+This override applies the relationship annotation to each element in the Array, rather than the array itself. This
+allows a unique Relationship to be created for between the Dashboard and each of its charts.
 
 Another example can be seen in the case of tags. In this case, TagAssociation.pdl has a @Searchable annotation:
 
@@ -398,7 +445,9 @@ Another example can be seen in the case of tags. In this case, TagAssociation.pd
   tag: TagUrn
 ```
 
-At the same time, SchemaField overrides that annotation to allow for searching for tags applied to schema fields specifically. To do this, it overrides the Searchable annotation applied to the `tag` field of `TagAssociation` and replaces it with its own- this has a different boostScore and a different fieldName.
+At the same time, SchemaField overrides that annotation to allow for searching for tags applied to schema fields
+specifically. To do this, it overrides the Searchable annotation applied to the `tag` field of `TagAssociation` and
+replaces it with its own- this has a different boostScore and a different fieldName.
 
 ```
  /**
@@ -415,4 +464,6 @@ At the same time, SchemaField overrides that annotation to allow for searching f
   globalTags: optional GlobalTags
 ```
 
-As a result, you can issue a query specifically for tags on Schema Fields via `fieldTags:<tag_name>` or tags directly applied to an entity via `tags:<tag_name>`. Since both have `queryByDefault` set to true, you can also search for entities with either of these properties just by searching for the tag name.
+As a result, you can issue a query specifically for tags on Schema Fields via `fieldTags:<tag_name>` or tags directly
+applied to an entity via `tags:<tag_name>`. Since both have `queryByDefault` set to true, you can also search for
+entities with either of these properties just by searching for the tag name.
