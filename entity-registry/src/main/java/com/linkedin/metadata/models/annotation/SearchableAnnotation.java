@@ -9,8 +9,8 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.Value;
 import org.apache.commons.lang3.EnumUtils;
-import org.gradle.internal.impldep.com.google.common.collect.ImmutableMap;
-import org.gradle.internal.impldep.com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 
 
 /**

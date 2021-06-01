@@ -21,7 +21,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.gradle.internal.impldep.com.google.common.annotations.VisibleForTesting;
 
 
 @Slf4j
@@ -125,7 +124,6 @@ public class EntitySpecBuilder {
     return null;
   }
 
-  @VisibleForTesting
   AspectSpec buildAspectSpec(@Nonnull final DataSchema aspectDataSchema) {
 
     final RecordDataSchema aspectRecordSchema = validateAspect(aspectDataSchema);
