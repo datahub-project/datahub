@@ -1,17 +1,17 @@
 -- create metadata aspect table
-create table metadata_aspect_v2 (
-  urn                           varchar(500) not null,
-  aspect                        varchar(200) not null,
-  version                       bigint(20) not null,
-  metadata                      longtext not null,
+CREATE TABLE metadata_aspect_v2 (
+  urn                           VARCHAR(500) NOT NULL,
+  aspect                        VARCHAR(200) NOT NULL,
+  version                       bigint(20) NOT NULL,
+  metadata                      longtext NOT NULL,
   systemmetadata                longtext,
-  createdon                     datetime(6) not null,
-  createdby                     varchar(255) not null,
-  createdfor                    varchar(255),
-  constraint pk_metadata_aspect primary key (urn,aspect,version)
+  createdon                     datetime(6) NOT NULL,
+  createdby                     VARCHAR(255) NOT NULL,
+  createdfor                    VARCHAR(255),
+  CONSTRAINT pk_metadata_aspect PRIMARY KEY (urn,aspect,version)
 );
 
-insert into metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) values(
+INSERT INTO metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
   'corpUserInfo',
   0,
