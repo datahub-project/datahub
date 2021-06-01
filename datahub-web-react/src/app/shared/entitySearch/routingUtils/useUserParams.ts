@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
 import { useLocation, useParams } from 'react-router';
-import { Subview } from '../Subview';
 
 type UserPageParams = {
     urn: string;
@@ -10,7 +9,7 @@ type UserPageParams = {
 const SUBVIEW_PATH_INDEX = 3;
 const ITEM_PATH_INDEX = 4;
 
-export default function useUserParams(): { subview?: Subview; item?: string; urn: string } {
+export default function useUserParams(): { subview?: string; item?: string; urn: string } {
     const location = useLocation();
     const { urn } = useParams<UserPageParams>();
     return useMemo(() => {
@@ -19,8 +18,7 @@ export default function useUserParams(): { subview?: Subview; item?: string; urn
 
         return {
             urn,
-            subview:
-                subview && Object.values(Subview).indexOf(subview as Subview) >= 0 ? (subview as Subview) : undefined,
+            subview,
             item: parts[ITEM_PATH_INDEX],
         };
     }, [location.pathname, urn]);

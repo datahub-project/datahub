@@ -1,13 +1,17 @@
 import React from 'react';
 import { render } from '@testing-library/react';
-import UserOwnership from '../UserOwnership';
-import { EntityType, PlatformNativeType } from '../../../../types.generated';
+import { EntityType, PlatformNativeType, SearchResult } from '../../../../types.generated';
 import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
+import RelatedEntityResults from '../RelatedEntityResults';
 
-const ownerships = {
+const searchResult: {
+    [key in EntityType]?: Array<SearchResult>;
+} = {
     [EntityType.Dataset]: [
         {
             entity: {
+                urn: 'some:urn1',
+                type: EntityType.Dataset,
                 name: 'HiveDataset',
                 origin: 'PROD',
                 description: 'this is a dataset',
@@ -17,9 +21,12 @@ const ownerships = {
                 },
                 tags: [],
             },
-        },
+            matchedFields: [],
+        } as SearchResult,
         {
             entity: {
+                urn: 'some:urn2',
+                type: EntityType.Dataset,
                 name: 'KafkaDataset',
                 origin: 'PROD',
                 description: 'this is also a dataset',
@@ -29,27 +36,18 @@ const ownerships = {
                 },
                 tags: [],
             },
-        },
+            matchedFields: [],
+        } as SearchResult,
     ],
 };
 
-describe('UserOwnership', () => {
-    it('renders a list container', () => {
+describe('RelatedEntityResults', () => {
+    it('renders a menu datasets option', () => {
         const { getByText } = render(
             <TestPageContainer>
-                <UserOwnership ownerships={ownerships} entityPath="dataset" />
-            </TestPageContainer>,
-        );
-        expect(getByText('Datasets owned')).toBeInTheDocument();
-    });
-
-    it('renders the entity rows', () => {
-        const { getByText } = render(
-            <TestPageContainer>
-                <UserOwnership ownerships={ownerships} entityPath="dataset" />
+                <RelatedEntityResults searchResult={searchResult} />;
             </TestPageContainer>,
         );
         expect(getByText('this is a dataset')).toBeInTheDocument();
-        expect(getByText('this is also a dataset')).toBeInTheDocument();
     });
 });
