@@ -24,7 +24,6 @@ record DatasetKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0
   }
@@ -35,7 +34,8 @@ record DatasetKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "addToFilters": true
+    "addToFilters": true,
+    "queryByDefault": false
   }
   origin: FabricType
 }

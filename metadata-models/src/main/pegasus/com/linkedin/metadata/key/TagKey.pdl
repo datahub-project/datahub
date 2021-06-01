@@ -12,7 +12,6 @@ record TagKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0
   }

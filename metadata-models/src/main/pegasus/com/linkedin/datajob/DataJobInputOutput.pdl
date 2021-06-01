@@ -25,7 +25,8 @@ record DataJobInputOutput {
     "/*": {
       "fieldName": "inputs",
       "fieldType": "URN",
-      "numValuesFieldName": "numInputDatasets"
+      "numValuesFieldName": "numInputDatasets",
+      "queryByDefault": false
     }
   }
   inputDatasets: array[DatasetUrn]
@@ -43,7 +44,8 @@ record DataJobInputOutput {
     "/*": {
       "fieldName": "outputs",
       "fieldType": "URN",
-      "numValuesFieldName": "numOutputDatasets"
+      "numValuesFieldName": "numOutputDatasets",
+      "queryByDefault": false
     }
   }
   outputDatasets: array[DatasetUrn]

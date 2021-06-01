@@ -12,7 +12,8 @@ import com.linkedin.common.FabricType
 record GlossaryNodeKey {
 
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true
   }
   name: string
 

@@ -17,7 +17,6 @@ record DatasetProperties includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "queryByDefault": true,
     "hasValuesFieldName": "hasDescription"
   }
   description: optional string

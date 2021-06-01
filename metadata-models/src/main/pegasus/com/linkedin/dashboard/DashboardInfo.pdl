@@ -21,7 +21,6 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0
   }
@@ -32,7 +31,6 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "queryByDefault": true,
     "hasValuesFieldName": "hasDescription"
   }
   description: string

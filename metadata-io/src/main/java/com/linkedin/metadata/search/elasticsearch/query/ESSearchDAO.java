@@ -103,7 +103,7 @@ public class ESSearchDAO {
     try {
       EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
       AutocompleteRequestHandler builder = AutocompleteRequestHandler.getBuilder(entitySpec);
-      SearchRequest req = builder.getSearchRequest(entitySpec, query, field, requestParams, limit);
+      SearchRequest req = builder.getSearchRequest(query, field, requestParams, limit);
       req.indices(indexConvention.getIndexName(entitySpec));
       SearchResponse searchResponse = client.search(req, RequestOptions.DEFAULT);
       return builder.extractResult(searchResponse, query);

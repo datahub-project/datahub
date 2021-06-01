@@ -21,8 +21,7 @@ record CorpUserEditableInfo {
    */
   @Searchable = {
     "/*": {
-      "fieldType": "TEXT",
-      "queryByDefault": true
+      "fieldType": "TEXT"
     }
   }
   teams: array[string] = [ ]
@@ -32,8 +31,7 @@ record CorpUserEditableInfo {
    */
   @Searchable = {
     "/*": {
-      "fieldType": "TEXT",
-      "queryByDefault": true
+      "fieldType": "TEXT"
     }
   }
   skills: array[string] = [ ]

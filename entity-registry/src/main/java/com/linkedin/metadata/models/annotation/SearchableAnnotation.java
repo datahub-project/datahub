@@ -103,7 +103,6 @@ public class SearchableAnnotation {
     switch (schemaDataType) {
       case INT:
       case FLOAT:
-      case DOUBLE:
         return FieldType.COUNT;
       default:
         return FieldType.TEXT;

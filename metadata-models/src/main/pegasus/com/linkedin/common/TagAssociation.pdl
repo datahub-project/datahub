@@ -11,7 +11,6 @@ record TagAssociation {
   @Searchable = {
     "fieldName": "tags",
     "fieldType": "URN_PARTIAL",
-    "queryByDefault": true,
     "hasValuesFieldName": "hasTags"
   }
   tag: TagUrn
