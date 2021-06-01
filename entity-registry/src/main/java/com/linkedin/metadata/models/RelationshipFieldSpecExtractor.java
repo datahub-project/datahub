@@ -41,7 +41,7 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
       final Object primaryAnnotationObj = properties.get(RelationshipAnnotation.ANNOTATION_NAME);
 
       if (primaryAnnotationObj != null) {
-        validatePropertiesAnnotation(currentSchema, primaryAnnotationObj, context.getSchemaPathSpec().toString());
+        validatePropertiesAnnotation(currentSchema, primaryAnnotationObj, context.getTraversePath().toString());
       }
 
       // Next, check resolved properties for annotations on primitives.

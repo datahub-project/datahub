@@ -43,7 +43,7 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
       final Object primaryAnnotationObj = properties.get(SearchableAnnotation.ANNOTATION_NAME);
 
       if (primaryAnnotationObj != null) {
-        validatePropertiesAnnotation(currentSchema, primaryAnnotationObj, context.getSchemaPathSpec().toString());
+        validatePropertiesAnnotation(currentSchema, primaryAnnotationObj, context.getTraversePath().toString());
       }
 
       // Next, check resolved properties for annotations on primitives.
@@ -134,6 +134,14 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
     }
 
     Map<String, Object> annotationMap = (Map<String, Object>) annotationObj;
+
+    if (annotationMap.size() == 0) {
+      throw new ModelValidationException(
+          String.format("Invalid @Searchable Annotation at %s. Annotation placed on invalid field of type %s. Must be placed on primitive field.",
+              pathStr,
+              currentSchema.getType()));
+    }
+
     for (String key : annotationMap.keySet()) {
       if (!key.startsWith(Character.toString(PathSpec.SEPARATOR))) {
         throw new ModelValidationException(

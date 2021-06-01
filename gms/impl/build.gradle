@@ -75,7 +75,7 @@ task validateModels(type: JavaExec) {
   args '../../metadata-models/src/main/pegasus/:' + '../../li-utils/src/main/pegasus/:' + configurations.dataModel.asPath, project.getProjectDir().getAbsolutePath() + "/../../metadata-models/src/main/pegasus",
   classpath = project.configurations.modelValidation
   debugOptions {
-    enabled = true
+    enabled = false
     port = 5005
   }
 }
