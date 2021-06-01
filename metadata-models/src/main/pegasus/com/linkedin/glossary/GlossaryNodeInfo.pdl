@@ -13,10 +13,7 @@ record GlossaryNodeInfo {
   /**
    * Definition of business node
    */
-  @Searchable = {
-    "fieldType": "TEXT",
-    "queryByDefault": true
-  }
+  @Searchable = {}
   definition: string
 
   /**

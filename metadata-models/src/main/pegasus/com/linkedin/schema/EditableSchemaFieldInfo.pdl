@@ -17,7 +17,6 @@ record EditableSchemaFieldInfo {
   @Searchable = {
     "fieldName": "editedFieldDescriptions",
     "fieldType": "TEXT",
-    "queryByDefault": true,
     "boostScore": 0.1
   }
   description: optional string
@@ -29,7 +28,6 @@ record EditableSchemaFieldInfo {
     "/tags/*/tag": {
       "fieldName": "editedFieldTags",
       "fieldType": "URN_PARTIAL",
-      "queryByDefault": true,
       "boostScore": 0.5
     }
   }

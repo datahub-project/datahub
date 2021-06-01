@@ -15,7 +15,6 @@ record MLModelKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": true,
     "boostScore": 0.1
   }
   platform: Urn
@@ -25,7 +24,6 @@ record MLModelKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0
   }
@@ -35,7 +33,8 @@ record MLModelKey {
   * Fabric type where model belongs to or where it was generated
   */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": false
   }
   origin: FabricType
 }

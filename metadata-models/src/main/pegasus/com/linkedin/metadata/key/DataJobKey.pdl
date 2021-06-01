@@ -14,7 +14,8 @@ record DataJobKey {
   */
   @Searchable = {
     "fieldName": "dataFlow",
-    "fieldType": "URN_PARTIAL"
+    "fieldType": "URN_PARTIAL",
+    "queryByDefault": false
   }
   flow: Urn
 
@@ -23,7 +24,6 @@ record DataJobKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": true,
     "enableAutocomplete": true
   }
   jobId: string

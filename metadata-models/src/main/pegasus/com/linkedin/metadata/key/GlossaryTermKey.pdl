@@ -12,7 +12,6 @@ record GlossaryTermKey {
 
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": true,
     "enableAutocomplete": true
   }
   name: string

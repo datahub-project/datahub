@@ -23,7 +23,8 @@ record DataProcessInfo {
     "/*": {
       "fieldName": "inputs",
       "fieldType": "URN",
-      "numValuesFieldName": "numInputDatasets"
+      "numValuesFieldName": "numInputDatasets",
+      "queryByDefault": false
     }
   }
   inputs: optional array[DatasetUrn]
@@ -41,7 +42,8 @@ record DataProcessInfo {
     "/*": {
       "fieldName": "outputs",
       "fieldType": "URN",
-      "numValuesFieldName": "numOutputDatasets"
+      "numValuesFieldName": "numOutputDatasets",
+      "queryByDefault": false
     }
   }
   outputs: optional array[DatasetUrn]
