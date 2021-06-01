@@ -54,8 +54,8 @@ public class MAEQualificationStep implements UpgradeStep<Void> {
   @Override
   public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
     return (context) -> {
-      String maeHost = System.getenv("DATAHUB_MAE_CONSUMER_HOST");
-      String maePort = System.getenv("DATAHUB_MAE_CONSUMER_PORT");
+      String maeHost = System.getenv("DATAHUB_MAE_CONSUMER_HOST") == null ? "localhost" : System.getenv("DATAHUB_MAE_CONSUMER_HOST");
+      String maePort = System.getenv("DATAHUB_MAE_CONSUMER_PORT") == null ? "9091" : System.getenv("DATAHUB_MAE_CONSUMER_PORT");
       try {
         String spec = String.format("http://%s:%s/config", maeHost, maePort);
 

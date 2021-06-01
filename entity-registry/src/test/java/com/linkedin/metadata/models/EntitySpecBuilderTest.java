@@ -114,8 +114,8 @@ public class EntitySpecBuilderTest {
     assertEquals(new TestEntityInfo().schema().getFullName(), testEntityInfo.getPegasusSchema().getFullName());
 
     // Assert on Searchable Fields
-    assertEquals(4, testEntityInfo.getSearchableFieldSpecs().size());
-    assertEquals("textField", testEntityInfo.getSearchableFieldSpecMap().get(
+    assertEquals(6, testEntityInfo.getSearchableFieldSpecs().size());
+    assertEquals("textFieldOverride", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("textField").toString()).getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.TEXT, testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("textField").toString())
@@ -127,14 +127,14 @@ public class EntitySpecBuilderTest {
         .getSearchableAnnotation().getFieldType());
     assertEquals("nestedIntegerField", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("nestedRecordField", "nestedIntegerField").toString()).getSearchableAnnotation().getFieldName());
-    assertEquals(SearchableAnnotation.FieldType.TEXT_PARTIAL, testEntityInfo.getSearchableFieldSpecMap().get(
+    assertEquals(SearchableAnnotation.FieldType.COUNT, testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("nestedRecordField", "nestedIntegerField").toString())
         .getSearchableAnnotation().getFieldType());
-    assertEquals("nestedArrayIntegerField", testEntityInfo.getSearchableFieldSpecMap().get(
-        new PathSpec("nestedRecordArrayField", "*", "nestedArrayIntegerField").toString())
+    assertEquals("nestedArrayStringField", testEntityInfo.getSearchableFieldSpecMap().get(
+        new PathSpec("nestedRecordArrayField", "*", "nestedArrayStringField").toString())
         .getSearchableAnnotation().getFieldName());
-    assertEquals(SearchableAnnotation.FieldType.KEYWORD, testEntityInfo.getSearchableFieldSpecMap().get(
-        new PathSpec("nestedRecordArrayField", "*", "nestedArrayIntegerField").toString())
+    assertEquals(SearchableAnnotation.FieldType.TEXT, testEntityInfo.getSearchableFieldSpecMap().get(
+        new PathSpec("nestedRecordArrayField", "*", "nestedArrayStringField").toString())
         .getSearchableAnnotation().getFieldType());
 
     // Assert on Relationship Fields

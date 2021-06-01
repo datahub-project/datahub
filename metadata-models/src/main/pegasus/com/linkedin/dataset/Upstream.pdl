@@ -22,7 +22,8 @@ record Upstream {
   }
   @Searchable = {
     "fieldName": "upstreams",
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "queryByDefault": false
   }
   dataset: DatasetUrn
 

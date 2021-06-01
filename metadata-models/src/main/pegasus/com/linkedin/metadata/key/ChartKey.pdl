@@ -13,7 +13,6 @@ record ChartKey {
   @Searchable = {
     "fieldName": "tool",
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": true,
     "addToFilters": true,
     "boostScore": 4.0
   }

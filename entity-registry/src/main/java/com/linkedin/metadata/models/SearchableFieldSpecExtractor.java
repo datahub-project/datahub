@@ -37,41 +37,53 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
     if (DataSchemaTraverse.Order.PRE_ORDER.equals(order)) {
 
       final DataSchema currentSchema = context.getCurrentSchema().getDereferencedDataSchema();
-      final Map<String, Object> resolvedProperties = getResolvedProperties(currentSchema);
 
-      if (currentSchema.getDereferencedDataSchema().isComplex()) {
-        final ComplexDataSchema complexSchema = (ComplexDataSchema) currentSchema;
-        if (isValidComplexType(complexSchema)) {
-          extractSearchableAnnotation(currentSchema, resolvedProperties, context);
+      // First, check properties for primary annotation definition.
+      final Map<String, Object> properties = context.getEnclosingField().getProperties();
+      final Object primaryAnnotationObj = properties.get(SearchableAnnotation.ANNOTATION_NAME);
+
+      if (primaryAnnotationObj != null) {
+        validatePropertiesAnnotation(currentSchema, primaryAnnotationObj, context.getTraversePath().toString());
+      }
+
+      // Next, check resolved properties for annotations on primitives.
+      final Map<String, Object> resolvedProperties = getResolvedProperties(currentSchema);
+      final Object resolvedAnnotationObj = resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
+
+      if (resolvedAnnotationObj != null) {
+        if (currentSchema.getDereferencedDataSchema().isComplex()) {
+          final ComplexDataSchema complexSchema = (ComplexDataSchema) currentSchema;
+          if (isValidComplexType(complexSchema)) {
+            extractSearchableAnnotation(resolvedAnnotationObj, currentSchema, context);
+          }
+        } else if (isValidPrimitiveType((PrimitiveDataSchema) currentSchema)) {
+          extractSearchableAnnotation(resolvedAnnotationObj, currentSchema, context);
+        } else {
+          throw new ModelValidationException(String.format("Invalid @Searchable Annotation at %s", context.getSchemaPathSpec().toString()));
         }
-      } else if (isValidPrimitiveType((PrimitiveDataSchema) currentSchema)) {
-        extractSearchableAnnotation(currentSchema, resolvedProperties, context);
       }
     }
   }
 
   private void extractSearchableAnnotation(
+      final Object annotationObj,
       final DataSchema currentSchema,
-      final Map<String, Object> resolvedProperties,
       final TraverserContext context) {
-    final Object annotationObj = resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
-    if (annotationObj != null) {
-      final PathSpec path = new PathSpec(context.getSchemaPathSpec());
-      final SearchableAnnotation annotation =
-          SearchableAnnotation.fromPegasusAnnotationObject(
-              annotationObj,
-              getSchemaFieldName(path),
-              currentSchema.getDereferencedType(), path.toString());
-      if (_searchFieldNamesToPatch.containsKey(annotation.getFieldName())
-          && !_searchFieldNamesToPatch.get(annotation.getFieldName()).equals(context.getSchemaPathSpec().toString())) {
-        throw new ModelValidationException(
-            String.format("Entity has multiple searchable fields with the same field name %s",
-                annotation.getFieldName()));
-      }
-      final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
-      _specs.add(fieldSpec);
-      _searchFieldNamesToPatch.put(annotation.getFieldName(), context.getSchemaPathSpec().toString());
+    final PathSpec path = new PathSpec(context.getSchemaPathSpec());
+    final SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationObj,
+            getSchemaFieldName(path),
+            currentSchema.getDereferencedType(), path.toString());
+    if (_searchFieldNamesToPatch.containsKey(annotation.getFieldName())
+        && !_searchFieldNamesToPatch.get(annotation.getFieldName()).equals(context.getSchemaPathSpec().toString())) {
+      throw new ModelValidationException(
+          String.format("Entity has multiple searchable fields with the same field name %s",
+              annotation.getFieldName()));
     }
+    final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
+    _specs.add(fieldSpec);
+    _searchFieldNamesToPatch.put(annotation.getFieldName(), context.getSchemaPathSpec().toString());
   }
 
   @Override
@@ -103,5 +115,40 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
   private Boolean isValidPrimitiveType(final PrimitiveDataSchema schema) {
     return true;
+  }
+
+  private void validatePropertiesAnnotation(DataSchema currentSchema, Object annotationObj, String pathStr) {
+
+    // If primitive, assume the annotation is well formed until resolvedProperties reflects it.
+    if (currentSchema.isPrimitive() || currentSchema.getDereferencedType().equals(DataSchema.Type.ENUM)) {
+      return;
+    }
+
+    // Required override case. If the annotation keys are not overrides, they are incorrect.
+    if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
+      throw new ModelValidationException(String.format(
+          "Failed to validate @%s annotation declared inside %s: Invalid value type provided (Expected Map)",
+          SearchableAnnotation.ANNOTATION_NAME,
+          pathStr
+      ));
+    }
+
+    Map<String, Object> annotationMap = (Map<String, Object>) annotationObj;
+
+    if (annotationMap.size() == 0) {
+      throw new ModelValidationException(
+          String.format("Invalid @Searchable Annotation at %s. Annotation placed on invalid field of type %s. Must be placed on primitive field.",
+              pathStr,
+              currentSchema.getType()));
+    }
+
+    for (String key : annotationMap.keySet()) {
+      if (!key.startsWith(Character.toString(PathSpec.SEPARATOR))) {
+        throw new ModelValidationException(
+            String.format("Invalid @Searchable Annotation at %s. Annotation placed on invalid field of type %s. Must be placed on primitive field.",
+                pathStr,
+                currentSchema.getType()));
+      }
+    }
   }
 }

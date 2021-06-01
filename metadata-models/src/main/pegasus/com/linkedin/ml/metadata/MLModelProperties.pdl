@@ -17,7 +17,6 @@ record MLModelProperties {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "queryByDefault": true,
     "hasValuesFieldName": "hasDescription"
   }
   description: optional string
@@ -36,8 +35,7 @@ record MLModelProperties {
    * Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": true
+    "fieldType": "TEXT_PARTIAL"
   }
   type: optional string
 

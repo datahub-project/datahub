@@ -14,7 +14,6 @@ record DataProcessKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 4.0
   }
@@ -26,7 +25,6 @@ record DataProcessKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": true,
     "enableAutocomplete": true
   }
   orchestrator: string
@@ -35,7 +33,8 @@ record DataProcessKey {
   * Fabric type where dataset belongs to or where it was generated.
   */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": false
   }
   origin: FabricType
 }

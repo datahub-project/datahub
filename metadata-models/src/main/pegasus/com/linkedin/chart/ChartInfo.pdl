@@ -26,9 +26,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
   /**
    * Detailed description about the chart
    */
-  @Searchable = {
-    "fieldType": "TEXT",
-  }
+  @Searchable = {}
   description: string
 
   /**

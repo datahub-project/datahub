@@ -4,8 +4,8 @@
 With the No Code metadata initiative, we've introduced various major changes:
 
 1. New Ebean Aspect table (metadata_aspect_v2)
-2. New Elastic Indices (<EntityName>index_v2)
-3. New edge triples. (Remove fully qualified classpath)
+2. New Elastic Indices (*entityName*index_v2)
+3. New edge triples. (Remove fully qualified classpaths from nodes & edges)
 4. Dynamic DataPlatform entities (no more hardcoded DataPlatformInfo.json)
 5. Dynamic Browse Paths (no more hardcoded browse path creation logic)
 6. Addition of Entity Key aspects, dropped requirement for strongly-typed Urns. 
@@ -13,7 +13,16 @@ With the No Code metadata initiative, we've introduced various major changes:
 
 Because of these changes, it is required that your persistence layer be migrated after the NoCode containers have been deployed.
 
-For more information on the No Code Update, please see [no-code-modeling](./no-code-modeling.md). 
+For more information about the No Code Update, please see [no-code-modeling](./no-code-modeling.md). 
+
+## Migration strategy
+
+We are merging these breaking changes into the main branch upfront because we feel they are fundamental to subsequent changes,
+providing a more solid foundation upon which exciting new features will be built upon. We will continue to offer limited support for
+previous verions of DataHub.
+
+This approach means that companies who actively deploy the latest version of DataHub will need to perform an upgrade to continue
+operating DataHub smoothly.
 
 ## Upgrade Steps
 
@@ -26,7 +35,7 @@ It is important that the following containers are pulled and deployed simultaneo
 - datahub-mae-consumer
 - datahub-mce-consumer
 
-#### Docker-compose
+#### Docker Compose Deployments
 
 From the `docker` directory: 
 
@@ -40,51 +49,100 @@ TODO
 
 ### Step 2: Execute Migration Job
 
-#### Docker-compose 
+#### Docker Compose Deployments
 
-The easiest option is to execute the `upgrade.sh` script located under `docker/datahub-upgrade/nocode`. 
+The easiest option is to execute the `run_upgrade.sh` script located under `docker/datahub-upgrade/nocode`. 
+
+```
+cd docker/datahub-upgrade/nocode
+./run_upgrade.sh
+```
+
+In both cases, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These 
+assume that your deployment is local. If this is not the case, you'll need to define your own environment variables to tell the 
+upgrade system where your DataHub containers reside. 
+
+You can either 
+
+1. Change `docker/datahub-upgrade/env/docker.env` in place and then run one of the above commands OR
+2. Define a new ".env" file containing your variables and execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
+
+To see the required environment variables, see the (datahub-upgrade)[../../docker/datahub-upgrade/README.md] documentation
+
+
+#### Helm Deployments
+
+TODO
+
+### Step 3 (Optional): Cleaning Up
+
+This step involves removing data from previous versions of DataHub. This step should only be performed once
+you've validated that your DataHub deployment is healthy after performing the upgrade. If you're able to search, browse,
+and view your Metadata after the upgrade steps have been completed, you should be in good shape. 
+
+In advanced DataHub deployments, or cases in which you cannot easily rebuild the state stored in DataHub, it is strongly advised 
+that you do due diligence prior to running cleanup. This may involve manually inspecting the relational tables (metadata_aspect_v2), 
+search indices, and graph topology.
+
+#### Docker Compose Deployments
+
+The easiest option is to execute the `run_clean.sh` script located under `docker/datahub-upgrade/nocode`.
+
+```
+cd docker/datahub-upgrade/nocode
+./run_clean.sh
+```
+
+In both cases, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These
+assume that your deployment is local. If this is not the case, you'll need to define your own environment variables to tell the
+upgrade system where your DataHub containers reside.
+
+You can either
+
+1. Change `docker/datahub-upgrade/env/docker.env` in place and then run one of the above commands OR
+2. Define a new ".env" file containing your variables and execute 
+   `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigrationCleanup`
+
+To see the required environment variables, see the (datahub-upgrade)[../../docker/datahub-upgrade/README.md] documentation
+
+
+#### Helm Deployments
+
+TODO
+
+#### Docker Compose Deployments
+
+The easiest option is to execute the `run_upgrade.sh` script located under `docker/datahub-upgrade/nocode`.
 
 ```
 cd docker/datahub-upgrade/nocode
 ./upgrade.sh
 ```
 
-Or equivalently,
+In both cases, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These
+assume that your deployment is local. If this is not the case, you'll need to define your own environment variables to tell the
+upgrade system where your DataHub containers reside.
 
-```docker-compose -f docker-compose.nocode.yml up```
+You can either
 
-In both cases, the default environment variables will be used (`docker/datahub-upgrade/nocode/env/docker.env`). These 
-will leverage the default datahub docker network. 
+1. Change `docker/datahub-upgrade/env/docker.env` in place and then run one of the above commands OR
+2. Define a new ".env" file containing your variables and execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
 
-
-#### Docker container (Manual)
-
-You can also build & run a docker container from source to apply the upgrade. 
-
-```
-cd docker/datahub-upgrade
-docker build -t datahub-upgrade -f Dockerfile ../../
-docker run datahub-upgrade --env-file nocode/env/docker.env
-```
+To see the required environment variables, see the (datahub-upgrade)[../../docker/datahub-upgrade/README.md] documentation
 
 
-## Migration strategy
+#### Helm Deployments
 
-As mentioned in the docs, indices created in Elasticsearch 5.x are not readable by Elasticsearch 7.x. Running the upgraded elasticsearch container on the existing esdata volume will fail.
+TODO
 
-For local development, our recommendation is to run the `docker/nuke.sh` script to remove the existing esdata volume before starting up the containers. Note, all data will be lost.
 
-To migrate without losing data, please refer to the python script and Dockerfile in `contrib/elasticsearch/es7-upgrade`. The script takes source and destination elasticsearch cluster URL and SSL configuration (if applicable) as input. It ports the mappings and settings for all indices in the source cluster to the destination cluster making the necessary changes stated above. Then it transfers all documents in the source cluster to the destination cluster.
+## Support 
 
-You can run the script in a docker container as follows
-```
-docker build -t migrate-es-7 .
-docker run migrate-es-7 -s SOURCE -d DEST [--disable-source-ssl]
-                   [--disable-dest-ssl] [--cert-file CERT_FILE]
-                   [--key-file KEY_FILE] [--ca-file CA_FILE] [--create-only]
-                   [-i INDICES] [--name-override NAME_OVERRIDE]
-```
+The Acryl team will be on standby to assist you in your migration. Please do not hesitate to reach out to the following folks if you find trouble with the upgrade
+or have feedback on the process. We will work closely to make sure you can continue to operate DataHub smoothly. 
 
-## Plan
+- John Joyce
+- Gabe Lyons
+- Dexter Lee
 
-We will create an "elasticsearch-5-legacy" branch with the version of master prior to the elasticsearch 7 upgrade. However, we will not be supporting this branch moving forward and all future development will be done using elasticsearch 7.9.3
+If there is feedback on the process, please 

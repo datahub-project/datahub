@@ -8,10 +8,11 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
-import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -52,15 +53,14 @@ public class AutocompleteRequestHandler {
         k -> new AutocompleteRequestHandler(entitySpec));
   }
 
-  public SearchRequest getSearchRequest(@Nonnull EntitySpec entitySpec, @Nonnull String input, @Nullable String field,
-      @Nullable Filter filter, int limit) {
+  public SearchRequest getSearchRequest(@Nonnull String input, @Nullable String field, @Nullable Filter filter,
+      int limit) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    AutocompleteRequestHandler builder = AutocompleteRequestHandler.getBuilder(entitySpec);
     searchSourceBuilder.size(limit);
-    searchSourceBuilder.query(builder.getQuery(input, field));
+    searchSourceBuilder.query(getQuery(input, field));
     searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter));
-    searchSourceBuilder.highlighter(builder.getHighlights(field));
+    searchSourceBuilder.highlighter(getHighlights(field));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
   }
@@ -94,7 +94,7 @@ public class AutocompleteRequestHandler {
   }
 
   public AutoCompleteResult extractResult(@Nonnull SearchResponse searchResponse, @Nonnull String input) {
-    List<String> results = new ArrayList<>();
+    Set<String> results = new LinkedHashSet<>();
     for (SearchHit hit : searchResponse.getHits()) {
       Optional<String> matchedFieldValue = hit.getHighlightFields()
           .entrySet()

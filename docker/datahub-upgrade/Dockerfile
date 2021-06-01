@@ -28,5 +28,6 @@ FROM ${APP_ENV}-install as final
 
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 USER datahub
+EXPOSE 5005
 
-ENTRYPOINT ["java", "-jar", "/datahub/datahub-upgrade/bin/datahub-upgrade.jar"]
+ENTRYPOINT ["java", "-jar", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005", "/datahub/datahub-upgrade/bin/datahub-upgrade.jar"]

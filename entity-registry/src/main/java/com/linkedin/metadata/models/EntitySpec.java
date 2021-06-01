@@ -35,6 +35,10 @@ public class EntitySpec {
     return _entityAnnotation.getName();
   }
 
+  public String getKeyAspectName() {
+    return _entityAnnotation.getKeyAspect();
+  }
+
   public AspectSpec getKeyAspectSpec() {
     return _aspectSpecs.get(_entityAnnotation.getKeyAspect());
   }

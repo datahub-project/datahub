@@ -164,7 +164,8 @@ public class SearchRequestHandler {
     List<AggregationBuilder> aggregationBuilders = new ArrayList<>();
     for (String facet : _facetFields) {
       // All facet fields must have subField keyword
-      AggregationBuilder aggBuilder = AggregationBuilders.terms(facet).field(facet + ".keyword").size(_maxTermBucketSize);
+      AggregationBuilder aggBuilder =
+          AggregationBuilders.terms(facet).field(facet + ".keyword").size(_maxTermBucketSize);
       Optional.ofNullable(filter).map(Filter::getCriteria).ifPresent(criteria -> {
         for (Criterion criterion : criteria) {
           if (!_facetFields.contains(criterion.getField()) || criterion.getField().equals(facet)) {

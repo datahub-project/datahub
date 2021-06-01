@@ -5,9 +5,9 @@ dependencies {
   compile spec.product.pegasus.generator
   compile project(path: ':metadata-models')
   compile externalDependency.lombok
-  dataModel project(':li-utils')
+  compile externalDependency.guava
 
-  implementation gradleApi()
+  dataModel project(':li-utils')
   annotationProcessor externalDependency.lombok
 
   testCompile externalDependency.testng

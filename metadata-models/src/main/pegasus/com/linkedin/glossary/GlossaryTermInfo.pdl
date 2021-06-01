@@ -14,10 +14,7 @@ record GlossaryTermInfo {
   /**
    * Definition of business term
    */
-  @Searchable = {
-    "fieldType": "TEXT",
-    "queryByDefault": true
-  }
+  @Searchable = {}
   definition: string
 
   /**

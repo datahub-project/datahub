@@ -21,7 +21,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.gradle.internal.impldep.com.google.common.annotations.VisibleForTesting;
 
 
 @Slf4j
@@ -104,50 +103,20 @@ public class EntitySpecBuilder {
 
       final List<UnionDataSchema.Member> unionMembers = aspectUnionSchema.getMembers();
       final List<AspectSpec> aspectSpecs = new ArrayList<>();
-      boolean foundKeyAspect = false;
       for (final UnionDataSchema.Member member : unionMembers) {
         final AspectSpec spec = buildAspectSpec(member.getType());
-        if (spec != null) {
-          // Validate Key Aspect
-          aspectSpecs.add(spec);
-          if (spec.getName().equals(entityAnnotation.getKeyAspect())) {
-            foundKeyAspect = true;
-          }
-        }
+        aspectSpecs.add(spec);
       }
 
-      if (!foundKeyAspect) {
-        // Didn't find corresponding key aspect
-        failValidation(String.format("Did not find required Key Aspect with name %s in aspects for Entity %s in list of aspects.",
-            entityAnnotation.getKeyAspect(), entityAnnotation.getName()));
-      }
-
-      // Validate aspect specs
-      Set<String> aspectNames = new HashSet<>();
-      for (final AspectSpec aspectSpec : aspectSpecs) {
-        if (aspectNames.contains(aspectSpec.getName())) {
-          failValidation(String.format("Could not build entity spec for entity with name %s."
-                  + " Found multiple Aspects with the same name %s",
-              entityAnnotation.getName(), aspectSpec.getName()));
-        }
-        aspectNames.add(aspectSpec.getName());
-      }
-
-      // Validate entity name
-      if (_entityNames.contains(entityAnnotation.getName().toLowerCase())) {
-        // Duplicate entity found.
-        failValidation(String.format("Could not build entity spec for entity with name %s."
-                + " Found multiple Entity Snapshots with the same name.",
-            entityAnnotation.getName()));
-      }
-
-      _entityNames.add(entityAnnotation.getName().toLowerCase());
-
-      return new EntitySpec(
+      final EntitySpec entitySpec = new EntitySpec(
           aspectSpecs,
           entityAnnotation,
           entitySnapshotRecordSchema,
           (TyperefDataSchema) aspectArraySchema.getItems());
+
+      validateEntitySpec(entitySpec);
+
+      return entitySpec;
     }
 
     failValidation(String.format("Could not build entity spec for entity with name %s. Missing @%s annotation.",
@@ -155,8 +124,6 @@ public class EntitySpecBuilder {
     return null;
   }
 
-
-  @VisibleForTesting
   AspectSpec buildAspectSpec(@Nonnull final DataSchema aspectDataSchema) {
 
     final RecordDataSchema aspectRecordSchema = validateAspect(aspectDataSchema);
@@ -209,7 +176,39 @@ public class EntitySpecBuilder {
 
     failValidation(String.format("Could not build aspect spec for aspect with name %s. Missing @Aspect annotation.",
         aspectRecordSchema.getName()));
+
     return null;
+  }
+
+  private void validateEntitySpec(EntitySpec entitySpec) {
+
+    if (entitySpec.getKeyAspectSpec() == null) {
+      failValidation(String.format("Did not find required Key Aspect with name %s in aspects for Entity %s in list of aspects.",
+          entitySpec.getKeyAspectName(), entitySpec.getName()));
+    }
+
+    validateKeyAspect(entitySpec.getKeyAspectSpec());
+
+    // Validate aspect specs
+    Set<String> aspectNames = new HashSet<>();
+    for (final AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+      if (aspectNames.contains(aspectSpec.getName())) {
+        failValidation(String.format("Could not build entity spec for entity with name %s."
+                + " Found multiple Aspects with the same name %s",
+            entitySpec.getName(), aspectSpec.getName()));
+      }
+      aspectNames.add(aspectSpec.getName());
+    }
+
+    // Validate entity name
+    if (_entityNames.contains(entitySpec.getName().toLowerCase())) {
+      // Duplicate entity found.
+      failValidation(String.format("Could not build entity spec for entity with name %s."
+              + " Found multiple Entity Snapshots with the same name.",
+          entitySpec.getName()));
+    }
+
+    _entityNames.add(entitySpec.getName().toLowerCase());
   }
 
   private RecordDataSchema validateSnapshot(@Nonnull final DataSchema entitySnapshotSchema) {

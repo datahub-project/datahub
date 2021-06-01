@@ -104,6 +104,7 @@ module.exports = {
       "docs/advanced/high-cardinality",
       "docs/how/scsi-onboarding-guide",
       "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/nocode/README",
+      "docs/advanced/no-code-upgrade",
       // WIP "docs/advanced/backfilling",
       // WIP "docs/advanced/derived-aspects",
       // WIP "docs/advanced/entity-hierarchy",
