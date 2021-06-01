@@ -6,12 +6,11 @@ import com.linkedin.metadata.models.EntitySpecBuilder;
 
 
 public class TestEntitySpecBuilder {
-  private static final EntitySpecBuilder ENTITY_SPEC_BUILDER = new EntitySpecBuilder();
 
   private TestEntitySpecBuilder() {
   }
 
   public static EntitySpec getSpec() {
-    return ENTITY_SPEC_BUILDER.buildEntitySpec(new TestEntitySnapshot().schema());
+    return new EntitySpecBuilder().buildEntitySpec(new TestEntitySnapshot().schema());
   }
 }
