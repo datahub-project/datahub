@@ -94,7 +94,7 @@ public class GmsGraphQLEngine {
     public static final DataFlowDataJobsRelationshipsType DATAFLOW_DATAJOBS_TYPE = new DataFlowDataJobsRelationshipsType(
             GmsClientFactory.getRelationshipsClient()
     );
-    public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getGlossaryTermsClient());
+    public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.
