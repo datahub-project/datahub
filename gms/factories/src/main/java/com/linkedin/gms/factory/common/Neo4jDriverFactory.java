@@ -33,6 +33,9 @@ public class Neo4jDriverFactory {
   @Value("${NEO4J_MAX_TRANSACTION_RETRY_TIME_IN_SECONDS:30}")
   private Long neo4jMaxTransactionRetryTime;
 
+  @Value("${NEO4J_CONNECTION_LIVENESS_CHECK_TIMEOUT_IN_SECONDS:-1}")
+  private Long neo4jConnectionLivenessCheckTimeout;
+
   @Bean(name = "neo4jDriver")
   protected Driver createInstance() {
     Config.ConfigBuilder builder = Config.builder();
@@ -40,6 +43,7 @@ public class Neo4jDriverFactory {
     builder.withConnectionAcquisitionTimeout(neo4jMaxConnectionAcquisitionTimeout, TimeUnit.SECONDS);
     builder.withMaxConnectionLifetime(neo4jMaxConnectionLifetime, TimeUnit.HOURS);
     builder.withMaxTransactionRetryTime(neo4jMaxTransactionRetryTime, TimeUnit.SECONDS);
+    builder.withConnectionLivenessCheckTimeout(neo4jConnectionLivenessCheckTimeout, TimeUnit.SECONDS);
 
     return GraphDatabase.driver(uri, AuthTokens.basic(username, password), builder.build());
   }
