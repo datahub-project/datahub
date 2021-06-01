@@ -54,8 +54,8 @@ public class GMSQualificationStep implements UpgradeStep<Void> {
   @Override
   public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
     return (context) -> {
-      String gmsHost = System.getenv("DATAHUB_GMS_HOST");
-      String gmsPort = System.getenv("DATAHUB_GMS_PORT");
+      String gmsHost = System.getenv("DATAHUB_GMS_HOST") == null ? "localhost" : System.getenv("DATAHUB_GMS_HOST");
+      String gmsPort = System.getenv("DATAHUB_GMS_PORT") == null ? "8080" : System.getenv("DATAHUB_GMS_PORT");
       try {
         String spec = String.format("http://%s:%s/config", gmsHost, gmsPort);
 

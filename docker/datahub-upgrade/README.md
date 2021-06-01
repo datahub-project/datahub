@@ -17,10 +17,13 @@ the No Code Data Migration has completed successfully. No arguments.
 ## Environment Variables
 
 To run the `datahub-upgrade` container, some environment variables must be provided in order to tell the upgrade CLI
-where your running DataHub containers reside. 
+where the running DataHub containers reside. 
 
-Below details the required configurations. By default, these configs are provided for local deployments of DataHub within `docker/datahub-upgrade/env/docker.env`. 
-These are the variables used by default when the `datahub-upgrade.sh` script is executed. To run the upgrade CLI for non-local deployments,
+Below details the required configurations. By default, these configs are provided for local docker-compose deployments of 
+DataHub within `docker/datahub-upgrade/env/docker.env`. They assume that there is a Docker network called datahub_network
+where the DataHub containers can be found. 
+
+These are also the variables used when the provided `datahub-upgrade.sh` script is executed. To run the upgrade CLI for non-local deployments,
 follow these steps: 
 
 1. Define new ".env" variable to hold your environment variables.
