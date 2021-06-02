@@ -53,27 +53,27 @@ basicAuditStamp = models.AuditStampClass(
                                             {
                                                 "auditStamp": {
                                                     "time": 1618987484580,
-                                                    "actor": "urn:li:corpuser:datahub"
+                                                    "actor": "urn:li:corpuser:datahub",
                                                 },
                                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream1,PROD)",
-                                                "type": "TRANSFORMED"
+                                                "type": "TRANSFORMED",
                                             },
                                             {
                                                 "auditStamp": {
                                                     "time": 1618987484580,
-                                                    "actor": "urn:li:corpuser:datahub"
+                                                    "actor": "urn:li:corpuser:datahub",
                                                 },
                                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream2,PROD)",
-                                                "type": "TRANSFORMED"
-                                            }
+                                                "type": "TRANSFORMED",
+                                            },
                                         ]
                                     }
                                 }
-                            ]
+                            ],
                         }
                     }
                 }
-            }
+            },
         ),
         (
             # Verify the behavior of the fieldDiscriminator for primitive enums.
@@ -100,12 +100,10 @@ basicAuditStamp = models.AuditStampClass(
                                 {
                                     "com.linkedin.common.Cost": {
                                         "costType": "ORG_COST_TYPE",
-                                        "cost": {
-                                            "costCode": "sampleCostCode"
-                                        }
+                                        "cost": {"costCode": "sampleCostCode"},
                                     }
                                 }
-                            ]
+                            ],
                         }
                     }
                 }
