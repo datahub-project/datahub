@@ -89,20 +89,7 @@ class GlueSourceTest(unittest.TestCase):
         stringy_timestamp = datetime.strptime(FROZEN_TIME, "%Y-%m-%d %H:%M:%S")
         timestamp = int(datetime.timestamp(stringy_timestamp) * 1000)
 
-        get_databases_response = {
-            "DatabaseList": [
-                {
-                    "Name": "datalake_grilled",
-                    "Description": "irrelevant",
-                    "LocationUri": "irrelevant",
-                    "Parameters": {},
-                    "CreateTime": datetime(2015, 1, 1),
-                    "CreateTableDefaultPermissions": [],
-                    "CatalogId": "irrelevant",
-                },
-            ],
-        }
-        get_tables_response = {
+        response = {
             "TableList": [
                 {
                     "Name": "Barbeque",
@@ -123,10 +110,7 @@ class GlueSourceTest(unittest.TestCase):
         }
 
         with Stubber(self.glue_source.glue_client) as stubber:
-            stubber.add_response("get_databases", get_databases_response, {})
-            stubber.add_response(
-                "get_tables", get_tables_response, {"DatabaseName": "datalake_grilled"}
-            )
+            stubber.add_response("search_tables", response, {})
             actual_work_unit = list(self.glue_source.get_workunits())[0]
 
         expected_metadata_work_unit = create_metadata_work_unit(timestamp)

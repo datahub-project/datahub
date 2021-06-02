@@ -140,32 +140,38 @@ class GlueSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         def get_all_tables() -> List[dict]:
-            def get_tables_from_database(database_name: str) -> List[dict]:
-                new_tables = []
-                paginator = self.glue_client.get_paginator("get_tables")
-                for page in paginator.paginate(DatabaseName=database_name):
-                    new_tables += page["TableList"]
+            def get_tables_from_database(
+                database_name: str, tables: List
+            ) -> List[dict]:
+                kwargs = {"DatabaseName": database_name}
+                while True:
+                    data = self.glue_client.get_tables(**kwargs)
+                    tables += data["TableList"]
+                    if "NextToken" in data:
+                        kwargs["NextToken"] = data["NextToken"]
+                    else:
+                        break
+                return tables
 
-                return new_tables
-
-            def get_database_names() -> List[str]:
-                database_names = []
-                paginator = self.glue_client.get_paginator("get_databases")
-                for page in paginator.paginate():
-                    for db in page["DatabaseList"]:
-                        if self.source_config.database_pattern.allowed(db["Name"]):
-                            database_names.append(db["Name"])
-
-                return database_names
+            def get_tables_from_all_databases() -> List[dict]:
+                tables = []
+                kwargs: Dict = {}
+                while True:
+                    data = self.glue_client.search_tables(**kwargs)
+                    tables += data["TableList"]
+                    if "NextToken" in data:
+                        kwargs["NextToken"] = data["NextToken"]
+                    else:
+                        break
+                return tables
 
             if self.source_config.database_pattern.is_fully_specified_allow_list():
+                all_tables: List[dict] = []
                 database_names = self.source_config.database_pattern.get_allowed_list()
+                for database in database_names:
+                    all_tables += get_tables_from_database(database, all_tables)
             else:
-                database_names = get_database_names()
-
-            all_tables: List[dict] = []
-            for database in database_names:
-                all_tables += get_tables_from_database(database)
+                all_tables = get_tables_from_all_databases()
             return all_tables
 
         tables = get_all_tables()
