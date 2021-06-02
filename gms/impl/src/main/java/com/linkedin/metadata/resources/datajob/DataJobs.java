@@ -13,7 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datajob.DataJob;
 import com.linkedin.datajob.DataJobKey;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.experimental.Entity;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.DataJobAspect;
 import com.linkedin.metadata.dao.BaseBrowseDAO;

@@ -5,7 +5,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.experimental.Entity;
+import com.linkedin.entity.Entity;
 import com.linkedin.identity.CorpUser;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;

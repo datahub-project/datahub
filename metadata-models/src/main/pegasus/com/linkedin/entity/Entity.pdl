@@ -1,4 +1,4 @@
-namespace com.linkedin.experimental
+namespace com.linkedin.entity
 
 import com.linkedin.metadata.snapshot.Snapshot
 

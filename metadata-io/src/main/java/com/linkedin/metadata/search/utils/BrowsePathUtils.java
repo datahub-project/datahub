@@ -9,7 +9,7 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.experimental.Entity;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.ChartAspect;
 import com.linkedin.metadata.aspect.ChartAspectArray;
 import com.linkedin.metadata.aspect.DashboardAspect;

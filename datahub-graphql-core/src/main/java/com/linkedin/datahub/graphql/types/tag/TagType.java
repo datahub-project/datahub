@@ -26,7 +26,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagSnapshotMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagUpdateMapper;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.experimental.Entity;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.TagAspect;
 import com.linkedin.metadata.configs.TagSearchConfig;
 import com.linkedin.metadata.dao.utils.ModelUtils;

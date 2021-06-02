@@ -25,7 +25,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.experimental.Entity;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.configs.DashboardSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
@@ -164,7 +164,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
         final Snapshot snapshot = Snapshot.create(partialDashboard);
 
         try {
-            _dashboardsClient.update(new com.linkedin.experimental.Entity().setValue(snapshot));
+            _dashboardsClient.update(new com.linkedin.entity.Entity().setValue(snapshot));
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }

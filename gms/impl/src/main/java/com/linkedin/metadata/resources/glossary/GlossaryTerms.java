@@ -4,7 +4,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.experimental.Entity;
+import com.linkedin.entity.Entity;
 import com.linkedin.glossary.GlossaryTerm;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.common.Ownership;

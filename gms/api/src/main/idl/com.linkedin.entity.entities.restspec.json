@@ -2,7 +2,7 @@
   "name" : "entities",
   "namespace" : "com.linkedin.entity",
   "path" : "/entities",
-  "schema" : "com.linkedin.experimental.Entity",
+  "schema" : "com.linkedin.entity.Entity",
   "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.EntityResource",
   "collection" : {
     "identifier" : {
@@ -51,7 +51,7 @@
       "name" : "batchIngest",
       "parameters" : [ {
         "name" : "entities",
-        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.experimental.Entity\" }"
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.entity.Entity\" }"
       } ]
     }, {
       "name" : "browse",
@@ -84,7 +84,7 @@
       "name" : "ingest",
       "parameters" : [ {
         "name" : "entity",
-        "type" : "com.linkedin.experimental.Entity"
+        "type" : "com.linkedin.entity.Entity"
       } ]
     }, {
       "name" : "search",

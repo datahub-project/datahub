@@ -74,12 +74,12 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                 .collect(Collectors.toList());
 
         try {
-            final Map<Urn, com.linkedin.experimental.Entity> chartMap = _entityClient.batchGet(chartUrns
+            final Map<Urn, com.linkedin.entity.Entity> chartMap = _entityClient.batchGet(chartUrns
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()));
 
-            final List<com.linkedin.experimental.Entity> gmsResults = new ArrayList<>();
+            final List<com.linkedin.entity.Entity> gmsResults = new ArrayList<>();
             for (Urn urn : chartUrns) {
                 gmsResults.add(chartMap.getOrDefault(urn, null));
             }
@@ -163,7 +163,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
         final Snapshot snapshot = Snapshot.create(chartSnapshot);
 
         try {
-            _entityClient.update(new com.linkedin.experimental.Entity().setValue(snapshot));
+            _entityClient.update(new com.linkedin.entity.Entity().setValue(snapshot));
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }

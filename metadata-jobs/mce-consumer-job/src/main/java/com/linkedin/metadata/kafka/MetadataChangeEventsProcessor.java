@@ -1,7 +1,7 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.experimental.Entity;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.FailedMetadataChangeEvent;

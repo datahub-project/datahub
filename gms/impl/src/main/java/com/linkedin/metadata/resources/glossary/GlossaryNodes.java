@@ -2,7 +2,7 @@ package com.linkedin.metadata.resources.glossary;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
-import com.linkedin.experimental.Entity;
+import com.linkedin.entity.Entity;
 import com.linkedin.glossary.GlossaryNode;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryNodeKey;

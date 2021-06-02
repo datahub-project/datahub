@@ -58,13 +58,13 @@ public class EbeanEntityServiceTest {
   public void testIngestGetEntity() throws Exception {
     // Test Writing a CorpUser Entity
     Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
-    com.linkedin.experimental.Entity writeEntity = createCorpUserEntity(entityUrn, "tester@test.com");
+    com.linkedin.entity.Entity writeEntity = createCorpUserEntity(entityUrn, "tester@test.com");
 
     // 1. Ingest Entity
     _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP);
 
     // 2. Retrieve Entity
-    com.linkedin.experimental.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
+    com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
 
     // 3. Compare Entity Objects
     assertEquals(2, readEntity.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
@@ -89,22 +89,22 @@ public class EbeanEntityServiceTest {
   public void testIngestGetEntities() throws Exception {
     // Test Writing a CorpUser Entity
     Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:tester1");
-    com.linkedin.experimental.Entity writeEntity1 = createCorpUserEntity(entityUrn1, "tester@test.com");
+    com.linkedin.entity.Entity writeEntity1 = createCorpUserEntity(entityUrn1, "tester@test.com");
 
     Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:tester2");
-    com.linkedin.experimental.Entity writeEntity2 = createCorpUserEntity(entityUrn2, "tester2@test.com");
+    com.linkedin.entity.Entity writeEntity2 = createCorpUserEntity(entityUrn2, "tester2@test.com");
 
     // 1. Ingest Entities
     _entityService.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP);
 
     // 2. Retrieve Entities
-    Map<Urn, com.linkedin.experimental.Entity> readEntities = _entityService
+    Map<Urn, com.linkedin.entity.Entity> readEntities = _entityService
         .getEntities(ImmutableSet.of(entityUrn1, entityUrn2), Collections.emptySet());
 
     // 3. Compare Entity Objects
 
     // Entity 1
-    com.linkedin.experimental.Entity readEntity1 = readEntities.get(entityUrn1);
+    com.linkedin.entity.Entity readEntity1 = readEntities.get(entityUrn1);
     assertEquals(2, readEntity1.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
     assertTrue(DataTemplateUtil.areEqual(
         writeEntity1.getValue().getCorpUserSnapshot().getAspects().get(0),
@@ -117,7 +117,7 @@ public class EbeanEntityServiceTest {
     )); // Key + Info aspect.
 
     // Entity 2
-    com.linkedin.experimental.Entity readEntity2 = readEntities.get(entityUrn2);
+    com.linkedin.entity.Entity readEntity2 = readEntities.get(entityUrn2);
     assertEquals(2, readEntity2.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
     assertTrue(DataTemplateUtil.areEqual(
         writeEntity2.getValue().getCorpUserSnapshot().getAspects().get(0),
@@ -243,9 +243,9 @@ public class EbeanEntityServiceTest {
   }
 
   @Nonnull
-  private com.linkedin.experimental.Entity createCorpUserEntity(Urn entityUrn, String email) throws Exception {
+  private com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email) throws Exception {
     CorpuserUrn corpuserUrn = CorpuserUrn.createFromUrn(entityUrn);
-    com.linkedin.experimental.Entity entity = new com.linkedin.experimental.Entity();
+    com.linkedin.entity.Entity entity = new com.linkedin.entity.Entity();
     Snapshot snapshot = new Snapshot();
     CorpUserSnapshot corpUserSnapshot = new CorpUserSnapshot();
     List<CorpUserAspect> userAspects = new ArrayList<>();

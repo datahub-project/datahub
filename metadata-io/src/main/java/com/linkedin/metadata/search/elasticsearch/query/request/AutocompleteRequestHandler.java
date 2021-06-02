@@ -87,7 +87,7 @@ public class AutocompleteRequestHandler {
   }
 
   private List<String> getAutocompleteFields(@Nullable String field) {
-    if (field != null && field != "") {
+    if (field != null && !field.isEmpty()) {
       return ImmutableList.of(field);
     }
     return _defaultAutocompleteFields;

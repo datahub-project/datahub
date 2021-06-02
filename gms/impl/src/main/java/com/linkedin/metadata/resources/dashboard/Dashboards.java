@@ -11,7 +11,7 @@ import com.linkedin.dashboard.Dashboard;
 import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.dashboard.DashboardKey;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.experimental.Entity;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.DashboardAspect;
 import com.linkedin.metadata.dao.BaseBrowseDAO;

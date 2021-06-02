@@ -12,7 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.dashboard.Chart;
 import com.linkedin.dashboard.ChartKey;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.experimental.Entity;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.ChartAspect;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
