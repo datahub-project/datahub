@@ -53,6 +53,12 @@ global:
     host: "elasticsearch-master"
     port: "9200"
     indexPrefix: demo
+    useSSL: "true"
+    auth:
+      username: test
+      password:
+        secretRef: test
+        secretKey: test
 
   kafka:
     bootstrap:

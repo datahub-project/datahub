@@ -40,6 +40,7 @@ def local_docker() -> None:
 @check.command()
 @click.option(
     "--verbose",
+    "-v",
     type=bool,
     is_flag=True,
     default=False,

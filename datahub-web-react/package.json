@@ -10,7 +10,7 @@
         "@analytics/segment": "^1.1.0",
         "@ant-design/colors": "^5.0.0",
         "@ant-design/icons": "^4.3.0",
-        "@apollo/client": "^3.3.6",
+        "@apollo/client": "^3.3.19",
         "@craco/craco": "^6.1.1",
         "@data-ui/xy-chart": "^0.0.84",
         "@react-hook/window-size": "^3.0.7",
@@ -37,7 +37,7 @@
         "@vx/shape": "^0.0.199",
         "@vx/zoom": "^0.0.199",
         "analytics": "^0.7.5",
-        "antd": "^4.15.2",
+        "antd": "^4.16.0",
         "apollo-link": "^1.2.14",
         "apollo-link-error": "^1.1.13",
         "apollo-link-http": "^1.5.17",
@@ -57,6 +57,7 @@
         "react-router": "^5.2.0",
         "react-router-dom": "^5.1.6",
         "react-scripts": "4.0.3",
+        "sinon": "^11.1.1",
         "styled-components": "^5.2.1",
         "typescript": "^4.1.3",
         "uuid": "^8.3.2",
@@ -72,7 +73,8 @@
         "storybook": "start-storybook -p 6006 -s public",
         "build-storybook": "build-storybook -s public",
         "generate": "graphql-codegen --config codegen.yml",
-        "lint": "eslint . --ext .ts,.tsx --quiet"
+        "lint": "eslint . --ext .ts,.tsx --quiet",
+        "lint-fix": "eslint '*/**/*.{ts,tsx}' --quiet --fix"
     },
     "eslintConfig": {
         "extends": [
@@ -107,15 +109,15 @@
         "@types/graphql": "^14.5.0",
         "@types/query-string": "^6.3.0",
         "@types/styled-components": "^5.1.7",
-        "@typescript-eslint/eslint-plugin": "^4.11.0",
-        "@typescript-eslint/parser": "^4.11.0",
-        "babel-loader": "8.1.0",
-        "eslint": "^7.11.0",
-        "eslint-config-airbnb-typescript": "^12.0.0",
-        "eslint-config-prettier": "^7.1.0",
-        "eslint-plugin-prettier": "^3.3.0",
-        "eslint-plugin-react": "^7.21.5",
-        "prettier": "^2.2.1"
+        "@typescript-eslint/eslint-plugin": "^4.25.0",
+        "@typescript-eslint/parser": "^4.25.0",
+        "babel-loader": "8.2.2",
+        "eslint": "^7.27.0",
+        "eslint-config-airbnb-typescript": "^12.3.1",
+        "eslint-config-prettier": "^8.3.0",
+        "eslint-plugin-prettier": "^3.4.0",
+        "eslint-plugin-react": "^7.23.2",
+        "prettier": "^2.3.0"
     },
     "proxy": "http://localhost:9002",
     "resolutions": {

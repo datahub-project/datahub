@@ -8,26 +8,25 @@ import {
 import { EntityProfile } from '../../../shared/EntityProfile';
 import { DataFlow, EntityType, GlobalTags } from '../../../../types.generated';
 import DataFlowHeader from './DataFlowHeader';
+import DataFlowDataJobs from './DataFlowDataJobs';
 import { Message } from '../../../shared/Message';
 import TagTermGroup from '../../../shared/tags/TagTermGroup';
 import { Properties as PropertiesView } from '../../shared/Properties';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
-
-export enum TabType {
-    // Tasks = 'Tasks',
-    Ownership = 'Ownership',
-    Properties = 'Properties',
-}
-
-const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Properties];
+import { topologicalSort } from '../../../../utils/sort/topologicalSort';
 
 /**
  * Responsible for display the DataFlow Page
  */
 export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const TabType = {
+        Task: entityRegistry.getCollectionName(EntityType.DataJob),
+        Ownership: 'Ownership',
+        Properties: 'Properties',
+    };
     const { loading, error, data } = useGetDataFlowQuery({ variables: { urn } });
     const [updateDataFlow] = useUpdateDataFlowMutation({
         update(cache, { data: newDataFlow }) {
@@ -50,7 +49,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
 
     const getHeader = (dataFlow: DataFlow) => <DataFlowHeader dataFlow={dataFlow} />;
 
-    const getTabs = ({ ownership, info }: DataFlow) => {
+    const getTabs = ({ ownership, info, dataJobs }: DataFlow) => {
         return [
             {
                 name: TabType.Ownership,
@@ -76,7 +75,12 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
                 path: TabType.Properties.toLowerCase(),
                 content: <PropertiesView properties={info?.customProperties || []} />,
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+            {
+                name: TabType.Task,
+                path: TabType.Task.toLowerCase(),
+                content: <DataFlowDataJobs dataJobs={topologicalSort(dataJobs?.entities || [])} />,
+            },
+        ];
     };
 
     return (

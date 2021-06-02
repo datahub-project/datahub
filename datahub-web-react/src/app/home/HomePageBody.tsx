@@ -15,6 +15,7 @@ const Title = styled(Typography.Text)`
 
 const EntityGridRow = styled(Row)`
     padding: 40px 100px;
+    margin: 0 !important;
 `;
 
 const BodyContainer = styled.div`

@@ -1,6 +1,7 @@
 namespace com.linkedin.datajob
 
 import com.linkedin.common.DatasetUrn
+import com.linkedin.common.DataJobUrn
 
 
 /**
@@ -17,4 +18,9 @@ record DataJobInputOutput {
    * Output datasets produced by the data job during processing
    */
   outputDatasets: array[DatasetUrn]
+
+  /**
+   * Input datajobs that this data job depends on
+   */
+  inputDatajobs: optional array[DataJobUrn] 
 }
