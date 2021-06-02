@@ -16,7 +16,7 @@ basicAuditStamp = models.AuditStampClass(
 
 
 @pytest.mark.parametrize(
-    "mce,endpoint,snapshot",
+    "mce,snapshot",
     [
         (
             # Simple test.
@@ -41,10 +41,39 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 ),
             ),
-            "datasets",
-            json.loads(
-                '{"snapshot": {"urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream,PROD)", "aspects": [{"com.linkedin.dataset.UpstreamLineage": {"upstreams": [{"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream1,PROD)", "type": "TRANSFORMED"}, {"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream2,PROD)", "type": "TRANSFORMED"}]}}]}}'
-            ),
+            {
+                "entity": {
+                    "value": {
+                        "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+                            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream,PROD)",
+                            "aspects": [
+                                {
+                                    "com.linkedin.dataset.UpstreamLineage": {
+                                        "upstreams": [
+                                            {
+                                                "auditStamp": {
+                                                    "time": 1618987484580,
+                                                    "actor": "urn:li:corpuser:datahub"
+                                                },
+                                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream1,PROD)",
+                                                "type": "TRANSFORMED"
+                                            },
+                                            {
+                                                "auditStamp": {
+                                                    "time": 1618987484580,
+                                                    "actor": "urn:li:corpuser:datahub"
+                                                },
+                                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream2,PROD)",
+                                                "type": "TRANSFORMED"
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
         ),
         (
             # Verify the behavior of the fieldDiscriminator for primitive enums.
@@ -62,18 +91,23 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 )
             ),
-            "mlModels",
             {
-                "snapshot": {
-                    "aspects": [
-                        {
-                            "com.linkedin.common.Cost": {
-                                "cost": {"costCode": "sampleCostCode"},
-                                "costType": "ORG_COST_TYPE",
-                            }
+                "entity": {
+                    "value": {
+                        "com.linkedin.metadata.snapshot.MLModelSnapshot": {
+                            "urn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+                            "aspects": [
+                                {
+                                    "com.linkedin.common.Cost": {
+                                        "costType": "ORG_COST_TYPE",
+                                        "cost": {
+                                            "costCode": "sampleCostCode"
+                                        }
+                                    }
+                                }
+                            ]
                         }
-                    ],
-                    "urn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+                    }
                 }
             },
         ),
@@ -157,7 +191,7 @@ basicAuditStamp = models.AuditStampClass(
         ),
     ],
 )
-def test_datahub_rest_emitter(requests_mock, mce, endpoint, snapshot):
+def test_datahub_rest_emitter(requests_mock, mce, snapshot):
     def match_request_text(request: requests.Request) -> bool:
         requested_snapshot = request.json()
         assert (
