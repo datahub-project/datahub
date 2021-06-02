@@ -16,7 +16,7 @@ basicAuditStamp = models.AuditStampClass(
 
 
 @pytest.mark.parametrize(
-    "mce,endpoint,snapshot",
+    "mce,snapshot",
     [
         (
             # Simple test.
@@ -95,30 +95,33 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 )
             ),
-            "charts",
             {
-                "snapshot": {
-                    "urn": "urn:li:chart:(superset,227)",
-                    "aspects": [
-                        {
-                            "com.linkedin.chart.ChartInfo": {
-                                "title": "Weekly Messages",
-                                "description": "",
-                                "lastModified": {
-                                    "created": {
-                                        "time": 1618987484580,
-                                        "actor": "urn:li:corpuser:datahub",
-                                    },
-                                    "lastModified": {
-                                        "time": 1618987484580,
-                                        "actor": "urn:li:corpuser:datahub",
-                                    },
-                                },
-                                "type": "SCATTER",
-                                "customProperties": {},
-                            }
+                "entity": {
+                    "value": {
+                        "com.linkedin.metadata.snapshot.ChartSnapshot": {
+                            "urn": "urn:li:chart:(superset,227)",
+                            "aspects": [
+                                {
+                                    "com.linkedin.chart.ChartInfo": {
+                                        "customProperties": {},
+                                        "title": "Weekly Messages",
+                                        "description": "",
+                                        "lastModified": {
+                                            "created": {
+                                                "time": 1618987484580,
+                                                "actor": "urn:li:corpuser:datahub",
+                                            },
+                                            "lastModified": {
+                                                "time": 1618987484580,
+                                                "actor": "urn:li:corpuser:datahub",
+                                            },
+                                        },
+                                        "type": "SCATTER",
+                                    }
+                                }
+                            ],
                         }
-                    ],
+                    }
                 }
             },
         ),
@@ -136,28 +139,31 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 )
             ),
-            "dataJobs",
             {
-                "snapshot": {
-                    "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
-                    "aspects": [
-                        {
-                            "com.linkedin.datajob.DataJobInfo": {
-                                "name": "User Deletions",
-                                "description": "Constructs the fct_users_deleted from logging_events",
-                                "customProperties": {},
-                                "type": {
-                                    "com.linkedin.datajob.azkaban.AzkabanJobType": "SQL",
-                                },
-                            }
+                "entity": {
+                    "value": {
+                        "com.linkedin.metadata.snapshot.DataJobSnapshot": {
+                            "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
+                            "aspects": [
+                                {
+                                    "com.linkedin.datajob.DataJobInfo": {
+                                        "customProperties": {},
+                                        "name": "User Deletions",
+                                        "description": "Constructs the fct_users_deleted from logging_events",
+                                        "type": {
+                                            "com.linkedin.datajob.azkaban.AzkabanJobType": "SQL"
+                                        },
+                                    }
+                                }
+                            ],
                         }
-                    ],
+                    }
                 }
             },
         ),
     ],
 )
-def test_datahub_rest_emitter(requests_mock, mce, endpoint, snapshot):
+def test_datahub_rest_emitter(requests_mock, mce, snapshot):
     def match_request_text(request: requests.Request) -> bool:
         requested_snapshot = request.json()
         assert (
