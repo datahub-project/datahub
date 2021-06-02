@@ -75,8 +75,8 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
             }
             return gmsResults.stream()
                     .map(gmsGlossaryTerm ->
-                        gmsGlossaryTerm == null ? null :
-                            GlossaryTermSnapshotMapper.map(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
+                        gmsGlossaryTerm == null ? null
+                            : GlossaryTermSnapshotMapper.map(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load GlossaryTerms", e);
