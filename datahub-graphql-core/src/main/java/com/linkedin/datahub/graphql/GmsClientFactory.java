@@ -7,7 +7,6 @@ import com.linkedin.lineage.client.Relationships;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.restli.client.Client;
 import com.linkedin.util.Configuration;
-import com.linkedin.glossary.client.GlossaryTerms;
 
 /**
  * Provides access to clients for use in fetching data from downstream GMS services.
@@ -34,9 +33,6 @@ public class GmsClientFactory {
     private static DataPlatforms _dataPlatforms;
     private static Lineages _lineages;
     private static Relationships _relationships;
-
-    private static GlossaryTerms _glossaryTerms;
-
     private static EntityClient _entities;
 
 
