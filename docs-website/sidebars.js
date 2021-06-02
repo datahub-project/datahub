@@ -54,8 +54,8 @@ module.exports = {
       "datahub-web-react/README",
     ],
     "Metadata Modeling": [
-      "docs/metadata-modeling/metadata-model",
-      "docs/metadata-modeling/extending-the-metadata-model",
+      "docs/modeling/metadata-model",
+      "docs/modeling/extending-the-metadata-model",
       // TODO: change the titles of these, removing the "What is..." portion from the sidebar"
       // "docs/what/entity",
       // "docs/what/aspect",
@@ -104,7 +104,6 @@ module.exports = {
       "docs/advanced/es-7-upgrade",
       "docs/advanced/high-cardinality",
       "docs/how/scsi-onboarding-guide",
-      "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/nocode/README",
       "docs/advanced/no-code-upgrade",
       // WIP "docs/advanced/backfilling",
       // WIP "docs/advanced/derived-aspects",

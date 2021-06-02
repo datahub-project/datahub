@@ -128,8 +128,7 @@
                           "addToFilters": true,
                           "boostScore": 4.0,
                           "fieldName": "tool",
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -175,6 +174,7 @@
                         "type": "string",
                         "doc": "Title of the chart",
                         "Searchable": {
+                          "enableAutocomplete": true,
                           "fieldType": "TEXT_PARTIAL"
                         }
                       },
@@ -182,9 +182,7 @@
                         "name": "description",
                         "type": "string",
                         "doc": "Detailed description about the chart",
-                        "Searchable": {
-                          "fieldType": "TEXT"
-                        }
+                        "Searchable": {}
                       },
                       {
                         "name": "lastModified",
@@ -415,7 +413,8 @@
                                 "Searchable": {
                                   "fieldName": "owners",
                                   "fieldType": "URN",
-                                  "hasValuesFieldName": "hasOwners"
+                                  "hasValuesFieldName": "hasOwners",
+                                  "queryByDefault": false
                                 },
                                 "java": {
                                   "class": "com.linkedin.pegasus2avro.common.urn.Urn"
@@ -555,8 +554,7 @@
                                 "Searchable": {
                                   "fieldName": "tags",
                                   "fieldType": "URN_PARTIAL",
-                                  "hasValuesFieldName": "hasTags",
-                                  "queryByDefault": true
+                                  "hasValuesFieldName": "hasTags"
                                 },
                                 "java": {
                                   "class": "com.linkedin.pegasus2avro.common.urn.TagUrn"
@@ -753,8 +751,7 @@
                         "Searchable": {
                           "boostScore": 2.0,
                           "fieldName": "ldap",
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       }
                     ],
@@ -926,8 +923,7 @@
                         "default": [],
                         "Searchable": {
                           "/*": {
-                            "fieldType": "TEXT",
-                            "queryByDefault": true
+                            "fieldType": "TEXT"
                           }
                         }
                       },
@@ -941,8 +937,7 @@
                         "default": [],
                         "Searchable": {
                           "/*": {
-                            "fieldType": "TEXT",
-                            "queryByDefault": true
+                            "fieldType": "TEXT"
                           }
                         }
                       },
@@ -1009,8 +1004,7 @@
                           "addToFilters": true,
                           "boostScore": 4.0,
                           "fieldName": "tool",
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -1058,8 +1052,7 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -1068,8 +1061,7 @@
                         "doc": "Detailed description about the dashboard",
                         "Searchable": {
                           "fieldType": "TEXT",
-                          "hasValuesFieldName": "hasDescription",
-                          "queryByDefault": true
+                          "hasValuesFieldName": "hasDescription"
                         }
                       },
                       {
@@ -1178,8 +1170,7 @@
                         "type": "string",
                         "doc": "Workflow manager like azkaban, airflow which orchestrates the flow",
                         "Searchable": {
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -1188,8 +1179,7 @@
                         "doc": "Unique Identifier of the data flow",
                         "Searchable": {
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -1197,8 +1187,7 @@
                         "type": "string",
                         "doc": "Cluster where the flow is executed",
                         "Searchable": {
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       }
                     ],
@@ -1241,8 +1230,7 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -1255,8 +1243,7 @@
                         "default": null,
                         "Searchable": {
                           "fieldType": "TEXT",
-                          "hasValuesFieldName": "hasDescription",
-                          "queryByDefault": true
+                          "hasValuesFieldName": "hasDescription"
                         }
                       },
                       {
@@ -1268,7 +1255,8 @@
                         "doc": "Optional project/namespace associated with the flow",
                         "default": null,
                         "Searchable": {
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "TEXT_PARTIAL",
+                          "queryByDefault": false
                         }
                       }
                     ],
@@ -1319,9 +1307,16 @@
                         "name": "flow",
                         "type": "string",
                         "doc": "Standardized data processing flow urn representing the flow for the job",
+                        "Relationship": {
+                          "entityTypes": [
+                            "dataFlow"
+                          ],
+                          "name": "IsPartOf"
+                        },
                         "Searchable": {
                           "fieldName": "dataFlow",
-                          "fieldType": "URN_PARTIAL"
+                          "fieldType": "URN_PARTIAL",
+                          "queryByDefault": false
                         },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
@@ -1333,8 +1328,7 @@
                         "doc": "Unique Identifier of the data job",
                         "Searchable": {
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       }
                     ],
@@ -1377,8 +1371,7 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -1391,8 +1384,7 @@
                         "default": null,
                         "Searchable": {
                           "fieldType": "TEXT",
-                          "hasValuesFieldName": "hasDescription",
-                          "queryByDefault": true
+                          "hasValuesFieldName": "hasDescription"
                         }
                       },
                       {
@@ -1471,7 +1463,8 @@
                           "/*": {
                             "fieldName": "inputs",
                             "fieldType": "URN",
-                            "numValuesFieldName": "numInputDatasets"
+                            "numValuesFieldName": "numInputDatasets",
+                            "queryByDefault": false
                           }
                         }
                       },
@@ -1494,7 +1487,8 @@
                           "/*": {
                             "fieldName": "outputs",
                             "fieldType": "URN",
-                            "numValuesFieldName": "numOutputDatasets"
+                            "numValuesFieldName": "numOutputDatasets",
+                            "queryByDefault": false
                           }
                         }
                       },
@@ -1580,8 +1574,7 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -1607,7 +1600,8 @@
                         "doc": "Fabric type where dataset belongs to or where it was generated.",
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "TEXT_PARTIAL",
+                          "queryByDefault": false
                         }
                       }
                     ],
@@ -1653,8 +1647,7 @@
                         "default": null,
                         "Searchable": {
                           "fieldType": "TEXT",
-                          "hasValuesFieldName": "hasDescription",
-                          "queryByDefault": true
+                          "hasValuesFieldName": "hasDescription"
                         }
                       },
                       {
@@ -1844,7 +1837,8 @@
                                 },
                                 "Searchable": {
                                   "fieldName": "upstreams",
-                                  "fieldType": "URN"
+                                  "fieldType": "URN",
+                                  "queryByDefault": false
                                 },
                                 "java": {
                                   "class": "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
@@ -2145,8 +2139,7 @@
                                 "doc": "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
                                 "Searchable": {
                                   "fieldName": "fieldPaths",
-                                  "fieldType": "TEXT_PARTIAL",
-                                  "queryByDefault": true
+                                  "fieldType": "TEXT_PARTIAL"
                                 }
                               },
                               {
@@ -2175,8 +2168,7 @@
                                 "Searchable": {
                                   "boostScore": 0.1,
                                   "fieldName": "fieldDescriptions",
-                                  "fieldType": "TEXT",
-                                  "queryByDefault": true
+                                  "fieldType": "TEXT"
                                 }
                               },
                               {
@@ -2342,8 +2334,7 @@
                                   "/tags/*/tag": {
                                     "boostScore": 0.5,
                                     "fieldName": "fieldTags",
-                                    "fieldType": "URN_PARTIAL",
-                                    "queryByDefault": true
+                                    "fieldType": "URN_PARTIAL"
                                   }
                                 }
                               },
@@ -2529,8 +2520,7 @@
                                 "Searchable": {
                                   "boostScore": 0.1,
                                   "fieldName": "editedFieldDescriptions",
-                                  "fieldType": "TEXT",
-                                  "queryByDefault": true
+                                  "fieldType": "TEXT"
                                 }
                               },
                               {
@@ -2545,8 +2535,7 @@
                                   "/tags/*/tag": {
                                     "boostScore": 0.5,
                                     "fieldName": "editedFieldTags",
-                                    "fieldType": "URN_PARTIAL",
-                                    "queryByDefault": true
+                                    "fieldType": "URN_PARTIAL"
                                   }
                                 }
                               }
@@ -2605,8 +2594,7 @@
                         "Searchable": {
                           "boostScore": 4.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -2615,8 +2603,7 @@
                         "doc": "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn",
                         "Searchable": {
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -2624,7 +2611,8 @@
                         "type": "com.linkedin.pegasus2avro.common.FabricType",
                         "doc": "Fabric type where dataset belongs to or where it was generated.",
                         "Searchable": {
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "TEXT_PARTIAL",
+                          "queryByDefault": false
                         }
                       }
                     ],
@@ -2662,7 +2650,8 @@
                           "/*": {
                             "fieldName": "inputs",
                             "fieldType": "URN",
-                            "numValuesFieldName": "numInputDatasets"
+                            "numValuesFieldName": "numInputDatasets",
+                            "queryByDefault": false
                           }
                         }
                       },
@@ -2689,7 +2678,8 @@
                           "/*": {
                             "fieldName": "outputs",
                             "fieldType": "URN",
-                            "numValuesFieldName": "numOutputDatasets"
+                            "numValuesFieldName": "numOutputDatasets",
+                            "queryByDefault": false
                           }
                         }
                       }
@@ -2864,8 +2854,7 @@
                         "doc": "Standardized platform urn for the model",
                         "Searchable": {
                           "boostScore": 0.1,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
@@ -2878,8 +2867,7 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -2887,7 +2875,8 @@
                         "type": "com.linkedin.pegasus2avro.common.FabricType",
                         "doc": "Fabric type where model belongs to or where it was generated",
                         "Searchable": {
-                          "fieldType": "TEXT_PARTIAL"
+                          "fieldType": "TEXT_PARTIAL",
+                          "queryByDefault": false
                         }
                       }
                     ],
@@ -2912,8 +2901,7 @@
                         "default": null,
                         "Searchable": {
                           "fieldType": "TEXT",
-                          "hasValuesFieldName": "hasDescription",
-                          "queryByDefault": true
+                          "hasValuesFieldName": "hasDescription"
                         }
                       },
                       {
@@ -2958,8 +2946,7 @@
                         "doc": "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
                         "default": null,
                         "Searchable": {
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       },
                       {
@@ -3749,8 +3736,7 @@
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       }
                     ],
@@ -3825,8 +3811,7 @@
                         "type": "string",
                         "Searchable": {
                           "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL",
-                          "queryByDefault": true
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       }
                     ],
@@ -3844,10 +3829,7 @@
                         "name": "definition",
                         "type": "string",
                         "doc": "Definition of business term",
-                        "Searchable": {
-                          "fieldType": "TEXT",
-                          "queryByDefault": true
-                        }
+                        "Searchable": {}
                       },
                       {
                         "name": "parentNode",
@@ -3949,6 +3931,7 @@
                         "name": "name",
                         "type": "string",
                         "Searchable": {
+                          "enableAutocomplete": true,
                           "fieldType": "TEXT_PARTIAL"
                         }
                       }
@@ -3967,10 +3950,7 @@
                         "name": "definition",
                         "type": "string",
                         "doc": "Definition of business node",
-                        "Searchable": {
-                          "fieldType": "TEXT",
-                          "queryByDefault": true
-                        }
+                        "Searchable": {}
                       },
                       {
                         "name": "parentNode",
