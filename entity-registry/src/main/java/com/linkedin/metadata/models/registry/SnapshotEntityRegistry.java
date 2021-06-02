@@ -1,5 +1,6 @@
 package com.linkedin.metadata.models.registry;
 
+import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -16,11 +17,18 @@ import javax.annotation.Nonnull;
  */
 public class SnapshotEntityRegistry implements EntityRegistry {
 
-  private static final SnapshotEntityRegistry INSTANCE = new SnapshotEntityRegistry();
   private final Map<String, EntitySpec> entityNameToSpec;
+
+  private static final SnapshotEntityRegistry INSTANCE = new SnapshotEntityRegistry();
 
   public SnapshotEntityRegistry() {
     entityNameToSpec = new EntitySpecBuilder().buildEntitySpecs(new Snapshot().schema())
+        .stream()
+        .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+  }
+
+  public SnapshotEntityRegistry(UnionTemplate snapshot) {
+    entityNameToSpec = new EntitySpecBuilder().buildEntitySpecs(snapshot.schema())
         .stream()
         .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
   }
