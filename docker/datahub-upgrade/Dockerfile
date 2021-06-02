@@ -17,8 +17,6 @@ RUN cd datahub-src && cp datahub-upgrade/build/libs/datahub-upgrade.jar ../datah
 
 FROM base as prod-install
 COPY --from=prod-build /datahub-upgrade.jar /datahub/datahub-upgrade/bin/
-COPY --from=prod-build /datahub-src/docker/datahub-upgrade/start.sh /datahub/datahub-upgrade/scripts/
-RUN chmod +x /datahub/datahub-upgrade/scripts/start.sh
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -28,6 +26,5 @@ FROM ${APP_ENV}-install as final
 
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 USER datahub
-EXPOSE 5005
 
 ENTRYPOINT ["java", "-jar", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005", "/datahub/datahub-upgrade/bin/datahub-upgrade.jar"]
