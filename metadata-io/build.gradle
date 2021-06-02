@@ -36,6 +36,9 @@ dependencies {
   testCompile externalDependency.mockito
   testCompile externalDependency.mockitoInline
   testCompile externalDependency.iStackCommons
+  testCompile externalDependency.testContainers
+  testCompile externalDependency.testContainersJunit
+  testCompile externalDependency.testContainersElasticsearch
   testCompile project(':test-models')
 }
 

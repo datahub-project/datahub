@@ -110,6 +110,9 @@ project.ext.externalDependency = [
     'springKafka': 'org.springframework.kafka:spring-kafka:2.2.14.RELEASE',
     'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.1.2.RELEASE',
     'testng': 'org.testng:testng:7.3.0',
+    'testContainers': 'org.testcontainers:testcontainers:1.15.1',
+    'testContainersJunit': 'org.testcontainers:junit-jupiter:1.15.1',
+    'testContainersElasticsearch': 'org.testcontainers:elasticsearch:1.15.3',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14'
 ]
 
