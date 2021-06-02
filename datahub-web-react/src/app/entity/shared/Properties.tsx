@@ -12,8 +12,8 @@ export function Properties({ properties }: Props) {
         {
             title: 'Name',
             dataIndex: 'key',
-            sorter: (a, b) => b.key.localeCompare(a.key),
-            defaultSortOrder: 'descend',
+            sorter: (a, b) => a.key.localeCompare(b.key),
+            defaultSortOrder: 'ascend',
         },
         {
             title: 'Value',
