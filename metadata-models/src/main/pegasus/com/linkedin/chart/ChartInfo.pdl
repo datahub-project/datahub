@@ -20,6 +20,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true
   }
   title: string
 
