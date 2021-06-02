@@ -46,14 +46,14 @@ We use a plugin architecture so that you can install only the dependencies you a
 | redshift      | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
 | sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
-| superset      | `pip install 'acryl-datahub[superset]'`                    | Supserset source                    |
+| superset      | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 | mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
 | looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
 | lookml        | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
 | kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
 | druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| dbt           | _no additional dependencies_                               | DBT source                          |
+| dbt           | _no additional dependencies_                               | dbt source                          |
 | datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API          |
 | datahub-kafka | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka             |
 
@@ -340,6 +340,7 @@ source:
     password: pass
     provider: db | ldap
     connect_uri: http://localhost:8088
+    env: "PROD" # Optional, default is "PROD"
 ```
 
 See documentation for superset's `/security/login` at https://superset.apache.org/docs/rest-api for more details on superset's login api.
@@ -496,6 +497,7 @@ source:
     connect_uri: "mongodb://localhost"
     username: admin
     password: password
+    env: "PROD" # Optional, default is "PROD"
     authMechanism: "DEFAULT"
     options: {}
     database_pattern: {}
@@ -593,19 +595,19 @@ source:
     filename: ./path/to/mce/file.json
 ```
 
-### DBT `dbt`
+### dbt `dbt`
 
-Pull metadata from DBT output files:
+Pull metadata from dbt artifacts files:
 
 - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
   - This file contains model, source and lineage data.
 - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
   - This file contains schema data.
-  - DBT does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
-- target_platform: 
-  - The data platform you are enriching with DBT metadata.
+  - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
+- target_platform:
+  - The data platform you are enriching with dbt metadata.
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
-- load_schema:
+- load_schemas:
   - Load schemas from dbt catalog file, not necessary when the underlying data platform already has this data.
 
 ```yml
@@ -614,9 +616,36 @@ source:
   config:
     manifest_path: "./path/dbt/manifest_file.json"
     catalog_path: "./path/dbt/catalog_file.json"
-    target_platform: "postgres" # optional eg postgres, snowflake etc. 
-    load_schema: True / False
+    target_platform: "postgres" # optional, eg "postgres", "snowflake", etc.
+    load_schemas: True or False
 ```
+
+Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
+
+### Kafka Connect `kafka-connect`
+
+Extracts:
+
+- Kafka Connect connector as individual `DataFlowSnapshotClass` entity
+- Creating individual `DataJobSnapshotClass` entity using `{connector_name}:{source_dataset}` naming
+- Lineage information between source database to Kafka topic
+
+```yml
+source:
+  type: "kafka-connect"
+  config:
+    connect_uri: "http://localhost:8083"
+    cluster_name: "connect-cluster"
+    connector_patterns:
+      deny:
+        - ^denied-connector.*
+      allow:
+        - ^allowed-connector.*
+```
+
+Current limitations:
+
+- Currently works only for Debezium source connectors.
 
 ## Sinks
 
@@ -701,7 +730,26 @@ transformers:
 
 :::tip
 
-If you'd like to add more complex logic for assigning ownership, you can use the more generic [`AddDatasetOwnership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset.
+If you'd like to add more complex logic for assigning ownership, you can use the more generic [`add_dataset_ownership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset.
+
+:::
+
+### `simple_add_dataset_tags`
+
+Adds a set of tags to every dataset.
+
+```yml
+transformers:
+  - type: "simple_add_dataset_tags"
+    config:
+      tag_urns:
+        - "urn:li:tag:NeedsDocumentation"
+        - "urn:li:tag:Legacy"
+```
+
+:::tip
+
+If you'd like to add more complex logic for assigning tags, you can use the more generic [`add_dataset_tags` transformer](./src/datahub/ingestion/transformer/add_dataset_tags.py), which calls a user-provided function to determine the tags for each dataset.
 
 :::
 
@@ -771,4 +819,4 @@ In order to use this example, you must first configure the Datahub hook. Like in
 
 ## Developing
 
-See the [developing guide](./developing.md).
+See the [developing guide](./developing.md) or the [adding a source guide](./adding-source.md).

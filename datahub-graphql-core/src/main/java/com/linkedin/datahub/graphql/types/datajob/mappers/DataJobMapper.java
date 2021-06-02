@@ -73,6 +73,13 @@ public class DataJobMapper implements ModelMapper<com.linkedin.datajob.DataJob, 
             dataset.setUrn(urn.toString());
             return dataset;
         }).collect(Collectors.toList()));
+        if (inputOutput.hasInputDatajobs()) {
+            result.setInputDatajobs(inputOutput.getInputDatajobs().stream().map(urn -> {
+                final DataJob datajob = new DataJob();
+                datajob.setUrn(urn.toString());
+                return datajob;
+            }).collect(Collectors.toList()));
+        }
 
         return result;
     }

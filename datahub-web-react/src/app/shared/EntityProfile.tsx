@@ -74,7 +74,6 @@ export const EntityProfile = ({
 }: EntityProfileProps) => {
     const isCompact = React.useContext(CompactContext);
     const defaultTabPath = tabs && tabs?.length > 0 ? tabs[0].path : '';
-
     /* eslint-disable spaced-comment */
     return (
         <LayoutContent isCompact={isCompact}>
@@ -95,14 +94,16 @@ export const EntityProfile = ({
                         {header}
                     </LayoutDiv>
                 </Col>
-                <Col md={isCompact ? 24 : 8} xs={24} sm={24}>
-                    <TagCard>
-                        <TagsTitle type="secondary" level={4}>
-                            <TagIcon /> {tagCardHeader}
-                        </TagsTitle>
-                        {tags}
-                    </TagCard>
-                </Col>
+                {tags && (
+                    <Col md={isCompact ? 24 : 8} xs={24} sm={24}>
+                        <TagCard>
+                            <TagsTitle type="secondary" level={4}>
+                                <TagIcon /> {tagCardHeader}
+                            </TagsTitle>
+                            {tags}
+                        </TagCard>
+                    </Col>
+                )}
             </Row>
             {!isCompact && (
                 <>

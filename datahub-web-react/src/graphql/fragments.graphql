@@ -200,6 +200,22 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     }
 }
 
+fragment nonRecursiveDataJobFields on DataJob {
+    urn
+    info {
+        name
+        description
+        externalUrl
+        customProperties {
+            key
+            value
+        }
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+}
+
 fragment dataJobFields on DataJob {
     urn
     type
@@ -216,6 +232,9 @@ fragment dataJobFields on DataJob {
         }
         outputDatasets {
             ...nonRecursiveDatasetFields
+        }
+        inputDatajobs {
+            ...nonRecursiveDataJobFields
         }
     }
     info {

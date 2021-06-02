@@ -37,6 +37,7 @@ module.exports = {
       "docs/roadmap",
       "docs/CONTRIBUTING",
       "docs/demo",
+      "docs/saas",
     ],
     "Getting Started": [
       // Serves as user guides.
@@ -67,7 +68,7 @@ module.exports = {
       // TODO: the titles of these should not be in question form in the sidebar
       "docs/developers",
       "docs/docker/development",
-      "metadata-ingestion/README",
+      "metadata-ingestion/adding-source",
       "docs/what/graph",
       "docs/what/search-index",
       "docs/how/add-new-aspect",
@@ -110,6 +111,7 @@ module.exports = {
       "docs/how/kafka-config",
       "docker/README",
       "datahub-kubernetes/README",
+      "docs/deploy/aws",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms-graphql-service/README",

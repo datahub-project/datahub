@@ -3,6 +3,7 @@ namespace com.linkedin.datajob
 import com.linkedin.datajob.azkaban.AzkabanJobType
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.DataFlowUrn
 
 /**
  * Information about a Data processing job
@@ -23,4 +24,9 @@ record DataJobInfo includes CustomProperties, ExternalReference {
    * Datajob type
    */
   type: union[AzkabanJobType]
+
+  /**
+   * DataFlow urn that this job is part of
+   */
+  flowUrn: optional DataFlowUrn
 }
