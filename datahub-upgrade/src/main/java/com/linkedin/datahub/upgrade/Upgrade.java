@@ -16,7 +16,7 @@ public interface Upgrade {
   /**
    * Returns a set of steps to perform during the upgrade.
    */
-  List<UpgradeStep<?>> steps();
+  List<UpgradeStep> steps();
 
   /**
    * Returns a set of steps to perform on upgrade success, failure, or abort.

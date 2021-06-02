@@ -10,7 +10,7 @@ import java.util.function.Function;
 
 
 // Do we need SQL-tech specific migration paths?
-public class DeleteLegacyGraphRelationshipsStep implements UpgradeStep<Void> {
+public class DeleteLegacyGraphRelationshipsStep implements UpgradeStep {
 
   private final String deletePattern = "com.linkedin.*";
 
@@ -31,17 +31,17 @@ public class DeleteLegacyGraphRelationshipsStep implements UpgradeStep<Void> {
   }
 
   @Override
-  public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
         ((Neo4jGraphService) _graphClient).removeNodesMatchingLabel(deletePattern);
       } catch (Exception e) {
-        return new DefaultUpgradeStepResult<>(
+        context.report().addLine(String.format("Failed to delete legacy data from graph: %s", e.toString()));
+        return new DefaultUpgradeStepResult(
             id(),
-            UpgradeStepResult.Result.FAILED,
-            String.format("Failed to delete legacy data from graph: %s", e.toString()));
+            UpgradeStepResult.Result.FAILED);
       }
-      return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }
 }

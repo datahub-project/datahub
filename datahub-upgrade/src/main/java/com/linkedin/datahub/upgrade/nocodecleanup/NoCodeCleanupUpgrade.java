@@ -13,7 +13,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 
 public class NoCodeCleanupUpgrade implements Upgrade {
 
-  private final List<UpgradeStep<?>> _steps;
+  private final List<UpgradeStep> _steps;
   private final List<UpgradeCleanupStep> _cleanupSteps;
 
   // Upgrade requires the EbeanServer.
@@ -34,7 +34,7 @@ public class NoCodeCleanupUpgrade implements Upgrade {
   }
 
   @Override
-  public List<UpgradeStep<?>> steps() {
+  public List<UpgradeStep> steps() {
     return _steps;
   }
 
@@ -47,11 +47,11 @@ public class NoCodeCleanupUpgrade implements Upgrade {
     return Collections.emptyList();
   }
 
-  private List<UpgradeStep<?>> buildUpgradeSteps(
+  private List<UpgradeStep> buildUpgradeSteps(
       final EbeanServer server,
       final GraphService graphClient,
       final RestHighLevelClient searchClient) {
-    final List<UpgradeStep<?>> steps = new ArrayList<>();
+    final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new NoCodeUpgradeQualificationStep(server));
     steps.add(new DeleteAspectTableStep(server));
     steps.add(new DeleteLegacyGraphRelationshipsStep(graphClient));

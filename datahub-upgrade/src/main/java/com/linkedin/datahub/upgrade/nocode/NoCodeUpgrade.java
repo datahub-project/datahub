@@ -17,7 +17,7 @@ public class NoCodeUpgrade implements Upgrade {
   public static final String FORCE_UPGRADE_ARG_NAME = "force-upgrade";
   public static final String CLEAN_ARG_NAME = "clean";
 
-  private final List<UpgradeStep<?>> _steps;
+  private final List<UpgradeStep> _steps;
   private final List<UpgradeCleanupStep> _cleanupSteps;
 
   // Upgrade requires the EbeanServer.
@@ -38,7 +38,7 @@ public class NoCodeUpgrade implements Upgrade {
   }
 
   @Override
-  public List<UpgradeStep<?>> steps() {
+  public List<UpgradeStep> steps() {
     return _steps;
   }
 
@@ -51,11 +51,11 @@ public class NoCodeUpgrade implements Upgrade {
     return ImmutableList.of(new CleanupStep(server));
   }
 
-  private List<UpgradeStep<?>> buildUpgradeSteps(
+  private List<UpgradeStep> buildUpgradeSteps(
       final EbeanServer server,
       final EntityService entityService,
       final SnapshotEntityRegistry entityRegistry) {
-    final List<UpgradeStep<?>> steps = new ArrayList<>();
+    final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new RemoveAspectV2TableStep(server));
     steps.add(new GMSQualificationStep());
     steps.add(new MAEQualificationStep());

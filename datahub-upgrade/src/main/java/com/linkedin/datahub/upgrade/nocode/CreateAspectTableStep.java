@@ -8,7 +8,7 @@ import io.ebean.EbeanServer;
 import java.util.function.Function;
 
 // Do we need SQL-tech specific migration paths?
-public class CreateAspectTableStep implements UpgradeStep<Void> {
+public class CreateAspectTableStep implements UpgradeStep {
 
   private final EbeanServer _server;
 
@@ -27,7 +27,7 @@ public class CreateAspectTableStep implements UpgradeStep<Void> {
   }
 
   @Override
-  public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
         _server.execute(_server.createSqlUpdate("CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (\n"
@@ -42,12 +42,12 @@ public class CreateAspectTableStep implements UpgradeStep<Void> {
             + "  constraint pk_metadata_aspect primary key (urn,aspect,version)\n"
             + ")"));
       } catch (Exception e) {
-        return new DefaultUpgradeStepResult<>(
+        context.report().addLine(String.format("Failed to create table metadata_aspect_v2: %s", e.toString()));
+        return new DefaultUpgradeStepResult(
             id(),
-            UpgradeStepResult.Result.FAILED,
-            String.format("Failed to create table metadata_aspect_v2: %s", e.toString()));
+            UpgradeStepResult.Result.FAILED);
       }
-      return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }
 }

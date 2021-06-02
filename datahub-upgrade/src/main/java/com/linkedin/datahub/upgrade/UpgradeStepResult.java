@@ -1,9 +1,6 @@
 package com.linkedin.datahub.upgrade;
 
-import java.util.Optional;
-
-
-public interface UpgradeStepResult<T> {
+public interface UpgradeStepResult {
 
   /**
    * Returns a string identifier associated with the step.
@@ -53,15 +50,4 @@ public interface UpgradeStepResult<T> {
   default Action action() {
     return Action.CONTINUE;
   };
-
-  /**
-   * Returns a message associated with the step's completion to be logged in the {@link UpgradeReport}.
-   */
-  String message();
-
-  /**
-   * Returns an optional output object.
-   */
-  Optional<T> output();
-
 }

@@ -11,7 +11,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 
 
 // Do we need SQL-tech specific migration paths?
-public class DeleteLegacySearchIndicesStep implements UpgradeStep<Void> {
+public class DeleteLegacySearchIndicesStep implements UpgradeStep {
 
   private final String deletePattern = "*document*";
 
@@ -32,16 +32,16 @@ public class DeleteLegacySearchIndicesStep implements UpgradeStep<Void> {
   }
 
   @Override
-  public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       DeleteIndexRequest request = new DeleteIndexRequest(deletePattern);
       try {
         _searchClient.indices().delete(request, RequestOptions.DEFAULT);
       } catch (Exception e) {
-        return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
-            String.format("Failed to delete legacy search index: %s", e.toString()));
+        context.report().addLine(String.format("Failed to delete legacy search index: %s", e.toString()));
+        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
-      return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }
 }

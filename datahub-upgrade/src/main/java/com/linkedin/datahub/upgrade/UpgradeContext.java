@@ -18,7 +18,7 @@ public interface UpgradeContext {
   /**
    * Returns the results from steps that have been completed.
    */
-  List<UpgradeStepResult<?>> stepResults();
+  List<UpgradeStepResult> stepResults();
 
   /**
    * Returns a report object where human-readable messages can be logged.
@@ -34,6 +34,5 @@ public interface UpgradeContext {
    * Returns a map of argument to <>optional</> value, as delimited by an '=' character.
    */
   Map<String, Optional<String>> parsedArgs();
-
 
 }
