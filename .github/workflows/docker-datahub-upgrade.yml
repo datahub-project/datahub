@@ -2,7 +2,7 @@ name: docker-datahub-upgrade docker
 on:
   push:
     branches:
-      - NoCode
+      - master
     paths-ignore:
       - 'docs/**'
       - '**.md'
