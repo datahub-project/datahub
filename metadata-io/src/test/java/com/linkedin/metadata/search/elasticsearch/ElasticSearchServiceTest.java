@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.BrowseResult;
@@ -45,9 +44,6 @@ public class ElasticSearchServiceTest {
 
   @BeforeTest
   public void setup() {
-    PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
-        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
-
     _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
     _indexConvention = new IndexConventionImpl(null);
     _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
@@ -115,4 +111,3 @@ public class ElasticSearchServiceTest {
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
   }
 }
-//_searchClient.search(new SearchRequest().source(new SearchSourceBuilder().query(QueryBuilders.matchAllQuery())), RequestOptions.DEFAULT)

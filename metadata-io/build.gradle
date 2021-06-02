@@ -42,6 +42,10 @@ dependencies {
   testCompile project(':test-models')
 }
 
+tasks.withType(Test) {
+    enableAssertions = false
+}
+
 project.compileJava {
   doLast {
     ant.taskdef(name: 'ebean', classname: 'io.ebean.enhance.ant.AntEnhanceTask',
