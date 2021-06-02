@@ -13,7 +13,8 @@ record CorpUserKey {
   @Searchable = {
     "fieldName": "ldap",
     "fieldType": "TEXT_PARTIAL",
-    "boostScore": 2.0
+    "boostScore": 2.0,
+    "enableAutocomplete": true
   }
   username: string
 }
