@@ -112,7 +112,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, DASHBOARDS_SEARCH_CONFIG.getFacetFields());
-        final AutoCompleteResult result = _dashboardsClient.autoComplete("dashboard", query, field, facetFilters, limit);
+        final AutoCompleteResult result = _dashboardsClient.autoComplete("dashboard", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 

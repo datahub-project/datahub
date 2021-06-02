@@ -32,7 +32,6 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 public class MLModelType implements SearchableEntityType<MLModel> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
     private final EntityClient _mlModelsClient;
 
     public MLModelType(final EntityClient mlModelsClient) {
@@ -91,8 +90,7 @@ public class MLModelType implements SearchableEntityType<MLModel> {
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _mlModelsClient.autoComplete("mlModel", query, field, facetFilters, limit);
+        final AutoCompleteResult result = _mlModelsClient.autoComplete("mlModel", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 }
