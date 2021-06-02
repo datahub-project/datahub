@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 
-public class IngestDataPlatformsStep implements UpgradeStep<Void> {
+public class IngestDataPlatformsStep implements UpgradeStep {
 
   private final EntityService _entityService;
 
@@ -36,7 +36,7 @@ public class IngestDataPlatformsStep implements UpgradeStep<Void> {
   }
 
   @Override
-  public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
 
       context.report().addLine("Preparing to ingest DataPlatforms...");
@@ -63,7 +63,7 @@ public class IngestDataPlatformsStep implements UpgradeStep<Void> {
       }
 
       context.report().addLine(String.format("Successfully ingested %s DataPlatforms.", urnToInfo.keySet().size()));
-      return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }
 }

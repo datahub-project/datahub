@@ -45,19 +45,17 @@ public class DefaultUpgradeManager implements UpgradeManager {
   private UpgradeResult executeInternal(UpgradeContext context) {
 
     final Upgrade upgrade = context.upgrade();
-    final List<UpgradeStep<?>> steps = context.upgrade().steps();
-    final List<UpgradeStepResult<?>> stepResults = context.stepResults();
+    final List<UpgradeStep> steps = context.upgrade().steps();
+    final List<UpgradeStepResult> stepResults = context.stepResults();
     final UpgradeReport upgradeReport = context.report();
 
     for (int i = 0; i < steps.size(); i++) {
-      final UpgradeStep<?> step = steps.get(i);
+      final UpgradeStep step = steps.get(i);
 
       upgradeReport.addLine(String.format(String.format("Executing Step %s/%s: %s...", i + 1, steps.size(), step.id()), upgrade.id()));
 
-      final UpgradeStepResult<?> stepResult = executeStepInternal(context, step);
+      final UpgradeStepResult stepResult = executeStepInternal(context, step);
       stepResults.add(stepResult);
-
-      upgradeReport.addLine(stepResult.message());
 
       // Apply Actions
       if (UpgradeStepResult.Action.ABORT.equals(stepResult.action())) {
@@ -90,9 +88,9 @@ public class DefaultUpgradeManager implements UpgradeManager {
     return new DefaultUpgradeResult(UpgradeResult.Result.SUCCEEDED, upgradeReport);
   }
 
-  private UpgradeStepResult<?> executeStepInternal(UpgradeContext context, UpgradeStep<?> step) {
+  private UpgradeStepResult executeStepInternal(UpgradeContext context, UpgradeStep step) {
     int retryCount = step.retryCount();
-    UpgradeStepResult<?> result = null;
+    UpgradeStepResult result = null;
     int maxAttempts = retryCount + 1;
     for (int i = 0; i < maxAttempts; i++) {
       try {
@@ -100,18 +98,15 @@ public class DefaultUpgradeManager implements UpgradeManager {
 
         if (result == null) {
           // Failed to even retrieve a result. Create a default failure result.
-          result = new DefaultUpgradeStepResult<>(
+          result = new DefaultUpgradeStepResult(
               step.id(),
-              UpgradeStepResult.Result.FAILED,
-              String.format("Step %s returned null result.", step.id())
+              UpgradeStepResult.Result.FAILED
           );
           context.report().addLine(String.format("Retrying %s more times...", maxAttempts - (i + 1)));
         }
 
         if (UpgradeStepResult.Result.SUCCEEDED.equals(result.result())) {
           break;
-        } else {
-          context.report().addLine(result.message());
         }
 
       } catch (Exception e) {
@@ -120,11 +115,9 @@ public class DefaultUpgradeManager implements UpgradeManager {
             step.id(),
             e.toString()
         ));
-        result = new DefaultUpgradeStepResult<>(
+        result = new DefaultUpgradeStepResult(
             step.id(),
-            UpgradeStepResult.Result.FAILED,
-            String.format("Step %s threw an exception: %s", step.id(), e.toString())
-        );
+            UpgradeStepResult.Result.FAILED);
         context.report().addLine(String.format("Retrying %s more times...", maxAttempts - (i + 1)));
       }
     }

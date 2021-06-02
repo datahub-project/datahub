@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 
-public class DataMigrationStep implements UpgradeStep<Void> {
+public class DataMigrationStep implements UpgradeStep {
 
   private static final int DEFAULT_BATCH_SIZE = 1000;
   private static final long DEFAULT_BATCH_DELAY_MS = 250;
@@ -59,7 +59,7 @@ public class DataMigrationStep implements UpgradeStep<Void> {
   }
 
   @Override
-  public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
 
       context.report().addLine("Starting data migration...");
@@ -85,8 +85,8 @@ public class DataMigrationStep implements UpgradeStep<Void> {
                 Class.forName(oldAspectName).asSubclass(RecordTemplate.class),
                 oldAspect.getMetadata());
           } catch (Exception e) {
-            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
-                String.format("Failed to convert aspect with name %s into a RecordTemplate class: %s", oldAspectName, e.getMessage()));
+            context.report().addLine(String.format("Failed to convert aspect with name %s into a RecordTemplate class: %s", oldAspectName, e.getMessage()));
+            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
           // 2. Extract an Entity type from the entity Urn
@@ -103,8 +103,8 @@ public class DataMigrationStep implements UpgradeStep<Void> {
           try {
             entitySpec = _entityRegistry.getEntitySpec(entityName);
           } catch (Exception e) {
-            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
-                String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName, e.toString()));
+            context.report().addLine(String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName, e.toString()));
+            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
           // 4. Extract new aspect name from Aspect schema
@@ -112,22 +112,22 @@ public class DataMigrationStep implements UpgradeStep<Void> {
           try {
             newAspectName = PegasusUtils.getAspectNameFromSchema(aspectRecord.schema());
           } catch (Exception e) {
-            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
-                String.format("Failed to retrieve @Aspect name from schema %s, urn %s: %s",
-                    aspectRecord.schema().getFullName(),
-                    entityName,
-                    e.toString()));
+            context.report().addLine(String.format("Failed to retrieve @Aspect name from schema %s, urn %s: %s",
+                aspectRecord.schema().getFullName(),
+                entityName,
+                e.toString()));
+            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
           // 5. Verify that the aspect is a valid aspect associated with the entity
           try {
             entitySpec.getAspectSpec(newAspectName);
           } catch (Exception e) {
-            return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
-                String.format("Failed to find aspect spec with name %s associated with entity named %s",
-                    newAspectName,
-                    entityName,
-                    e.toString()));
+            context.report().addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s",
+                newAspectName,
+                entityName,
+                e.toString()));
+            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
           // 6. Write the row back using the EntityService
@@ -171,12 +171,12 @@ public class DataMigrationStep implements UpgradeStep<Void> {
         }
       }
       if (totalRowsMigrated != rowCount) {
-        return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
-            String.format("Number of rows migrated %s does not equal the number of input rows %s...",
-                totalRowsMigrated,
-                rowCount));
+        context.report().addLine(String.format("Number of rows migrated %s does not equal the number of input rows %s...",
+            totalRowsMigrated,
+            rowCount));
+        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
-      return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }
 

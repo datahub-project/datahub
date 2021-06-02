@@ -2,11 +2,10 @@ package com.linkedin.datahub.upgrade;
 
 import java.util.function.Function;
 
-
 /**
  * Represents a single executable step in an {@link Upgrade}.
  */
-public interface UpgradeStep<T> {
+public interface UpgradeStep {
 
   /**
    * Returns an identifier for the upgrade step.
@@ -16,7 +15,7 @@ public interface UpgradeStep<T> {
   /**
    * Returns a function representing the step's execution logic.
    */
-  Function<UpgradeContext, UpgradeStepResult<T>> executable();
+  Function<UpgradeContext, UpgradeStepResult> executable();
 
   /**
    * Returns the number of times the step should be retried.

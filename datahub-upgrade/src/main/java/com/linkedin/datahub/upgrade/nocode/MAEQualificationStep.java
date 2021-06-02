@@ -15,7 +15,7 @@ import java.net.URLConnection;
 import java.util.function.Function;
 
 
-public class MAEQualificationStep implements UpgradeStep<Void> {
+public class MAEQualificationStep implements UpgradeStep {
 
   private static String convertStreamToString(InputStream is) {
 
@@ -52,7 +52,7 @@ public class MAEQualificationStep implements UpgradeStep<Void> {
   }
 
   @Override
-  public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       String maeHost = System.getenv("DATAHUB_MAE_CONSUMER_HOST") == null ? "localhost" : System.getenv("DATAHUB_MAE_CONSUMER_HOST");
       String maePort = System.getenv("DATAHUB_MAE_CONSUMER_PORT") == null ? "9091" : System.getenv("DATAHUB_MAE_CONSUMER_PORT");
@@ -66,20 +66,21 @@ public class MAEQualificationStep implements UpgradeStep<Void> {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode configJson = mapper.readTree(responseString);
         if (configJson.get("noCode").asBoolean()) {
-          return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.SUCCEEDED,
-              "MAE Consumer is running and up to date. Proceeding with upgrade...");
+          context.report().addLine("MAE Consumer is running and up to date. Proceeding with upgrade...");
+          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
         } else {
-          return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED,
-              String.format("Failed to qualify MAE Consumer. It is not running on the latest version."
-                  + "Re-run MAE Consumer on the latest datahub release"));
+          context.report().addLine(String.format("Failed to qualify MAE Consumer. It is not running on the latest version."
+              + "Re-run MAE Consumer on the latest datahub release"));
+          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
         }
       } catch (Exception e) {
         e.printStackTrace();
-        return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.FAILED, String.format(
+        context.report().addLine(String.format(
             "ERROR: Cannot connect to MAE Consumer"
                 + "at host %s port %s. Make sure MAE Consumer is on the latest version "
                 + "and is running at that host before starting the migration.",
             maeHost, maePort));
+        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
     };
   }

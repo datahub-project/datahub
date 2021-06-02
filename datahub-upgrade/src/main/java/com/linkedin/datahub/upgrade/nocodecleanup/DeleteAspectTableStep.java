@@ -9,7 +9,7 @@ import java.util.function.Function;
 
 
 // Do we need SQL-tech specific migration paths?
-public class DeleteAspectTableStep implements UpgradeStep<Void> {
+public class DeleteAspectTableStep implements UpgradeStep {
 
   private final EbeanServer _server;
 
@@ -28,17 +28,17 @@ public class DeleteAspectTableStep implements UpgradeStep<Void> {
   }
 
   @Override
-  public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
         _server.execute(_server.createSqlUpdate("DROP TABLE IF EXISTS metadata_aspect;"));
       } catch (Exception e) {
-        return new DefaultUpgradeStepResult<>(
+        context.report().addLine(String.format("Failed to delete data from legacy table metadata_aspect: %s", e.toString()));
+        return new DefaultUpgradeStepResult(
             id(),
-            UpgradeStepResult.Result.FAILED,
-            String.format("Failed to delete data from legacy table metadata_aspect: %s", e.toString()));
+            UpgradeStepResult.Result.FAILED);
       }
-      return new DefaultUpgradeStepResult<>(id(), UpgradeStepResult.Result.SUCCEEDED);
+      return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
   }
 }

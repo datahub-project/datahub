@@ -15,7 +15,7 @@ import java.net.URLConnection;
 import java.util.function.Function;
 
 
-public class GMSQualificationStep implements UpgradeStep<Void> {
+public class GMSQualificationStep implements UpgradeStep {
 
   private static String convertStreamToString(InputStream is) {
 
@@ -52,7 +52,7 @@ public class GMSQualificationStep implements UpgradeStep<Void> {
   }
 
   @Override
-  public Function<UpgradeContext, UpgradeStepResult<Void>> executable() {
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       String gmsHost = System.getenv("DATAHUB_GMS_HOST") == null ? "localhost" : System.getenv("DATAHUB_GMS_HOST");
       String gmsPort = System.getenv("DATAHUB_GMS_PORT") == null ? "8080" : System.getenv("DATAHUB_GMS_PORT");
@@ -66,27 +66,26 @@ public class GMSQualificationStep implements UpgradeStep<Void> {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode configJson = mapper.readTree(responseString);
         if (configJson.get("noCode").asBoolean()) {
-          return new DefaultUpgradeStepResult<>(
+          return new DefaultUpgradeStepResult(
               id(),
-              UpgradeStepResult.Result.SUCCEEDED,
-              "GMS is running and up to date. Proceeding with upgrade...");
+              UpgradeStepResult.Result.SUCCEEDED);
         } else {
-          return new DefaultUpgradeStepResult<>(
+          context.report().addLine(String.format("Failed to qualify GMS. It is not running on the latest version."
+              + "Re-run GMS on the latest datahub release"));
+          return new DefaultUpgradeStepResult(
               id(),
-              UpgradeStepResult.Result.FAILED,
-              String.format("Failed to qualify GMS. It is not running on the latest version."
-                  + "Re-run GMS on the latest datahub release"));
+              UpgradeStepResult.Result.FAILED);
         }
       } catch (Exception e) {
         e.printStackTrace();
-        return new DefaultUpgradeStepResult<>(
+        context.report().addLine(String.format("ERROR: Cannot connect to GMS"
+                + "at host %s port %s. Make sure GMS is on the latest version "
+                + "and is running at that host before starting the migration.",
+            gmsHost,
+            gmsPort));
+        return new DefaultUpgradeStepResult(
             id(),
-            UpgradeStepResult.Result.FAILED,
-            String.format("ERROR: Cannot connect to GMS"
-                    + "at host %s port %s. Make sure GMS is on the latest version "
-                    + "and is running at that host before starting the migration.",
-                gmsHost,
-                gmsPort));
+            UpgradeStepResult.Result.FAILED);
       }
     };
   }
