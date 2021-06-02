@@ -75,17 +75,6 @@ public class GmsClientFactory {
         return _relationships;
     }
 
-    public static GlossaryTerms getGlossaryTermsClient() {
-        if (_glossaryTerms == null) {
-            synchronized (GmsClientFactory.class) {
-                if (_glossaryTerms == null) {
-                    _glossaryTerms = new GlossaryTerms(REST_CLIENT);
-                }
-            }
-        }
-        return _glossaryTerms;
-    }
-
     public static EntityClient getEntitiesClient() {
         if (_entities == null) {
             synchronized (GmsClientFactory.class) {
