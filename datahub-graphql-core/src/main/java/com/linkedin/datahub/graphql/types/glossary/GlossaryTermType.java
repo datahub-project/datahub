@@ -18,8 +18,6 @@ import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermSnapshotM
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
@@ -27,7 +25,6 @@ import com.linkedin.experimental.Entity;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
-import com.linkedin.restli.common.CollectionResponse;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,7 +40,6 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, BrowsableEntityType<GlossaryTerm> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "definition";
 
     private final EntityClient _glossaryTermsClient;
 
@@ -106,9 +102,8 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
         final AutoCompleteResult result = _glossaryTermsClient.autoComplete(
-            "glossaryTerm", query, field, facetFilters, limit);
+            "glossaryTerm", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 

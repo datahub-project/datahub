@@ -110,7 +110,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, CHART_SEARCH_CONFIG.getFacetFields());
-        final AutoCompleteResult result = _entityClient.autoComplete("chart", query, field, facetFilters, limit);
+        final AutoCompleteResult result = _entityClient.autoComplete("chart", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 

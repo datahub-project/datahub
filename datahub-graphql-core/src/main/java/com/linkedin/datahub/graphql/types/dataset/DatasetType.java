@@ -49,7 +49,6 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEntityType<Dataset>, MutableType<DatasetUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
 
     private final EntityClient _datasetsClient;
 
@@ -116,8 +115,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _datasetsClient.autoComplete("dataset", query, field, facetFilters, limit);
+        final AutoCompleteResult result = _datasetsClient.autoComplete("dataset", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 
