@@ -1,6 +1,7 @@
 ---
-title: Extending the metadata model sidebar_label: Extending the metadata model slug:
-/metadata-modeling/extending-the-metadata-model
+title: Extending the metadata model
+sidebar_label: Extending the metadata model
+slug: /metadata-modeling/extending-the-metadata-model
 ---
 
 # How do I extend the Metadata model? 
