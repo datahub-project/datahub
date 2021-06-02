@@ -48,7 +48,7 @@ docker-compose down && docker-compose pull && docker-compose -p datahub up --for
 #### Helm
 
 Deploying latest helm charts will upgrade all components to version 0.8.0. Once all the pods are up and running, it will
-run the datahub-upgrade job, which will run the above docker container to migrate to the new sources.  
+run the datahub-upgrade job, which will run the above docker container to migrate to the new sources.
 
 ### Step 2: Execute Migration Job
 
@@ -76,7 +76,14 @@ documentation
 
 #### Helm Deployments
 
-TODO
+Upgrade to latest helm charts by running the following after pulling latest master.
+
+```(shell)
+helm upgrade datahub datahub/ --values datahub/quickstart-values.yaml
+```
+
+This will upgrade all pods to version 0.8.0, and once all pods are up and ready, datahub-upgrade job will start,
+running the above docker image to migrate to the new stores.
 
 ### Step 3 (Optional): Cleaning Up
 
