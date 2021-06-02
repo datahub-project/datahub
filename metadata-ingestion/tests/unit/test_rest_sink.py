@@ -166,7 +166,7 @@ def test_datahub_rest_emitter(requests_mock, mce, endpoint, snapshot):
         return True
 
     requests_mock.post(
-        f"{MOCK_GMS_ENDPOINT}/{endpoint}?action=ingest",
+        f"{MOCK_GMS_ENDPOINT}/entities?action=ingest",
         request_headers={"X-RestLi-Protocol-Version": "2.0.0"},
         additional_matcher=match_request_text,
     )
