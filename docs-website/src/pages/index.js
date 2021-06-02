@@ -86,13 +86,12 @@ const features = [
     title: "Massive Ecosystem",
     imageUrl: "img/undraw_online_connection_6778.svg",
     description: (
-      // TODO: update the integrations link to scroll down the page.
       <>
         DataHub has pre-built integrations with your favorite systems: Kafka,
-        MySQL, SQL Server, Postgres, LDAP, Snowflake, Hive, BigQuery, and{" "}
-        <Link to={"docs/metadata-ingestion"}>many others</Link>. The community
-        is continuously adding more integrations, so this list keeps getting
-        longer and longer.
+        Airflow, MySQL, SQL Server, Postgres, LDAP, Snowflake, Hive, BigQuery,
+        and <Link to={"docs/metadata-ingestion"}>many others</Link>. The
+        community is continuously adding more integrations, so this list keeps
+        getting longer and longer.
       </>
     ),
   },
@@ -420,7 +419,6 @@ function Home() {
                 prebuilt integrations with Kafka, MySQL, MS SQL, Postgres, LDAP,
                 Snowflake, Hive, BigQuery, and more. Ingestion can be automated
                 using our Airflow integration or another scheduler of choice.
-                {/* TODO: add logos for these integration */}
               </p>
               <p>
                 DataHub's push-based architecture also supports pull, but
@@ -480,7 +478,7 @@ function Home() {
               </h2>
               <p className={styles.larger_on_desktop}>
                 DataHub is the one-stop shop for documentation, schemas,
-                ownership, and lineage. Pipelines, usage, and quality
+                ownership, lineage, and pipelines. Usage and data quality
                 information coming soon.
               </p>
             </div>

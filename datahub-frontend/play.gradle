@@ -10,7 +10,6 @@ tasks.withType(PlayRun) {
 
 configurations {
   assets
-  all*.exclude group : 'ch.qos.logback'
 }
 
 dependencies {
@@ -43,6 +42,7 @@ dependencies {
   playRun externalDependency.guice
   playRun externalDependency.playDocs
   playRun externalDependency.playGuice
+  playRun externalDependency.logbackClassic
 }
 
 model {

@@ -7,8 +7,6 @@ apply plugin: 'pegasus'
 
 configurations {
     avro
-    all*.exclude module : 'spring-boot-starter-logging'
-    compile.exclude(group: 'ch.qos.logback')
 }
 
 dependencies {

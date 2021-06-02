@@ -145,9 +145,14 @@ type Query {
     search(input: SearchInput!): SearchResults
 
     """
-    Autocomplete a search query against DataHub entities
+    Autocomplete a search query against specific entity
     """
     autoComplete(input: AutoCompleteInput!): AutoCompleteResults
+
+    """
+    Autocomplete a search query against DataHub entities
+    """
+    autoCompleteForAll(input: AutoCompleteInput!): AutoCompleteAllResults
 
     """
     Browse DataHub entities by path
@@ -1177,7 +1182,7 @@ input AutoCompleteInput {
     """
     Entity type to be autocompleted against
     """
-	type: EntityType!
+	type: EntityType
 
 	"""
 	The query string
@@ -1198,6 +1203,30 @@ input AutoCompleteInput {
 	Faceted filters applied to autocomplete results
 	"""
 	filters: [FacetFilterInput!]
+}
+
+type AutoCompleteResultForEntity {
+    """
+    Entity type
+    """
+    type: EntityType!
+
+    """
+    The autocompletion results for specified entity type
+    """
+    suggestions: [String!]!
+}
+
+type AutoCompleteAllResults {
+    """
+    The query string
+    """
+    query: String!
+
+    """
+    The autocompletion results
+    """
+    suggestions: [AutoCompleteResultForEntity!]!
 }
 
 type AutoCompleteResults {

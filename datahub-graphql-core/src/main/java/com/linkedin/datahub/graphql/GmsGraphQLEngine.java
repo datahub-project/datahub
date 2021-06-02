@@ -36,6 +36,7 @@ import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
+import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForAllResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
@@ -94,7 +95,7 @@ public class GmsGraphQLEngine {
     public static final DataFlowDataJobsRelationshipsType DATAFLOW_DATAJOBS_TYPE = new DataFlowDataJobsRelationshipsType(
             GmsClientFactory.getRelationshipsClient()
     );
-    public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getGlossaryTermsClient());
+    public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -214,6 +215,8 @@ public class GmsGraphQLEngine {
                         new SearchResolver(SEARCHABLE_TYPES)))
                 .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                         new AutoCompleteResolver(SEARCHABLE_TYPES)))
+                .dataFetcher("autoCompleteForAll", new AuthenticatedResolver<>(
+                        new AutoCompleteForAllResolver(SEARCHABLE_TYPES)))
                 .dataFetcher("browse", new AuthenticatedResolver<>(
                         new BrowseResolver(BROWSABLE_TYPES)))
                 .dataFetcher("browsePaths", new AuthenticatedResolver<>(

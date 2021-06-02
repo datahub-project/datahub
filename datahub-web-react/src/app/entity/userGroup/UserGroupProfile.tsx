@@ -3,10 +3,10 @@ import React from 'react';
 import styled from 'styled-components';
 
 import UserHeader from '../user/UserHeader';
-import useUserParams from '../user/routingUtils/useUserParams';
 import { useGetUserGroupQuery } from '../../../graphql/user.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { Message } from '../../shared/Message';
+import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 
 const PageContainer = styled.div`
     padding: 32px 100px;

@@ -35,6 +35,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
@@ -68,8 +70,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
   private final Clock _clock = Clock.systemUTC();
 
-  // TODO: uncomment this to us a logger w/ warn access
-  // private final Logger _logger = LoggerFactory.getLogger("EntityResource");
+  private final Logger _logger = LoggerFactory.getLogger("EntityResource");
 
   @Inject
   @Named("entityService")
@@ -86,6 +87,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Nonnull
   public Task<Entity> get(@Nonnull String urnStr, @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames)
       throws URISyntaxException {
+    _logger.info("GET {}", urnStr);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtils.toTask(() -> {
       final Set<String> projectedAspects =
@@ -103,6 +105,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<Map<String, Entity>> batchGet(
       @Nonnull Set<String> urnStrs,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
+    _logger.info("BATCH GET {}", urnStrs.toString());
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
       urns.add(Urn.createFromString(urnStr));
@@ -123,6 +126,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final Set<String> projectedAspects = new HashSet<>(Arrays.asList("browsePaths"));
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(entity.getValue());
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
+
+    _logger.info("INGEST urn {}", urn.toString());
+
     final Entity browsePathEntity = _entityService.getEntity(urn, projectedAspects);
     BrowsePathUtils.addBrowsePathIfNotExists(entity.getValue(), browsePathEntity);
 
@@ -156,6 +162,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count) {
 
+    _logger.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
     return RestliUtils.toTask(() -> _searchService.search(entityName, input, filter, sortCriterion, start, count));
   }
 
@@ -180,6 +187,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_LIMIT) int limit) {
 
+    _logger.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
     return RestliUtils.toTask(() -> _searchService.browse(entityName, path, filter, start, limit));
   }
 
@@ -187,6 +195,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Nonnull
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
+    _logger.info("GET BROWSE PATHS for {}", urn.toString());
     return RestliUtils.toTask(() -> new StringArray(_searchService.getBrowsePaths(urnToEntityName(urn), urn)));
   }
 
@@ -196,6 +205,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = "setWritable")
   @Nonnull
   public Task<Void> setWriteable() {
+    _logger.info("setting entity resource to be writable");
     return RestliUtils.toTask(() -> {
       _entityService.setWritable();
       return null;

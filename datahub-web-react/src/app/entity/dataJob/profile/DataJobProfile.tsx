@@ -16,7 +16,6 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export enum TabType {
-    // Tasks = 'Tasks',
     Ownership = 'Ownership',
     Properties = 'Properties',
 }

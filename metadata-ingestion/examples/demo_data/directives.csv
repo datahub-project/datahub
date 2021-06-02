@@ -93,3 +93,12 @@ bigquery-public-data.covid19_weathersource_com.county_day_forecast,,Weather Sour
 bigquery-public-data.covid19_weathersource_com.county_day_history,,Weather Source,bigquery-public-data.covid19_weathersource_com.postal_code_day_history
 bigquery-public-data.covid19_weathersource_com.postal_code_day_forecast,,Weather Source,bigquery-public-data.covid19_weathersource_com.postal_code_day_history
 bigquery-public-data.covid19_weathersource_com.postal_code_day_history,,Weather Source,
+bigquery-public-data.covid19_tracking.city_level_cases_and_deaths,x,,
+bigquery-public-data.covid19_tracking.covid_racial_data_tracker,x,,
+bigquery-public-data.covid19_tracking.national_testing_and_outcomes,x,,
+bigquery-public-data.covid19_tracking.state_facility_level_long_term_care,x,,
+bigquery-public-data.covid19_tracking.state_level_aggregate_long_term_care,x,,
+bigquery-public-data.covid19_tracking.state_level_cumulative_long_term_care,x,,
+bigquery-public-data.covid19_tracking.state_level_current_outbreak_long_term_care,x,,
+bigquery-public-data.covid19_tracking.state_screenshots,x,,
+bigquery-public-data.covid19_tracking.state_testing_and_outcomes,x,,

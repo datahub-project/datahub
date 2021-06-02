@@ -6,6 +6,8 @@ import styled, { useTheme } from 'styled-components';
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
 import AnalyticsLink from './AnalyticsLink';
+import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
+import EntityRegistry from '../entity/EntityRegistry';
 
 const HeaderTitle = styled(Typography.Title)`
     && {
@@ -35,11 +37,12 @@ const styles = {
 type Props = {
     initialQuery: string;
     placeholderText: string;
-    suggestions: Array<string>;
-    onSearch: (query: string) => void;
+    suggestions: Array<AutoCompleteResultForEntity>;
+    onSearch: (query: string, type?: EntityType) => void;
     onQueryChange: (query: string) => void;
     authenticatedUserUrn: string;
     authenticatedUserPictureLink?: string | null;
+    entityRegistry: EntityRegistry;
 };
 
 const defaultProps = {
@@ -63,6 +66,7 @@ export const SearchHeader = ({
     onQueryChange,
     authenticatedUserUrn,
     authenticatedUserPictureLink,
+    entityRegistry,
 }: Props) => {
     const themeConfig = useTheme();
 
@@ -80,6 +84,7 @@ export const SearchHeader = ({
                 suggestions={suggestions}
                 onSearch={onSearch}
                 onQueryChange={onQueryChange}
+                entityRegistry={entityRegistry}
             />
             <NavGroup>
                 <AnalyticsLink />
