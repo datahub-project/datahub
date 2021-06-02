@@ -75,7 +75,7 @@ public class AutocompleteRequestHandler {
     return queryBuilder;
   }
 
-  // Get HighllightBuilder to highlight the matched field
+  // Get HighlightBuilder to highlight the matched field
   private HighlightBuilder getHighlights(@Nullable String field) {
     HighlightBuilder highlightBuilder = new HighlightBuilder();
     // Don't set tags to get the original field value
@@ -87,7 +87,7 @@ public class AutocompleteRequestHandler {
   }
 
   private List<String> getAutocompleteFields(@Nullable String field) {
-    if (field != null) {
+    if (field != null && field != "") {
       return ImmutableList.of(field);
     }
     return _defaultAutocompleteFields;

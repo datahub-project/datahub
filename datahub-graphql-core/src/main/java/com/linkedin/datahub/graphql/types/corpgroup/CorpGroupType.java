@@ -29,8 +29,6 @@ import java.util.stream.Collectors;
 
 public class CorpGroupType implements SearchableEntityType<CorpGroup> {
 
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
-
     private final EntityClient _corpGroupsClient;
 
     public CorpGroupType(final EntityClient corpGroupsClient) {
@@ -87,8 +85,7 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                                             @Nullable List<FacetFilterInput> filters,
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _corpGroupsClient.autoComplete("corpGroup", query, field, Collections.emptyMap(), limit);
+        final AutoCompleteResult result = _corpGroupsClient.autoComplete("corpGroup", query, Collections.emptyMap(), limit);
         return AutoCompleteResultsMapper.map(result);
     }
 

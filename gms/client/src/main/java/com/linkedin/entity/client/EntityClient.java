@@ -128,14 +128,36 @@ public class EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query, @Nonnull String field,
+    public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
+        @Nonnull Map<String, String> requestFilters,
+        @Nonnull int limit,
+        @Nullable String field) throws RemoteInvocationException {
+        EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
+            .actionAutocomplete()
+            .entityParam(entityType)
+            .queryParam(query)
+            .fieldParam(field)
+            .filterParam(newFilter(requestFilters))
+            .limitParam(limit);
+        return sendClientRequest(requestBuilder.build()).getEntity();
+    }
+
+    /**
+     * Gets browse snapshot of a given path
+     *
+     * @param query search query
+     * @param requestFilters autocomplete filters
+     * @param limit max number of autocomplete results
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
         @Nonnull Map<String, String> requestFilters,
         @Nonnull int limit) throws RemoteInvocationException {
         EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
             .actionAutocomplete()
             .entityParam(entityType)
             .queryParam(query)
-            .fieldParam(field)
             .filterParam(newFilter(requestFilters))
             .limitParam(limit);
         return sendClientRequest(requestBuilder.build()).getEntity();

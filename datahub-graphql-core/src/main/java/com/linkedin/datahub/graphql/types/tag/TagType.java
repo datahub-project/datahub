@@ -48,7 +48,6 @@ import java.util.stream.Collectors;
 
 public class TagType implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag>, MutableType<TagUpdate> {
 
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
     private static final TagSearchConfig TAG_SEARCH_CONFIG = new TagSearchConfig();
 
     private final EntityClient _tagClient;
@@ -115,8 +114,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, TAG_SEARCH_CONFIG.getFacetFields());
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _tagClient.autoComplete("tag", query, field, facetFilters, limit);
+        final AutoCompleteResult result = _tagClient.autoComplete("tag", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 

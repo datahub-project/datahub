@@ -17,6 +17,10 @@ record DataJobKey {
     "fieldType": "URN_PARTIAL",
     "queryByDefault": false
   }
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "dataFlow" ]
+  }
   flow: Urn
 
   /**

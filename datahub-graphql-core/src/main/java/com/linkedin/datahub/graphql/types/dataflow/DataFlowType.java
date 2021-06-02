@@ -51,7 +51,6 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEntityType<DataFlow>, MutableType<DataFlowUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("orchestrator", "cluster");
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "flowId";
     private final EntityClient _dataFlowsClient;
 
     public DataFlowType(final EntityClient dataFlowsClient) {
@@ -115,8 +114,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _dataFlowsClient.autoComplete("dataFlow", query, field, facetFilters, limit);
+        final AutoCompleteResult result = _dataFlowsClient.autoComplete("dataFlow", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 
