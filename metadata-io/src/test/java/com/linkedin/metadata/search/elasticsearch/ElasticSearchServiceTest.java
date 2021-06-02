@@ -45,9 +45,6 @@ public class ElasticSearchServiceTest {
 
   @BeforeTest
   public void setup() {
-    PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
-        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
-
     _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
     _indexConvention = new IndexConventionImpl(null);
     _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
@@ -115,4 +112,3 @@ public class ElasticSearchServiceTest {
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
   }
 }
-//_searchClient.search(new SearchRequest().source(new SearchSourceBuilder().query(QueryBuilders.matchAllQuery())), RequestOptions.DEFAULT)
