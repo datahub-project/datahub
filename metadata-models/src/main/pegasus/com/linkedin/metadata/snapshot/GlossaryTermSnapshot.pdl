@@ -6,6 +6,10 @@ import com.linkedin.metadata.aspect.GlossaryTermAspect
 /**
  * A metadata snapshot for a specific GlossaryTerm entity.
  */
+@Entity = {
+  "name": "glossaryTerm",
+  "keyAspect": "glossaryTermKey"
+}
 record GlossaryTermSnapshot {
 
   /**

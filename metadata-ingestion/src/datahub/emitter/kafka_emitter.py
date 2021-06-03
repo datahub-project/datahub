@@ -61,6 +61,7 @@ class DatahubKafkaEmitter:
         self.producer.poll(0)
         self.producer.produce(
             topic=self.config.topic,
+            key=mce.proposedSnapshot.urn,
             value=mce,
             on_delivery=callback,
         )

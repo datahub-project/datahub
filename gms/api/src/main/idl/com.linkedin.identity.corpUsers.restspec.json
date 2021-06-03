@@ -1,13 +1,16 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "corpUsers",
   "namespace" : "com.linkedin.identity",
   "path" : "/corpUsers",
   "schema" : "com.linkedin.identity.CorpUser",
-  "doc" : "generated from: com.linkedin.metadata.resources.identity.CorpUsers",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.identity.CorpUsers",
   "collection" : {
     "identifier" : {
       "name" : "corpUser",
-      "type" : "com.linkedin.identity.CorpUserKey",
+      "type" : "com.linkedin.identity.CorpUserResourceKey",
       "params" : "com.linkedin.restli.common.EmptyRecord"
     },
     "supports" : [ "batch_get", "get", "get_all" ],
@@ -113,6 +116,9 @@
     "entity" : {
       "path" : "/corpUsers/{corpUser}",
       "subresources" : [ {
+        "annotations" : {
+          "deprecated" : { }
+        },
         "name" : "editableInfo",
         "namespace" : "com.linkedin.identity",
         "path" : "/corpUsers/{corpUser}/editableInfo",

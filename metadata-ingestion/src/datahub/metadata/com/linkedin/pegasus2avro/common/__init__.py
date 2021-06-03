@@ -1,11 +1,13 @@
 from .....schema_classes import AccessLevelClass
 from .....schema_classes import AuditStampClass
+from .....schema_classes import BrowsePathsClass
 from .....schema_classes import ChangeAuditStampsClass
 from .....schema_classes import CostClass
 from .....schema_classes import CostCostClass
 from .....schema_classes import CostCostDiscriminatorClass
 from .....schema_classes import CostTypeClass
 from .....schema_classes import DeprecationClass
+from .....schema_classes import FabricTypeClass
 from .....schema_classes import GlobalTagsClass
 from .....schema_classes import GlossaryTermAssociationClass
 from .....schema_classes import GlossaryTermsClass
@@ -24,12 +26,14 @@ from .....schema_classes import VersionTagClass
 
 AccessLevel = AccessLevelClass
 AuditStamp = AuditStampClass
+BrowsePaths = BrowsePathsClass
 ChangeAuditStamps = ChangeAuditStampsClass
 Cost = CostClass
 CostCost = CostCostClass
 CostCostDiscriminator = CostCostDiscriminatorClass
 CostType = CostTypeClass
 Deprecation = DeprecationClass
+FabricType = FabricTypeClass
 GlobalTags = GlobalTagsClass
 GlossaryTermAssociation = GlossaryTermAssociationClass
 GlossaryTerms = GlossaryTermsClass

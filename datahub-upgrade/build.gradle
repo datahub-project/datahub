@@ -1,0 +1,29 @@
+plugins {
+  id 'org.springframework.boot'
+  id 'java'
+}
+
+dependencies {
+  compile project(':metadata-io')
+  compile project(':gms:impl')
+  compile project(':gms:factories')
+
+  compile externalDependency.javaxInject
+  compile externalDependency.lombok
+  compile externalDependency.picocli
+  compile externalDependency.springBeans
+  compile externalDependency.springBootAutoconfigure
+  compile externalDependency.springCore
+  compile externalDependency.springKafka
+
+  runtime externalDependency.mariadbConnector
+  runtime externalDependency.mysqlConnector
+  runtime externalDependency.postgresql
+
+  annotationProcessor externalDependency.lombok
+  annotationProcessor externalDependency.picocli
+}
+
+bootJar {
+  mainClassName = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
+}

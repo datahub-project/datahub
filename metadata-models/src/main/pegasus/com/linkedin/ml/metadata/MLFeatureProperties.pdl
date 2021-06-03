@@ -6,6 +6,9 @@ import com.linkedin.common.VersionTag
 /**
  * Properties associated with a MLFeature
  */
+@Aspect = {
+  "name": "mlFeatureProperties"
+}
 record MLFeatureProperties {
 
   /**
