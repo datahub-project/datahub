@@ -320,6 +320,8 @@ public class GmsGraphQLEngine {
                     new EntityTypeResolver(
                         ENTITY_TYPES.stream().collect(Collectors.toList()),
                         (env) -> ((SearchResult) env.getSource()).getEntity()))
+                ) 
+            )
             .type("InstitutionalMemoryMetadata", typeWiring -> typeWiring
                 .dataFetcher("author", new AuthenticatedResolver<>(
                         new LoadableTypeResolver<>(
