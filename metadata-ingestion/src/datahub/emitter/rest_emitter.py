@@ -133,7 +133,8 @@ class DatahubRestEmitter:
             except Exception as parse_exception:
                 response.raise_for_status()
                 raise OperationalError(
-                    "Unable to parse response from ingestion sink", {"message": str(parse_exception)}
+                    "Unable to parse response from ingestion sink",
+                    {"message": str(parse_exception)},
                 ) from e
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", info
