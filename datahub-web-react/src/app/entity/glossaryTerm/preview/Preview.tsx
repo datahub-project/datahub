@@ -18,7 +18,7 @@ export const Preview = ({
     const entityRegistry = useEntityRegistry();
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${urn}`}
+            url={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn)}
             name={name || ''}
             description={definition || ''}
             owners={owners}

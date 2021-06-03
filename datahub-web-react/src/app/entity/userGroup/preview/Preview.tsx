@@ -29,7 +29,7 @@ export const Preview = ({
     const entityRegistry = useEntityRegistry();
 
     return (
-        <Link to={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${urn}`}>
+        <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, urn)}>
             <Space size={28}>
                 <CustomAvatar size={60} photoUrl={photoUrl} name={name} isGroup />
                 <Space direction="vertical" size={4}>
