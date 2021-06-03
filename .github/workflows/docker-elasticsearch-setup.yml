@@ -3,10 +3,9 @@ on:
   push:
     branches:
       - master
-    paths:
-      - 'docker/elasticsearch-setup/**'
-      - '.github/workflows/docker-elasticsearch-setup.yml'
-      - 'gms/impl/src/main/resources/index/**'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
   pull_request:
     branches:
       - master

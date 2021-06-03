@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
+import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
@@ -319,6 +320,11 @@ public class GmsGraphQLEngine {
                     new EntityTypeResolver(
                         ENTITY_TYPES.stream().collect(Collectors.toList()),
                         (env) -> ((SearchResult) env.getSource()).getEntity()))
+            .type("InstitutionalMemoryMetadata", typeWiring -> typeWiring
+                .dataFetcher("author", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                CORP_USER_TYPE,
+                                (env) -> ((InstitutionalMemoryMetadata) env.getSource()).getAuthor().getUrn()))
                 )
             );
     }

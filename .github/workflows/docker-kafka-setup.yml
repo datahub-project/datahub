@@ -3,9 +3,9 @@ on:
   push:
     branches:
       - master
-    paths:
-      - 'docker/kafka-setup/**'
-      - '.github/workflows/docker-kafka-setup.yml'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
   pull_request:
     branches:
       - master

@@ -1,11 +1,17 @@
 import { Button, Form, Input, Space, Table, Typography } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType, InstitutionalMemoryMetadata, InstitutionalMemoryUpdate } from '../../../../types.generated';
+import {
+    CorpUser,
+    EntityType,
+    InstitutionalMemoryMetadata,
+    InstitutionalMemoryUpdate,
+} from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 
 export type Props = {
     authenticatedUserUrn?: string;
+    authenticatedUserUsername?: string;
     documents: Array<InstitutionalMemoryMetadata>;
     updateDocumentation: (update: InstitutionalMemoryUpdate) => void;
 };
@@ -35,7 +41,12 @@ function FormInput({ name, placeholder, type }: { name: string; placeholder: str
     );
 }
 
-export default function Documentation({ authenticatedUserUrn, documents, updateDocumentation }: Props) {
+export default function Documentation({
+    authenticatedUserUrn,
+    documents,
+    updateDocumentation,
+    authenticatedUserUsername,
+}: Props) {
     const entityRegistry = useEntityRegistry();
 
     const [form] = Form.useForm();
@@ -50,7 +61,7 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
         () =>
             stagedDocs.map((doc, index) => ({
                 key: index,
-                author: doc.author,
+                author: { urn: doc.author.urn, username: doc.author.username, type: EntityType.CorpUser },
                 url: doc.url,
                 description: doc.description,
                 createdAt: doc.created.time,
@@ -60,7 +71,7 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
 
     const isEditing = (record: any) => record.key === editingIndex;
 
-    const onAdd = (authorUrn: string) => {
+    const onAdd = (authorUrn: string, authorUsername: string) => {
         setEditingIndex(stagedDocs.length);
 
         form.setFieldsValue({
@@ -71,7 +82,7 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
         const newDoc = {
             url: '',
             description: '',
-            author: authorUrn,
+            author: { urn: authorUrn, username: authorUsername, type: EntityType.CorpUser },
             created: {
                 time: Date.now(),
             },
@@ -89,12 +100,12 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
                 return {
                     url: row.url,
                     description: row.description,
-                    author: doc.author,
+                    author: doc.author.urn,
                     createdAt: doc.created.time,
                 };
             }
             return {
-                author: doc.author,
+                author: doc.author.urn,
                 url: doc.url,
                 description: doc.description,
                 createdAt: doc.created.time,
@@ -113,7 +124,7 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
     const onDelete = (index: number) => {
         const newDocs = stagedDocs.filter((_, i) => !(index === i));
         const updatedInstitutionalMemory = newDocs.map((doc) => ({
-            author: doc.author,
+            author: doc.author.urn,
             url: doc.url,
             description: doc.description,
         }));
@@ -147,8 +158,8 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
         {
             title: 'Author',
             dataIndex: 'author',
-            render: (authorUrn: string) => (
-                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${authorUrn}`}>{authorUrn}</Link>
+            render: (user: CorpUser) => (
+                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}>{user.username}</Link>
             ),
         },
         {
@@ -185,8 +196,8 @@ export default function Documentation({ authenticatedUserUrn, documents, updateD
             <Form form={form} component={false}>
                 <Table pagination={false} columns={tableColumns} dataSource={tableData} />
             </Form>
-            {authenticatedUserUrn && editingIndex < 0 && (
-                <Button type="link" onClick={() => onAdd(authenticatedUserUrn)}>
+            {authenticatedUserUrn && authenticatedUserUsername && editingIndex < 0 && (
+                <Button type="link" onClick={() => onAdd(authenticatedUserUrn, authenticatedUserUsername)}>
                     <b> + </b> Add a link
                 </Button>
             )}

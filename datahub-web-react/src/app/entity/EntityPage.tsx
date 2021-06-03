@@ -20,7 +20,8 @@ interface Props {
  * Responsible for rendering an Entity Profile
  */
 export const EntityPage = ({ entityType }: Props) => {
-    const { urn } = useParams<RouteParams>();
+    const { urn: encodedUrn } = useParams<RouteParams>();
+    const urn = decodeURIComponent(encodedUrn);
     const entityRegistry = useEntityRegistry();
     const isBrowsable = entityRegistry.getEntity(entityType).isBrowseEnabled();
     const isLineageSupported = entityRegistry.getEntity(entityType).isLineageEnabled();

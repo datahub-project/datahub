@@ -1,5 +1,6 @@
 import { Space, Table, Typography } from 'antd';
 import React from 'react';
+import { ColumnsType } from 'antd/es/table';
 import { StringMapEntry } from '../../../types.generated';
 
 export type Props = {
@@ -7,10 +8,12 @@ export type Props = {
 };
 
 export function Properties({ properties }: Props) {
-    const propertyTableColumns = [
+    const propertyTableColumns: ColumnsType<StringMapEntry> = [
         {
             title: 'Name',
             dataIndex: 'key',
+            sorter: (a, b) => a.key.localeCompare(b.key),
+            defaultSortOrder: 'ascend',
         },
         {
             title: 'Value',
