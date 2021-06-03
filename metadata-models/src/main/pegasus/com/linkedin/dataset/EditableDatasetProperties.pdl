@@ -1,0 +1,17 @@
+namespace com.linkedin.dataset
+
+/**
+ * Properties associated with a Dataset
+ */
+record EditableDatasetProperties {
+
+  /**
+   * Documentation of the dataset
+   */
+  description: optional string
+
+  /**
+   * [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.
+   */
+  tags: array[string] = [ ]
+}

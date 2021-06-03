@@ -110,6 +110,10 @@ fragment nonRecursiveDatasetFields on Dataset {
         key
         value
     }
+    editableProperties {
+        description
+        tags
+    }
     ownership {
         ...ownershipFields
     }

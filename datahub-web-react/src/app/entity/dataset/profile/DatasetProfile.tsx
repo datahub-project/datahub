@@ -58,7 +58,29 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         return <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />;
     }
 
-    const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} />;
+    const getHeader = (dataset: Dataset) => (
+        <DatasetHeader
+            dataset={dataset}
+            updateProperties={(update) => {
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    actionType: EntityActionType.UpdateProperties,
+                    entityType: EntityType.Dataset,
+                    entityUrn: urn,
+                });
+                return updateDataset({ variables: { input: { urn, editableProperties: update } } });
+            }}
+            updateDescription={(description: string) => {
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    actionType: EntityActionType.UpdateDescription,
+                    entityType: EntityType.Dataset,
+                    entityUrn: urn,
+                });
+                return updateDataset({ variables: { input: { urn, description } } });
+            }}
+        />
+    );
 
     const getTabs = ({
         ownership,

@@ -1,12 +1,12 @@
-import { Typography, Modal, Button, Input, Form, message } from 'antd';
+import { Typography, message } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
+import MDEditor from '@uiw/react-md-editor';
 
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
-
-const { TextArea } = Input;
+import UpdateDescriptionModal from '../modal/UpdateDescriptionModal';
 
 const DescriptionContainer = styled.div`
     position: relative;
@@ -14,21 +14,12 @@ const DescriptionContainer = styled.div`
     flex-direction: row;
 `;
 
-const DescriptionText = styled(Typography.Text)`
+const DescriptionText = styled(MDEditor.Markdown)`
     padding-right: 8px;
     max-width: 600px;
     display: block;
     overflow-wrap: break-word;
     word-wrap: break-word;
-`;
-
-const DescriptionTextInModal = styled(Typography.Text)`
-    padding: 4px 10px;
-`;
-
-const FormLabel = styled(Typography.Text)`
-    font-size: 10px;
-    font-weight: bold;
 `;
 
 const EditIcon = styled(EditOutlined)`
@@ -55,20 +46,19 @@ type Props = {
 
 export default function DescriptionField({ description, updatedDescription, onHover, onUpdate }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
-    const [updatedDesc, setDesc] = useState(updatedDescription || description);
 
     const onCloseModal = () => setShowAddModal(false);
 
-    const onUpdateModal = async () => {
+    const onUpdateModal = async (desc: string) => {
         message.loading({ content: 'Updating...', key: MessageKey });
-        await onUpdate(updatedDesc);
+        await onUpdate(desc);
         message.success({ content: 'Updated!', key: MessageKey, duration: 2 });
         onCloseModal();
     };
 
     return (
         <DescriptionContainer>
-            <DescriptionText>{updatedDescription || description}</DescriptionText>
+            <DescriptionText source={updatedDescription || description} />
             {onHover && (
                 <EditIcon
                     twoToneColor="#52c41a"
@@ -87,44 +77,13 @@ export default function DescriptionField({ description, updatedDescription, onHo
                     }}
                     aria-hidden="true"
                 >
-                    <Modal
+                    <UpdateDescriptionModal
                         title="Update description"
-                        visible
-                        onCancel={onCloseModal}
-                        okButtonProps={{ disabled: !updatedDesc || updatedDesc.length === 0 }}
-                        okText="Update"
-                        footer={
-                            <>
-                                <Button onClick={onCloseModal}>Cancel</Button>
-                                <Button
-                                    onClick={onUpdateModal}
-                                    disabled={
-                                        !updatedDesc ||
-                                        updatedDesc.length === 0 ||
-                                        updatedDesc === (updatedDescription || description)
-                                    }
-                                >
-                                    Update
-                                </Button>
-                            </>
-                        }
-                    >
-                        <Form layout="vertical">
-                            {(updatedDescription || description) && (
-                                <Form.Item label={<FormLabel>Original:</FormLabel>}>
-                                    <DescriptionTextInModal>{description}</DescriptionTextInModal>
-                                </Form.Item>
-                            )}
-                            <Form.Item label={<FormLabel>Updated:</FormLabel>}>
-                                <TextArea
-                                    value={updatedDesc}
-                                    onChange={(e) => setDesc(e.target.value)}
-                                    placeholder="Description"
-                                    autoSize={{ minRows: 2, maxRows: 6 }}
-                                />
-                            </Form.Item>
-                        </Form>
-                    </Modal>
+                        description={updatedDescription || description}
+                        original={description}
+                        onClose={onCloseModal}
+                        onSubmit={onUpdateModal}
+                    />
                 </div>
             )}
             {updatedDescription && <EditedLabel>(edited)</EditedLabel>}

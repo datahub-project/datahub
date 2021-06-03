@@ -50,7 +50,7 @@ interface ExtendedSchemaFields extends SchemaField {
 
 const defaultColumns = [
     {
-        width: 288,
+        width: 100,
         title: 'Type',
         dataIndex: 'type',
         key: 'type',
@@ -63,7 +63,7 @@ const defaultColumns = [
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        width: 192,
+        width: 100,
         render: (fieldPath: string) => {
             if (!fieldPath.includes('.')) {
                 return <Typography.Text strong>{fieldPath}</Typography.Text>;
@@ -84,10 +84,10 @@ const defaultColumns = [
                 }
             }
             return (
-                <>
+                <span>
                     <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
                     {lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
-                </>
+                </span>
             );
         },
     },
@@ -233,7 +233,7 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         dataIndex: 'description',
         key: 'description',
         render: descriptionRender,
-        width: 700,
+        width: 300,
         onCell: (record: SchemaField, rowIndex: number | undefined) => ({
             onMouseEnter: () => {
                 setDescHoveredIndex(`${record.fieldPath}-${rowIndex}`);
@@ -245,7 +245,7 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
     };
 
     const tagAndTermColumn = {
-        width: 400,
+        width: 150,
         title: 'Tags & Terms',
         dataIndex: 'globalTags',
         key: 'tag',

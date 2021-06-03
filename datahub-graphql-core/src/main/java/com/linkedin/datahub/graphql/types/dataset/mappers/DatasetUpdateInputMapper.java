@@ -36,6 +36,10 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
             result.setOwnership(OwnershipUpdateMapper.map(datasetUpdateInput.getOwnership(), actor));
         }
 
+        if (datasetUpdateInput.getDescription() != null) {
+            result.setDescription(datasetUpdateInput.getDescription());
+        }
+
         if (datasetUpdateInput.getDeprecation() != null) {
             final DatasetDeprecation deprecation = new DatasetDeprecation();
             deprecation.setDeprecated(datasetUpdateInput.getDeprecation().getDeprecated());

@@ -243,6 +243,11 @@ type Dataset implements EntityWithRelationships & Entity {
     properties: [StringMapEntry!]
 
     """
+    A list of editable platform-specific metadata tuples
+    """
+    editableProperties: EditableProperties
+
+    """
     External URL associated with the Dataset
     """
     externalUrl: String
@@ -618,6 +623,18 @@ type SchemaField {
     Glossary terms associated with the field
     """
     glossaryTerms: GlossaryTerms
+}
+
+type EditableProperties {
+    """
+    Description
+    """
+    description: String!
+
+    """
+    Tags
+    """
+    tags: [String!]
 }
 
 type EditableSchemaMetadata {
@@ -1413,12 +1430,17 @@ input DatasetUpdateInput {
     """
     The dataset urn
     """
-   urn: String!
+    urn: String!
 
     """
     Update to ownership
     """
     ownership: OwnershipUpdate
+
+    """
+    Update to description
+    """
+    description: String
 
     """
     Update to deprecation status
@@ -1439,6 +1461,11 @@ input DatasetUpdateInput {
     Update to editable schema metadata of the dataset
     """
     editableSchemaMetadata: EditableSchemaMetadataUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: EditablePropertiesUpdate
 }
 
 input EditableSchemaMetadataUpdate {
@@ -1460,6 +1487,18 @@ input EditableSchemaFieldInfoUpdate {
     Tags associated with the field
     """
     globalTags: GlobalTagsUpdate
+}
+
+input EditablePropertiesUpdate {
+    """
+    Description
+    """
+    description: String!
+
+    """
+    Tags
+    """
+    tags: [String!]
 }
 
 input GlobalTagsUpdate {
