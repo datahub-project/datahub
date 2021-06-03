@@ -299,7 +299,7 @@ source:
   config:
     username: user
     password: pass
-    host_port: localhost:5432
+    host_port: example.something.us-west-2.redshift.amazonaws.com:5439
     database: DemoDatabase
     # table_pattern/schema_pattern is same as above
     # options is same as above
