@@ -128,11 +128,13 @@ class DatahubRestEmitter:
 
             response.raise_for_status()
         except HTTPError as e:
+            response.raise_for_status()
             info = response.json()
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", info
             ) from e
         except RequestException as e:
+            response.raise_for_status()
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e
