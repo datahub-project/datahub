@@ -44,9 +44,9 @@ def generate(schema_file: str, outdir: str) -> None:
 
     write_schema_files(redo_spaces, outdir)
     suppress_checks_in_file(f"{outdir}/schema_classes.py")
-    with open(f"{outdir}/__init__.py", "w") as f:
+    with open(f"{outdir}/__init__.py", "w"):
         # Truncate this file.
-        f.write(autogen_header)
+        pass
 
     generated_files = Path(outdir).glob("**/*.py")
 
