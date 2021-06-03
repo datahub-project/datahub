@@ -5,6 +5,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetKey;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.BaseVersionedAspectResource;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -23,8 +24,8 @@ public class BaseDatasetVersionedAspectResource<ASPECT extends RecordTemplate>
     private static final String DATASET_KEY = Datasets.class.getAnnotation(RestLiCollection.class).keyName();
 
     @Inject
-    @Named("datasetDao")
-    protected BaseLocalDAO _localDAO;
+    @Named("entityService")
+    private EntityService _entityService;
 
     public BaseDatasetVersionedAspectResource(@Nonnull Class<ASPECT> aspectClass) {
         super(DatasetAspect.class, aspectClass);
@@ -33,7 +34,7 @@ public class BaseDatasetVersionedAspectResource<ASPECT extends RecordTemplate>
     @Nonnull
     @Override
     public BaseLocalDAO getLocalDAO() {
-        return _localDAO;
+        throw new UnsupportedOperationException();
     }
 
     @Nonnull
@@ -41,5 +42,10 @@ public class BaseDatasetVersionedAspectResource<ASPECT extends RecordTemplate>
     protected DatasetUrn getUrn(@PathKeysParam @Nonnull PathKeys keys) {
         DatasetKey key = keys.<ComplexResourceKey<DatasetKey, EmptyRecord>>get(DATASET_KEY).getKey();
         return new DatasetUrn(key.getPlatform(), key.getName(), key.getOrigin());
+    }
+
+    @Nonnull
+    protected EntityService getEntityService() {
+        return _entityService;
     }
 }

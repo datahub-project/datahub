@@ -1,0 +1,40 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.FabricType
+
+/**
+ * Key for a Data Process
+ */
+@Aspect = {
+  "name": "dataProcessKey"
+}
+record DataProcessKey {
+  /**
+  * Process name i.e. an ETL job name
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 4.0
+  }
+  name: string
+
+  /**
+  * Standardized Orchestrator where data process is defined.
+  * TODO: Migrate towards something that can be validated like DataPlatform urn
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true
+  }
+  orchestrator: string
+
+  /**
+  * Fabric type where dataset belongs to or where it was generated.
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": false
+  }
+  origin: FabricType
+}

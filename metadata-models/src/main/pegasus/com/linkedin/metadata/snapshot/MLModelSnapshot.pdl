@@ -6,6 +6,10 @@ import com.linkedin.metadata.aspect.MLModelAspect
 /**
  * MLModel Snapshot entity details.
  */
+@Entity = {
+  "name": "mlModel",
+  "keyAspect": "mlModelKey"
+}
 record MLModelSnapshot {
 
   /**

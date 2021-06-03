@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a CorpUser
+ */
+@Aspect = {
+  "name": "corpUserKey"
+}
+record CorpUserKey {
+  /**
+  * The name of the AD/LDAP user.
+  */
+  @Searchable = {
+    "fieldName": "ldap",
+    "fieldType": "TEXT_PARTIAL",
+    "boostScore": 2.0,
+    "enableAutocomplete": true
+  }
+  username: string
+}

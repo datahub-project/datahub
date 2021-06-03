@@ -3,6 +3,10 @@ namespace com.linkedin.metadata.snapshot
 import com.linkedin.common.MLFeatureUrn
 import com.linkedin.metadata.aspect.MLFeatureAspect
 
+@Entity = {
+  "name": "mlFeature",
+  "keyAspect": "mlFeatureKey"
+}
 record MLFeatureSnapshot {
 
   /**
