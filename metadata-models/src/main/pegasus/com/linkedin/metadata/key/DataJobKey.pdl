@@ -1,0 +1,34 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+
+/**
+ * Key for a Data Job
+ */
+@Aspect = {
+  "name": "dataJobKey"
+}
+record DataJobKey {
+  /**
+  * Standardized data processing flow urn representing the flow for the job
+  */
+  @Searchable = {
+    "fieldName": "dataFlow",
+    "fieldType": "URN_PARTIAL",
+    "queryByDefault": false
+  }
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "dataFlow" ]
+  }
+  flow: Urn
+
+  /**
+  * Unique Identifier of the data job
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true
+  }
+  jobId: string
+}

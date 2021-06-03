@@ -25,9 +25,15 @@
 
   <!-- servlet definitions -->
   <servlet>
-    <display-name>Healch Check Servlet</display-name>
+    <display-name>Health Check Servlet</display-name>
     <servlet-name>healthCheck</servlet-name>
     <servlet-class>com.linkedin.gms.servlet.HealthCheck</servlet-class>
+    <async-supported>true</async-supported>
+  </servlet>
+  <servlet>
+    <display-name>Config Servlet</display-name>
+    <servlet-name>config</servlet-name>
+    <servlet-class>com.linkedin.gms.servlet.Config</servlet-class>
     <async-supported>true</async-supported>
   </servlet>
   <!--
@@ -45,6 +51,10 @@
   <servlet-mapping>
     <servlet-name>healthCheck</servlet-name>
     <url-pattern>/health</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>config</servlet-name>
+    <url-pattern>/config</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>restliRequestHandler</servlet-name>

@@ -1,21 +1,31 @@
 package com.linkedin.metadata.resources.identity;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.CorpGroupUrn;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Entity;
 import com.linkedin.identity.CorpGroup;
 import com.linkedin.identity.CorpGroupInfo;
-import com.linkedin.identity.CorpGroupKey;
+import com.linkedin.identity.CorpGroupResourceKey;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.CorpGroupAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
+import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.CorpGroupDocument;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.snapshot.CorpGroupSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -29,10 +39,17 @@ import com.linkedin.restli.server.annotations.PagingContextParam;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
+import java.net.URISyntaxException;
+import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -40,11 +57,14 @@ import javax.inject.Named;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
-
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
+@Deprecated
 @RestLiCollection(name = "corpGroups", namespace = "com.linkedin.identity", keyName = "corpGroup")
 public final class CorpGroups extends BaseSearchableEntityResource<
     // @formatter:off
-    ComplexResourceKey<CorpGroupKey, EmptyRecord>,
+    ComplexResourceKey<CorpGroupResourceKey, EmptyRecord>,
     CorpGroup,
     CorpGroupUrn,
     CorpGroupSnapshot,
@@ -52,13 +72,16 @@ public final class CorpGroups extends BaseSearchableEntityResource<
     CorpGroupDocument> {
     // @formatter:on
 
-  @Inject
-  @Named("corpGroupDao")
-  private BaseLocalDAO<CorpGroupAspect, CorpGroupUrn> _localDAO;
+  private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
+  private final Clock _clock = Clock.systemUTC();
 
   @Inject
-  @Named("corpGroupSearchDAO")
-  private BaseSearchDAO _esSearchDAO;
+  @Named("entityService")
+  private EntityService _entityService;
+
+  @Inject
+  @Named("searchService")
+  private SearchService _searchService;
 
   public CorpGroups() {
     super(CorpGroupSnapshot.class, CorpGroupAspect.class);
@@ -67,7 +90,7 @@ public final class CorpGroups extends BaseSearchableEntityResource<
   @Override
   @Nonnull
   protected BaseLocalDAO<CorpGroupAspect, CorpGroupUrn> getLocalDAO() {
-    return _localDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -79,19 +102,19 @@ public final class CorpGroups extends BaseSearchableEntityResource<
   @Override
   @Nonnull
   protected BaseSearchDAO getSearchDAO() {
-    return _esSearchDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Override
   @Nonnull
-  protected CorpGroupUrn toUrn(@Nonnull ComplexResourceKey<CorpGroupKey, EmptyRecord> corpGroupKey) {
+  protected CorpGroupUrn toUrn(@Nonnull ComplexResourceKey<CorpGroupResourceKey, EmptyRecord> corpGroupKey) {
     return new CorpGroupUrn(corpGroupKey.getKey().getName());
   }
 
   @Override
   @Nonnull
-  protected ComplexResourceKey<CorpGroupKey, EmptyRecord> toKey(@Nonnull CorpGroupUrn urn) {
-    return new ComplexResourceKey<>(new CorpGroupKey().setName(urn.getGroupNameEntity()), new EmptyRecord());
+  protected ComplexResourceKey<CorpGroupResourceKey, EmptyRecord> toKey(@Nonnull CorpGroupUrn urn) {
+    return new ComplexResourceKey<>(new CorpGroupResourceKey().setName(urn.getGroupNameEntity()), new EmptyRecord());
   }
 
   @Override
@@ -119,18 +142,43 @@ public final class CorpGroups extends BaseSearchableEntityResource<
   @RestMethod.Get
   @Override
   @Nonnull
-  public Task<CorpGroup> get(@Nonnull ComplexResourceKey<CorpGroupKey, EmptyRecord> key,
+  public Task<CorpGroup> get(@Nonnull ComplexResourceKey<CorpGroupResourceKey, EmptyRecord> key,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.get(key, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+      final Entity entity = _entityService.getEntity(new CorpGroupUrn(
+          key.getKey().getName()), projectedAspects);
+      if (entity != null) {
+        return toValue(entity.getValue().getCorpGroupSnapshot());
+      }
+      throw RestliUtils.resourceNotFoundException();
+    });
   }
 
   @RestMethod.BatchGet
   @Override
   @Nonnull
-  public Task<Map<ComplexResourceKey<CorpGroupKey, EmptyRecord>, CorpGroup>> batchGet(
-      @Nonnull Set<ComplexResourceKey<CorpGroupKey, EmptyRecord>> keys,
+  public Task<Map<ComplexResourceKey<CorpGroupResourceKey, EmptyRecord>, CorpGroup>> batchGet(
+      @Nonnull Set<ComplexResourceKey<CorpGroupResourceKey, EmptyRecord>> keys,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.batchGet(keys, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+
+      final Map<ComplexResourceKey<CorpGroupResourceKey, EmptyRecord>, CorpGroup> entities = new HashMap<>();
+      for (final ComplexResourceKey<CorpGroupResourceKey, EmptyRecord> key : keys) {
+        final Entity entity = _entityService.getEntity(
+            new CorpGroupUrn(key.getKey().getName()),
+            projectedAspects);
+        if (entity != null) {
+          entities.put(key, toValue(entity.getValue().getCorpGroupSnapshot()));
+        }
+      }
+      return entities;
+    });
   }
 
   @Finder(FINDER_SEARCH)
@@ -141,8 +189,29 @@ public final class CorpGroups extends BaseSearchableEntityResource<
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
-    return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
-  }
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+
+      final SearchResult searchResult = _searchService.search(
+          "corpGroup",
+          input,
+          filter,
+          sortCriterion,
+          pagingContext.getStart(),
+          pagingContext.getCount());
+
+      final Set<Urn> urns = new HashSet<>(searchResult.getEntities());
+      final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
+
+      return new CollectionResult<>(
+          entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getCorpGroupSnapshot())).collect(
+              Collectors.toList()),
+          searchResult.getNumEntities(),
+          searchResult.getMetadata().setUrns(new UrnArray(urns))
+      );
+    });  }
 
   @Action(name = ACTION_AUTOCOMPLETE)
   @Override
@@ -150,14 +219,29 @@ public final class CorpGroups extends BaseSearchableEntityResource<
   public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_QUERY) @Nonnull String query,
       @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
       @ActionParam(PARAM_LIMIT) int limit) {
-    return super.autocomplete(query, field, filter, limit);
-  }
+    return RestliUtils.toTask(() ->
+        _searchService.autoComplete(
+            "corpGroup",
+            query,
+            field,
+            filter,
+            limit)
+    );  }
 
   @Action(name = ACTION_INGEST)
   @Override
   @Nonnull
   public Task<Void> ingest(@ActionParam(PARAM_SNAPSHOT) @Nonnull CorpGroupSnapshot snapshot) {
-    return super.ingest(snapshot);
+    return RestliUtils.toTask(() -> {
+      try {
+        final AuditStamp auditStamp =
+            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+        _entityService.ingestEntity(new Entity().setValue(Snapshot.create(snapshot)), auditStamp);
+      } catch (URISyntaxException e) {
+        throw new RuntimeException("Failed to create Audit Urn");
+      }
+      return null;
+    });
   }
 
   @Action(name = ACTION_GET_SNAPSHOT)
@@ -165,8 +249,23 @@ public final class CorpGroups extends BaseSearchableEntityResource<
   @Nonnull
   public Task<CorpGroupSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.getSnapshot(urnString, aspectNames);
-  }
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+      final Entity entity;
+      try {
+        entity = _entityService.getEntity(
+            Urn.createFromString(urnString), projectedAspects);
+
+        if (entity != null) {
+          return entity.getValue().getCorpGroupSnapshot();
+        }
+        throw RestliUtils.resourceNotFoundException();
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(String.format("Failed to convert urnString %s into an Urn", urnString));
+      }
+    });  }
 
   @Action(name = ACTION_BACKFILL)
   @Override

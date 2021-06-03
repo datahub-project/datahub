@@ -88,6 +88,8 @@ global:
   datahub:
     gms:
       port: "8080"
+    datahub-mae-consumer:
+      port: "9091"
     appVersion: "1.0"
 
 #  hostAliases:

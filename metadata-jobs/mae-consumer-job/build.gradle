@@ -17,6 +17,7 @@ dependencies {
         exclude group: 'org.neo4j.test'
     }
     compile project(':metadata-utils')
+    compile project(":entity-registry")
     compile project(':metadata-builders')
     compile project(':metadata-dao-impl:restli-dao')
     compile project(':metadata-events:mxe-schemas')

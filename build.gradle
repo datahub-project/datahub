@@ -9,7 +9,7 @@ buildscript {
     classpath 'com.linkedin.pegasus:gradle-plugins:' + pegasusVersion
     classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
     classpath 'com.commercehub.gradle.plugin:gradle-avro-plugin:0.8.1'
-    classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.2.RELEASE'
+    classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.4.RELEASE'
   }
 }
 
@@ -38,6 +38,7 @@ project.ext.externalDependency = [
     'cacheApi' : 'javax.cache:cache-api:1.1.0',
     'commonsIo': 'commons-io:commons-io:2.4',
     'commonsLang': 'commons-lang:commons-lang:2.6',
+    'data' : 'com.linkedin.pegasus:data:' + pegasusVersion,
     'ebean': 'io.ebean:ebean:11.33.3',
     'ebeanAgent': 'io.ebean:ebean-agent:11.27.1',
     'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.9.3',
@@ -62,6 +63,7 @@ project.ext.externalDependency = [
     'h2': 'com.h2database:h2:1.4.196',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
+    'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
     'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.9.7',
     'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.9.7',
     'javatuples': 'org.javatuples:javatuples:1.2',
@@ -79,6 +81,7 @@ project.ext.externalDependency = [
     'lombok': 'org.projectlombok:lombok:1.18.12',
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.6.0',
     'mockito': 'org.mockito:mockito-core:3.0.0',
+    'mockitoInline': 'org.mockito:mockito-inline:3.0.0',
     'mysqlConnector': 'mysql:mysql-connector-java:5.1.47',
     'neo4jHarness': 'org.neo4j.test:neo4j-harness:3.4.11',
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:4.0.1',
@@ -101,12 +104,15 @@ project.ext.externalDependency = [
     'springCore': 'org.springframework:spring-core:5.2.3.RELEASE',
     'springJdbc': 'org.springframework:spring-jdbc:5.2.3.RELEASE',
     'springWeb': 'org.springframework:spring-web:5.2.3.RELEASE',
-    'springBootAutoconfigure': 'org.springframework.boot:spring-boot-autoconfigure:2.1.2.RELEASE',
-    'springBootStarterWeb': 'org.springframework.boot:spring-boot-starter-web:2.1.2.RELEASE',
-    'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.2.RELEASE',
+    'springBootAutoconfigure': 'org.springframework.boot:spring-boot-autoconfigure:2.1.4.RELEASE',
+    'springBootStarterWeb': 'org.springframework.boot:spring-boot-starter-web:2.1.4.RELEASE',
+    'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.4.RELEASE',
     'springKafka': 'org.springframework.kafka:spring-kafka:2.2.14.RELEASE',
     'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.1.2.RELEASE',
-    'testng': 'org.testng:testng:6.9.9',
+    'testng': 'org.testng:testng:7.3.0',
+    'testContainers': 'org.testcontainers:testcontainers:1.15.1',
+    'testContainersJunit': 'org.testcontainers:junit-jupiter:1.15.1',
+    'testContainersElasticsearch': 'org.testcontainers:elasticsearch:1.15.3',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14'
 ]
 

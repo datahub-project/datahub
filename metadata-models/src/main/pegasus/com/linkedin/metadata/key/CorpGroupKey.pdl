@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a CorpGroup
+ */
+@Aspect = {
+  "name": "corpGroupKey"
+}
+record CorpGroupKey {
+  /**
+  * The name of the AD/LDAP group.
+  */
+  name: string
+}

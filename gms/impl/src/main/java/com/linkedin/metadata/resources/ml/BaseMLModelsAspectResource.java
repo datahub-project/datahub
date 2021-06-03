@@ -4,7 +4,7 @@ import com.linkedin.common.urn.MLModelUrn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.MLModelAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
-import com.linkedin.metadata.dao.EbeanLocalDAO;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.BaseVersionedAspectResource;
 import com.linkedin.ml.MLModelKey;
 import com.linkedin.restli.common.ComplexResourceKey;
@@ -17,6 +17,10 @@ import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
 
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
+@Deprecated
 public class BaseMLModelsAspectResource<ASPECT extends RecordTemplate>
     extends BaseVersionedAspectResource<MLModelUrn, MLModelAspect, ASPECT> {
     private static final String ML_MODEL_KEY = MLModels.class.getAnnotation(RestLiCollection.class).keyName();
@@ -26,13 +30,13 @@ public class BaseMLModelsAspectResource<ASPECT extends RecordTemplate>
     }
 
     @Inject
-    @Named("mlModelDAO")
-    private EbeanLocalDAO localDAO;
+    @Named("entityService")
+    private EntityService _entityService;
 
     @Nonnull
     @Override
     protected BaseLocalDAO<MLModelAspect, MLModelUrn> getLocalDAO() {
-        return localDAO;
+        throw new UnsupportedOperationException();
     }
 
     @Nonnull
@@ -40,5 +44,10 @@ public class BaseMLModelsAspectResource<ASPECT extends RecordTemplate>
     protected MLModelUrn getUrn(@PathKeysParam @Nonnull PathKeys keys) {
         MLModelKey key = keys.<ComplexResourceKey<MLModelKey, EmptyRecord>>get(ML_MODEL_KEY).getKey();
         return new MLModelUrn(key.getPlatform(), key.getName(), key.getOrigin());
+    }
+
+    @Nonnull
+    protected EntityService getEntityService() {
+        return _entityService;
     }
 }

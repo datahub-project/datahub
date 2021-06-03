@@ -27,7 +27,7 @@
   <logger name="com.linkedin.datahub" level="DEBUG" />
   <logger name="play.core.server.AkkaHttpServer" level="INFO" />
 
-  <root level="warn">
+  <root level="info">
     <appender-ref ref="STDOUT"/>
     <appender-ref ref="FILE"/>
   </root>

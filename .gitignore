@@ -8,6 +8,9 @@
 *.iws
 *.ipr
 
+*gma-create-all.sql
+*gma-drop-all.sql
+
 # Pegasus & Avro
 **/src/mainGenerated*
 **/src/testGenerated*

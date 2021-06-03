@@ -1,12 +1,22 @@
 namespace com.linkedin.metadata.aspect
 
+import com.linkedin.metadata.key.ChartKey
 import com.linkedin.chart.ChartInfo
 import com.linkedin.chart.ChartQuery
 import com.linkedin.common.Ownership
 import com.linkedin.common.Status
 import com.linkedin.common.GlobalTags
+import com.linkedin.common.BrowsePaths
 
 /**
  * A union of all supported metadata aspects for a Chart
  */
-typeref ChartAspect = union[ChartInfo, ChartQuery, Ownership, Status, GlobalTags]
+typeref ChartAspect = union[
+    ChartKey,
+    ChartInfo,
+    ChartQuery,
+    Ownership,
+    Status,
+    GlobalTags,
+    BrowsePaths
+]

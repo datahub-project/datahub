@@ -10,16 +10,24 @@ import com.linkedin.common.ExternalReference
 /**
  * Information about a chart
  */
+@Aspect = {
+  "name": "chartInfo"
+}
 record ChartInfo includes CustomProperties, ExternalReference {
 
   /**
    * Title of the chart
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true
+  }
   title: string
 
   /**
    * Detailed description about the chart
    */
+  @Searchable = {}
   description: string
 
   /**
@@ -40,11 +48,19 @@ record ChartInfo includes CustomProperties, ExternalReference {
   /**
    * Type of the chart
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true
+  }
   type: optional ChartType
 
   /**
    * Access level for the chart
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true
+  }
   access: optional AccessLevel
 
   /**
