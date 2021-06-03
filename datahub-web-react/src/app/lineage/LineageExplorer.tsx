@@ -95,7 +95,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                         }}
                         onEntityCenter={(params: EntitySelectParams) => {
                             history.push(
-                                `/${entityRegistry.getPathName(params.type)}/${params.urn}/?is_lineage_mode=true`,
+                                `${entityRegistry.getEntityUrl(params.type, params.urn)}/?is_lineage_mode=true`,
                             );
                         }}
                         onLineageExpand={(params: LineageExpandParams) => {
@@ -121,7 +121,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                             <Col span={8} offset={8}>
                                 <Button
                                     type="primary"
-                                    href={`/${entityRegistry.getPathName(selectedEntity.type)}/${selectedEntity.urn}/`}
+                                    href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}
                                 >
                                     View Profile
                                 </Button>
