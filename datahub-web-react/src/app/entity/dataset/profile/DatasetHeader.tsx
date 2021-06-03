@@ -2,8 +2,6 @@ import { Badge, Divider, message, Popover, Space, Tag, Typography } from 'antd';
 import { FetchResult } from '@apollo/client';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import MDEditor from '@uiw/react-md-editor';
-import { MarkdownPreviewProps } from '@uiw/react-markdown-preview';
 import { Dataset, EditableProperties } from '../../../../types.generated';
 import { UpdateDatasetMutation } from '../../../../graphql/dataset.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -11,16 +9,10 @@ import { AvatarsGroup } from '../../../shared/avatar';
 import CompactContext from '../../../shared/CompactContext';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 import UpdateDescriptionModal from './modal/UpdateDescriptionModal';
+import MarkdownViewer from '../../shared/MarkdownViewer';
 
-type DescriptionTextProps = MarkdownPreviewProps & {
-    isCompact: boolean;
-};
-
-const DescriptionText = styled(({ isCompact: _, ...props }: DescriptionTextProps) => <MDEditor.Markdown {...props} />)`
+const DescriptionText = styled(MarkdownViewer)`
     ${(props) => (props.isCompact ? 'max-width: 377px;' : '')};
-    display: block;
-    overflow-wrap: break-word;
-    word-wrap: break-word;
 `;
 
 const AddNewDescription = styled(Tag)`

@@ -3,33 +3,33 @@ import { EditOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
-import MDEditor from '@uiw/react-md-editor';
 
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import UpdateDescriptionModal from '../modal/UpdateDescriptionModal';
+import MarkdownViewer from '../../../shared/MarkdownViewer';
 
-const DescriptionContainer = styled.div`
+const DescriptionContainer = styled.div<{ hover?: string }>`
     position: relative;
     display: flex;
     flex-direction: row;
+    ${(props) => (props.hover ? '' : 'padding-right: 19px;')}
 `;
 
-const DescriptionText = styled(MDEditor.Markdown)`
+const DescriptionText = styled(MarkdownViewer)`
     padding-right: 8px;
-    max-width: 600px;
-    display: block;
-    overflow-wrap: break-word;
-    word-wrap: break-word;
 `;
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
-    margin-top: 4px;
+    margin-top: 5px;
+    margin-left: 5px;
 `;
 
 const EditedLabel = styled(Typography.Text)`
-    padding-left: 8px;
-    color: rgb(150, 150, 150);
+    position: absolute;
+    right: -10px;
+    top: -15px;
+    color: rgba(150, 150, 150, 0.5);
     font-style: italic;
 `;
 
@@ -57,26 +57,19 @@ export default function DescriptionField({ description, updatedDescription, onHo
     };
 
     return (
-        <DescriptionContainer>
+        <DescriptionContainer
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }}
+            aria-hidden="true"
+            hover={onHover ? 'true' : undefined}
+        >
             <DescriptionText source={updatedDescription || description} />
-            {onHover && (
-                <EditIcon
-                    twoToneColor="#52c41a"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setShowAddModal(true);
-                    }}
-                />
-            )}
+            {onHover && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
+            {updatedDescription && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
-                <div
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }}
-                    aria-hidden="true"
-                >
+                <div>
                     <UpdateDescriptionModal
                         title="Update description"
                         description={updatedDescription || description}
@@ -86,7 +79,6 @@ export default function DescriptionField({ description, updatedDescription, onHo
                     />
                 </div>
             )}
-            {updatedDescription && <EditedLabel>(edited)</EditedLabel>}
         </DescriptionContainer>
     );
 }
