@@ -45,6 +45,13 @@ spec:
               value: {{ . | quote }}
             {{- end }}
             {{- with .Values.global.elasticsearch.auth }}
+            - name: ELASTICSEARCH_MASTER_USERNAME
+              value: {{ .master_username }}
+            - name: ELASTICSEARCH_MASTER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .master_password.secretRef }}"
+                  key: "{{ .master_password.secretKey }}"
             - name: ELASTICSEARCH_USERNAME
               value: {{ .username }}
             - name: ELASTICSEARCH_PASSWORD
@@ -58,19 +65,6 @@ spec:
             {{- with .Values.global.elasticsearch.indexPrefix }}
             - name: INDEX_PREFIX
               value: {{ . }}
-            {{- end }}
-            {{- with .Values.global.elasticsearch.useSSL }}
-            - name: ELASTICSEARCH_USE_SSL
-              value: {{ . | quote }}
-            {{- end }}
-            {{- with .Values.global.elasticsearch.auth }}
-            - name: ELASTICSEARCH_USERNAME
-              value: {{ .username }}
-            - name: ELASTICSEARCH_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: "{{ .password.secretRef }}"
-                  key: "{{ .password.secretKey }}"
             {{- end }}
           {{- with .Values.elasticsearchSetupJob.extraEnvs }}
             {{- toYaml . | nindent 12 }}
