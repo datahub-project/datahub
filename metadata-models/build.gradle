@@ -1,5 +1,6 @@
 apply plugin: 'pegasus'
 
+
 dependencies {
   compile spec.product.pegasus.data
   compile project(':li-utils')
@@ -12,3 +13,4 @@ dependencies {
 mainAvroSchemaJar.dependsOn generateAvroSchema
 
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
+

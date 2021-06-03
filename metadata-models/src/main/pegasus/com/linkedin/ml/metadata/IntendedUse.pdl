@@ -3,6 +3,9 @@ namespace com.linkedin.ml.metadata
 /**
  * Intended Use for the ML Model
  */
+@Aspect = {
+ "name": "intendedUse"
+}
 record IntendedUse {
 
   /**

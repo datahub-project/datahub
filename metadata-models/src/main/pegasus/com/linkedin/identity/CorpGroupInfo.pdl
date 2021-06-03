@@ -7,6 +7,9 @@ import com.linkedin.common.EmailAddress
 /**
  * group of corpUser, it may contains nested group
  */
+@Aspect = {
+  "name": "corpGroupInfo"
+}
 @Aspect.EntityUrns = [ "com.linkedin.common.CorpGroupUrn" ]
 record CorpGroupInfo {
 
@@ -18,15 +21,33 @@ record CorpGroupInfo {
   /**
    * owners of this group
    */
+  @Relationship = {
+    "/*": {
+      "name": "OwnedBy",
+      "entityTypes": [ "corpUser" ]
+    }
+  }
   admins: array[CorpuserUrn]
 
   /**
    * List of ldap urn in this group.
    */
+  @Relationship = {
+    "/*": {
+      "name": "IsPartOf",
+      "entityTypes": [ "corpUser" ]
+    }
+  }
   members: array[CorpuserUrn]
 
   /**
    * List of groups in this group.
    */
+   @Relationship = {
+     "/*": {
+       "name": "IsPartOf",
+       "entityTypes": [ "corpGroup" ]
+     }
+   }
   groups: array[CorpGroupUrn]
 }

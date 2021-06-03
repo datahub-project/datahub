@@ -3,6 +3,9 @@ namespace com.linkedin.tag
 /**
  * Properties associated with a Tag
  */
+@Aspect = {
+  "name": "tagProperties"
+}
 record TagProperties {
 
   /**

@@ -280,7 +280,7 @@ public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
     }
 
     // Copied from an unused method in Datasets resource.
-    static DatasetSnapshot toSnapshot(@Nonnull final DatasetUrn datasetUrn, @Nonnull final Dataset dataset) {
+    public static DatasetSnapshot toSnapshot(@Nonnull final DatasetUrn datasetUrn, @Nonnull final Dataset dataset) {
         final List<DatasetAspect> aspects = new ArrayList<>();
         if (dataset.getProperties() != null) {
             aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, getDatasetPropertiesAspect(dataset)));

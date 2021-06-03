@@ -3,10 +3,16 @@ namespace com.linkedin.common
 /**
  * The status metadata of an entity, e.g. dataset, metric, feature, etc.
  */
+@Aspect = {
+  "name": "status"
+}
 record Status {
 
   /**
    * whether the entity is removed or not
    */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
   removed: boolean = false
 }

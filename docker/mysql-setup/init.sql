@@ -3,11 +3,12 @@ CREATE DATABASE IF NOT EXISTS DATAHUB_DB_NAME;
 USE DATAHUB_DB_NAME;
 
 -- create metadata aspect table
-create table if not exists metadata_aspect (
+create table if not exists metadata_aspect_v2 (
   urn                           varchar(500) not null,
   aspect                        varchar(200) not null,
   version                       bigint(20) not null,
   metadata                      longtext not null,
+  systemmetadata                longtext,
   createdon                     datetime(6) not null,
   createdby                     varchar(255) not null,
   createdfor                    varchar(255),
@@ -15,27 +16,27 @@ create table if not exists metadata_aspect (
 );
 
 -- create default records for datahub user if not exists
-CREATE TABLE temp_metadata_aspect LIKE metadata_aspect;
-INSERT INTO temp_metadata_aspect (urn, aspect, version, metadata, createdon, createdby) VALUES(
+CREATE TABLE temp_metadata_aspect_v2 LIKE metadata_aspect_v2;
+INSERT INTO temp_metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
-  'com.linkedin.identity.CorpUserInfo',
+  'corpUserInfo',
   0,
   '{"displayName":"Data Hub","active":true,"fullName":"Data Hub","email":"datahub@linkedin.com"}',
   now(),
   'urn:li:principal:datahub'
 ), (
   'urn:li:corpuser:datahub',
-  'com.linkedin.identity.CorpUserEditableInfo',
+  'corpUserEditableInfo',
   0,
   '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"}',
   now(),
   'urn:li:principal:datahub'
 );
 -- only add default records if metadata_aspect is empty
-INSERT INTO metadata_aspect
-SELECT * FROM temp_metadata_aspect
-WHERE NOT EXISTS (SELECT * from metadata_aspect);
-DROP TABLE temp_metadata_aspect;
+INSERT INTO metadata_aspect_v2
+SELECT * FROM temp_metadata_aspect_v2
+WHERE NOT EXISTS (SELECT * from metadata_aspect_v2);
+DROP TABLE temp_metadata_aspect_v2;
 
 -- create metadata index table
 CREATE TABLE IF NOT EXISTS metadata_index (
