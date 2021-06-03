@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch, sentinel
+from unittest.mock import MagicMock, patch
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import RecordEnvelope
