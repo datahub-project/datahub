@@ -62,7 +62,6 @@ export default function DescriptionField({ description, updatedDescription, onHo
                 e.preventDefault();
                 e.stopPropagation();
             }}
-            aria-hidden="true"
             hover={onHover ? 'true' : undefined}
         >
             <DescriptionText source={updatedDescription || description} />
