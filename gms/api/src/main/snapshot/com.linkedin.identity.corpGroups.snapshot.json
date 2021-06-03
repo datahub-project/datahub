@@ -107,8 +107,7 @@
             "Searchable" : {
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "hasValuesFieldName" : "hasTags",
-              "queryByDefault" : true
+              "hasValuesFieldName" : "hasTags"
             }
           } ]
         }

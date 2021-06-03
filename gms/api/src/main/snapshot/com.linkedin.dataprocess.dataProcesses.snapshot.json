@@ -131,7 +131,8 @@
       "Searchable" : {
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "hasValuesFieldName" : "hasOwners"
+        "hasValuesFieldName" : "hasOwners",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -280,7 +281,8 @@
             "/*" : {
               "fieldName" : "inputs",
               "fieldType" : "URN",
-              "numValuesFieldName" : "numInputDatasets"
+              "numValuesFieldName" : "numInputDatasets",
+              "queryByDefault" : false
             }
           }
         }, {
@@ -301,7 +303,8 @@
             "/*" : {
               "fieldName" : "outputs",
               "fieldType" : "URN",
-              "numValuesFieldName" : "numOutputDatasets"
+              "numValuesFieldName" : "numOutputDatasets",
+              "queryByDefault" : false
             }
           }
         } ],
@@ -329,8 +332,7 @@
         "Searchable" : {
           "boostScore" : 4.0,
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "orchestrator",
@@ -338,15 +340,15 @@
         "doc" : "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "origin",
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where dataset belongs to or where it was generated.",
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "TEXT_PARTIAL",
+          "queryByDefault" : false
         }
       } ],
       "Aspect" : {
