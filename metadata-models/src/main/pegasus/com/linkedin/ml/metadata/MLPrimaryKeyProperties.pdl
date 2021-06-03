@@ -6,11 +6,19 @@ import com.linkedin.common.VersionTag
 /**
  * Properties associated with a MLPrimaryKey
  */
+@Aspect = {
+  "name": "mlPrimaryKeyProperties"
+}
 record MLPrimaryKeyProperties {
 
   /**
    * Documentation of the MLPrimaryKey
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "queryByDefault": true,
+    "hasValuesFieldName": "hasDescription"
+  }
   description: optional string
 
   /**
@@ -26,5 +34,11 @@ record MLPrimaryKeyProperties {
   /**
   * Source of the MLPrimaryKey
   */
+  @Relationship = {
+    "/*": {
+      "name": "From",
+      "entityTypes": [ "mlFeatureSourceType" ]
+    }
+  }
   sources: array[MLFeatureSourceType]
 }

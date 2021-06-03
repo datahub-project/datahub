@@ -1,25 +1,26 @@
 namespace com.linkedin.metadata.key
 
+import com.linkedin.common.Urn
+
 /**
- * Key for an ML feature
+ * Key for an ML primary key
  */
 @Aspect = {
-  "name": "mlFeatureKey"
+  "name": "mlPrimaryKeyKey"
 }
-record MLFeatureKey {
-
+record MLPrimaryKeyKey {
   /**
-   * Namespace for the feature
-   */
+  * Namespace for the primary key
+  */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "URN",
     "addToFilters": true
   }
-  featureNamespace: string
+  platform: Urn
 
   /**
-   * Name of the feature table containing the feature
-   */
+  * Name of the feature table containing the primary key
+  */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "addToFilters": true,
@@ -28,8 +29,8 @@ record MLFeatureKey {
   parentTableName: string
 
   /**
-   * Name of the feature
-   */
+  * Name of the primary key
+  */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,

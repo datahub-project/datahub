@@ -3539,16 +3539,18 @@ class GlossaryTermKeyClass(DictWrapper):
     
     
 class MLFeatureKeyClass(DictWrapper):
-    """Key for an ML model"""
+    """Key for an ML feature"""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLFeatureKey")
     def __init__(self,
         featureNamespace: str,
+        parentTableName: str,
         name: str,
     ):
         super().__init__()
         
         self.featureNamespace = featureNamespace
+        self.parentTableName = parentTableName
         self.name = name
     
     @classmethod
@@ -3560,6 +3562,7 @@ class MLFeatureKeyClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.featureNamespace = str()
+        self.parentTableName = str()
         self.name = str()
     
     
@@ -3573,6 +3576,18 @@ class MLFeatureKeyClass(DictWrapper):
     def featureNamespace(self, value: str) -> None:
         """Setter: Namespace for the feature"""
         self._inner_dict['featureNamespace'] = value
+    
+    
+    @property
+    def parentTableName(self) -> str:
+        """Getter: Name of the feature table containing the feature"""
+        return self._inner_dict.get('parentTableName')  # type: ignore
+    
+    
+    @parentTableName.setter
+    def parentTableName(self, value: str) -> None:
+        """Setter: Name of the feature table containing the feature"""
+        self._inner_dict['parentTableName'] = value
     
     
     @property

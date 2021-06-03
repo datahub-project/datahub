@@ -3,9 +3,10 @@ namespace com.linkedin.metadata.snapshot
 import com.linkedin.common.MLFeatureTableUrn
 import com.linkedin.metadata.aspect.MLFeatureTableAspect
 
-/**
- * MLFeatureTable Snapshot entity details.
- */
+@Entity = {
+  "name": "mlFeatureTable",
+  "keyAspect": "mlFeatureTableKey"
+}
 record MLFeatureTableSnapshot {
 
   /**

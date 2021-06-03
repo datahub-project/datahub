@@ -3,6 +3,10 @@ namespace com.linkedin.metadata.snapshot
 import com.linkedin.common.MLPrimaryKeyUrn
 import com.linkedin.metadata.aspect.MLPrimaryKeyAspect
 
+@Entity = {
+  "name": "mlPrimaryKey",
+  "keyAspect": "mlPrimaryKeyKey"
+}
 record MLPrimaryKeySnapshot {
 
   /**

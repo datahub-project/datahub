@@ -3607,7 +3607,12 @@
                           "string"
                         ],
                         "doc": "Documentation of the MLPrimaryKey",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT",
+                          "hasValuesFieldName": "hasDescription",
+                          "queryByDefault": true
+                        }
                       },
                       {
                         "name": "dataType",
@@ -3676,9 +3681,20 @@
                             "string"
                           ]
                         },
-                        "doc": "Source of the MLPrimaryKey"
+                        "doc": "Source of the MLPrimaryKey",
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlFeatureSourceType"
+                            ],
+                            "name": "From"
+                          }
+                        }
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "mlPrimaryKeyProperties"
+                    }
                   },
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   "com.linkedin.pegasus2avro.common.Status",
@@ -3711,17 +3727,37 @@
                     "type": "record",
                     "name": "MLFeatureKey",
                     "namespace": "com.linkedin.pegasus2avro.metadata.key",
-                    "doc": "Key for an ML model",
+                    "doc": "Key for an ML feature",
                     "fields": [
                       {
                         "name": "featureNamespace",
                         "type": "string",
-                        "doc": "Namespace for the feature"
+                        "doc": "Namespace for the feature",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      },
+                      {
+                        "name": "parentTableName",
+                        "type": "string",
+                        "doc": "Name of the feature table containing the feature",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "boostScore": 4.0,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       },
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "Name of the feature"
+                        "doc": "Name of the feature",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "boostScore": 8.0,
+                          "enableAutocomplete": true,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       }
                     ],
                     "Aspect": {
@@ -3741,7 +3777,12 @@
                           "string"
                         ],
                         "doc": "Documentation of the MLFeature",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT",
+                          "hasValuesFieldName": "hasDescription",
+                          "queryByDefault": true
+                        }
                       },
                       {
                         "name": "dataType",
@@ -3773,7 +3814,15 @@
                           }
                         ],
                         "doc": "Source of the MLFeature",
-                        "default": null
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlFeatureSourceType"
+                            ],
+                            "name": "From"
+                          }
+                        }
                       }
                     ],
                     "Aspect": {
@@ -3828,7 +3877,12 @@
                           "string"
                         ],
                         "doc": "Documentation of the MLFeatureTable",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT",
+                          "hasValuesFieldName": "hasDescription",
+                          "queryByDefault": true
+                        }
                       },
                       {
                         "name": "mlFeatures",
@@ -3840,7 +3894,15 @@
                           }
                         ],
                         "doc": "List of features contained in the feature set",
-                        "default": null
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlFeature"
+                            ],
+                            "name": "Contains"
+                          }
+                        }
                       },
                       {
                         "name": "mlPrimaryKeys",
@@ -3852,9 +3914,20 @@
                           }
                         ],
                         "doc": "List of primary keys in the feature set (if multiple, assumed to act as a composite key)",
-                        "default": null
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlPrimaryKey"
+                            ],
+                            "name": "Keyed by"
+                          }
+                        }
                       }
-                    ]
+                    ],
+                    "Aspect": {
+                      "name": "mlFeatureTableProperties"
+                    }
                   },
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   "com.linkedin.pegasus2avro.common.Status",

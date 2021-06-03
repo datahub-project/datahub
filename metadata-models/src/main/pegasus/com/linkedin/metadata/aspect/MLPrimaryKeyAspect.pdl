@@ -1,5 +1,6 @@
 namespace com.linkedin.metadata.aspect
 
+import com.linkedin.metadata.key.MLPrimaryKeyKey
 import com.linkedin.common.InstitutionalMemory
 import com.linkedin.common.Ownership
 import com.linkedin.common.Status
@@ -10,6 +11,7 @@ import com.linkedin.common.Deprecation
  * A union of all supported metadata aspects for a MLPrimaryKey
  */
 typeref MLPrimaryKeyAspect = union[
+  MLPrimaryKeyKey,
   Ownership,
   MLPrimaryKeyProperties,
   InstitutionalMemory,
