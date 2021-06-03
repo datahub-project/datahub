@@ -48,8 +48,8 @@ def generate(schema_file: str, outdir: str) -> None:
         # Truncate this file.
         pass
 
+    # Add headers for all generated files
     generated_files = Path(outdir).glob("**/*.py")
-
     for file in generated_files:
         suppress_checks_in_file(file)
 
