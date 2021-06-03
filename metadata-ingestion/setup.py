@@ -79,7 +79,7 @@ plugins: Dict[str, Set[str]] = {
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redshift": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "snowflake": sql_common | {"snowflake-sqlalchemy"},
     "oracle": sql_common | {"cx_Oracle"},
     "ldap": {"python-ldap>=2.4"},
