@@ -42,7 +42,7 @@ It is important that the following containers are pulled and deployed simultaneo
 From the `docker` directory:
 
 ```aidl
-docker-compose down && docker-compose pull && docker-compose -p datahub up --force-recreate
+docker-compose down --remove-orphans && docker-compose pull && docker-compose -p datahub up --force-recreate
 ```
 
 #### Helm
