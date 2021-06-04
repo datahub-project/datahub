@@ -25,7 +25,7 @@ task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadat
 
 task install(dependsOn: [installPackage, codegen])
 
-task installDev(type: Exec, dependsOn: [environmentSetup, codegen]) {
+task installDev(type: Exec, dependsOn: [install]) {
   commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev]'
 }
 task lint(type: Exec, dependsOn: installDev) {
