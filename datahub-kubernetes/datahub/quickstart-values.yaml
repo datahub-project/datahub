@@ -45,7 +45,7 @@ mysqlSetupJob:
     repository: acryldata/datahub-mysql-setup
     tag: "v0.8.0"
 
-datahubUpgradeJob:
+datahubUpgrade:
   enabled: true
   image:
     repository: acryldata/datahub-upgrade

@@ -79,11 +79,14 @@ documentation
 Upgrade to latest helm charts by running the following after pulling latest master.
 
 ```(shell)
-helm upgrade datahub datahub/ --values datahub/quickstart-values.yaml
+helm upgrade datahub datahub/
 ```
 
-This will upgrade all pods to version 0.8.0, and once all pods are up and ready, datahub-upgrade job will start,
-running the above docker image to migrate to the new stores.
+In the latest helm charts, we added a datahub-upgrade-job, which runs the above mentioned docker container to migrate to
+the new storage layer. Note, the job will fail in the beginning as it waits for GMS and MAE consumer to be deployed with
+the NoCode code. It will rerun until it runs successfully.
+
+Once the storage layer has been migrated, subsequent runs of this job will be a noop.
 
 ### Step 3 (Optional): Cleaning Up
 
@@ -119,33 +122,28 @@ documentation
 
 #### Helm Deployments
 
-TODO
-
-#### Docker Compose Deployments
-
-The easiest option is to execute the `run_upgrade.sh` script located under `docker/datahub-upgrade/nocode`.
+Assuming the latest helm chart has been deployed in the previous step, datahub-cleanup-job-template cronJob should have
+been created. You can check by running the following:
 
 ```
-cd docker/datahub-upgrade/nocode
-./upgrade.sh
+kubectl get cronjobs
 ```
 
-In both cases, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
-that your deployment is local. If this is not the case, you'll need to define your own environment variables to tell the
-upgrade system where your DataHub containers reside.
+You should see an output like below:
 
-You can either
+```
+NAME                                   SCHEDULE     SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+datahub-datahub-cleanup-job-template   * * * * *    True      0        <none>          12m
+```
 
-1. Change `docker/datahub-upgrade/env/docker.env` in place and then run one of the above commands OR
-2. Define a new ".env" file containing your variables and
-   execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
+Note that the cronJob has been suspended. It is intended to be run in an adhoc fashion when ready to clean up. Make sure
+the migration was successful and DataHub is working as expected. Then run the following command to run the clean up job:
 
-To see the required environment variables, see the (datahub-upgrade)[../../docker/datahub-upgrade/README.md]
-documentation
+```
+kubectl create job --from=cronjob/<<release-name>>-datahub-cleanup-job-template datahub-cleanup-job
+```
 
-#### Helm Deployments
-
-TODO
+Replace release-name with the name of the helm release. If you followed the kubernetes guide, it should be "datahub". 
 
 ## Support
 
