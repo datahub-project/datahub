@@ -71,8 +71,21 @@ You can either
 2. Define a new ".env" file containing your variables and
    execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
 
-To see the required environment variables, see the (datahub-upgrade)[../../docker/datahub-upgrade/README.md]
-documentation
+To see the required environment variables, see the [datahub-upgrade](../../docker/datahub-upgrade/README.md)
+documentation.
+
+##### How to fix the "listening to port 5005" issue
+
+Fix for this issue have been published to the acryldata/datahub-upgrade:head tag. Please pull latest master and rerun
+the upgrade script.
+
+However, we have seen cases where the problematic docker image is cached and docker does not pull the latest version. If
+the script fails with the same error after pulling latest master, please run the following command to clear the docker
+image cache.
+
+```
+docker images -a | grep acryldata/datahub-upgrade | awk '{print $3}' | xargs docker rmi -f
+```
 
 #### Helm Deployments
 
@@ -82,8 +95,8 @@ Upgrade to latest helm charts by running the following after pulling latest mast
 helm upgrade datahub datahub/ --values datahub/quickstart-values.yaml
 ```
 
-This will upgrade all pods to version 0.8.0, and once all pods are up and ready, datahub-upgrade job will start,
-running the above docker image to migrate to the new stores.
+This will upgrade all pods to version 0.8.0, and once all pods are up and ready, datahub-upgrade job will start, running
+the above docker image to migrate to the new stores.
 
 ### Step 3 (Optional): Cleaning Up
 
@@ -92,8 +105,8 @@ validated that your DataHub deployment is healthy after performing the upgrade. 
 view your Metadata after the upgrade steps have been completed, you should be in good shape.
 
 In advanced DataHub deployments, or cases in which you cannot easily rebuild the state stored in DataHub, it is strongly
-advised that you do due diligence prior to running cleanup. This may involve manually inspecting the relational tables (
-metadata_aspect_v2), search indices, and graph topology.
+advised that you do due diligence prior to running cleanup. This may involve manually inspecting the relational
+tables (metadata_aspect_v2), search indices, and graph topology.
 
 #### Docker Compose Deployments
 
@@ -121,40 +134,9 @@ documentation
 
 TODO
 
-#### Docker Compose Deployments
-
-The easiest option is to execute the `run_upgrade.sh` script located under `docker/datahub-upgrade/nocode`.
-
-```
-cd docker/datahub-upgrade/nocode
-./upgrade.sh
-```
-
-In both cases, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
-that your deployment is local. If this is not the case, you'll need to define your own environment variables to tell the
-upgrade system where your DataHub containers reside.
-
-You can either
-
-1. Change `docker/datahub-upgrade/env/docker.env` in place and then run one of the above commands OR
-2. Define a new ".env" file containing your variables and
-   execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
-
-To see the required environment variables, see the (datahub-upgrade)[../../docker/datahub-upgrade/README.md]
-documentation
-
-#### Helm Deployments
-
-TODO
-
 ## Support
 
-The Acryl team will be on standby to assist you in your migration. Please do not hesitate to reach out to the following
-folks if you find trouble with the upgrade or have feedback on the process. We will work closely to make sure you can
-continue to operate DataHub smoothly.
-
-- John Joyce
-- Gabe Lyons
-- Dexter Lee
-
-If there is feedback on the process, please 
+The Acryl team will be on standby to assist you in your migration. Please
+join [#release-0_8_0](https://datahubspace.slack.com/archives/C0244FHMHJQ) channel and reach out to us if you find
+trouble with the upgrade or have feedback on the process. We will work closely to make sure you can continue to operate
+DataHub smoothly.
