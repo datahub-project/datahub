@@ -52,8 +52,6 @@ run the datahub-upgrade job, which will run the above docker container to migrat
 
 ### Step 2: Execute Migration Job
 
-For local deployments, there are two options.
-
 #### Docker Compose Deployments - Preserve Data
 
 If you do not care about migrating your data, you can refer to the Docker Compose Deployments - Lose All Existing Data
