@@ -3593,6 +3593,50 @@
               "type": {
                 "type": "array",
                 "items": [
+                  {
+                    "type": "record",
+                    "name": "MLPrimaryKeyKey",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                    "doc": "Key for an ML primary key",
+                    "fields": [
+                      {
+                        "name": "platform",
+                        "type": "string",
+                        "doc": "Namespace for the primary key",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "fieldType": "URN"
+                        },
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        }
+                      },
+                      {
+                        "name": "parentTableName",
+                        "type": "string",
+                        "doc": "Name of the feature table containing the primary key",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "boostScore": 4.0,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      },
+                      {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Name of the primary key",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "boostScore": 8.0,
+                          "enableAutocomplete": true,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlPrimaryKeyKey"
+                    }
+                  },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   {
                     "type": "record",
@@ -3703,7 +3747,11 @@
               },
               "doc": "The list of metadata aspects associated with the MLPrimaryKey. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
-          ]
+          ],
+          "Entity": {
+            "keyAspect": "mlPrimaryKeyKey",
+            "name": "mlPrimaryKey"
+          }
         },
         {
           "type": "record",
@@ -3848,7 +3896,6 @@
           "type": "record",
           "name": "MLFeatureTableSnapshot",
           "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
-          "doc": "MLFeatureTable Snapshot entity details.",
           "fields": [
             {
               "name": "urn",
@@ -3863,6 +3910,40 @@
               "type": {
                 "type": "array",
                 "items": [
+                  {
+                    "type": "record",
+                    "name": "MLFeatureTableKey",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                    "doc": "Key for an ML feature table",
+                    "fields": [
+                      {
+                        "name": "platform",
+                        "type": "string",
+                        "doc": "Data platform urn associated with the feature table",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "fieldType": "URN"
+                        },
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        }
+                      },
+                      {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Name of the feature table",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "boostScore": 8.0,
+                          "enableAutocomplete": true,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlFeatureTableKey"
+                    }
+                  },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   {
                     "type": "record",
@@ -3936,7 +4017,11 @@
               },
               "doc": "The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
-          ]
+          ],
+          "Entity": {
+            "keyAspect": "mlFeatureTableKey",
+            "name": "mlFeatureTable"
+          }
         },
         {
           "type": "record",

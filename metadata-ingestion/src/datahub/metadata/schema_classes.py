@@ -3602,6 +3602,55 @@ class MLFeatureKeyClass(DictWrapper):
         self._inner_dict['name'] = value
     
     
+class MLFeatureTableKeyClass(DictWrapper):
+    """Key for an ML feature table"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLFeatureTableKey")
+    def __init__(self,
+        platform: str,
+        name: str,
+    ):
+        super().__init__()
+        
+        self.platform = platform
+        self.name = name
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MLFeatureTableKeyClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.platform = str()
+        self.name = str()
+    
+    
+    @property
+    def platform(self) -> str:
+        """Getter: Data platform urn associated with the feature table"""
+        return self._inner_dict.get('platform')  # type: ignore
+    
+    
+    @platform.setter
+    def platform(self, value: str) -> None:
+        """Setter: Data platform urn associated with the feature table"""
+        self._inner_dict['platform'] = value
+    
+    
+    @property
+    def name(self) -> str:
+        """Getter: Name of the feature table"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        """Setter: Name of the feature table"""
+        self._inner_dict['name'] = value
+    
+    
 class MLModelKeyClass(DictWrapper):
     """Key for an ML model"""
     
@@ -3664,6 +3713,70 @@ class MLModelKeyClass(DictWrapper):
     def origin(self, value: Union[str, "FabricTypeClass"]) -> None:
         """Setter: Fabric type where model belongs to or where it was generated"""
         self._inner_dict['origin'] = value
+    
+    
+class MLPrimaryKeyKeyClass(DictWrapper):
+    """Key for an ML primary key"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLPrimaryKeyKey")
+    def __init__(self,
+        platform: str,
+        parentTableName: str,
+        name: str,
+    ):
+        super().__init__()
+        
+        self.platform = platform
+        self.parentTableName = parentTableName
+        self.name = name
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MLPrimaryKeyKeyClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.platform = str()
+        self.parentTableName = str()
+        self.name = str()
+    
+    
+    @property
+    def platform(self) -> str:
+        """Getter: Namespace for the primary key"""
+        return self._inner_dict.get('platform')  # type: ignore
+    
+    
+    @platform.setter
+    def platform(self, value: str) -> None:
+        """Setter: Namespace for the primary key"""
+        self._inner_dict['platform'] = value
+    
+    
+    @property
+    def parentTableName(self) -> str:
+        """Getter: Name of the feature table containing the primary key"""
+        return self._inner_dict.get('parentTableName')  # type: ignore
+    
+    
+    @parentTableName.setter
+    def parentTableName(self, value: str) -> None:
+        """Setter: Name of the feature table containing the primary key"""
+        self._inner_dict['parentTableName'] = value
+    
+    
+    @property
+    def name(self) -> str:
+        """Getter: Name of the primary key"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        """Setter: Name of the primary key"""
+        self._inner_dict['name'] = value
     
     
 class TagKeyClass(DictWrapper):
@@ -4289,12 +4402,12 @@ class MLFeatureSnapshotClass(DictWrapper):
     
     
 class MLFeatureTableSnapshotClass(DictWrapper):
-    """MLFeatureTable Snapshot entity details."""
+    # No docs available.
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["OwnershipClass", "MLFeatureTablePropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]],
+        aspects: List[Union["MLFeatureTableKeyClass", "OwnershipClass", "MLFeatureTablePropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]],
     ):
         super().__init__()
         
@@ -4326,13 +4439,13 @@ class MLFeatureTableSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["OwnershipClass", "MLFeatureTablePropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]:
+    def aspects(self) -> List[Union["MLFeatureTableKeyClass", "OwnershipClass", "MLFeatureTablePropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]:
         """Getter: The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["OwnershipClass", "MLFeatureTablePropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]) -> None:
+    def aspects(self, value: List[Union["MLFeatureTableKeyClass", "OwnershipClass", "MLFeatureTablePropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -4392,7 +4505,7 @@ class MLPrimaryKeySnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["OwnershipClass", "MLPrimaryKeyPropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]],
+        aspects: List[Union["MLPrimaryKeyKeyClass", "OwnershipClass", "MLPrimaryKeyPropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]],
     ):
         super().__init__()
         
@@ -4424,13 +4537,13 @@ class MLPrimaryKeySnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["OwnershipClass", "MLPrimaryKeyPropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]:
+    def aspects(self) -> List[Union["MLPrimaryKeyKeyClass", "OwnershipClass", "MLPrimaryKeyPropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]:
         """Getter: The list of metadata aspects associated with the MLPrimaryKey. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["OwnershipClass", "MLPrimaryKeyPropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]) -> None:
+    def aspects(self, value: List[Union["MLPrimaryKeyKeyClass", "OwnershipClass", "MLPrimaryKeyPropertiesClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the MLPrimaryKey. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -7103,7 +7216,9 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.key.GlossaryNodeKey': GlossaryNodeKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.GlossaryTermKey': GlossaryTermKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLFeatureKey': MLFeatureKeyClass,
+    'com.linkedin.pegasus2avro.metadata.key.MLFeatureTableKey': MLFeatureTableKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLModelKey': MLModelKeyClass,
+    'com.linkedin.pegasus2avro.metadata.key.MLPrimaryKeyKey': MLPrimaryKeyKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.TagKey': TagKeyClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot': ChartSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot': CorpGroupSnapshotClass,
@@ -7236,7 +7351,9 @@ __SCHEMA_TYPES = {
     'GlossaryNodeKey': GlossaryNodeKeyClass,
     'GlossaryTermKey': GlossaryTermKeyClass,
     'MLFeatureKey': MLFeatureKeyClass,
+    'MLFeatureTableKey': MLFeatureTableKeyClass,
     'MLModelKey': MLModelKeyClass,
+    'MLPrimaryKeyKey': MLPrimaryKeyKeyClass,
     'TagKey': TagKeyClass,
     'ChartSnapshot': ChartSnapshotClass,
     'CorpGroupSnapshot': CorpGroupSnapshotClass,
