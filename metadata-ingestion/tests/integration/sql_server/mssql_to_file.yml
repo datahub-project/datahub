@@ -7,8 +7,10 @@ source:
     password: test!Password
     database: DemoData
     host_port: localhost:51433
+    use_odbc: False
+    uri_args: {}
 
 sink:
   type: file
   config:
-    filename: './mssql_mces.json'
+    filename: "./mssql_mces.json"
