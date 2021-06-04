@@ -55,29 +55,35 @@ public class EbeanEntityService extends EntityService {
     final Set<EbeanAspectV2.PrimaryKey> dbKeys = urns.stream()
         .map(urn -> {
           final Set<String> aspectsToFetch = aspectNames.isEmpty()
-              ? getEntityAspectNames(urn)
-              : aspectNames;
+            ? getEntityAspectNames(urn)
+            : aspectNames;
           return aspectsToFetch.stream()
-              .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, LATEST_ASPECT_VERSION))
-              .collect(Collectors.toList());
+            .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, LATEST_ASPECT_VERSION))
+            .collect(Collectors.toList());
         })
         .flatMap(List::stream)
         .collect(Collectors.toSet());
 
     // Fetch from db and populate urn -> aspect map.
     final Map<Urn, List<RecordTemplate>> urnToAspects = new HashMap<>();
+
+    // Each urn should have some result, regardless of whether aspects are found in the DB.
+    for (Urn urn: urns) {
+      urnToAspects.putIfAbsent(urn, new ArrayList<>());
+    }
+
+    // Add "key" aspects for each urn. TODO: Replace this with a materialized key aspect.
+    urnToAspects.keySet().forEach(key -> {
+      final RecordTemplate keyAspect = buildKeyAspect(key);
+      urnToAspects.get(key).add(keyAspect);
+    });
+
     _entityDao.batchGet(dbKeys).forEach((key, aspectEntry) -> {
       final Urn urn = toUrn(key.getUrn());
       final String aspectName = key.getAspect();
       final RecordTemplate aspectRecord = toAspectRecord(urn, aspectName, aspectEntry.getMetadata());
       urnToAspects.putIfAbsent(urn, new ArrayList<>());
       urnToAspects.get(urn).add(aspectRecord);
-    });
-
-    // Add "key" aspects to any non null keys.
-    urnToAspects.keySet().forEach(key -> {
-      final RecordTemplate keyAspect = buildKeyAspect(key);
-      urnToAspects.get(key).add(keyAspect);
     });
 
     return urnToAspects;
