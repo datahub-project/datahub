@@ -92,11 +92,14 @@ docker images -a | grep acryldata/datahub-upgrade | awk '{print $3}' | xargs doc
 Upgrade to latest helm charts by running the following after pulling latest master.
 
 ```(shell)
-helm upgrade datahub datahub/ --values datahub/quickstart-values.yaml
+helm upgrade datahub datahub/
 ```
 
-This will upgrade all pods to version 0.8.0, and once all pods are up and ready, datahub-upgrade job will start, running
-the above docker image to migrate to the new stores.
+In the latest helm charts, we added a datahub-upgrade-job, which runs the above mentioned docker container to migrate to
+the new storage layer. Note, the job will fail in the beginning as it waits for GMS and MAE consumer to be deployed with
+the NoCode code. It will rerun until it runs successfully.
+
+Once the storage layer has been migrated, subsequent runs of this job will be a noop.
 
 ### Step 3 (Optional): Cleaning Up
 
@@ -132,7 +135,28 @@ documentation
 
 #### Helm Deployments
 
-TODO
+Assuming the latest helm chart has been deployed in the previous step, datahub-cleanup-job-template cronJob should have
+been created. You can check by running the following:
+
+```
+kubectl get cronjobs
+```
+
+You should see an output like below:
+
+```
+NAME                                   SCHEDULE     SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+datahub-datahub-cleanup-job-template   * * * * *    True      0        <none>          12m
+```
+
+Note that the cronJob has been suspended. It is intended to be run in an adhoc fashion when ready to clean up. Make sure
+the migration was successful and DataHub is working as expected. Then run the following command to run the clean up job:
+
+```
+kubectl create job --from=cronjob/<<release-name>>-datahub-cleanup-job-template datahub-cleanup-job
+```
+
+Replace release-name with the name of the helm release. If you followed the kubernetes guide, it should be "datahub".
 
 ## Support
 
