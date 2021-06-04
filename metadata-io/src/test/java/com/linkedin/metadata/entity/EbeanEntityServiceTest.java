@@ -70,12 +70,12 @@ public class EbeanEntityServiceTest {
     assertEquals(2, readEntity.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
     assertTrue(DataTemplateUtil.areEqual(
         writeEntity.getValue().getCorpUserSnapshot().getAspects().get(0),
-        readEntity.getValue().getCorpUserSnapshot().getAspects().get(0)));
+        readEntity.getValue().getCorpUserSnapshot().getAspects().get(1)));
     CorpUserKey expectedKey = new CorpUserKey();
     expectedKey.setUsername("test");
     assertTrue(DataTemplateUtil.areEqual(
         expectedKey,
-        readEntity.getValue().getCorpUserSnapshot().getAspects().get(1).getCorpUserKey()
+        readEntity.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey()
     )); // Key + Info aspect.
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(
@@ -108,12 +108,12 @@ public class EbeanEntityServiceTest {
     assertEquals(2, readEntity1.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
     assertTrue(DataTemplateUtil.areEqual(
         writeEntity1.getValue().getCorpUserSnapshot().getAspects().get(0),
-        readEntity1.getValue().getCorpUserSnapshot().getAspects().get(0)));
+        readEntity1.getValue().getCorpUserSnapshot().getAspects().get(1)));
     CorpUserKey expectedKey1 = new CorpUserKey();
     expectedKey1.setUsername("tester1");
     assertTrue(DataTemplateUtil.areEqual(
         expectedKey1,
-        readEntity1.getValue().getCorpUserSnapshot().getAspects().get(1).getCorpUserKey()
+        readEntity1.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey()
     )); // Key + Info aspect.
 
     // Entity 2
@@ -121,12 +121,12 @@ public class EbeanEntityServiceTest {
     assertEquals(2, readEntity2.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
     assertTrue(DataTemplateUtil.areEqual(
         writeEntity2.getValue().getCorpUserSnapshot().getAspects().get(0),
-        readEntity2.getValue().getCorpUserSnapshot().getAspects().get(0)));
+        readEntity2.getValue().getCorpUserSnapshot().getAspects().get(1)));
     CorpUserKey expectedKey2 = new CorpUserKey();
     expectedKey2.setUsername("tester2");
     assertTrue(DataTemplateUtil.areEqual(
         expectedKey2,
-        readEntity2.getValue().getCorpUserSnapshot().getAspects().get(1).getCorpUserKey()
+        readEntity2.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey()
     )); // Key + Info aspect.
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(
