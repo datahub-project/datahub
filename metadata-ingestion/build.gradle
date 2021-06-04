@@ -25,7 +25,7 @@ task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadat
 
 task install(dependsOn: [installPackage, codegen])
 
-task installDev(type: Exec, dependsOn: [environmentSetup, codegen]) {
+task installDev(type: Exec, dependsOn: [install]) {
   commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev]'
 }
 task lint(type: Exec, dependsOn: installDev) {
@@ -51,7 +51,6 @@ check.dependsOn lint
 check.dependsOn test
 
 clean {
-  delete 'src/datahub/metadata'
   delete venv_name
   delete 'build'
   delete 'dist'
