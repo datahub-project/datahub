@@ -55,11 +55,11 @@ public class EbeanEntityService extends EntityService {
     final Set<EbeanAspectV2.PrimaryKey> dbKeys = urns.stream()
         .map(urn -> {
           final Set<String> aspectsToFetch = aspectNames.isEmpty()
-              ? getEntityAspectNames(urn)
-              : aspectNames;
+            ? getEntityAspectNames(urn)
+            : aspectNames;
           return aspectsToFetch.stream()
-                  .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, LATEST_ASPECT_VERSION))
-                  .collect(Collectors.toList());
+            .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, LATEST_ASPECT_VERSION))
+            .collect(Collectors.toList());
         })
         .flatMap(List::stream)
         .collect(Collectors.toSet());
