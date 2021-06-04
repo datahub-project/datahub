@@ -508,7 +508,7 @@ type InstitutionalMemoryMetadata {
     """
     The author of this metadata
     """
-    author: CorpUser!
+    author: CorpUser
 
     """
     An AuditStamp corresponding to the creation of this resource
@@ -699,7 +699,7 @@ type RelatedDataset {
     """
     The upstream dataset the lineage points to
     """
-    dataset: Dataset!
+    dataset: Dataset
     """
     The type of the lineage
     """
@@ -985,12 +985,12 @@ type CorpGroupInfo {
     """
     owners of this group
     """
-    admins: [CorpUser!]
+    admins: [CorpUser]
 
     """
     List of ldap urn in this group.
     """
-    members: [CorpUser!]
+    members: [CorpUser]
 
     """
     List of groups in this group.
@@ -1004,7 +1004,7 @@ type Owner {
     """
     Owner object
     """
-    owner: OwnerType!
+    owner: OwnerType
 
     """
     The type of the ownership
@@ -1021,7 +1021,7 @@ type Ownership {
     """
     List of owners of the entity
     """
-    owners: [Owner!]
+    owners: [Owner]
 
     """
       Audit stamp containing who last modified the record and when
@@ -1049,7 +1049,7 @@ type Tag implements Entity {
 }
 
 type TagAssociation {
-    tag: Tag!
+    tag: Tag
 }
 
 type GlobalTags {
@@ -1617,7 +1617,7 @@ type DashboardInfo {
     """
     Charts that comprise the dashboard
     """
-    charts: [Chart!]!
+    charts: [Chart]!
 
     """
     Native platform URL of the dashboard
@@ -1738,7 +1738,7 @@ type ChartInfo {
     """
     Data sources for the chart
     """
-    inputs: [Dataset!]
+    inputs: [Dataset]
 
     """
     Native platform URL of the chart
@@ -2418,16 +2418,16 @@ type DataJobInputOutput {
     """
     Input datasets produced by the data job during processing
     """
-    inputDatasets: [Dataset!]
+    inputDatasets: [Dataset]
 
     """
     Output datasets produced by the data job during processing
     """
-    outputDatasets: [Dataset!]
+    outputDatasets: [Dataset]
 
     """
     Input datajobs that this data job depends on
     """
-    inputDatajobs: [DataJob!]
+    inputDatajobs: [DataJob]
 
 }

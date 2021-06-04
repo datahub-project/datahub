@@ -24,7 +24,10 @@ export default function constructTree(
     };
     root.children = getChildren(entityAndType, direction)
         .map((child) => {
-            if (child.entity.urn === root.urn) {
+            if (child?.entity?.urn === root.urn) {
+                return null;
+            }
+            if (!child?.entity?.urn) {
                 return null;
             }
             return constructFetchedNode(child.entity.urn, fetchedEntities, direction, constructedNodes, [

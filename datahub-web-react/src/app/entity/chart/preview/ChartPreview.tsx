@@ -19,7 +19,7 @@ export const ChartPreview = ({
     name?: string;
     description?: string | null;
     access?: AccessLevel | null;
-    owners?: Array<Owner> | null;
+    owners?: Array<Owner | null> | null;
     tags?: GlobalTags;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();

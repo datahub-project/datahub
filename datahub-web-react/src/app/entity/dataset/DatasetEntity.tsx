@@ -112,10 +112,10 @@ export class DatasetEntity implements Entity<Dataset> {
             name: entity.name,
             type: EntityType.Dataset,
             upstreamChildren: getChildren({ entity, type: EntityType.Dataset }, Direction.Upstream).map(
-                (child) => child.entity.urn,
+                (child) => child?.entity?.urn,
             ),
             downstreamChildren: getChildren({ entity, type: EntityType.Dataset }, Direction.Downstream).map(
-                (child) => child.entity.urn,
+                (child) => child?.entity?.urn,
             ),
             icon: entity.platform.info?.logoUrl || undefined,
             platform: entity.platform.name,

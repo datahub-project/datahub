@@ -8,6 +8,7 @@ import {
     OwnershipSourceType,
     OwnershipType,
     OwnershipUpdate,
+    OwnerUpdate,
 } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
@@ -23,7 +24,7 @@ const OWNER_SEARCH_PLACEHOLDER = 'Search an LDAP';
 const NUMBER_OWNERS_REQUIRED = 2;
 
 interface Props {
-    owners: Array<Owner>;
+    owners: Array<Owner | null>;
     lastModifiedAt: number;
     updateOwnership: (update: OwnershipUpdate) => void;
 }
@@ -50,7 +51,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
         () =>
             // eslint-disable-next-line consistent-return, array-callback-return
             stagedOwners.map((owner, index) => {
-                if (owner.owner.__typename === 'CorpUser') {
+                if (owner?.owner?.__typename === 'CorpUser') {
                     return {
                         key: index,
                         urn: owner.owner.urn,
@@ -61,7 +62,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                         type: EntityType.CorpUser,
                     };
                 }
-                if (owner.owner.__typename === 'CorpGroup') {
+                if (owner?.owner?.__typename === 'CorpGroup') {
                     return {
                         key: index,
                         urn: owner.owner.urn,
@@ -73,11 +74,11 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                 }
                 return {
                     key: index,
-                    urn: owner.owner.urn,
-                    ldap: (owner.owner as CorpUser).username,
-                    fullName: (owner.owner as CorpUser).info?.fullName || (owner.owner as CorpUser).username,
-                    role: owner.type,
-                    pictureLink: (owner.owner as CorpUser).editableInfo?.pictureLink,
+                    urn: owner?.owner?.urn,
+                    ldap: (owner?.owner as CorpUser)?.username,
+                    fullName: (owner?.owner as CorpUser)?.info?.fullName || (owner?.owner as CorpUser)?.username,
+                    role: owner?.type,
+                    pictureLink: (owner?.owner as CorpUser)?.editableInfo?.pictureLink,
                     type: EntityType.CorpUser,
                 };
             }),
@@ -114,11 +115,12 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
 
     const onDelete = (urn: string, role: OwnershipType) => {
         const updatedOwners = owners
-            .filter((owner) => !(owner.owner.urn === urn && owner.type === role))
+            .filter((owner) => !(owner?.owner?.urn === urn && owner.type === role))
             .map((owner) => ({
-                owner: owner.owner.urn,
-                type: owner.type,
-            }));
+                owner: owner?.owner?.urn,
+                type: owner?.type,
+            }))
+            .filter((owner) => owner.owner) as OwnerUpdate[];
 
         updateOwnership({ owners: updatedOwners });
     };
@@ -141,18 +143,20 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
 
     const onSave = async (record: any) => {
         const row = await form.validateFields();
-        const updatedOwners = stagedOwners.map((owner, index) => {
-            if (record.key === index) {
+        const updatedOwners = stagedOwners
+            .map((owner, index) => {
+                if (record.key === index) {
+                    return {
+                        owner: `urn:li:${row.type === EntityType.CorpGroup ? 'corpGroup' : 'corpuser'}:${row.ldap}`,
+                        type: row.role,
+                    };
+                }
                 return {
-                    owner: `urn:li:${row.type === EntityType.CorpGroup ? 'corpGroup' : 'corpuser'}:${row.ldap}`,
-                    type: row.role,
+                    owner: owner?.owner?.urn,
+                    type: owner?.type,
                 };
-            }
-            return {
-                owner: owner.owner.urn,
-                type: owner.type,
-            };
-        });
+            })
+            .filter((owner) => owner.owner) as OwnerUpdate[];
         updateOwnership({ owners: updatedOwners });
         setEditingIndex(-1);
     };

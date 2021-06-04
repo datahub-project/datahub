@@ -66,7 +66,7 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
     }
 
     const onOk = () => {
-        if (!globalTags?.tags?.some((tag) => tag.tag.name === selectedTagValue)) {
+        if (!globalTags?.tags?.some((tag) => tag?.tag?.name === selectedTagValue)) {
             setDisableAdd(true);
             updateTags?.({
                 tags: [

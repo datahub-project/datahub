@@ -17,7 +17,7 @@ interface Props {
     platform?: string;
     qualifier?: string | null;
     tags?: GlobalTags;
-    owners?: Array<Owner> | null;
+    owners?: Array<Owner | null> | null;
     snippet?: React.ReactNode;
     glossaryTerms?: GlossaryTerms;
     dataTestID?: string;

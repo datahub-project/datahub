@@ -5,6 +5,7 @@ import {
     CorpUser,
     EntityType,
     InstitutionalMemoryMetadata,
+    InstitutionalMemoryMetadataUpdate,
     InstitutionalMemoryUpdate,
 } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -61,7 +62,7 @@ export default function Documentation({
         () =>
             stagedDocs.map((doc, index) => ({
                 key: index,
-                author: { urn: doc.author.urn, username: doc.author.username, type: EntityType.CorpUser },
+                author: { urn: doc?.author?.urn, username: doc?.author?.username, type: EntityType.CorpUser },
                 url: doc.url,
                 description: doc.description,
                 createdAt: doc.created.time,
@@ -95,22 +96,24 @@ export default function Documentation({
     const onSave = async (record: any) => {
         const row = await form.validateFields();
 
-        const updatedInstitutionalMemory = stagedDocs.map((doc, index) => {
-            if (record.key === index) {
+        const updatedInstitutionalMemory = stagedDocs
+            .map((doc, index) => {
+                if (record.key === index) {
+                    return {
+                        url: row.url,
+                        description: row.description,
+                        author: doc.author?.urn,
+                        createdAt: doc.created.time,
+                    };
+                }
                 return {
-                    url: row.url,
-                    description: row.description,
-                    author: doc.author.urn,
+                    author: doc.author?.urn,
+                    url: doc.url,
+                    description: doc.description,
                     createdAt: doc.created.time,
                 };
-            }
-            return {
-                author: doc.author.urn,
-                url: doc.url,
-                description: doc.description,
-                createdAt: doc.created.time,
-            };
-        });
+            })
+            .filter((doc) => doc.author) as InstitutionalMemoryMetadataUpdate[];
         updateDocumentation({ elements: updatedInstitutionalMemory });
         setEditingIndex(-1);
     };
@@ -123,11 +126,13 @@ export default function Documentation({
 
     const onDelete = (index: number) => {
         const newDocs = stagedDocs.filter((_, i) => !(index === i));
-        const updatedInstitutionalMemory = newDocs.map((doc) => ({
-            author: doc.author.urn,
-            url: doc.url,
-            description: doc.description,
-        }));
+        const updatedInstitutionalMemory = newDocs
+            .map((doc) => ({
+                author: doc.author?.urn,
+                url: doc.url,
+                description: doc.description,
+            }))
+            .filter((doc) => doc.author) as InstitutionalMemoryMetadataUpdate[];
         updateDocumentation({ elements: updatedInstitutionalMemory });
         setStagedDocs(newDocs);
     };

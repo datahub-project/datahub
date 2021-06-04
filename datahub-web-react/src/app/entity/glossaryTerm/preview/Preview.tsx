@@ -13,7 +13,7 @@ export const Preview = ({
     urn: string;
     name: string;
     definition?: string | null;
-    owners?: Array<Owner> | null;
+    owners?: Array<Owner | null> | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (

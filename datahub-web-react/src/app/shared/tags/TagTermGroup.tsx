@@ -39,11 +39,11 @@ export default function TagTermGroup({
 
     const removeTag = (urnToRemove: string) => {
         onOpenModal?.();
-        const tagToRemove = editableTags?.tags?.find((tag) => tag.tag.urn === urnToRemove);
-        const newTags = editableTags?.tags?.filter((tag) => tag.tag.urn !== urnToRemove);
+        const tagToRemove = editableTags?.tags?.find((tag) => tag?.tag?.urn === urnToRemove);
+        const newTags = editableTags?.tags?.filter((tag) => tag?.tag?.urn !== urnToRemove);
         Modal.confirm({
-            title: `Do you want to remove ${tagToRemove?.tag.name} tag?`,
-            content: `Are you sure you want to remove the ${tagToRemove?.tag.name} tag?`,
+            title: `Do you want to remove ${tagToRemove?.tag?.name} tag?`,
+            content: `Are you sure you want to remove the ${tagToRemove?.tag?.name} tag?`,
             onOk() {
                 updateTags?.({ tags: convertTagsForUpdate(newTags || []) });
             },
@@ -74,9 +74,9 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
+                    <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag?.tag?.urn}`} key={tag?.tag?.urn}>
                         <Tag color="blue" closable={false}>
-                            {tag.tag.name}
+                            {tag?.tag?.name}
                         </Tag>
                     </Link>
                 );
@@ -86,16 +86,18 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
+                    <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag?.tag?.urn}`} key={tag?.tag?.urn}>
                         <Tag
                             color="blue"
                             closable={canRemove}
                             onClose={(e) => {
                                 e.preventDefault();
-                                removeTag(tag.tag.urn);
+                                if (tag?.tag?.urn) {
+                                    removeTag(tag?.tag?.urn);
+                                }
                             }}
                         >
-                            {tag.tag.name}
+                            {tag?.tag?.name}
                         </Tag>
                     </Link>
                 );
