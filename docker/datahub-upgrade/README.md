@@ -71,7 +71,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
 2. Pull (or build) & execute the `datahub-upgrade` container:
 
 ```aidl
-docker pull acryldata/datahub-upgrade && docker run --env-file *path-to-custom-env-file.env* acryldata/datahub-upgrade:latest -u NoCodeDataMigration
+docker pull acryldata/datahub-upgrade:head && docker run --env-file *path-to-custom-env-file.env* acryldata/datahub-upgrade:head -u NoCodeDataMigration
 ```
 
 ## Arguments
@@ -88,7 +88,7 @@ For example, to run the migration named "NoCodeDataMigration", you would do exec
 OR
 
 ```aidl
-docker pull acryldata/datahub-upgrade && docker run --env-file env/docker.env acryldata/datahub-upgrade:latest -u NoCodeDataMigration
+docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker.env acryldata/datahub-upgrade:head -u NoCodeDataMigration
 ```
 
 In addition to the required `-u` argument, each upgrade may require specific arguments. You can provide arguments to individual
@@ -104,5 +104,5 @@ To specify these, you can use a combination of `-a` arguments and of the form *a
 OR 
 
 ```aidl
-docker pull acryldata/datahub-upgrade && docker run --env-file env/docker.env acryldata/datahub-upgrade:latest -u NoCodeDataMigration -a batchSize=500 -a batchDelayMs=1000
+docker pull acryldata/datahub-upgrade:head && docker run --env-file env/docker.env acryldata/datahub-upgrade:head -u NoCodeDataMigration -a batchSize=500 -a batchDelayMs=1000
 ```
