@@ -171,9 +171,9 @@ public abstract class EntityService {
   }
 
   /**
-   * Retrieves multiple entities of <b>the same type</b>.
+   * Retrieves multiple entities.
    *
-   * @param urns set of urns of the same entity type to fetch
+   * @param urns set of urns to fetch
    * @param aspectNames set of aspects to fetch
    * @return a map of {@link Urn} to {@link Entity} object
    */
