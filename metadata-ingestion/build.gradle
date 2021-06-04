@@ -51,7 +51,6 @@ check.dependsOn lint
 check.dependsOn test
 
 clean {
-  delete 'src/datahub/metadata'
   delete venv_name
   delete 'build'
   delete 'dist'
