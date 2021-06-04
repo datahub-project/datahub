@@ -293,8 +293,7 @@
             "Searchable" : {
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "hasValuesFieldName" : "hasTags",
-              "queryByDefault" : true
+              "hasValuesFieldName" : "hasTags"
             }
           } ]
         }
@@ -409,7 +408,8 @@
       "Searchable" : {
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "hasValuesFieldName" : "hasOwners"
+        "hasValuesFieldName" : "hasOwners",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -816,8 +816,7 @@
                 "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
                 "Searchable" : {
                   "fieldName" : "fieldPaths",
-                  "fieldType" : "TEXT_PARTIAL",
-                  "queryByDefault" : true
+                  "fieldType" : "TEXT_PARTIAL"
                 }
               }, {
                 "name" : "jsonPath",
@@ -837,8 +836,7 @@
                 "Searchable" : {
                   "boostScore" : 0.1,
                   "fieldName" : "fieldDescriptions",
-                  "fieldType" : "TEXT",
-                  "queryByDefault" : true
+                  "fieldType" : "TEXT"
                 }
               }, {
                 "name" : "type",
@@ -962,8 +960,7 @@
                   "/tags/*/tag" : {
                     "boostScore" : 0.5,
                     "fieldName" : "fieldTags",
-                    "fieldType" : "URN_PARTIAL",
-                    "queryByDefault" : true
+                    "fieldType" : "URN_PARTIAL"
                   }
                 }
               }, {
@@ -1064,8 +1061,7 @@
                 "Searchable" : {
                   "boostScore" : 0.1,
                   "fieldName" : "editedFieldDescriptions",
-                  "fieldType" : "TEXT",
-                  "queryByDefault" : true
+                  "fieldType" : "TEXT"
                 }
               }, {
                 "name" : "globalTags",
@@ -1076,8 +1072,7 @@
                   "/tags/*/tag" : {
                     "boostScore" : 0.5,
                     "fieldName" : "editedFieldTags",
-                    "fieldType" : "URN_PARTIAL",
-                    "queryByDefault" : true
+                    "fieldType" : "URN_PARTIAL"
                   }
                 }
               } ]
@@ -1124,7 +1119,8 @@
                 },
                 "Searchable" : {
                   "fieldName" : "upstreams",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "queryByDefault" : false
                 }
               }, {
                 "name" : "type",
@@ -1203,8 +1199,7 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription",
-        "queryByDefault" : true
+        "hasValuesFieldName" : "hasDescription"
       }
     }, {
       "name" : "uri",
@@ -1308,8 +1303,7 @@
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "origin",
@@ -1317,7 +1311,8 @@
         "doc" : "Fabric type where dataset belongs to or where it was generated.",
         "Searchable" : {
           "addToFilters" : true,
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "TEXT_PARTIAL",
+          "queryByDefault" : false
         }
       } ],
       "Aspect" : {

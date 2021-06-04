@@ -79,8 +79,7 @@
             "Searchable" : {
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "hasValuesFieldName" : "hasTags",
-              "queryByDefault" : true
+              "hasValuesFieldName" : "hasTags"
             }
           } ]
         }
@@ -212,7 +211,6 @@
           "optional" : true,
           "Searchable" : {
             "boostScore" : 10.0,
-            "enableAutocomplete" : true,
             "fieldType" : "TEXT_PARTIAL",
             "queryByDefault" : true
           }
@@ -250,8 +248,7 @@
           "default" : [ ],
           "Searchable" : {
             "/*" : {
-              "fieldType" : "TEXT",
-              "queryByDefault" : true
+              "fieldType" : "TEXT"
             }
           }
         }, {
@@ -264,8 +261,7 @@
           "default" : [ ],
           "Searchable" : {
             "/*" : {
-              "fieldType" : "TEXT",
-              "queryByDefault" : true
+              "fieldType" : "TEXT"
             }
           }
         }, {
@@ -319,9 +315,9 @@
         "doc" : "The name of the AD/LDAP user.",
         "Searchable" : {
           "boostScore" : 2.0,
+          "enableAutocomplete" : true,
           "fieldName" : "ldap",
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       } ],
       "Aspect" : {
