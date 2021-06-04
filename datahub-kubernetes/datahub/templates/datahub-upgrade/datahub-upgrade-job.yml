@@ -1,4 +1,4 @@
-{{- if .Values.datahubUpgradeJob.enabled -}}
+{{- if .Values.datahubUpgrade.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -21,11 +21,11 @@ spec:
       hostAliases:
         {{- toYaml . | nindent 8 }}
     {{- end }}
-    {{- with .Values.datahubUpgradeJob.serviceAccount }}
+    {{- with .Values.datahubUpgrade.serviceAccount }}
       serviceAccountName: {{ . }}
     {{- end }}
       volumes:
-      {{- with .Values.datahubUpgradeJob.extraVolumes }}
+      {{- with .Values.datahubUpgrade.extraVolumes }}
         {{- toYaml . | nindent 8}}
       {{- end }}
       restartPolicy: Never
@@ -34,7 +34,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: datahub-upgrade-job
-          image: "{{ .Values.datahubUpgradeJob.image.repository }}:{{ .Values.datahubUpgradeJob.image.tag }}"
+          image: "{{ .Values.datahubUpgrade.image.repository }}:{{ .Values.datahubUpgrade.image.tag }}"
           args: [ "-u", "NoCodeDataMigration", "-a", "batchSize=1000", "-a", "batchDelayMs=100" ]
           env:
             - name: DATAHUB_GMS_HOST
@@ -90,11 +90,11 @@ spec:
                 secretKeyRef:
                   name: "{{ .Values.global.neo4j.password.secretRef }}"
                   key: "{{ .Values.global.neo4j.password.secretKey }}"
-          {{- with .Values.datahubUpgradeJob.extraEnvs }}
+          {{- with .Values.datahubUpgrade.extraEnvs }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
-          {{- with .Values.datahubUpgradeJob.extraVolumeMounts }}
+          {{- with .Values.datahubUpgrade.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
           resources:
