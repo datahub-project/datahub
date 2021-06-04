@@ -4,13 +4,13 @@ datahub-gms:
   enabled: true
   image:
     repository: linkedin/datahub-gms
-    tag: "latest"
+    tag: "v0.8.1"
 
 datahub-frontend:
   enabled: true
   image:
     repository: linkedin/datahub-frontend-react
-    tag: "latest"
+    tag: "v0.8.1"
   # Set up ingress to expose react front-end
   ingress:
     enabled: false
@@ -19,31 +19,37 @@ datahub-mae-consumer:
   enabled: true
   image:
     repository: linkedin/datahub-mae-consumer
-    tag: "latest"
+    tag: "v0.8.1"
 
 datahub-mce-consumer:
   enabled: true
   image:
     repository: linkedin/datahub-mce-consumer
-    tag: "latest"
+    tag: "v0.8.1"
 
 elasticsearchSetupJob:
   enabled: true
   image:
     repository: linkedin/datahub-elasticsearch-setup
-    tag: "latest"
+    tag: "v0.8.1"
 
 kafkaSetupJob:
   enabled: true
   image:
     repository: linkedin/datahub-kafka-setup
-    tag: "latest"
+    tag: "v0.8.1"
 
 mysqlSetupJob:
   enabled: true
   image:
     repository: acryldata/datahub-mysql-setup
-    tag: "latest"
+    tag: "v0.8.1"
+
+datahubUpgrade:
+  enabled: true
+  image:
+    repository: acryldata/datahub-upgrade
+    tag: "v0.8.1"
 
 datahub-ingestion-cron:
   enabled: false
@@ -53,12 +59,6 @@ global:
     host: "elasticsearch-master"
     port: "9200"
     indexPrefix: demo
-    useSSL: "true"
-    auth:
-      username: test
-      password:
-        secretRef: test
-        secretKey: test
 
   kafka:
     bootstrap:
@@ -91,4 +91,6 @@ global:
   datahub:
     gms:
       port: "8080"
+    mae_consumer:
+      port: "9091"
     appVersion: "1.0"

@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: linkedin/datahub-gms
   pullPolicy: Always
-  tag: latest
+  tag: v0.8.1
 
 imagePullSecrets: []
 nameOverride: ""
