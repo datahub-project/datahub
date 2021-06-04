@@ -18,6 +18,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -170,8 +171,22 @@ public abstract class EntityService {
         .orElse(null);
   }
 
-  public Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
-    return getSnapshotUnions(urns, aspectNames).entrySet().stream()
+  /**
+   * Retrieves multiple entities of <b>the same type</b>.
+   *
+   * @param urns set of urns of the same entity type to fetch
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link Entity} object
+   */
+  public Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull Set<String> aspectNames) {
+    if (urns.isEmpty()) {
+      return Collections.emptyMap();
+    }
+    final String entityType = getEntityTypeFromUrns(urns);
+    final Set<String> aspectsToFetch = aspectNames.isEmpty()
+        ? getEntityAspectNames(entityType)
+        : aspectNames;
+    return getSnapshotUnions(urns, aspectsToFetch).entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntity(entry.getValue())));
   }
 
@@ -332,4 +347,18 @@ public abstract class EntityService {
   }
 
   public abstract void setWritable();
+
+  private String getEntityTypeFromUrns(final Set<Urn> urns) {
+    String entityType = null;
+    for (final Urn urn : urns) {
+      if (entityType == null) {
+        entityType = urnToEntityName(urn);
+      } else {
+        if (!entityType.equals(urnToEntityName(urn))) {
+          throw new IllegalArgumentException("All entities being retrieved must be of the same entity type.");
+        }
+      }
+    }
+    return entityType;
+  }
 }
