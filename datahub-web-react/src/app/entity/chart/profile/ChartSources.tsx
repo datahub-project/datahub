@@ -10,7 +10,7 @@ const styles = {
 };
 
 export type Props = {
-    datasets: Array<Dataset>;
+    datasets: Array<Dataset | null>;
 };
 
 export default function ChartSources({ datasets }: Props) {

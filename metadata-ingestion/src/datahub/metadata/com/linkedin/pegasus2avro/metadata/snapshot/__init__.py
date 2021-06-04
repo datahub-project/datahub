@@ -4,6 +4,7 @@ from ......schema_classes import CorpUserSnapshotClass
 from ......schema_classes import DashboardSnapshotClass
 from ......schema_classes import DataFlowSnapshotClass
 from ......schema_classes import DataJobSnapshotClass
+from ......schema_classes import DataPlatformSnapshotClass
 from ......schema_classes import DataProcessSnapshotClass
 from ......schema_classes import DatasetSnapshotClass
 from ......schema_classes import GlossaryNodeSnapshotClass
@@ -19,6 +20,7 @@ CorpUserSnapshot = CorpUserSnapshotClass
 DashboardSnapshot = DashboardSnapshotClass
 DataFlowSnapshot = DataFlowSnapshotClass
 DataJobSnapshot = DataJobSnapshotClass
+DataPlatformSnapshot = DataPlatformSnapshotClass
 DataProcessSnapshot = DataProcessSnapshotClass
 DatasetSnapshot = DatasetSnapshotClass
 GlossaryNodeSnapshot = GlossaryNodeSnapshotClass

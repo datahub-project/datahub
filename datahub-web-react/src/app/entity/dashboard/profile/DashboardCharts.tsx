@@ -10,7 +10,7 @@ const styles = {
 };
 
 export type Props = {
-    charts: Array<Chart>;
+    charts: Array<Chart | null>;
 };
 
 export default function DashboardCharts({ charts }: Props) {

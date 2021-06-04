@@ -3,7 +3,7 @@ import { Direction, EntityAndType } from '../types';
 export default function getChildren(entityAndType: EntityAndType, direction: Direction | null): Array<EntityAndType> {
     if (direction === Direction.Upstream) {
         return (
-            entityAndType.entity.upstreamLineage?.entities?.map(
+            entityAndType?.entity?.upstreamLineage?.entities?.map(
                 (entity) =>
                     ({
                         type: entity?.entity?.type,
@@ -14,7 +14,7 @@ export default function getChildren(entityAndType: EntityAndType, direction: Dir
     }
     if (direction === Direction.Downstream) {
         return (
-            entityAndType.entity.downstreamLineage?.entities?.map(
+            entityAndType?.entity?.downstreamLineage?.entities?.map(
                 (entity) =>
                     ({
                         type: entity?.entity?.type,

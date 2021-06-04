@@ -7,9 +7,11 @@ export default function extendAsyncEntities(
     entityAndType: EntityAndType,
     fullyFetched = false,
 ): FetchedEntities {
-    if (fetchedEntities[entityAndType.entity.urn]?.fullyFetched) {
+    if (entityAndType?.entity?.urn && fetchedEntities[entityAndType?.entity?.urn]?.fullyFetched) {
         return fetchedEntities;
     }
+
+    if (!entityAndType.entity?.urn) return fetchedEntities;
 
     const lineageVizConfig = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
 

@@ -17,8 +17,8 @@ export type FetchedEntity = {
     type: EntityType;
     icon?: string;
     // children?: Array<string>;
-    upstreamChildren?: Array<string>;
-    downstreamChildren?: Array<string>;
+    upstreamChildren?: Array<string | undefined>;
+    downstreamChildren?: Array<string | undefined>;
     fullyFetched?: boolean;
     platform?: string;
 };
@@ -62,17 +62,17 @@ export type TreeProps = {
 export type EntityAndType =
     | {
           type: EntityType.Dataset;
-          entity: Dataset;
+          entity?: Dataset;
       }
     | {
           type: EntityType.Chart;
-          entity: Chart;
+          entity?: Chart;
       }
     | {
           type: EntityType.Dashboard;
-          entity: Dashboard;
+          entity?: Dashboard;
       }
     | {
           type: EntityType.DataJob;
-          entity: DataJob;
+          entity?: DataJob;
       };

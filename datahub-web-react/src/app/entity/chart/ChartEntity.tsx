@@ -77,10 +77,10 @@ export class ChartEntity implements Entity<Chart> {
             name: entity.info?.name || '',
             type: EntityType.Chart,
             upstreamChildren: getChildren({ entity, type: EntityType.Chart }, Direction.Upstream).map(
-                (child) => child.entity.urn,
+                (child) => child?.entity?.urn,
             ),
             downstreamChildren: getChildren({ entity, type: EntityType.Chart }, Direction.Downstream).map(
-                (child) => child.entity.urn,
+                (child) => child?.entity?.urn,
             ),
             icon: getLogoFromPlatform(entity.tool),
             platform: entity.tool,

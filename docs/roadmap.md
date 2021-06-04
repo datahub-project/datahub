@@ -37,9 +37,9 @@ Use-Case: Support for free-form global tags for social collaboration and aiding 
 - [x] Search using tags (e.g. find all datasets with this tag, find all entities with this tag)
 
 ### Business Glossary
-- [ ] Support for business glossary model (definition + storage)
+- [x] Support for business glossary model (definition + storage)
 - [ ] Browse taxonomy
-- [ ] UI support for attaching business terms to entities and fields
+- [x] UI support for attaching business terms to entities and fields
 
 ### Jobs, Flows / Pipelines
 Use case: Search and Discover your Pipelines (e.g. Airflow DAGs) and understand lineage with datasets
@@ -55,7 +55,10 @@ Use Case: See sample data for a dataset and statistics on the shape of the data 
 
 ### Cloud Deployment
 - [X] Production-grade Helm charts for Kubernetes-based deployment
-- [ ] How-to guides for deploying DataHub to all the major cloud providers (AWS, Azure, GCP)
+- [ ] How-to guides for deploying DataHub to all the major cloud providers 
+  - [x] AWS
+  - [ ] Azure
+  - [ ] GCP
 
 
 ### Data Quality
@@ -64,8 +67,8 @@ Use Case: See sample data for a dataset and statistics on the shape of the data 
 - [ ] Integration with systems like Great Expectations, AWS deequ etc.
 
 ### Product Analytics for DataHub
-- [ ] Helping you understand how your users are interacting with DataHub
-- [ ] Integration with common systems like Google Analytics etc.
+- [x] Helping you understand how your users are interacting with DataHub
+- [x] Integration with common systems like Google Analytics etc.
 
 ### Usage-Based Insights
 - [ ] Display frequently used datasets, dashboards

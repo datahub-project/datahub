@@ -6,7 +6,7 @@ import CustomAvatar from './CustomAvatar';
 import EntityRegistry from '../../entity/EntityRegistry';
 
 type Props = {
-    owners?: Array<Owner> | null;
+    owners?: Array<Owner | null> | null;
     entityRegistry: EntityRegistry;
     maxCount?: number;
     size?: AvatarSize;
@@ -17,15 +17,15 @@ export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, siz
         <Avatar.Group maxCount={maxCount} size={size}>
             {(owners || [])?.map((owner, key) => (
                 // eslint-disable-next-line react/no-array-index-key
-                <div data-testid={`avatar-tag-${owner.owner.urn}`} key={`${owner.owner.urn}-${key}`}>
-                    {owner.owner.__typename === 'CorpUser' ? (
+                <div data-testid={`avatar-tag-${owner?.owner?.urn}`} key={`${owner?.owner?.urn}-${key}`}>
+                    {owner?.owner?.__typename === 'CorpUser' ? (
                         <CustomAvatar
                             name={owner.owner.info?.fullName || owner.owner.info?.firstName || owner.owner.info?.email}
                             url={`/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}
                             photoUrl={owner.owner?.editableInfo?.pictureLink || undefined}
                         />
                     ) : (
-                        owner.owner.__typename === 'CorpGroup' && (
+                        owner?.owner?.__typename === 'CorpGroup' && (
                             <CustomAvatar
                                 name={owner.owner.name || owner.owner.info?.email}
                                 url={`/${entityRegistry.getPathName(owner.owner.type || EntityType.CorpGroup)}/${

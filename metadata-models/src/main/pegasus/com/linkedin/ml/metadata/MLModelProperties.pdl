@@ -7,11 +7,18 @@ import com.linkedin.common.VersionTag
 /**
  * Properties associated with a ML Model
  */
+@Aspect = {
+  "name": "mlModelProperties"
+}
 record MLModelProperties {
 
   /**
    * Documentation of the MLModel
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
   description: optional string
 
   /**
@@ -27,6 +34,9 @@ record MLModelProperties {
   /**
    * Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
   type: optional string
 
   /**

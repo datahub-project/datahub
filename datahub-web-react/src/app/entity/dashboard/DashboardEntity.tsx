@@ -7,9 +7,9 @@ import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { DashboardPreview } from './preview/DashboardPreview';
 import DashboardProfile from './profile/DashboardProfile';
 
-export default function getChildren(entity: Dashboard, direction: Direction | null): Array<string> {
+export default function getChildren(entity: Dashboard, direction: Direction | null): Array<string | undefined> {
     if (direction === Direction.Upstream) {
-        return entity.info?.charts.map((chart) => chart.urn) || [];
+        return entity.info?.charts.map((chart) => chart?.urn) || [];
     }
 
     if (direction === Direction.Downstream) {

@@ -19,7 +19,7 @@ export const Preview = ({
     description?: string | null;
     platformName: string;
     platformLogo?: string | null;
-    owners?: Array<Owner> | null;
+    owners?: Array<Owner | null> | null;
     globalTags?: GlobalTags | null;
     snippet?: React.ReactNode | null;
 }): JSX.Element => {
