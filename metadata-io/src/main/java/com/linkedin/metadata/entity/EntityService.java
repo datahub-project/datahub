@@ -181,11 +181,7 @@ public abstract class EntityService {
     if (urns.isEmpty()) {
       return Collections.emptyMap();
     }
-    final String entityType = getEntityTypeFromUrns(urns);
-    final Set<String> aspectsToFetch = aspectNames.isEmpty()
-        ? getEntityAspectNames(entityType)
-        : aspectNames;
-    return getSnapshotUnions(urns, aspectsToFetch).entrySet().stream()
+    return getSnapshotUnions(urns, aspectNames).entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntity(entry.getValue())));
   }
 
@@ -346,18 +342,4 @@ public abstract class EntityService {
   }
 
   public abstract void setWritable();
-
-  private String getEntityTypeFromUrns(final Set<Urn> urns) {
-    String entityType = null;
-    for (final Urn urn : urns) {
-      if (entityType == null) {
-        entityType = urnToEntityName(urn);
-      } else {
-        if (!entityType.equals(urnToEntityName(urn))) {
-          throw new IllegalArgumentException("All entities being retrieved must be of the same entity type.");
-        }
-      }
-    }
-    return entityType;
-  }
 }

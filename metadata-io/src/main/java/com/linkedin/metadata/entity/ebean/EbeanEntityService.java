@@ -53,10 +53,14 @@ public class EbeanEntityService extends EntityService {
   public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
     // Create DB keys
     final Set<EbeanAspectV2.PrimaryKey> dbKeys = urns.stream()
-        .map(urn -> aspectNames.stream()
-            .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, LATEST_ASPECT_VERSION))
-            .collect(Collectors.toList())
-        )
+        .map(urn -> {
+          final Set<String> aspectsToFetch = aspectNames.isEmpty()
+              ? getEntityAspectNames(urn)
+              : aspectNames;
+          return aspectsToFetch.stream()
+                  .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, LATEST_ASPECT_VERSION))
+                  .collect(Collectors.toList());
+        })
         .flatMap(List::stream)
         .collect(Collectors.toSet());
 
