@@ -71,8 +71,8 @@ You can either
 2. Define a new ".env" file containing your variables and
    execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
 
-To see the required environment variables, see the (datahub-upgrade)[../../docker/datahub-upgrade/README.md]
-documentation
+To see the required environment variables, see the [datahub-upgrade](../../docker/datahub-upgrade/README.md)
+documentation.
 
 ##### How to fix the "listening to port 5005" issue
 
@@ -105,8 +105,8 @@ validated that your DataHub deployment is healthy after performing the upgrade. 
 view your Metadata after the upgrade steps have been completed, you should be in good shape.
 
 In advanced DataHub deployments, or cases in which you cannot easily rebuild the state stored in DataHub, it is strongly
-advised that you do due diligence prior to running cleanup. This may involve manually inspecting the relational tables (
-metadata_aspect_v2), search indices, and graph topology.
+advised that you do due diligence prior to running cleanup. This may involve manually inspecting the relational
+tables (metadata_aspect_v2), search indices, and graph topology.
 
 #### Docker Compose Deployments
 
