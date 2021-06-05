@@ -52,9 +52,12 @@ run the datahub-upgrade job, which will run the above docker container to migrat
 
 ### Step 2: Execute Migration Job
 
-#### Docker Compose Deployments
+#### Docker Compose Deployments - Preserve Data
 
-The easiest option is to execute the `run_upgrade.sh` script located under `docker/datahub-upgrade/nocode`.
+If you do not care about migrating your data, you can refer to the Docker Compose Deployments - Lose All Existing Data
+section below.
+
+To migrate existing data, the easiest option is to execute the `run_upgrade.sh` script located under `docker/datahub-upgrade/nocode`.
 
 ```
 cd docker/datahub-upgrade/nocode
@@ -73,6 +76,30 @@ You can either
 
 To see the required environment variables, see the [datahub-upgrade](../../docker/datahub-upgrade/README.md)
 documentation.
+
+#### Docker Compose Deployments - Lose All Existing Data
+
+This path is quickest but will wipe your Datahub's database.
+If you want to make sure your current data is migrated, refer to the Docker Compose Deployments - Preserve Data section above.
+If you are ok losing your data and re-ingesting, this approach is simplest.
+
+```
+# make sure you are on the latest
+git checkout master
+git pull origin master
+
+# wipe all your existing data and turn off all processes
+./docker/nuke.sh
+
+# spin up latest datahub
+./docker/quickstart.sh
+
+# re-ingest data, for example, to ingest sample data:
+./docker/ingestion/ingestion.sh
+```
+
+After that, you will be upgraded and good to go.
+
 
 ##### How to fix the "listening to port 5005" issue
 
