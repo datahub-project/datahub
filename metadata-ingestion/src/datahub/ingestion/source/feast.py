@@ -143,7 +143,7 @@ class FeastSource(Source):
                     # create snapshot instance for the entity
                     entity_snapshot = MLPrimaryKeySnapshot(
                         urn=builder.make_ml_primary_key_urn(
-                            platform, table["name"], entity["name"], self.config.env
+                            table["name"], entity["name"]
                         ),
                         aspects=[],
                     )
@@ -190,9 +190,7 @@ class FeastSource(Source):
 
                     # create snapshot instance for the feature
                     feature_snapshot = MLFeatureSnapshot(
-                        urn=builder.make_ml_feature_urn(
-                            platform, table["name"], feature["name"], self.config.env
-                        ),
+                        urn=builder.make_ml_feature_urn(table["name"], feature["name"]),
                         aspects=[],
                     )
 
@@ -233,9 +231,7 @@ class FeastSource(Source):
                     yield wu
 
                 featuretable_snapshot = MLFeatureTableSnapshot(
-                    urn=builder.make_ml_feature_table_urn(
-                        platform, table["name"], self.config.env
-                    ),
+                    urn=builder.make_ml_feature_table_urn(platform, table["name"]),
                     aspects=[],
                 )
 
@@ -243,16 +239,14 @@ class FeastSource(Source):
                     MLFeatureTablePropertiesClass(
                         mlFeatures=[
                             builder.make_ml_feature_urn(
-                                platform,
                                 table["name"],
                                 feature["name"],
-                                self.config.env,
                             )
                             for feature in table["features"]
                         ],
                         mlPrimaryKeys=[
                             builder.make_ml_primary_key_urn(
-                                platform, table["name"], entity["name"], self.config.env
+                                table["name"], entity["name"]
                             )
                             for entity in table["entities"]
                         ],
