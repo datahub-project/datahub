@@ -77,6 +77,7 @@ plugins: Dict[str, Set[str]] = {
         "acryl-pyhive[hive]>=0.6.6"
     },
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
+    "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
