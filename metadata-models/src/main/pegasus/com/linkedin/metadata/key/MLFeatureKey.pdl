@@ -18,16 +18,6 @@ record MLFeatureKey {
   featureNamespace: string
 
   /**
-   * Name of the feature table containing the feature
-   */
-  @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
-    "addToFilters": true,
-    "boostScore": 4.0
-  }
-  parentTableName: string
-
-  /**
    * Name of the feature
    */
   @Searchable = {

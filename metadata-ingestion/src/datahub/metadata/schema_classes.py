@@ -3544,13 +3544,11 @@ class MLFeatureKeyClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLFeatureKey")
     def __init__(self,
         featureNamespace: str,
-        parentTableName: str,
         name: str,
     ):
         super().__init__()
         
         self.featureNamespace = featureNamespace
-        self.parentTableName = parentTableName
         self.name = name
     
     @classmethod
@@ -3562,7 +3560,6 @@ class MLFeatureKeyClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.featureNamespace = str()
-        self.parentTableName = str()
         self.name = str()
     
     
@@ -3576,18 +3573,6 @@ class MLFeatureKeyClass(DictWrapper):
     def featureNamespace(self, value: str) -> None:
         """Setter: Namespace for the feature"""
         self._inner_dict['featureNamespace'] = value
-    
-    
-    @property
-    def parentTableName(self) -> str:
-        """Getter: Name of the feature table containing the feature"""
-        return self._inner_dict.get('parentTableName')  # type: ignore
-    
-    
-    @parentTableName.setter
-    def parentTableName(self, value: str) -> None:
-        """Setter: Name of the feature table containing the feature"""
-        self._inner_dict['parentTableName'] = value
     
     
     @property
@@ -3720,14 +3705,12 @@ class MLPrimaryKeyKeyClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLPrimaryKeyKey")
     def __init__(self,
-        platform: str,
-        parentTableName: str,
+        featureNamespace: str,
         name: str,
     ):
         super().__init__()
         
-        self.platform = platform
-        self.parentTableName = parentTableName
+        self.featureNamespace = featureNamespace
         self.name = name
     
     @classmethod
@@ -3738,33 +3721,20 @@ class MLPrimaryKeyKeyClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.platform = str()
-        self.parentTableName = str()
+        self.featureNamespace = str()
         self.name = str()
     
     
     @property
-    def platform(self) -> str:
+    def featureNamespace(self) -> str:
         """Getter: Namespace for the primary key"""
-        return self._inner_dict.get('platform')  # type: ignore
+        return self._inner_dict.get('featureNamespace')  # type: ignore
     
     
-    @platform.setter
-    def platform(self, value: str) -> None:
+    @featureNamespace.setter
+    def featureNamespace(self, value: str) -> None:
         """Setter: Namespace for the primary key"""
-        self._inner_dict['platform'] = value
-    
-    
-    @property
-    def parentTableName(self) -> str:
-        """Getter: Name of the feature table containing the primary key"""
-        return self._inner_dict.get('parentTableName')  # type: ignore
-    
-    
-    @parentTableName.setter
-    def parentTableName(self, value: str) -> None:
-        """Setter: Name of the feature table containing the primary key"""
-        self._inner_dict['parentTableName'] = value
+        self._inner_dict['featureNamespace'] = value
     
     
     @property

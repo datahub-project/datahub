@@ -2853,8 +2853,8 @@
                         "type": "string",
                         "doc": "Standardized platform urn for the model",
                         "Searchable": {
-                          "boostScore": 0.1,
-                          "fieldType": "TEXT_PARTIAL"
+                          "addToFilters": true,
+                          "fieldType": "URN"
                         },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
@@ -3600,24 +3600,11 @@
                     "doc": "Key for an ML primary key",
                     "fields": [
                       {
-                        "name": "platform",
+                        "name": "featureNamespace",
                         "type": "string",
                         "doc": "Namespace for the primary key",
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "URN"
-                        },
-                        "java": {
-                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
-                        }
-                      },
-                      {
-                        "name": "parentTableName",
-                        "type": "string",
-                        "doc": "Name of the feature table containing the primary key",
-                        "Searchable": {
-                          "addToFilters": true,
-                          "boostScore": 4.0,
                           "fieldType": "TEXT_PARTIAL"
                         }
                       },
@@ -3783,16 +3770,6 @@
                         "doc": "Namespace for the feature",
                         "Searchable": {
                           "addToFilters": true,
-                          "fieldType": "TEXT_PARTIAL"
-                        }
-                      },
-                      {
-                        "name": "parentTableName",
-                        "type": "string",
-                        "doc": "Name of the feature table containing the feature",
-                        "Searchable": {
-                          "addToFilters": true,
-                          "boostScore": 4.0,
                           "fieldType": "TEXT_PARTIAL"
                         }
                       },

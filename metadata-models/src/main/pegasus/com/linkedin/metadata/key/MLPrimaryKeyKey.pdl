@@ -10,23 +10,13 @@ import com.linkedin.common.Urn
 }
 record MLPrimaryKeyKey {
   /**
-  * Namespace for the primary key
-  */
-  @Searchable = {
-    "fieldType": "URN",
-    "addToFilters": true
-  }
-  platform: Urn
-
-  /**
-  * Name of the feature table containing the primary key
-  */
+   * Namespace for the primary key
+   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "addToFilters": true,
-    "boostScore": 4.0
+    "addToFilters": true
   }
-  parentTableName: string
+  featureNamespace: string
 
   /**
   * Name of the primary key

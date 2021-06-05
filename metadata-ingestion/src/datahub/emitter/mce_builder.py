@@ -56,7 +56,7 @@ def make_ml_primary_key_urn(
     platform: str, feature_table_name: str, primary_key_name: str, env: str
 ) -> str:
 
-    return f"urn:li:mlPrimaryKey:(urn:li:dataPlatform:{platform},{feature_table_name},{primary_key_name},{env}))"
+    return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
 
 
 def make_ml_feature_urn(
@@ -66,12 +66,14 @@ def make_ml_feature_urn(
     env: str,
 ) -> str:
 
-    return f"urn:li:mlFeature:(urn:li:dataPlatform:{platform},{feature_table_name},{feature_name},{env}))"
+    return f"urn:li:mlFeature:({feature_table_name},{feature_name})"
 
 
 def make_ml_feature_table_urn(platform: str, feature_table_name: str, env: str) -> str:
 
-    return f"urn:li:mlFeatureTable:(urn:li:dataPlatform:{platform},{feature_table_name},{env}))"
+    return (
+        f"urn:li:mlFeatureTable:(urn:li:dataPlatform:{platform},{feature_table_name})"
+    )
 
 
 def make_lineage_mce(

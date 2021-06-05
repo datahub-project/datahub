@@ -11,7 +11,7 @@ namespace com.linkedin.common
   "constructable" : true,
   "namespace" : "li",
   "name" : "MlFeatureTable",
-  "doc" : "Standardized feature set identifier.",
+  "doc" : "Standardized feature table identifier.",
   "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
   "fields" : [ {
     "name" : "platform",
@@ -19,7 +19,7 @@ namespace com.linkedin.common
     "doc" : "Standardized platform urn for the MLFeatureTable."
   }, {
     "name" : "name",
-    "doc" : "Name of the ML Feature Set",
+    "doc" : "Name of the ML Feature Table",
     "type" : "string",
     "maxLength" : 210
   } ],
