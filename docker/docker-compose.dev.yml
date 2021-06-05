@@ -12,7 +12,7 @@ version: '3.8'
 services:
   # Pre-creates the search indices using local mapping/settings.json
   elasticsearch-setup:
-    image: elasticsearch-setup:debug
+    image: linkedin/datahub-elasticsearch-setup:debug
     build:
       context: elasticsearch-setup
       dockerfile: Dockerfile
@@ -21,6 +21,14 @@ services:
     volumes:
       - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
       - ../gms/impl/src/main/resources/index/:/index
+
+  kafka-setup:
+    image: linkedin/datahub-kafka-setup:debug
+    build:
+      context: kafka-setup
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: dev
 
   datahub-gms:
     image: linkedin/datahub-gms:debug
