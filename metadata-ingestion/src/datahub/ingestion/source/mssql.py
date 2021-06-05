@@ -15,7 +15,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     scheme = "mssql+pytds"
 
     use_odbc: bool = False
-    uri_args: Dict[str, str]
+    uri_args: Dict[str, str] = {}
 
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):

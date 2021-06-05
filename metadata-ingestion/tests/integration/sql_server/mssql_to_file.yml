@@ -7,8 +7,9 @@ source:
     password: test!Password
     database: DemoData
     host_port: localhost:51433
-    use_odbc: False
-    uri_args: {}
+    # use_odbc: True
+    # uri_args:
+    #   driver: "ODBC Driver 17 for SQL Server"
 
 sink:
   type: file
