@@ -5,24 +5,17 @@ import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
-import com.linkedin.common.FabricType;
-
-import static com.linkedin.common.urn.UrnUtils.toFabricType;
-
-
 public final class MLFeatureTableUrn extends Urn {
 
   public static final String ENTITY_TYPE = "mlFeatureTable";
 
   private final DataPlatformUrn _platform;
   private final String _name;
-  private final FabricType _origin;
 
-  public MLFeatureTableUrn(DataPlatformUrn platform, String name, FabricType origin) {
-    super(ENTITY_TYPE, TupleKey.create(platform, name, origin));
+  public MLFeatureTableUrn(DataPlatformUrn platform, String name) {
+    super(ENTITY_TYPE, TupleKey.create(platform, name));
     this._platform = platform;
     this._name = name;
-    this._origin = origin;
   }
 
   public DataPlatformUrn getPlatformEntity() {
@@ -31,10 +24,6 @@ public final class MLFeatureTableUrn extends Urn {
 
   public String getMlFeatureTableNameEntity() {
     return _name;
-  }
-
-  public FabricType getOriginEntity() {
-    return _origin;
   }
 
   public static MLFeatureTableUrn createFromString(String rawUrn) throws URISyntaxException {
@@ -48,12 +37,12 @@ public final class MLFeatureTableUrn extends Urn {
       throw new URISyntaxException(urn.toString(), "Urn entity type should be 'mlFeatureTable'.");
     } else {
       TupleKey key = urn.getEntityKey();
-      if (key.size() != 3) {
+      if (key.size() != 2) {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
           return new MLFeatureTableUrn((DataPlatformUrn) key.getAs(0, DataPlatformUrn.class),
-              (String) key.getAs(1, String.class), (FabricType) key.getAs(2, FabricType.class));
+              (String) key.getAs(1, String.class));
         } catch (Exception e) {
           throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
         }
@@ -67,7 +56,6 @@ public final class MLFeatureTableUrn extends Urn {
 
   static {
     Custom.initializeCustomClass(DataPlatformUrn.class);
-    Custom.initializeCustomClass(FabricType.class);
     Custom.registerCoercer(new DirectCoercer<MLFeatureTableUrn>() {
       public Object coerceInput(MLFeatureTableUrn object) throws ClassCastException {
         return object.toString();
