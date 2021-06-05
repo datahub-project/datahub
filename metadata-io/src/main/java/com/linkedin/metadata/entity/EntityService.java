@@ -170,7 +170,17 @@ public abstract class EntityService {
         .orElse(null);
   }
 
-  public Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+  /**
+   * Retrieves multiple entities.
+   *
+   * @param urns set of urns to fetch
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link Entity} object
+   */
+  public Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull Set<String> aspectNames) {
+    if (urns.isEmpty()) {
+      return Collections.emptyMap();
+    }
     return getSnapshotUnions(urns, aspectNames).entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntity(entry.getValue())));
   }

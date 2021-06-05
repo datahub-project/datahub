@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import io.ebean.EbeanServer;
 import io.ebean.SqlQuery;
@@ -9,6 +10,10 @@ import io.ebean.SqlRow;
 public class AspectStorageValidationUtil {
   private AspectStorageValidationUtil() {
 
+  }
+
+  public static long getV1RowCount(EbeanServer server) {
+    return server.find(EbeanAspectV1.class).findCount();
   }
 
   public static long getV2RowCount(EbeanServer server) {
