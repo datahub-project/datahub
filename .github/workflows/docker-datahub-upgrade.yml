@@ -61,6 +61,7 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Login to DockerHub
+        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
