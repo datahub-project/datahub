@@ -1,7 +1,7 @@
 namespace com.linkedin.metadata.key
 
 /**
- * Key for an ML feature
+ * Key for an MLFeature
  */
 @Aspect = {
   "name": "mlFeatureKey"

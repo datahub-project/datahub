@@ -8,7 +8,7 @@ import com.linkedin.ml.metadata.MLFeatureTableProperties
 import com.linkedin.common.Deprecation
 
 /**
- * A union of all supported metadata aspects for a ML Feature Table
+ * A union of all supported metadata aspects for a MLFeatureTable
  */
 typeref MLFeatureTableAspect = union[
   MLFeatureTableKey,

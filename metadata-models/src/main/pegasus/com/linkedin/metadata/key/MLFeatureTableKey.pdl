@@ -3,7 +3,7 @@ namespace com.linkedin.metadata.key
 import com.linkedin.common.Urn
 
 /**
- * Key for an ML feature table
+ * Key for an MLFeatureTable
  */
 @Aspect = {
   "name": "mlFeatureTableKey"
