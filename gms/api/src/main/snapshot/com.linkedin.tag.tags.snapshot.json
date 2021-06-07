@@ -65,7 +65,8 @@
       "Searchable" : {
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "hasValuesFieldName" : "hasOwners"
+        "hasValuesFieldName" : "hasOwners",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -200,8 +201,7 @@
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       } ],
       "Aspect" : {
