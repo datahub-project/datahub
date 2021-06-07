@@ -99,7 +99,7 @@ class FeastSource(Source):
             self.report.report_warning(
                 parent_name, f"unable to map type {field_type} to metadata schema"
             )
-            enum_type = MLFeatureDataType.USELESS
+            enum_type = MLFeatureDataType.UNKNOWN
 
         return enum_type
 

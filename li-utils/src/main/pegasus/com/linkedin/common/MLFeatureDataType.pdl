@@ -90,4 +90,9 @@ enum MLFeatureDataType {
    * Bytes data are binary-encoded values that can represent complex objects.
    */
   BYTE
+
+  /**
+   * Unknown data are data that we don't know the type for.
+   */
+  UNKNOWN
 }

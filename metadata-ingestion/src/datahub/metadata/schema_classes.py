@@ -1109,6 +1109,9 @@ class MLFeatureDataTypeClass(object):
     """Bytes data are binary-encoded values that can represent complex objects."""
     BYTE = "BYTE"
     
+    """Unknown data are data that we don't know the type for."""
+    UNKNOWN = "UNKNOWN"
+    
     
 class OwnerClass(DictWrapper):
     """Ownership information"""
