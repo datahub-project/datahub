@@ -147,6 +147,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 content: (
                     <DocumentsView
                         authenticatedUserUrn={user?.urn}
+                        authenticatedUserUsername={user?.username}
                         documents={institutionalMemory?.elements || EMPTY_ARR}
                         updateDocumentation={(update) => {
                             analytics.event({

@@ -7,6 +7,9 @@ import com.linkedin.dataset.SchemaFieldPath
 /**
  * SchemaMetadata to describe metadata related to store schema
  */
+@Aspect = {
+  "name": "schemaMetadata"
+}
 record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
 
   /**

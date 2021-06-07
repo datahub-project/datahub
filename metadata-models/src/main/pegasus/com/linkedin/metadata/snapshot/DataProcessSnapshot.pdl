@@ -6,6 +6,10 @@ import com.linkedin.metadata.aspect.DataProcessAspect
 /**
  * A metadata snapshot for a specific Data process entity.
  */
+@Entity = {
+  "name": "dataProcess",
+  "keyAspect": "dataProcessKey"
+}
 record DataProcessSnapshot {
 
   /**

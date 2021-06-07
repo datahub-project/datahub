@@ -28,10 +28,10 @@ spec:
           - name: {{ $jobName }}-crawler
             image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
             imagePullPolicy: {{ $.Values.image.pullPolicy }}
-            {{- if .extraVolumeMounts }}
             volumeMounts:
               - name: recipe
                 mountPath: /etc/recipe
+            {{- if .extraVolumeMounts }}
               {{- toYaml .extraVolumeMounts | nindent 14 }}
             {{- end }}
             command: ["/bin/sh", "-c", {{ default $defaultCommand .command }} ]

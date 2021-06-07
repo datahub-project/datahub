@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.corpgroup;
 
 import com.linkedin.common.urn.CorpGroupUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
@@ -8,12 +9,13 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.types.corpgroup.mappers.CorpGroupSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
-import com.linkedin.datahub.graphql.types.corpgroup.mappers.CorpGroupMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
-import com.linkedin.identity.client.CorpGroups;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.restli.common.CollectionResponse;
+import com.linkedin.metadata.query.SearchResult;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -27,11 +29,9 @@ import java.util.stream.Collectors;
 
 public class CorpGroupType implements SearchableEntityType<CorpGroup> {
 
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
+    private final EntityClient _corpGroupsClient;
 
-    private final CorpGroups _corpGroupsClient;
-
-    public CorpGroupType(final CorpGroups corpGroupsClient) {
+    public CorpGroupType(final EntityClient corpGroupsClient) {
         _corpGroupsClient = corpGroupsClient;
     }
 
@@ -53,15 +53,15 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                     .map(this::getCorpGroupUrn)
                     .collect(Collectors.toList());
 
-            final Map<CorpGroupUrn, com.linkedin.identity.CorpGroup> corpGroupMap = _corpGroupsClient
+            final Map<Urn, Entity> corpGroupMap = _corpGroupsClient
                     .batchGet(new HashSet<>(corpGroupUrns));
 
-            final List<com.linkedin.identity.CorpGroup> results = new ArrayList<>();
+            final List<Entity> results = new ArrayList<>();
             for (CorpGroupUrn urn : corpGroupUrns) {
                 results.add(corpGroupMap.getOrDefault(urn, null));
             }
             return results.stream()
-                    .map(gmsCorpGroup -> gmsCorpGroup == null ? null : CorpGroupMapper.map(gmsCorpGroup))
+                    .map(gmsCorpGroup -> gmsCorpGroup == null ? null : CorpGroupSnapshotMapper.map(gmsCorpGroup.getValue().getCorpGroupSnapshot()))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load CorpGroup", e);
@@ -74,8 +74,9 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                                 int start,
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
-        final CollectionResponse<com.linkedin.identity.CorpGroup> searchResult = _corpGroupsClient.search(query, Collections.emptyMap(), start, count);
-        return SearchResultsMapper.map(searchResult, CorpGroupMapper::map);
+        final SearchResult
+            searchResult = _corpGroupsClient.search("corpGroup", query, Collections.emptyMap(), start, count);
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -84,8 +85,7 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                                             @Nullable List<FacetFilterInput> filters,
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _corpGroupsClient.autocomplete(query, field, Collections.emptyMap(), limit);
+        final AutoCompleteResult result = _corpGroupsClient.autoComplete("corpGroup", query, Collections.emptyMap(), limit);
         return AutoCompleteResultsMapper.map(result);
     }
 

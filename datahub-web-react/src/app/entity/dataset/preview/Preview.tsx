@@ -31,7 +31,7 @@ export const Preview = ({
     const capitalPlatformName = capitalizeFirstLetter(platformName);
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.Dataset)}/${urn}`}
+            url={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}
             name={name || ''}
             description={description || ''}
             type="Dataset"

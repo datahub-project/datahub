@@ -16,6 +16,15 @@ record Upstream {
   /**
    * The upstream dataset the lineage points to
    */
+  @Relationship = {
+    "name": "DownstreamOf",
+    "entityTypes": [ "dataset" ]
+  }
+  @Searchable = {
+    "fieldName": "upstreams",
+    "fieldType": "URN",
+    "queryByDefault": false
+  }
   dataset: DatasetUrn
 
   /**

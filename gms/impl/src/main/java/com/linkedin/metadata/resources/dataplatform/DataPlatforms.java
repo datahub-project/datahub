@@ -1,13 +1,18 @@
 package com.linkedin.metadata.resources.dataplatform;
 
 import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.dataPlatforms.DataPlatform;
 import com.linkedin.dataplatform.DataPlatformInfo;
+import com.linkedin.entity.Entity;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.DataPlatformAspect;
 import com.linkedin.metadata.aspect.DataPlatformAspectArray;
 import com.linkedin.metadata.dao.BaseLocalDAO;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.restli.BaseEntityResource;
+import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.snapshot.DataPlatformSnapshot;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.PagingContext;
@@ -18,7 +23,12 @@ import com.linkedin.restli.server.annotations.PagingContextParam;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
+import java.net.URISyntaxException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,8 +56,8 @@ public class DataPlatforms extends BaseEntityResource<
   }
 
   @Inject
-  @Named("dataPlatformLocalDAO")
-  private BaseLocalDAO<DataPlatformAspect, DataPlatformUrn> _localDAO;
+  @Named("entityService")
+  private EntityService _entityService;
 
   /**
    * Get data platform.
@@ -59,9 +69,21 @@ public class DataPlatforms extends BaseEntityResource<
   @Nonnull
   @Override
   @RestMethod.Get
-  public Task<DataPlatform> get(@Nonnull String platformName,
+  public Task<DataPlatform> get(
+      @Nonnull String platformName,
       @QueryParam(PARAM_ASPECTS) @Nullable String[] aspectNames) {
-    return super.get(platformName, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+      final Entity entity = _entityService.getEntity(
+          new DataPlatformUrn(platformName),
+          projectedAspects);
+      if (entity != null) {
+        return toValue(entity.getValue().getDataPlatformSnapshot());
+      }
+      throw RestliUtils.resourceNotFoundException();
+    });
   }
 
   /**
@@ -71,12 +93,15 @@ public class DataPlatforms extends BaseEntityResource<
    * @return list of all data platforms.
    */
   @RestMethod.GetAll
-  public Task<List<DataPlatform>> getAllDataPlatforms(
-      @Nonnull @PagingContextParam(defaultCount = 100) PagingContext pagingContext) {
-    return Task.value(_localDAO.list(DataPlatformInfo.class, pagingContext.getStart(), pagingContext.getCount())
+  public Task<List<DataPlatform>> getAllDataPlatforms(@Nonnull @PagingContextParam(defaultCount = 100) PagingContext pagingContext) {
+    return Task.value(_entityService.listLatestAspects(
+        "dataPlatformInfo",
+        pagingContext.getStart(),
+        pagingContext.getCount())
             .getValues()
             .stream()
-            .map(info -> {
+            .map(record -> {
+              final DataPlatformInfo info = new DataPlatformInfo(record.data());
               final DataPlatform platform = new DataPlatform();
               platform.setDataPlatformInfo(info);
               platform.setName(info.getName());
@@ -98,13 +123,28 @@ public class DataPlatforms extends BaseEntityResource<
   @Nonnull
   public Task<DataPlatformSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.getSnapshot(urnString, aspectNames);
-  }
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+      final Entity entity;
+      try {
+        entity = _entityService.getEntity(
+            Urn.createFromString(urnString), projectedAspects);
+
+        if (entity != null) {
+          return entity.getValue().getDataPlatformSnapshot();
+        }
+        throw RestliUtils.resourceNotFoundException();
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(String.format("Failed to convert urnString %s into an Urn", urnString));
+      }
+    });  }
 
   @Nonnull
   @Override
   protected BaseLocalDAO<DataPlatformAspect, DataPlatformUrn> getLocalDAO() {
-    return _localDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Nonnull

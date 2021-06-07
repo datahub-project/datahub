@@ -1,9 +1,12 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "dashboards",
   "namespace" : "com.linkedin.dashboard",
   "path" : "/dashboards",
   "schema" : "com.linkedin.dashboard.Dashboard",
-  "doc" : "generated from: com.linkedin.metadata.resources.dashboard.Dashboards",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dashboard.Dashboards",
   "collection" : {
     "identifier" : {
       "name" : "key",

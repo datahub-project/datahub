@@ -120,7 +120,10 @@ fragment nonRecursiveDatasetFields on Dataset {
     institutionalMemory {
         elements {
             url
-            author
+            author {
+                urn
+                username
+            }
             description
             created {
                 actor

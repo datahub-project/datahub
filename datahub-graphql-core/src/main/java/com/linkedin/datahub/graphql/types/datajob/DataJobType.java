@@ -1,8 +1,10 @@
 package com.linkedin.datahub.graphql.types.datajob;
 
 import com.google.common.collect.ImmutableSet;
+
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataJobUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -15,19 +17,25 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobMapper;
+import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.generated.DataJobUpdateInput;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
-import com.linkedin.datajob.client.DataJobs;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.Entity;
+import com.linkedin.metadata.aspect.DataJobAspect;
+import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
-import com.linkedin.restli.common.CollectionResponse;
+import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.snapshot.DataJobSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -44,10 +52,9 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEntityType<DataJob>, MutableType<DataJobUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "jobId";
-    private final DataJobs _dataJobsClient;
+    private final EntityClient _dataJobsClient;
 
-    public DataJobType(final DataJobs dataJobsClient) {
+    public DataJobType(final EntityClient dataJobsClient) {
         _dataJobsClient = dataJobsClient;
     }
 
@@ -73,16 +80,16 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
             .collect(Collectors.toList());
 
         try {
-            final Map<DataJobUrn, com.linkedin.datajob.DataJob> dataJobMap = _dataJobsClient.batchGet(dataJobUrns
+            final Map<Urn, Entity> dataJobMap = _dataJobsClient.batchGet(dataJobUrns
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
 
-            final List<com.linkedin.datajob.DataJob> gmsResults = dataJobUrns.stream()
+            final List<Entity> gmsResults = dataJobUrns.stream()
                 .map(jobUrn -> dataJobMap.getOrDefault(jobUrn, null)).collect(Collectors.toList());
 
             return gmsResults.stream()
-                .map(gmsDataJob -> gmsDataJob == null ? null : DataJobMapper.map(gmsDataJob))
+                .map(gmsDataJob -> gmsDataJob == null ? null : DataJobSnapshotMapper.map(gmsDataJob.getValue().getDataJobSnapshot()))
                 .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load DataJobs", e);
@@ -96,8 +103,9 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final CollectionResponse<com.linkedin.datajob.DataJob> searchResult = _dataJobsClient.search(query, facetFilters, start, count);
-        return SearchResultsMapper.map(searchResult, DataJobMapper::map);
+        final SearchResult searchResult = _dataJobsClient.search(
+            "dataJob", query, facetFilters, start, count);
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -107,8 +115,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _dataJobsClient.autoComplete(query, field, facetFilters, limit);
+        final AutoCompleteResult result = _dataJobsClient.autoComplete("dataJob", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -126,6 +133,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                 final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
         final BrowseResult result = _dataJobsClient.browse(
+            "dataJob",
                 pathStr,
                 facetFilters,
                 start,
@@ -149,6 +157,27 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
         return BrowsePathsMapper.map(result);
     }
 
+    @Nonnull
+    public static DataJobSnapshot toSnapshot(@Nonnull com.linkedin.datajob.DataJob dataJob, @Nonnull DataJobUrn urn) {
+        final List<DataJobAspect> aspects = new ArrayList<>();
+        if (dataJob.hasInfo()) {
+            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getInfo()));
+        }
+        if (dataJob.hasInputOutput()) {
+            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getInputOutput()));
+        }
+        if (dataJob.hasOwnership()) {
+            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getOwnership()));
+        }
+        if (dataJob.hasStatus()) {
+            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getStatus()));
+        }
+        if (dataJob.hasGlobalTags()) {
+            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getGlobalTags()));
+        }
+        return ModelUtils.newSnapshot(DataJobSnapshot.class, urn, aspects);
+    }
+
     @Override
     public DataJob update(@Nonnull DataJobUpdateInput input, @Nonnull QueryContext context) throws Exception {
 
@@ -156,7 +185,9 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
         final com.linkedin.datajob.DataJob partialDataJob = DataJobUpdateInputMapper.map(input, actor);
 
         try {
-            _dataJobsClient.update(DataJobUrn.createFromString(input.getUrn()), partialDataJob);
+            Entity entity = new Entity();
+            entity.setValue(Snapshot.create(toSnapshot(partialDataJob, partialDataJob.getUrn())));
+            _dataJobsClient.update(entity);
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }

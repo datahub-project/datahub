@@ -32,6 +32,28 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "BrowsePaths",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Shared aspect containing Browse Paths to be indexed for an entity.",
+    "fields" : [ {
+      "name" : "paths",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "A list of valid browse paths for the entity.\n\nBrowse paths are expected to be backslash-separated strings. For example: 'prod/snowflake/datasetName'",
+      "Searchable" : {
+        "/*" : {
+          "fieldName" : "browsePaths",
+          "fieldType" : "BROWSE_PATH"
+        }
+      }
+    } ],
+    "Aspect" : {
+      "name" : "browsePaths"
+    }
+  }, {
+    "type" : "record",
     "name" : "ChangeAuditStamps",
     "namespace" : "com.linkedin.common",
     "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
@@ -231,12 +253,21 @@
                 }
               }
             },
-            "doc" : "Urn of the applied tag"
+            "doc" : "Urn of the applied tag",
+            "Searchable" : {
+              "fieldName" : "tags",
+              "fieldType" : "URN_PARTIAL",
+              "hasValuesFieldName" : "hasTags",
+              "queryByDefault" : true
+            }
           } ]
         }
       },
       "doc" : "Tags associated with a given entity"
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "globalTags"
+    }
   }, {
     "type" : "record",
     "name" : "Owner",
@@ -245,7 +276,16 @@
     "fields" : [ {
       "name" : "owner",
       "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)"
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
+      "Relationship" : {
+        "entityTypes" : [ "corpUser", "corpGroup" ],
+        "name" : "OwnedBy"
+      },
+      "Searchable" : {
+        "fieldName" : "owners",
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasOwners"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -313,7 +353,10 @@
       "name" : "lastModified",
       "type" : "AuditStamp",
       "doc" : "Audit stamp containing who last modified the record and when."
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "ownership"
+    }
   }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
     "type" : "record",
     "name" : "Status",
@@ -323,8 +366,14 @@
       "name" : "removed",
       "type" : "boolean",
       "doc" : "whether the entity is removed or not",
-      "default" : false
-    } ]
+      "default" : false,
+      "Searchable" : {
+        "fieldType" : "BOOLEAN"
+      }
+    } ],
+    "Aspect" : {
+      "name" : "status"
+    }
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", "com.linkedin.common.Url", "com.linkedin.common.Urn", {
     "type" : "record",
     "name" : "DataJob",
@@ -367,12 +416,23 @@
         "fields" : [ {
           "name" : "name",
           "type" : "string",
-          "doc" : "Job name"
+          "doc" : "Job name",
+          "Searchable" : {
+            "boostScore" : 10.0,
+            "enableAutocomplete" : true,
+            "fieldType" : "TEXT_PARTIAL",
+            "queryByDefault" : true
+          }
         }, {
           "name" : "description",
           "type" : "string",
           "doc" : "Job description",
-          "optional" : true
+          "optional" : true,
+          "Searchable" : {
+            "fieldType" : "TEXT",
+            "hasValuesFieldName" : "hasDescription",
+            "queryByDefault" : true
+          }
         }, {
           "name" : "type",
           "type" : [ {
@@ -395,8 +455,15 @@
           "name" : "flowUrn",
           "type" : "com.linkedin.common.DataFlowUrn",
           "doc" : "DataFlow urn that this job is part of",
-          "optional" : true
-        } ]
+          "optional" : true,
+          "Relationship" : {
+            "entityTypes" : [ "dataFlow" ],
+            "name" : "IsPartOf"
+          }
+        } ],
+        "Aspect" : {
+          "name" : "dataJobInfo"
+        }
       },
       "doc" : "Optional additional metadata about the job",
       "optional" : true
@@ -417,14 +484,40 @@
             "type" : "array",
             "items" : "com.linkedin.common.DatasetUrn"
           },
-          "doc" : "Input datasets consumed by the data job during processing"
+          "doc" : "Input datasets consumed by the data job during processing",
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataset" ],
+              "name" : "Consumes"
+            }
+          },
+          "Searchable" : {
+            "/*" : {
+              "fieldName" : "inputs",
+              "fieldType" : "URN",
+              "numValuesFieldName" : "numInputDatasets"
+            }
+          }
         }, {
           "name" : "outputDatasets",
           "type" : {
             "type" : "array",
             "items" : "com.linkedin.common.DatasetUrn"
           },
-          "doc" : "Output datasets produced by the data job during processing"
+          "doc" : "Output datasets produced by the data job during processing",
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataset" ],
+              "name" : "Produces"
+            }
+          },
+          "Searchable" : {
+            "/*" : {
+              "fieldName" : "outputs",
+              "fieldType" : "URN",
+              "numValuesFieldName" : "numOutputDatasets"
+            }
+          }
         }, {
           "name" : "inputDatajobs",
           "type" : {
@@ -432,8 +525,17 @@
             "items" : "com.linkedin.common.DataJobUrn"
           },
           "doc" : "Input datajobs that this data job depends on",
-          "optional" : true
-        } ]
+          "optional" : true,
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataJob" ],
+              "name" : "DownstreamOf"
+            }
+          }
+        } ],
+        "Aspect" : {
+          "name" : "dataJobInputOutput"
+        }
       },
       "doc" : "Input and output datasets of job",
       "optional" : true
@@ -453,8 +555,34 @@
     "name" : "DataJobAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a Data job",
-    "ref" : [ "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "DataJobKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a Data Job",
+      "fields" : [ {
+        "name" : "flow",
+        "type" : "com.linkedin.common.Urn",
+        "doc" : "Standardized data processing flow urn representing the flow for the job",
+        "Searchable" : {
+          "fieldName" : "dataFlow",
+          "fieldType" : "URN_PARTIAL"
+        }
+      }, {
+        "name" : "jobId",
+        "type" : "string",
+        "doc" : "Unique Identifier of the data job",
+        "Searchable" : {
+          "enableAutocomplete" : true,
+          "fieldType" : "TEXT_PARTIAL",
+          "queryByDefault" : true
+        }
+      } ],
+      "Aspect" : {
+        "name" : "dataJobKey"
+      }
+    }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+  }, "com.linkedin.metadata.key.DataJobKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -730,7 +858,11 @@
         "items" : "com.linkedin.metadata.aspect.DataJobAspect"
       },
       "doc" : "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "keyAspect" : "dataJobKey",
+      "name" : "dataJob"
+    }
   }, {
     "type" : "record",
     "name" : "EmptyRecord",
@@ -742,11 +874,14 @@
     }
   } ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "dataJobs",
     "namespace" : "com.linkedin.datajob",
     "path" : "/dataJobs",
     "schema" : "com.linkedin.datajob.DataJob",
-    "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataJobs",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.datajob.DataJobs",
     "collection" : {
       "identifier" : {
         "name" : "key",

@@ -6,6 +6,10 @@ import com.linkedin.metadata.aspect.DataPlatformAspect
 /**
  * A metadata snapshot for a specific dataplatform entity.
  */
+@Entity = {
+  "name": "dataPlatform",
+  "keyAspect": "dataPlatformKey"
+}
 record DataPlatformSnapshot {
 
   /**
