@@ -22,7 +22,7 @@ record MLFeatureTableProperties {
   description: optional string
 
   /**
-   * List of features contained in the feature set
+   * List of features contained in the feature table
    */
   @Relationship = {
     "/*": {
@@ -33,7 +33,7 @@ record MLFeatureTableProperties {
   mlFeatures: optional array[MLFeatureUrn]
 
   /**
-   * List of primary keys in the feature set (if multiple, assumed to act as a composite key)
+   * List of primary keys in the feature table (if multiple, assumed to act as a composite key)
    */
   @Relationship = {
     "/*": {

@@ -5082,25 +5082,25 @@ class MLFeatureTablePropertiesClass(DictWrapper):
     
     @property
     def mlFeatures(self) -> Union[None, List[str]]:
-        """Getter: List of features contained in the feature set"""
+        """Getter: List of features contained in the feature table"""
         return self._inner_dict.get('mlFeatures')  # type: ignore
     
     
     @mlFeatures.setter
     def mlFeatures(self, value: Union[None, List[str]]) -> None:
-        """Setter: List of features contained in the feature set"""
+        """Setter: List of features contained in the feature table"""
         self._inner_dict['mlFeatures'] = value
     
     
     @property
     def mlPrimaryKeys(self) -> Union[None, List[str]]:
-        """Getter: List of primary keys in the feature set (if multiple, assumed to act as a composite key)"""
+        """Getter: List of primary keys in the feature table (if multiple, assumed to act as a composite key)"""
         return self._inner_dict.get('mlPrimaryKeys')  # type: ignore
     
     
     @mlPrimaryKeys.setter
     def mlPrimaryKeys(self, value: Union[None, List[str]]) -> None:
-        """Setter: List of primary keys in the feature set (if multiple, assumed to act as a composite key)"""
+        """Setter: List of primary keys in the feature table (if multiple, assumed to act as a composite key)"""
         self._inner_dict['mlPrimaryKeys'] = value
     
     

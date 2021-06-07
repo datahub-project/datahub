@@ -3951,7 +3951,7 @@
                             "items": "string"
                           }
                         ],
-                        "doc": "List of features contained in the feature set",
+                        "doc": "List of features contained in the feature table",
                         "default": null,
                         "Relationship": {
                           "/*": {
@@ -3971,7 +3971,7 @@
                             "items": "string"
                           }
                         ],
-                        "doc": "List of primary keys in the feature set (if multiple, assumed to act as a composite key)",
+                        "doc": "List of primary keys in the feature table (if multiple, assumed to act as a composite key)",
                         "default": null,
                         "Relationship": {
                           "/*": {
