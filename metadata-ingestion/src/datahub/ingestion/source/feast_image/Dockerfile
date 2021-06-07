@@ -4,7 +4,7 @@ FROM python:3.8-slim-buster
 
 # Allow statements and log messages to immediately appear
 ENV PYTHONUNBUFFERED True
-# slows stuff down
+# Disable since it will slow things down
 ENV FEAST_TELEMETRY False
 
 # Copy local code to the container image.
