@@ -1,7 +1,6 @@
 namespace com.linkedin.ml.metadata
 
-import com.linkedin.common.MLFeatureUrn
-import com.linkedin.common.MLPrimaryKeyUrn
+import com.linkedin.common.Urn
 
 /**
  * Properties associated with a MLFeatureTable
@@ -25,7 +24,7 @@ record MLFeatureTableProperties {
       "entityTypes": [ "mlFeature" ]
     }
   }
-  mlFeatures: optional array[MLFeatureUrn]
+  mlFeatures: optional array[Urn]
 
   /**
    * List of primary keys in the feature table (if multiple, assumed to act as a composite key)
@@ -36,5 +35,5 @@ record MLFeatureTableProperties {
       "entityTypes": [ "mlPrimaryKey" ]
     }
   }
-  mlPrimaryKeys: optional array[MLPrimaryKeyUrn]
+  mlPrimaryKeys: optional array[Urn]
 }
