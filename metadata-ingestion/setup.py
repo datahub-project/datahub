@@ -92,6 +92,12 @@ plugins: Dict[str, Set[str]] = {
     "glue": {"boto3"},
 }
 
+all_exclude_plugins: Set[str] = {
+    # SQL Server ODBC requires additional drivers, and so we don't want to keep
+    # it included in the default "all" installation.
+    "mssql-odbc",
+}
+
 base_dev_requirements = {
     *base_requirements,
     *framework_common,
@@ -234,7 +240,15 @@ setuptools.setup(
             plugin: list(framework_common | dependencies)
             for (plugin, dependencies) in plugins.items()
         },
-        "all": list(framework_common.union(*plugins.values())),
+        "all": list(
+            framework_common.union(
+                *[
+                    requirements
+                    for plugin, requirements in plugins.items()
+                    if plugin not in all_exclude_plugins
+                ]
+            )
+        ),
         "dev": list(dev_requirements),
         "dev-airflow2": list(dev_requirements_airflow_2),
     },
