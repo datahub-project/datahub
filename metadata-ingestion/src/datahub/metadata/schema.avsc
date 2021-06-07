@@ -3704,9 +3704,7 @@
                         "name": "sources",
                         "type": {
                           "type": "array",
-                          "items": [
-                            "string"
-                          ]
+                          "items": "string"
                         },
                         "doc": "Source of the MLPrimaryKey",
                         "Relationship": {
@@ -3822,9 +3820,7 @@
                           "null",
                           {
                             "type": "array",
-                            "items": [
-                              "string"
-                            ]
+                            "items": "string"
                           }
                         ],
                         "doc": "Source of the MLFeature",

@@ -1,8 +1,0 @@
-namespace com.linkedin.ml.metadata
-
-import com.linkedin.common.DatasetUrn
-
-/**
- * Input source type for MLFeatures and MLPrimaryKeys
- */
-typeref MLFeatureSourceType = union[DatasetUrn]

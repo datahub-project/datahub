@@ -11,9 +11,7 @@
                         "dataType": "TEXT",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -34,9 +32,7 @@
                         "dataType": "ORDINAL",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -57,9 +53,7 @@
                         "dataType": "SEQUENCE",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -80,9 +74,7 @@
                         "dataType": "BINARY",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -103,9 +95,7 @@
                         "dataType": "SEQUENCE",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -126,9 +116,7 @@
                         "dataType": "BYTE",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -149,9 +137,7 @@
                         "dataType": "SEQUENCE",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -172,9 +158,7 @@
                         "dataType": "CONTINUOUS",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -195,9 +179,7 @@
                         "dataType": "SEQUENCE",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -218,9 +200,7 @@
                         "dataType": "CONTINUOUS",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -241,9 +221,7 @@
                         "dataType": "SEQUENCE",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -264,9 +242,7 @@
                         "dataType": "ORDINAL",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -287,9 +263,7 @@
                         "dataType": "SEQUENCE",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -310,9 +284,7 @@
                         "dataType": "ORDINAL",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -333,9 +305,7 @@
                         "dataType": "SEQUENCE",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -356,9 +326,7 @@
                         "dataType": "TEXT",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -415,9 +383,7 @@
                         "dataType": "ORDINAL",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -438,9 +404,7 @@
                         "dataType": "BYTE",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -483,9 +447,7 @@
                         "dataType": "TEXT",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
@@ -506,9 +468,7 @@
                         "dataType": "BYTE",
                         "version": null,
                         "sources": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                            }
+                            "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
                         ]
                     }
                 }
