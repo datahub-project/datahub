@@ -258,7 +258,7 @@ If you're extending an existing Entity, you can skip this step.
 
 If you have updated any existing types or see an `Incompatible changes` warning when building,
 you will need to run
-` ./gradlew :gms:impl:build -Prest.model.compatibility=ignore`
+`./gradlew :gms:impl:build -Prest.model.compatibility=ignore`
 before running `build`.
 
 Then, run `/.gradlew build` from the repository root to rebuild Datahub with access to your new entity.
