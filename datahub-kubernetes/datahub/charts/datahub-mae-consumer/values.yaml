@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: linkedin/datahub-mae-consumer
   pullPolicy: Always
-  tag: latest
+  tag: v0.8.1
 
 imagePullSecrets: []
 nameOverride: ""
@@ -164,6 +164,10 @@ global:
     password:
       secretRef: "neo4j-secrets"
       secretKey: "neo4j-password"
+
+  datahub:
+    mae_consumer:
+      port: "9091"
 
   hostAliases:
     - ip: "192.168.0.104"

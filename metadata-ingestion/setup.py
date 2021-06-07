@@ -84,6 +84,7 @@ plugins: Dict[str, Set[str]] = {
     "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
+    "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
