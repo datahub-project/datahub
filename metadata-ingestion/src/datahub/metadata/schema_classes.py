@@ -3539,7 +3539,7 @@ class GlossaryTermKeyClass(DictWrapper):
     
     
 class MLFeatureKeyClass(DictWrapper):
-    """Key for an ML feature"""
+    """Key for an MLFeature"""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLFeatureKey")
     def __init__(self,
@@ -3588,7 +3588,7 @@ class MLFeatureKeyClass(DictWrapper):
     
     
 class MLFeatureTableKeyClass(DictWrapper):
-    """Key for an ML feature table"""
+    """Key for an MLFeatureTable"""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLFeatureTableKey")
     def __init__(self,
@@ -3701,7 +3701,7 @@ class MLModelKeyClass(DictWrapper):
     
     
 class MLPrimaryKeyKeyClass(DictWrapper):
-    """Key for an ML primary key"""
+    """Key for an MLPrimaryKey"""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLPrimaryKeyKey")
     def __init__(self,

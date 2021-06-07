@@ -3585,7 +3585,7 @@
               "type": "string",
               "doc": "URN for the entity the metadata snapshot is associated with.",
               "java": {
-                "class": "com.linkedin.pegasus2avro.common.urn.MLPrimaryKeyUrn"
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
               }
             },
             {
@@ -3597,7 +3597,7 @@
                     "type": "record",
                     "name": "MLPrimaryKeyKey",
                     "namespace": "com.linkedin.pegasus2avro.metadata.key",
-                    "doc": "Key for an ML primary key",
+                    "doc": "Key for an MLPrimaryKey",
                     "fields": [
                       {
                         "name": "featureNamespace",
@@ -3613,7 +3613,6 @@
                         "type": "string",
                         "doc": "Name of the primary key",
                         "Searchable": {
-                          "addToFilters": true,
                           "boostScore": 8.0,
                           "enableAutocomplete": true,
                           "fieldType": "TEXT_PARTIAL"
@@ -3638,12 +3637,7 @@
                           "string"
                         ],
                         "doc": "Documentation of the MLPrimaryKey",
-                        "default": null,
-                        "Searchable": {
-                          "fieldType": "TEXT",
-                          "hasValuesFieldName": "hasDescription",
-                          "queryByDefault": true
-                        }
+                        "default": null
                       },
                       {
                         "name": "dataType",
@@ -3716,9 +3710,9 @@
                         "Relationship": {
                           "/*": {
                             "entityTypes": [
-                              "mlFeatureSourceType"
+                              "dataset"
                             ],
-                            "name": "From"
+                            "name": "DerivedFrom"
                           }
                         }
                       }
@@ -3762,14 +3756,13 @@
                     "type": "record",
                     "name": "MLFeatureKey",
                     "namespace": "com.linkedin.pegasus2avro.metadata.key",
-                    "doc": "Key for an ML feature",
+                    "doc": "Key for an MLFeature",
                     "fields": [
                       {
                         "name": "featureNamespace",
                         "type": "string",
                         "doc": "Namespace for the feature",
                         "Searchable": {
-                          "addToFilters": true,
                           "fieldType": "TEXT_PARTIAL"
                         }
                       },
@@ -3778,7 +3771,6 @@
                         "type": "string",
                         "doc": "Name of the feature",
                         "Searchable": {
-                          "addToFilters": true,
                           "boostScore": 8.0,
                           "enableAutocomplete": true,
                           "fieldType": "TEXT_PARTIAL"
@@ -3802,12 +3794,7 @@
                           "string"
                         ],
                         "doc": "Documentation of the MLFeature",
-                        "default": null,
-                        "Searchable": {
-                          "fieldType": "TEXT",
-                          "hasValuesFieldName": "hasDescription",
-                          "queryByDefault": true
-                        }
+                        "default": null
                       },
                       {
                         "name": "dataType",
@@ -3843,9 +3830,9 @@
                         "Relationship": {
                           "/*": {
                             "entityTypes": [
-                              "mlFeatureSourceType"
+                              "dataset"
                             ],
-                            "name": "From"
+                            "name": "DerivedFrom"
                           }
                         }
                       }
@@ -3879,7 +3866,7 @@
               "type": "string",
               "doc": "URN for the entity the metadata snapshot is associated with.",
               "java": {
-                "class": "com.linkedin.pegasus2avro.common.urn.MLFeatureTableUrn"
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
               }
             },
             {
@@ -3891,7 +3878,7 @@
                     "type": "record",
                     "name": "MLFeatureTableKey",
                     "namespace": "com.linkedin.pegasus2avro.metadata.key",
-                    "doc": "Key for an ML feature table",
+                    "doc": "Key for an MLFeatureTable",
                     "fields": [
                       {
                         "name": "platform",
@@ -3910,7 +3897,6 @@
                         "type": "string",
                         "doc": "Name of the feature table",
                         "Searchable": {
-                          "addToFilters": true,
                           "boostScore": 8.0,
                           "enableAutocomplete": true,
                           "fieldType": "TEXT_PARTIAL"
@@ -3935,12 +3921,7 @@
                           "string"
                         ],
                         "doc": "Documentation of the MLFeatureTable",
-                        "default": null,
-                        "Searchable": {
-                          "fieldType": "TEXT",
-                          "hasValuesFieldName": "hasDescription",
-                          "queryByDefault": true
-                        }
+                        "default": null
                       },
                       {
                         "name": "mlFeatures",
@@ -3978,7 +3959,7 @@
                             "entityTypes": [
                               "mlPrimaryKey"
                             ],
-                            "name": "Keyed by"
+                            "name": "KeyedBy"
                           }
                         }
                       }

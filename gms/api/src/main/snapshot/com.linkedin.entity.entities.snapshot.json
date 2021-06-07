@@ -863,38 +863,6 @@
     }
   }, {
     "type" : "typeref",
-    "name" : "MLFeatureTableUrn",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Standardized MLFeatureTable identifier.",
-    "ref" : "string",
-    "java" : {
-      "class" : "com.linkedin.common.urn.MLFeatureTableUrn"
-    },
-    "validate" : {
-      "com.linkedin.common.validator.TypedUrnValidator" : {
-        "accessible" : true,
-        "constructable" : true,
-        "doc" : "Standardized feature set identifier.",
-        "entityType" : "mlFeatureTable",
-        "fields" : [ {
-          "doc" : "Standardized platform urn for the MLFeatureTable.",
-          "name" : "platform",
-          "type" : "com.linkedin.common.urn.DataPlatformUrn"
-        }, {
-          "doc" : "Name of the ML Feature Set",
-          "maxLength" : 210,
-          "name" : "name",
-          "type" : "string"
-        } ],
-        "maxLength" : 284,
-        "name" : "MlFeatureTable",
-        "namespace" : "li",
-        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "owningTeam" : "urn:li:internalTeam:datahub"
-      }
-    }
-  }, {
-    "type" : "typeref",
     "name" : "MLFeatureUrn",
     "namespace" : "com.linkedin.common",
     "doc" : "Standardized MLFeature identifier.",
@@ -956,38 +924,6 @@
         } ],
         "maxLength" : 284,
         "name" : "MlModel",
-        "namespace" : "li",
-        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
-        "owningTeam" : "urn:li:internalTeam:datahub"
-      }
-    }
-  }, {
-    "type" : "typeref",
-    "name" : "MLPrimaryKeyUrn",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Standardized MLPrimaryKey identifier.",
-    "ref" : "string",
-    "java" : {
-      "class" : "com.linkedin.common.urn.MLPrimaryKeyUrn"
-    },
-    "validate" : {
-      "com.linkedin.common.validator.TypedUrnValidator" : {
-        "accessible" : true,
-        "constructable" : true,
-        "doc" : "Standardized MLPrimaryKey identifier.",
-        "entityType" : "mlPrimaryKey",
-        "fields" : [ {
-          "doc" : "Namespace for the MLPrimaryKey",
-          "name" : "namespace",
-          "type" : "string"
-        }, {
-          "doc" : "Name of the MLPrimaryKey",
-          "maxLength" : 210,
-          "name" : "name",
-          "type" : "string"
-        } ],
-        "maxLength" : 284,
-        "name" : "MLPrimaryKey",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
         "owningTeam" : "urn:li:internalTeam:datahub"
@@ -2707,8 +2643,8 @@
                     "type" : "com.linkedin.common.Urn",
                     "doc" : "Standardized platform urn for the model",
                     "Searchable" : {
-                      "boostScore" : 0.1,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "addToFilters" : true,
+                      "fieldType" : "URN"
                     }
                   }, {
                     "name" : "name",
@@ -3136,7 +3072,7 @@
           "name" : "MLPrimaryKeySnapshot",
           "fields" : [ {
             "name" : "urn",
-            "type" : "com.linkedin.common.MLPrimaryKeyUrn",
+            "type" : "com.linkedin.common.Urn",
             "doc" : "URN for the entity the metadata snapshot is associated with."
           }, {
             "name" : "aspects",
@@ -3151,22 +3087,13 @@
                   "type" : "record",
                   "name" : "MLPrimaryKeyKey",
                   "namespace" : "com.linkedin.metadata.key",
-                  "doc" : "Key for an ML primary key",
+                  "doc" : "Key for an MLPrimaryKey",
                   "fields" : [ {
-                    "name" : "platform",
-                    "type" : "com.linkedin.common.Urn",
+                    "name" : "featureNamespace",
+                    "type" : "string",
                     "doc" : "Namespace for the primary key",
                     "Searchable" : {
                       "addToFilters" : true,
-                      "fieldType" : "URN"
-                    }
-                  }, {
-                    "name" : "parentTableName",
-                    "type" : "string",
-                    "doc" : "Name of the feature table containing the primary key",
-                    "Searchable" : {
-                      "addToFilters" : true,
-                      "boostScore" : 4.0,
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -3174,7 +3101,6 @@
                     "type" : "string",
                     "doc" : "Name of the primary key",
                     "Searchable" : {
-                      "addToFilters" : true,
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL"
@@ -3192,12 +3118,7 @@
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLPrimaryKey",
-                    "optional" : true,
-                    "Searchable" : {
-                      "fieldType" : "TEXT",
-                      "hasValuesFieldName" : "hasDescription",
-                      "queryByDefault" : true
-                    }
+                    "optional" : true
                   }, {
                     "name" : "dataType",
                     "type" : "com.linkedin.common.MLFeatureDataType",
@@ -3222,8 +3143,8 @@
                     "doc" : "Source of the MLPrimaryKey",
                     "Relationship" : {
                       "/*" : {
-                        "entityTypes" : [ "mlFeatureSourceType" ],
-                        "name" : "From"
+                        "entityTypes" : [ "dataset" ],
+                        "name" : "DerivedFrom"
                       }
                     }
                   } ],
@@ -3259,22 +3180,12 @@
                   "type" : "record",
                   "name" : "MLFeatureKey",
                   "namespace" : "com.linkedin.metadata.key",
-                  "doc" : "Key for an ML feature",
+                  "doc" : "Key for an MLFeature",
                   "fields" : [ {
                     "name" : "featureNamespace",
                     "type" : "string",
                     "doc" : "Namespace for the feature",
                     "Searchable" : {
-                      "addToFilters" : true,
-                      "fieldType" : "TEXT_PARTIAL"
-                    }
-                  }, {
-                    "name" : "parentTableName",
-                    "type" : "string",
-                    "doc" : "Name of the feature table containing the feature",
-                    "Searchable" : {
-                      "addToFilters" : true,
-                      "boostScore" : 4.0,
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -3282,7 +3193,6 @@
                     "type" : "string",
                     "doc" : "Name of the feature",
                     "Searchable" : {
-                      "addToFilters" : true,
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL"
@@ -3300,12 +3210,7 @@
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLFeature",
-                    "optional" : true,
-                    "Searchable" : {
-                      "fieldType" : "TEXT",
-                      "hasValuesFieldName" : "hasDescription",
-                      "queryByDefault" : true
-                    }
+                    "optional" : true
                   }, {
                     "name" : "dataType",
                     "type" : "com.linkedin.common.MLFeatureDataType",
@@ -3326,8 +3231,8 @@
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
-                        "entityTypes" : [ "mlFeatureSourceType" ],
-                        "name" : "From"
+                        "entityTypes" : [ "dataset" ],
+                        "name" : "DerivedFrom"
                       }
                     }
                   } ],
@@ -3348,7 +3253,7 @@
           "name" : "MLFeatureTableSnapshot",
           "fields" : [ {
             "name" : "urn",
-            "type" : "com.linkedin.common.MLFeatureTableUrn",
+            "type" : "com.linkedin.common.Urn",
             "doc" : "URN for the entity the metadata snapshot is associated with."
           }, {
             "name" : "aspects",
@@ -3358,12 +3263,12 @@
                 "type" : "typeref",
                 "name" : "MLFeatureTableAspect",
                 "namespace" : "com.linkedin.metadata.aspect",
-                "doc" : "A union of all supported metadata aspects for a ML Feature Set",
+                "doc" : "A union of all supported metadata aspects for a MLFeatureTable",
                 "ref" : [ {
                   "type" : "record",
                   "name" : "MLFeatureTableKey",
                   "namespace" : "com.linkedin.metadata.key",
-                  "doc" : "Key for an ML feature table",
+                  "doc" : "Key for an MLFeatureTable",
                   "fields" : [ {
                     "name" : "platform",
                     "type" : "com.linkedin.common.Urn",
@@ -3377,7 +3282,6 @@
                     "type" : "string",
                     "doc" : "Name of the feature table",
                     "Searchable" : {
-                      "addToFilters" : true,
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL"
@@ -3395,19 +3299,14 @@
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLFeatureTable",
-                    "optional" : true,
-                    "Searchable" : {
-                      "fieldType" : "TEXT",
-                      "hasValuesFieldName" : "hasDescription",
-                      "queryByDefault" : true
-                    }
+                    "optional" : true
                   }, {
                     "name" : "mlFeatures",
                     "type" : {
                       "type" : "array",
-                      "items" : "com.linkedin.common.MLFeatureUrn"
+                      "items" : "com.linkedin.common.Urn"
                     },
-                    "doc" : "List of features contained in the feature set",
+                    "doc" : "List of features contained in the feature table",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
@@ -3419,14 +3318,14 @@
                     "name" : "mlPrimaryKeys",
                     "type" : {
                       "type" : "array",
-                      "items" : "com.linkedin.common.MLPrimaryKeyUrn"
+                      "items" : "com.linkedin.common.Urn"
                     },
-                    "doc" : "List of primary keys in the feature set (if multiple, assumed to act as a composite key)",
+                    "doc" : "List of primary keys in the feature table (if multiple, assumed to act as a composite key)",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "mlPrimaryKey" ],
-                        "name" : "Keyed by"
+                        "name" : "KeyedBy"
                       }
                     }
                   } ],
