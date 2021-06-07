@@ -43,7 +43,7 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getPathName = () => 'tasks';
 
-    getCollectionName = () => 'Tasks';
+    getCollectionName = () => 'Task';
 
     renderProfile = (urn: string) => <DataJobProfile urn={urn} />;
 

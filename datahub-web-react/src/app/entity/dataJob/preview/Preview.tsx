@@ -36,6 +36,7 @@ export const Preview = ({
             owners={owners}
             tags={globalTags || undefined}
             snippet={snippet}
+            dataTestID="datajob-item-preview"
         />
     );
 };

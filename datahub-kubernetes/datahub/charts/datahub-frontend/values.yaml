@@ -154,6 +154,14 @@ datahub:
 global:
   datahub_analytics_enabled: true
 
+  elasticsearch:
+    host: "elasticsearch"
+    port: "9200"
+
+  kafka:
+    bootstrap:
+      server: "broker:9092"
+
   datahub:
     gms:
       port: "8080"
