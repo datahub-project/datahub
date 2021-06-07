@@ -13,7 +13,6 @@ record MLFeatureKey {
    */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "addToFilters": true
   }
   featureNamespace: string
 
@@ -23,7 +22,6 @@ record MLFeatureKey {
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
-    "addToFilters": true,
     "boostScore": 8.0
   }
   name: string

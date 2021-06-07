@@ -14,11 +14,6 @@ record MLPrimaryKeyProperties {
   /**
    * Documentation of the MLPrimaryKey
    */
-  @Searchable = {
-    "fieldType": "TEXT",
-    "queryByDefault": true,
-    "hasValuesFieldName": "hasDescription"
-  }
   description: optional string
 
   /**
@@ -36,8 +31,8 @@ record MLPrimaryKeyProperties {
   */
   @Relationship = {
     "/*": {
-      "name": "From",
-      "entityTypes": [ "mlFeatureSourceType" ]
+      "name": "DerivedFrom",
+      "entityTypes": [ "dataset" ]
     }
   }
   sources: array[MLFeatureSourceType]

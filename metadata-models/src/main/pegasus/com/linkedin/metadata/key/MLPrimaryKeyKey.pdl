@@ -24,7 +24,6 @@ record MLPrimaryKeyKey {
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
-    "addToFilters": true,
     "boostScore": 8.0
   }
   name: string

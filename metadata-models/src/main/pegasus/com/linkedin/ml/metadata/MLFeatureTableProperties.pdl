@@ -14,11 +14,6 @@ record MLFeatureTableProperties {
   /**
    * Documentation of the MLFeatureTable
    */
-  @Searchable = {
-    "fieldType": "TEXT",
-    "queryByDefault": true,
-    "hasValuesFieldName": "hasDescription"
-  }
   description: optional string
 
   /**
@@ -37,7 +32,7 @@ record MLFeatureTableProperties {
    */
   @Relationship = {
     "/*": {
-      "name": "Keyed by",
+      "name": "KeyedBy",
       "entityTypes": [ "mlPrimaryKey" ]
     }
   }

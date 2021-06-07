@@ -14,11 +14,6 @@ record MLFeatureProperties {
   /**
    * Documentation of the MLFeature
    */
-  @Searchable = {
-    "fieldType": "TEXT",
-    "queryByDefault": true,
-    "hasValuesFieldName": "hasDescription"
-  }
   description: optional string
 
   /**
@@ -36,8 +31,8 @@ record MLFeatureProperties {
   */
   @Relationship = {
     "/*": {
-      "name": "From",
-      "entityTypes": [ "mlFeatureSourceType" ]
+      "name": "DerivedFrom",
+      "entityTypes": [ "dataset" ]
     }
   }
   sources: optional array[MLFeatureSourceType]
