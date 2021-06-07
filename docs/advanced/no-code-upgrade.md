@@ -42,7 +42,7 @@ It is important that the following containers are pulled and deployed simultaneo
 From the `docker` directory:
 
 ```aidl
-docker-compose down && docker-compose pull && docker-compose -p datahub up --force-recreate
+docker-compose down --remove-orphans && docker-compose pull && docker-compose -p datahub up --force-recreate
 ```
 
 #### Helm
@@ -52,9 +52,12 @@ run the datahub-upgrade job, which will run the above docker container to migrat
 
 ### Step 2: Execute Migration Job
 
-#### Docker Compose Deployments
+#### Docker Compose Deployments - Preserve Data
 
-The easiest option is to execute the `run_upgrade.sh` script located under `docker/datahub-upgrade/nocode`.
+If you do not care about migrating your data, you can refer to the Docker Compose Deployments - Lose All Existing Data
+section below.
+
+To migrate existing data, the easiest option is to execute the `run_upgrade.sh` script located under `docker/datahub-upgrade/nocode`.
 
 ```
 cd docker/datahub-upgrade/nocode
@@ -71,19 +74,59 @@ You can either
 2. Define a new ".env" file containing your variables and
    execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
 
-To see the required environment variables, see the (datahub-upgrade)[../../docker/datahub-upgrade/README.md]
-documentation
+To see the required environment variables, see the [datahub-upgrade](../../docker/datahub-upgrade/README.md)
+documentation.
+
+#### Docker Compose Deployments - Lose All Existing Data
+
+This path is quickest but will wipe your Datahub's database.
+If you want to make sure your current data is migrated, refer to the Docker Compose Deployments - Preserve Data section above.
+If you are ok losing your data and re-ingesting, this approach is simplest.
+
+```
+# make sure you are on the latest
+git checkout master
+git pull origin master
+
+# wipe all your existing data and turn off all processes
+./docker/nuke.sh
+
+# spin up latest datahub
+./docker/quickstart.sh
+
+# re-ingest data, for example, to ingest sample data:
+./docker/ingestion/ingestion.sh
+```
+
+After that, you will be upgraded and good to go.
+
+
+##### How to fix the "listening to port 5005" issue
+
+Fix for this issue have been published to the acryldata/datahub-upgrade:head tag. Please pull latest master and rerun
+the upgrade script.
+
+However, we have seen cases where the problematic docker image is cached and docker does not pull the latest version. If
+the script fails with the same error after pulling latest master, please run the following command to clear the docker
+image cache.
+
+```
+docker images -a | grep acryldata/datahub-upgrade | awk '{print $3}' | xargs docker rmi -f
+```
 
 #### Helm Deployments
 
 Upgrade to latest helm charts by running the following after pulling latest master.
 
 ```(shell)
-helm upgrade datahub datahub/ --values datahub/quickstart-values.yaml
+helm upgrade datahub datahub/
 ```
 
-This will upgrade all pods to version 0.8.0, and once all pods are up and ready, datahub-upgrade job will start,
-running the above docker image to migrate to the new stores.
+In the latest helm charts, we added a datahub-upgrade-job, which runs the above mentioned docker container to migrate to
+the new storage layer. Note, the job will fail in the beginning as it waits for GMS and MAE consumer to be deployed with
+the NoCode code. It will rerun until it runs successfully.
+
+Once the storage layer has been migrated, subsequent runs of this job will be a noop.
 
 ### Step 3 (Optional): Cleaning Up
 
@@ -92,8 +135,8 @@ validated that your DataHub deployment is healthy after performing the upgrade. 
 view your Metadata after the upgrade steps have been completed, you should be in good shape.
 
 In advanced DataHub deployments, or cases in which you cannot easily rebuild the state stored in DataHub, it is strongly
-advised that you do due diligence prior to running cleanup. This may involve manually inspecting the relational tables (
-metadata_aspect_v2), search indices, and graph topology.
+advised that you do due diligence prior to running cleanup. This may involve manually inspecting the relational
+tables (metadata_aspect_v2), search indices, and graph topology.
 
 #### Docker Compose Deployments
 
@@ -119,42 +162,32 @@ documentation
 
 #### Helm Deployments
 
-TODO
-
-#### Docker Compose Deployments
-
-The easiest option is to execute the `run_upgrade.sh` script located under `docker/datahub-upgrade/nocode`.
+Assuming the latest helm chart has been deployed in the previous step, datahub-cleanup-job-template cronJob should have
+been created. You can check by running the following:
 
 ```
-cd docker/datahub-upgrade/nocode
-./upgrade.sh
+kubectl get cronjobs
 ```
 
-In both cases, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
-that your deployment is local. If this is not the case, you'll need to define your own environment variables to tell the
-upgrade system where your DataHub containers reside.
+You should see an output like below:
 
-You can either
+```
+NAME                                   SCHEDULE     SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+datahub-datahub-cleanup-job-template   * * * * *    True      0        <none>          12m
+```
 
-1. Change `docker/datahub-upgrade/env/docker.env` in place and then run one of the above commands OR
-2. Define a new ".env" file containing your variables and
-   execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
+Note that the cronJob has been suspended. It is intended to be run in an adhoc fashion when ready to clean up. Make sure
+the migration was successful and DataHub is working as expected. Then run the following command to run the clean up job:
 
-To see the required environment variables, see the (datahub-upgrade)[../../docker/datahub-upgrade/README.md]
-documentation
+```
+kubectl create job --from=cronjob/<<release-name>>-datahub-cleanup-job-template datahub-cleanup-job
+```
 
-#### Helm Deployments
-
-TODO
+Replace release-name with the name of the helm release. If you followed the kubernetes guide, it should be "datahub".
 
 ## Support
 
-The Acryl team will be on standby to assist you in your migration. Please do not hesitate to reach out to the following
-folks if you find trouble with the upgrade or have feedback on the process. We will work closely to make sure you can
-continue to operate DataHub smoothly.
-
-- John Joyce
-- Gabe Lyons
-- Dexter Lee
-
-If there is feedback on the process, please 
+The Acryl team will be on standby to assist you in your migration. Please
+join [#release-0_8_0](https://datahubspace.slack.com/archives/C0244FHMHJQ) channel and reach out to us if you find
+trouble with the upgrade or have feedback on the process. We will work closely to make sure you can continue to operate
+DataHub smoothly.
