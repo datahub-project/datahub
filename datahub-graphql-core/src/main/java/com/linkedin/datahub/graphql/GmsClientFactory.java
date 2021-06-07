@@ -81,4 +81,15 @@ public class GmsClientFactory {
         }
         return _entities;
     }
+
+    public static EntityClient getAspectType() {
+        if (_entities == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_entities == null) {
+                    _entities = new EntityClient(REST_CLIENT);
+                }
+            }
+        }
+        return _entities;
+    }
 }

@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
+import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
@@ -21,6 +22,7 @@ import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.aspect.AspectType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
@@ -97,8 +99,10 @@ public class GmsGraphQLEngine {
             GmsClientFactory.getRelationshipsClient()
     );
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
+    public static final AspectType ASPECT_TYPE = new AspectType();
 
-    /**
+
+        /**
      * Configures the graph objects that can be fetched primary key.
      */
     public static final List<EntityType<?>> ENTITY_TYPES = ImmutableList.of(
@@ -127,7 +131,11 @@ public class GmsGraphQLEngine {
     /**
      * Configures all graph objects
      */
-    public static final List<LoadableType<?>> LOADABLE_TYPES = Stream.concat(ENTITY_TYPES.stream(), RELATIONSHIP_TYPES.stream()).collect(Collectors.toList());
+    public static final List<LoadableType<?>> LOADABLE_TYPES = Stream.concat(
+        ENTITY_TYPES.stream(),
+        RELATIONSHIP_TYPES.stream()).collect(Collectors.toList(),
+        Stream.of(ASPECT_TYPE),
+    );
 
     /**
      * Configures the graph objects for owner
@@ -292,6 +300,9 @@ public class GmsGraphQLEngine {
                             new LoadableTypeResolver<>(
                                     UPSTREAM_LINEAGE_TYPE,
                                     (env) -> ((Entity) env.getSource()).getUrn()))
+                    )
+                    .dataFetcher("schema", new AuthenticatedResolver<>(
+                        new AspectResolver<>())
                     )
             )
             .type("Owner", typeWiring -> typeWiring

@@ -296,6 +296,8 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured glossary terms associated with the dataset
     """
     glossaryTerms: GlossaryTerms
+
+    versionedSchema(version: Int, aspect: String): Schema
 }
 
 type GlossaryTerm implements Entity {
@@ -580,6 +582,8 @@ type KeyValueSchema {
     """
     valueSchema: String!
 }
+
+union Aspects = Schema | GlobalTags
 
 type SchemaField {
     """
