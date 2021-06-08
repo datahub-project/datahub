@@ -194,7 +194,7 @@ We have two options for the underlying library used to connect to SQL Server: (1
 
 Extracts:
 
-- List of databases, schema, tables and (optionally) views
+- List of databases, schema, tables and views
 - Column types associated with each table/view
 
 ```yml
