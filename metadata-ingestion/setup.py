@@ -108,6 +108,7 @@ mypy_stubs = {
     "types-PyMySQL",
     "types-PyYAML",
     "types-freezegun",
+    # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
 }
 
