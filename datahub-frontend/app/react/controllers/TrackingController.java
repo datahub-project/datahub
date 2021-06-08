@@ -18,7 +18,10 @@ import play.mvc.Result;
 import play.mvc.Security;
 import react.graphql.PlayQueryContext;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Properties;
 
 public class TrackingController extends Controller {
 
