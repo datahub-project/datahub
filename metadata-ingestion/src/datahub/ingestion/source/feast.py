@@ -52,8 +52,6 @@ HOSTED_FEAST_IMAGE = "acryldata/datahub-ingestion-feast-wrapper"
 
 
 class FeastConfig(ConfigModel):
-    # See the MongoDB authentication docs for details and examples.
-    # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
     core_url: str = "localhost:6565"
     env: str = DEFAULT_ENV
     use_local_build: bool = False
