@@ -38,10 +38,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 @dataclass
 class SQLSourceReport(SourceReport):
     tables_scanned: int = 0
+    views_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
 
     def report_table_scanned(self, table_name: str) -> None:
         self.tables_scanned += 1
+
+    def report_view_scanned(self, view_name: str) -> None:
+        self.views_scanned += 1
 
     def report_dropped(self, table_name: str) -> None:
         self.filtered.append(table_name)
@@ -56,6 +60,10 @@ class SQLAlchemyConfig(ConfigModel):
     # them out afterwards via the table_pattern.
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+    include_views: bool = False
+    include_tables: bool = True
 
     @abstractmethod
     def get_sql_alchemy_url(self):
@@ -208,55 +216,106 @@ class SQLAlchemySource(Source):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **sql_config.options)
         inspector = reflection.Inspector.from_engine(engine)
+        logger.info("222 ASDASDASDASDASDASDASDSA")
         for schema in inspector.get_schema_names():
             if not sql_config.schema_pattern.allowed(schema):
                 self.report.report_dropped(schema)
                 continue
 
-            for table in inspector.get_table_names(schema):
-                schema, table = sql_config.standardize_schema_table_names(schema, table)
-                dataset_name = sql_config.get_identifier(schema, table)
-                self.report.report_table_scanned(dataset_name)
+            if sql_config.include_tables:
+                for table in inspector.get_table_names(schema):
+                    schema, table = sql_config.standardize_schema_table_names(schema, table)
+                    dataset_name = sql_config.get_identifier(schema, table)
+                    self.report.report_table_scanned(dataset_name)
 
-                if not sql_config.table_pattern.allowed(dataset_name):
-                    self.report.report_dropped(dataset_name)
-                    continue
+                    if not sql_config.table_pattern.allowed(dataset_name):
+                        self.report.report_dropped(dataset_name)
+                        continue
 
-                columns = inspector.get_columns(table, schema)
-                try:
-                    table_info: dict = inspector.get_table_comment(table, schema)
-                except NotImplementedError:
-                    description: Optional[str] = None
-                    properties: Dict[str, str] = {}
-                else:
-                    description = table_info["text"]
+                    columns = inspector.get_columns(table, schema)
+                    try:
+                        table_info: dict = inspector.get_table_comment(table, schema)
+                    except NotImplementedError:
+                        description: Optional[str] = None
+                        properties: Dict[str, str] = {}
+                    else:
+                        description = table_info["text"]
 
-                    # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-                    properties = table_info.get("properties", {})
+                        # The "properties" field is a non-standard addition to SQLAlchemy's interface.
+                        properties = table_info.get("properties", {})
 
-                # TODO: capture inspector.get_pk_constraint
-                # TODO: capture inspector.get_sorted_table_and_fkc_names
+                    # TODO: capture inspector.get_pk_constraint
+                    # TODO: capture inspector.get_sorted_table_and_fkc_names
 
-                dataset_snapshot = DatasetSnapshot(
-                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
-                    aspects=[],
-                )
-                if description is not None or properties:
-                    dataset_properties = DatasetPropertiesClass(
-                        description=description,
-                        customProperties=properties,
-                        # uri=dataset_name,
+                    dataset_snapshot = DatasetSnapshot(
+                        urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
+                        aspects=[],
                     )
-                    dataset_snapshot.aspects.append(dataset_properties)
-                schema_metadata = get_schema_metadata(
-                    self.report, dataset_name, self.platform, columns
-                )
-                dataset_snapshot.aspects.append(schema_metadata)
+                    if description is not None or properties:
+                        dataset_properties = DatasetPropertiesClass(
+                            description=description,
+                            customProperties=properties,
+                            # uri=dataset_name,
+                        )
+                        dataset_snapshot.aspects.append(dataset_properties)
+                    schema_metadata = get_schema_metadata(
+                        self.report, dataset_name, self.platform, columns
+                    )
+                    dataset_snapshot.aspects.append(schema_metadata)
 
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                wu = SqlWorkUnit(id=dataset_name, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                    mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                    wu = SqlWorkUnit(id=dataset_name, mce=mce)
+                    self.report.report_workunit(wu)
+                    yield wu
+
+            if sql_config.include_views:
+                logger.info("ASDASDASDASDASDASDASDSA")
+                for view in inspector.get_view_names(schema):
+                    logger.info(f"{view} ASDASDASDASDASDASDASDSA")
+                    # TODO : change "standardize_schema_table_names" function name: it will be the same for tables and views
+                    schema, view = sql_config.standardize_schema_table_names(schema, view)  
+                    dataset_name = sql_config.get_identifier(schema, view)
+                    self.report.report_view_scanned(dataset_name)
+
+                    if not sql_config.view_pattern.allowed(dataset_name):
+                        self.report.report_dropped(dataset_name)
+                        continue
+
+                    columns = inspector.get_columns(view, schema)
+                    try:
+                        view_info: dict = inspector.get_table_comment(view, schema)
+                    except NotImplementedError:
+                        description: Optional[str] = None
+                        properties: Dict[str, str] = {}
+                    else:
+                        description = view_info["text"]
+
+                        # The "properties" field is a non-standard addition to SQLAlchemy's interface.
+                        properties = view_info.get("properties", {})
+
+                    # TODO: capture inspector.get_pk_constraint
+                    # TODO: capture inspector.get_sorted_table_and_fkc_names
+
+                    dataset_snapshot = DatasetSnapshot(
+                        urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
+                        aspects=[],
+                    )
+                    if description is not None or properties:
+                        dataset_properties = DatasetPropertiesClass(
+                            description=description,
+                            customProperties=properties,
+                            # uri=dataset_name,
+                        )
+                        dataset_snapshot.aspects.append(dataset_properties)
+                    schema_metadata = get_schema_metadata(
+                        self.report, dataset_name, self.platform, columns
+                    )
+                    dataset_snapshot.aspects.append(schema_metadata)
+
+                    mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                    wu = SqlWorkUnit(id=dataset_name, mce=mce)
+                    self.report.report_workunit(wu)
+                    yield wu
 
     def get_report(self):
         return self.report
