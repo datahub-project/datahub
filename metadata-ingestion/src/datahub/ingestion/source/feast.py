@@ -242,6 +242,7 @@ class FeastSource(Source):
                             )
                             for feature in table["features"]
                         ],
+                        # a feature table can have multiple primary keys, which then act as a composite key
                         mlPrimaryKeys=[
                             builder.make_ml_primary_key_urn(
                                 table["name"], entity["name"]

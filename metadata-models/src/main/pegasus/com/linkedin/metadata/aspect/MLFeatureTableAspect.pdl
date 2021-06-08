@@ -12,8 +12,8 @@ import com.linkedin.common.Deprecation
  */
 typeref MLFeatureTableAspect = union[
   MLFeatureTableKey,
-  Ownership,
   MLFeatureTableProperties,
+  Ownership,
   InstitutionalMemory,
   Status,
   Deprecation

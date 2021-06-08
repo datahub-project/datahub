@@ -12,8 +12,8 @@ import com.linkedin.common.Deprecation
  */
 typeref MLPrimaryKeyAspect = union[
   MLPrimaryKeyKey,
-  Ownership,
   MLPrimaryKeyProperties,
+  Ownership,
   InstitutionalMemory,
   Status,
   Deprecation

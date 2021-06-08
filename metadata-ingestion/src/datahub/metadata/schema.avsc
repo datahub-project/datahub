@@ -3623,7 +3623,6 @@
                       "name": "mlPrimaryKeyKey"
                     }
                   },
-                  "com.linkedin.pegasus2avro.common.Ownership",
                   {
                     "type": "record",
                     "name": "MLPrimaryKeyProperties",
@@ -3721,6 +3720,7 @@
                       "name": "mlPrimaryKeyProperties"
                     }
                   },
+                  "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   "com.linkedin.pegasus2avro.common.Status",
                   "com.linkedin.pegasus2avro.common.Deprecation"
@@ -3905,7 +3905,6 @@
                       "name": "mlFeatureTableKey"
                     }
                   },
-                  "com.linkedin.pegasus2avro.common.Ownership",
                   {
                     "type": "record",
                     "name": "MLFeatureTableProperties",
@@ -3966,6 +3965,7 @@
                       "name": "mlFeatureTableProperties"
                     }
                   },
+                  "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   "com.linkedin.pegasus2avro.common.Status",
                   "com.linkedin.pegasus2avro.common.Deprecation"
