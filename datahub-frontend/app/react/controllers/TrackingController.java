@@ -28,7 +28,7 @@ public class TrackingController extends Controller {
     private final String _topic;
 
     private final List<String> SSL_PROTOCOLS = Collections.unmodifiableList(
-            Arrays.asList(SecurityProtocol.SSL.name,SecurityProtocol.SASL_SSL.name));
+            Arrays.asList(SecurityProtocol.SSL.name(),SecurityProtocol.SASL_SSL.name()));
 
     @Inject
     public TrackingController(@Nonnull Config config) {
@@ -100,7 +100,7 @@ public class TrackingController extends Controller {
             props.put(SslConfigs.SSL_PROTOCOL_CONFIG, _config.getString("analytics.kafka.ssl.protocol"));
             props.put(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, _config.getString("analytics.kafka.ssl.endpoint.identification.algorithm"));
 
-            if (_config.getString(securityProtocolConfig).equals(SecurityProtocol.SASL_SSL.name)) {
+            if (_config.getString(securityProtocolConfig).equals(SecurityProtocol.SASL_SSL.name())) {
                 props.put(SaslConfigs.SASL_MECHANISM, _config.getString("analytics.kafka.sasl.mechanism"));
                 props.put(SaslConfigs.SASL_JAAS_CONFIG, _config.getString("analytics.kafka.sasl.jaas.config"));
             }
