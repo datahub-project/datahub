@@ -41,14 +41,21 @@ class SQLSourceReport(SourceReport):
     views_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
 
-    def report_table_scanned(self, table_name: str) -> None:
-        self.tables_scanned += 1
+    report_table_scanned
 
-    def report_view_scanned(self, view_name: str) -> None:
-        self.views_scanned += 1
+    def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
+        """
+        Entity could be a view or a table
+        """
+        if ent_type == "table":
+            self.tables_scanned += 1
+        elif ent_type == "view":
+            self.views_scanned += 1
+        else:
+            raise KeyError(f"Unknown entity {ent_type}.")
 
-    def report_dropped(self, table_name: str) -> None:
-        self.filtered.append(table_name)
+    def report_dropped(self, ent_name: str) -> None:
+        self.filtered.append(ent_name)
 
 
 class SQLAlchemyConfig(ConfigModel):
@@ -216,7 +223,6 @@ class SQLAlchemySource(Source):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **sql_config.options)
         inspector = reflection.Inspector.from_engine(engine)
-        logger.info("222 ASDASDASDASDASDASDASDSA")
         for schema in inspector.get_schema_names():
             if not sql_config.schema_pattern.allowed(schema):
                 self.report.report_dropped(schema)
@@ -269,11 +275,9 @@ class SQLAlchemySource(Source):
                     yield wu
 
             if sql_config.include_views:
-                logger.info("ASDASDASDASDASDASDASDSA")
                 for view in inspector.get_view_names(schema):
-                    logger.info(f"{view} ASDASDASDASDASDASDASDSA")
                     # TODO : change "standardize_schema_table_names" function name: it will be the same for tables and views
-                    schema, view = sql_config.standardize_schema_table_names(schema, view)  
+                    schema, view = sql_config.standardize_schema_table_names(schema, view)
                     dataset_name = sql_config.get_identifier(schema, view)
                     self.report.report_view_scanned(dataset_name)
 
