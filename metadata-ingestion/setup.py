@@ -101,6 +101,7 @@ all_exclude_plugins: Set[str] = {
 mypy_stubs = {
     # for Python 3.6 support
     "dataclasses",
+    "types-dataclasses",
     "sqlalchemy-stubs",
     "types-pkg_resources",
     "types-six",
