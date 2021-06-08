@@ -98,9 +98,23 @@ all_exclude_plugins: Set[str] = {
     "mssql-odbc",
 }
 
+mypy_stubs = {
+    "sqlalchemy-stubs",
+    "types-pkg_resources",
+    "types-six",
+    "types-python-dateutil",
+    "types-requests",
+    "types-toml",
+    "types-PyMySQL",
+    "types-PyYAML",
+    "types-freezegun",
+    "types-click==0.1.12",
+}
+
 base_dev_requirements = {
     *base_requirements,
     *framework_common,
+    *mypy_stubs,
     "black>=19.10b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
@@ -110,7 +124,6 @@ base_dev_requirements = {
     "pytest-cov>=2.8.1",
     "pytest-docker",
     "tox",
-    "sqlalchemy-stubs",
     "deepdiff",
     "requests-mock",
     "freezegun",
