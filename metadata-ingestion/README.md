@@ -404,6 +404,8 @@ source:
 
 ### Feast `feast`
 
+**Note: Feast ingestion requires Docker to be installed.**
+
 Extracts:
 
 - List of feature tables (modeled as `MLFeatureTable`s), features (`MLFeature`s), and entities (`MLPrimaryKey`s)
