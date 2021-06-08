@@ -101,6 +101,153 @@ class FeastSource(Source):
 
         return enum_type
 
+    def get_entity_wu(self, ingest_table, ingest_entity):
+        """
+        Generate an MLPrimaryKey workunit for a Feast entity.
+
+        Parameters
+        ----------
+            ingest_table:
+                ingested Feast table
+            ingest_entity:
+                ingested Feast entity
+        """
+
+        # create snapshot instance for the entity
+        entity_snapshot = MLPrimaryKeySnapshot(
+            urn=builder.make_ml_primary_key_urn(
+                ingest_table["name"], ingest_entity["name"]
+            ),
+            aspects=[],
+        )
+
+        entity_sources = []
+
+        if ingest_entity["batch_source"] is not None:
+            entity_sources.append(
+                builder.make_dataset_urn(
+                    ingest_entity["batch_source_platform"],
+                    ingest_entity["batch_source_name"],
+                    self.config.env,
+                )
+            )
+
+        if ingest_entity["stream_source"] is not None:
+            entity_sources.append(
+                builder.make_dataset_urn(
+                    ingest_entity["stream_source_platform"],
+                    ingest_entity["stream_source_name"],
+                    self.config.env,
+                )
+            )
+
+        # append entity name and type
+        entity_snapshot.aspects.append(
+            MLPrimaryKeyPropertiesClass(
+                description=ingest_entity["description"],
+                dataType=self.get_field_type(
+                    ingest_entity["type"], ingest_entity["name"]
+                ),
+                sources=entity_sources,
+            )
+        )
+
+        # make the MCE and workunit
+        mce = MetadataChangeEvent(proposedSnapshot=entity_snapshot)
+        return MetadataWorkUnit(id=ingest_entity["name"], mce=mce)
+
+    def get_feature_wu(self, ingest_table, ingest_feature):
+        """
+        Generate an MLFeature workunit for a Feast feature.
+
+        Parameters
+        ----------
+            ingest_table:
+                ingested Feast table
+            ingest_feature:
+                ingested Feast feature
+        """
+
+        # create snapshot instance for the feature
+        feature_snapshot = MLFeatureSnapshot(
+            urn=builder.make_ml_feature_urn(
+                ingest_table["name"], ingest_feature["name"]
+            ),
+            aspects=[],
+        )
+
+        feature_sources = []
+
+        if ingest_feature["batch_source"] is not None:
+            feature_sources.append(
+                builder.make_dataset_urn(
+                    ingest_feature["batch_source_platform"],
+                    ingest_feature["batch_source_name"],
+                    self.config.env,
+                )
+            )
+
+        if ingest_feature["stream_source"] is not None:
+            feature_sources.append(
+                builder.make_dataset_urn(
+                    ingest_feature["stream_source_platform"],
+                    ingest_feature["stream_source_name"],
+                    self.config.env,
+                )
+            )
+
+        # append feature name and type
+        feature_snapshot.aspects.append(
+            MLFeaturePropertiesClass(
+                dataType=self.get_field_type(
+                    ingest_feature["type"], ingest_feature["name"]
+                ),
+                sources=feature_sources,
+            )
+        )
+
+        # make the MCE and workunit
+        mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
+        return MetadataWorkUnit(id=ingest_feature["name"], mce=mce)
+
+    def get_feature_table_wu(self, ingest_table):
+        """
+        Generate an MLFeatureTable workunit for a Feast feature table.
+
+        Parameters
+        ----------
+            ingest_table:
+                ingested Feast table
+        """
+
+        featuretable_snapshot = MLFeatureTableSnapshot(
+            urn=builder.make_ml_feature_table_urn("feast", ingest_table["name"]),
+            aspects=[],
+        )
+
+        featuretable_snapshot.aspects.append(
+            MLFeatureTablePropertiesClass(
+                mlFeatures=[
+                    builder.make_ml_feature_urn(
+                        ingest_table["name"],
+                        feature["name"],
+                    )
+                    for feature in ingest_table["features"]
+                ],
+                # a feature table can have multiple primary keys, which then act as a composite key
+                mlPrimaryKeys=[
+                    builder.make_ml_primary_key_urn(
+                        ingest_table["name"], entity["name"]
+                    )
+                    for entity in ingest_table["entities"]
+                ],
+            )
+        )
+
+        # make the MCE and workunit
+        mce = MetadataChangeEvent(proposedSnapshot=featuretable_snapshot)
+        return MetadataWorkUnit(id=ingest_table["name"], mce=mce)
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         with tempfile.NamedTemporaryFile(suffix=".json") as tf:
 
@@ -130,131 +277,24 @@ class FeastSource(Source):
 
             ingest = json.load(tf)
 
-            platform = "feast"
-
             # ingest tables
-            for table in ingest:
+            for ingest_table in ingest:
 
                 # ingest entities in table
-                for entity in table["entities"]:
+                for ingest_entity in ingest_table["entities"]:
 
-                    # create snapshot instance for the entity
-                    entity_snapshot = MLPrimaryKeySnapshot(
-                        urn=builder.make_ml_primary_key_urn(
-                            table["name"], entity["name"]
-                        ),
-                        aspects=[],
-                    )
-
-                    entity_sources = []
-
-                    if entity["batch_source"] is not None:
-                        entity_sources.append(
-                            builder.make_dataset_urn(
-                                entity["batch_source_platform"],
-                                entity["batch_source_name"],
-                                self.config.env,
-                            )
-                        )
-
-                    if entity["stream_source"] is not None:
-                        entity_sources.append(
-                            builder.make_dataset_urn(
-                                entity["stream_source_platform"],
-                                entity["stream_source_name"],
-                                self.config.env,
-                            )
-                        )
-
-                    # append entity name and type
-                    entity_snapshot.aspects.append(
-                        MLPrimaryKeyPropertiesClass(
-                            description=entity["description"],
-                            dataType=self.get_field_type(
-                                entity["type"], entity["name"]
-                            ),
-                            sources=entity_sources,
-                        )
-                    )
-
-                    # make the MCE and workunit
-                    mce = MetadataChangeEvent(proposedSnapshot=entity_snapshot)
-                    wu = MetadataWorkUnit(id=entity["name"], mce=mce)
+                    wu = self.get_entity_wu(ingest_table, ingest_entity)
                     self.report.report_workunit(wu)
                     yield wu
 
                 # ingest features in table
-                for feature in table["features"]:
+                for ingest_feature in ingest_table["features"]:
 
-                    # create snapshot instance for the feature
-                    feature_snapshot = MLFeatureSnapshot(
-                        urn=builder.make_ml_feature_urn(table["name"], feature["name"]),
-                        aspects=[],
-                    )
-
-                    feature_sources = []
-
-                    if feature["batch_source"] is not None:
-                        feature_sources.append(
-                            builder.make_dataset_urn(
-                                feature["batch_source_platform"],
-                                feature["batch_source_name"],
-                                self.config.env,
-                            )
-                        )
-
-                    if feature["stream_source"] is not None:
-                        feature_sources.append(
-                            builder.make_dataset_urn(
-                                feature["stream_source_platform"],
-                                feature["stream_source_name"],
-                                self.config.env,
-                            )
-                        )
-
-                    # append feature name and type
-                    feature_snapshot.aspects.append(
-                        MLFeaturePropertiesClass(
-                            dataType=self.get_field_type(
-                                feature["type"], feature["name"]
-                            ),
-                            sources=feature_sources,
-                        )
-                    )
-
-                    # make the MCE and workunit
-                    mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
-                    wu = MetadataWorkUnit(id=feature["name"], mce=mce)
+                    wu = self.get_feature_wu(ingest_table, ingest_feature)
                     self.report.report_workunit(wu)
                     yield wu
 
-                featuretable_snapshot = MLFeatureTableSnapshot(
-                    urn=builder.make_ml_feature_table_urn(platform, table["name"]),
-                    aspects=[],
-                )
-
-                featuretable_snapshot.aspects.append(
-                    MLFeatureTablePropertiesClass(
-                        mlFeatures=[
-                            builder.make_ml_feature_urn(
-                                table["name"],
-                                feature["name"],
-                            )
-                            for feature in table["features"]
-                        ],
-                        # a feature table can have multiple primary keys, which then act as a composite key
-                        mlPrimaryKeys=[
-                            builder.make_ml_primary_key_urn(
-                                table["name"], entity["name"]
-                            )
-                            for entity in table["entities"]
-                        ],
-                    )
-                )
-
-                # make the MCE and workunit
-                mce = MetadataChangeEvent(proposedSnapshot=featuretable_snapshot)
-                wu = MetadataWorkUnit(id=table["name"], mce=mce)
+                wu = self.get_feature_table_wu(ingest_table)
                 self.report.report_workunit(wu)
                 yield wu
 
