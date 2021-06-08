@@ -72,8 +72,8 @@ class SQLAlchemyConfig(ConfigModel):
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
-    include_views: bool = False
-    include_tables: bool = True
+    include_views: Optional[bool] = False
+    include_tables: Optional[bool] = True
 
     @abstractmethod
     def get_sql_alchemy_url(self):
