@@ -256,7 +256,12 @@ If you're extending an existing Entity, you can skip this step.
 
 ### Step 5: Re-build DataHub to have access to your new or updated entity
 
-Run `/.gradlew build` from the repository root to rebuild Datahub with access to your new entity.
+If you have updated any existing types or see an `Incompatible changes` warning when building,
+you will need to run
+`./gradlew :gms:impl:build -Prest.model.compatibility=ignore`
+before running `build`.
+
+Then, run `/.gradlew build` from the repository root to rebuild Datahub with access to your new entity.
 
 Then, re-deploy gms, mae-consumer and mce-consumer (see [docker development](../../docker/README.md) for details on how
 to deploy during development). This will allow Datahub to read and write Snapshots of your new entity, along with server
