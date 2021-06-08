@@ -194,8 +194,8 @@ We have two options for the underlying library used to connect to SQL Server: (1
 
 Extracts:
 
-- List of databases, schema, and tables
-- Column types associated with each table
+- List of databases, schema, tables and (optionally) views
+- Column types associated with each table/view
 
 ```yml
 source:
@@ -205,6 +205,7 @@ source:
     password: pass
     host_port: localhost:1433
     database: DemoDatabase
+    include_views: True
     table_pattern:
       deny:
         - "^.*\\.sys_.*" # deny all tables that start with sys_
