@@ -1,5 +1,6 @@
 import logging
 import time
+import warnings
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
@@ -41,7 +42,9 @@ class SQLSourceReport(SourceReport):
     views_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
 
-    report_table_scanned
+    def report_table_scanned(self, table_name: str) -> None:
+        warnings.warn("report_table_scanned is deprecated, please use report_entity_scanned with argument `table`")
+        self.tables_scanned += 1
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
@@ -232,7 +235,7 @@ class SQLAlchemySource(Source):
                 for table in inspector.get_table_names(schema):
                     schema, table = sql_config.standardize_schema_table_names(schema, table)
                     dataset_name = sql_config.get_identifier(schema, table)
-                    self.report.report_table_scanned(dataset_name)
+                    self.report.report_entity_scanned(dataset_name, ent_type="table")
 
                     if not sql_config.table_pattern.allowed(dataset_name):
                         self.report.report_dropped(dataset_name)
@@ -279,7 +282,7 @@ class SQLAlchemySource(Source):
                     # TODO : change "standardize_schema_table_names" function name: it will be the same for tables and views
                     schema, view = sql_config.standardize_schema_table_names(schema, view)
                     dataset_name = sql_config.get_identifier(schema, view)
-                    self.report.report_view_scanned(dataset_name)
+                    self.report.report_entity_scanned(dataset_name, ent_type="view")
 
                     if not sql_config.view_pattern.allowed(dataset_name):
                         self.report.report_dropped(dataset_name)
