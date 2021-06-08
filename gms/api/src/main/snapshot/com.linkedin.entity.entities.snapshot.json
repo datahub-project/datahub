@@ -3110,7 +3110,7 @@
                   "Aspect" : {
                     "name" : "mlPrimaryKeyKey"
                   }
-                }, "com.linkedin.common.Ownership", {
+                }, {
                   "type" : "record",
                   "name" : "MLPrimaryKeyProperties",
                   "namespace" : "com.linkedin.ml.metadata",
@@ -3147,7 +3147,7 @@
                   "Aspect" : {
                     "name" : "mlPrimaryKeyProperties"
                   }
-                }, "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLPrimaryKey. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3286,7 +3286,7 @@
                   "Aspect" : {
                     "name" : "mlFeatureTableKey"
                   }
-                }, "com.linkedin.common.Ownership", {
+                }, {
                   "type" : "record",
                   "name" : "MLFeatureTableProperties",
                   "namespace" : "com.linkedin.ml.metadata",
@@ -3328,7 +3328,7 @@
                   "Aspect" : {
                     "name" : "mlFeatureTableProperties"
                   }
-                }, "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."
