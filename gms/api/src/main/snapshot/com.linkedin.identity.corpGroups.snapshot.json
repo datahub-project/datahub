@@ -103,12 +103,38 @@
                 }
               }
             },
-            "doc" : "Urn of the applied tag"
+            "doc" : "Urn of the applied tag",
+            "Searchable" : {
+              "fieldName" : "tags",
+              "fieldType" : "URN_PARTIAL",
+              "hasValuesFieldName" : "hasTags",
+              "queryByDefault" : true
+            }
           } ]
         }
       },
       "doc" : "Tags associated with a given entity"
-    } ]
+    } ],
+    "Aspect" : {
+      "name" : "globalTags"
+    }
+  }, {
+    "type" : "record",
+    "name" : "Status",
+    "namespace" : "com.linkedin.common",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "fields" : [ {
+      "name" : "removed",
+      "type" : "boolean",
+      "doc" : "whether the entity is removed or not",
+      "default" : false,
+      "Searchable" : {
+        "fieldType" : "BOOLEAN"
+      }
+    } ],
+    "Aspect" : {
+      "name" : "status"
+    }
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", {
     "type" : "typeref",
     "name" : "Urn",
@@ -124,7 +150,7 @@
     "doc" : "Metadata for a corp group",
     "include" : [ {
       "type" : "record",
-      "name" : "CorpGroupKey",
+      "name" : "CorpGroupResourceKey",
       "doc" : "Key for CorpGroup resource",
       "fields" : [ {
         "name" : "name",
@@ -154,36 +180,68 @@
             "type" : "array",
             "items" : "com.linkedin.common.CorpuserUrn"
           },
-          "doc" : "owners of this group"
+          "doc" : "owners of this group",
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "corpUser" ],
+              "name" : "OwnedBy"
+            }
+          }
         }, {
           "name" : "members",
           "type" : {
             "type" : "array",
             "items" : "com.linkedin.common.CorpuserUrn"
           },
-          "doc" : "List of ldap urn in this group."
+          "doc" : "List of ldap urn in this group.",
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "corpUser" ],
+              "name" : "IsPartOf"
+            }
+          }
         }, {
           "name" : "groups",
           "type" : {
             "type" : "array",
             "items" : "com.linkedin.common.CorpGroupUrn"
           },
-          "doc" : "List of groups in this group."
+          "doc" : "List of groups in this group.",
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "corpGroup" ],
+              "name" : "IsPartOf"
+            }
+          }
         } ],
         "Aspect" : {
-          "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ]
+          "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
+          "name" : "corpGroupInfo"
         }
       },
       "doc" : "Information of the corp group",
       "optional" : true
     } ]
-  }, "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpGroupKey", {
+  }, "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpGroupResourceKey", {
     "type" : "typeref",
     "name" : "CorpGroupAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "doc" : "A union of all supported metadata aspects for a CorpGroup",
-    "ref" : [ "com.linkedin.identity.CorpGroupInfo", "com.linkedin.common.GlobalTags" ]
-  }, {
+    "ref" : [ {
+      "type" : "record",
+      "name" : "CorpGroupKey",
+      "namespace" : "com.linkedin.metadata.key",
+      "doc" : "Key for a CorpGroup",
+      "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "The name of the AD/LDAP group."
+      } ],
+      "Aspect" : {
+        "name" : "corpGroupKey"
+      }
+    }, "com.linkedin.identity.CorpGroupInfo", "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
+  }, "com.linkedin.metadata.key.CorpGroupKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -383,7 +441,11 @@
         "items" : "com.linkedin.metadata.aspect.CorpGroupAspect"
       },
       "doc" : "The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
-    } ]
+    } ],
+    "Entity" : {
+      "keyAspect" : "corpGroupKey",
+      "name" : "corpGroup"
+    }
   }, {
     "type" : "record",
     "name" : "EmptyRecord",
@@ -395,15 +457,18 @@
     }
   } ],
   "schema" : {
+    "annotations" : {
+      "deprecated" : { }
+    },
     "name" : "corpGroups",
     "namespace" : "com.linkedin.identity",
     "path" : "/corpGroups",
     "schema" : "com.linkedin.identity.CorpGroup",
-    "doc" : "generated from: com.linkedin.metadata.resources.identity.CorpGroups",
+    "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.identity.CorpGroups",
     "collection" : {
       "identifier" : {
         "name" : "corpGroup",
-        "type" : "com.linkedin.identity.CorpGroupKey",
+        "type" : "com.linkedin.identity.CorpGroupResourceKey",
         "params" : "com.linkedin.restli.common.EmptyRecord"
       },
       "supports" : [ "batch_get", "get" ],

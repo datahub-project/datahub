@@ -42,6 +42,7 @@ dependencies {
   playRun externalDependency.guice
   playRun externalDependency.playDocs
   playRun externalDependency.playGuice
+  playRun externalDependency.logbackClassic
 }
 
 model {

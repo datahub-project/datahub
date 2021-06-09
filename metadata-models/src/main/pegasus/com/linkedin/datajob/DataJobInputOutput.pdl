@@ -7,20 +7,57 @@ import com.linkedin.common.DataJobUrn
 /**
  * Information about the inputs and outputs of a Data processing job
  */
+@Aspect = {
+  "name": "dataJobInputOutput"
+}
 record DataJobInputOutput {
 
   /**
    * Input datasets consumed by the data job during processing
    */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "inputs",
+      "fieldType": "URN",
+      "numValuesFieldName": "numInputDatasets",
+      "queryByDefault": false
+    }
+  }
   inputDatasets: array[DatasetUrn]
 
   /**
    * Output datasets produced by the data job during processing
    */
+  @Relationship = {
+    "/*": {
+      "name": "Produces",
+      "entityTypes": [ "dataset" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "outputs",
+      "fieldType": "URN",
+      "numValuesFieldName": "numOutputDatasets",
+      "queryByDefault": false
+    }
+  }
   outputDatasets: array[DatasetUrn]
 
   /**
    * Input datajobs that this data job depends on
    */
+  @Relationship = {
+    "/*": {
+      "name": "DownstreamOf",
+      "entityTypes": [ "dataJob" ]
+    }
+  }
   inputDatajobs: optional array[DataJobUrn] 
 }

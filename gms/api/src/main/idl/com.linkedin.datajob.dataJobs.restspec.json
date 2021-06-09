@@ -1,9 +1,12 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "dataJobs",
   "namespace" : "com.linkedin.datajob",
   "path" : "/dataJobs",
   "schema" : "com.linkedin.datajob.DataJob",
-  "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataJobs",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.datajob.DataJobs",
   "collection" : {
     "identifier" : {
       "name" : "key",

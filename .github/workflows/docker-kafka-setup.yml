@@ -3,9 +3,9 @@ on:
   push:
     branches:
       - acryl-main
-    paths:
-      - 'docker/kafka-setup/**'
-      - '.github/workflows/docker-kafka-setup.yml'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
   pull_request:
     branches:
       - acryl-main
@@ -29,7 +29,7 @@ jobs:
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/acryl-main,latest\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/acryl-main,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
           echo "tag=$TAG"
           echo "::set-output name=tag::$TAG"
       - name: Check whether publishing enabled

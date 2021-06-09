@@ -1,17 +1,14 @@
 package com.linkedin.metadata.kafka;
 
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.dao.internal.BaseRemoteWriterDAO;
-import com.linkedin.metadata.dao.utils.ModelUtils;
-import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
 import com.linkedin.mxe.Topics;
+import com.linkedin.r2.RemoteInvocationException;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -29,23 +26,23 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 public class MetadataChangeEventsProcessor {
 
-  private BaseRemoteWriterDAO remoteWriterDAO;
+  private EntityClient entityClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
   @Value("${KAFKA_FMCE_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_EVENT + "}")
   private String fmceTopicName;
 
-  public MetadataChangeEventsProcessor(BaseRemoteWriterDAO remoteWriterDAO,
-      KafkaTemplate<String, GenericRecord> kafkaTemplate) {
-    this.remoteWriterDAO = remoteWriterDAO;
+  public MetadataChangeEventsProcessor(
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
+    this.entityClient = entityClient;
     this.kafkaTemplate = kafkaTemplate;
   }
 
-  @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}",
-      topics = "${KAFKA_MCE_TOPIC_NAME:" + Topics.METADATA_CHANGE_EVENT + "}")
+  @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}", topics = "${KAFKA_MCE_TOPIC_NAME:"
+      + Topics.METADATA_CHANGE_EVENT + "}")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
-    log.debug("Got MCE");
     log.debug("Record ", record);
 
     MetadataChangeEvent event = new MetadataChangeEvent();
@@ -63,12 +60,6 @@ public class MetadataChangeEventsProcessor {
     }
   }
 
-  /**
-   * Sending Failed MCE Event to Kafka Topic
-   *
-   * @param event
-   * @param throwable
-   */
   private void sendFailedMCE(@Nonnull MetadataChangeEvent event, @Nonnull Throwable throwable) {
     final FailedMetadataChangeEvent failedMetadataChangeEvent = createFailedMCEEvent(event, throwable);
     try {
@@ -82,13 +73,6 @@ public class MetadataChangeEventsProcessor {
     }
   }
 
-  /**
-   * Populate a FailedMetadataChangeEvent from a MCE
-   *
-   * @param event
-   * @param throwable
-   * @return FailedMetadataChangeEvent
-   */
   @Nonnull
   private FailedMetadataChangeEvent createFailedMCEEvent(@Nonnull MetadataChangeEvent event,
       @Nonnull Throwable throwable) {
@@ -98,10 +82,9 @@ public class MetadataChangeEventsProcessor {
     return fmce;
   }
 
-  private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws URISyntaxException {
-    Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
-    final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
-    final Urn urn = ModelUtils.getUrnFromSnapshotUnion(snapshotUnion);
-    remoteWriterDAO.create(urn, snapshot);
+  private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws RemoteInvocationException {
+    final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
+    final Entity entity = new Entity().setValue(snapshotUnion);
+    entityClient.update(entity);
   }
 }

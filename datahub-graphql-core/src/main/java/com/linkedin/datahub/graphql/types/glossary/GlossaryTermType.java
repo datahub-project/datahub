@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.glossary;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.GlossaryTermUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -13,16 +14,17 @@ import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
-import com.linkedin.glossary.client.GlossaryTerms;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
-import com.linkedin.restli.common.CollectionResponse;
+import com.linkedin.metadata.query.SearchResult;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -38,11 +40,10 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, BrowsableEntityType<GlossaryTerm> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "definition";
 
-    private final GlossaryTerms _glossaryTermsClient;
+    private final EntityClient _glossaryTermsClient;
 
-    public GlossaryTermType(final GlossaryTerms glossaryTermsClient) {
+    public GlossaryTermType(final EntityClient glossaryTermsClient) {
         _glossaryTermsClient = glossaryTermsClient;
     }
 
@@ -63,17 +64,19 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                 .collect(Collectors.toList());
 
         try {
-            final Map<GlossaryTermUrn, com.linkedin.glossary.GlossaryTerm> glossaryTermMap = _glossaryTermsClient.batchGet(glossaryTermUrns
+            final Map<Urn, Entity> glossaryTermMap = _glossaryTermsClient.batchGet(glossaryTermUrns
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()));
 
-            final List<com.linkedin.glossary.GlossaryTerm> gmsResults = new ArrayList<>();
+            final List<Entity> gmsResults = new ArrayList<>();
             for (GlossaryTermUrn urn : glossaryTermUrns) {
                 gmsResults.add(glossaryTermMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsGlossaryTerm -> gmsGlossaryTerm == null ? null : GlossaryTermMapper.map(gmsGlossaryTerm))
+                    .map(gmsGlossaryTerm ->
+                        gmsGlossaryTerm == null ? null
+                            : GlossaryTermSnapshotMapper.map(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load GlossaryTerms", e);
@@ -87,8 +90,9 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final CollectionResponse<com.linkedin.glossary.GlossaryTerm> searchResult = _glossaryTermsClient.search(query, facetFilters, start, count);
-        return SearchResultsMapper.map(searchResult, GlossaryTermMapper::map);
+        final SearchResult searchResult = _glossaryTermsClient.search(
+            "glossaryTerm", query, facetFilters, start, count);
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -98,8 +102,8 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _glossaryTermsClient.autoComplete(query, field, facetFilters, limit);
+        final AutoCompleteResult result = _glossaryTermsClient.autoComplete(
+            "glossaryTerm", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -112,6 +116,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
         final BrowseResult result = _glossaryTermsClient.browse(
+                "glossaryTerm",
                 pathStr,
                 facetFilters,
                 start,

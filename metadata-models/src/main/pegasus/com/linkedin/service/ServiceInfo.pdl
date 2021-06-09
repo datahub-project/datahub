@@ -1,0 +1,26 @@
+namespace com.linkedin.service
+
+import com.linkedin.common.Urn
+
+/**
+ * Properties associated with a Tag
+ */
+@Aspect = {
+  "name": "serviceInfo"
+}
+record ServiceInfo {
+
+  /**
+   * Description of the service
+   */
+  @Searchable = {}
+  description: string
+
+  /**
+   * The owners of the
+   */
+  @Relationship = {
+     "name": "OwnedBy"
+  }
+  owner: Urn
+}

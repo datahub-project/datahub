@@ -1,21 +1,24 @@
 namespace com.linkedin.metadata.aspect
 
-import com.linkedin.common.InstitutionalMemory
-import com.linkedin.common.Ownership
-import com.linkedin.common.Status
+import com.linkedin.metadata.key.DatasetKey
 import com.linkedin.dataset.DatasetDeprecation
 import com.linkedin.dataset.DatasetProperties
 import com.linkedin.dataset.DatasetUpstreamLineage
 import com.linkedin.dataset.UpstreamLineage
 import com.linkedin.schema.SchemaMetadata
 import com.linkedin.schema.EditableSchemaMetadata
+import com.linkedin.common.InstitutionalMemory
+import com.linkedin.common.Ownership
+import com.linkedin.common.Status
 import com.linkedin.common.GlobalTags
 import com.linkedin.common.GlossaryTerms
+import com.linkedin.common.BrowsePaths
 
 /**
  * A union of all supported metadata aspects for a Dataset
  */
 typeref DatasetAspect = union[
+  DatasetKey,
   DatasetProperties,
   DatasetDeprecation,
   DatasetUpstreamLineage,
@@ -26,5 +29,6 @@ typeref DatasetAspect = union[
   SchemaMetadata,
   EditableSchemaMetadata,
   GlobalTags,
-  GlossaryTerms
+  GlossaryTerms,
+  BrowsePaths
 ]

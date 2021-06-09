@@ -508,7 +508,7 @@ type InstitutionalMemoryMetadata {
     """
     The author of this metadata
     """
-    author: String!
+    author: CorpUser!
 
     """
     An AuditStamp corresponding to the creation of this resource

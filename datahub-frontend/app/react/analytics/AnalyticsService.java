@@ -47,11 +47,11 @@ public class AnalyticsService {
   private static final String NA = "N/A";
 
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
-  public static final String CHART_INDEX = "chartdocument";
-  public static final String DASHBOARD_INDEX = "dashboarddocument";
-  public static final String DATA_FLOW_INDEX = "dataflowdocument";
-  public static final String DATA_JOB_INDEX = "datajobdocument";
-  public static final String DATASET_INDEX = "datasetdocument";
+  public static final String CHART_INDEX = "chartindex_v2";
+  public static final String DASHBOARD_INDEX = "dashboardindex_v2";
+  public static final String DATA_FLOW_INDEX = "dataflowindex_v2";
+  public static final String DATA_JOB_INDEX = "datajobindex_v2";
+  public static final String DATASET_INDEX = "datasetindex_v2";
 
   public AnalyticsService(final RestHighLevelClient elasticClient) {
     _elasticClient = elasticClient;

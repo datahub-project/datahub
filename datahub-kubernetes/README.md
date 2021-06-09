@@ -84,10 +84,10 @@ prerequisites-zookeeper-0                          1/1     Running     0        
 deploy Datahub by running the following
 
 ```(shell)
-helm install datahub datahub/ --values datahub/quickstart-values.yaml
+helm install datahub datahub/
 ```
 
-Values in [quickstart-values.yaml](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/datahub/quickstart-values.yaml) 
+Values in [values.yaml](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/datahub/values.yaml) 
 have been preset to point to the dependencies deployed using the [prerequisites](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/prerequisites) 
 chart with release name "prerequisites". If you deployed the helm chart using a different release name, update the quickstart-values.yaml file accordingly before installing. 
 

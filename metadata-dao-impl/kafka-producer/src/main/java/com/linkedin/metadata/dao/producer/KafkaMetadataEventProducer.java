@@ -17,8 +17,8 @@ import com.linkedin.mxe.TopicConventionImpl;
 import com.linkedin.mxe.Topics;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -55,8 +55,9 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
    * @param topicConvention the convention to use to get kafka topic names
    */
   public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull TopicConvention topicConvention) {
+                                    @Nonnull Class<ASPECT_UNION> aspectUnionClass,
+                                    @Nonnull Producer<String, ? extends IndexedRecord> producer,
+                                    @Nonnull TopicConvention topicConvention) {
     this(snapshotClass, aspectUnionClass, producer, topicConvention, null);
   }
 
@@ -70,8 +71,10 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
    * @param callback The {@link Callback} to invoke when the request is completed
    */
   public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull TopicConvention topicConvention, @Nullable Callback callback) {
+                                    @Nonnull Class<ASPECT_UNION> aspectUnionClass,
+                                    @Nonnull Producer<String, ? extends IndexedRecord> producer,
+                                    @Nonnull TopicConvention topicConvention,
+                                    @Nullable Callback callback) {
     super(snapshotClass, aspectUnionClass);
     _producer = producer;
     _callback = Optional.ofNullable(callback);
@@ -80,7 +83,7 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
 
   @Override
   public <ASPECT extends RecordTemplate> void produceSnapshotBasedMetadataChangeEvent(@Nonnull URN urn,
-      @Nonnull ASPECT newValue) {
+                                                                                      @Nonnull ASPECT newValue) {
     MetadataChangeEvent metadataChangeEvent = new MetadataChangeEvent();
     metadataChangeEvent.setProposedSnapshot(makeSnapshot(urn, newValue));
 
@@ -172,7 +175,9 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
   @Nonnull
   private Snapshot makeSnapshot(@Nonnull URN urn, @Nonnull RecordTemplate value) {
     Snapshot snapshot = new Snapshot();
-    List<ASPECT_UNION> aspects = Collections.singletonList(ModelUtils.newAspectUnion(_aspectUnionClass, value));
+
+    List<ASPECT_UNION> aspects = new ArrayList<>();
+    aspects.add(ModelUtils.newAspectUnion(_aspectUnionClass, value));
     RecordUtils.setSelectedRecordTemplateInUnion(snapshot, ModelUtils.newSnapshot(_snapshotClass, urn, aspects));
     return snapshot;
   }

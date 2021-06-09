@@ -200,7 +200,10 @@ class SQLAlchemySource(Source):
 
     def get_workunits(self) -> Iterable[SqlWorkUnit]:
         sql_config = self.config
-        platform = self.platform
+        if logger.isEnabledFor(logging.DEBUG):
+            # If debug logging is enabled, we also want to echo each SQL query issued.
+            sql_config.options["echo"] = True
+
         url = sql_config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **sql_config.options)
@@ -235,7 +238,7 @@ class SQLAlchemySource(Source):
                 # TODO: capture inspector.get_sorted_table_and_fkc_names
 
                 dataset_snapshot = DatasetSnapshot(
-                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.config.env})",
+                    urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
                     aspects=[],
                 )
                 if description is not None or properties:
@@ -246,7 +249,7 @@ class SQLAlchemySource(Source):
                     )
                     dataset_snapshot.aspects.append(dataset_properties)
                 schema_metadata = get_schema_metadata(
-                    self.report, dataset_name, platform, columns
+                    self.report, dataset_name, self.platform, columns
                 )
                 dataset_snapshot.aspects.append(schema_metadata)
 
