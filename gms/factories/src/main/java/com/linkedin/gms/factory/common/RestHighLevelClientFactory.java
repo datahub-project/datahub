@@ -1,13 +1,9 @@
 package com.linkedin.gms.factory.common;
 
-import com.amazonaws.auth.AWS4Signer;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpHost;
-import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.elasticsearch.client.RestClient;
@@ -25,10 +21,9 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.auth.AuthScope;
 
-
 @Slf4j
 @Configuration
-@Import({ElasticsearchSSLContextFactory.class})
+@Import({ ElasticsearchSSLContextFactory.class })
 public class RestHighLevelClientFactory {
 
   @Value("${ELASTICSEARCH_HOST:localhost}")
@@ -52,18 +47,9 @@ public class RestHighLevelClientFactory {
   @Value("${ELASTICSEARCH_USE_SSL:false}")
   private boolean useSSL;
 
-  @Value("${ELASTICSEARCH_USE_AWS_AUTH:false}")
-  private boolean useAwsAuth;
-
-  @Value("${AWS_REGION:us-west-2}")
-  private String region;
-
   @Autowired
   @Qualifier("elasticSearchSSLContext")
   private SSLContext sslContext;
-
-  private static final AWSCredentialsProvider CREDENTIALS_PROVIDER = new DefaultAWSCredentialsProviderChain();
-  private static final String SERVICE_NAME = "es";
 
   @Bean(name = "elasticSearchRestHighLevelClient")
   @Nonnull
@@ -71,26 +57,21 @@ public class RestHighLevelClientFactory {
     RestClientBuilder restClientBuilder;
 
     if (useSSL) {
-      restClientBuilder =
-          loadRestHttpsClient(host, port, threadCount, connectionRequestTimeout, sslContext, username, password);
+      restClientBuilder = loadRestHttpsClient(host, port, threadCount, connectionRequestTimeout, sslContext, username,
+          password);
     } else {
       restClientBuilder = loadRestHttpClient(host, port, threadCount, connectionRequestTimeout);
     }
-
 
     return new RestHighLevelClient(restClientBuilder);
   }
 
   @Nonnull
-  private RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, int threadCount,
+  private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, int threadCount,
       int connectionRequestTimeout) {
     RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "http"))
-        .setHttpClientConfigCallback(httpAsyncClientBuilder -> {
-          HttpAsyncClientBuilder clientBuilder = httpAsyncClientBuilder.setDefaultIOReactorConfig(
-              IOReactorConfig.custom().setIoThreadCount(threadCount).build());
-          if (useAwsAuth) httpAsyncClientBuilder.addInterceptorLast(getAwsAuthInterceptor());
-          return clientBuilder;
-        });
+        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder
+            .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
 
     builder.setRequestConfigCallback(
         requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(connectionRequestTimeout));
@@ -99,24 +80,19 @@ public class RestHighLevelClientFactory {
   }
 
   @Nonnull
-  private RestClientBuilder loadRestHttpsClient(@Nonnull String host, int port, int threadCount,
+  private static RestClientBuilder loadRestHttpsClient(@Nonnull String host, int port, int threadCount,
       int connectionRequestTimeout, @Nonnull SSLContext sslContext, String username, String password) {
 
     final RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "https"));
     builder.setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
       public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpAsyncClientBuilder) {
-        httpAsyncClientBuilder.setSSLContext(sslContext)
-            .setSSLHostnameVerifier(new NoopHostnameVerifier())
+        httpAsyncClientBuilder.setSSLContext(sslContext).setSSLHostnameVerifier(new NoopHostnameVerifier())
             .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build());
 
         if (username != null && password != null) {
           final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
           credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
           httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
-        }
-
-        if (useAwsAuth) {
-          httpAsyncClientBuilder.addInterceptorLast(getAwsAuthInterceptor());
         }
 
         return httpAsyncClientBuilder;
@@ -129,10 +105,4 @@ public class RestHighLevelClientFactory {
     return builder;
   }
 
-  private HttpRequestInterceptor getAwsAuthInterceptor() {
-    AWS4Signer signer = new AWS4Signer();
-    signer.setServiceName(SERVICE_NAME);
-    signer.setRegionName(region);
-    return new AWSRequestSigningApacheInterceptor(SERVICE_NAME, signer, CREDENTIALS_PROVIDER);
-  }
 }
