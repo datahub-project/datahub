@@ -1,6 +1,6 @@
-# Ingesting files from AWS S3
+# Ingesting files from S3
 
-To produce schema metadata for files on S3, we recommend using AWS Glue's built-in schema inference capabilities, as we already have a [Glue ingestion integration](../metadata-ingestion/#aws-glue-glue). Note: if you have nested data, such as in JSON format, then we recommend you hold tight since we don't have a JSON ingestion module yet.
+To produce schema metadata for files on S3, we recommend using AWS Glue's built-in schema inference capabilities, as we already have a [Glue ingestion integration](../metadata-ingestion/#aws-glue-glue). Note: if you have nested data, perhaps in JSON format, then we recommend you hold tight since we don't have a JSON schema inference module yet.
 
 To ingest S3 files with Glue, there are two main steps: (1) setting up Glue to scan your S3 directories, and (2) adding the Glue ingestion configurations on DataHub.
 
@@ -29,21 +29,21 @@ Glue scans files and infers their schemas using **crawlers**. Support exists for
 
 ### Test data
 
-If you'd like to test Glue out on a smaller set of data before connecting it to any production datasets, AWS has public S3 buckets with the name format `crawler-public-{REGION}` (for instance, `crawler-public-us-west-2`). These contain an example dataset on 2016 plane flights in CSV, Avro, ORC, and Parquet formats. In the following example, we'll demonstrate how to crawl the Avro files and ingest them into DataHub.
+If you'd like to test Glue out on a smaller dataset before connecting it to any production records, AWS has public S3 buckets named `crawler-public-{REGION}` (for instance, `crawler-public-us-west-2`). These contain an example dataset on 2016 plane flights in CSV, Avro, ORC, and Parquet formats. In the following example, we'll demonstrate how to crawl the Avro files and ingest them into DataHub.
 
 ### Creating a crawler
 
-To configure Glue, first navigate to the Glue console (https://console.aws.amazon.com/glue/home).
+To configure Glue, first navigate to the Glue console at https://console.aws.amazon.com/glue/home.
 
 Before starting, consider the following:
 
-1. The source files are all of the same shape (i.e. they have the same columns). Glue's schema inference may have unexpected behavior if files with different schemas are scanned together.
-2. The source files do not contain deeply nested fields (which is possible with JSON files). Glue will only capture the top-level keys in such files.
+1. The source files should all be of the same shape (i.e. they have the same columns). Glue's schema inference may have unexpected behavior if files with different schemas are scanned together.
+2. The source files should not contain deeply nested fields (which is possible with JSON files). Glue will only capture the top-level keys in such files.
 3. [Glue's pricing model](https://aws.amazon.com/glue/pricing/). Note that each crawler is charged based on how many of AWS's Data Processing Units (DPUs) run and for how long. If the source dataset is relatively large, there may be high costs associated, so we recommend you run it first on a smaller subset.
 
 Now let's get started!
 
-Under "Data Catalog > Crawlers", click "Add Crawler" to open up the creation dialog.
+Under "Data Catalog" > "Crawlers", click "Add Crawler" to open up the creation dialog.
 
 1. First, set the name and description of your crawler so you'll be able to come back to it later. Note that once you've created a crawler, you can still edit it later, so none of the settings here have to be final except for the crawler name.
 
@@ -57,7 +57,7 @@ Under "Data Catalog > Crawlers", click "Add Crawler" to open up the creation dia
 
    ![3_data-store](../docs/imgs/s3-ingestion/3_data-store.png)
 
-4. If there's another data source, you also have the option to add it here. If you have a similar source, then it might be a good idea to add it here; otherwise, you can always create another crawler.
+4. If there's another data source, we also have the option to add it here. This may be useful if there's another similar data source you want to crawl at the same time.
 
    ![4_data-store-2](../docs/imgs/s3-ingestion/4_data-store-2.png)
 
@@ -65,7 +65,7 @@ Under "Data Catalog > Crawlers", click "Add Crawler" to open up the creation dia
 
    ![5_iam](../docs/imgs/s3-ingestion/5_iam.png)
 
-6. Next, set how you want your crawler to be run. In this case, we'll use 'Run on demand', which means that we trigger the crawler ourselves.
+6. Next, set how you want your crawler to be run. In this case, we'll use "Run on demand", which means that we trigger the crawler ourselves.
 
    ![6_schedule](../docs/imgs/s3-ingestion/6_schedule.png)
 
@@ -77,11 +77,11 @@ Under "Data Catalog > Crawlers", click "Add Crawler" to open up the creation dia
 
    ![8_review](../docs/imgs/s3-ingestion/8_review.png)
 
-9. Finally, let's trigger the crawler run since we selected 'On demand'. From the list of crawlers, click the one we just created, and hit 'Run crawler'.
+9. Finally, let's trigger the crawler run as we previously selected 'On demand'. From the list of crawlers, click the one we just created, and hit 'Run crawler'. (Otherwise, if you selected a scheduled frequency, just wait for your crawler to run automatically).
 
    ![9_run](../docs/imgs/s3-ingestion/9_run.png)
 
-Once done, you should see an `avro` table in the data catalog along with the following metadata:
+Once complete, you should see an `avro` table in the data catalog along with the following metadata:
 
 ![10_outputs](../docs/imgs/s3-ingestion/10_outputs.png)
 
@@ -124,3 +124,4 @@ This will extract the following:
 - Column types associated with each table
 - Table metadata, such as owner, description and parameters
 
+After ingesting, you should be able to see your datasets on the DataHub frontend.
