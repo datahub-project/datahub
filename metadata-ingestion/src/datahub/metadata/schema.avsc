@@ -271,7 +271,15 @@
                           }
                         ],
                         "doc": "Data sources for the chart",
-                        "default": null
+                        "default": null,
+                        "Relationship": {
+                          "/*/string": {
+                            "entityTypes": [
+                              "dataset"
+                            ],
+                            "name": "Consumes"
+                          }
+                        }
                       },
                       {
                         "name": "type",
