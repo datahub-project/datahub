@@ -12,6 +12,13 @@ const FormLabel = styled(Typography.Text)`
     font-weight: bold;
 `;
 
+const MarkDownHelpLink = styled(Typography.Link)`
+    position: absolute;
+    right: 0;
+    top: -18px;
+    font-size: 12px;
+`;
+
 type Props = {
     title: string;
     description?: string | undefined;
@@ -48,9 +55,17 @@ export default function UpdateDescriptionModal({ title, description, original, o
                     </Form.Item>
                 )}
                 {isAddDesc ? (
-                    <MDEditor value={updatedDesc} onChange={(v) => setDesc(v || '')} preview="live" height={400} />
+                    <Form.Item>
+                        <MarkDownHelpLink href="https://joplinapp.org/markdown" target="_blank" type="secondary">
+                            markdown supported
+                        </MarkDownHelpLink>
+                        <MDEditor value={updatedDesc} onChange={(v) => setDesc(v || '')} preview="live" height={400} />
+                    </Form.Item>
                 ) : (
                     <Form.Item label={<FormLabel>Updated:</FormLabel>}>
+                        <MarkDownHelpLink href="https://joplinapp.org/markdown" target="_blank" type="secondary">
+                            markdown supported
+                        </MarkDownHelpLink>
                         <MDEditor value={updatedDesc} onChange={(v) => setDesc(v || '')} preview="live" height={400} />
                     </Form.Item>
                 )}
