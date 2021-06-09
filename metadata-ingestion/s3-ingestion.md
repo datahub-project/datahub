@@ -39,7 +39,7 @@ Before starting, consider the following:
 
 1. The source files should all be of the same shape (i.e. they have the same columns). Glue's schema inference may have unexpected behavior if files with different schemas are scanned together.
 2. The source files should not contain deeply nested fields (which is possible with JSON files). Glue will only capture the top-level keys in such files.
-3. [Glue's pricing model](https://aws.amazon.com/glue/pricing/). Note that each crawler is charged based on how many of AWS's Data Processing Units (DPUs) run and for how long. If the source dataset is relatively large, there may be high costs associated, so we recommend you run it first on a smaller subset.
+3. [Glue's pricing model](https://aws.amazon.com/glue/pricing/). Note that each crawler is charged based on how long and how many of AWS's Data Processing Units (DPUs) run. If the source dataset is relatively large, there may be high costs associated, so we recommend you run on a smaller subset first.
 
 Now let's get started!
 
@@ -49,7 +49,7 @@ Under "Data Catalog" > "Crawlers", click "Add Crawler" to open up the creation d
 
    ![1_crawler-info](../docs/imgs/s3-ingestion/1_crawler-info.png)
 
-2. Next, set the type of data you'd like to crawl over. In this case, we'll traverse all folders in an existing data store (S3). If you already have a table in Glue's data catalog, these can also be reused.
+2. Next, set the type of data you'd like to crawl over. In this case, we'll traverse all folders in an existing data store (S3). Table's already in Glue's data catalog may also be reused.
 
    ![2_crawler-type](../docs/imgs/s3-ingestion/2_crawler-type.png)
 
@@ -57,7 +57,7 @@ Under "Data Catalog" > "Crawlers", click "Add Crawler" to open up the creation d
 
    ![3_data-store](../docs/imgs/s3-ingestion/3_data-store.png)
 
-4. If there's another data source, we also have the option to add it here. This may be useful if there's another similar data source you want to crawl at the same time.
+4. If there's another data source, we also have the option to add it here. Adding another source may be useful if there's another similar data store you want to crawl at the same time.
 
    ![4_data-store-2](../docs/imgs/s3-ingestion/4_data-store-2.png)
 
@@ -87,7 +87,7 @@ Once complete, you should see an `avro` table in the data catalog along with the
 
 ## Adding a Glue ingestion source
 
-Having crawler our data in Glue, the next step is to ingest our Glue metadata into DataHub.
+Having crawled our data in Glue, the next step is to ingest our Glue metadata into DataHub.
 
 To add a Glue ingestion source, first make sure you have DataHub running already and have already installed the CLI (see [here](../metadata-ingestion/README.md) for installation instructions).
 
