@@ -17,7 +17,7 @@ type Props = {
     description?: string | undefined;
     original?: string | undefined;
     onClose: () => void;
-    onSubmit: (description: string) => void;
+    onSubmit: (description: string | null) => void;
     isAddDesc?: boolean;
 };
 
@@ -35,10 +35,7 @@ export default function UpdateDescriptionModal({ title, description, original, o
             footer={
                 <>
                     <Button onClick={onClose}>Cancel</Button>
-                    <Button
-                        onClick={() => updatedDesc && onSubmit(updatedDesc)}
-                        disabled={!updatedDesc || updatedDesc.length === 0 || updatedDesc === description}
-                    >
+                    <Button onClick={() => onSubmit(updatedDesc || null)} disabled={updatedDesc === description}>
                         Update
                     </Button>
                 </>

@@ -2,7 +2,7 @@ import { Badge, Divider, message, Popover, Space, Tag, Typography } from 'antd';
 import { FetchResult } from '@apollo/client';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Dataset, EditableProperties } from '../../../../types.generated';
+import { Dataset } from '../../../../types.generated';
 import { UpdateDatasetMutation } from '../../../../graphql/dataset.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { AvatarsGroup } from '../../../shared/avatar';
@@ -18,29 +18,27 @@ const DescriptionText = styled(MarkdownViewer)`
 const AddNewDescription = styled(Tag)`
     cursor: pointer;
 `;
+
 const MessageKey = 'AddDatasetDescription';
 
 export type Props = {
     dataset: Dataset;
-    updateProperties: (
-        update: EditableProperties,
-    ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
     updateDescription: (
-        description: string,
+        description: string | null,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
 };
 
 export default function DatasetHeader({
-    dataset: { description, ownership, deprecation, platform },
-    // updateProperties,
+    dataset: { description: originalDesc, ownership, deprecation, platform, editableProperties },
     updateDescription,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
     const platformName = capitalizeFirstLetter(platform.name);
     const [showAddDescModal, setShowAddDescModal] = useState(false);
+    const updatedDesc = editableProperties?.description;
 
-    const onAddDescription = async (desc: string) => {
+    const onUpdateSubmit = async (desc: string | null) => {
         message.loading({ content: 'Updating...', key: MessageKey });
         await updateDescription(desc);
         message.success({ content: 'Updated!', key: MessageKey, duration: 2 });
@@ -54,8 +52,24 @@ export default function DatasetHeader({
                     <Typography.Text>Dataset</Typography.Text>
                     <Typography.Text strong>{platformName}</Typography.Text>
                 </Space>
-                {description ? (
-                    <DescriptionText isCompact={isCompact} source={description} />
+                {updatedDesc || originalDesc ? (
+                    <>
+                        <DescriptionText
+                            isCompact={isCompact}
+                            source={updatedDesc || originalDesc || ''}
+                            editable
+                            onEditClicked={() => setShowAddDescModal(true)}
+                        />
+                        {showAddDescModal && (
+                            <UpdateDescriptionModal
+                                title="Update description"
+                                onClose={() => setShowAddDescModal(false)}
+                                onSubmit={onUpdateSubmit}
+                                original={originalDesc || ''}
+                                description={updatedDesc || ''}
+                            />
+                        )}
+                    </>
                 ) : (
                     <>
                         <AddNewDescription color="success" onClick={() => setShowAddDescModal(true)}>
@@ -65,7 +79,7 @@ export default function DatasetHeader({
                             <UpdateDescriptionModal
                                 title="Add description"
                                 onClose={() => setShowAddDescModal(false)}
-                                onSubmit={onAddDescription}
+                                onSubmit={onUpdateSubmit}
                                 isAddDesc
                             />
                         )}

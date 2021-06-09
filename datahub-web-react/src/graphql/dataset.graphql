@@ -30,6 +30,10 @@ query getDataset($urn: String!) {
             key
             value
         }
+        editableProperties {
+            description
+            tags
+        }
         ownership {
             ...ownershipFields
         }

@@ -108,7 +108,6 @@ function convertEditableSchemaMetadataForUpdate(
 
 export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema }: Props) {
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
-    const [descHoveredIndex, setDescHoveredIndex] = useState<string | undefined>(undefined);
     const [showRaw, setShowRaw] = useState(false);
     const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
 
@@ -195,7 +194,7 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         return updateSchema(newFieldInfo, record);
     };
 
-    const descriptionRender = (description: string, record: SchemaField, rowIndex: number | undefined) => {
+    const descriptionRender = (description: string, record: SchemaField) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
             (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
         ) || { fieldPath: record.fieldPath };
@@ -203,7 +202,6 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
             <DescriptionField
                 description={description}
                 updatedDescription={relevantEditableFieldInfo.description}
-                onHover={descHoveredIndex !== undefined && descHoveredIndex === `${record.fieldPath}-${rowIndex}`}
                 onUpdate={(update) => onUpdateDescription(update, relevantEditableFieldInfo)}
             />
         );
@@ -234,14 +232,6 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         key: 'description',
         render: descriptionRender,
         width: 300,
-        onCell: (record: SchemaField, rowIndex: number | undefined) => ({
-            onMouseEnter: () => {
-                setDescHoveredIndex(`${record.fieldPath}-${rowIndex}`);
-            },
-            onMouseLeave: () => {
-                setDescHoveredIndex(undefined);
-            },
-        }),
     };
 
     const tagAndTermColumn = {

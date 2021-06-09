@@ -61,23 +61,16 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const getHeader = (dataset: Dataset) => (
         <DatasetHeader
             dataset={dataset}
-            updateProperties={(update) => {
-                analytics.event({
-                    type: EventType.EntityActionEvent,
-                    actionType: EntityActionType.UpdateProperties,
-                    entityType: EntityType.Dataset,
-                    entityUrn: urn,
-                });
-                return updateDataset({ variables: { input: { urn, editableProperties: update } } });
-            }}
-            updateDescription={(description: string) => {
+            updateDescription={(description: string | null) => {
                 analytics.event({
                     type: EventType.EntityActionEvent,
                     actionType: EntityActionType.UpdateDescription,
                     entityType: EntityType.Dataset,
                     entityUrn: urn,
                 });
-                return updateDataset({ variables: { input: { urn, description } } });
+                return updateDataset({
+                    variables: { input: { urn, editableProperties: { description: description || '' } } },
+                });
             }}
         />
     );
