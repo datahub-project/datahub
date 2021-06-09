@@ -14,8 +14,8 @@ record MLModelKey {
   * Standardized platform urn for the model
   */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
-    "boostScore": 0.1
+    "fieldType": "URN",
+    "addToFilters": true
   }
   platform: Urn
 

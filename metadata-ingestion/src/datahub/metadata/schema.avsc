@@ -2853,8 +2853,8 @@
                         "type": "string",
                         "doc": "Standardized platform urn for the model",
                         "Searchable": {
-                          "boostScore": 0.1,
-                          "fieldType": "TEXT_PARTIAL"
+                          "addToFilters": true,
+                          "fieldType": "URN"
                         },
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
@@ -3577,7 +3577,7 @@
         },
         {
           "type": "record",
-          "name": "MLFeatureSnapshot",
+          "name": "MLPrimaryKeySnapshot",
           "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
           "fields": [
             {
@@ -3585,7 +3585,7 @@
               "type": "string",
               "doc": "URN for the entity the metadata snapshot is associated with.",
               "java": {
-                "class": "com.linkedin.pegasus2avro.common.urn.MLFeatureUrn"
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
               }
             },
             {
@@ -3595,30 +3595,39 @@
                 "items": [
                   {
                     "type": "record",
-                    "name": "MLFeatureKey",
+                    "name": "MLPrimaryKeyKey",
                     "namespace": "com.linkedin.pegasus2avro.metadata.key",
-                    "doc": "Key for an ML model",
+                    "doc": "Key for an MLPrimaryKey",
                     "fields": [
                       {
                         "name": "featureNamespace",
                         "type": "string",
-                        "doc": "Namespace for the feature"
+                        "doc": "Namespace for the primary key",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       },
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "Name of the feature"
+                        "doc": "Name of the primary key",
+                        "Searchable": {
+                          "boostScore": 8.0,
+                          "enableAutocomplete": true,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       }
                     ],
                     "Aspect": {
-                      "name": "mlFeatureKey"
+                      "name": "mlPrimaryKeyKey"
                     }
                   },
                   {
                     "type": "record",
-                    "name": "MLFeatureProperties",
+                    "name": "MLPrimaryKeyProperties",
                     "namespace": "com.linkedin.pegasus2avro.ml.metadata",
-                    "doc": "Properties associated with a MLFeature",
+                    "doc": "Properties associated with a MLPrimaryKey",
                     "fields": [
                       {
                         "name": "description",
@@ -3626,7 +3635,7 @@
                           "null",
                           "string"
                         ],
-                        "doc": "Documentation of the MLFeature",
+                        "doc": "Documentation of the MLPrimaryKey",
                         "default": null
                       },
                       {
@@ -3652,11 +3661,16 @@
                               "TEXT",
                               "MAP",
                               "SEQUENCE",
-                              "SET"
+                              "SET",
+                              "CONTINUOUS",
+                              "BYTE",
+                              "UNKNOWN"
                             ],
                             "symbolDocs": {
                               "AUDIO": "Audio Data",
                               "BINARY": "Binary data is discrete data that can be in only one of two categories \u2014 either yes or no, 1 or 0, off or on, etc",
+                              "BYTE": "Bytes data are binary-encoded values that can represent complex objects.",
+                              "CONTINUOUS": "Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc.",
                               "COUNT": "Count data is discrete whole number data \u2014 no negative numbers here.\nCount data often has many small values, such as zero and one.",
                               "IMAGE": "Image Data",
                               "INTERVAL": "Interval data has equal spaces between the numbers and does not represent a temporal pattern.\nExamples include percentages, temperatures, and income.",
@@ -3667,10 +3681,126 @@
                               "SET": "Set Data Type ex: set, frozenset",
                               "TEXT": "Text Data",
                               "TIME": "Time data is a cyclical, repeating continuous form of data.\nThe relevant time features can be any period\u2014 daily, weekly, monthly, annual, etc.",
+                              "UNKNOWN": "Unknown data are data that we don't know the type for.",
                               "USELESS": "Useless data is unique, discrete data with no potential relationship with the outcome variable.\nA useless feature has high cardinality. An example would be bank account numbers that were generated randomly.",
                               "VIDEO": "Video Data"
                             }
                           }
+                        ],
+                        "doc": "Data Type of the MLPrimaryKey",
+                        "default": null
+                      },
+                      {
+                        "name": "version",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.VersionTag"
+                        ],
+                        "doc": "Version of the MLPrimaryKey",
+                        "default": null
+                      },
+                      {
+                        "name": "sources",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "Source of the MLPrimaryKey",
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "dataset"
+                            ],
+                            "name": "DerivedFrom"
+                          }
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlPrimaryKeyProperties"
+                    }
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                  "com.linkedin.pegasus2avro.common.Status",
+                  "com.linkedin.pegasus2avro.common.Deprecation"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the MLPrimaryKey. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ],
+          "Entity": {
+            "keyAspect": "mlPrimaryKeyKey",
+            "name": "mlPrimaryKey"
+          }
+        },
+        {
+          "type": "record",
+          "name": "MLFeatureSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.MLFeatureUrn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "MLFeatureKey",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                    "doc": "Key for an MLFeature",
+                    "fields": [
+                      {
+                        "name": "featureNamespace",
+                        "type": "string",
+                        "doc": "Namespace for the feature",
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      },
+                      {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Name of the feature",
+                        "Searchable": {
+                          "boostScore": 8.0,
+                          "enableAutocomplete": true,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlFeatureKey"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "MLFeatureProperties",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Properties associated with a MLFeature",
+                    "fields": [
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the MLFeature",
+                        "default": null
+                      },
+                      {
+                        "name": "dataType",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.MLFeatureDataType"
                         ],
                         "doc": "Data Type of the MLFeature",
                         "default": null
@@ -3683,6 +3813,26 @@
                         ],
                         "doc": "Version of the MLFeature",
                         "default": null
+                      },
+                      {
+                        "name": "sources",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Source of the MLFeature",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "dataset"
+                            ],
+                            "name": "DerivedFrom"
+                          }
+                        }
                       }
                     ],
                     "Aspect": {
@@ -3696,12 +3846,143 @@
                   "com.linkedin.pegasus2avro.common.BrowsePaths"
                 ]
               },
-              "doc": "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
+              "doc": "The list of metadata aspects associated with the MLFeature. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
           ],
           "Entity": {
             "keyAspect": "mlFeatureKey",
             "name": "mlFeature"
+          }
+        },
+        {
+          "type": "record",
+          "name": "MLFeatureTableSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "MLFeatureTableKey",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                    "doc": "Key for an MLFeatureTable",
+                    "fields": [
+                      {
+                        "name": "platform",
+                        "type": "string",
+                        "doc": "Data platform urn associated with the feature table",
+                        "Relationship": {
+                          "entityTypes": [
+                            "dataPlatform"
+                          ],
+                          "name": "SourcePlatform"
+                        },
+                        "Searchable": {
+                          "addToFilters": true,
+                          "fieldType": "URN"
+                        },
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        }
+                      },
+                      {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Name of the feature table",
+                        "Searchable": {
+                          "boostScore": 8.0,
+                          "enableAutocomplete": true,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlFeatureTableKey"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "MLFeatureTableProperties",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Properties associated with a MLFeatureTable",
+                    "fields": [
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the MLFeatureTable",
+                        "default": null
+                      },
+                      {
+                        "name": "mlFeatures",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "List of features contained in the feature table",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlFeature"
+                            ],
+                            "name": "Contains"
+                          }
+                        }
+                      },
+                      {
+                        "name": "mlPrimaryKeys",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "List of primary keys in the feature table (if multiple, assumed to act as a composite key)",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlPrimaryKey"
+                            ],
+                            "name": "KeyedBy"
+                          }
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlFeatureTableProperties"
+                    }
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  "com.linkedin.pegasus2avro.common.InstitutionalMemory",
+                  "com.linkedin.pegasus2avro.common.Status",
+                  "com.linkedin.pegasus2avro.common.Deprecation"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ],
+          "Entity": {
+            "keyAspect": "mlFeatureTableKey",
+            "name": "mlFeatureTable"
           }
         },
         {

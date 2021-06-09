@@ -5,30 +5,30 @@ import com.linkedin.common.MLFeatureDataType
 import com.linkedin.common.VersionTag
 
 /**
- * Properties associated with a MLFeature
+ * Properties associated with a MLPrimaryKey
  */
 @Aspect = {
-  "name": "mlFeatureProperties"
+  "name": "mlPrimaryKeyProperties"
 }
-record MLFeatureProperties {
+record MLPrimaryKeyProperties {
 
   /**
-   * Documentation of the MLFeature
+   * Documentation of the MLPrimaryKey
    */
   description: optional string
 
   /**
-   * Data Type of the MLFeature
+   * Data Type of the MLPrimaryKey
    */
   dataType: optional MLFeatureDataType
 
   /**
-  * Version of the MLFeature
+  * Version of the MLPrimaryKey
   */
   version: optional VersionTag
 
   /**
-  * Source of the MLFeature
+  * Source of the MLPrimaryKey
   */
   @Relationship = {
     "/*": {
@@ -36,5 +36,5 @@ record MLFeatureProperties {
       "entityTypes": [ "dataset" ]
     }
   }
-  sources: optional array[Urn]
+  sources: array[Urn]
 }
