@@ -16,6 +16,10 @@ record MLFeatureTableKey {
     "fieldType": "URN",
     "addToFilters": true
   }
+  @Relationship = {
+    "name": "SourcePlatform",
+    "entityTypes": [ "dataPlatform" ]
+  }
   platform: Urn
 
   /**

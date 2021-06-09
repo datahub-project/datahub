@@ -3882,6 +3882,12 @@
                         "name": "platform",
                         "type": "string",
                         "doc": "Data platform urn associated with the feature table",
+                        "Relationship": {
+                          "entityTypes": [
+                            "dataPlatform"
+                          ],
+                          "name": "SourcePlatform"
+                        },
                         "Searchable": {
                           "addToFilters": true,
                           "fieldType": "URN"
