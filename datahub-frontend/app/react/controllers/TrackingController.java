@@ -6,6 +6,7 @@ import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
 import react.auth.Authenticator;
@@ -17,6 +18,9 @@ import play.mvc.Result;
 import play.mvc.Security;
 import react.graphql.PlayQueryContext;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 
 public class TrackingController extends Controller {
@@ -25,6 +29,9 @@ public class TrackingController extends Controller {
     private final Config _config;
     private final KafkaProducer<String, String> _producer;
     private final String _topic;
+
+    private final List<String> SSL_PROTOCOLS = Collections.unmodifiableList(
+            Arrays.asList(SecurityProtocol.SSL.name(),SecurityProtocol.SASL_SSL.name()));
 
     @Inject
     public TrackingController(@Nonnull Config config) {
@@ -81,7 +88,7 @@ public class TrackingController extends Controller {
 
         final String securityProtocolConfig = "analytics.kafka.security.protocol";
         if (_config.hasPath(securityProtocolConfig)
-            && _config.getString(securityProtocolConfig).equals(SecurityProtocol.SSL)) {
+            && SSL_PROTOCOLS.contains(_config.getString(securityProtocolConfig))){
             props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, _config.getString(securityProtocolConfig));
             props.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, _config.getString("analytics.kafka.ssl.key.password"));
 
@@ -95,6 +102,11 @@ public class TrackingController extends Controller {
 
             props.put(SslConfigs.SSL_PROTOCOL_CONFIG, _config.getString("analytics.kafka.ssl.protocol"));
             props.put(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, _config.getString("analytics.kafka.ssl.endpoint.identification.algorithm"));
+
+            if (_config.getString(securityProtocolConfig).equals(SecurityProtocol.SASL_SSL.name())) {
+                props.put(SaslConfigs.SASL_MECHANISM, _config.getString("analytics.kafka.sasl.mechanism"));
+                props.put(SaslConfigs.SASL_JAAS_CONFIG, _config.getString("analytics.kafka.sasl.jaas.config"));
+            }
         }
 
         return new KafkaProducer(props);
