@@ -365,7 +365,8 @@
       "Searchable" : {
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "hasValuesFieldName" : "hasOwners"
+        "hasValuesFieldName" : "hasOwners",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -481,8 +482,7 @@
         "doc" : "Standardized platform urn for the model",
         "Searchable" : {
           "boostScore" : 0.1,
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "name",
@@ -491,15 +491,15 @@
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "origin",
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where model belongs to or where it was generated",
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "TEXT_PARTIAL",
+          "queryByDefault" : false
         }
       } ],
       "Aspect" : {
@@ -517,8 +517,7 @@
         "optional" : true,
         "Searchable" : {
           "fieldType" : "TEXT",
-          "hasValuesFieldName" : "hasDescription",
-          "queryByDefault" : true
+          "hasValuesFieldName" : "hasDescription"
         }
       }, {
         "name" : "date",
@@ -536,8 +535,7 @@
         "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
         "optional" : true,
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "hyperParameters",

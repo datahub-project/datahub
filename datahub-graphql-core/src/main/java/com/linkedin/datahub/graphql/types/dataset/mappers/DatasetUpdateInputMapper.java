@@ -5,6 +5,7 @@ import javax.annotation.Nonnull;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
@@ -12,6 +13,7 @@ import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.dataset.Dataset;
 import com.linkedin.dataset.DatasetDeprecation;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -34,10 +36,6 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
 
         if (datasetUpdateInput.getOwnership() != null) {
             result.setOwnership(OwnershipUpdateMapper.map(datasetUpdateInput.getOwnership(), actor));
-        }
-
-        if (datasetUpdateInput.getDescription() != null) {
-            result.setDescription(datasetUpdateInput.getDescription());
         }
 
         if (datasetUpdateInput.getDeprecation() != null) {
@@ -76,6 +74,15 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
                             ).collect(Collectors.toList())));
             result.setEditableSchemaMetadata(editableSchemaMetadata);
 
+        }
+
+        if (datasetUpdateInput.getEditableProperties() != null) {
+            final EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties();
+            editableDatasetProperties.setDescription(datasetUpdateInput.getEditableProperties().getDescription());
+            if (datasetUpdateInput.getEditableProperties().getTags() != null) {
+                editableDatasetProperties.setTags(new StringArray(datasetUpdateInput.getEditableProperties().getTags()));
+            }
+            result.setEditableProperties(editableDatasetProperties);
         }
 
         return result;

@@ -1438,11 +1438,6 @@ input DatasetUpdateInput {
     ownership: OwnershipUpdate
 
     """
-    Update to description
-    """
-    description: String
-
-    """
     Update to deprecation status
     """
     deprecation: DatasetDeprecationUpdate

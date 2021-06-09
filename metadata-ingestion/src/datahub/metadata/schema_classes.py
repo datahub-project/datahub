@@ -2411,6 +2411,104 @@ class DatasetUpstreamLineageClass(DictWrapper):
         self._inner_dict['fieldMappings'] = value
     
     
+class EditableDatasetPropertiesClass(DictWrapper):
+    """EditableDatasetProperties stores editable changes made to dataset properties. This separates changes made from
+    ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.EditableDatasetProperties")
+    def __init__(self,
+        created: "AuditStampClass",
+        lastModified: "AuditStampClass",
+        deleted: Union[None, "AuditStampClass"]=None,
+        description: Union[None, str]=None,
+        tags: Optional[List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.created = created
+        self.lastModified = lastModified
+        self.deleted = deleted
+        self.description = description
+        if tags is None:
+            self.tags = []
+        else:
+            self.tags = tags
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "EditableDatasetPropertiesClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.created = AuditStampClass.construct_with_defaults()
+        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
+        self.tags = list()
+    
+    
+    @property
+    def created(self) -> "AuditStampClass":
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    
+    @created.setter
+    def created(self, value: "AuditStampClass") -> None:
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def lastModified(self) -> "AuditStampClass":
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        return self._inner_dict.get('lastModified')  # type: ignore
+    
+    
+    @lastModified.setter
+    def lastModified(self, value: "AuditStampClass") -> None:
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        self._inner_dict['lastModified'] = value
+    
+    
+    @property
+    def deleted(self) -> Union[None, "AuditStampClass"]:
+        """Getter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
+        return self._inner_dict.get('deleted')  # type: ignore
+    
+    
+    @deleted.setter
+    def deleted(self, value: Union[None, "AuditStampClass"]) -> None:
+        """Setter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
+        self._inner_dict['deleted'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Getter: Documentation of the dataset"""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        """Setter: Documentation of the dataset"""
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def tags(self) -> List[str]:
+        """Getter: [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect."""
+        return self._inner_dict.get('tags')  # type: ignore
+    
+    
+    @tags.setter
+    def tags(self, value: List[str]) -> None:
+        """Setter: [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect."""
+        self._inner_dict['tags'] = value
+    
+    
 class UpstreamClass(DictWrapper):
     """Upstream lineage information about a dataset including the source reporting the lineage"""
     
@@ -4077,7 +4175,7 @@ class DatasetSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["DatasetKeyClass", "DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass", "GlossaryTermsClass", "BrowsePathsClass"]],
+        aspects: List[Union["DatasetKeyClass", "DatasetPropertiesClass", "EditableDatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass", "GlossaryTermsClass", "BrowsePathsClass"]],
     ):
         super().__init__()
         
@@ -4109,13 +4207,13 @@ class DatasetSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["DatasetKeyClass", "DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass", "GlossaryTermsClass", "BrowsePathsClass"]]:
+    def aspects(self) -> List[Union["DatasetKeyClass", "DatasetPropertiesClass", "EditableDatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass", "GlossaryTermsClass", "BrowsePathsClass"]]:
         """Getter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["DatasetKeyClass", "DatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass", "GlossaryTermsClass", "BrowsePathsClass"]]) -> None:
+    def aspects(self, value: List[Union["DatasetKeyClass", "DatasetPropertiesClass", "EditableDatasetPropertiesClass", "DatasetDeprecationClass", "DatasetUpstreamLineageClass", "UpstreamLineageClass", "InstitutionalMemoryClass", "OwnershipClass", "StatusClass", "SchemaMetadataClass", "EditableSchemaMetadataClass", "GlobalTagsClass", "GlossaryTermsClass", "BrowsePathsClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -6807,6 +6905,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataset.DatasetLineageType': DatasetLineageTypeClass,
     'com.linkedin.pegasus2avro.dataset.DatasetProperties': DatasetPropertiesClass,
     'com.linkedin.pegasus2avro.dataset.DatasetUpstreamLineage': DatasetUpstreamLineageClass,
+    'com.linkedin.pegasus2avro.dataset.EditableDatasetProperties': EditableDatasetPropertiesClass,
     'com.linkedin.pegasus2avro.dataset.Upstream': UpstreamClass,
     'com.linkedin.pegasus2avro.dataset.UpstreamLineage': UpstreamLineageClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo': GlossaryNodeInfoClass,
@@ -6936,6 +7035,7 @@ __SCHEMA_TYPES = {
     'DatasetLineageType': DatasetLineageTypeClass,
     'DatasetProperties': DatasetPropertiesClass,
     'DatasetUpstreamLineage': DatasetUpstreamLineageClass,
+    'EditableDatasetProperties': EditableDatasetPropertiesClass,
     'Upstream': UpstreamClass,
     'UpstreamLineage': UpstreamLineageClass,
     'GlossaryNodeInfo': GlossaryNodeInfoClass,
