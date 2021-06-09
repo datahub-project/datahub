@@ -70,9 +70,11 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
             } else if (aspect instanceof Ownership) {
                 result.setOwnership(OwnershipMapper.map((Ownership) aspect));
             } else if (aspect instanceof SchemaMetadata) {
+                /*
                 result.setSchema(
                     SchemaMetadataMapper.map((SchemaMetadata) aspect)
                 );
+                */
             } else if (aspect instanceof Status) {
               result.setStatus(StatusMapper.map((Status) aspect));
             } else if (aspect instanceof GlobalTags) {

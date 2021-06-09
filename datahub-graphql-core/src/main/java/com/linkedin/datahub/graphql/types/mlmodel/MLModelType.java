@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelSnapshotMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.query.SearchResult;
+import graphql.execution.DataFetcherResult;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,7 +50,7 @@ public class MLModelType implements SearchableEntityType<MLModel> {
     }
 
     @Override
-    public List<MLModel> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
+    public List<DataFetcherResult<MLModel>> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
         final List<MLModelUrn> mlModelUrns = urns.stream()
             .map(MLModelUtils::getMLModelUrn)
             .collect(Collectors.toList());
@@ -64,8 +65,9 @@ public class MLModelType implements SearchableEntityType<MLModel> {
                 .map(modelUrn -> mlModelMap.getOrDefault(modelUrn, null)).collect(Collectors.toList());
 
             return gmsResults.stream()
-                .map(gmsMlModel -> gmsMlModel == null ? null : MLModelSnapshotMapper.map(
-                    gmsMlModel.getValue().getMLModelSnapshot()))
+                .map(gmsMlModel -> gmsMlModel == null ? null
+                    : DataFetcherResult.<MLModel>newResult().data(MLModelSnapshotMapper.map(
+                    gmsMlModel.getValue().getMLModelSnapshot())).build())
                 .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load MLModels", e);
