@@ -70,26 +70,27 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
+    "druid": sql_common | {"pydruid>=0.6.2"},
+    "feast": {"docker"},
+    "glue": {"boto3"},
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
         "acryl-pyhive[hive]>=0.6.6"
     },
-    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
-    "mssql-odbc": sql_common | {"pyodbc"},
-    "mysql": sql_common | {"pymysql>=1.0.2"},
-    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
-    "snowflake": sql_common | {"snowflake-sqlalchemy"},
-    "oracle": sql_common | {"cx_Oracle"},
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
     "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
-    "druid": sql_common | {"pydruid>=0.6.2"},
     "mongodb": {"pymongo>=3.11"},
+    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
+    "mssql-odbc": sql_common | {"pyodbc"},
+    "mysql": sql_common | {"pymysql>=1.0.2"},
+    "oracle": sql_common | {"cx_Oracle"},
+    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    "snowflake": sql_common | {"snowflake-sqlalchemy"},
     "superset": {"requests"},
-    "glue": {"boto3"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -140,6 +141,7 @@ base_dev_requirements = {
             "mysql",
             "mssql",
             "mongodb",
+            "feast",
             "ldap",
             "looker",
             "glue",
@@ -178,6 +180,7 @@ entry_points = {
         "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.druid:DruidSource",
+        "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.glue:GlueSource",
         "hive = datahub.ingestion.source.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",

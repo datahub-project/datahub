@@ -80,4 +80,19 @@ enum MLFeatureDataType {
   * Set Data Type ex: set, frozenset
   */
   SET
+
+  /**
+   * Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc.
+   */
+  CONTINUOUS
+
+  /**
+   * Bytes data are binary-encoded values that can represent complex objects.
+   */
+  BYTE
+
+  /**
+   * Unknown data are data that we don't know the type for.
+   */
+  UNKNOWN
 }
