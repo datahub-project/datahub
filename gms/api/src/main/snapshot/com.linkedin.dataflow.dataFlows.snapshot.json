@@ -189,8 +189,7 @@
             "Searchable" : {
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "hasValuesFieldName" : "hasTags",
-              "queryByDefault" : true
+              "hasValuesFieldName" : "hasTags"
             }
           } ]
         }
@@ -216,7 +215,8 @@
       "Searchable" : {
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "hasValuesFieldName" : "hasOwners"
+        "hasValuesFieldName" : "hasOwners",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -365,8 +365,7 @@
           "Searchable" : {
             "boostScore" : 10.0,
             "enableAutocomplete" : true,
-            "fieldType" : "TEXT_PARTIAL",
-            "queryByDefault" : true
+            "fieldType" : "TEXT_PARTIAL"
           }
         }, {
           "name" : "description",
@@ -375,8 +374,7 @@
           "optional" : true,
           "Searchable" : {
             "fieldType" : "TEXT",
-            "hasValuesFieldName" : "hasDescription",
-            "queryByDefault" : true
+            "hasValuesFieldName" : "hasDescription"
           }
         }, {
           "name" : "project",
@@ -384,7 +382,8 @@
           "doc" : "Optional project/namespace associated with the flow",
           "optional" : true,
           "Searchable" : {
-            "fieldType" : "TEXT_PARTIAL"
+            "fieldType" : "TEXT_PARTIAL",
+            "queryByDefault" : false
           }
         } ],
         "Aspect" : {
@@ -424,8 +423,7 @@
         "type" : "string",
         "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "flowId",
@@ -433,16 +431,14 @@
         "doc" : "Unique Identifier of the data flow",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "cluster",
         "type" : "string",
         "doc" : "Cluster where the flow is executed",
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       } ],
       "Aspect" : {

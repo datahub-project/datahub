@@ -73,32 +73,6 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         return EntityType.DATASET;
     }
 
-    public List<Dataset> legacyBatchLoad(final List<String> urns, final QueryContext context) {
-
-        final List<DatasetUrn> datasetUrns = urns.stream()
-            .map(DatasetUtils::getDatasetUrn)
-            .collect(Collectors.toList());
-
-        try {
-            final Map<Urn, Entity> datasetMap = _datasetsClient.batchGet(datasetUrns
-                .stream()
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
-
-            final List<Entity> gmsResults = new ArrayList<>();
-            for (DatasetUrn urn : datasetUrns) {
-                gmsResults.add(datasetMap.getOrDefault(urn, null));
-            }
-            return gmsResults.stream()
-                .map(gmsDataset ->
-                    gmsDataset == null ? null : DatasetSnapshotMapper.map(gmsDataset.getValue().getDatasetSnapshot()))
-                .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to batch load Datasets", e);
-        }
-    }
-
-
     @Override
     public List<DataFetcherResult<Dataset>> batchLoad(final List<String> urns, final QueryContext context) {
 
@@ -166,7 +140,8 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                 start,
                 count);
         final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<Dataset> datasets = legacyBatchLoad(urns, context);
+        final List<Dataset> datasets = batchLoad(urns, context)
+            .stream().map(datasetDataFetcherResult -> datasetDataFetcherResult.getData()).collect(Collectors.toList());
         final BrowseResults browseResults = new BrowseResults();
         browseResults.setStart(result.getFrom());
         browseResults.setCount(result.getPageSize());

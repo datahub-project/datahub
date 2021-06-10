@@ -2,26 +2,22 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.datahub.graphql.generated.Schema;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-import com.linkedin.metadata.aspect.AspectWithMetadata;
 import com.linkedin.schema.SchemaMetadata;
-import java.util.stream.Collectors;
+
 import javax.annotation.Nonnull;
+import java.util.stream.Collectors;
 
+public class SchemaMapper implements ModelMapper<SchemaMetadata, Schema> {
 
-public class SchemaMetadataMapper implements ModelMapper<AspectWithMetadata, com.linkedin.datahub.graphql.generated.SchemaMetadata> {
+    public static final SchemaMapper INSTANCE = new SchemaMapper();
 
-    public static final SchemaMetadataMapper INSTANCE = new SchemaMetadataMapper();
-
-    public static com.linkedin.datahub.graphql.generated.SchemaMetadata map(@Nonnull final AspectWithMetadata metadata) {
+    public static Schema map(@Nonnull final SchemaMetadata metadata) {
         return INSTANCE.apply(metadata);
     }
 
     @Override
-    public com.linkedin.datahub.graphql.generated.SchemaMetadata apply(@Nonnull final AspectWithMetadata inputWithMetadata) {
-        SchemaMetadata input = inputWithMetadata.getAspect().getSchemaMetadata();
-        final com.linkedin.datahub.graphql.generated.SchemaMetadata result =
-            new com.linkedin.datahub.graphql.generated.SchemaMetadata();
-
+    public Schema apply(@Nonnull final com.linkedin.schema.SchemaMetadata input) {
+        final Schema result = new Schema();
         if (input.hasDataset()) {
             result.setDatasetUrn(input.getDataset().toString());
         }
@@ -33,7 +29,6 @@ public class SchemaMetadataMapper implements ModelMapper<AspectWithMetadata, com
         result.setPrimaryKeys(input.getPrimaryKeys());
         result.setFields(input.getFields().stream().map(SchemaFieldMapper::map).collect(Collectors.toList()));
         result.setPlatformSchema(PlatformSchemaMapper.map(input.getPlatformSchema()));
-        result.setVersion(inputWithMetadata.getVersion());
         return result;
     }
 }

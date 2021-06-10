@@ -183,7 +183,7 @@ public class EbeanAspectDao {
     validateConnection();
     List<EbeanAspectV2> result = _server.find(EbeanAspectV2.class)
         .where()
-        .eq("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)").eq("aspect", "browsePaths")
+        .eq("urn", urn).eq("aspect", aspectName)
         .orderBy()
         .desc("version")
         .findList();

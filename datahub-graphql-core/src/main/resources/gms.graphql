@@ -275,7 +275,7 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     Schema metadata of the dataset
     """
-    schemaMetadata(version: Int): SchemaMetadata
+    schemaMetadata(version: Long): SchemaMetadata
 
     """
     Editable schema metadata of the dataset
@@ -573,7 +573,7 @@ type SchemaMetadata implements Aspect {
     primaryKeys: [String!]
 }
 
-type Schema implements Aspect {
+type Schema {
     """
     Dataset this schema metadata is associated with
     """

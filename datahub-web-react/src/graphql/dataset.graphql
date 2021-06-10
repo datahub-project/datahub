@@ -47,7 +47,7 @@ query getDataset($urn: String!) {
                 }
             }
         }
-        schema {
+        schemaMetadata {
             datasetUrn
             name
             platformUrn
@@ -79,7 +79,7 @@ query getDataset($urn: String!) {
             }
             primaryKeys
         }
-        pastSchema: schema(version: -1) {
+        pastSchema: schemaMetadata(version: -1) {
             datasetUrn
             name
             platformUrn

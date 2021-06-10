@@ -85,15 +85,14 @@
       "type" : "string",
       "doc" : "Title of the chart",
       "Searchable" : {
+        "enableAutocomplete" : true,
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Detailed description about the chart",
-      "Searchable" : {
-        "fieldType" : "TEXT"
-      }
+      "Searchable" : { }
     }, {
       "name" : "lastModified",
       "type" : {
@@ -712,8 +711,7 @@
             "Searchable" : {
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "hasValuesFieldName" : "hasTags",
-              "queryByDefault" : true
+              "hasValuesFieldName" : "hasTags"
             }
           } ]
         }
@@ -945,7 +943,8 @@
       "Searchable" : {
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "hasValuesFieldName" : "hasOwners"
+        "hasValuesFieldName" : "hasOwners",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -1066,8 +1065,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL",
-        "queryByDefault" : true
+        "fieldType" : "TEXT_PARTIAL"
       }
     }, {
       "name" : "description",
@@ -1075,8 +1073,7 @@
       "doc" : "Detailed description about the dashboard",
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription",
-        "queryByDefault" : true
+        "hasValuesFieldName" : "hasDescription"
       }
     }, {
       "name" : "charts",
@@ -1132,8 +1129,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL",
-        "queryByDefault" : true
+        "fieldType" : "TEXT_PARTIAL"
       }
     }, {
       "name" : "description",
@@ -1142,8 +1138,7 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription",
-        "queryByDefault" : true
+        "hasValuesFieldName" : "hasDescription"
       }
     }, {
       "name" : "project",
@@ -1151,7 +1146,8 @@
       "doc" : "Optional project/namespace associated with the flow",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "TEXT_PARTIAL",
+        "queryByDefault" : false
       }
     } ],
     "Aspect" : {
@@ -1170,8 +1166,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL",
-        "queryByDefault" : true
+        "fieldType" : "TEXT_PARTIAL"
       }
     }, {
       "name" : "description",
@@ -1180,8 +1175,7 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription",
-        "queryByDefault" : true
+        "hasValuesFieldName" : "hasDescription"
       }
     }, {
       "name" : "type",
@@ -1236,7 +1230,8 @@
         "/*" : {
           "fieldName" : "inputs",
           "fieldType" : "URN",
-          "numValuesFieldName" : "numInputDatasets"
+          "numValuesFieldName" : "numInputDatasets",
+          "queryByDefault" : false
         }
       }
     }, {
@@ -1256,7 +1251,8 @@
         "/*" : {
           "fieldName" : "outputs",
           "fieldType" : "URN",
-          "numValuesFieldName" : "numOutputDatasets"
+          "numValuesFieldName" : "numOutputDatasets",
+          "queryByDefault" : false
         }
       }
     }, {
@@ -1352,7 +1348,8 @@
         "/*" : {
           "fieldName" : "inputs",
           "fieldType" : "URN",
-          "numValuesFieldName" : "numInputDatasets"
+          "numValuesFieldName" : "numInputDatasets",
+          "queryByDefault" : false
         }
       }
     }, {
@@ -1373,7 +1370,8 @@
         "/*" : {
           "fieldName" : "outputs",
           "fieldType" : "URN",
-          "numValuesFieldName" : "numOutputDatasets"
+          "numValuesFieldName" : "numOutputDatasets",
+          "queryByDefault" : false
         }
       }
     } ],
@@ -1460,8 +1458,7 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription",
-        "queryByDefault" : true
+        "hasValuesFieldName" : "hasDescription"
       }
     }, {
       "name" : "uri",
@@ -1521,7 +1518,8 @@
       },
       "Searchable" : {
         "fieldName" : "upstreams",
-        "fieldType" : "URN"
+        "fieldType" : "URN",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -1585,8 +1583,7 @@
                       "addToFilters" : true,
                       "boostScore" : 4.0,
                       "fieldName" : "tool",
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "chartId",
@@ -1725,9 +1722,9 @@
                     "doc" : "The name of the AD/LDAP user.",
                     "Searchable" : {
                       "boostScore" : 2.0,
+                      "enableAutocomplete" : true,
                       "fieldName" : "ldap",
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
                   "Aspect" : {
@@ -1811,7 +1808,6 @@
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
-                      "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -1845,8 +1841,7 @@
                     "default" : [ ],
                     "Searchable" : {
                       "/*" : {
-                        "fieldType" : "TEXT",
-                        "queryByDefault" : true
+                        "fieldType" : "TEXT"
                       }
                     }
                   }, {
@@ -1859,8 +1854,7 @@
                     "default" : [ ],
                     "Searchable" : {
                       "/*" : {
-                        "fieldType" : "TEXT",
-                        "queryByDefault" : true
+                        "fieldType" : "TEXT"
                       }
                     }
                   }, {
@@ -1912,8 +1906,7 @@
                       "addToFilters" : true,
                       "boostScore" : 4.0,
                       "fieldName" : "tool",
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "dashboardId",
@@ -1959,8 +1952,7 @@
                     "type" : "string",
                     "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
                     "Searchable" : {
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "flowId",
@@ -1968,16 +1960,14 @@
                     "doc" : "Unique Identifier of the data flow",
                     "Searchable" : {
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "cluster",
                     "type" : "string",
                     "doc" : "Cluster where the flow is executed",
                     "Searchable" : {
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
                   "Aspect" : {
@@ -2018,9 +2008,14 @@
                     "name" : "flow",
                     "type" : "com.linkedin.common.Urn",
                     "doc" : "Standardized data processing flow urn representing the flow for the job",
+                    "Relationship" : {
+                      "entityTypes" : [ "dataFlow" ],
+                      "name" : "IsPartOf"
+                    },
                     "Searchable" : {
                       "fieldName" : "dataFlow",
-                      "fieldType" : "URN_PARTIAL"
+                      "fieldType" : "URN_PARTIAL",
+                      "queryByDefault" : false
                     }
                   }, {
                     "name" : "jobId",
@@ -2028,8 +2023,7 @@
                     "doc" : "Unique Identifier of the data job",
                     "Searchable" : {
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
                   "Aspect" : {
@@ -2080,8 +2074,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "origin",
@@ -2089,7 +2082,8 @@
                     "doc" : "Fabric type where dataset belongs to or where it was generated.",
                     "Searchable" : {
                       "addToFilters" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : false
                     }
                   } ],
                   "Aspect" : {
@@ -2250,8 +2244,7 @@
                           "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
                           "Searchable" : {
                             "fieldName" : "fieldPaths",
-                            "fieldType" : "TEXT_PARTIAL",
-                            "queryByDefault" : true
+                            "fieldType" : "TEXT_PARTIAL"
                           }
                         }, {
                           "name" : "jsonPath",
@@ -2271,8 +2264,7 @@
                           "Searchable" : {
                             "boostScore" : 0.1,
                             "fieldName" : "fieldDescriptions",
-                            "fieldType" : "TEXT",
-                            "queryByDefault" : true
+                            "fieldType" : "TEXT"
                           }
                         }, {
                           "name" : "type",
@@ -2396,8 +2388,7 @@
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
                               "fieldName" : "fieldTags",
-                              "fieldType" : "URN_PARTIAL",
-                              "queryByDefault" : true
+                              "fieldType" : "URN_PARTIAL"
                             }
                           }
                         }, {
@@ -2493,8 +2484,7 @@
                           "Searchable" : {
                             "boostScore" : 0.1,
                             "fieldName" : "editedFieldDescriptions",
-                            "fieldType" : "TEXT",
-                            "queryByDefault" : true
+                            "fieldType" : "TEXT"
                           }
                         }, {
                           "name" : "globalTags",
@@ -2505,8 +2495,7 @@
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
                               "fieldName" : "editedFieldTags",
-                              "fieldType" : "URN_PARTIAL",
-                              "queryByDefault" : true
+                              "fieldType" : "URN_PARTIAL"
                             }
                           }
                         } ]
@@ -2555,8 +2544,7 @@
                     "Searchable" : {
                       "boostScore" : 4.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "orchestrator",
@@ -2564,15 +2552,15 @@
                     "doc" : "Standardized Orchestrator where data process is defined.\nTODO: Migrate towards something that can be validated like DataPlatform urn",
                     "Searchable" : {
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "origin",
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where dataset belongs to or where it was generated.",
                     "Searchable" : {
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : false
                     }
                   } ],
                   "Aspect" : {
@@ -2654,8 +2642,7 @@
                     "doc" : "Standardized platform urn for the model",
                     "Searchable" : {
                       "boostScore" : 0.1,
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "name",
@@ -2664,15 +2651,15 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "origin",
                     "type" : "com.linkedin.common.FabricType",
                     "doc" : "Fabric type where model belongs to or where it was generated",
                     "Searchable" : {
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : false
                     }
                   } ],
                   "Aspect" : {
@@ -2690,8 +2677,7 @@
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
-                      "hasValuesFieldName" : "hasDescription",
-                      "queryByDefault" : true
+                      "hasValuesFieldName" : "hasDescription"
                     }
                   }, {
                     "name" : "date",
@@ -2709,8 +2695,7 @@
                     "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
                     "optional" : true,
                     "Searchable" : {
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "hyperParameters",
@@ -3175,8 +3160,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
                   "Aspect" : {
@@ -3236,8 +3220,7 @@
                     "type" : "string",
                     "Searchable" : {
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
-                      "queryByDefault" : true
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
                   "Aspect" : {
@@ -3252,10 +3235,7 @@
                     "name" : "definition",
                     "type" : "string",
                     "doc" : "Definition of business term",
-                    "Searchable" : {
-                      "fieldType" : "TEXT",
-                      "queryByDefault" : true
-                    }
+                    "Searchable" : { }
                   }, {
                     "name" : "parentNode",
                     "type" : "com.linkedin.common.GlossaryNodeUrn",
@@ -3328,6 +3308,7 @@
                     "name" : "name",
                     "type" : "string",
                     "Searchable" : {
+                      "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
@@ -3343,10 +3324,7 @@
                     "name" : "definition",
                     "type" : "string",
                     "doc" : "Definition of business node",
-                    "Searchable" : {
-                      "fieldType" : "TEXT",
-                      "queryByDefault" : true
-                    }
+                    "Searchable" : { }
                   }, {
                     "name" : "parentNode",
                     "type" : "com.linkedin.common.GlossaryNodeUrn",

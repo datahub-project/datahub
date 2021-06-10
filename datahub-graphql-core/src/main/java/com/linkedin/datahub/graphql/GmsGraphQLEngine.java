@@ -55,11 +55,9 @@ import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsT
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
 import graphql.execution.DataFetcherResult;
-import graphql.schema.DataFetcher;
 import graphql.schema.idl.RuntimeWiring;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
-import org.dataloader.BatchLoaderEnvironment;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
@@ -104,7 +102,7 @@ public class GmsGraphQLEngine {
             GmsClientFactory.getRelationshipsClient()
     );
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
-    public static final AspectType ASPECT_TYPE = new AspectType();
+    public static final AspectType ASPECT_TYPE = new AspectType(GmsClientFactory.getAspectsClient());
 
 
         /**
@@ -306,7 +304,7 @@ public class GmsGraphQLEngine {
                                     UPSTREAM_LINEAGE_TYPE,
                                     (env) -> ((Entity) env.getSource()).getUrn()))
                     )
-                    .dataFetcher("schema", new AuthenticatedResolver<>(
+                    .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
                         new AspectResolver())
                     )
             )
@@ -551,10 +549,9 @@ public class GmsGraphQLEngine {
     private static DataLoader<AspectLoadKey, DataFetcherResult<Aspect>> createAspectLoader(final QueryContext queryContext) {
         BatchLoaderContextProvider contextProvider = () -> queryContext;
         DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
-        AspectType aspectType = new AspectType();
         return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {
             try {
-                return aspectType.batchLoad(keys, context.getContext());
+                return ASPECT_TYPE.batchLoad(keys, context.getContext());
             } catch (Exception e) {
                 throw new RuntimeException(String.format("Failed to retrieve entities of type Aspect", e));
             }
