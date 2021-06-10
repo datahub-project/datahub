@@ -1,0 +1,8 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.common.AuditStamp
+
+record AspectWithMetadata {
+    aspect: Aspect
+    version: long
+}

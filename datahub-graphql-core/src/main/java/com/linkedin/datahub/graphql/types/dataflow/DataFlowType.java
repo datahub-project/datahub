@@ -29,12 +29,14 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.DataFlowAspect;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
+import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,7 +75,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
     }
 
     @Override
-    public List<DataFlow> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
+    public List<DataFetcherResult<DataFlow>> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
         final List<DataFlowUrn> dataFlowUrns = urns.stream()
             .map(this::getDataFlowUrn)
             .collect(Collectors.toList());
@@ -88,8 +90,10 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                 .map(flowUrn -> dataFlowMap.getOrDefault(flowUrn, null)).collect(Collectors.toList());
 
             return gmsResults.stream()
-                .map(gmsDataFlow -> gmsDataFlow == null ? null : DataFlowSnapshotMapper.map(
-                    gmsDataFlow.getValue().getDataFlowSnapshot()))
+                .map(gmsDataFlow -> gmsDataFlow == null ? null : DataFetcherResult.<DataFlow>newResult()
+                    .data(DataFlowSnapshotMapper.map(gmsDataFlow.getValue().getDataFlowSnapshot()))
+                    .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataFlow.getValue().getDataFlowSnapshot()))
+                    .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load DataFlows", e);
@@ -138,7 +142,8 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                 start,
                 count);
         final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<DataFlow> dataFlows = batchLoad(urns, context);
+        final List<DataFlow> dataFlows = batchLoad(urns, context).stream().map(dataFlow -> dataFlow.getData()).collect(
+            Collectors.toList());
         final BrowseResults browseResults = new BrowseResults();
         browseResults.setStart(result.getFrom());
         browseResults.setCount(result.getPageSize());
@@ -187,6 +192,6 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }
 
-        return load(input.getUrn(), context);
+        return load(input.getUrn(), context).getData();
     }
 }

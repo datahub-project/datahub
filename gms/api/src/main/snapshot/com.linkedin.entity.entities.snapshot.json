@@ -2644,8 +2644,8 @@
                     "type" : "com.linkedin.common.Urn",
                     "doc" : "Standardized platform urn for the model",
                     "Searchable" : {
-                      "addToFilters" : true,
-                      "fieldType" : "URN"
+                      "boostScore" : 0.1,
+                      "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
                     "name" : "name",

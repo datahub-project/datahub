@@ -21,6 +21,10 @@ interface Entity {
     type: EntityType!
 }
 
+interface Aspect {
+    aspectVersion: Long
+}
+
 interface EntityWithRelationships implements Entity {
     """
     GMS Entity urn
@@ -265,7 +269,12 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     Schema metadata of the dataset
     """
-    schema: Schema
+    schema: Schema @deprecated(reason: "Use `schemaMetadata`")
+
+    """
+    Schema metadata of the dataset
+    """
+    schemaMetadata(version: Long): SchemaMetadata
 
     """
     Editable schema metadata of the dataset
@@ -514,6 +523,53 @@ type InstitutionalMemoryMetadata {
     An AuditStamp corresponding to the creation of this resource
     """
     created: AuditStamp!
+}
+
+type SchemaMetadata implements Aspect {
+    aspectVersion: Long
+    createdAt: Long
+    """
+    Dataset this schema metadata is associated with
+    """
+    datasetUrn: String
+
+    """
+    Schema name
+    """
+    name: String!
+
+    """
+    Platform this schema metadata is associated with
+    """
+    platformUrn: String!
+
+    """
+    The version of the GMS Schema metadata
+    """
+    version: Long!
+
+    """
+    The cluster this schema metadata is derived from
+    """
+    cluster: String
+
+    """
+    The SHA1 hash of the schema content
+    """
+    hash: String!
+
+    """
+    The native schema in the datasets platform, schemaless if it was not provided
+    """
+    platformSchema: PlatformSchema
+    """
+    Client provided a list of fields from value schema
+    """
+    fields: [SchemaField!]!
+    """
+    Client provided list of fields that define primary keys to access record
+    """
+    primaryKeys: [String!]
 }
 
 type Schema {
