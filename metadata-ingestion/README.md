@@ -37,6 +37,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | console       | _included by default_                                      | Console sink                        |
 | athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| feast         | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
 | glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
 | hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
 | mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
@@ -399,6 +400,27 @@ source:
     database: dbname
     # table_pattern/schema_pattern is same as above
     # options is same as above
+```
+
+### Feast `feast`
+
+**Note: Feast ingestion requires Docker to be installed.**
+
+Extracts:
+
+- List of feature tables (modeled as `MLFeatureTable`s), features (`MLFeature`s), and entities (`MLPrimaryKey`s)
+- Column types associated with each feature and entity
+
+Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then
+parsed to DataHub's native objects. This was done because of a dependency conflict in the `feast` module.
+
+```yml
+source:
+  type: feast
+  config:
+    core_url: localhost:6565 # default
+    env: "PROD" # Optional, default is "PROD"
+    use_local_build: False # Whether to build Feast ingestion image locally, default is False
 ```
 
 ### Google BigQuery `bigquery`
