@@ -526,6 +526,7 @@ export const dataFlow1 = {
         externalUrl: null,
         customProperties: [],
     },
+    editableProperties: null,
     ownership: {
         owners: [
             {
@@ -592,6 +593,7 @@ export const dataJob1 = {
         externalUrl: null,
         customProperties: [],
     },
+    editableProperties: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],
@@ -647,6 +649,7 @@ export const dataJob2 = {
         externalUrl: null,
         customProperties: [],
     },
+    editableProperties: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],
@@ -702,6 +705,7 @@ export const dataJob3 = {
         externalUrl: null,
         customProperties: [],
     },
+    editableProperties: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],

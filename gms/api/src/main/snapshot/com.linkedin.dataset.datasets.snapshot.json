@@ -613,13 +613,10 @@
           "doc" : "Documentation of the dataset",
           "optional" : true
         }, {
-          "name" : "tags",
-          "type" : {
-            "type" : "array",
-            "items" : "string"
-          },
-          "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.",
-          "default" : [ ]
+          "name" : "globalTags",
+          "type" : "com.linkedin.common.GlobalTags",
+          "doc" : "globalTags",
+          "optional" : true
         } ],
         "Aspect" : {
           "name" : "editableDatasetProperties"

@@ -158,7 +158,13 @@
         "items" : "ChartDataSourceType"
       },
       "doc" : "Data sources for the chart",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "/*/string" : {
+          "entityTypes" : [ "dataset" ],
+          "name" : "Consumes"
+        }
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -237,7 +243,21 @@
     "Aspect" : {
       "name" : "chartQuery"
     }
-  }, "com.linkedin.chart.ChartQueryType", "com.linkedin.chart.ChartType", "com.linkedin.common.AccessLevel", "com.linkedin.common.AuditStamp", {
+  }, "com.linkedin.chart.ChartQueryType", "com.linkedin.chart.ChartType", {
+    "type" : "record",
+    "name" : "EditableChartProperties",
+    "namespace" : "com.linkedin.chart",
+    "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+    "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+    "fields" : [ {
+      "name" : "description",
+      "type" : "string",
+      "optional" : true
+    } ],
+    "Aspect" : {
+      "name" : "editableChartProperties"
+    }
+  }, "com.linkedin.common.AccessLevel", "com.linkedin.common.AuditStamp", {
     "type" : "record",
     "name" : "BaseFieldMapping",
     "namespace" : "com.linkedin.common",
@@ -1121,6 +1141,20 @@
     }
   }, {
     "type" : "record",
+    "name" : "EditableDashboardProperties",
+    "namespace" : "com.linkedin.dashboard",
+    "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+    "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+    "fields" : [ {
+      "name" : "description",
+      "type" : "string",
+      "optional" : true
+    } ],
+    "Aspect" : {
+      "name" : "editableDashboardProperties"
+    }
+  }, {
+    "type" : "record",
     "name" : "DataFlowInfo",
     "namespace" : "com.linkedin.datajob",
     "doc" : "Information about a Data processing flow",
@@ -1275,6 +1309,34 @@
     } ],
     "Aspect" : {
       "name" : "dataJobInputOutput"
+    }
+  }, {
+    "type" : "record",
+    "name" : "EditableDataflowProperties",
+    "namespace" : "com.linkedin.datajob",
+    "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+    "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+    "fields" : [ {
+      "name" : "description",
+      "type" : "string",
+      "optional" : true
+    } ],
+    "Aspect" : {
+      "name" : "editableDataflowProperties"
+    }
+  }, {
+    "type" : "record",
+    "name" : "EditableDatajobProperties",
+    "namespace" : "com.linkedin.datajob",
+    "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+    "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+    "fields" : [ {
+      "name" : "description",
+      "type" : "string",
+      "optional" : true
+    } ],
+    "Aspect" : {
+      "name" : "editableDatajobProperties"
     }
   }, "com.linkedin.datajob.azkaban.AzkabanJobType", {
     "type" : "record",
@@ -1508,13 +1570,10 @@
       "doc" : "Documentation of the dataset",
       "optional" : true
     }, {
-      "name" : "tags",
-      "type" : {
-        "type" : "array",
-        "items" : "string"
-      },
-      "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.",
-      "default" : [ ]
+      "name" : "globalTags",
+      "type" : "com.linkedin.common.GlobalTags",
+      "doc" : "globalTags",
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "editableDatasetProperties"
@@ -1619,7 +1678,7 @@
                   "Aspect" : {
                     "name" : "chartKey"
                   }
-                }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.chart.EditableChartProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -1942,7 +2001,7 @@
                   "Aspect" : {
                     "name" : "dashboardKey"
                   }
-                }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.dashboard.EditableDashboardProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2055,7 +2114,7 @@
                   "Aspect" : {
                     "name" : "dataJobKey"
                   }
-                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDataflowProperties", "com.linkedin.datajob.EditableDatajobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."

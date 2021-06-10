@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.datajob.DataJob;
+import com.linkedin.datajob.EditableDatajobProperties;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;
@@ -39,6 +40,12 @@ public class DataJobUpdateInputMapper implements InputModelMapper<DataJobUpdateI
                     )
             );
             result.setGlobalTags(globalTags);
+        }
+
+        if (dataJobUpdateInput.getEditableProperties() != null) {
+            final EditableDatajobProperties editableDatajobProperties = new EditableDatajobProperties();
+            editableDatajobProperties.setDescription(dataJobUpdateInput.getEditableProperties().getDescription());
+            result.setEditableProperties(editableDatajobProperties);
         }
         return result;
     }

@@ -435,6 +435,86 @@ class ChartTypeClass(object):
     BOX_PLOT = "BOX_PLOT"
     
     
+class EditableChartPropertiesClass(DictWrapper):
+    """Stores editable changes made to properties. This separates changes made from
+    ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.chart.EditableChartProperties")
+    def __init__(self,
+        created: "AuditStampClass",
+        lastModified: "AuditStampClass",
+        deleted: Union[None, "AuditStampClass"]=None,
+        description: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.created = created
+        self.lastModified = lastModified
+        self.deleted = deleted
+        self.description = description
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "EditableChartPropertiesClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.created = AuditStampClass.construct_with_defaults()
+        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
+    
+    
+    @property
+    def created(self) -> "AuditStampClass":
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    
+    @created.setter
+    def created(self, value: "AuditStampClass") -> None:
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def lastModified(self) -> "AuditStampClass":
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        return self._inner_dict.get('lastModified')  # type: ignore
+    
+    
+    @lastModified.setter
+    def lastModified(self, value: "AuditStampClass") -> None:
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        self._inner_dict['lastModified'] = value
+    
+    
+    @property
+    def deleted(self) -> Union[None, "AuditStampClass"]:
+        """Getter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
+        return self._inner_dict.get('deleted')  # type: ignore
+    
+    
+    @deleted.setter
+    def deleted(self, value: Union[None, "AuditStampClass"]) -> None:
+        """Setter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
+        self._inner_dict['deleted'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        # No docs available.
+        return self._inner_dict.get('description')  # type: ignore
+    
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        # No docs available.
+        self._inner_dict['description'] = value
+    
+    
 class AccessLevelClass(object):
     """The various access levels"""
     
@@ -1640,6 +1720,86 @@ class DashboardInfoClass(DictWrapper):
         self._inner_dict['lastRefreshed'] = value
     
     
+class EditableDashboardPropertiesClass(DictWrapper):
+    """Stores editable changes made to properties. This separates changes made from
+    ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dashboard.EditableDashboardProperties")
+    def __init__(self,
+        created: "AuditStampClass",
+        lastModified: "AuditStampClass",
+        deleted: Union[None, "AuditStampClass"]=None,
+        description: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.created = created
+        self.lastModified = lastModified
+        self.deleted = deleted
+        self.description = description
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "EditableDashboardPropertiesClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.created = AuditStampClass.construct_with_defaults()
+        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
+    
+    
+    @property
+    def created(self) -> "AuditStampClass":
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    
+    @created.setter
+    def created(self, value: "AuditStampClass") -> None:
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def lastModified(self) -> "AuditStampClass":
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        return self._inner_dict.get('lastModified')  # type: ignore
+    
+    
+    @lastModified.setter
+    def lastModified(self, value: "AuditStampClass") -> None:
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        self._inner_dict['lastModified'] = value
+    
+    
+    @property
+    def deleted(self) -> Union[None, "AuditStampClass"]:
+        """Getter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
+        return self._inner_dict.get('deleted')  # type: ignore
+    
+    
+    @deleted.setter
+    def deleted(self, value: Union[None, "AuditStampClass"]) -> None:
+        """Setter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
+        self._inner_dict['deleted'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        # No docs available.
+        return self._inner_dict.get('description')  # type: ignore
+    
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        # No docs available.
+        self._inner_dict['description'] = value
+    
+    
 class DataFlowInfoClass(DictWrapper):
     """Information about a Data processing flow"""
     
@@ -1911,6 +2071,166 @@ class DataJobInputOutputClass(DictWrapper):
     def inputDatajobs(self, value: Union[None, List[str]]) -> None:
         """Setter: Input datajobs that this data job depends on"""
         self._inner_dict['inputDatajobs'] = value
+    
+    
+class EditableDataflowPropertiesClass(DictWrapper):
+    """Stores editable changes made to properties. This separates changes made from
+    ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.datajob.EditableDataflowProperties")
+    def __init__(self,
+        created: "AuditStampClass",
+        lastModified: "AuditStampClass",
+        deleted: Union[None, "AuditStampClass"]=None,
+        description: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.created = created
+        self.lastModified = lastModified
+        self.deleted = deleted
+        self.description = description
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "EditableDataflowPropertiesClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.created = AuditStampClass.construct_with_defaults()
+        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
+    
+    
+    @property
+    def created(self) -> "AuditStampClass":
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    
+    @created.setter
+    def created(self, value: "AuditStampClass") -> None:
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def lastModified(self) -> "AuditStampClass":
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        return self._inner_dict.get('lastModified')  # type: ignore
+    
+    
+    @lastModified.setter
+    def lastModified(self, value: "AuditStampClass") -> None:
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        self._inner_dict['lastModified'] = value
+    
+    
+    @property
+    def deleted(self) -> Union[None, "AuditStampClass"]:
+        """Getter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
+        return self._inner_dict.get('deleted')  # type: ignore
+    
+    
+    @deleted.setter
+    def deleted(self, value: Union[None, "AuditStampClass"]) -> None:
+        """Setter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
+        self._inner_dict['deleted'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        # No docs available.
+        return self._inner_dict.get('description')  # type: ignore
+    
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        # No docs available.
+        self._inner_dict['description'] = value
+    
+    
+class EditableDatajobPropertiesClass(DictWrapper):
+    """Stores editable changes made to properties. This separates changes made from
+    ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.datajob.EditableDatajobProperties")
+    def __init__(self,
+        created: "AuditStampClass",
+        lastModified: "AuditStampClass",
+        deleted: Union[None, "AuditStampClass"]=None,
+        description: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.created = created
+        self.lastModified = lastModified
+        self.deleted = deleted
+        self.description = description
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "EditableDatajobPropertiesClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.created = AuditStampClass.construct_with_defaults()
+        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
+    
+    
+    @property
+    def created(self) -> "AuditStampClass":
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        return self._inner_dict.get('created')  # type: ignore
+    
+    
+    @created.setter
+    def created(self, value: "AuditStampClass") -> None:
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        self._inner_dict['created'] = value
+    
+    
+    @property
+    def lastModified(self) -> "AuditStampClass":
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        return self._inner_dict.get('lastModified')  # type: ignore
+    
+    
+    @lastModified.setter
+    def lastModified(self, value: "AuditStampClass") -> None:
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        self._inner_dict['lastModified'] = value
+    
+    
+    @property
+    def deleted(self) -> Union[None, "AuditStampClass"]:
+        """Getter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
+        return self._inner_dict.get('deleted')  # type: ignore
+    
+    
+    @deleted.setter
+    def deleted(self, value: Union[None, "AuditStampClass"]) -> None:
+        """Setter: An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."""
+        self._inner_dict['deleted'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        # No docs available.
+        return self._inner_dict.get('description')  # type: ignore
+    
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        # No docs available.
+        self._inner_dict['description'] = value
     
     
 class AzkabanJobTypeClass(object):
@@ -2430,7 +2750,7 @@ class EditableDatasetPropertiesClass(DictWrapper):
         lastModified: "AuditStampClass",
         deleted: Union[None, "AuditStampClass"]=None,
         description: Union[None, str]=None,
-        tags: Optional[List[str]]=None,
+        globalTags: Union[None, "GlobalTagsClass"]=None,
     ):
         super().__init__()
         
@@ -2438,10 +2758,7 @@ class EditableDatasetPropertiesClass(DictWrapper):
         self.lastModified = lastModified
         self.deleted = deleted
         self.description = description
-        if tags is None:
-            self.tags = []
-        else:
-            self.tags = tags
+        self.globalTags = globalTags
     
     @classmethod
     def construct_with_defaults(cls) -> "EditableDatasetPropertiesClass":
@@ -2455,7 +2772,7 @@ class EditableDatasetPropertiesClass(DictWrapper):
         self.lastModified = AuditStampClass.construct_with_defaults()
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
-        self.tags = list()
+        self.globalTags = self.RECORD_SCHEMA.field_map["globalTags"].default
     
     
     @property
@@ -2507,15 +2824,15 @@ class EditableDatasetPropertiesClass(DictWrapper):
     
     
     @property
-    def tags(self) -> List[str]:
-        """Getter: [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect."""
-        return self._inner_dict.get('tags')  # type: ignore
+    def globalTags(self) -> Union[None, "GlobalTagsClass"]:
+        """Getter: globalTags"""
+        return self._inner_dict.get('globalTags')  # type: ignore
     
     
-    @tags.setter
-    def tags(self, value: List[str]) -> None:
-        """Setter: [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect."""
-        self._inner_dict['tags'] = value
+    @globalTags.setter
+    def globalTags(self, value: Union[None, "GlobalTagsClass"]) -> None:
+        """Setter: globalTags"""
+        self._inner_dict['globalTags'] = value
     
     
 class UpstreamClass(DictWrapper):
@@ -3890,7 +4207,7 @@ class ChartSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["ChartKeyClass", "ChartInfoClass", "ChartQueryClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]],
+        aspects: List[Union["ChartKeyClass", "ChartInfoClass", "ChartQueryClass", "EditableChartPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]],
     ):
         super().__init__()
         
@@ -3922,13 +4239,13 @@ class ChartSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["ChartKeyClass", "ChartInfoClass", "ChartQueryClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]:
+    def aspects(self) -> List[Union["ChartKeyClass", "ChartInfoClass", "ChartQueryClass", "EditableChartPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]:
         """Getter: The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["ChartKeyClass", "ChartInfoClass", "ChartQueryClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]) -> None:
+    def aspects(self, value: List[Union["ChartKeyClass", "ChartInfoClass", "ChartQueryClass", "EditableChartPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -4037,7 +4354,7 @@ class DashboardSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["DashboardKeyClass", "DashboardInfoClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]],
+        aspects: List[Union["DashboardKeyClass", "DashboardInfoClass", "EditableDashboardPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]],
     ):
         super().__init__()
         
@@ -4069,13 +4386,13 @@ class DashboardSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["DashboardKeyClass", "DashboardInfoClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]:
+    def aspects(self) -> List[Union["DashboardKeyClass", "DashboardInfoClass", "EditableDashboardPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]:
         """Getter: The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["DashboardKeyClass", "DashboardInfoClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]) -> None:
+    def aspects(self, value: List[Union["DashboardKeyClass", "DashboardInfoClass", "EditableDashboardPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -4135,7 +4452,7 @@ class DataJobSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]],
+        aspects: List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "EditableDataflowPropertiesClass", "EditableDatajobPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]],
     ):
         super().__init__()
         
@@ -4167,13 +4484,13 @@ class DataJobSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]:
+    def aspects(self) -> List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "EditableDataflowPropertiesClass", "EditableDatajobPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]:
         """Getter: The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]) -> None:
+    def aspects(self, value: List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "EditableDataflowPropertiesClass", "EditableDatajobPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -7229,6 +7546,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.chart.ChartQuery': ChartQueryClass,
     'com.linkedin.pegasus2avro.chart.ChartQueryType': ChartQueryTypeClass,
     'com.linkedin.pegasus2avro.chart.ChartType': ChartTypeClass,
+    'com.linkedin.pegasus2avro.chart.EditableChartProperties': EditableChartPropertiesClass,
     'com.linkedin.pegasus2avro.common.AccessLevel': AccessLevelClass,
     'com.linkedin.pegasus2avro.common.AuditStamp': AuditStampClass,
     'com.linkedin.pegasus2avro.common.BrowsePaths': BrowsePathsClass,
@@ -7256,9 +7574,12 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.common.fieldtransformer.TransformationType': TransformationTypeClass,
     'com.linkedin.pegasus2avro.common.fieldtransformer.UDFTransformer': UDFTransformerClass,
     'com.linkedin.pegasus2avro.dashboard.DashboardInfo': DashboardInfoClass,
+    'com.linkedin.pegasus2avro.dashboard.EditableDashboardProperties': EditableDashboardPropertiesClass,
     'com.linkedin.pegasus2avro.datajob.DataFlowInfo': DataFlowInfoClass,
     'com.linkedin.pegasus2avro.datajob.DataJobInfo': DataJobInfoClass,
     'com.linkedin.pegasus2avro.datajob.DataJobInputOutput': DataJobInputOutputClass,
+    'com.linkedin.pegasus2avro.datajob.EditableDataflowProperties': EditableDataflowPropertiesClass,
+    'com.linkedin.pegasus2avro.datajob.EditableDatajobProperties': EditableDatajobPropertiesClass,
     'com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType': AzkabanJobTypeClass,
     'com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo': DataPlatformInfoClass,
     'com.linkedin.pegasus2avro.dataplatform.PlatformType': PlatformTypeClass,
@@ -7365,6 +7686,7 @@ __SCHEMA_TYPES = {
     'ChartQuery': ChartQueryClass,
     'ChartQueryType': ChartQueryTypeClass,
     'ChartType': ChartTypeClass,
+    'EditableChartProperties': EditableChartPropertiesClass,
     'AccessLevel': AccessLevelClass,
     'AuditStamp': AuditStampClass,
     'BrowsePaths': BrowsePathsClass,
@@ -7392,9 +7714,12 @@ __SCHEMA_TYPES = {
     'TransformationType': TransformationTypeClass,
     'UDFTransformer': UDFTransformerClass,
     'DashboardInfo': DashboardInfoClass,
+    'EditableDashboardProperties': EditableDashboardPropertiesClass,
     'DataFlowInfo': DataFlowInfoClass,
     'DataJobInfo': DataJobInfoClass,
     'DataJobInputOutput': DataJobInputOutputClass,
+    'EditableDataflowProperties': EditableDataflowPropertiesClass,
+    'EditableDatajobProperties': EditableDatajobPropertiesClass,
     'AzkabanJobType': AzkabanJobTypeClass,
     'DataPlatformInfo': DataPlatformInfoClass,
     'PlatformType': PlatformTypeClass,

@@ -9,7 +9,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
-import com.linkedin.datahub.graphql.generated.EditableProperties;
+import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -84,9 +84,11 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
               result.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map((EditableSchemaMetadata) aspect));
             } else if (aspect instanceof EditableDatasetProperties) {
                 final EditableDatasetProperties editableDatasetProperties = (EditableDatasetProperties) aspect;
-                final EditableProperties editableProperties = new EditableProperties();
+                final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
                 editableProperties.setDescription(editableDatasetProperties.getDescription());
-                editableProperties.setTags(editableDatasetProperties.getTags());
+                if (editableDatasetProperties.getGlobalTags() != null) {
+                    editableProperties.setGlobalTags(GlobalTagsMapper.map(editableDatasetProperties.getGlobalTags()));
+                }
                 result.setEditableProperties(editableProperties);
             }
         });

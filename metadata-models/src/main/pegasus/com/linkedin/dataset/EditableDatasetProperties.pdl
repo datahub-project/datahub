@@ -1,6 +1,7 @@
 namespace com.linkedin.dataset
 
 import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.GlobalTags
 
 /**
  * EditableDatasetProperties stores editable changes made to dataset properties. This separates changes made from
@@ -16,7 +17,7 @@ record EditableDatasetProperties includes ChangeAuditStamps {
   description: optional string
 
   /**
-   * [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.
+   * globalTags
    */
-  tags: array[string] = [ ]
+  globalTags: optional GlobalTags
 }

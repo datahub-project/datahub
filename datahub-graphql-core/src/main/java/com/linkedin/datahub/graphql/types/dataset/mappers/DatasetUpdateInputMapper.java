@@ -5,7 +5,6 @@ import javax.annotation.Nonnull;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
@@ -79,8 +78,11 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
         if (datasetUpdateInput.getEditableProperties() != null) {
             final EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties();
             editableDatasetProperties.setDescription(datasetUpdateInput.getEditableProperties().getDescription());
-            if (datasetUpdateInput.getEditableProperties().getTags() != null) {
-                editableDatasetProperties.setTags(new StringArray(datasetUpdateInput.getEditableProperties().getTags()));
+            if (datasetUpdateInput.getEditableProperties().getGlobalTags() != null) {
+                final GlobalTags globalTags = new GlobalTags();
+                globalTags.setTags(new TagAssociationArray(datasetUpdateInput.getEditableProperties().getGlobalTags().getTags().stream().map(
+                        element -> TagAssociationUpdateMapper.map(element)).collect(Collectors.toList())));
+                editableDatasetProperties.setGlobalTags(globalTags);
             }
             result.setEditableProperties(editableDatasetProperties);
         }
