@@ -10,7 +10,9 @@ from ......schema_classes import DatasetSnapshotClass
 from ......schema_classes import GlossaryNodeSnapshotClass
 from ......schema_classes import GlossaryTermSnapshotClass
 from ......schema_classes import MLFeatureSnapshotClass
+from ......schema_classes import MLFeatureTableSnapshotClass
 from ......schema_classes import MLModelSnapshotClass
+from ......schema_classes import MLPrimaryKeySnapshotClass
 from ......schema_classes import TagSnapshotClass
 
 
@@ -26,5 +28,7 @@ DatasetSnapshot = DatasetSnapshotClass
 GlossaryNodeSnapshot = GlossaryNodeSnapshotClass
 GlossaryTermSnapshot = GlossaryTermSnapshotClass
 MLFeatureSnapshot = MLFeatureSnapshotClass
+MLFeatureTableSnapshot = MLFeatureTableSnapshotClass
 MLModelSnapshot = MLModelSnapshotClass
+MLPrimaryKeySnapshot = MLPrimaryKeySnapshotClass
 TagSnapshot = TagSnapshotClass

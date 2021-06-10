@@ -43,7 +43,6 @@ jobs:
   push_to_registries:
     name: Build and Push Docker Image to Docker Hub
     runs-on: ubuntu-latest
-    if: ${{ needs.setup.outputs.publish == 'true' }}
     needs: setup
     steps:
       - name: Check out the repo

@@ -1,5 +1,6 @@
 namespace com.linkedin.ml.metadata
 
+import com.linkedin.common.Urn
 import com.linkedin.common.MLFeatureDataType
 import com.linkedin.common.VersionTag
 
@@ -25,4 +26,15 @@ record MLFeatureProperties {
   * Version of the MLFeature
   */
   version: optional VersionTag
+
+  /**
+  * Source of the MLFeature
+  */
+  @Relationship = {
+    "/*": {
+      "name": "DerivedFrom",
+      "entityTypes": [ "dataset" ]
+    }
+  }
+  sources: optional array[Urn]
 }

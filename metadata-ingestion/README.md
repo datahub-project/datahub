@@ -37,6 +37,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | console       | _included by default_                                      | Console sink                        |
 | athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| feast         | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
 | glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
 | hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
 | mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
@@ -190,6 +191,8 @@ source:
 
 ### Microsoft SQL Server Metadata `mssql`
 
+We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install, but only PyODBC supports encrypted connections.
+
 Extracts:
 
 - List of databases, schema, and tables
@@ -216,7 +219,39 @@ source:
       # documentation will be a good reference for what is supported. To find which dialect is likely
       # in use, consult this table: https://docs.sqlalchemy.org/en/14/dialects/index.html.
       charset: "utf8"
+    # If set to true, we'll use the pyodbc library. This requires you to have
+    # already installed the Microsoft ODBC Driver for SQL Server.
+    # See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+    use_odbc: False
+    uri_args: {}
 ```
+
+<details>
+  <summary>Example: using ingestion with ODBC and encryption</summary>
+
+This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
+See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+
+```yml
+source:
+  type: mssql
+  config:
+    # See https://docs.sqlalchemy.org/en/14/dialects/mssql.html#module-sqlalchemy.dialects.mssql.pyodbc
+    use_odbc: True
+    username: user
+    password: pass
+    host_port: localhost:1433
+    database: DemoDatabase
+    uri_args:
+      # See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15
+      driver: "ODBC Driver 17 for SQL Server"
+      Encrypt: "yes"
+      TrustServerCertificate: "Yes"
+      ssl: "True"
+      # Trusted_Connection: "yes"
+```
+
+</details>
 
 ### Hive `hive`
 
@@ -365,6 +400,27 @@ source:
     database: dbname
     # table_pattern/schema_pattern is same as above
     # options is same as above
+```
+
+### Feast `feast`
+
+**Note: Feast ingestion requires Docker to be installed.**
+
+Extracts:
+
+- List of feature tables (modeled as `MLFeatureTable`s), features (`MLFeature`s), and entities (`MLPrimaryKey`s)
+- Column types associated with each feature and entity
+
+Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then
+parsed to DataHub's native objects. This was done because of a dependency conflict in the `feast` module.
+
+```yml
+source:
+  type: feast
+  config:
+    core_url: localhost:6565 # default
+    env: "PROD" # Optional, default is "PROD"
+    use_local_build: False # Whether to build Feast ingestion image locally, default is False
 ```
 
 ### Google BigQuery `bigquery`
