@@ -23,7 +23,6 @@ interface Entity {
 
 interface Aspect {
     aspectVersion: Long
-    createdAt: Long
 }
 
 interface EntityWithRelationships implements Entity {

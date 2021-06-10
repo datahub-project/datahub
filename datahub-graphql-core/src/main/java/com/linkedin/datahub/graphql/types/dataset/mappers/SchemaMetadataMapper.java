@@ -33,7 +33,7 @@ public class SchemaMetadataMapper implements ModelMapper<AspectWithMetadata, com
         result.setPrimaryKeys(input.getPrimaryKeys());
         result.setFields(input.getFields().stream().map(SchemaFieldMapper::map).collect(Collectors.toList()));
         result.setPlatformSchema(PlatformSchemaMapper.map(input.getPlatformSchema()));
-        result.setVersion(inputWithMetadata.getVersion());
+        result.setAspectVersion(inputWithMetadata.getVersion());
         return result;
     }
 }

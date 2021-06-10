@@ -4,7 +4,6 @@ import com.linkedin.datahub.graphql.AspectLoadKey;
 import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
-import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.aspect.AspectMapper;
 import com.linkedin.metadata.aspect.AspectWithMetadata;
 import graphql.schema.DataFetcher;
@@ -16,11 +15,8 @@ import org.dataloader.DataLoader;
 /**
  * Generic GraphQL resolver responsible for
  *
- *    1. Retrieving a single input urn.
- *    2. Resolving a single {@link LoadableType}.
- *
- *  Note that this resolver expects that {@link DataLoader}s were registered
- *  for the provided {@link LoadableType} under the name provided by {@link LoadableType#name()}
+ *    1. Generating a single input AspectLoadKey.
+ *    2. Resolving a single {@link Aspect}.
  *
  */
 public class AspectResolver implements DataFetcher<CompletableFuture<Aspect>> {
@@ -36,12 +32,13 @@ public class AspectResolver implements DataFetcher<CompletableFuture<Aspect>> {
         Long version = environment.getArgument("version");
         String urn = ((Entity) environment.getSource()).getUrn();
 
+        // first, we try fetching the aspect from the local cache
         AspectWithMetadata aspectFromContext = ResolverUtils.getAspectFromLocalContext(environment);
         if (aspectFromContext != null) {
             return CompletableFuture.completedFuture(AspectMapper.map(aspectFromContext));
         }
 
-        // if the aspect is not in the cache, we need to fetch it
+        // if the aspect is not in the cache, we need to fetch it from GMS Aspect Resource
         return loader.load(new AspectLoadKey(urn, fieldName, version));
     }
 }

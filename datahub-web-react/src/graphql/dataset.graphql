@@ -47,7 +47,7 @@ query getDataset($urn: String!) {
                 }
             }
         }
-        schemaMetadata {
+        schema {
             datasetUrn
             name
             platformUrn
@@ -110,6 +110,7 @@ query getDataset($urn: String!) {
                 }
             }
             primaryKeys
+            aspectVersion
         }
         editableSchemaMetadata {
             editableSchemaFieldInfo {

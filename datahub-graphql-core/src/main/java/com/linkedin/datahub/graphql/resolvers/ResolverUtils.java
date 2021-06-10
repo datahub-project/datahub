@@ -20,11 +20,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang.reflect.ConstructorUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class ResolverUtils {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static final Logger _logger = LoggerFactory.getLogger("ResolverUtils");
 
     private ResolverUtils() { }
 
@@ -69,7 +73,6 @@ public class ResolverUtils {
     public static AspectWithMetadata getAspectFromLocalContext(DataFetchingEnvironment environment) {
         String fieldName = environment.getField().getName();
         Long version = environment.getArgument("version");
-        String urn = ((Entity) environment.getSource()).getUrn();
 
         Object localContext = environment.getLocalContext();
         // if we have context & the version is 0, we should try to retrieve it from the fetched entity
@@ -95,6 +98,12 @@ public class ResolverUtils {
 
                         return resultWithMetadata;
                     } catch (IllegalAccessException | InstantiationException | InvocationTargetException | ClassNotFoundException | NoSuchMethodException e) {
+                        _logger.error(
+                            "Error fetch aspect from local context. field: {} version: {}. Error: {}",
+                            fieldName,
+                            version,
+                            e.toString()
+                        );
                         e.printStackTrace();
                     }
                 }

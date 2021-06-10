@@ -1,21 +1,12 @@
 package com.linkedin.datahub.graphql.types.aspect;
 
-import com.linkedin.data.DataMap;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.AspectLoadKey;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Aspect;
-import com.linkedin.datahub.graphql.generated.DownstreamEntityRelationships;
-import com.linkedin.datahub.graphql.types.relationships.mappers.DownstreamEntityRelationshipsMapper;
-import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.AspectClient;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.lineage.client.Lineages;
 import com.linkedin.metadata.aspect.AspectWithMetadata;
-import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -28,8 +19,8 @@ public class AspectType {
     _aspectClient = aspectClient;
   }
   /**
-   * Retrieves an list of entities given a list of urn strings. The list returned is expected to
-   * be of same length of the list of urns, where nulls are provided in place of an entity object if an entity cannot be found.
+   * Retrieves an list of aspects given a list of {@link AspectLoadKey} structs. The list returned is expected to
+   * be of same length of the list of keys, where nulls are provided in place of an aspect object if an entity cannot be found.
    * @param keys to retrieve
    * @param context the {@link QueryContext} corresponding to the request.
    */

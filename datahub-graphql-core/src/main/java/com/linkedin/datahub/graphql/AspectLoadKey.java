@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql;
 
 import lombok.Data;
 
-
 @Data
 public class AspectLoadKey {
   private String aspectName;

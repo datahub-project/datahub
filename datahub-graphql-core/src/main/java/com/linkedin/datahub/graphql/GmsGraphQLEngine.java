@@ -104,8 +104,7 @@ public class GmsGraphQLEngine {
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
     public static final AspectType ASPECT_TYPE = new AspectType(GmsClientFactory.getAspectsClient());
 
-
-        /**
+    /**
      * Configures the graph objects that can be fetched primary key.
      */
     public static final List<EntityType<?>> ENTITY_TYPES = ImmutableList.of(
@@ -134,10 +133,7 @@ public class GmsGraphQLEngine {
     /**
      * Configures all graph objects
      */
-    public static final List<LoadableType<?>> LOADABLE_TYPES = Stream.concat(
-        ENTITY_TYPES.stream(),
-        RELATIONSHIP_TYPES.stream()
-        ).collect(Collectors.toList());
+    public static final List<LoadableType<?>> LOADABLE_TYPES = Stream.concat(ENTITY_TYPES.stream(), RELATIONSHIP_TYPES.stream()).collect(Collectors.toList());
 
     /**
      * Configures the graph objects for owner
