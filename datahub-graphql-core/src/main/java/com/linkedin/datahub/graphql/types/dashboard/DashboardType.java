@@ -27,6 +27,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.configs.DashboardSearchConfig;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -88,8 +89,10 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
             }
             return gmsResults.stream()
                     .map(gmsDashboard -> gmsDashboard == null ? null
-                        : DataFetcherResult.<Dashboard>newResult().data(DashboardSnapshotMapper.map(
-                        gmsDashboard.getValue().getDashboardSnapshot())).build())
+                        : DataFetcherResult.<Dashboard>newResult()
+                            .data(DashboardSnapshotMapper.map(gmsDashboard.getValue().getDashboardSnapshot()))
+                            .localContext(SnapshotToAspectMap.extractAspectMap(gmsDashboard.getValue().getDashboardSnapshot()))
+                            .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Dashboards", e);

@@ -8,9 +8,9 @@ public class AspectLoadKey {
   private String urn;
   private Long version;
 
-  public AspectLoadKey(String _urn, String _aspectName,  Long _version) {
-    urn = _urn;
-    version = _version;
-    aspectName = _aspectName;
+  public AspectLoadKey(String urn, String aspectName,  Long version) {
+    this.urn = urn;
+    this.version = version;
+    this.aspectName = aspectName;
   }
 }

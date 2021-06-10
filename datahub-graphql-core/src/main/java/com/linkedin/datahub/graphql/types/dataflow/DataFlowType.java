@@ -29,6 +29,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.DataFlowAspect;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -89,8 +90,10 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                 .map(flowUrn -> dataFlowMap.getOrDefault(flowUrn, null)).collect(Collectors.toList());
 
             return gmsResults.stream()
-                .map(gmsDataFlow -> gmsDataFlow == null ? null : DataFetcherResult.<DataFlow>newResult().data(DataFlowSnapshotMapper.map(
-                    gmsDataFlow.getValue().getDataFlowSnapshot())).build())
+                .map(gmsDataFlow -> gmsDataFlow == null ? null : DataFetcherResult.<DataFlow>newResult()
+                    .data(DataFlowSnapshotMapper.map(gmsDataFlow.getValue().getDataFlowSnapshot()))
+                    .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataFlow.getValue().getDataFlowSnapshot()))
+                    .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load DataFlows", e);

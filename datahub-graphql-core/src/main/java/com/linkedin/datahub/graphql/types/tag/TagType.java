@@ -30,6 +30,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.TagAspect;
 import com.linkedin.metadata.configs.TagSearchConfig;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -92,7 +93,9 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
             return gmsResults.stream()
                     .map(gmsTag -> gmsTag == null ? null
                         : DataFetcherResult.<Tag>newResult()
-                            .data(TagSnapshotMapper.map(gmsTag.getValue().getTagSnapshot())).build())
+                            .data(TagSnapshotMapper.map(gmsTag.getValue().getTagSnapshot()))
+                            .localContext(SnapshotToAspectMap.extractAspectMap(gmsTag.getValue().getTagSnapshot()))
+                            .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Tags", e);

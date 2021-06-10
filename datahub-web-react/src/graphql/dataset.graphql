@@ -79,39 +79,6 @@ query getDataset($urn: String!) {
             }
             primaryKeys
         }
-        pastSchema: schemaMetadata(version: -1) {
-            datasetUrn
-            name
-            platformUrn
-            version
-            hash
-            platformSchema {
-                ... on TableSchema {
-                    schema
-                }
-                ... on KeyValueSchema {
-                    keySchema
-                    valueSchema
-                }
-            }
-            fields {
-                fieldPath
-                jsonPath
-                nullable
-                description
-                type
-                nativeDataType
-                recursive
-                globalTags {
-                    ...globalTagsFields
-                }
-                glossaryTerms {
-                    ...glossaryTerms
-                }
-            }
-            primaryKeys
-            aspectVersion
-        }
         editableSchemaMetadata {
             editableSchemaFieldInfo {
                 fieldPath

@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
-import com.linkedin.datahub.graphql.generated.Schema;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.metadata.aspect.AspectWithMetadata;
 import com.linkedin.schema.SchemaMetadata;

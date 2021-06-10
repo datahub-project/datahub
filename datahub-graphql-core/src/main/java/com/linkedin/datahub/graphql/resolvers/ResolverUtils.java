@@ -4,14 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.element.DataElement;
 import com.linkedin.datahub.graphql.exception.ValidationException;
-import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 
-import com.linkedin.datahub.graphql.types.aspect.AspectMapper;
 import com.linkedin.metadata.aspect.AspectWithMetadata;
 import graphql.schema.DataFetchingEnvironment;
 import java.lang.reflect.InvocationTargetException;
-import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
