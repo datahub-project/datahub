@@ -56,7 +56,7 @@ function create_user() {
   ROLE="${INDEX_PREFIX}_access"
   echo -e '\ncreating role' "${ROLE}"
   curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_opendistro/_security/api/roles/${ROLE}" -H 'Content-Type: application/json' \
-    -d "{\"index_permissions\":[{\"index_patterns\":[\"${INDEX_PREFIX}_*\"], \"allowed_actions\":[\"read\", \"write\", \"manage\", \"create_index\"]}]}"
+    -d "{\"index_permissions\":[{\"index_patterns\":[\"${INDEX_PREFIX}_*\"], \"allowed_actions\":[\"read\", \"write\", \"manage\", \"create_index\", \"indices:data/write/reindex\", \"indices:admin/delete\"]}]}"
   echo -e '\ncreating user' "${ELASTICSEARCH_USERNAME}"
   curl -XPUT "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_opendistro/_security/api/internalusers/${ELASTICSEARCH_USERNAME}" -H 'Content-Type: application/json' \
     -d "{\"password\":\"${ELASTICSEARCH_PASSWORD}\", \"opendistro_security_roles\":[\"${ROLE}\"]}"
