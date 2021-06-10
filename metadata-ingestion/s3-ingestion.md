@@ -1,6 +1,6 @@
 # Ingesting files from S3
 
-To produce schema metadata for files on S3, we recommend using AWS Glue's built-in schema inference capabilities, as we already have a [Glue ingestion integration](../metadata-ingestion/#aws-glue-glue). Note: if you have nested data, perhaps in JSON format, then we recommend you hold tight since we don't have a JSON schema inference module yet.
+To produce schema metadata for files on S3, we recommend using AWS Glue's built-in schema inference capabilities, as we already have a [Glue ingestion integration](../metadata-ingestion/README.md#aws-glue-glue). Note: if you have nested data, perhaps in JSON format, then we recommend you hold tight since Glue's nested schema capabilities are fairly limited.
 
 To ingest S3 files with Glue, there are two main steps: (1) setting up Glue to scan your S3 directories, and (2) adding the Glue ingestion configurations on DataHub.
 
@@ -108,7 +108,7 @@ source:
         - "flights-database"
     table_pattern:
     	allow:
-    		- "avro"
+        - "avro"
 
     # Credentials. If not specified here, these are picked up according to boto3 rules.
     # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
@@ -124,4 +124,4 @@ This will extract the following:
 - Column types associated with each table
 - Table metadata, such as owner, description and parameters
 
-After ingesting, you should be able to see your datasets on the DataHub frontend.
+After ingesting, you should be able to see your datasets on the DataHub frontend. For more details, check out the [full metadata ingestion docs](../metadata-ingestion/README.md).
