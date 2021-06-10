@@ -1,16 +1,22 @@
 import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
+import { FetchResult, MutationFunctionOptions } from '@apollo/client';
 import { DataFlow, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 import { AvatarsGroup } from '../../../shared/avatar';
+import UpdatableDescription from '../../shared/UpdatableDescription';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export type Props = {
     dataFlow: DataFlow;
+    updateDataFlow: (options?: MutationFunctionOptions<any, any> | undefined) => Promise<FetchResult>;
 };
 
-export default function DataFlowHeader({ dataFlow: { urn, ownership, info, orchestrator } }: Props) {
+export default function DataFlowHeader({
+    dataFlow: { urn, type, ownership, info, orchestrator, editableProperties },
+    updateDataFlow,
+}: Props) {
     const entityRegistry = useEntityRegistry();
     const platformName = capitalizeFirstLetter(orchestrator);
 
@@ -34,7 +40,13 @@ export default function DataFlowHeader({ dataFlow: { urn, ownership, info, orche
                         {info?.externalUrl && <Button onClick={openExternalUrl}>View in {platformName}</Button>}
                     </Space>
                 </Row>
-                <Typography.Paragraph>{info?.description}</Typography.Paragraph>
+                <UpdatableDescription
+                    updateEntity={updateDataFlow}
+                    updatedDescription={editableProperties?.description}
+                    originalDescription={info?.description}
+                    entityType={type}
+                    urn={urn}
+                />
                 <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
             </Space>
         </>

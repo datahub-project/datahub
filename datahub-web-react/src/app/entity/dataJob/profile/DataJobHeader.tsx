@@ -1,11 +1,13 @@
 import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
+import { FetchResult, MutationFunctionOptions } from '@apollo/client';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { DataJob, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 import { AvatarsGroup } from '../../../shared/avatar';
+import UpdatableDescription from '../../shared/UpdatableDescription';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 const PlatFormLink = styled(Typography.Text)`
@@ -14,9 +16,13 @@ const PlatFormLink = styled(Typography.Text)`
 
 export type Props = {
     dataJob: DataJob;
+    updateDataJob: (options?: MutationFunctionOptions<any, any> | undefined) => Promise<FetchResult>;
 };
 
-export default function DataJobHeader({ dataJob: { urn, ownership, info, dataFlow } }: Props) {
+export default function DataJobHeader({
+    dataJob: { urn, type, ownership, info, dataFlow, editableProperties },
+    updateDataJob,
+}: Props) {
     const entityRegistry = useEntityRegistry();
     const platformName = dataFlow?.orchestrator ? capitalizeFirstLetter(dataFlow.orchestrator) : '';
 
@@ -53,7 +59,13 @@ export default function DataJobHeader({ dataJob: { urn, ownership, info, dataFlo
                         {info?.externalUrl && <Button onClick={openExternalUrl}>View in {platformName}</Button>}
                     </Space>
                 </Row>
-                <Typography.Paragraph>{info?.description}</Typography.Paragraph>
+                <UpdatableDescription
+                    updateEntity={updateDataJob}
+                    updatedDescription={editableProperties?.description}
+                    originalDescription={info?.description}
+                    entityType={type}
+                    urn={urn}
+                />
                 <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
             </Space>
         </>
