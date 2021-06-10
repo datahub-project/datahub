@@ -2,13 +2,13 @@ name: docker-datahub-upgrade docker
 on:
   push:
     branches:
-      - master
+      - acryl-main
     paths-ignore:
       - 'docs/**'
       - '**.md'
   pull_request:
     branches:
-      - master
+      - acryl-main
     paths:
       - './datahub-upgrade/**'
       - '.github/workflows/docker-datahub-upgrade.yml'
