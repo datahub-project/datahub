@@ -43,6 +43,12 @@ record ChartInfo includes CustomProperties, ExternalReference {
   /**
    * Data sources for the chart
    */
+  @Relationship = {
+    "/*/string": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ]
+    }
+  }
   inputs: optional array[ChartDataSourceType]
 
   /**

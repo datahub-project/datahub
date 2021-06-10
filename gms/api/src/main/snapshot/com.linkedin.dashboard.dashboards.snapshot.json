@@ -227,8 +227,7 @@
             "Searchable" : {
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "hasValuesFieldName" : "hasTags",
-              "queryByDefault" : true
+              "hasValuesFieldName" : "hasTags"
             }
           } ]
         }
@@ -254,7 +253,8 @@
       "Searchable" : {
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "hasValuesFieldName" : "hasOwners"
+        "hasValuesFieldName" : "hasOwners",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -393,8 +393,7 @@
           "Searchable" : {
             "boostScore" : 10.0,
             "enableAutocomplete" : true,
-            "fieldType" : "TEXT_PARTIAL",
-            "queryByDefault" : true
+            "fieldType" : "TEXT_PARTIAL"
           }
         }, {
           "name" : "description",
@@ -402,8 +401,7 @@
           "doc" : "Detailed description about the dashboard",
           "Searchable" : {
             "fieldType" : "TEXT",
-            "hasValuesFieldName" : "hasDescription",
-            "queryByDefault" : true
+            "hasValuesFieldName" : "hasDescription"
           }
         }, {
           "name" : "charts",
@@ -483,8 +481,7 @@
           "addToFilters" : true,
           "boostScore" : 4.0,
           "fieldName" : "tool",
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "dashboardId",

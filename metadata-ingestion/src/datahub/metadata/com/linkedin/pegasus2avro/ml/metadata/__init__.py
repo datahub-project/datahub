@@ -6,9 +6,11 @@ from ......schema_classes import EvaluationDataClass
 from ......schema_classes import IntendedUseClass
 from ......schema_classes import IntendedUserTypeClass
 from ......schema_classes import MLFeaturePropertiesClass
+from ......schema_classes import MLFeatureTablePropertiesClass
 from ......schema_classes import MLModelFactorPromptsClass
 from ......schema_classes import MLModelFactorsClass
 from ......schema_classes import MLModelPropertiesClass
+from ......schema_classes import MLPrimaryKeyPropertiesClass
 from ......schema_classes import MetricsClass
 from ......schema_classes import QuantitativeAnalysesClass
 from ......schema_classes import SourceCodeClass
@@ -25,9 +27,11 @@ EvaluationData = EvaluationDataClass
 IntendedUse = IntendedUseClass
 IntendedUserType = IntendedUserTypeClass
 MLFeatureProperties = MLFeaturePropertiesClass
+MLFeatureTableProperties = MLFeatureTablePropertiesClass
 MLModelFactorPrompts = MLModelFactorPromptsClass
 MLModelFactors = MLModelFactorsClass
 MLModelProperties = MLModelPropertiesClass
+MLPrimaryKeyProperties = MLPrimaryKeyPropertiesClass
 Metrics = MetricsClass
 QuantitativeAnalyses = QuantitativeAnalysesClass
 SourceCode = SourceCodeClass

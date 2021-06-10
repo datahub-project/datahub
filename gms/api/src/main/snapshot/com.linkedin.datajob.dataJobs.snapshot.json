@@ -257,8 +257,7 @@
             "Searchable" : {
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "hasValuesFieldName" : "hasTags",
-              "queryByDefault" : true
+              "hasValuesFieldName" : "hasTags"
             }
           } ]
         }
@@ -284,7 +283,8 @@
       "Searchable" : {
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "hasValuesFieldName" : "hasOwners"
+        "hasValuesFieldName" : "hasOwners",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -420,8 +420,7 @@
           "Searchable" : {
             "boostScore" : 10.0,
             "enableAutocomplete" : true,
-            "fieldType" : "TEXT_PARTIAL",
-            "queryByDefault" : true
+            "fieldType" : "TEXT_PARTIAL"
           }
         }, {
           "name" : "description",
@@ -430,8 +429,7 @@
           "optional" : true,
           "Searchable" : {
             "fieldType" : "TEXT",
-            "hasValuesFieldName" : "hasDescription",
-            "queryByDefault" : true
+            "hasValuesFieldName" : "hasDescription"
           }
         }, {
           "name" : "type",
@@ -495,7 +493,8 @@
             "/*" : {
               "fieldName" : "inputs",
               "fieldType" : "URN",
-              "numValuesFieldName" : "numInputDatasets"
+              "numValuesFieldName" : "numInputDatasets",
+              "queryByDefault" : false
             }
           }
         }, {
@@ -515,7 +514,8 @@
             "/*" : {
               "fieldName" : "outputs",
               "fieldType" : "URN",
-              "numValuesFieldName" : "numOutputDatasets"
+              "numValuesFieldName" : "numOutputDatasets",
+              "queryByDefault" : false
             }
           }
         }, {
@@ -564,9 +564,14 @@
         "name" : "flow",
         "type" : "com.linkedin.common.Urn",
         "doc" : "Standardized data processing flow urn representing the flow for the job",
+        "Relationship" : {
+          "entityTypes" : [ "dataFlow" ],
+          "name" : "IsPartOf"
+        },
         "Searchable" : {
           "fieldName" : "dataFlow",
-          "fieldType" : "URN_PARTIAL"
+          "fieldType" : "URN_PARTIAL",
+          "queryByDefault" : false
         }
       }, {
         "name" : "jobId",
@@ -574,8 +579,7 @@
         "doc" : "Unique Identifier of the data job",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       } ],
       "Aspect" : {
