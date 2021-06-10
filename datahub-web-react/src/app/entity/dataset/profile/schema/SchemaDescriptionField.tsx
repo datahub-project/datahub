@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
-import UpdateDescriptionModal from '../modal/UpdateDescriptionModal';
+import UpdateDescriptionModal from '../../../shared/DescriptionModal';
 import MarkdownViewer from '../../../shared/MarkdownViewer';
 
 const DescriptionContainer = styled.div`
@@ -25,8 +25,6 @@ const EditedLabel = styled(Typography.Text)`
     font-style: italic;
 `;
 
-const MessageKey = 'UpdateSchemaDescription';
-
 type Props = {
     description: string;
     updatedDescription?: string | null;
@@ -41,9 +39,9 @@ export default function DescriptionField({ description, updatedDescription, onUp
     const onCloseModal = () => setShowAddModal(false);
 
     const onUpdateModal = async (desc: string | null) => {
-        message.loading({ content: 'Updating...', key: MessageKey });
+        message.loading({ content: 'Updating...' });
         await onUpdate(desc || '');
-        message.success({ content: 'Updated!', key: MessageKey, duration: 2 });
+        message.success({ content: 'Updated!', duration: 2 });
         onCloseModal();
     };
 

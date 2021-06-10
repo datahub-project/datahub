@@ -1,49 +1,25 @@
-import { Badge, Divider, message, Popover, Space, Tag, Typography } from 'antd';
-import { FetchResult } from '@apollo/client';
-import React, { useState } from 'react';
-import styled from 'styled-components';
+import { Badge, Divider, Popover, Space, Typography } from 'antd';
+import { FetchResult, MutationFunctionOptions } from '@apollo/client';
+import React from 'react';
 import { Dataset } from '../../../../types.generated';
-import { UpdateDatasetMutation } from '../../../../graphql/dataset.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { AvatarsGroup } from '../../../shared/avatar';
 import CompactContext from '../../../shared/CompactContext';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
-import UpdateDescriptionModal from './modal/UpdateDescriptionModal';
-import MarkdownViewer from '../../shared/MarkdownViewer';
-
-const DescriptionText = styled(MarkdownViewer)`
-    ${(props) => (props.isCompact ? 'max-width: 377px;' : '')};
-`;
-
-const AddNewDescription = styled(Tag)`
-    cursor: pointer;
-`;
-
-const MessageKey = 'AddDatasetDescription';
+import UpdatableDescription from '../../shared/UpdatableDescription';
 
 export type Props = {
     dataset: Dataset;
-    updateDescription: (
-        description: string | null,
-    ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
+    updateDataset: (options?: MutationFunctionOptions<any, any> | undefined) => Promise<FetchResult>;
 };
 
 export default function DatasetHeader({
-    dataset: { description: originalDesc, ownership, deprecation, platform, editableProperties },
-    updateDescription,
+    dataset: { urn, type, description: originalDesc, ownership, deprecation, platform, editableProperties },
+    updateDataset,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
     const platformName = capitalizeFirstLetter(platform.name);
-    const [showAddDescModal, setShowAddDescModal] = useState(false);
-    const updatedDesc = editableProperties?.description;
-
-    const onUpdateSubmit = async (desc: string | null) => {
-        message.loading({ content: 'Updating...', key: MessageKey });
-        await updateDescription(desc);
-        message.success({ content: 'Updated!', key: MessageKey, duration: 2 });
-        setShowAddDescModal(false);
-    };
 
     return (
         <>
@@ -52,39 +28,14 @@ export default function DatasetHeader({
                     <Typography.Text>Dataset</Typography.Text>
                     <Typography.Text strong>{platformName}</Typography.Text>
                 </Space>
-                {updatedDesc || originalDesc ? (
-                    <>
-                        <DescriptionText
-                            isCompact={isCompact}
-                            source={updatedDesc || originalDesc || ''}
-                            editable
-                            onEditClicked={() => setShowAddDescModal(true)}
-                        />
-                        {showAddDescModal && (
-                            <UpdateDescriptionModal
-                                title="Update description"
-                                onClose={() => setShowAddDescModal(false)}
-                                onSubmit={onUpdateSubmit}
-                                original={originalDesc || ''}
-                                description={updatedDesc || ''}
-                            />
-                        )}
-                    </>
-                ) : (
-                    <>
-                        <AddNewDescription color="success" onClick={() => setShowAddDescModal(true)}>
-                            + Add Description
-                        </AddNewDescription>
-                        {showAddDescModal && (
-                            <UpdateDescriptionModal
-                                title="Add description"
-                                onClose={() => setShowAddDescModal(false)}
-                                onSubmit={onUpdateSubmit}
-                                isAddDesc
-                            />
-                        )}
-                    </>
-                )}
+                <UpdatableDescription
+                    isCompact={isCompact}
+                    updateEntity={updateDataset}
+                    updatedDescription={editableProperties?.description}
+                    originalDescription={originalDesc}
+                    urn={urn}
+                    entityType={type}
+                />
                 <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
                 <div>
                     {deprecation?.deprecated && (
