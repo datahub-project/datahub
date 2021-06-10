@@ -1,10 +1,11 @@
-import collections
 import dataclasses
 from datetime import datetime, timedelta, timezone
 from pprint import pprint
-from typing import Any, Deque, Iterable, List, Optional, TypeVar, Union
+from typing import Any, Iterable, List, Optional, Union
 
 from google.cloud.logging_v2.client import Client
+
+from datahub.utilities.delayed_iter import delayed_iter
 
 # ProtobufEntry is generated dynamically using a namedtuple, so mypy
 # can't really deal with it. As such, we short circuit mypy's typing
@@ -40,25 +41,6 @@ AND
 AND
 timestamp >= "{time_start.strftime(BQ_DATETIME_FORMAT)}"
 """.strip()
-
-
-T = TypeVar("T")
-
-
-def delayed_iter(iterable: Iterable[T], delay: int) -> Iterable[T]:
-    """Waits to yield the i'th element until the (i+n)'th element has been
-    materialized by the source iterator.
-    """
-
-    cache: Deque[T] = collections.deque([], maxlen=delay)
-
-    for item in iterable:
-        if len(cache) >= delay:
-            yield cache.popleft()
-        cache.append(item)
-
-    while len(cache):
-        yield cache.popleft()
 
 
 @dataclasses.dataclass
