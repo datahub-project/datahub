@@ -26,6 +26,10 @@ spec:
         {{- with .Values.datahubUpgrade.serviceAccount }}
           serviceAccountName: {{ . }}
         {{- end }}
+        {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+        {{- end }}
           volumes:
           {{- with .Values.datahubUpgrade.extraVolumes }}
             {{- toYaml . | nindent 12 }}
