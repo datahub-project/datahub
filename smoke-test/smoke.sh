@@ -17,7 +17,7 @@ pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
 datahub docker quickstart \
-	--dev \
+	--build-locally \
 	--quickstart-compose-file ../docker/docker-compose.yml \
 	--quickstart-compose-file ../docker/docker-compose.override.yml \
 	--quickstart-compose-file ../docker/docker-compose.dev.yml \

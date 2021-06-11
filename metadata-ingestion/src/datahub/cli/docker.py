@@ -60,7 +60,7 @@ def check() -> None:
 
 @docker.command()
 @click.option(
-    "--dev",
+    "--build-locally",
     type=bool,
     is_flag=True,
     default=False,
@@ -81,7 +81,9 @@ def check() -> None:
     help="If true, the docker-compose logs will be printed to console if something fails",
 )
 def quickstart(
-    dev: bool, quickstart_compose_file: List[pathlib.Path], dump_logs_on_failure: bool
+    build_locally: bool,
+    quickstart_compose_file: List[pathlib.Path],
+    dump_logs_on_failure: bool,
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
 
@@ -127,7 +129,7 @@ def quickstart(
         ],
         check=True,
     )
-    if dev:
+    if build_locally:
         subprocess.run(
             [
                 *base_command,
