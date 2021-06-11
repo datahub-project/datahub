@@ -4,6 +4,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.chart.EditableChartProperties;
 import com.linkedin.datahub.graphql.generated.ChartUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
@@ -52,6 +53,12 @@ public class ChartUpdateInputSnapshotMapper implements InputModelMapper<ChartUpd
                     )
             );
             aspects.add(ChartAspect.create(globalTags));
+        }
+
+        if (chartUpdateInput.getEditableProperties() != null) {
+            final EditableChartProperties editableChartProperties = new EditableChartProperties();
+            editableChartProperties.setDescription(chartUpdateInput.getEditableProperties().getDescription());
+            aspects.add(ChartAspect.create(editableChartProperties));
         }
 
         result.setAspects(aspects);

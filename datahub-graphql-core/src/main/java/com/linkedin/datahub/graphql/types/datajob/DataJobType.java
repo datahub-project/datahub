@@ -183,6 +183,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
 
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
         final com.linkedin.datajob.DataJob partialDataJob = DataJobUpdateInputMapper.map(input, actor);
+        partialDataJob.setUrn(DataJobUrn.createFromString(input.getUrn()));
 
         try {
             Entity entity = new Entity();

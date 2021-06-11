@@ -303,9 +303,6 @@ fragment dashboardFields on Dashboard {
             time
         }
     }
-    editableProperties {
-        description
-    }
     ownership {
         ...ownershipFields
     }

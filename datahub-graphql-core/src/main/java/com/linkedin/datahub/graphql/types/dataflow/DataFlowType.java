@@ -170,6 +170,9 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
         if (dataFlow.hasGlobalTags()) {
             aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getGlobalTags()));
         }
+        if (dataFlow.hasEditableProperties()) {
+            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getEditableProperties()));
+        }
         return ModelUtils.newSnapshot(DataFlowSnapshot.class, urn, aspects);
     }
 
@@ -178,6 +181,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
 
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
         final com.linkedin.datajob.DataFlow partialDataFlow = DataFlowUpdateInputMapper.map(input, actor);
+        partialDataFlow.setUrn(DataFlowUrn.createFromString(input.getUrn()));
 
         try {
             Entity entity = new Entity();
