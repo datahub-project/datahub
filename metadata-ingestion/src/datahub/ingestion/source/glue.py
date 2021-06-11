@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from functools import reduce
 from typing import Dict, Iterable, List, Optional, Union
+from urllib.parse import urlparse
+
 
 import boto3
 
@@ -59,8 +61,12 @@ def assume_role(
 
 class GlueSourceConfig(ConfigModel):
     env: str = "PROD"
+
     database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+    extract_transforms: Optional[bool] = True
+
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
     aws_session_token: Optional[str] = None
@@ -131,6 +137,7 @@ class GlueSource(Source):
         self.source_config = config
         self.report = GlueSourceReport()
         self.glue_client = config.glue_client
+        self.extract_transforms = config.extract_transforms
         self.env = config.env
 
     @classmethod
@@ -185,6 +192,39 @@ class GlueSource(Source):
             workunit = MetadataWorkUnit(id=f"glue-{full_table_name}", mce=mce)
             self.report.report_workunit(workunit)
             yield workunit
+
+        def get_dataflow_graph(script_path):
+            url = urlparse(script_path, allow_fragments=False)
+            bucket = url.netloc
+            key = url.path[1:]
+
+            s3 = boto3.resource("s3")
+
+            obj = s3.Object(bucket, key)
+            script = obj.get()["Body"].read().decode("utf-8")
+
+            return self.glue_client.get_dataflow_graph(PythonScript=script)
+
+        if self.extract_transforms:
+
+            jobs = []
+
+            paginator = self.glue_client.get_paginator("get_jobs")
+            for page in paginator.paginate():
+                jobs += page["Jobs"]
+
+            for job in jobs:
+
+                name = job["Name"]
+                description = job["Description"]
+                role = job["Role"]
+                created = job["CreatedOn"]
+                modified = job["LastModifiedOn"]
+                command = job["Command"]["ScriptLocation"]
+
+                dag = get_dataflow_graph(command)
+
+                print(dag)
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner(time: int) -> OwnershipClass:

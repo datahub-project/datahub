@@ -7,7 +7,7 @@ import com.linkedin.common.Status
 import com.linkedin.common.GlobalTags
 
 /**
- * Metadata bout DataJob
+ * Metadata about DataJob
  */
 record DataJob includes DataJobKey, ChangeAuditStamps {
   /**
@@ -28,7 +28,7 @@ record DataJob includes DataJobKey, ChangeAuditStamps {
   /**
    * Input and output datasets of job
    */
-   inputOutput: optional DataJobInputOutput
+  inputOutput: optional DataJobInputOutput
 
   /**
    * Status information for the chart such as removed or not
