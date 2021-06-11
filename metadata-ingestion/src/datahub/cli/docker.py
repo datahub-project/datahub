@@ -1,5 +1,6 @@
 import datetime
 import itertools
+import os
 import pathlib
 import subprocess
 import sys
@@ -10,10 +11,13 @@ from typing import List, NoReturn, Optional
 import click
 import requests
 
-from datahub.cli.docker_check import check_local_docker_containers
+from datahub.cli.docker_check import (
+    check_local_docker_containers,
+    get_client_with_error,
+)
 from datahub.ingestion.run.pipeline import Pipeline
 
-SIMPLE_QUICKSTART_COMPOSE_FILE = "docker/cli/docker-compose.quickstart.yml"
+SIMPLE_QUICKSTART_COMPOSE_FILE = "docker/quickstart/docker-compose.quickstart.yml"
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/linkedin/datahub/master"
@@ -23,6 +27,8 @@ GITHUB_BOOTSTRAP_MCES_URL = f"{GITHUB_BASE_URL}/{BOOTSTRAP_MCES_FILE}"
 
 @click.group()
 def docker() -> None:
+    """Helper commands for setting up and interacting with a local
+    DataHub instance using Docker."""
     pass
 
 
@@ -54,11 +60,17 @@ def check() -> None:
 
 @docker.command()
 @click.option(
-    "--dev",
+    "--version",
+    type=str,
+    default="head",
+    help="Datahub version to be deployed. If not set, deploy latest",
+)
+@click.option(
+    "--build-locally",
     type=bool,
     is_flag=True,
     default=False,
-    help="Enable dev mode, which attempts to build the containers locally",
+    help="Attempt to build the containers locally before starting",
 )
 @click.option(
     "--quickstart-compose-file",
@@ -75,8 +87,19 @@ def check() -> None:
     help="If true, the docker-compose logs will be printed to console if something fails",
 )
 def quickstart(
-    dev: bool, quickstart_compose_file: List[pathlib.Path], dump_logs_on_failure: bool
+    version: str,
+    build_locally: bool,
+    quickstart_compose_file: List[pathlib.Path],
+    dump_logs_on_failure: bool,
 ) -> None:
+    """Start an instance of DataHub locally using docker-compose.
+
+    This command will automatically download the latest docker-compose configuration
+    from GitHub, pull the latest images, and bring up the DataHub system.
+    There are options to override the docker-compose config file, build the containers
+    locally, and dump logs to the console or to a file if something goes wrong.
+    """
+
     # Run pre-flight checks.
     issues = check_local_docker_containers(preflight_only=True)
     if issues:
@@ -96,6 +119,9 @@ def quickstart(
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
 
+    # set version
+    os.environ["DATAHUB_VERSION"] = version
+
     base_command: List[str] = [
         "docker-compose",
         *itertools.chain.from_iterable(
@@ -113,7 +139,7 @@ def quickstart(
         ],
         check=True,
     )
-    if dev:
+    if build_locally:
         subprocess.run(
             [
                 *base_command,
@@ -121,10 +147,14 @@ def quickstart(
                 "--pull",
             ],
             check=True,
+            env={
+                **os.environ,
+                "DOCKER_BUILDKIT": "1",
+            },
         )
 
     # Start it up! (with retries)
-    max_wait_time = datetime.timedelta(minutes=5)
+    max_wait_time = datetime.timedelta(minutes=6)
     start_time = datetime.datetime.now()
     sleep_interval = datetime.timedelta(seconds=2)
     up_interval = datetime.timedelta(seconds=30)
@@ -187,6 +217,8 @@ def quickstart(
     help=f"The MCE json file to ingest. Defaults to downloading {BOOTSTRAP_MCES_FILE} from GitHub",
 )
 def ingest_sample_data(path: Optional[str]) -> None:
+    """Ingest sample data into a running DataHub instance."""
+
     if path is None:
         click.echo("Downloading sample data...")
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp_file:
@@ -228,4 +260,31 @@ def ingest_sample_data(path: Optional[str]) -> None:
     sys.exit(ret)
 
 
-# TODO add a clean/nuke command
+@docker.command()
+def nuke() -> None:
+    """Remove all Docker containers, networks, and volumes associated with DataHub."""
+
+    with get_client_with_error() as (client, error):
+        if error:
+            click.secho(
+                "Docker doesn't seem to be running. Did you start it?", fg="red"
+            )
+            return
+
+        click.echo("Removing containers in the datahub project")
+        for container in client.containers.list(
+            filters={"label": "com.docker.compose.project=datahub"}
+        ):
+            container.remove(v=True, force=True)
+
+        click.echo("Removing volumes in the datahub project")
+        for volume in client.volumes.list(
+            filters={"label": "com.docker.compose.project=datahub"}
+        ):
+            volume.remove(force=True)
+
+        click.echo("Removing networks in the datahub project")
+        for network in client.networks.list(
+            filters={"label": "com.docker.compose.project=datahub"}
+        ):
+            network.remove()
