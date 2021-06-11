@@ -76,3 +76,13 @@ jobs:
           job-status: ${{ job.status }}
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
           channel: github-activities
+
+  quickstart-compose-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Quickstart Compose Validation
+        run: ./docker/quickstart/generate_and_compare.sh
