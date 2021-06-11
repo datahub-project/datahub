@@ -25,6 +25,8 @@ DataHub Docker Images:
 
 * [linkedin/datahub-gms](https://cloud.docker.com/repository/docker/linkedin/datahub-gms/)
 * [linkedin/datahub-frontend-react](https://cloud.docker.com/repository/docker/linkedin/datahub-frontend-react/)
+* [linkedin/datahub-mae-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mae-consumer/)
+* [linkedin/datahub-mce-consumer](https://cloud.docker.com/repository/docker/linkedin/datahub-mce-consumer/)
 
 Dependencies:
 * [Kafka, Zookeeper, and Schema Registry](kafka-setup)
