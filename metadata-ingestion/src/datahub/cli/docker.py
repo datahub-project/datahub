@@ -27,6 +27,8 @@ GITHUB_BOOTSTRAP_MCES_URL = f"{GITHUB_BASE_URL}/{BOOTSTRAP_MCES_FILE}"
 
 @click.group()
 def docker() -> None:
+    """Helper commands for setting up and interacting with a local
+    DataHub instance using Docker."""
     pass
 
 
@@ -68,7 +70,7 @@ def check() -> None:
     type=bool,
     is_flag=True,
     default=False,
-    help="Enable dev mode, which attempts to build the containers locally",
+    help="Attempt to build the containers locally before starting",
 )
 @click.option(
     "--quickstart-compose-file",
@@ -87,6 +89,14 @@ def check() -> None:
 def quickstart(
     version: str, dev: bool, quickstart_compose_file: List[pathlib.Path], dump_logs_on_failure: bool
 ) -> None:
+    """Start an instance of DataHub locally using docker-compose.
+
+    This command will automatically download the latest docker-compose configuration
+    from GitHub, pull the latest images, and bring up the DataHub system.
+    There are options to override the docker-compose config file, build the containers
+    locally, and dump logs to the console or to a file if something goes wrong.
+    """
+
     # Run pre-flight checks.
     issues = check_local_docker_containers(preflight_only=True)
     if issues:
@@ -204,6 +214,8 @@ def quickstart(
     help=f"The MCE json file to ingest. Defaults to downloading {BOOTSTRAP_MCES_FILE} from GitHub",
 )
 def ingest_sample_data(path: Optional[str]) -> None:
+    """Ingest sample data into a running DataHub instance."""
+
     if path is None:
         click.echo("Downloading sample data...")
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp_file:
@@ -247,6 +259,8 @@ def ingest_sample_data(path: Optional[str]) -> None:
 
 @docker.command()
 def nuke() -> None:
+    """Remove all Docker containers, networks, and volumes associated with DataHub."""
+
     with get_client_with_error() as (client, error):
         if error:
             click.secho(
