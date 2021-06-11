@@ -17,7 +17,7 @@ services:
   mysql-setup:
     build:
       context: ../
-      dockerfile: docker/elasticsearch-setup/Dockerfile
+      dockerfile: docker/mysql-setup/Dockerfile
     image: acryldata/mysql-setup:head
     env_file: mysql-setup/env/docker.env
     hostname: mysql-setup
