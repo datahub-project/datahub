@@ -153,6 +153,9 @@ class GlueSource(Source):
         return cls(config, ctx)
 
     def get_all_jobs(self):
+        """
+        List all jobs in Glue.
+        """
 
         jobs = []
 
@@ -162,23 +165,49 @@ class GlueSource(Source):
 
         return jobs
 
-    def get_dataflow_graph(self, script_path):
+    def get_dataflow_graph(self, script_path: str):
+        """
+        Get the DAG of transforms and data sources/sinks for a job.
+
+        Parameters
+        ----------
+            script_path:
+                S3 path to the job's Python script.
+        """
+
+        # extract the script's bucket and key
         url = urlparse(script_path, allow_fragments=False)
         bucket = url.netloc
         key = url.path[1:]
 
+        # download the script contents
         s3 = boto3.resource("s3")
-
         obj = s3.Object(bucket, key)
         script = obj.get()["Body"].read().decode("utf-8")
 
+        # extract the job DAG from the script
         return self.glue_client.get_dataflow_graph(PythonScript=script)
 
     def process_dataflow_graph(self, dataflow_graph, flow_urn):
+        """
+        Prepare a job's DAG for ingestion.
+
+        Parameters
+        ----------
+            dataflow_graph:
+                Job DAG returned from get_dataflow_graph()
+            flow_urn:
+                URN of the flow (i.e. the AWS Glue job itself).
+        """
+
         def process_node(node):
+            """
+            Process a single node in the DAG.
+            """
 
             node_type = node["NodeType"]
 
+            # for nodes representing datasets, we construct a dataset URN accordingly
             if node_type in ["DataSource", "DataSink"]:
 
                 node_args = {x["Name"]: json.loads(x["Value"]) for x in node["Args"]}
@@ -203,6 +232,7 @@ class GlueSource(Source):
 
                     raise ValueError(f"Unrecognized Glue data object type: {node_args}")
 
+            # otherwise, a node represents a transformation
             else:
                 node_urn = mce_builder.make_data_job_urn_with_flow(
                     flow_urn, job_id=node["Id"]
@@ -219,6 +249,7 @@ class GlueSource(Source):
 
         nodes = {node["Id"]: process_node(node) for node in dataflow_graph["DagNodes"]}
 
+        # traverse edges to fill in node properties
         for edge in dataflow_graph["DagEdges"]:
 
             source_node = nodes[edge["Source"]]
@@ -233,13 +264,23 @@ class GlueSource(Source):
             # keep track of input data jobs (as defined in schemas)
             else:
                 nodes[edge["Target"]]["inputDatajobs"].append(source_node["urn"])
-
+            # track output datasets (these can't be input datasets)
             if target_node_type == "DataSink":
                 nodes[edge["Target"]]["outputDatasets"].append(target_node["urn"])
 
         return nodes
 
     def get_dataflow_wu(self, flow_urn: str, job: Dict[str, Any]):
+        """
+        Generate a DataFlow workunit for a Glue job.
+
+        Parameters
+        ----------
+            flow_urn:
+                URN for the flow
+            job:
+                Job object from get_all_jobs()
+        """
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
                 urn=flow_urn,
@@ -247,6 +288,7 @@ class GlueSource(Source):
                     DataFlowInfoClass(
                         name=job["Name"],
                         description=job["Description"],
+                        # specify a few Glue-specific properties
                         customProperties={
                             "role": job["Role"],
                             "created": str(job["CreatedOn"]),
@@ -261,6 +303,16 @@ class GlueSource(Source):
         return MetadataWorkUnit(id=job["Name"], mce=mce)
 
     def get_datajob_wu(self, node: Dict[str, Any], job: Dict[str, Any]):
+        """
+        Generate a DataJob workunit for a component (node) in a Glue job.
+
+        Parameters
+        ----------
+            node:
+                Node from process_dataflow_graph()
+            job:
+                Job object from get_all_jobs()
+        """
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataJobSnapshotClass(
                 urn=node["urn"],
