@@ -6,6 +6,10 @@ import com.linkedin.metadata.aspect.DataFlowAspect
 /**
  * A metadata snapshot for a specific DataFlow entity.
  */
+@Entity = {
+  "name": "dataFlow",
+  "keyAspect": "dataFlowKey"
+}
 record DataFlowSnapshot {
 
   /**

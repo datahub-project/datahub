@@ -1,9 +1,12 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "dataFlows",
   "namespace" : "com.linkedin.dataflow",
   "path" : "/dataFlows",
   "schema" : "com.linkedin.datajob.DataFlow",
-  "doc" : "generated from: com.linkedin.metadata.resources.datajob.DataFlows",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.datajob.DataFlows",
   "collection" : {
     "identifier" : {
       "name" : "key",

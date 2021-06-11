@@ -4,12 +4,15 @@ from ......schema_classes import CorpUserSnapshotClass
 from ......schema_classes import DashboardSnapshotClass
 from ......schema_classes import DataFlowSnapshotClass
 from ......schema_classes import DataJobSnapshotClass
+from ......schema_classes import DataPlatformSnapshotClass
 from ......schema_classes import DataProcessSnapshotClass
 from ......schema_classes import DatasetSnapshotClass
 from ......schema_classes import GlossaryNodeSnapshotClass
 from ......schema_classes import GlossaryTermSnapshotClass
 from ......schema_classes import MLFeatureSnapshotClass
+from ......schema_classes import MLFeatureTableSnapshotClass
 from ......schema_classes import MLModelSnapshotClass
+from ......schema_classes import MLPrimaryKeySnapshotClass
 from ......schema_classes import TagSnapshotClass
 
 
@@ -19,10 +22,13 @@ CorpUserSnapshot = CorpUserSnapshotClass
 DashboardSnapshot = DashboardSnapshotClass
 DataFlowSnapshot = DataFlowSnapshotClass
 DataJobSnapshot = DataJobSnapshotClass
+DataPlatformSnapshot = DataPlatformSnapshotClass
 DataProcessSnapshot = DataProcessSnapshotClass
 DatasetSnapshot = DatasetSnapshotClass
 GlossaryNodeSnapshot = GlossaryNodeSnapshotClass
 GlossaryTermSnapshot = GlossaryTermSnapshotClass
 MLFeatureSnapshot = MLFeatureSnapshotClass
+MLFeatureTableSnapshot = MLFeatureTableSnapshotClass
 MLModelSnapshot = MLModelSnapshotClass
+MLPrimaryKeySnapshot = MLPrimaryKeySnapshotClass
 TagSnapshot = TagSnapshotClass

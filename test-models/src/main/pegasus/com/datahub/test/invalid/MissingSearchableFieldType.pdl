@@ -1,0 +1,11 @@
+namespace com.datahub.test.invalid
+
+@Aspect = {
+  "name": "invalidAspect"
+}
+record MissingSearchableFieldType {
+  @Searchable = {
+    "fieldName": "textField"
+  }
+  textField: string
+}

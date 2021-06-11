@@ -3,6 +3,9 @@ namespace com.linkedin.common
 /**
  * Ownership information of an entity.
  */
+@Aspect = {
+  "name": "ownership"
+}
 record Ownership {
 
   /**

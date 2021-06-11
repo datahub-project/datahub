@@ -145,9 +145,14 @@ type Query {
     search(input: SearchInput!): SearchResults
 
     """
-    Autocomplete a search query against DataHub entities
+    Autocomplete a search query against specific entity
     """
     autoComplete(input: AutoCompleteInput!): AutoCompleteResults
+
+    """
+    Autocomplete a search query against DataHub entities
+    """
+    autoCompleteForAll(input: AutoCompleteInput!): AutoCompleteAllResults
 
     """
     Browse DataHub entities by path
@@ -503,7 +508,7 @@ type InstitutionalMemoryMetadata {
     """
     The author of this metadata
     """
-    author: String!
+    author: CorpUser!
 
     """
     An AuditStamp corresponding to the creation of this resource
@@ -669,6 +674,10 @@ type UpstreamEntityRelationships {
 }
 
 type DownstreamEntityRelationships {
+    entities: [EntityRelationship]
+}
+
+type DataFlowDataJobsRelationships {
     entities: [EntityRelationship]
 }
 
@@ -1173,7 +1182,7 @@ input AutoCompleteInput {
     """
     Entity type to be autocompleted against
     """
-	type: EntityType!
+	type: EntityType
 
 	"""
 	The query string
@@ -1194,6 +1203,30 @@ input AutoCompleteInput {
 	Faceted filters applied to autocomplete results
 	"""
 	filters: [FacetFilterInput!]
+}
+
+type AutoCompleteResultForEntity {
+    """
+    Entity type
+    """
+    type: EntityType!
+
+    """
+    The autocompletion results for specified entity type
+    """
+    suggestions: [String!]!
+}
+
+type AutoCompleteAllResults {
+    """
+    The query string
+    """
+    query: String!
+
+    """
+    The autocompletion results
+    """
+    suggestions: [AutoCompleteResultForEntity!]!
 }
 
 type AutoCompleteResults {
@@ -2267,6 +2300,11 @@ type DataFlow implements Entity {
     Status metadata of the dataflow
     """
     status: Status
+
+    """
+    DataJobs
+    """
+    dataJobs: DataFlowDataJobsRelationships
 }
 
 type DataFlowInfo {
@@ -2310,7 +2348,7 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     The associated data flow
     """
-    dataFlow: DataFlow!
+    dataFlow: DataFlow
 
     """
     Id of the job
@@ -2386,4 +2424,10 @@ type DataJobInputOutput {
     Output datasets produced by the data job during processing
     """
     outputDatasets: [Dataset!]
+
+    """
+    Input datajobs that this data job depends on
+    """
+    inputDatajobs: [DataJob!]
+
 }

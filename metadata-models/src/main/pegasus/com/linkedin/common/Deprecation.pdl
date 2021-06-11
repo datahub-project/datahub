@@ -3,11 +3,18 @@ namespace com.linkedin.common
 /**
  * Deprecation status of an entity
  */
+@Aspect = {
+  "name": "deprecation"
+}
 record Deprecation {
 
   /**
    * Whether the entity is deprecated.
    */
+  @Searchable = {
+    "fieldType": "BOOLEAN",
+    "weightsPerFieldValue": { "true": 0.5 }
+  }
   deprecated: boolean
 
   /**

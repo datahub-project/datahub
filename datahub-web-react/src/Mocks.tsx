@@ -4,6 +4,7 @@ import { GetDataJobDocument } from './graphql/dataJob.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
 import {
     GetAutoCompleteResultsDocument,
+    GetAutoCompleteAllResultsDocument,
     GetSearchResultsDocument,
     GetSearchResultsQuery,
 } from './graphql/search.generated';
@@ -27,6 +28,18 @@ const user1 = {
     editableInfo: {
         pictureLink: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
     },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
+    },
 };
 
 const user2 = {
@@ -44,6 +57,18 @@ const user2 = {
     },
     editableInfo: {
         pictureLink: null,
+    },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
     },
 };
 
@@ -241,7 +266,7 @@ export const dataset3 = {
         elements: [
             {
                 url: 'https://www.google.com',
-                author: 'datahub',
+                author: { urn: 'urn:li:corpuser:datahub', username: 'datahub', type: EntityType.CorpUser },
                 description: 'This only points to Google',
                 created: {
                     actor: 'urn:li:corpuser:1',
@@ -568,6 +593,7 @@ export const dataJob1 = {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],
         outputDatasets: [dataset3],
+        inputDatajobs: [],
     },
     upstreamLineage: null,
     downstreamLineage: null,
@@ -585,6 +611,126 @@ export const dataJob1 = {
     },
 } as DataJob;
 
+export const dataJob2 = {
+    __typename: 'DataJob',
+    urn: 'urn:li:dataJob:2',
+    type: EntityType.DataJob,
+    dataFlow: dataFlow1,
+    jobId: 'jobId2',
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    info: {
+        __typename: 'DataJobInfo',
+        name: 'DataJobInfoName2',
+        description: 'DataJobInfo2 Description',
+        externalUrl: null,
+        customProperties: [],
+    },
+    inputOutput: {
+        __typename: 'DataJobInputOutput',
+        inputDatasets: [dataset3],
+        outputDatasets: [dataset3],
+        inputDatajobs: [],
+    },
+    upstreamLineage: null,
+    downstreamLineage: null,
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
+    },
+} as DataJob;
+
+export const dataJob3 = {
+    __typename: 'DataJob',
+    urn: 'urn:li:dataJob:3',
+    type: EntityType.DataJob,
+    dataFlow: dataFlow1,
+    jobId: 'jobId3',
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    info: {
+        __typename: 'DataJobInfo',
+        name: 'DataJobInfoName3',
+        description: 'DataJobInfo3 Description',
+        externalUrl: null,
+        customProperties: [],
+    },
+    inputOutput: {
+        __typename: 'DataJobInputOutput',
+        inputDatasets: [dataset3],
+        outputDatasets: [dataset3],
+        inputDatajobs: [],
+    },
+    upstreamLineage: null,
+    downstreamLineage: null,
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
+    },
+} as DataJob;
+
+dataJob1.upstreamLineage = {
+    entities: [
+        {
+            created: {
+                time: 0,
+            },
+            entity: dataJob3,
+        },
+    ],
+};
 /*
     Define mock data to be returned by Apollo MockProvider. 
 */
@@ -624,6 +770,21 @@ export const mocks = [
             query: GetUserDocument,
             variables: {
                 urn: 'urn:li:corpuser:2',
+            },
+        },
+        result: {
+            data: {
+                corpUser: {
+                    ...user1,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetUserDocument,
+            variables: {
+                urn: 'urn:li:corpuser:datahub',
             },
         },
         result: {
@@ -754,19 +915,23 @@ export const mocks = [
     },
     {
         request: {
-            query: GetAutoCompleteResultsDocument,
+            query: GetAutoCompleteAllResultsDocument,
             variables: {
                 input: {
-                    type: 'DATASET',
                     query: 't',
                 },
             },
         },
         result: {
             data: {
-                autoComplete: {
+                autoCompleteForAll: {
                     query: 't',
-                    suggestions: ['The Great Test Dataset', 'Some other test'],
+                    suggestions: [
+                        {
+                            type: EntityType.Dataset,
+                            suggestions: ['The Great Test Dataset', 'Some other test'],
+                        },
+                    ],
                 },
             },
         },
@@ -1297,6 +1462,43 @@ export const mocks = [
             data: {
                 dataFlow: {
                     ...dataFlow1,
+                    dataJobs: {
+                        entities: [
+                            {
+                                created: {
+                                    time: 0,
+                                },
+                                entity: dataJob1,
+                            },
+                            {
+                                created: {
+                                    time: 0,
+                                },
+                                entity: dataJob2,
+                            },
+                            {
+                                created: {
+                                    time: 0,
+                                },
+                                entity: dataJob3,
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetDataJobDocument,
+            variables: {
+                urn: 'urn:li:dataJob:1',
+            },
+        },
+        result: {
+            data: {
+                dataJob: {
+                    ...dataJob1,
                 },
             },
         },
@@ -1352,21 +1554,6 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsQuery,
-        },
-    },
-    {
-        request: {
-            query: GetDataJobDocument,
-            variables: {
-                urn: 'urn:li:dataJob:1',
-            },
-        },
-        result: {
-            data: {
-                dataJob: {
-                    ...dataJob1,
-                },
-            },
         },
     },
     {

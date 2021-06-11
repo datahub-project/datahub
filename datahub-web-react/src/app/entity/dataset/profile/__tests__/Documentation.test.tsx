@@ -10,6 +10,7 @@ describe('Documentation', () => {
             <TestPageContainer>
                 <Documentation
                     authenticatedUserUrn="urn:li:corpuser:1"
+                    authenticatedUserUsername="1"
                     documents={sampleDocs}
                     updateDocumentation={(_) => undefined}
                 />
@@ -17,7 +18,7 @@ describe('Documentation', () => {
             </TestPageContainer>,
         );
         expect(getByText('Documentation')).toBeInTheDocument();
-        expect(getByText('urn:li:corpuser:1')).toBeInTheDocument();
+        expect(getByText('1')).toBeInTheDocument();
         expect(getByText('https://www.google.com')).toBeInTheDocument();
         expect(getByText('Add a link')).toBeInTheDocument();
     });

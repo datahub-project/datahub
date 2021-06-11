@@ -8,16 +8,18 @@ sourceSets {
   }
 }
 
-idea{
+idea {
   module {
     testSourceDirs += file('src/integTest/java')
     scopes.TEST.plus += [ configurations.integTestCompile ]
   }
 }
 
+
 configurations {
   integTestImplementation.extendsFrom implementation
   integTestRuntimeOnly.extendsFrom runtimeOnly
+  modelValidation
 }
 
 dependencies {
@@ -25,8 +27,10 @@ dependencies {
   compile project(path: ':gms:api', configuration: 'dataTemplate')
   compile project(':li-utils')
   compile project(':metadata-models')
+
   compile project(':metadata-testing:metadata-test-utils')
   compile project(':metadata-utils')
+  compile project(':metadata-io')
   compile spec.product.pegasus.restliServer
   compile externalDependency.gmaDaoApi
   compile externalDependency.gmaDaoApiDataTemplate
@@ -49,6 +53,11 @@ dependencies {
   integTestCompile externalDependency.gmaElasticsearchIntegTest
   integTestCompile externalDependency.junitJupiterApi
   integTestCompile externalDependency.junitJupiterParams
+
+  modelValidation project(path: ':metadata-models-validator')
+  dataModel project(path: ':metadata-models', configuration: 'dataTemplate')
+  dataModel project(path: ':li-utils', configuration: 'dataTemplate')
+
 }
 
 task integrationTest(type: Test) {
@@ -61,7 +70,19 @@ task integrationTest(type: Test) {
   shouldRunAfter test
 }
 
+task validateModels(type: JavaExec) {
+  main = 'com.linkedin.metadata.model.validation.ModelValidationTask'
+  args '../../metadata-models/src/main/pegasus/:' + '../../li-utils/src/main/pegasus/:' + configurations.dataModel.asPath, project.getProjectDir().getAbsolutePath() + "/../../metadata-models/src/main/pegasus",
+  classpath = project.configurations.modelValidation
+  debugOptions {
+    enabled = false
+    port = 5005
+  }
+}
+
+compileJava.dependsOn validateModels
 check.dependsOn integrationTest
+integrationTest.enabled = false
 
 // Generate IDLs
 pegasus.main.idlOptions.addIdlItem([

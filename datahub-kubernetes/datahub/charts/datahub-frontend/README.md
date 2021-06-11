@@ -20,7 +20,7 @@ Current chart version is `0.2.0`
 | global.datahub.gms.port | string | `"8080"` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"linkedin/datahub-frontend-react"` |  |
-| image.tag | string | `"latest"` |  |
+| image.tag | string | `"v0.8.1"` |  |
 | imagePullSecrets | list | `[]` |  |
 | ingress.annotations | object | `{}` |  |
 | ingress.enabled | bool | `false` |  |
@@ -47,3 +47,6 @@ Current chart version is `0.2.0`
 | serviceAccount.create | bool | `true` |  |
 | serviceAccount.name | string | `nil` |  |
 | tolerations | list | `[]` |  |
+| global.elasticsearch.host | string | `"elasticsearch"` |  |
+| global.elasticsearch.port | string | `"9200"` |  |
+| global.kafka.bootstrap.server | string | `"broker:9092"` |  |

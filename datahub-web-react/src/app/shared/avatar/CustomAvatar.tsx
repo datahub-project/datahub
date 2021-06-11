@@ -6,10 +6,10 @@ import styled from 'styled-components';
 
 import defaultAvatar from '../../../images/default_avatar.png';
 
-const AvatarStyled = styled(Avatar)<{ size?: number; isGroup?: boolean }>`
+const AvatarStyled = styled(Avatar)<{ size?: number; isgroup?: string }>`
     color: #fff;
     background-color: ${(props) =>
-        props.isGroup ? '#ccc' : '#ccc'}; // TODO: make it different style for corpGroup vs corpUser
+        props.isgroup ? '#ccc' : '#ccc'}; // TODO: make it different style for corpGroup vs corpUser
     text-align: center;
     font-size: ${(props) => (props.size ? `${Math.max(props.size / 2.0, 14)}px` : '14px')} !important;
     && > span {
@@ -39,20 +39,20 @@ export default function CustomAvatar({
     isGroup = false,
 }: Props) {
     const avatarWithInitial = name ? (
-        <AvatarStyled style={style} size={size} isGroup={isGroup}>
+        <AvatarStyled style={style} size={size} isgroup={isGroup ? 'true' : undefined}>
             {name.charAt(0).toUpperCase()}
         </AvatarStyled>
     ) : (
-        <AvatarStyled src={defaultAvatar} style={style} size={size} isGroup={isGroup} />
+        <AvatarStyled src={defaultAvatar} style={style} size={size} isgroup={isGroup ? 'true' : undefined} />
     );
     const avatarWithDefault = useDefaultAvatar ? (
-        <AvatarStyled src={defaultAvatar} style={style} size={size} isGroup={isGroup} />
+        <AvatarStyled src={defaultAvatar} style={style} size={size} isgroup={isGroup ? 'true' : undefined} />
     ) : (
         avatarWithInitial
     );
     const avatar =
         photoUrl && photoUrl !== '' ? (
-            <AvatarStyled src={photoUrl} style={style} size={size} isGroup={isGroup} />
+            <AvatarStyled src={photoUrl} style={style} size={size} isgroup={isGroup ? 'true' : undefined} />
         ) : (
             avatarWithDefault
         );

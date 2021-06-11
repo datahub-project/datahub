@@ -3,24 +3,46 @@ namespace com.linkedin.datajob
 import com.linkedin.datajob.azkaban.AzkabanJobType
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.DataFlowUrn
 
 /**
  * Information about a Data processing job
  */
+@Aspect = {
+  "name": "dataJobInfo"
+}
 record DataJobInfo includes CustomProperties, ExternalReference {
 
   /**
    * Job name
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
   name: string
 
   /**
    * Job description
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
   description: optional string
 
   /**
    * Datajob type
    */
   type: union[AzkabanJobType]
+
+  /**
+   * DataFlow urn that this job is part of
+   */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "dataFlow" ]
+  }
+  flowUrn: optional DataFlowUrn
 }

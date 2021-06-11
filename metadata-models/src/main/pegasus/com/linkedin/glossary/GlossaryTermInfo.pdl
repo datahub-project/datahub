@@ -6,11 +6,15 @@ import com.linkedin.common.GlossaryNodeUrn
 /**
  * Properties associated with a GlossaryTerm
  */
+@Aspect = {
+   "name": "glossaryTermInfo"
+}
 record GlossaryTermInfo {
 
   /**
    * Definition of business term
    */
+  @Searchable = {}
   definition: string
 
   /**
@@ -21,11 +25,17 @@ record GlossaryTermInfo {
   /**
    * Source of the Business Term (INTERNAL or EXTERNAL) with default value as INTERNAL
    */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
   termSource: string
 
   /**
    * External Reference to the business-term
    */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
   sourceRef: optional string
 
   /**
