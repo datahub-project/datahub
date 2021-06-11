@@ -78,7 +78,7 @@ public class AuthenticationController extends Controller {
         session().put(ACTOR, DEFAULT_ACTOR_URN.toString());
         return redirect("/").withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
                 ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
-                : DEFAULT_SESSION_TTL_DAYS));
+                : DEFAULT_SESSION_TTL_HOURS));
     }
 
     /**
