@@ -60,6 +60,12 @@ def check() -> None:
 
 @docker.command()
 @click.option(
+    "--version",
+    type=str,
+    default="head",
+    help="Datahub version to be deployed. If not set, deploy latest",
+)
+@click.option(
     "--build-locally",
     type=bool,
     is_flag=True,
@@ -81,6 +87,7 @@ def check() -> None:
     help="If true, the docker-compose logs will be printed to console if something fails",
 )
 def quickstart(
+    version: str,
     build_locally: bool,
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
@@ -111,6 +118,9 @@ def quickstart(
             quickstart_download_response = requests.get(GITHUB_QUICKSTART_COMPOSE_URL)
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
+
+    # set version
+    os.environ["DATAHUB_VERSION"] = version
 
     base_command: List[str] = [
         "docker-compose",
