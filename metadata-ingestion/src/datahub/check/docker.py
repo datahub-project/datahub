@@ -12,9 +12,7 @@ REQUIRED_CONTAINERS = [
     "elasticsearch-setup",
     "elasticsearch",
     "datahub-gms",
-    "datahub-mce-consumer",
     "datahub-frontend-react",
-    "datahub-mae-consumer",
     "kafka-setup",
     "schema-registry",
     "broker",
@@ -26,6 +24,8 @@ REQUIRED_CONTAINERS = [
     # "schema-registry-ui",
     # "kibana",
     # "kafka-rest-proxy",
+    # "datahub-mce-consumer",
+    # "datahub-mae-consumer"
 ]
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
