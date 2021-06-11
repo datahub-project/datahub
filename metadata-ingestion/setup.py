@@ -145,7 +145,7 @@ base_dev_requirements = {
             "ldap",
             "looker",
             "glue",
-            "hive",
+            # "hive",
             "datahub-kafka",
             "datahub-rest",
             # airflow is added below

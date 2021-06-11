@@ -9,7 +9,10 @@ from typing import List, NoReturn, Optional
 import click
 import requests
 
-from datahub.cli.docker_check import check_local_docker_containers
+from datahub.cli.docker_check import (
+    check_local_docker_containers,
+    get_client_with_error,
+)
 from datahub.ingestion.run.pipeline import Pipeline
 
 SIMPLE_QUICKSTART_COMPOSE_FILE = "docker/cli/docker-compose.quickstart.yml"
@@ -193,4 +196,29 @@ def ingest_sample_data(path: Optional[str]) -> None:
     sys.exit(ret)
 
 
-# TODO add a clean/nuke command
+@docker.command()
+def nuke() -> None:
+    with get_client_with_error() as (client, error):
+        if error:
+            click.secho(
+                "Docker doesn't seem to be running. Did you start it?", fg="red"
+            )
+            return
+
+        click.echo("Removing containers in the datahub project")
+        for container in client.containers.list(
+            filters={"label": "com.docker.compose.project=datahub"}
+        ):
+            container.remove(v=True, force=True)
+
+        click.echo("Removing volumes in the datahub project")
+        for volume in client.volumes.list(
+            filters={"label": "com.docker.compose.project=datahub"}
+        ):
+            volume.remove(force=True)
+
+        click.echo("Removing networks in the datahub project")
+        for network in client.networks.list(
+                filters={"label": "com.docker.compose.project=datahub"}
+        ):
+            container.remove()
