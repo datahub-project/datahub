@@ -176,6 +176,7 @@ entry_points = {
         "redshift = datahub.ingestion.source.redshift:RedshiftSource",
         "snowflake = datahub.ingestion.source.snowflake:SnowflakeSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
+        "openapi = datahub.ingestion.source.openapi:OpenApiSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
