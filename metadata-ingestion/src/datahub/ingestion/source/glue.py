@@ -3,7 +3,7 @@ import time
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from functools import reduce
-from typing import Dict, Iterable, List, Optional, Union, Any
+from typing import Any, Dict, Iterable, List, Optional, Union
 from urllib.parse import urlparse
 
 import boto3
@@ -34,17 +34,17 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    DataFlowInfoClass,
+    DataFlowSnapshotClass,
+    DataJobInfoClass,
+    DataJobInputOutputClass,
+    DataJobSnapshotClass,
     DatasetPropertiesClass,
     MapTypeClass,
+    MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    DataJobSnapshotClass,
-    MetadataChangeEventClass,
-    DataFlowSnapshotClass,
-    DataJobInfoClass,
-    DataFlowInfoClass,
-    DataJobInputOutputClass,
 )
 
 
