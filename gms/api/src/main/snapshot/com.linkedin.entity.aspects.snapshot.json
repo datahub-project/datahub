@@ -158,7 +158,13 @@
         "items" : "ChartDataSourceType"
       },
       "doc" : "Data sources for the chart",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "/*/string" : {
+          "entityTypes" : [ "dataset" ],
+          "name" : "Consumes"
+        }
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -641,10 +647,12 @@
     "name" : "MLFeatureDataType",
     "namespace" : "com.linkedin.common",
     "doc" : "MLFeature Data Type",
-    "symbols" : [ "USELESS", "NOMINAL", "ORDINAL", "BINARY", "COUNT", "TIME", "INTERVAL", "IMAGE", "VIDEO", "AUDIO", "TEXT", "MAP", "SEQUENCE", "SET" ],
+    "symbols" : [ "USELESS", "NOMINAL", "ORDINAL", "BINARY", "COUNT", "TIME", "INTERVAL", "IMAGE", "VIDEO", "AUDIO", "TEXT", "MAP", "SEQUENCE", "SET", "CONTINUOUS", "BYTE", "UNKNOWN" ],
     "symbolDocs" : {
       "AUDIO" : "Audio Data",
       "BINARY" : "Binary data is discrete data that can be in only one of two categories — either yes or no, 1 or 0, off or on, etc",
+      "BYTE" : "Bytes data are binary-encoded values that can represent complex objects.",
+      "CONTINUOUS" : "Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc.",
       "COUNT" : "Count data is discrete whole number data — no negative numbers here.\nCount data often has many small values, such as zero and one.",
       "IMAGE" : "Image Data",
       "INTERVAL" : "Interval data has equal spaces between the numbers and does not represent a temporal pattern.\nExamples include percentages, temperatures, and income.",
@@ -655,6 +663,7 @@
       "SET" : "Set Data Type ex: set, frozenset",
       "TEXT" : "Text Data",
       "TIME" : "Time data is a cyclical, repeating continuous form of data.\nThe relevant time features can be any period— daily, weekly, monthly, annual, etc.",
+      "UNKNOWN" : "Unknown data are data that we don't know the type for.",
       "USELESS" : "Useless data is unique, discrete data with no potential relationship with the outcome variable.\nA useless feature has high cardinality. An example would be bank account numbers that were generated randomly.",
       "VIDEO" : "Video Data"
     }
@@ -2014,15 +2023,23 @@
       "type" : "record",
       "name" : "MLFeatureKey",
       "namespace" : "com.linkedin.metadata.key",
-      "doc" : "Key for an ML model",
+      "doc" : "Key for an MLFeature",
       "fields" : [ {
         "name" : "featureNamespace",
         "type" : "string",
-        "doc" : "Namespace for the feature"
+        "doc" : "Namespace for the feature",
+        "Searchable" : {
+          "fieldType" : "TEXT_PARTIAL"
+        }
       }, {
         "name" : "name",
         "type" : "string",
-        "doc" : "Name of the feature"
+        "doc" : "Name of the feature",
+        "Searchable" : {
+          "boostScore" : 8.0,
+          "enableAutocomplete" : true,
+          "fieldType" : "TEXT_PARTIAL"
+        }
       } ],
       "Aspect" : {
         "name" : "mlFeatureKey"
@@ -2047,6 +2064,20 @@
         "type" : "com.linkedin.common.VersionTag",
         "doc" : "Version of the MLFeature",
         "optional" : true
+      }, {
+        "name" : "sources",
+        "type" : {
+          "type" : "array",
+          "items" : "com.linkedin.common.Urn"
+        },
+        "doc" : "Source of the MLFeature",
+        "optional" : true,
+        "Relationship" : {
+          "/*" : {
+            "entityTypes" : [ "dataset" ],
+            "name" : "DerivedFrom"
+          }
+        }
       } ],
       "Aspect" : {
         "name" : "mlFeatureProperties"
@@ -2061,8 +2092,8 @@
         "type" : "com.linkedin.common.Urn",
         "doc" : "Standardized platform urn for the model",
         "Searchable" : {
-          "boostScore" : 0.1,
-          "fieldType" : "TEXT_PARTIAL"
+          "addToFilters" : true,
+          "fieldType" : "URN"
         }
       }, {
         "name" : "name",

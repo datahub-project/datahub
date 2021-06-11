@@ -481,8 +481,8 @@
         "type" : "com.linkedin.common.Urn",
         "doc" : "Standardized platform urn for the model",
         "Searchable" : {
-          "boostScore" : 0.1,
-          "fieldType" : "TEXT_PARTIAL"
+          "addToFilters" : true,
+          "fieldType" : "URN"
         }
       }, {
         "name" : "name",
