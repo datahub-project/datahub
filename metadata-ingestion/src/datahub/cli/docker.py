@@ -1,4 +1,5 @@
 import datetime
+import itertools
 import pathlib
 import subprocess
 import sys
@@ -15,7 +16,7 @@ from datahub.cli.docker_check import (
 )
 from datahub.ingestion.run.pipeline import Pipeline
 
-SIMPLE_QUICKSTART_COMPOSE_FILE = "docker/cli/docker-compose.quickstart.yml"
+SIMPLE_QUICKSTART_COMPOSE_FILE = "docker/quickstart/docker-compose.quickstart.yml"
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/linkedin/datahub/master"
@@ -56,9 +57,17 @@ def check() -> None:
 
 @docker.command()
 @click.option(
-    "--dev-mode-quickstart-path",
-    type=click.Path(exists=True, dir_okay=False, readable=True),
+    "--dev",
+    type=bool,
+    is_flag=True,
     default=False,
+    help="Enable dev mode, which attempts to build the containers locally",
+)
+@click.option(
+    "--quickstart-compose-file",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    default=[],
+    multiple=True,
     help="Use a local docker-compose file instead of pulling from GitHub",
 )
 @click.option(
@@ -69,29 +78,55 @@ def check() -> None:
     help="If true, the docker-compose logs will be printed to console if something fails",
 )
 def quickstart(
-    dev_mode_quickstart_path: Optional[pathlib.Path], dump_logs_on_failure: bool
+    dev: bool, quickstart_compose_file: List[pathlib.Path], dump_logs_on_failure: bool
 ) -> None:
     # Run pre-flight checks.
     issues = check_local_docker_containers(preflight_only=True)
     if issues:
         _print_issue_list_and_exit(issues, "Unable to run quickstart:")
 
-    if dev_mode_quickstart_path:
-        path = dev_mode_quickstart_path
-    else:
+    quickstart_compose_file = list(
+        quickstart_compose_file
+    )  # convert to list from tuple
+    if not quickstart_compose_file:
+        click.echo("Fetching docker-compose file from GitHub")
         with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp_file:
             path = pathlib.Path(tmp_file.name)
+            quickstart_compose_file.append(path)
 
             # Download the quickstart docker-compose file from GitHub.
             quickstart_download_response = requests.get(GITHUB_QUICKSTART_COMPOSE_URL)
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
 
-    base_command = ["docker-compose", "-f", f"{path}", "-p", "datahub"]
+    base_command: List[str] = [
+        "docker-compose",
+        *itertools.chain.from_iterable(
+            ("-f", f"{path}") for path in quickstart_compose_file
+        ),
+        "-p",
+        "datahub",
+    ]
 
-    # Pull the latest containers.
-    subprocess.run(base_command + ["pull"], check=True)
+    # Pull and possibly build the latest containers.
+    subprocess.run(
+        [
+            *base_command,
+            "pull",
+        ],
+        check=True,
+    )
+    if dev:
+        subprocess.run(
+            [
+                *base_command,
+                "build",
+                "--pull",
+            ],
+            check=True,
+        )
 
+    # Start it up! (with retries)
     max_wait_time = datetime.timedelta(minutes=5)
     start_time = datetime.datetime.now()
     sleep_interval = datetime.timedelta(seconds=2)
