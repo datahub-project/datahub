@@ -3,7 +3,6 @@ namespace com.linkedin.metadata.aspect
 import com.linkedin.metadata.key.DataJobKey
 import com.linkedin.datajob.DataJobInfo
 import com.linkedin.datajob.DataJobInputOutput
-import com.linkedin.datajob.EditableDataflowProperties
 import com.linkedin.datajob.EditableDatajobProperties
 import com.linkedin.common.Ownership
 import com.linkedin.common.Status
@@ -17,7 +16,6 @@ typeref DataJobAspect = union[
     DataJobKey,
     DataJobInfo,
     DataJobInputOutput,
-    EditableDataflowProperties,
     EditableDatajobProperties,
     Ownership,
     Status,

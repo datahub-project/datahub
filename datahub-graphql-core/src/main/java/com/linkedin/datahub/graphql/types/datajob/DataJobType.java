@@ -175,6 +175,9 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
         if (dataJob.hasGlobalTags()) {
             aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getGlobalTags()));
         }
+        if (dataJob.hasEditableProperties()) {
+            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getEditableProperties()));
+        }
         return ModelUtils.newSnapshot(DataJobSnapshot.class, urn, aspects);
     }
 
