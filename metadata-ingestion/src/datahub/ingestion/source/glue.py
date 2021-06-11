@@ -1,10 +1,10 @@
+import json
 import time
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from functools import reduce
 from typing import Dict, Iterable, List, Optional, Union, Any
 from urllib.parse import urlparse
-
 
 import boto3
 
@@ -164,32 +164,68 @@ class GlueSource(Source):
 
         return self.glue_client.get_dataflow_graph(PythonScript=script)
 
-    def process_dataflow_graph(self, dataflow_graph):
+    def process_dataflow_graph(self, dataflow_graph, flow_urn):
+        def process_node(node):
 
-        nodes = {
-            node["Id"]: {
+            node_type = node["NodeType"]
+
+            if node_type in ["DataSource", "DataSink"]:
+
+                node_args = {x["Name"]: json.loads(x["Value"]) for x in node["Args"]}
+
+                # if data object is Glue table
+                if "database" in node_args and "table_name" in node_args:
+
+                    full_table_name = (
+                        f"{node_args['database']}.{node_args['table_name']}"
+                    )
+                    node_urn = f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.env})"
+
+                # if data object is S3 bucket
+                elif node_args.get("connection_type") == "s3":
+
+                    # TODO: figure this out (check with John/Gabe)
+                    node_urn = (
+                        f"urn:li:dataset:(urn:li:dataPlatform:s3,S3-TABLE,{self.env})"
+                    )
+
+                else:
+
+                    raise ValueError(f"Unrecognized Glue data object type: {node_args}")
+
+            else:
+                node_urn = mce_builder.make_data_job_urn_with_flow(
+                    flow_urn, job_id=node["Id"]
+                )
+
+            return {
                 **node,
+                "urn": node_urn,
+                # to be filled in after traversing edges
                 "inputDatajobs": [],
                 "inputDatasets": [],
                 "outputDatasets": [],
             }
-            for node in dataflow_graph["DagNodes"]
-        }
+
+        nodes = {node["Id"]: process_node(node) for node in dataflow_graph["DagNodes"]}
 
         for edge in dataflow_graph["DagEdges"]:
 
-            source_node_type = nodes[edge["Source"]]["NodeType"]
-            target_node_type = nodes[edge["Target"]]["NodeType"]
+            source_node = nodes[edge["Source"]]
+            target_node = nodes[edge["Target"]]
+
+            source_node_type = source_node["NodeType"]
+            target_node_type = target_node["NodeType"]
 
             # note that source nodes can't be data sinks
             if source_node_type == "DataSource":
-                nodes[edge["Target"]]["inputDatasets"].append(edge["Source"])
+                nodes[edge["Target"]]["inputDatasets"].append(source_node["urn"])
             # keep track of input data jobs (as defined in schemas)
             else:
-                nodes[edge["Target"]]["inputDatajobs"].append(edge["Source"])
+                nodes[edge["Target"]]["inputDatajobs"].append(source_node["urn"])
 
             if target_node_type == "DataSink":
-                nodes[edge["Target"]]["outputDatasets"].append(edge["Target"])
+                nodes[edge["Target"]]["outputDatasets"].append(target_node["urn"])
 
         return nodes
 
@@ -203,8 +239,8 @@ class GlueSource(Source):
                         description=job["Description"],
                         customProperties={
                             "role": job["Role"],
-                            "created": job["CreatedOn"],
-                            "modified": job["LastModifiedOn"],
+                            "created": str(job["CreatedOn"]),
+                            "modified": str(job["LastModifiedOn"]),
                             "command": job["Command"]["ScriptLocation"],
                         },
                     ),
@@ -214,10 +250,10 @@ class GlueSource(Source):
 
         return MetadataWorkUnit(id=job["Name"], mce=mce)
 
-    def get_datajob_wu(self, job_urn: str, job: Dict[str, Any], node: Dict[str, Any]):
+    def get_datajob_wu(self, node: Dict[str, Any], job: Dict[str, Any]):
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataJobSnapshotClass(
-                urn=job_urn,
+                urn=node["urn"],
                 aspects=[
                     DataJobInfoClass(
                         name=f"{job['Name']}:{node['Id']}",
@@ -225,8 +261,9 @@ class GlueSource(Source):
                         description=None,
                     ),
                     DataJobInputOutputClass(
-                        inputDatasets=[],
-                        outputDatasets=[],
+                        inputDatasets=node["inputDatasets"],
+                        outputDatasets=node["outputDatasets"],
+                        inputDatajobs=node["inputDatajobs"],
                     ),
                 ],
             )
@@ -292,24 +329,18 @@ class GlueSource(Source):
 
             for job in jobs:
 
-                dag = self.get_dataflow_graph(job["Command"]["ScriptLocation"])
-                nodes = self.process_dataflow_graph(dag)
-
-                flow_urn = mce_builder.make_data_flow_urn(
-                    "glue", job["Name"], self.config.env
-                )
+                flow_urn = mce_builder.make_data_flow_urn("glue", job["Name"], self.env)
 
                 flow_wu = self.get_dataflow_wu(flow_urn, job)
                 self.report.report_workunit(flow_wu)
                 yield flow_wu
 
+                dag = self.get_dataflow_graph(job["Command"]["ScriptLocation"])
+                nodes = self.process_dataflow_graph(dag, flow_urn)
+
                 for node in nodes.values():
 
-                    job_urn = mce_builder.make_data_job_urn_with_flow(
-                        flow_urn, job_id=node["Id"]
-                    )
-
-                    job_wu = self.get_datajob_wu(job_urn, job, node)
+                    job_wu = self.get_datajob_wu(node, job)
                     self.report.report_workunit(job_wu)
                     yield job_wu
 
