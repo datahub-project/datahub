@@ -22,7 +22,18 @@ However, if you only want to build `MAE Consumer Job` specifically:
 Before starting `MAE Consumer Job`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../../docker/kafka-setup),
 [Elasticsearch](../../docker/elasticsearch), and [Neo4j](../../docker/neo4j) Docker containers are up and running.
 
-## Endpoints TODO: Reevaluate these
+## Start via Docker image
+Quickest way to try out `MAE Consumer Job` is running the [Docker image](../../docker/datahub-mae-consumer).
+
+## Start via command line
+If you do modify things and want to try it out quickly without building the Docker image, you can also run
+the application directly from command line after a successful [build](#build):
+```
+./gradlew :metadata-jobs:mae-consumer-job:bootRun
+```
+
+## Endpoints
+Spring boot actuator has been enabled for MAE Application. 
 `healthcheck`, `metrics` and `info` web endpoints are enabled by default.
 
 `healthcheck` - http://localhost:9091/actuator/health

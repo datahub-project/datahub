@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: linkedin/datahub-mce-consumer
   pullPolicy: Always
-  tag: latest
+  tag: v0.8.1
 
 imagePullSecrets: []
 nameOverride: ""
@@ -145,9 +145,6 @@ readinessProbe:
   failureThreshold: 4
 
 global:
-
-  datahub_consumer_jobs_enabled: true
-
   kafka:
     bootstrap:
       server: "broker:9092"

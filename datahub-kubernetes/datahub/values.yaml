@@ -16,13 +16,13 @@ datahub-frontend:
     enabled: false
 
 datahub-mae-consumer:
-  enabled: false
+  enabled: true
   image:
     repository: linkedin/datahub-mae-consumer
     tag: "v0.8.1"
 
 datahub-mce-consumer:
-  enabled: false
+  enabled: true
   image:
     repository: linkedin/datahub-mce-consumer
     tag: "v0.8.1"
