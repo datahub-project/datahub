@@ -1,4 +1,5 @@
 import collections
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pprint import pprint
@@ -20,6 +21,10 @@ AuditLogEntry = Any
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 DEBUG_INCLUDE_FULL_PAYLOADS = False
 GCP_LOGGING_PAGE_SIZE = 1000
+
+# Handle yearly, monthly, daily, or hourly partitioning.
+# See https://cloud.google.com/bigquery/docs/partitioned-tables.
+PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)_(\d{4}|\d{6}|\d{8}|\d{10})$")
 
 time_start = datetime.now(tz=timezone.utc) - timedelta(days=21)
 filter_rule = f"""
@@ -46,16 +51,41 @@ timestamp >= "{time_start.strftime(BQ_DATETIME_FORMAT)}"
 
 
 def get_time_bucket(original: datetime) -> datetime:
-    # This floors the timestamp to the closest day.
+    # This rounds/floors the timestamp to the closest day.
     return original.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def _table_name_ref(project: str, dataset: str, table: str) -> str:
-    return f"projects/{project}/datasets/{dataset}/tables/{table}"
+@dataclass(frozen=True, order=True)
+class BigQueryTableRef:
+    project: str
+    dataset: str
+    table: str
 
+    @classmethod
+    def from_spec_obj(cls, spec: dict) -> "BigQueryTableRef":
+        return BigQueryTableRef(spec["projectId"], spec["datasetId"], spec["tableId"])
 
-def _table_resource_from_obj(spec: dict) -> str:
-    return _table_name_ref(spec["projectId"], spec["datasetId"], spec["tableId"])
+    @classmethod
+    def from_string_name(cls, ref: str) -> "BigQueryTableRef":
+        parts = ref.split("/")
+        if parts[0] != "projects" or parts[2] != "datasets" or parts[4] != "tables":
+            raise ValueError(f"invalid BigQuery table reference: {ref}")
+        return BigQueryTableRef(parts[1], parts[3], parts[5])
+
+    def is_anonymous(self) -> bool:
+        # Temporary tables will have a dataset that begins with an underscore.
+        return self.dataset.startswith("_")
+
+    def remove_extras(self) -> "BigQueryTableRef":
+        if "$" in self.table or "@" in self.table:
+            raise ValueError(f"cannot handle {self} - poorly formatted table name")
+
+        # Handle partitioned and sharded tables.
+        matches = PARTITIONED_TABLE_REGEX.match(self.table)
+        if matches:
+            return BigQueryTableRef(self.project, self.dataset, matches.group(1))
+
+        return self
 
 
 def _job_name_ref(project: str, jobId: str) -> str:
@@ -67,7 +97,7 @@ class ReadEvent:
     timestamp: datetime
     actor_email: str
 
-    resource: str
+    resource: BigQueryTableRef
     fieldsRead: List[str]
     readReason: str
     jobName: Optional[str]
@@ -100,7 +130,7 @@ class ReadEvent:
         readEvent = ReadEvent(
             actor_email=user,
             timestamp=entry.timestamp,
-            resource=resourceName,
+            resource=BigQueryTableRef.from_string_name(resourceName),
             fieldsRead=fields,
             readReason=readReason,
             jobName=jobName,
@@ -115,8 +145,8 @@ class QueryEvent:
     actor_email: str
 
     query: str
-    destinationTable: Optional[str]
-    referencedTables: Optional[List[str]]
+    destinationTable: Optional[BigQueryTableRef]
+    referencedTables: Optional[List[BigQueryTableRef]]
     jobName: str
 
     payload: Any
@@ -140,12 +170,14 @@ class QueryEvent:
         rawDestTable = job["jobConfiguration"]["query"]["destinationTable"]
         destinationTable = None
         if rawDestTable:
-            destinationTable = _table_resource_from_obj(rawDestTable)
+            destinationTable = BigQueryTableRef.from_spec_obj(rawDestTable)
 
         rawRefTables = job["jobStatistics"].get("referencedTables")
         referencedTables = None
         if rawRefTables:
-            referencedTables = [_table_resource_from_obj(spec) for spec in rawRefTables]
+            referencedTables = [
+                BigQueryTableRef.from_spec_obj(spec) for spec in rawRefTables
+            ]
         # if job['jobConfiguration']['query']['statementType'] != "SCRIPT" and not referencedTables:
         #     breakpoint()
 
@@ -164,7 +196,7 @@ class QueryEvent:
 @dataclass
 class AggregatedDataset:
     bucket_start_time: datetime
-    resource: str
+    resource: BigQueryTableRef
 
     queryFreq: Counter[str] = field(default_factory=collections.Counter)
     userCounts: Counter[str] = field(default_factory=collections.Counter)
@@ -254,23 +286,27 @@ class BigQueryUsageSource:
 
     def _aggregate_enriched_read_events(
         self, events: Iterable[ReadEvent]
-    ) -> Dict[datetime, Dict[str, AggregatedDataset]]:
-        # TODO: dataset will begin with underscore if it's temporary
+    ) -> Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]:
         # TODO: handle partitioned tables
 
         # TODO: perhaps we need to continuously prune this, rather than
         # storing it all in one big object.
         datasets: Dict[
-            datetime, Dict[str, AggregatedDataset]
+            datetime, Dict[BigQueryTableRef, AggregatedDataset]
         ] = collections.defaultdict(dict)
 
         for event in events:
             floored_ts = get_time_bucket(event.timestamp)
+            resource = event.resource.remove_extras()
+
+            if resource.is_anonymous():
+                # TODO report dropped (ideally just once)
+                breakpoint()
+                continue
+
             agg_bucket = datasets[floored_ts].setdefault(
-                event.resource,
-                AggregatedDataset(
-                    bucket_start_time=floored_ts, resource=event.resource
-                ),
+                resource,
+                AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
             )
 
             agg_bucket.userCounts[event.actor_email] += 1
