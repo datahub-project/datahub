@@ -340,9 +340,10 @@ class GlueSource(Source):
 
                 for node in nodes.values():
 
-                    job_wu = self.get_datajob_wu(node, job)
-                    self.report.report_workunit(job_wu)
-                    yield job_wu
+                    if node["NodeType"] not in ["DataSource", "DataSink"]:
+                        job_wu = self.get_datajob_wu(node, job)
+                        self.report.report_workunit(job_wu)
+                        yield job_wu
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner(time: int) -> OwnershipClass:
