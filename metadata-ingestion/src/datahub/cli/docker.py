@@ -13,7 +13,7 @@ import requests
 from datahub.cli.docker_check import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
 
-SIMPLE_QUICKSTART_COMPOSE_FILE = "docker/cli/docker-compose.quickstart.yml"
+SIMPLE_QUICKSTART_COMPOSE_FILE = "docker/quickstart/docker-compose.quickstart.yml"
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/linkedin/datahub/master"
