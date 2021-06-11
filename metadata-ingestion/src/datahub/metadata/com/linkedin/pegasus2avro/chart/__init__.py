@@ -17,4 +17,3 @@ ChartQueryType = ChartQueryTypeClass
 ChartType = ChartTypeClass
 EditableChartProperties = EditableChartPropertiesClass
 # fmt: on
-
