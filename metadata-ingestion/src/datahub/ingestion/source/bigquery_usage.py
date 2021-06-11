@@ -183,6 +183,8 @@ class BigQueryUsageSource:
     def _join_events_by_job_id(
         self, events: Iterable[Union[ReadEvent, QueryEvent]]
     ) -> Iterable[ReadEvent]:
+        # TODO: replace with an LRU cache
+        # use cachetools
         query_jobs = {}
 
         def event_processor(
@@ -217,9 +219,11 @@ class BigQueryUsageSource:
         print(query_jobs)
 
 
-source = BigQueryUsageSource(project="harshal-playground-306419")
-events = list(source.get_workunits())
-# pprint(events)
-pprint(f"Processed {len(events)} entries")
-breakpoint()
-exit(0)
+if __name__ == "__main__":
+    # TODO: remove this bit
+    source = BigQueryUsageSource(project="harshal-playground-306419")
+    events = list(source.get_workunits())
+    # pprint(events)
+    pprint(f"Processed {len(events)} entries")
+    breakpoint()
+    exit(0)
