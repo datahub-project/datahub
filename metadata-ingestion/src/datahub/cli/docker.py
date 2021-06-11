@@ -1,5 +1,6 @@
 import datetime
 import itertools
+import os
 import pathlib
 import subprocess
 import sys
@@ -121,6 +122,10 @@ def quickstart(
                 "--pull",
             ],
             check=True,
+            env={
+                **os.environ,
+                "DOCKER_BUILDKIT": "1",
+            },
         )
 
     # Start it up! (with retries)
