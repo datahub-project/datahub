@@ -100,8 +100,6 @@ all_exclude_plugins: Set[str] = {
 }
 
 mypy_stubs = {
-    # for Python 3.6 support
-    "dataclasses",
     "types-dataclasses",
     "sqlalchemy-stubs",
     "types-pkg_resources",
@@ -124,7 +122,7 @@ base_dev_requirements = {
     "coverage>=5.1",
     "flake8>=3.8.3",
     "isort>=5.7.0",
-    "mypy>=0.782",
+    "mypy>=0.901",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
     "pytest-docker",
