@@ -13,6 +13,6 @@ public class MetadataAuditEventsProcessorCondition implements Condition {
       AnnotatedTypeMetadata metadata) {
     Environment env = context.getEnvironment();
     return env != null
-        && "SINGLE_NODE".equals(env.getProperty("GMS_MODE"));
+        && "true".equals(env.getProperty("MAE_CONSUMER_ENABLED"));
   }
 }

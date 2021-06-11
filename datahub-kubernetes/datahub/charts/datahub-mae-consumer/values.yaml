@@ -146,7 +146,7 @@ readinessProbe:
 
 global:
   datahub_analytics_enabled: true
-  datahub_gms_mode: "SINGLE_NODE"
+  datahub_consumer_jobs_enabled: true
 
   elasticsearch:
     host: "elasticsearch"

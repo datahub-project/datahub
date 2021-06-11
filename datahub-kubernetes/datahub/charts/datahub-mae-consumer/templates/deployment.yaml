@@ -69,6 +69,8 @@ spec:
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
             failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           env:
+            - name: MAE_CONSUMER_ENABLED
+              value: "true"
             - name: GMS_HOST
               value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
             - name: GMS_PORT
@@ -107,8 +109,6 @@ spec:
                   key: "{{ .Values.global.neo4j.password.secretKey }}"
             - name: DATAHUB_ANALYTICS_ENABLED
               value: "{{ .Values.global.datahub_analytics_enabled }}"
-            - name: GMS_MODE
-              value: "{{ .Values.global.datahub_gms_mode }}"
             {{- if .Values.global.springKafkaConfigurationOverrides }}
             {{- range $configName, $configValue := .Values.global.springKafkaConfigurationOverrides }}
             - name: SPRING_KAFKA_PROPERTIES_{{ $configName | replace "." "_" | upper }}
