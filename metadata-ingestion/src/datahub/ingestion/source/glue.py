@@ -223,9 +223,11 @@ class GlueSource(Source):
                 # if data object is S3 bucket
                 elif node_args.get("connection_type") == "s3":
 
-                    # TODO: figure this out (check with John/Gabe)
+                    # TODO: figure out how to encode this path (check with John/Gabe)
+                    s3_name = "S3-TABLE"
+
                     node_urn = (
-                        f"urn:li:dataset:(urn:li:dataPlatform:s3,S3-TABLE,{self.env})"
+                        f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{self.env})"
                     )
 
                 else:
