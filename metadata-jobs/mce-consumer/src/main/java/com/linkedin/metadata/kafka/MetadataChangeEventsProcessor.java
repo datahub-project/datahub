@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.kafka.config.MetadataChangeEventsProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
@@ -15,6 +16,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @EnableKafka
+@Conditional(MetadataChangeEventsProcessorCondition.class)
 public class MetadataChangeEventsProcessor {
 
   private EntityClient entityClient;
