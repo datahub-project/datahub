@@ -2,7 +2,7 @@ import time
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from functools import reduce
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union, Any
 from urllib.parse import urlparse
 
 
@@ -152,6 +152,59 @@ class GlueSource(Source):
         config = GlueSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_dataflow_graph(self, script_path):
+        url = urlparse(script_path, allow_fragments=False)
+        bucket = url.netloc
+        key = url.path[1:]
+
+        s3 = boto3.resource("s3")
+
+        obj = s3.Object(bucket, key)
+        script = obj.get()["Body"].read().decode("utf-8")
+
+        return self.glue_client.get_dataflow_graph(PythonScript=script)
+
+    def get_dataflow_wu(self, flow_urn: str, job: Dict[str, Any]):
+        mce = MetadataChangeEventClass(
+            proposedSnapshot=DataFlowSnapshotClass(
+                urn=flow_urn,
+                aspects=[
+                    DataFlowInfoClass(
+                        name=job["Name"],
+                        description=job["Description"],
+                        customProperties={
+                            "role": job["Role"],
+                            "created": job["CreatedOn"],
+                            "modified": job["LastModifiedOn"],
+                            "command": job["Command"]["ScriptLocation"],
+                        },
+                    ),
+                ],
+            )
+        )
+
+        return MetadataWorkUnit(id=job["Name"], mce=mce)
+
+    def get_datajob_wu(self, job_urn: str, job: Dict[str, Any], node: Dict[str, Any]):
+        mce = MetadataChangeEventClass(
+            proposedSnapshot=DataJobSnapshotClass(
+                urn=job_urn,
+                aspects=[
+                    DataJobInfoClass(
+                        name=f"{job['Name']}:{node['Id']}",
+                        type="GLUE",
+                        description=None,
+                    ),
+                    DataJobInputOutputClass(
+                        inputDatasets=[],
+                        outputDatasets=[],
+                    ),
+                ],
+            )
+        )
+
+        return MetadataWorkUnit(id=node["Id"], mce=mce)
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         def get_all_tables() -> List[dict]:
             def get_tables_from_database(database_name: str) -> List[dict]:
@@ -200,18 +253,6 @@ class GlueSource(Source):
             self.report.report_workunit(workunit)
             yield workunit
 
-        def get_dataflow_graph(script_path):
-            url = urlparse(script_path, allow_fragments=False)
-            bucket = url.netloc
-            key = url.path[1:]
-
-            s3 = boto3.resource("s3")
-
-            obj = s3.Object(bucket, key)
-            script = obj.get()["Body"].read().decode("utf-8")
-
-            return self.glue_client.get_dataflow_graph(PythonScript=script)
-
         if self.extract_transforms:
 
             jobs = []
@@ -222,14 +263,9 @@ class GlueSource(Source):
 
             for job in jobs:
 
-                name = job["Name"]
-                description = job["Description"]
-                role = job["Role"]
-                created = job["CreatedOn"]
-                modified = job["LastModifiedOn"]
                 command = job["Command"]["ScriptLocation"]
 
-                dag = get_dataflow_graph(command)
+                dag = self.get_dataflow_graph(command)
 
                 nodes = {
                     node["Id"]: {**node, "parents": []} for node in dag["DagNodes"]
@@ -248,34 +284,19 @@ class GlueSource(Source):
                     "glue", job["Name"], self.config.env
                 )
 
+                flow_wu = self.get_dataflow_wu(flow_urn, job)
+                self.report.report_workunit(flow_wu)
+                yield flow_wu
+
                 for node in nodes.values():
-                    node_id = node["Id"]
-                    node_type = node["NodeType"]
 
                     job_urn = mce_builder.make_data_job_urn_with_flow(
                         flow_urn, job_id=node["Id"]
                     )
 
-                    mce = MetadataChangeEventClass(
-                        proposedSnapshot=DataJobSnapshotClass(
-                            urn=job_urn,
-                            aspects=[
-                                DataJobInfoClass(
-                                    name=f"{job['Name']}:{node['Id']}",
-                                    type="COMMAND",
-                                    description=None,
-                                    # customProperties=[],
-                                    # externalUrl=job_url,
-                                ),
-                                DataJobInputOutputClass(
-                                    inputDatasets=[],
-                                    outputDatasets=[],
-                                ),
-                                # ownership,
-                                # tags,
-                            ],
-                        )
-                    )
+                    job_wu = self.get_datajob_wu(job_urn, job, node)
+                    self.report.report_workunit(job_wu)
+                    yield job_wu
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner(time: int) -> OwnershipClass:
