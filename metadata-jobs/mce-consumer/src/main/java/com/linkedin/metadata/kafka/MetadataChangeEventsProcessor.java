@@ -25,8 +25,8 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@EnableKafka
 @Conditional(MetadataChangeEventsProcessorCondition.class)
+@EnableKafka
 public class MetadataChangeEventsProcessor {
 
   private EntityClient entityClient;

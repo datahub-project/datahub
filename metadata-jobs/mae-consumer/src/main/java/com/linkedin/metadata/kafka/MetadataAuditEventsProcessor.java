@@ -10,6 +10,7 @@ import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.kafka.config.MetadataAuditEventsProcessorCondition;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -34,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -44,6 +46,7 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 
 @Slf4j
 @Component
+@Conditional(MetadataAuditEventsProcessorCondition.class)
 @Import({GraphServiceFactory.class, SearchServiceFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {

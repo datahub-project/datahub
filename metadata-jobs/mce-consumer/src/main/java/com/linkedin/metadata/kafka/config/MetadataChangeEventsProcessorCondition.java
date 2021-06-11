@@ -12,7 +12,6 @@ public class MetadataChangeEventsProcessorCondition implements Condition {
       ConditionContext context,
       AnnotatedTypeMetadata metadata) {
     Environment env = context.getEnvironment();
-    return env != null
-        && "true".equals(env.getProperty("MCE_CONSUMER_ENABLED"));
+    return "true".equals(env.getProperty("MCE_CONSUMER_ENABLED"));
   }
 }

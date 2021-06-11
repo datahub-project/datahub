@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.kafka.config.DataHubUsageEventsProcessorCondition;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.kafka.elasticsearch.JsonElasticEvent;
 import com.linkedin.metadata.kafka.transformer.DataHubUsageEventTransformer;
@@ -11,6 +12,7 @@ import java.net.URLEncoder;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @EnableKafka
+@Conditional(DataHubUsageEventsProcessorCondition.class)
 public class DataHubUsageEventsProcessor {
 
   private final ElasticsearchConnector elasticSearchConnector;

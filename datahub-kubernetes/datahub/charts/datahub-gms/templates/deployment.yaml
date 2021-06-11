@@ -79,6 +79,8 @@ spec:
             - name: MAE_CONSUMER_ENABLED
               value: "true"
             {{- end }}
+            - name: DATAHUB_ANALYTICS_ENABLED
+              value: "{{ .Values.global.datahub_analytics_enabled }}"
             - name: EBEAN_DATASOURCE_USERNAME
               value: "{{ .Values.global.sql.datasource.username }}"
             - name: EBEAN_DATASOURCE_PASSWORD
