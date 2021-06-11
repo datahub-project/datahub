@@ -224,7 +224,22 @@ class GlueSource(Source):
 
                 dag = get_dataflow_graph(command)
 
-                print(dag)
+                nodes = {
+                    node["Id"]: {**node, "parents": []} for node in dag["DagNodes"]
+                }
+
+                for edge in dag["DagEdges"]:
+
+                    if nodes[edge["Source"]]["NodeType"] not in [
+                        "DataSource",
+                        "DataSink",
+                    ]:
+
+                        nodes[edge["Target"]].append(edge["Source"])
+
+                for node in nodes.values():
+                    node_id = node["Id"]
+                    node_type = node["NodeType"]
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner(time: int) -> OwnershipClass:
