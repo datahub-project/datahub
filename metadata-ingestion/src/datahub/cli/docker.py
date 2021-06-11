@@ -127,7 +127,7 @@ def quickstart(
         )
 
     # Start it up! (with retries)
-    max_wait_time = datetime.timedelta(minutes=5)
+    max_wait_time = datetime.timedelta(minutes=6)
     start_time = datetime.datetime.now()
     sleep_interval = datetime.timedelta(seconds=2)
     up_interval = datetime.timedelta(seconds=30)
@@ -254,6 +254,6 @@ def nuke() -> None:
 
         click.echo("Removing networks in the datahub project")
         for network in client.networks.list(
-                filters={"label": "com.docker.compose.project=datahub"}
+            filters={"label": "com.docker.compose.project=datahub"}
         ):
-            container.remove()
+            network.remove()
