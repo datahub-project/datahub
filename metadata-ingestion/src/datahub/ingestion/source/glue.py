@@ -10,6 +10,7 @@ import boto3
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
@@ -38,6 +39,12 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    DataJobSnapshotClass,
+    MetadataChangeEventClass,
+    DataFlowSnapshotClass,
+    DataJobInfoClass,
+    DataFlowInfoClass,
+    DataJobInputOutputClass,
 )
 
 
@@ -237,9 +244,38 @@ class GlueSource(Source):
 
                         nodes[edge["Target"]].append(edge["Source"])
 
+                flow_urn = mce_builder.make_data_flow_urn(
+                    "glue", job["Name"], self.config.env
+                )
+
                 for node in nodes.values():
                     node_id = node["Id"]
                     node_type = node["NodeType"]
+
+                    job_urn = mce_builder.make_data_job_urn_with_flow(
+                        flow_urn, job_id=node["Id"]
+                    )
+
+                    mce = MetadataChangeEventClass(
+                        proposedSnapshot=DataJobSnapshotClass(
+                            urn=job_urn,
+                            aspects=[
+                                DataJobInfoClass(
+                                    name=f"{job['Name']}:{node['Id']}",
+                                    type="COMMAND",
+                                    description=None,
+                                    # customProperties=[],
+                                    # externalUrl=job_url,
+                                ),
+                                DataJobInputOutputClass(
+                                    inputDatasets=[],
+                                    outputDatasets=[],
+                                ),
+                                # ownership,
+                                # tags,
+                            ],
+                        )
+                    )
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner(time: int) -> OwnershipClass:
