@@ -152,6 +152,16 @@ class GlueSource(Source):
         config = GlueSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_all_jobs(self):
+
+        jobs = []
+
+        paginator = self.glue_client.get_paginator("get_jobs")
+        for page in paginator.paginate():
+            jobs += page["Jobs"]
+
+        return jobs
+
     def get_dataflow_graph(self, script_path):
         url = urlparse(script_path, allow_fragments=False)
         bucket = url.netloc
@@ -321,13 +331,7 @@ class GlueSource(Source):
 
         if self.extract_transforms:
 
-            jobs = []
-
-            paginator = self.glue_client.get_paginator("get_jobs")
-            for page in paginator.paginate():
-                jobs += page["Jobs"]
-
-            for job in jobs:
+            for job in self.get_all_jobs():
 
                 flow_urn = mce_builder.make_data_flow_urn("glue", job["Name"], self.env)
 
