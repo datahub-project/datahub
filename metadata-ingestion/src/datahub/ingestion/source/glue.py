@@ -164,6 +164,35 @@ class GlueSource(Source):
 
         return self.glue_client.get_dataflow_graph(PythonScript=script)
 
+    def process_dataflow_graph(self, dataflow_graph):
+
+        nodes = {
+            node["Id"]: {
+                **node,
+                "inputDatajobs": [],
+                "inputDatasets": [],
+                "outputDatasets": [],
+            }
+            for node in dataflow_graph["DagNodes"]
+        }
+
+        for edge in dataflow_graph["DagEdges"]:
+
+            source_node_type = nodes[edge["Source"]]["NodeType"]
+            target_node_type = nodes[edge["Target"]]["NodeType"]
+
+            # note that source nodes can't be data sinks
+            if source_node_type == "DataSource":
+                nodes[edge["Target"]]["inputDatasets"].append(edge["Source"])
+            # keep track of input data jobs (as defined in schemas)
+            else:
+                nodes[edge["Target"]]["inputDatajobs"].append(edge["Source"])
+
+            if target_node_type == "DataSink":
+                nodes[edge["Target"]]["outputDatasets"].append(edge["Target"])
+
+        return nodes
+
     def get_dataflow_wu(self, flow_urn: str, job: Dict[str, Any]):
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
@@ -263,22 +292,8 @@ class GlueSource(Source):
 
             for job in jobs:
 
-                command = job["Command"]["ScriptLocation"]
-
-                dag = self.get_dataflow_graph(command)
-
-                nodes = {
-                    node["Id"]: {**node, "parents": []} for node in dag["DagNodes"]
-                }
-
-                for edge in dag["DagEdges"]:
-
-                    if nodes[edge["Source"]]["NodeType"] not in [
-                        "DataSource",
-                        "DataSink",
-                    ]:
-
-                        nodes[edge["Target"]].append(edge["Source"])
+                dag = self.get_dataflow_graph(job["Command"]["ScriptLocation"])
+                nodes = self.process_dataflow_graph(dag)
 
                 flow_urn = mce_builder.make_data_flow_urn(
                     "glue", job["Name"], self.config.env
