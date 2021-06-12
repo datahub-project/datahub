@@ -387,6 +387,8 @@ Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
 
+Using the Oracle source requires that you've also installed the correct drivers; see the [cx_Oracle docs](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html). The easiest one is the [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html).
+
 ```yml
 source:
   type: oracle
@@ -398,6 +400,7 @@ source:
     password: pass
     host_port: localhost:5432
     database: dbname
+    service_name: svc # omit database if using this option
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -730,6 +733,8 @@ sink:
     connection:
       bootstrap: "localhost:9092"
       producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
+      schema_registry_url: "http://localhost:8081"
+      schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
 
 ### Console `console`

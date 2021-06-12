@@ -144,6 +144,7 @@ base_dev_requirements = {
             "looker",
             "glue",
             "hive",
+            "oracle",
             "datahub-kafka",
             "datahub-rest",
             # airflow is added below
