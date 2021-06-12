@@ -37,9 +37,6 @@ services:
     ports:
     - 9002:9002
   datahub-gms:
-    build:
-      context: ../
-      dockerfile: docker/datahub-gms/Dockerfile
     container_name: datahub-gms
     depends_on:
     - mysql
@@ -166,7 +163,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
-    image: acryldata/mysql-setup:head
+    image: acryldata/datahub-mysql-setup:head
   neo4j:
     container_name: neo4j
     environment:

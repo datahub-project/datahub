@@ -43,27 +43,26 @@ def modify_docker_config(base_path, docker_yaml_config):
         # 1. Extract the env file pointer
         env_file = service.get("env_file")
 
-        if env_file is None:
-            continue
+        if env_file is not None:
+          # 2. Construct full .env path
+          env_file_path = os.path.join(base_path, env_file)
 
-        # 2. Construct full .env path
-        env_file_path = os.path.join(base_path, env_file)
+          # 3. Resolve the .env values
+          env_vars = dotenv_values(env_file_path)
 
-        # 3. Resolve the .env values
-        env_vars = dotenv_values(env_file_path)
+          # 4. Add an "environment" block to YAML
+          formatted_env_pairs = map(
+              lambda tuple: "{key}={value}".format(key=tuple[0], value=tuple[1]),
+              env_vars.items(),
+          )
+          service["environment"] = list(formatted_env_pairs)
 
-        # 4. Add an "environment" block to YAML
-        formatted_env_pairs = map(
-            lambda tuple: "{key}={value}".format(key=tuple[0], value=tuple[1]),
-            env_vars.items(),
-        )
-        service["environment"] = list(formatted_env_pairs)
-
-        # 5. Delete the "env_file" value
-        del service["env_file"]
+          # 5. Delete the "env_file" value
+          del service["env_file"]
 
         # 6. Delete build instructions
-        service.pop("build", None)
+        if "build" in service.keys():
+          del service["build"]
 
         # 7. Set memory limits
         if name in mem_limits:
