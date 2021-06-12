@@ -156,12 +156,15 @@ services:
     - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     - mysqldata:/var/lib/mysql
   mysql-setup:
-    build:
-      context: ../
-      dockerfile: docker/mysql-setup/Dockerfile
     container_name: mysql-setup
     depends_on:
     - mysql
+    environment:
+    - MYSQL_HOST=3306
+    - MYSQL_PORT=mysql
+    - MYSQL_USERNAME=datahub
+    - MYSQL_PASSWORD=datahub
+    - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
     image: acryldata/mysql-setup:head
   neo4j:
