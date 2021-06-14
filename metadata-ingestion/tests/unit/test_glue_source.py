@@ -34,7 +34,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 class GlueSourceTest(unittest.TestCase):
     glue_source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
-        config=GlueSourceConfig(aws_region="us-east-1"),
+        config=GlueSourceConfig(aws_region="us-east-1", extract_transforms=False),
     )
 
     def test_get_column_type_contains_key(self):
