@@ -45,7 +45,6 @@ jobs:
   push_to_registries:
     name: Build and Push Docker Image to Docker Hub
     runs-on: ubuntu-latest
-    if: ${{ needs.setup.outputs.publish == 'true' }}
     needs: setup
     steps:
       - name: Check out the repo
@@ -61,6 +60,7 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Login to DockerHub
+        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
