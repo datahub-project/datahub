@@ -669,6 +669,8 @@ Pull metadata from dbt artifacts files:
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
 - load_schemas:
   - Load schemas from dbt catalog file, not necessary when the underlying data platform already has this data.
+- node_filter:
+  - Use this filter option [list] to remove dbt test cases, seed or snapshot etc from loading into datahub
 
 ```yml
 source:
@@ -678,6 +680,7 @@ source:
     catalog_path: "./path/dbt/catalog_file.json"
     target_platform: "postgres" # optional, eg "postgres", "snowflake", etc.
     load_schemas: True or False
+    node_filter: ['test'] # optional, eg "test", "seed", "snapshot", etc.
 ```
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
