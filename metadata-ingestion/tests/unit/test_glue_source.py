@@ -32,6 +32,10 @@ from tests.unit.test_glue_source_stubs import (
     get_databases_response,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
+    get_object_body_1,
+    get_object_body_2,
+    get_object_response_1,
+    get_object_response_2,
     get_jobs_response,
     get_tables_response_1,
     get_tables_response_2,
@@ -98,35 +102,52 @@ class GlueSourceTest(unittest.TestCase):
         stringy_timestamp = datetime.strptime(FROZEN_TIME, "%Y-%m-%d %H:%M:%S")
         timestamp = int(datetime.timestamp(stringy_timestamp) * 1000)
 
-        with Stubber(self.glue_source.glue_client) as stubber:
-            stubber.add_response("get_databases", get_databases_response, {})
-            stubber.add_response(
+        with Stubber(self.glue_source.glue_client) as glue_stubber:
+
+            glue_stubber.add_response("get_databases", get_databases_response, {})
+            glue_stubber.add_response(
                 "get_tables",
                 get_tables_response_1,
                 {"DatabaseName": "flights-database"},
             )
-            stubber.add_response(
+            glue_stubber.add_response(
                 "get_tables",
                 get_tables_response_2,
                 {"DatabaseName": "test-database"},
             )
-            stubber.add_response("get_jobs", get_jobs_response, {})
-            stubber.add_response(
+            glue_stubber.add_response("get_jobs", get_jobs_response, {})
+            glue_stubber.add_response(
                 "get_dataflow_graph",
                 get_dataflow_graph_response_1,
-                {
-                    "PythonScript": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-1.py"
-                },
+                {"PythonScript": get_object_body_1},
             )
-            stubber.add_response(
+            glue_stubber.add_response(
                 "get_dataflow_graph",
                 get_dataflow_graph_response_2,
-                {
-                    "PythonScript": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-2.py"
-                },
+                {"PythonScript": get_object_body_2},
             )
-            for wu in self.glue_source.get_workunits():
-                print(wu.mce.to_obj)
+
+            with Stubber(self.glue_source.s3_client) as s3_stubber:
+
+                s3_stubber.add_response(
+                    "get_object",
+                    get_object_response_1,
+                    {
+                        "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                        "Key": "scripts/job-1.py",
+                    },
+                )
+                s3_stubber.add_response(
+                    "get_object",
+                    get_object_response_2,
+                    {
+                        "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                        "Key": "scripts/job-2.py",
+                    },
+                )
+
+                for wu in self.glue_source.get_workunits():
+                    print(wu.mce.to_obj)
 
         expected_metadata_work_unit = create_metadata_work_unit(timestamp)
 

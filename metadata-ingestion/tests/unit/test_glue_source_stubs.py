@@ -1,4 +1,8 @@
+import io
 import datetime
+import botocore.session
+from botocore.stub import Stubber
+from botocore.response import StreamingBody
 
 get_databases_response = {
     "DatabaseList": [
@@ -754,3 +758,143 @@ get_dataflow_graph_response_2 = {
         },
     ],
 }
+
+get_object_body_1 = """
+import sys
+from awsglue.transforms import *
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+import re
+
+## @params: [JOB_NAME]
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
+## @type: DataSource
+## @args: [database = "flights-database", table_name = "avro", transformation_ctx = "DataSource0"]
+## @return: DataSource0
+## @inputs: []
+DataSource0 = glueContext.create_dynamic_frame.from_catalog(database = "flights-database", table_name = "avro", transformation_ctx = "DataSource0")
+## @type: ApplyMapping
+## @args: [mappings = [("yr", "int", "yr", "int"), ("flightdate", "string", "flightdate", "string"), ("uniquecarrier", "string", "uniquecarrier", "string"), ("airlineid", "int", "airlineid", "int"), ("carrier", "string", "carrier", "string"), ("flightnum", "string", "flightnum", "string"), ("origin", "string", "origin", "string"), ("dest", "string", "dest", "string"), ("depdelay", "int", "depdelay", "int"), ("carrierdelay", "int", "carrierdelay", "int"), ("weatherdelay", "int", "weatherdelay", "int"), ("year", "string", "year", "string")], transformation_ctx = "Transform2"]
+## @return: Transform2
+## @inputs: [frame = DataSource0]
+Transform2 = ApplyMapping.apply(frame = DataSource0, mappings = [("yr", "int", "yr", "int"), ("flightdate", "string", "flightdate", "string"), ("uniquecarrier", "string", "uniquecarrier", "string"), ("airlineid", "int", "airlineid", "int"), ("carrier", "string", "carrier", "string"), ("flightnum", "string", "flightnum", "string"), ("origin", "string", "origin", "string"), ("dest", "string", "dest", "string"), ("depdelay", "int", "depdelay", "int"), ("carrierdelay", "int", "carrierdelay", "int"), ("weatherdelay", "int", "weatherdelay", "int"), ("year", "string", "year", "string")], transformation_ctx = "Transform2")
+## @type: ApplyMapping
+## @args: [mappings = [("yr", "int", "yr", "int"), ("flightdate", "string", "flightdate", "string"), ("uniquecarrier", "string", "uniquecarrier", "string"), ("airlineid", "int", "airlineid", "int"), ("carrier", "string", "carrier", "string"), ("flightnum", "string", "flightnum", "string"), ("origin", "string", "origin", "string"), ("dest", "string", "dest", "string"), ("depdelay", "int", "depdelay", "int"), ("carrierdelay", "int", "carrierdelay", "int"), ("weatherdelay", "int", "weatherdelay", "int"), ("year", "string", "year", "string")], transformation_ctx = "Transform4"]
+## @return: Transform4
+## @inputs: [frame = Transform2]
+Transform4 = ApplyMapping.apply(frame = Transform2, mappings = [("yr", "int", "yr", "int"), ("flightdate", "string", "flightdate", "string"), ("uniquecarrier", "string", "uniquecarrier", "string"), ("airlineid", "int", "airlineid", "int"), ("carrier", "string", "carrier", "string"), ("flightnum", "string", "flightnum", "string"), ("origin", "string", "origin", "string"), ("dest", "string", "dest", "string"), ("depdelay", "int", "depdelay", "int"), ("carrierdelay", "int", "carrierdelay", "int"), ("weatherdelay", "int", "weatherdelay", "int"), ("year", "string", "year", "string")], transformation_ctx = "Transform4")
+## @type: Filter
+## @args: [f = lambda row : (), transformation_ctx = "Transform0"]
+## @return: Transform0
+## @inputs: [frame = Transform2]
+Transform0 = Filter.apply(frame = Transform2, f = lambda row : (), transformation_ctx = "Transform0")
+## @type: ApplyMapping
+## @args: [mappings = [("yr", "int", "yr", "int"), ("flightdate", "string", "flightdate", "string"), ("uniquecarrier", "string", "uniquecarrier", "string"), ("airlineid", "int", "airlineid", "int"), ("carrier", "string", "carrier", "string"), ("flightnum", "string", "flightnum", "string"), ("origin", "string", "origin", "string"), ("dest", "string", "dest", "string"), ("depdelay", "int", "depdelay", "int"), ("carrierdelay", "int", "carrierdelay", "int"), ("weatherdelay", "int", "weatherdelay", "int"), ("year", "string", "year", "string")], transformation_ctx = "Transform1"]
+## @return: Transform1
+## @inputs: [frame = Transform0]
+Transform1 = ApplyMapping.apply(frame = Transform0, mappings = [("yr", "int", "yr", "int"), ("flightdate", "string", "flightdate", "string"), ("uniquecarrier", "string", "uniquecarrier", "string"), ("airlineid", "int", "airlineid", "int"), ("carrier", "string", "carrier", "string"), ("flightnum", "string", "flightnum", "string"), ("origin", "string", "origin", "string"), ("dest", "string", "dest", "string"), ("depdelay", "int", "depdelay", "int"), ("carrierdelay", "int", "carrierdelay", "int"), ("weatherdelay", "int", "weatherdelay", "int"), ("year", "string", "year", "string")], transformation_ctx = "Transform1")
+## @type: ApplyMapping
+## @args: [mappings = [("yr", "int", "(right) yr", "int"), ("flightdate", "string", "(right) flightdate", "string"), ("uniquecarrier", "string", "(right) uniquecarrier", "string"), ("airlineid", "int", "(right) airlineid", "int"), ("carrier", "string", "(right) carrier", "string"), ("flightnum", "string", "(right) flightnum", "string"), ("origin", "string", "(right) origin", "string"), ("dest", "string", "(right) dest", "string"), ("depdelay", "int", "(right) depdelay", "int"), ("carrierdelay", "int", "(right) carrierdelay", "int"), ("weatherdelay", "int", "(right) weatherdelay", "int"), ("year", "string", "(right) year", "string")], transformation_ctx = "Transform5"]
+## @return: Transform5
+## @inputs: [frame = Transform1]
+Transform5 = ApplyMapping.apply(frame = Transform1, mappings = [("yr", "int", "(right) yr", "int"), ("flightdate", "string", "(right) flightdate", "string"), ("uniquecarrier", "string", "(right) uniquecarrier", "string"), ("airlineid", "int", "(right) airlineid", "int"), ("carrier", "string", "(right) carrier", "string"), ("flightnum", "string", "(right) flightnum", "string"), ("origin", "string", "(right) origin", "string"), ("dest", "string", "(right) dest", "string"), ("depdelay", "int", "(right) depdelay", "int"), ("carrierdelay", "int", "(right) carrierdelay", "int"), ("weatherdelay", "int", "(right) weatherdelay", "int"), ("year", "string", "(right) year", "string")], transformation_ctx = "Transform5")
+## @type: Join
+## @args: [keys2 = ["(right) flightdate"], keys1 = ["yr"], transformation_ctx = "Transform3"]
+## @return: Transform3
+## @inputs: [frame1 = Transform4, frame2 = Transform5]
+Transform3 = Join.apply(frame1 = Transform4, frame2 = Transform5, keys2 = ["(right) flightdate"], keys1 = ["yr"], transformation_ctx = "Transform3")
+## @type: DataSink
+## @args: [connection_type = "s3", format = "json", connection_options = {"path": "s3://test-glue-jsons/", "partitionKeys": []}, transformation_ctx = "DataSink1"]
+## @return: DataSink1
+## @inputs: [frame = Transform3]
+DataSink1 = glueContext.write_dynamic_frame.from_options(frame = Transform3, connection_type = "s3", format = "json", connection_options = {"path": "s3://test-glue-jsons/", "partitionKeys": []}, transformation_ctx = "DataSink1")
+## @type: DataSink
+## @args: [database = "test-database", table_name = "test_jsons_markers", transformation_ctx = "DataSink0"]
+## @return: DataSink0
+## @inputs: [frame = Transform3]
+DataSink0 = glueContext.write_dynamic_frame.from_catalog(frame = Transform3, database = "test-database", table_name = "test_jsons_markers", transformation_ctx = "DataSink0")
+job.commit()
+"""
+
+get_object_body_2 = """
+import sys
+from awsglue.transforms import *
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+from awsglueml.transforms import FillMissingValues
+
+## @params: [JOB_NAME]
+args = getResolvedOptions(sys.argv, ['JOB_NAME'])
+
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args['JOB_NAME'], args)
+## @type: DataSource
+## @args: [database = "test-database", table_name = "test_parquet", transformation_ctx = "DataSource0"]
+## @return: DataSource0
+## @inputs: []
+DataSource0 = glueContext.create_dynamic_frame.from_catalog(database = "test-database", table_name = "test_parquet", transformation_ctx = "DataSource0")
+## @type: ApplyMapping
+## @args: [mappings = [("yr", "int", "yr", "int"), ("quarter", "int", "quarter", "int"), ("month", "int", "month", "int"), ("dayofmonth", "int", "dayofmonth", "int"), ("dayofweek", "int", "dayofweek", "int"), ("flightdate", "string", "flightdate", "string"), ("uniquecarrier", "string", "uniquecarrier", "string"), ("airlineid", "int", "airlineid", "int"), ("carrier", "string", "carrier", "string"), ("tailnum", "string", "tailnum", "string"), ("flightnum", "string", "flightnum", "string"), ("originairportid", "int", "originairportid", "int"), ("originairportseqid", "int", "originairportseqid", "int"), ("origincitymarketid", "int", "origincitymarketid", "int"), ("origin", "string", "origin", "string"), ("origincityname", "string", "origincityname", "string"), ("originstate", "string", "originstate", "string"), ("originstatefips", "string", "originstatefips", "string"), ("originstatename", "string", "originstatename", "string"), ("originwac", "int", "originwac", "int"), ("destairportid", "int", "destairportid", "int"), ("destairportseqid", "int", "destairportseqid", "int"), ("destcitymarketid", "int", "destcitymarketid", "int"), ("dest", "string", "dest", "string"), ("destcityname", "string", "destcityname", "string"), ("deststate", "string", "deststate", "string"), ("deststatefips", "string", "deststatefips", "string"), ("deststatename", "string", "deststatename", "string"), ("destwac", "int", "destwac", "int"), ("crsdeptime", "string", "crsdeptime", "string"), ("deptime", "string", "deptime", "string"), ("depdelay", "int", "depdelay", "int"), ("depdelayminutes", "int", "depdelayminutes", "int"), ("depdel15", "int", "depdel15", "int"), ("departuredelaygroups", "int", "departuredelaygroups", "int"), ("deptimeblk", "string", "deptimeblk", "string"), ("taxiout", "int", "taxiout", "int"), ("wheelsoff", "string", "wheelsoff", "string"), ("wheelson", "string", "wheelson", "string"), ("taxiin", "int", "taxiin", "int"), ("crsarrtime", "int", "crsarrtime", "int"), ("arrtime", "string", "arrtime", "string"), ("arrdelay", "int", "arrdelay", "int"), ("arrdelayminutes", "int", "arrdelayminutes", "int"), ("arrdel15", "int", "arrdel15", "int"), ("arrivaldelaygroups", "int", "arrivaldelaygroups", "int"), ("arrtimeblk", "string", "arrtimeblk", "string"), ("cancelled", "int", "cancelled", "int"), ("cancellationcode", "string", "cancellationcode", "string"), ("diverted", "int", "diverted", "int"), ("crselapsedtime", "int", "crselapsedtime", "int"), ("actualelapsedtime", "int", "actualelapsedtime", "int"), ("airtime", "int", "airtime", "int"), ("flights", "int", "flights", "int"), ("distance", "int", "distance", "int"), ("distancegroup", "int", "distancegroup", "int"), ("carrierdelay", "int", "carrierdelay", "int"), ("weatherdelay", "int", "weatherdelay", "int"), ("nasdelay", "int", "nasdelay", "int"), ("securitydelay", "int", "securitydelay", "int"), ("lateaircraftdelay", "int", "lateaircraftdelay", "int"), ("firstdeptime", "string", "firstdeptime", "string"), ("totaladdgtime", "int", "totaladdgtime", "int"), ("longestaddgtime", "int", "longestaddgtime", "int"), ("divairportlandings", "int", "divairportlandings", "int"), ("divreacheddest", "int", "divreacheddest", "int"), ("divactualelapsedtime", "int", "divactualelapsedtime", "int"), ("divarrdelay", "int", "divarrdelay", "int"), ("divdistance", "int", "divdistance", "int"), ("div1airport", "string", "div1airport", "string"), ("div1airportid", "int", "div1airportid", "int"), ("div1airportseqid", "int", "div1airportseqid", "int"), ("div1wheelson", "string", "div1wheelson", "string"), ("div1totalgtime", "int", "div1totalgtime", "int"), ("div1longestgtime", "int", "div1longestgtime", "int"), ("div1wheelsoff", "string", "div1wheelsoff", "string"), ("div1tailnum", "string", "div1tailnum", "string"), ("div2airport", "string", "div2airport", "string"), ("div2airportid", "int", "div2airportid", "int"), ("div2airportseqid", "int", "div2airportseqid", "int"), ("div2wheelson", "string", "div2wheelson", "string"), ("div2totalgtime", "int", "div2totalgtime", "int"), ("div2longestgtime", "int", "div2longestgtime", "int"), ("div2wheelsoff", "string", "div2wheelsoff", "string"), ("div2tailnum", "string", "div2tailnum", "string"), ("div3airport", "string", "div3airport", "string"), ("div3airportid", "int", "div3airportid", "int"), ("div3airportseqid", "int", "div3airportseqid", "int"), ("div3wheelson", "string", "div3wheelson", "string"), ("div3totalgtime", "int", "div3totalgtime", "int"), ("div3longestgtime", "int", "div3longestgtime", "int"), ("div3wheelsoff", "string", "div3wheelsoff", "string"), ("div3tailnum", "string", "div3tailnum", "string"), ("div4airport", "string", "div4airport", "string"), ("div4airportid", "int", "div4airportid", "int"), ("div4airportseqid", "int", "div4airportseqid", "int"), ("div4wheelson", "string", "div4wheelson", "string"), ("div4totalgtime", "int", "div4totalgtime", "int"), ("div4longestgtime", "int", "div4longestgtime", "int"), ("div4wheelsoff", "string", "div4wheelsoff", "string"), ("div4tailnum", "string", "div4tailnum", "string"), ("div5airport", "string", "div5airport", "string"), ("div5airportid", "int", "div5airportid", "int"), ("div5airportseqid", "int", "div5airportseqid", "int"), ("div5wheelson", "string", "div5wheelson", "string"), ("div5totalgtime", "int", "div5totalgtime", "int"), ("div5longestgtime", "int", "div5longestgtime", "int"), ("div5wheelsoff", "string", "div5wheelsoff", "string"), ("div5tailnum", "string", "div5tailnum", "string"), ("year", "string", "year", "string")], transformation_ctx = "Transform1"]
+## @return: Transform1
+## @inputs: [frame = DataSource0]
+Transform1 = ApplyMapping.apply(frame = DataSource0, mappings = [("yr", "int", "yr", "int"), ("quarter", "int", "quarter", "int"), ("month", "int", "month", "int"), ("dayofmonth", "int", "dayofmonth", "int"), ("dayofweek", "int", "dayofweek", "int"), ("flightdate", "string", "flightdate", "string"), ("uniquecarrier", "string", "uniquecarrier", "string"), ("airlineid", "int", "airlineid", "int"), ("carrier", "string", "carrier", "string"), ("tailnum", "string", "tailnum", "string"), ("flightnum", "string", "flightnum", "string"), ("originairportid", "int", "originairportid", "int"), ("originairportseqid", "int", "originairportseqid", "int"), ("origincitymarketid", "int", "origincitymarketid", "int"), ("origin", "string", "origin", "string"), ("origincityname", "string", "origincityname", "string"), ("originstate", "string", "originstate", "string"), ("originstatefips", "string", "originstatefips", "string"), ("originstatename", "string", "originstatename", "string"), ("originwac", "int", "originwac", "int"), ("destairportid", "int", "destairportid", "int"), ("destairportseqid", "int", "destairportseqid", "int"), ("destcitymarketid", "int", "destcitymarketid", "int"), ("dest", "string", "dest", "string"), ("destcityname", "string", "destcityname", "string"), ("deststate", "string", "deststate", "string"), ("deststatefips", "string", "deststatefips", "string"), ("deststatename", "string", "deststatename", "string"), ("destwac", "int", "destwac", "int"), ("crsdeptime", "string", "crsdeptime", "string"), ("deptime", "string", "deptime", "string"), ("depdelay", "int", "depdelay", "int"), ("depdelayminutes", "int", "depdelayminutes", "int"), ("depdel15", "int", "depdel15", "int"), ("departuredelaygroups", "int", "departuredelaygroups", "int"), ("deptimeblk", "string", "deptimeblk", "string"), ("taxiout", "int", "taxiout", "int"), ("wheelsoff", "string", "wheelsoff", "string"), ("wheelson", "string", "wheelson", "string"), ("taxiin", "int", "taxiin", "int"), ("crsarrtime", "int", "crsarrtime", "int"), ("arrtime", "string", "arrtime", "string"), ("arrdelay", "int", "arrdelay", "int"), ("arrdelayminutes", "int", "arrdelayminutes", "int"), ("arrdel15", "int", "arrdel15", "int"), ("arrivaldelaygroups", "int", "arrivaldelaygroups", "int"), ("arrtimeblk", "string", "arrtimeblk", "string"), ("cancelled", "int", "cancelled", "int"), ("cancellationcode", "string", "cancellationcode", "string"), ("diverted", "int", "diverted", "int"), ("crselapsedtime", "int", "crselapsedtime", "int"), ("actualelapsedtime", "int", "actualelapsedtime", "int"), ("airtime", "int", "airtime", "int"), ("flights", "int", "flights", "int"), ("distance", "int", "distance", "int"), ("distancegroup", "int", "distancegroup", "int"), ("carrierdelay", "int", "carrierdelay", "int"), ("weatherdelay", "int", "weatherdelay", "int"), ("nasdelay", "int", "nasdelay", "int"), ("securitydelay", "int", "securitydelay", "int"), ("lateaircraftdelay", "int", "lateaircraftdelay", "int"), ("firstdeptime", "string", "firstdeptime", "string"), ("totaladdgtime", "int", "totaladdgtime", "int"), ("longestaddgtime", "int", "longestaddgtime", "int"), ("divairportlandings", "int", "divairportlandings", "int"), ("divreacheddest", "int", "divreacheddest", "int"), ("divactualelapsedtime", "int", "divactualelapsedtime", "int"), ("divarrdelay", "int", "divarrdelay", "int"), ("divdistance", "int", "divdistance", "int"), ("div1airport", "string", "div1airport", "string"), ("div1airportid", "int", "div1airportid", "int"), ("div1airportseqid", "int", "div1airportseqid", "int"), ("div1wheelson", "string", "div1wheelson", "string"), ("div1totalgtime", "int", "div1totalgtime", "int"), ("div1longestgtime", "int", "div1longestgtime", "int"), ("div1wheelsoff", "string", "div1wheelsoff", "string"), ("div1tailnum", "string", "div1tailnum", "string"), ("div2airport", "string", "div2airport", "string"), ("div2airportid", "int", "div2airportid", "int"), ("div2airportseqid", "int", "div2airportseqid", "int"), ("div2wheelson", "string", "div2wheelson", "string"), ("div2totalgtime", "int", "div2totalgtime", "int"), ("div2longestgtime", "int", "div2longestgtime", "int"), ("div2wheelsoff", "string", "div2wheelsoff", "string"), ("div2tailnum", "string", "div2tailnum", "string"), ("div3airport", "string", "div3airport", "string"), ("div3airportid", "int", "div3airportid", "int"), ("div3airportseqid", "int", "div3airportseqid", "int"), ("div3wheelson", "string", "div3wheelson", "string"), ("div3totalgtime", "int", "div3totalgtime", "int"), ("div3longestgtime", "int", "div3longestgtime", "int"), ("div3wheelsoff", "string", "div3wheelsoff", "string"), ("div3tailnum", "string", "div3tailnum", "string"), ("div4airport", "string", "div4airport", "string"), ("div4airportid", "int", "div4airportid", "int"), ("div4airportseqid", "int", "div4airportseqid", "int"), ("div4wheelson", "string", "div4wheelson", "string"), ("div4totalgtime", "int", "div4totalgtime", "int"), ("div4longestgtime", "int", "div4longestgtime", "int"), ("div4wheelsoff", "string", "div4wheelsoff", "string"), ("div4tailnum", "string", "div4tailnum", "string"), ("div5airport", "string", "div5airport", "string"), ("div5airportid", "int", "div5airportid", "int"), ("div5airportseqid", "int", "div5airportseqid", "int"), ("div5wheelson", "string", "div5wheelson", "string"), ("div5totalgtime", "int", "div5totalgtime", "int"), ("div5longestgtime", "int", "div5longestgtime", "int"), ("div5wheelsoff", "string", "div5wheelsoff", "string"), ("div5tailnum", "string", "div5tailnum", "string"), ("year", "string", "year", "string")], transformation_ctx = "Transform1")
+## @type: FillMissingValues
+## @args: [missing_values_column = "dayofmonth", transformation_ctx = "Transform2"]
+## @return: Transform2
+## @inputs: [frame = Transform1]
+Transform2 = FillMissingValues.apply(frame = Transform1, missing_values_column = "dayofmonth", transformation_ctx = "Transform2")
+## @type: SelectFields
+## @args: [paths = [], transformation_ctx = "Transform3"]
+## @return: Transform3
+## @inputs: [frame = Transform2]
+Transform3 = SelectFields.apply(frame = Transform2, paths = [], transformation_ctx = "Transform3")
+## @type: DataSink
+## @args: [connection_type = "s3", format = "json", connection_options = {"path": "s3://test-glue-jsons/", "partitionKeys": []}, transformation_ctx = "DataSink0"]
+## @return: DataSink0
+## @inputs: [frame = Transform3]
+DataSink0 = glueContext.write_dynamic_frame.from_options(frame = Transform3, connection_type = "s3", format = "json", connection_options = {"path": "s3://test-glue-jsons/", "partitionKeys": []}, transformation_ctx = "DataSink0")
+## @type: SplitFields
+## @args: [paths = ["yr", "quarter", "month", "dayofmonth", "dayofweek", "flightdate", "uniquecarrier", "airlineid", "carrier", "tailnum", "flightnum", "originairportid", "originairportseqid", "origincitymarketid", "origin", "origincityname", "originstate", "originstatefips", "originstatename", "originwac", "destairportid", "destairportseqid", "destcitymarketid", "dest", "destcityname", "deststate", "deststatefips", "deststatename", "destwac", "crsdeptime", "deptime", "depdelay", "depdelayminutes", "depdel15", "departuredelaygroups", "deptimeblk", "taxiout", "wheelsoff", "wheelson", "taxiin", "crsarrtime", "arrtime", "arrdelay", "arrdelayminutes", "arrdel15", "arrivaldelaygroups", "arrtimeblk", "cancelled", "cancellationcode", "diverted", "crselapsedtime", "actualelapsedtime", "airtime", "flights", "distance", "distancegroup", "carrierdelay", "weatherdelay", "nasdelay", "securitydelay", "lateaircraftdelay", "firstdeptime", "totaladdgtime", "longestaddgtime", "divairportlandings", "divreacheddest", "divactualelapsedtime", "divarrdelay", "divdistance", "div1airport", "div1airportid", "div1airportseqid", "div1wheelson", "div1totalgtime", "div1longestgtime", "div1wheelsoff", "div1tailnum", "div2airport", "div2airportid", "div2airportseqid", "div2wheelson", "div2totalgtime", "div2longestgtime", "div2wheelsoff", "div2tailnum", "div3airport", "div3airportid", "div3airportseqid", "div3wheelson", "div3totalgtime", "div3longestgtime", "div3wheelsoff", "div3tailnum", "div4airport", "div4airportid", "div4airportseqid", "div4wheelson", "div4totalgtime", "div4longestgtime", "div4wheelsoff", "div4tailnum", "div5airport", "div5airportid", "div5airportseqid", "div5wheelson", "div5totalgtime", "div5longestgtime", "div5wheelsoff", "div5tailnum", "year"], name2 = "Transform0Output1", name1 = "Transform0Output0", transformation_ctx = "Transform0"]
+## @return: Transform0
+## @inputs: [frame = Transform1]
+Transform0 = SplitFields.apply(frame = Transform1, paths = ["yr", "quarter", "month", "dayofmonth", "dayofweek", "flightdate", "uniquecarrier", "airlineid", "carrier", "tailnum", "flightnum", "originairportid", "originairportseqid", "origincitymarketid", "origin", "origincityname", "originstate", "originstatefips", "originstatename", "originwac", "destairportid", "destairportseqid", "destcitymarketid", "dest", "destcityname", "deststate", "deststatefips", "deststatename", "destwac", "crsdeptime", "deptime", "depdelay", "depdelayminutes", "depdel15", "departuredelaygroups", "deptimeblk", "taxiout", "wheelsoff", "wheelson", "taxiin", "crsarrtime", "arrtime", "arrdelay", "arrdelayminutes", "arrdel15", "arrivaldelaygroups", "arrtimeblk", "cancelled", "cancellationcode", "diverted", "crselapsedtime", "actualelapsedtime", "airtime", "flights", "distance", "distancegroup", "carrierdelay", "weatherdelay", "nasdelay", "securitydelay", "lateaircraftdelay", "firstdeptime", "totaladdgtime", "longestaddgtime", "divairportlandings", "divreacheddest", "divactualelapsedtime", "divarrdelay", "divdistance", "div1airport", "div1airportid", "div1airportseqid", "div1wheelson", "div1totalgtime", "div1longestgtime", "div1wheelsoff", "div1tailnum", "div2airport", "div2airportid", "div2airportseqid", "div2wheelson", "div2totalgtime", "div2longestgtime", "div2wheelsoff", "div2tailnum", "div3airport", "div3airportid", "div3airportseqid", "div3wheelson", "div3totalgtime", "div3longestgtime", "div3wheelsoff", "div3tailnum", "div4airport", "div4airportid", "div4airportseqid", "div4wheelson", "div4totalgtime", "div4longestgtime", "div4wheelsoff", "div4tailnum", "div5airport", "div5airportid", "div5airportseqid", "div5wheelson", "div5totalgtime", "div5longestgtime", "div5wheelsoff", "div5tailnum", "year"], name2 = "Transform0Output1", name1 = "Transform0Output0", transformation_ctx = "Transform0")
+job.commit()
+"""
+
+
+def mock_get_object_response(raw_body: str):
+    """
+    Mock s3 client get_object() response object.
+
+    See https://gist.github.com/grantcooksey/132ddc85274a50b94b821302649f9d7b
+
+    Parameters
+    ----------
+        raw_body:
+            Content of the 'Body' field to return
+    """
+
+    encoded_message = raw_body.encode("utf-8")
+    raw_stream = StreamingBody(io.BytesIO(encoded_message), len(encoded_message))
+
+    return {"Body": raw_stream}
+
+
+get_object_response_1 = mock_get_object_response(get_object_body_1)
+get_object_response_2 = mock_get_object_response(get_object_body_2)
+
+s3 = botocore.session.get_session().create_client("s3")
+s3_stubber = Stubber(s3)

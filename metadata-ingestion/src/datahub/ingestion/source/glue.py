@@ -80,15 +80,14 @@ class GlueSourceConfig(ConfigModel):
     aws_role: Optional[Union[str, List[str]]] = None
     aws_region: str
 
-    @property
-    def glue_client(self):
+    def get_client(self, service: str):
         if (
             self.aws_access_key_id
             and self.aws_secret_access_key
             and self.aws_session_token
         ):
             return boto3.client(
-                "glue",
+                service,
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
                 aws_session_token=self.aws_session_token,
@@ -96,7 +95,7 @@ class GlueSourceConfig(ConfigModel):
             )
         elif self.aws_access_key_id and self.aws_secret_access_key:
             return boto3.client(
-                "glue",
+                service,
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
                 region_name=self.aws_region,
@@ -113,14 +112,22 @@ class GlueSourceConfig(ConfigModel):
                     {},
                 )
             return boto3.client(
-                "glue",
+                service,
                 aws_access_key_id=credentials["AccessKeyId"],
                 aws_secret_access_key=credentials["SecretAccessKey"],
                 aws_session_token=credentials["SessionToken"],
                 region_name=self.aws_region,
             )
         else:
-            return boto3.client("glue", region_name=self.aws_region)
+            return boto3.client(service, region_name=self.aws_region)
+
+    @property
+    def glue_client(self):
+        return self.get_client("glue")
+
+    @property
+    def s3_client(self):
+        return self.get_client("s3")
 
 
 @dataclass
@@ -144,6 +151,7 @@ class GlueSource(Source):
         self.source_config = config
         self.report = GlueSourceReport()
         self.glue_client = config.glue_client
+        self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
 
@@ -181,9 +189,8 @@ class GlueSource(Source):
         key = url.path[1:]
 
         # download the script contents
-        s3 = boto3.resource("s3")
-        obj = s3.Object(bucket, key)
-        script = obj.get()["Body"].read().decode("utf-8")
+        obj = self.s3_client.get_object(Bucket=bucket, Key=key)
+        script = obj["Body"].read().decode("utf-8")
 
         # extract the job DAG from the script
         return self.glue_client.get_dataflow_graph(PythonScript=script)
