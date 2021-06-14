@@ -77,7 +77,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.6"
+        "acryl-pyhive[hive]>=0.6.7"
     },
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
@@ -144,6 +144,7 @@ base_dev_requirements = {
             "looker",
             "glue",
             "hive",
+            "oracle",
             "datahub-kafka",
             "datahub-rest",
             # airflow is added below
