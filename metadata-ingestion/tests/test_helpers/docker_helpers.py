@@ -31,18 +31,11 @@ def wait_for_port(
 def docker_compose_runner(docker_compose_project_name, docker_cleanup):
     @contextlib.contextmanager
     def run(compose_file_path: str, key: str) -> pytest_docker.plugin.Services:
-        try:
-            docker_services = pytest_docker.plugin.get_docker_services(
-                str(compose_file_path),
-                f"{docker_compose_project_name}-{key}",
-                docker_cleanup,
-            )
-            yield docker_services.__enter__()
-        finally:
-            # This setup exists because the underlying pytest_docker library does not
-            # wrap it's cleanup routine in a `finally` block.
-            # See this PR: https://github.com/avast/pytest-docker/pull/58.
-            docker_services.__exit__(None, None, None)
-            print("called docker-compose cleanup")
+        with pytest_docker.plugin.get_docker_services(
+            str(compose_file_path),
+            f"{docker_compose_project_name}-{key}",
+            docker_cleanup,
+        ) as docker_services:
+            yield docker_services
 
     return run
