@@ -97,15 +97,18 @@ def extract_dbt_entities(
         node = nodes[key]
         dbtNode = DBTNode()
 
+        if key not in catalog and load_catalog is False:
+            continue
+
+        if "identifier" in node and load_catalog is False:
+            dbtNode.name = node["identifier"]
+        else:
+            dbtNode.name = node["name"]
         dbtNode.dbt_name = key
         dbtNode.database = node["database"]
         dbtNode.schema = node["schema"]
         dbtNode.dbt_file_path = node["original_file_path"]
         dbtNode.node_type = node["resource_type"]
-        if "identifier" in node and load_catalog is False:
-            dbtNode.name = node["identifier"]
-        else:
-            dbtNode.name = node["name"]
 
         if "materialized" in node["config"].keys():
             # It's a model
