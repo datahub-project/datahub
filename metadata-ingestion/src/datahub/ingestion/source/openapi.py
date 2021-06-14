@@ -9,7 +9,8 @@ from datahub.ingestion.api.source import Source, SourceReport
 from dataclasses import dataclass
 import logging
 from datahub.metadata.schema_classes import (DatasetPropertiesClass, InstitutionalMemoryClass,
-                                             InstitutionalMemoryMetadataClass, AuditStampClass)
+                                             InstitutionalMemoryMetadataClass, AuditStampClass, GlobalTagsClass,
+                                             TagAssociationClass)
 from tqdm.auto import tqdm
 from collections import Counter
 from datahub.ingestion.source.openapi_parser import (get_swag_json, get_tok, get_url_basepath, get_endpoints,
@@ -50,26 +51,13 @@ class ApiWorkUnit(MetadataWorkUnit):
     pass
 
 
-@dataclass
-class OpenApiSourceReport(SourceReport):
-    endpoint_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
-    stat_warnings: Counter = field(default_factory=Counter)
-
-    def report_endpoint_scanned(self, endpoint_name: str) -> None:
-        self.endpoint_scanned += 1
-
-    def report_dropped(self, endpoint_name: str) -> None:
-        self.filtered.append(endpoint_name)
-
-
 class APISource(Source, ABC):
 
     def __init__(self, config: OpenApiConfig, ctx: PipelineContext, platform: str):
         super().__init__(ctx)
         self.config = config
         self.platform = platform
-        self.report = OpenApiSourceReport()
+        self.report = SourceReport()
 
     def report_bad_responses(self, status_code: int, key: str):
         if status_code == 400:
@@ -113,13 +101,22 @@ class APISource(Source, ABC):
                 urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{config.name}.{dataset_name},PROD)",
                 aspects=[],
             )
+
+            # adding description
             dataset_properties = DatasetPropertiesClass(
                 description=endpoint_dets["description"],
                 customProperties={},
-                tags=[make_tag_urn(t) for t in endpoint_dets["tags"]]  # todo: tags are not accounted?
+                # tags=tags_str
             )
             dataset_snapshot.aspects.append(dataset_properties)
 
+            # adding tags
+            tags_str = [make_tag_urn(t) for t in endpoint_dets["tags"]]
+            tags_tac = [TagAssociationClass(t) for t in tags_str]
+            gtc = GlobalTagsClass(tags_tac)
+            dataset_snapshot.aspects.append(gtc)
+
+            # the link will appear in the "documentation"
             link_url = clean_url(config.url + url_basepath + endpoint_k)
             link_description = "Link to call for the dataset."
             creation = AuditStampClass(time=int(time.time()),
@@ -130,6 +127,7 @@ class APISource(Source, ABC):
             inst_memory = InstitutionalMemoryClass([link_metadata])
             dataset_snapshot.aspects.append(inst_memory)
 
+            # adding dataset fields
             if "data" in endpoint_dets.keys():
                 # we are lucky! data is defined in the swagger for this endpoint
                 schema_metadata = set_metadata(dataset_name, endpoint_dets["data"])
