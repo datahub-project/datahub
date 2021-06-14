@@ -127,7 +127,7 @@
                     },
                     {
                         "com.linkedin.pegasus2avro.dataset.EditableDatasetProperties": {
-                            "description_123": "TEST",
+                            "description": "Dataset Description Updated",
                             "tags": [
                                 "myfaketags"
                             ]
