@@ -1,0 +1,11 @@
+source:
+  type: feast
+  config:
+    core_url: localhost:6565 # default
+    env: "PROD" # Optional, default is "PROD"
+    use_local_build: False # Whether to build Feast ingestion image locally, default is False
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
