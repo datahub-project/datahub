@@ -9,6 +9,7 @@ import com.linkedin.metadata.snapshot.ChartSnapshot;
 import com.linkedin.restli.client.Client;
 import java.net.URISyntaxException;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -20,7 +21,7 @@ public class ChartHydrator implements Hydrator {
   private static final String DASHBOARD_TOOL = "dashboardTool";
   private static final String TITLE = "title";
 
-  public ChartHydrator(Client restliClient) {
+  public ChartHydrator(@Nonnull Client restliClient) {
     _restliClient = restliClient;
     _remoteDAO = new RestliRemoteDAO<>(ChartSnapshot.class, ChartAspect.class, _restliClient);
   }

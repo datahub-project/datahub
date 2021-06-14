@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.kafka.config.DataHubUsageEventsProcessorCondition;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.kafka.elasticsearch.JsonElasticEvent;
 import com.linkedin.metadata.kafka.transformer.DataHubUsageEventTransformer;
@@ -11,7 +12,7 @@ import java.net.URLEncoder;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -19,16 +20,18 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@ConditionalOnProperty(value = "DATAHUB_ANALYTICS_ENABLED", havingValue = "true", matchIfMissing = true)
 @EnableKafka
+@Conditional(DataHubUsageEventsProcessorCondition.class)
 public class DataHubUsageEventsProcessor {
 
   private final ElasticsearchConnector elasticSearchConnector;
   private final DataHubUsageEventTransformer dataHubUsageEventTransformer;
   private final String indexName;
 
-  public DataHubUsageEventsProcessor(ElasticsearchConnector elasticSearchConnector,
-      DataHubUsageEventTransformer dataHubUsageEventTransformer, IndexConvention indexConvention) {
+  public DataHubUsageEventsProcessor(
+      ElasticsearchConnector elasticSearchConnector,
+      DataHubUsageEventTransformer dataHubUsageEventTransformer,
+      IndexConvention indexConvention) {
     this.elasticSearchConnector = elasticSearchConnector;
     this.dataHubUsageEventTransformer = dataHubUsageEventTransformer;
     this.indexName = indexConvention.getIndexName("datahub_usage_event");

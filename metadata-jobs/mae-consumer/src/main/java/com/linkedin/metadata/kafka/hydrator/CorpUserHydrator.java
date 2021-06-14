@@ -9,6 +9,7 @@ import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.restli.client.Client;
 import java.net.URISyntaxException;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -20,7 +21,7 @@ public class CorpUserHydrator implements Hydrator {
   private static final String USER_NAME = "username";
   private static final String NAME = "name";
 
-  public CorpUserHydrator(Client restliClient) {
+  public CorpUserHydrator(@Nonnull Client restliClient) {
     _restliClient = restliClient;
     _remoteDAO = new RestliRemoteDAO<>(CorpUserSnapshot.class, CorpUserAspect.class, _restliClient);
   }
