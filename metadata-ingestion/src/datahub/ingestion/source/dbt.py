@@ -38,6 +38,7 @@ class DBTConfig(ConfigModel):
     env: str = "PROD"
     target_platform: str
     load_schemas: bool
+    node_filter: list
 
 
 class DBTColumn:
@@ -91,12 +92,16 @@ def extract_dbt_entities(
     load_catalog: bool,
     target_platform: str,
     environment: str,
+    node_filter: list,
 ) -> List[DBTNode]:
     dbt_entities = []
     for key in nodes:
         node = nodes[key]
         dbtNode = DBTNode()
 
+        # added node_filter to remove nodes likes test, seed from loading in datahub
+        if node["resource_type"] in node_filter:
+            continue
         dbtNode.dbt_name = key
         dbtNode.database = node["database"]
         dbtNode.schema = node["schema"]
@@ -151,6 +156,7 @@ def loadManifestAndCatalog(
     load_catalog: bool,
     target_platform: str,
     environment: str,
+    node_filter: list,
 ) -> List[DBTNode]:
     with open(manifest_path, "r") as manifest:
         with open(catalog_path, "r") as catalog:
@@ -173,6 +179,7 @@ def loadManifestAndCatalog(
                 load_catalog,
                 target_platform,
                 environment,
+                node_filter,
             )
 
             return nodes
@@ -336,6 +343,7 @@ class DBTSource(Source):
             self.config.load_schemas,
             self.config.target_platform,
             self.config.env,
+            self.config.node_filter,
         )
 
         for node in nodes:
