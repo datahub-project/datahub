@@ -49,10 +49,10 @@ public class DataJobUpdateInputMapper implements InputModelMapper<DataJobUpdateI
         if (dataJobUpdateInput.getEditableProperties() != null) {
             final EditableDatajobProperties editableDatajobProperties = new EditableDatajobProperties();
             editableDatajobProperties.setDescription(dataJobUpdateInput.getEditableProperties().getDescription());
-            editableDatajobProperties.setLastModified(auditStamp);
-            if (editableDatajobProperties.hasCreated()) {
+            if (!editableDatajobProperties.hasCreated()) {
                 editableDatajobProperties.setCreated(auditStamp);
             }
+            editableDatajobProperties.setLastModified(auditStamp);
             result.setEditableProperties(editableDatajobProperties);
         }
         return result;

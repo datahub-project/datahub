@@ -181,7 +181,6 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
 
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
         final com.linkedin.datajob.DataFlow partialDataFlow = DataFlowUpdateInputMapper.map(input, actor);
-        partialDataFlow.setUrn(DataFlowUrn.createFromString(input.getUrn()));
 
         try {
             Entity entity = new Entity();

@@ -186,11 +186,10 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
 
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
         final com.linkedin.datajob.DataJob partialDataJob = DataJobUpdateInputMapper.map(input, actor);
-        partialDataJob.setUrn(DataJobUrn.createFromString(input.getUrn()));
 
         try {
             Entity entity = new Entity();
-            entity.setValue(Snapshot.create(toSnapshot(partialDataJob, partialDataJob.getUrn())));
+            entity.setValue(Snapshot.create(toSnapshot(partialDataJob, DataJobUrn.createFromString(input.getUrn()))));
             _dataJobsClient.update(entity);
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
