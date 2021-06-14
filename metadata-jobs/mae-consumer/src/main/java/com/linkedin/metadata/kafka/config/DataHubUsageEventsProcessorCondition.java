@@ -13,7 +13,7 @@ public class DataHubUsageEventsProcessorCondition implements Condition {
       AnnotatedTypeMetadata metadata) {
     Environment env = context.getEnvironment();
     return "true".equals(env.getProperty("MAE_CONSUMER_ENABLED")) && (
-        env.getProperty("DATAHUB_ANALYTICS_ENABLED") == null ||
-        "true".equals(env.getProperty("DATAHUB_ANALYTICS_ENABLED")));
+        env.getProperty("DATAHUB_ANALYTICS_ENABLED") == null
+            || "true".equals(env.getProperty("DATAHUB_ANALYTICS_ENABLED")));
   }
 }
