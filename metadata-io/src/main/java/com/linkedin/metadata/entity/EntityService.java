@@ -3,7 +3,6 @@ package com.linkedin.metadata.entity;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
@@ -25,7 +24,8 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.PegasusUtils.*;
+import static com.linkedin.metadata.PegasusUtils.getDataTemplateClassFromSchema;
+import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -83,8 +83,7 @@ public abstract class EntityService {
    * @param aspectNames aspects to fetch for each urn in urns set
    * @return a map of provided {@link Urn} to a List containing the requested aspects.
    */
-  protected abstract Map<Urn, List<RecordTemplate>> getLatestAspects(
-      @Nonnull final Set<Urn> urns,
+  protected abstract Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames);
 
   /**
@@ -98,10 +97,7 @@ public abstract class EntityService {
    * @param version specific version of the aspect being requests
    * @return the {@link RecordTemplate} representation of the requested aspect object
    */
-  public abstract RecordTemplate getAspect(
-      @Nonnull final Urn urn,
-      @Nonnull final String aspectName,
-      long version);
+  public abstract RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, long version);
 
   /**
    * Retrieves a list of all persisted aspects with a specific name, sorted by corresponding urn.
@@ -114,9 +110,7 @@ public abstract class EntityService {
    * @param count the count of the aspects to be returned, used in pagination
    * @return a {@link ListResult} of {@link RecordTemplate}s representing the requested aspect.
    */
-  public abstract ListResult<RecordTemplate> listLatestAspects(
-      @Nonnull final String aspectName,
-      final int start,
+  public abstract ListResult<RecordTemplate> listLatestAspects(@Nonnull final String aspectName, final int start,
       int count);
 
   /**
@@ -131,11 +125,8 @@ public abstract class EntityService {
    * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
    * @return the {@link RecordTemplate} representation of the written aspect object
    */
-  public abstract RecordTemplate ingestAspect(
-      @Nonnull final Urn urn,
-      @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue,
-      @Nonnull final AuditStamp auditStamp);
+  public abstract RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp);
 
   /**
    * Updates a particular version of an aspect & optionally emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
@@ -152,19 +143,16 @@ public abstract class EntityService {
    *                successful update
    * @return the {@link RecordTemplate} representation of the requested aspect object
    */
-  public abstract RecordTemplate updateAspect(
-      @Nonnull final Urn urn,
-      @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue,
-      @Nonnull final AuditStamp auditStamp,
-      final long version,
+  public abstract RecordTemplate updateAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, final long version,
       final boolean emitMae);
 
   /**
    * Default implementations. Subclasses should feel free to override if it's more efficient to do so.
    */
   public Entity getEntity(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
-    return getEntities(Collections.singleton(urn), aspectNames).entrySet().stream()
+    return getEntities(Collections.singleton(urn), aspectNames).entrySet()
+        .stream()
         .map(Map.Entry::getValue)
         .findFirst()
         .orElse(null);
@@ -181,7 +169,8 @@ public abstract class EntityService {
     if (urns.isEmpty()) {
       return Collections.emptyMap();
     }
-    return getSnapshotUnions(urns, aspectNames).entrySet().stream()
+    return getSnapshotUnions(urns, aspectNames).entrySet()
+        .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntity(entry.getValue())));
   }
 
@@ -195,7 +184,7 @@ public abstract class EntityService {
     }
   }
 
-  public  void ingestEntity(@Nonnull final Entity entity, @Nonnull final AuditStamp auditStamp) {
+  public void ingestEntity(@Nonnull final Entity entity, @Nonnull final AuditStamp auditStamp) {
     ingestSnapshotUnion(entity.getValue(), auditStamp);
   }
 
@@ -207,25 +196,29 @@ public abstract class EntityService {
   }
 
   @Nonnull
-  protected Map<Urn, RecordTemplate> getSnapshotRecords(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+  protected Map<Urn, RecordTemplate> getSnapshotRecords(@Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames) {
     return getLatestAspectUnions(urns, aspectNames).entrySet()
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toSnapshotRecord(entry.getKey(), entry.getValue())));
   }
 
   @Nonnull
-  protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
-    return getLatestAspects(urns, aspectNames).entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry ->
-            entry.getValue().stream().map(aspectRecord -> toAspectUnion(entry.getKey(), aspectRecord))
-                .collect(Collectors.toList())
-        ));
+  protected Map<Urn, List<UnionTemplate>> getLatestAspectUnions(@Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames) {
+    return getLatestAspects(urns, aspectNames).entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue()
+            .stream()
+            .map(aspectRecord -> toAspectUnion(entry.getKey(), aspectRecord))
+            .collect(Collectors.toList())));
   }
 
   private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp) {
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
-    final List<RecordTemplate> aspectRecordsToIngest = com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
+    final List<RecordTemplate> aspectRecordsToIngest =
+        com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
     aspectRecordsToIngest.forEach(aspect -> {
       final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());
@@ -233,9 +226,7 @@ public abstract class EntityService {
     });
   }
 
-  protected void produceMetadataAuditEvent(
-      @Nonnull final Urn urn,
-      @Nullable final RecordTemplate oldValue,
+  protected void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldValue,
       @Nonnull final RecordTemplate newValue) {
 
     final Snapshot newSnapshot = buildSnapshot(urn, newValue);
@@ -253,20 +244,9 @@ public abstract class EntityService {
   }
 
   private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
-    final RecordTemplate keyAspectValue = buildKeyAspect(urn);
+    final RecordTemplate keyAspectValue = EntityKeyUtils.convertUrnToEntityKey(urn, _entityRegistry);
     return toSnapshotUnion(
-        toSnapshotRecord(
-            urn,
-            ImmutableList.of(toAspectUnion(urn, keyAspectValue), toAspectUnion(urn, aspectValue))
-        )
-    );
-  }
-
-  protected RecordTemplate buildKeyAspect(@Nonnull final Urn urn) {
-    final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
-    final AspectSpec keySpec = spec.getKeyAspectSpec();
-    final RecordDataSchema keySchema = keySpec.getPegasusSchema();
-    return EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
+        toSnapshotRecord(urn, ImmutableList.of(toAspectUnion(urn, keyAspectValue), toAspectUnion(urn, aspectValue))));
   }
 
   protected Entity toEntity(@Nonnull final Snapshot snapshot) {
@@ -275,32 +255,23 @@ public abstract class EntityService {
 
   protected Snapshot toSnapshotUnion(@Nonnull final RecordTemplate snapshotRecord) {
     final Snapshot snapshot = new Snapshot();
-    RecordUtils.setSelectedRecordTemplateInUnion(
-        snapshot,
-        snapshotRecord
-    );
+    RecordUtils.setSelectedRecordTemplateInUnion(snapshot, snapshotRecord);
     return snapshot;
   }
 
-  protected RecordTemplate toSnapshotRecord(
-      @Nonnull final Urn urn,
+  protected RecordTemplate toSnapshotRecord(@Nonnull final Urn urn,
       @Nonnull final List<UnionTemplate> aspectUnionTemplates) {
     final String entityName = urnToEntityName(urn);
     final EntitySpec entitySpec = _entityRegistry.getEntitySpec(entityName);
     return com.linkedin.metadata.dao.utils.ModelUtils.newSnapshot(
-        getDataTemplateClassFromSchema(entitySpec.getSnapshotSchema(), RecordTemplate.class),
-        urn,
+        getDataTemplateClassFromSchema(entitySpec.getSnapshotSchema(), RecordTemplate.class), urn,
         aspectUnionTemplates);
   }
 
-  protected UnionTemplate toAspectUnion(
-      @Nonnull final Urn urn,
-      @Nonnull final RecordTemplate aspectRecord) {
+  protected UnionTemplate toAspectUnion(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectRecord) {
     final EntitySpec entitySpec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
     return com.linkedin.metadata.dao.utils.ModelUtils.newAspectUnion(
-        getDataTemplateClassFromSchema(entitySpec.getAspectTyperefSchema(), UnionTemplate.class),
-        aspectRecord
-    );
+        getDataTemplateClassFromSchema(entitySpec.getAspectTyperefSchema(), UnionTemplate.class), aspectRecord);
   }
 
   protected Urn toUrn(final String urnStr) {
@@ -315,10 +286,7 @@ public abstract class EntityService {
     return entityRegistry.getEntitySpecs()
         .stream()
         .collect(Collectors.toMap(EntitySpec::getName,
-            entry -> entry.getAspectSpecs().stream()
-                .map(AspectSpec::getName)
-                .collect(Collectors.toSet())
-        ));
+            entry -> entry.getAspectSpecs().stream().map(AspectSpec::getName).collect(Collectors.toSet())));
   }
 
   public void setEmitAspectSpecificAuditEvent(Boolean emitAspectSpecificAuditEvent) {

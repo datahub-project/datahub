@@ -1,6 +1,8 @@
 package com.linkedin.metadata.kafka.config;
 
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.kafka.hydrator.HydratorFactory;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.restli.client.Client;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,6 +24,7 @@ public class HydratorFactoryConfig {
   @Bean
   public HydratorFactory getHydratorFactory() {
     Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
-    return new HydratorFactory(restClient);
+    EntityClient entityClient = new EntityClient(restClient);
+    return new HydratorFactory(entityClient, SnapshotEntityRegistry.getInstance());
   }
 }

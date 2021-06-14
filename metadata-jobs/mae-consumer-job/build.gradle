@@ -13,6 +13,7 @@ dependencies {
     avro project(path: ':metadata-models', configuration: 'avroSchema')
 
     compile project(':li-utils')
+    compile project(':gms:client')
     compile (project(':gms:factories')) {
         exclude group: 'org.neo4j.test'
     }

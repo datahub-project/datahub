@@ -1,46 +1,34 @@
 package com.linkedin.metadata.kafka.hydrator;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.common.urn.DashboardUrn;
-import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.metadata.aspect.DashboardAspect;
-import com.linkedin.metadata.dao.RestliRemoteDAO;
-import com.linkedin.metadata.snapshot.DashboardSnapshot;
-import com.linkedin.restli.client.Client;
-import java.net.URISyntaxException;
-import java.util.Optional;
+import com.linkedin.metadata.key.DashboardKey;
+import com.linkedin.metadata.snapshot.Snapshot;
+import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-public class DashboardHydrator implements Hydrator {
-  private final Client _restliClient;
-  private final RestliRemoteDAO<DashboardSnapshot, DashboardAspect, DashboardUrn> _remoteDAO;
-
+@SuperBuilder
+public class DashboardHydrator extends Hydrator<DashboardKey> {
   private static final String DASHBOARD_TOOL = "dashboardTool";
   private static final String TITLE = "title";
 
-  public DashboardHydrator(Client restliClient) {
-    _restliClient = restliClient;
-    _remoteDAO = new RestliRemoteDAO<>(DashboardSnapshot.class, DashboardAspect.class, _restliClient);
+  @Override
+  protected void hydrateFromKey(ObjectNode document, DashboardKey key) {
+    document.put(DASHBOARD_TOOL, key.getDashboardTool());
   }
 
   @Override
-  public Optional<ObjectNode> getHydratedEntity(String urn) {
-    DashboardUrn dashboardUrn;
-    try {
-      dashboardUrn = DashboardUrn.createFromString(urn);
-    } catch (URISyntaxException e) {
-      log.info("Invalid Dashboard URN: {}", urn);
-      return Optional.empty();
+  protected void hydrateFromSnapshot(ObjectNode document, Snapshot snapshot) {
+    if (!snapshot.isDashboardSnapshot()) {
+      log.error("Hydrator {} does not match type of snapshot {}", this.getClass().getSimpleName(),
+          snapshot.getClass().getSimpleName());
     }
-
-    ObjectNode jsonObject = HydratorFactory.OBJECT_MAPPER.createObjectNode();
-    jsonObject.put(DASHBOARD_TOOL, dashboardUrn.getDashboardToolEntity());
-
-    _remoteDAO.get(DashboardInfo.class, dashboardUrn)
-        .ifPresent(dashboardInfo -> jsonObject.put(TITLE, dashboardInfo.getTitle()));
-
-    return Optional.of(jsonObject);
+    for (DashboardAspect aspect : snapshot.getDashboardSnapshot().getAspects()) {
+      if (aspect.isDashboardInfo()) {
+        document.put(TITLE, aspect.getDashboardInfo().getTitle());
+      }
+    }
   }
 }

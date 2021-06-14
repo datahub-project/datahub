@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import javax.annotation.Nonnull;
@@ -28,7 +29,8 @@ public class EntityKeyUtils {
    * @throws {@link IllegalArgumentException} if the urn cannot be converted into the key schema (field number or type mismatch)
    */
   @Nonnull
-  public static RecordTemplate convertUrnToEntityKey(@Nonnull final Urn urn, @Nonnull final RecordDataSchema keySchema) {
+  public static RecordTemplate convertUrnToEntityKey(@Nonnull final Urn urn,
+      @Nonnull final RecordDataSchema keySchema) {
 
     // #1. Ensure we have a class to bind into.
     Class<? extends RecordTemplate> clazz;
@@ -62,5 +64,25 @@ public class EntityKeyUtils {
           String.format("Failed to instantiate RecordTemplate with name %s. Missing constructor taking DataMap as arg.",
               clazz.getName()));
     }
+  }
+
+  /**
+   * Implicitly converts a normal {@link Urn} into a {@link RecordTemplate} Entity Key fetched from {@link EntityRegistry}
+   *
+   * Parts of the urn are bound into fields in the keySchema based on field <b>index</b>. If the
+   * number of urn key parts does not match the number of fields in the key schema, an {@link IllegalArgumentException} will be thrown.
+   *
+   * @param urn raw entity urn
+   * @param entityRegistry entity registry used to fetch the key aspect spec
+   * @return a {@link RecordTemplate} created by mapping the fields of the urn to fields of
+   * the provided key schema in order.
+   * @throws {@link IllegalArgumentException} if the urn cannot be converted into the key schema (field number or type mismatch)
+   */
+  public static RecordTemplate convertUrnToEntityKey(@Nonnull final Urn urn,
+      @Nonnull final EntityRegistry entityRegistry) {
+    final EntitySpec spec = entityRegistry.getEntitySpec(urn.getEntityType());
+    final AspectSpec keySpec = spec.getKeyAspectSpec();
+    final RecordDataSchema keySchema = keySpec.getPegasusSchema();
+    return EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
   }
 }
