@@ -1,3 +1,4 @@
+import json
 import unittest
 from datetime import datetime
 
@@ -27,6 +28,14 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from tests.unit.test_glue_source_stubs import (
+    get_databases_response,
+    get_dataflow_graph_response_1,
+    get_dataflow_graph_response_2,
+    get_jobs_response,
+    get_tables_response_1,
+    get_tables_response_2,
+)
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
@@ -34,7 +43,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 class GlueSourceTest(unittest.TestCase):
     glue_source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
-        config=GlueSourceConfig(aws_region="us-east-1", extract_transforms=False),
+        config=GlueSourceConfig(aws_region="us-east-1", extract_transforms=True),
     )
 
     def test_get_column_type_contains_key(self):
@@ -84,59 +93,49 @@ class GlueSourceTest(unittest.TestCase):
             ],
         )
 
-    @freeze_time(FROZEN_TIME)
+    # @freeze_time(FROZEN_TIME)
     def test_turn_boto_glue_data_to_metadata_event(self):
         stringy_timestamp = datetime.strptime(FROZEN_TIME, "%Y-%m-%d %H:%M:%S")
         timestamp = int(datetime.timestamp(stringy_timestamp) * 1000)
 
-        get_databases_response = {
-            "DatabaseList": [
-                {
-                    "Name": "datalake_grilled",
-                    "Description": "irrelevant",
-                    "LocationUri": "irrelevant",
-                    "Parameters": {},
-                    "CreateTime": datetime(2015, 1, 1),
-                    "CreateTableDefaultPermissions": [],
-                    "CatalogId": "irrelevant",
-                },
-            ],
-        }
-        get_tables_response = {
-            "TableList": [
-                {
-                    "Name": "Barbeque",
-                    "Owner": "Susan",
-                    "DatabaseName": "datalake_grilled",
-                    "Description": "Grilled Food",
-                    "StorageDescriptor": {
-                        "Columns": [
-                            {
-                                "Name": "Size",
-                                "Type": "int",
-                                "Comment": "Maximum attendees permitted",
-                            }
-                        ]
-                    },
-                }
-            ]
-        }
-
         with Stubber(self.glue_source.glue_client) as stubber:
             stubber.add_response("get_databases", get_databases_response, {})
             stubber.add_response(
-                "get_tables", get_tables_response, {"DatabaseName": "datalake_grilled"}
+                "get_tables",
+                get_tables_response_1,
+                {"DatabaseName": "flights-database"},
             )
-            actual_work_unit = list(self.glue_source.get_workunits())[0]
+            stubber.add_response(
+                "get_tables",
+                get_tables_response_2,
+                {"DatabaseName": "test-database"},
+            )
+            stubber.add_response("get_jobs", get_jobs_response, {})
+            stubber.add_response(
+                "get_dataflow_graph",
+                get_dataflow_graph_response_1,
+                {
+                    "PythonScript": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-1.py"
+                },
+            )
+            stubber.add_response(
+                "get_dataflow_graph",
+                get_dataflow_graph_response_2,
+                {
+                    "PythonScript": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-2.py"
+                },
+            )
+            for wu in self.glue_source.get_workunits():
+                print(wu.mce.to_obj)
 
         expected_metadata_work_unit = create_metadata_work_unit(timestamp)
 
-        self.assertEqual(expected_metadata_work_unit, actual_work_unit)
+        # self.assertEqual(expected_metadata_work_unit, actual_work_unit)
 
 
 def create_metadata_work_unit(timestamp):
     dataset_snapshot = DatasetSnapshot(
-        urn="urn:li:dataset:(urn:li:dataPlatform:glue,datalake_grilled.Barbeque,PROD)",
+        urn="urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
         aspects=[],
     )
 
