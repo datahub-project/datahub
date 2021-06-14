@@ -165,7 +165,7 @@ class GlueSource(Source):
 
         return jobs
 
-    def get_dataflow_graph(self, script_path: str):
+    def get_dataflow_graph(self, script_path: str) -> Dict[str, Any]:
         """
         Get the DAG of transforms and data sources/sinks for a job.
 
@@ -272,7 +272,7 @@ class GlueSource(Source):
 
         return nodes
 
-    def get_dataflow_wu(self, flow_urn: str, job: Dict[str, Any]):
+    def get_dataflow_wu(self, flow_urn: str, job: Dict[str, Any]) -> MetadataWorkUnit:
         """
         Generate a DataFlow workunit for a Glue job.
 
@@ -304,7 +304,9 @@ class GlueSource(Source):
 
         return MetadataWorkUnit(id=job["Name"], mce=mce)
 
-    def get_datajob_wu(self, node: Dict[str, Any], job: Dict[str, Any]):
+    def get_datajob_wu(
+        self, node: Dict[str, Any], job: Dict[str, Any]
+    ) -> MetadataWorkUnit:
         """
         Generate a DataJob workunit for a component (node) in a Glue job.
 
@@ -336,37 +338,38 @@ class GlueSource(Source):
 
         return MetadataWorkUnit(id=node["Id"], mce=mce)
 
+    def get_all_tables(self) -> List[dict]:
+        def get_tables_from_database(database_name: str) -> List[dict]:
+            new_tables = []
+            paginator = self.glue_client.get_paginator("get_tables")
+            for page in paginator.paginate(DatabaseName=database_name):
+                new_tables += page["TableList"]
+
+            return new_tables
+
+        def get_database_names() -> List[str]:
+            database_names = []
+            paginator = self.glue_client.get_paginator("get_databases")
+            for page in paginator.paginate():
+                for db in page["DatabaseList"]:
+                    if self.source_config.database_pattern.allowed(db["Name"]):
+                        database_names.append(db["Name"])
+
+            return database_names
+
+        if self.source_config.database_pattern.is_fully_specified_allow_list():
+            database_names = self.source_config.database_pattern.get_allowed_list()
+        else:
+            database_names = get_database_names()
+
+        all_tables: List[dict] = []
+        for database in database_names:
+            all_tables += get_tables_from_database(database)
+        return all_tables
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        def get_all_tables() -> List[dict]:
-            def get_tables_from_database(database_name: str) -> List[dict]:
-                new_tables = []
-                paginator = self.glue_client.get_paginator("get_tables")
-                for page in paginator.paginate(DatabaseName=database_name):
-                    new_tables += page["TableList"]
 
-                return new_tables
-
-            def get_database_names() -> List[str]:
-                database_names = []
-                paginator = self.glue_client.get_paginator("get_databases")
-                for page in paginator.paginate():
-                    for db in page["DatabaseList"]:
-                        if self.source_config.database_pattern.allowed(db["Name"]):
-                            database_names.append(db["Name"])
-
-                return database_names
-
-            if self.source_config.database_pattern.is_fully_specified_allow_list():
-                database_names = self.source_config.database_pattern.get_allowed_list()
-            else:
-                database_names = get_database_names()
-
-            all_tables: List[dict] = []
-            for database in database_names:
-                all_tables += get_tables_from_database(database)
-            return all_tables
-
-        tables = get_all_tables()
+        tables = self.get_all_tables()
 
         for table in tables:
             database_name = table["DatabaseName"]
