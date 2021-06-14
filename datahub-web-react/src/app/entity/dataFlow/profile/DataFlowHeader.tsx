@@ -1,12 +1,18 @@
 import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
 import { FetchResult, MutationFunctionOptions } from '@apollo/client';
+import styled from 'styled-components';
 import { DataFlow, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import CompactContext from '../../../shared/CompactContext';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 import { AvatarsGroup } from '../../../shared/avatar';
 import UpdatableDescription from '../../shared/UpdatableDescription';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
+
+const ButtonContainer = styled.div`
+    margin-top: 15px;
+`;
 
 export type Props = {
     dataFlow: DataFlow;
@@ -18,6 +24,7 @@ export default function DataFlowHeader({
     updateDataFlow,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const isCompact = React.useContext(CompactContext);
     const platformName = capitalizeFirstLetter(orchestrator);
 
     const openExternalUrl = () => {
@@ -37,10 +44,18 @@ export default function DataFlowHeader({
                     <Space split={<Divider type="vertical" />}>
                         <Typography.Text>Data Pipeline</Typography.Text>
                         <Typography.Text strong>{platformName}</Typography.Text>
-                        {info?.externalUrl && <Button onClick={openExternalUrl}>View in {platformName}</Button>}
+                        {!isCompact && info?.externalUrl && (
+                            <Button onClick={openExternalUrl}>View in {platformName}</Button>
+                        )}
                     </Space>
+                    {isCompact && info?.externalUrl && (
+                        <ButtonContainer>
+                            <Button onClick={openExternalUrl}>View in {platformName}</Button>
+                        </ButtonContainer>
+                    )}
                 </Row>
                 <UpdatableDescription
+                    isCompact={isCompact}
                     updateEntity={updateDataFlow}
                     updatedDescription={editableProperties?.description}
                     originalDescription={info?.description}
