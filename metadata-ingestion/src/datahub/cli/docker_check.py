@@ -3,11 +3,6 @@ from typing import List
 
 import docker
 
-ENSURE_EXIT_SUCCESS = [
-    "kafka-setup",
-    "elasticsearch-setup",
-]
-
 REQUIRED_CONTAINERS = [
     "elasticsearch-setup",
     "elasticsearch",
@@ -28,8 +23,20 @@ REQUIRED_CONTAINERS = [
     # "kafka-rest-proxy",
 ]
 
+ENSURE_EXIT_SUCCESS = [
+    "kafka-setup",
+    "elasticsearch-setup",
+    "mysql-setup",
+]
+
+CONTAINERS_TO_CHECK_IF_PRESENT = [
+    # We only add this container in some cases, but if it's present, we
+    # definitely want to check that it exits properly.
+    "mysql-setup",
+]
+
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
-MIN_MEMORY_NEEDED = 6.75  # GB
+MIN_MEMORY_NEEDED = 3.8  # GB
 
 
 @contextmanager
@@ -49,7 +56,7 @@ def memory_in_gb(mem_bytes: int) -> float:
     return mem_bytes / (1024 * 1024 * 1000)
 
 
-def check_local_docker_containers() -> List[str]:
+def check_local_docker_containers(preflight_only: bool = False) -> List[str]:
     issues: List[str] = []
     with get_client_with_error() as (client, error):
         if error:
@@ -62,6 +69,9 @@ def check_local_docker_containers() -> List[str]:
             issues.append(
                 f"Total Docker memory configured {memory_in_gb(total_mem_configured):.2f}GB is below the minimum threshold {MIN_MEMORY_NEEDED}GB"
             )
+
+        if preflight_only:
+            return issues
 
         containers = client.containers.list(
             all=True,
@@ -81,7 +91,9 @@ def check_local_docker_containers() -> List[str]:
 
         # Check that the containers are running and healthy.
         for container in containers:
-            if container.name not in REQUIRED_CONTAINERS:
+            if container.name not in (
+                REQUIRED_CONTAINERS + CONTAINERS_TO_CHECK_IF_PRESENT
+            ):
                 # Ignores things like "datahub-frontend" which are no longer used.
                 # This way, we only check required containers like "datahub-frontend-react"
                 # even if there are some old containers lying around.

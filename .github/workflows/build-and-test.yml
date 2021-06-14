@@ -65,10 +65,7 @@ jobs:
       - name: Gradle build
         run: ./gradlew build -x check -x docs-website:build
       - name: Smoke test
-        run: |
-          ./docker/dev.sh -d
-          sleep 30
-          ./smoke-test/smoke.sh
+        run: ./smoke-test/smoke.sh
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1
@@ -76,3 +73,13 @@ jobs:
           job-status: ${{ job.status }}
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
           channel: github-activities
+
+  quickstart-compose-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Quickstart Compose Validation
+        run: ./docker/quickstart/generate_and_compare.sh
