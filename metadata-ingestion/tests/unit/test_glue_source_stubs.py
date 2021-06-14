@@ -1,7 +1,7 @@
-import io
 import datetime
-import botocore.session
-from botocore.stub import Stubber
+import io
+from typing import Any, Dict
+
 from botocore.response import StreamingBody
 
 get_databases_response = {
@@ -875,7 +875,7 @@ job.commit()
 """
 
 
-def mock_get_object_response(raw_body: str):
+def mock_get_object_response(raw_body: str) -> Dict[str, Any]:
     """
     Mock s3 client get_object() response object.
 
@@ -895,6 +895,3 @@ def mock_get_object_response(raw_body: str):
 
 get_object_response_1 = mock_get_object_response(get_object_body_1)
 get_object_response_2 = mock_get_object_response(get_object_body_2)
-
-s3 = botocore.session.get_session().create_client("s3")
-s3_stubber = Stubber(s3)

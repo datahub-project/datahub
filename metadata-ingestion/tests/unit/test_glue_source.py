@@ -1,4 +1,3 @@
-import json
 import unittest
 from datetime import datetime
 
@@ -32,11 +31,11 @@ from tests.unit.test_glue_source_stubs import (
     get_databases_response,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
+    get_jobs_response,
     get_object_body_1,
     get_object_body_2,
     get_object_response_1,
     get_object_response_2,
-    get_jobs_response,
     get_tables_response_1,
     get_tables_response_2,
 )
@@ -97,7 +96,7 @@ class GlueSourceTest(unittest.TestCase):
             ],
         )
 
-    # @freeze_time(FROZEN_TIME)
+    @freeze_time(FROZEN_TIME)
     def test_turn_boto_glue_data_to_metadata_event(self):
         stringy_timestamp = datetime.strptime(FROZEN_TIME, "%Y-%m-%d %H:%M:%S")
         timestamp = int(datetime.timestamp(stringy_timestamp) * 1000)
@@ -149,7 +148,8 @@ class GlueSourceTest(unittest.TestCase):
                 for wu in self.glue_source.get_workunits():
                     print(wu.mce.to_obj)
 
-        expected_metadata_work_unit = create_metadata_work_unit(timestamp)
+        create_metadata_work_unit(timestamp)
+        # expected_metadata_work_unit = create_metadata_work_unit(timestamp)
 
         # self.assertEqual(expected_metadata_work_unit, actual_work_unit)
 

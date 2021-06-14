@@ -80,7 +80,7 @@ class GlueSourceConfig(ConfigModel):
     aws_role: Optional[Union[str, List[str]]] = None
     aws_region: str
 
-    def get_client(self, service: str):
+    def get_client(self, service: str) -> boto3.client:
         if (
             self.aws_access_key_id
             and self.aws_secret_access_key
