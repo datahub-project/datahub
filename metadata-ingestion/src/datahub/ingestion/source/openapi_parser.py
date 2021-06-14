@@ -1,6 +1,5 @@
 import requests
 from requests.auth import HTTPBasicAuth
-# from openapi_parser.configuration.configuration import Source
 import yaml
 import re
 import warnings
@@ -18,36 +17,36 @@ from typing import List, Union, Generator, Dict
 from dataclasses import dataclass
 
 
-class DFieldIterator:
-    def __init__(self, ddataset):
-        # object reference
-        self._ddataset = ddataset
-        # member variable to keep track of current index
-        self._index = 0
-
-    def __next__(self):
-        if self._index < (len(self._ddataset._datafields)):
-            f_name = list(self._ddataset._datafields.keys())[self._index]
-            result = self._ddataset._datafields[f_name]
-            self._index += 1
-            return result
-        # End of Iteration
-        raise StopIteration
-
-
-@dataclass
-class DField:
-    """
-    Class containing the fields metadata belonging to a dataset,
-    in a DataHub friendly format
-    """
-    name: str = ""
-    description: str = ""
-    type: str = "str"
-    #
-    # def __init__(self, name: str, description: str = "") -> None:
-    #     self.name = name
-    #     self.description = description
+# class DFieldIterator:
+#     def __init__(self, ddataset):
+#         # object reference
+#         self._ddataset = ddataset
+#         # member variable to keep track of current index
+#         self._index = 0
+#
+#     def __next__(self):
+#         if self._index < (len(self._ddataset._datafields)):
+#             f_name = list(self._ddataset._datafields.keys())[self._index]
+#             result = self._ddataset._datafields[f_name]
+#             self._index += 1
+#             return result
+#         # End of Iteration
+#         raise StopIteration
+#
+#
+# @dataclass
+# class DField:
+#     """
+#     Class containing the fields metadata belonging to a dataset,
+#     in a DataHub friendly format
+#     """
+#     name: str = ""
+#     description: str = ""
+#     type: str = "str"
+#     #
+#     # def __init__(self, name: str, description: str = "") -> None:
+#     #     self.name = name
+#     #     self.description = description
 
 
 def flatten(d: dict, prefix: str = "") -> Generator:
@@ -75,46 +74,47 @@ def flatten2list(d: dict) -> list:
          "anotherone.third_a.last"
          ]
     """
-    return list(flatten(d))
+    fl_l = list(flatten(d))
+    return [d[1:] if d[0] == "-" else d for d in fl_l]
 
 
-class DDataset:
-    """
-    Class containing metadata informations in a DataHub friendly format
-    """
-    service_name = ""
-    dataset_name = ""
-    main_url = ""  # this will go in the "documents" aspect
-    description = ""  # this will go in the "DatasetProperties" aspect
-
-    owner = "TestUser"
-
-    def __init__(self, service_name: str, dataset_name: str, main_url: str = "") -> None:
-        self._datafields = {}
-        self._tags = list()
-        self._timestamp = int(time.time())
-
-        self.service_name = service_name
-        self.dataset_name = dataset_name.replace("/", ".")
-        if self.dataset_name[-1] == ".":
-            self.dataset_name = self.dataset_name[:-1]
-        self.main_url = main_url
-
-    def add_description(self, description: str) -> None:
-        self.description = description
-
-    def add_tags(self, tags: list) -> None:
-        clean_tags = [tag.replace(" ", "_") for tag in tags]
-        self._tags.extend(clean_tags)
-        self._tags =list(set(self._tags))  # need only unique values
-
-    def add_fields(self, fields: dict) -> None:
-        for f_k in fields:
-            self._datafields[f_k] = DField(name=f_k)  # using dict to emulate an ordered set
-
-    def __iter__(self):
-        ''' Returns the Iterator object for the _datafields'''
-        return DFieldIterator(self)
+# class DDataset:
+#     """
+#     Class containing metadata informations in a DataHub friendly format
+#     """
+#     service_name = ""
+#     dataset_name = ""
+#     main_url = ""  # this will go in the "documents" aspect
+#     description = ""  # this will go in the "DatasetProperties" aspect
+#
+#     owner = "TestUser"
+#
+#     def __init__(self, service_name: str, dataset_name: str, main_url: str = "") -> None:
+#         self._datafields = {}
+#         self._tags = list()
+#         self._timestamp = int(time.time())
+#
+#         self.service_name = service_name
+#         self.dataset_name = dataset_name.replace("/", ".")
+#         if self.dataset_name[-1] == ".":
+#             self.dataset_name = self.dataset_name[:-1]
+#         self.main_url = main_url
+#
+#     def add_description(self, description: str) -> None:
+#         self.description = description
+#
+#     def add_tags(self, tags: list) -> None:
+#         clean_tags = [tag.replace(" ", "_") for tag in tags]
+#         self._tags.extend(clean_tags)
+#         self._tags =list(set(self._tags))  # need only unique values
+#
+#     def add_fields(self, fields: dict) -> None:
+#         for f_k in fields:
+#             self._datafields[f_k] = DField(name=f_k)  # using dict to emulate an ordered set
+#
+#     def __iter__(self):
+#         ''' Returns the Iterator object for the _datafields'''
+#         return DFieldIterator(self)
 
 
 def request_call(url: str, token: str = None, username: str = None, password: str = None) :
@@ -174,18 +174,22 @@ def get_endpoints(sw_dict: dict) -> dict:
             
             url_details[p_k] = {"description":  desc, "tags": tags}
 
+            try:
+                base_res = p_o["get"]["responses"]['200']
+            except KeyError:  # if you read a plain yml file the 200 will be an integer
+                base_res = p_o["get"]["responses"][200]
+
             # trying if dataset is defined in swagger...
-            if "content" in p_o["get"]["responses"]['200'].keys():
-                
-                res_cont = p_o["get"]["responses"]['200']["content"]
-                if  "application/json" in res_cont.keys():
+            if "content" in base_res.keys():
+                res_cont = base_res["content"]
+                if "application/json" in res_cont.keys():
                     if "example" in res_cont["application/json"]:
                         if isinstance(res_cont["application/json"]["example"], dict):
                             url_details[p_k]["data"] = res_cont["application/json"]["example"]
                         elif isinstance(res_cont["application/json"]["example"], list):
                             # taking the first example
                             url_details[p_k]["data"] = res_cont["application/json"]["example"][0]
-                    else:    
+                    else:
                         warnings.warn(f"endpoint {p_k} does not give consistent data")
                 elif "text/csv" in res_cont.keys():
                     if p_k == "/api/tasks/":
@@ -396,32 +400,6 @@ def set_metadata(dataset_name: str, fields: List, platform: str = "api") -> Sche
     return schema_metadata
 
 
-def set_metadata_old(dataset_name: str, ddata: DDataset, platform: str = "api") -> SchemaMetadata:
-    canonical_schema: List[SchemaField] = []
-    for column in ddata:
-        field = SchemaField(
-            fieldPath=column.name,
-            nativeDataType=column.type,
-            type=column.type,
-            description=column.description,
-            recursive=False,
-        )
-        canonical_schema.append(field)
-
-    actor = "urn:li:corpuser:etl"
-    sys_time = int(time.time() * 1000)
-    schema_metadata = SchemaMetadata(
-        schemaName=dataset_name,
-        platform=f"urn:li:dataPlatform:{platform}",
-        version=0,
-        hash="",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        created=AuditStamp(time=sys_time, actor=actor),
-        lastModified=AuditStamp(time=sys_time, actor=actor),
-        fields=canonical_schema,
-    )
-    return schema_metadata
-
 
 # def launch_mce(service_name: str, dataset_name: str, endpoint_dets: dict, ddata: DDataset):
 #     dataset_snapshot = DatasetSnapshot(
@@ -442,135 +420,135 @@ def set_metadata_old(dataset_name: str, ddata: DDataset, platform: str = "api") 
 #     wu = ApiWorkUnit(id=dataset_name, mce=mce)
 
 
-def extract_datasets(url: str, get_token: bool = False, service_name: str = "", username: str = "",
-                     swagger_file: str = "", password: str = "", forced_examples: dict = None,
-                     ignore_endps: list = None) -> dict:
-    if forced_examples is None:
-        forced_examples = {}
-    if ignore_endps is None:
-        ignore_endps = []
-    emitted_w = Counter()  # taking trace of the emitted warnings
-
-    if get_token:  # token based authentication, to be tested
-        token = get_tok(url=url, username=username, password=password)
-    
-        sw_dict = get_swag_json(url, token=token, swagger_file=swagger_file)  # load the swagger file
-    else: 
-        sw_dict = get_swag_json(url, username=username, password=password, swagger_file=swagger_file)
-
-    url_basepath = get_url_basepath(sw_dict)
-
-    # Getting all the URLs accepting the "GET" method,
-    # together with their description and the tags
-    url_endpoints = get_endpoints(sw_dict)
-
-    # here we put a sample from the listing of urls. To be used for later guessing of comosed urls.
-    root_dataset_samples = {}
-    datasets = {}
-
-    d_datasets = []  # the list of datasets to be delivered
-
-    # looping on all the urls. Each URL will be a dataset, for our definition
-    for endpoint_k, endpoint_dets in tqdm(url_endpoints.items(), desc="Checking urls..."):
-
-        dataset_name = endpoint_k[1:]
-
-        if dataset_name in ignore_endps:
-            continue
-
-        ddata = DDataset(service_name=service_name, 
-                         dataset_name=dataset_name, main_url=url+url_basepath+dataset_name)
-        ddata.add_description(endpoint_dets["description"])
-        ddata.add_tags(endpoint_dets["tags"])
-
-        if "data" in endpoint_dets.keys():
-            # we are lucky! data is defined in the swagger for this endpoint
-            ddata.add_fields(flatten2list(endpoint_dets["data"]))
-            d_datasets.append(ddata)
-        # elif "parameters" in endpoint_dets.keys():
-        #     # half of a luck: we have explicitely declared parameters
-        #     enp_ex_pars = ""
-        #     for param_def in endpoint_dets["parameters"]:
-        #         enp_ex_pars += ""
-        elif "{" not in endpoint_k:  # if the API does not explicitely require parameters
-            tot_url = clean_url(url + url_basepath + endpoint_k)
-            if get_token:
-                # to be implemented
-                # response = request_call(tot_url, token=token)
-                raise Exception("You should implement this!")
-            else:
-                response = request_call(tot_url, username=username, password=password)
-            if response.status_code == 200:
-                datasets[dataset_name], root_dataset_samples[dataset_name] = extract_fields(response, dataset_name)
-                if not datasets[dataset_name]:
-                    emitted_w.update({"No Fields": 1})
-                ddata.add_fields(datasets[dataset_name])
-                d_datasets.append(ddata)
-            elif response.status_code == 504:
-                warnings.warn(f"Timeout for reaching {tot_url}")
-                emitted_w.update({"Timeout": 1})
-            elif response.status_code == 500:
-                warnings.warn(f"Server error for {tot_url}")
-                emitted_w.update({"Server error": 1})
-            elif response.status_code == 400:
-                warnings.warn(f"Unknown error for {tot_url}")
-                emitted_w.update({"Unknown Eroor": 1})
-            else:
-                raise Exception(f"Unable to retrieve {tot_url}, response code {response.status_code}")
-        else:
-            if endpoint_k not in forced_examples.keys():
-                # start guessing...
-                url_guess = try_guessing(endpoint_k, root_dataset_samples)  # try to guess informations
-                tot_url = clean_url(url + url_basepath + url_guess)
-                if get_token:
-                    # to be implemented
-                    # response = request_call(tot_url, token=token)
-                    raise Exception("You should implement this!")
-                else:
-                    response = request_call(tot_url, username=username, password=password)
-                if response.status_code == 200:
-                    datasets[dataset_name], _ = extract_fields(response, dataset_name)
-                    if not datasets[dataset_name]:
-                        emitted_w.update({"No Fields": 1})
-                    ddata.add_fields(datasets[dataset_name])
-                    d_datasets.append(ddata)
-                elif response.status_code == 403:
-                    warnings.warn(f"Not authorised to get {endpoint_k}.")
-                    emitted_w.update({"Not authorised": 1})
-                else:
-                    warnings.warn(f"Unable to find an example for {endpoint_k}"
-                                  f" in. Please add it to the list of forced examples.")
-                    emitted_w.update({"No example": 1})
-            else:
-                composed_url = compose_url_attr(raw_url=endpoint_k, attr_list=forced_examples[endpoint_k])
-                tot_url = clean_url(url + url_basepath + composed_url)
-                if get_token:
-                    # to be implemented
-                    # response = request_call(tot_url, token=token)
-                    raise Exception("You should implement this!")
-                else:
-                    response = request_call(tot_url, username=username, password=password)
-                if response.status_code == 200:
-                    datasets[dataset_name], _ = extract_fields(response, dataset_name)
-                    if not datasets[dataset_name]:
-                        emitted_w.update({"No Fields": 1})
-                    ddata.add_fields(datasets[dataset_name])
-                    d_datasets.append(ddata)
-                elif response.status_code == 403:
-                    warnings.warn(f"Not authorised to get {endpoint_k}.")
-                    emitted_w.update({"Not authorised": 1})
-
-        # launch_mce(service_name, dataset_name, endpoint_dets, ddata)
-
-    # loading the template
-    template_loader = jinja2.FileSystemLoader(searchpath=".")
-    template_env = jinja2.Environment(loader=template_loader)
-    template = template_env.get_template("openapi_parser/template.j2")
-        
-    rt = template.render({"datasets": d_datasets})
-    json_out = json.loads(rt)
-    print(emitted_w)
-    return json_out
+# def extract_datasets(url: str, get_token: bool = False, service_name: str = "", username: str = "",
+#                      swagger_file: str = "", password: str = "", forced_examples: dict = None,
+#                      ignore_endps: list = None) -> dict:
+#     if forced_examples is None:
+#         forced_examples = {}
+#     if ignore_endps is None:
+#         ignore_endps = []
+#     emitted_w = Counter()  # taking trace of the emitted warnings
+#
+#     if get_token:  # token based authentication, to be tested
+#         token = get_tok(url=url, username=username, password=password)
+#
+#         sw_dict = get_swag_json(url, token=token, swagger_file=swagger_file)  # load the swagger file
+#     else:
+#         sw_dict = get_swag_json(url, username=username, password=password, swagger_file=swagger_file)
+#
+#     url_basepath = get_url_basepath(sw_dict)
+#
+#     # Getting all the URLs accepting the "GET" method,
+#     # together with their description and the tags
+#     url_endpoints = get_endpoints(sw_dict)
+#
+#     # here we put a sample from the listing of urls. To be used for later guessing of comosed urls.
+#     root_dataset_samples = {}
+#     datasets = {}
+#
+#     d_datasets = []  # the list of datasets to be delivered
+#
+#     # looping on all the urls. Each URL will be a dataset, for our definition
+#     for endpoint_k, endpoint_dets in tqdm(url_endpoints.items(), desc="Checking urls..."):
+#
+#         dataset_name = endpoint_k[1:]
+#
+#         if dataset_name in ignore_endps:
+#             continue
+#
+#         ddata = DDataset(service_name=service_name,
+#                          dataset_name=dataset_name, main_url=url+url_basepath+dataset_name)
+#         ddata.add_description(endpoint_dets["description"])
+#         ddata.add_tags(endpoint_dets["tags"])
+#
+#         if "data" in endpoint_dets.keys():
+#             # we are lucky! data is defined in the swagger for this endpoint
+#             ddata.add_fields(flatten2list(endpoint_dets["data"]))
+#             d_datasets.append(ddata)
+#         # elif "parameters" in endpoint_dets.keys():
+#         #     # half of a luck: we have explicitely declared parameters
+#         #     enp_ex_pars = ""
+#         #     for param_def in endpoint_dets["parameters"]:
+#         #         enp_ex_pars += ""
+#         elif "{" not in endpoint_k:  # if the API does not explicitely require parameters
+#             tot_url = clean_url(url + url_basepath + endpoint_k)
+#             if get_token:
+#                 # to be implemented
+#                 # response = request_call(tot_url, token=token)
+#                 raise Exception("You should implement this!")
+#             else:
+#                 response = request_call(tot_url, username=username, password=password)
+#             if response.status_code == 200:
+#                 datasets[dataset_name], root_dataset_samples[dataset_name] = extract_fields(response, dataset_name)
+#                 if not datasets[dataset_name]:
+#                     emitted_w.update({"No Fields": 1})
+#                 ddata.add_fields(datasets[dataset_name])
+#                 d_datasets.append(ddata)
+#             elif response.status_code == 504:
+#                 warnings.warn(f"Timeout for reaching {tot_url}")
+#                 emitted_w.update({"Timeout": 1})
+#             elif response.status_code == 500:
+#                 warnings.warn(f"Server error for {tot_url}")
+#                 emitted_w.update({"Server error": 1})
+#             elif response.status_code == 400:
+#                 warnings.warn(f"Unknown error for {tot_url}")
+#                 emitted_w.update({"Unknown Eroor": 1})
+#             else:
+#                 raise Exception(f"Unable to retrieve {tot_url}, response code {response.status_code}")
+#         else:
+#             if endpoint_k not in forced_examples.keys():
+#                 # start guessing...
+#                 url_guess = try_guessing(endpoint_k, root_dataset_samples)  # try to guess informations
+#                 tot_url = clean_url(url + url_basepath + url_guess)
+#                 if get_token:
+#                     # to be implemented
+#                     # response = request_call(tot_url, token=token)
+#                     raise Exception("You should implement this!")
+#                 else:
+#                     response = request_call(tot_url, username=username, password=password)
+#                 if response.status_code == 200:
+#                     datasets[dataset_name], _ = extract_fields(response, dataset_name)
+#                     if not datasets[dataset_name]:
+#                         emitted_w.update({"No Fields": 1})
+#                     ddata.add_fields(datasets[dataset_name])
+#                     d_datasets.append(ddata)
+#                 elif response.status_code == 403:
+#                     warnings.warn(f"Not authorised to get {endpoint_k}.")
+#                     emitted_w.update({"Not authorised": 1})
+#                 else:
+#                     warnings.warn(f"Unable to find an example for {endpoint_k}"
+#                                   f" in. Please add it to the list of forced examples.")
+#                     emitted_w.update({"No example": 1})
+#             else:
+#                 composed_url = compose_url_attr(raw_url=endpoint_k, attr_list=forced_examples[endpoint_k])
+#                 tot_url = clean_url(url + url_basepath + composed_url)
+#                 if get_token:
+#                     # to be implemented
+#                     # response = request_call(tot_url, token=token)
+#                     raise Exception("You should implement this!")
+#                 else:
+#                     response = request_call(tot_url, username=username, password=password)
+#                 if response.status_code == 200:
+#                     datasets[dataset_name], _ = extract_fields(response, dataset_name)
+#                     if not datasets[dataset_name]:
+#                         emitted_w.update({"No Fields": 1})
+#                     ddata.add_fields(datasets[dataset_name])
+#                     d_datasets.append(ddata)
+#                 elif response.status_code == 403:
+#                     warnings.warn(f"Not authorised to get {endpoint_k}.")
+#                     emitted_w.update({"Not authorised": 1})
+#
+#         # launch_mce(service_name, dataset_name, endpoint_dets, ddata)
+#
+#     # loading the template
+#     template_loader = jinja2.FileSystemLoader(searchpath=".")
+#     template_env = jinja2.Environment(loader=template_loader)
+#     template = template_env.get_template("openapi_parser/template.j2")
+#
+#     rt = template.render({"datasets": d_datasets})
+#     json_out = json.loads(rt)
+#     print(emitted_w)
+#     return json_out
 
 
 # def meta_extract_datasets(source: Source) -> None:

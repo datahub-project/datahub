@@ -17,6 +17,7 @@ from datahub.ingestion.source.openapi_parser import (get_swag_json, get_tok, get
                                                      try_guessing, compose_url_attr)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.emitter.mce_builder import make_tag_urn
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -25,17 +26,19 @@ class OpenApiConfig(ConfigModel):
     name: str
     url: str
     swagger_file: str
-    ignore_endpoints: Optional[list]
+    ignore_endpoints: Optional[list] = []
     username: str = ""
     password: str = ""
-    forced_examples: Optional[dict]
+    forced_examples: Optional[dict] = {}
     token: str = None
+    get_token: bool = False
 
     def get_swagger(self) -> Dict:
-        if self.token:  # token based authentication, to be tested
-            token = get_tok(url=self.url, username=self.username, password=self.password)
+        if self.get_token:  # token based authentication, to be tested
+            if not self.token:
+                self.token = get_tok(url=self.url, username=self.username, password=self.password)
 
-            sw_dict = get_swag_json(self.url, token=token, swagger_file=self.swagger_file)  # load the swagger file
+            sw_dict = get_swag_json(self.url, token=self.token, swagger_file=self.swagger_file)  # load the swagger file
         else:
             sw_dict = get_swag_json(self.url, username=self.username, password=self.password,
                                     swagger_file=self.swagger_file)
@@ -58,9 +61,6 @@ class OpenApiSourceReport(SourceReport):
 
     def report_dropped(self, endpoint_name: str) -> None:
         self.filtered.append(endpoint_name)
-
-    def report_stat_warnings(self, message: str):
-        self.stat_warnings.update({message: 1})
 
 
 class APISource(Source, ABC):
@@ -116,7 +116,7 @@ class APISource(Source, ABC):
             dataset_properties = DatasetPropertiesClass(
                 description=endpoint_dets["description"],
                 customProperties={},
-                tags=endpoint_dets["tags"]
+                tags=[make_tag_urn(t) for t in endpoint_dets["tags"]]  # todo: tags are not accounted?
             )
             dataset_snapshot.aspects.append(dataset_properties)
 
@@ -146,10 +146,9 @@ class APISource(Source, ABC):
             #         enp_ex_pars += ""
             elif "{" not in endpoint_k:  # if the API does not explicitely require parameters
                 tot_url = clean_url(config.url + url_basepath + endpoint_k)
+
                 if config.token:
-                    # to be implemented
-                    # response = request_call(tot_url, token=token)
-                    raise Exception("You should implement this!")
+                    response = request_call(tot_url, token=config.token)
                 else:
                     response = request_call(tot_url, username=config.username, password=config.password)
                 if response.status_code == 200:
@@ -171,8 +170,7 @@ class APISource(Source, ABC):
                     url_guess = try_guessing(endpoint_k, root_dataset_samples)  # try to guess informations
                     tot_url = clean_url(config.url + url_basepath + url_guess)
                     if config.token:
-                        # response = request_call(tot_url, token=token)
-                        raise Exception("You should implement this!")
+                        response = request_call(tot_url, token=config.token)
                     else:
                         response = request_call(tot_url, username=config.username, password=config.password)
                     if response.status_code == 200:
@@ -192,8 +190,7 @@ class APISource(Source, ABC):
                     composed_url = compose_url_attr(raw_url=endpoint_k, attr_list=config.forced_examples[endpoint_k])
                     tot_url = clean_url(config.url + url_basepath + composed_url)
                     if config.token:
-                        # response = request_call(tot_url, token=token)
-                        raise Exception("You should implement this!")
+                        response = request_call(tot_url, token=config.token)
                     else:
                         response = request_call(tot_url, username=config.username, password=config.password)
                     if response.status_code == 200:
@@ -209,58 +206,6 @@ class APISource(Source, ABC):
                         yield wu
                     else:
                         self.report_bad_responses(response.status_code, key=endpoint_k)
-
-
-
-        # for schema in inspector.get_schema_names():
-        #     if not sql_config.schema_pattern.allowed(schema):
-        #         self.report.report_dropped(schema)
-        #         continue
-        #
-        #     for table in inspector.get_table_names(schema):
-        #         schema, table = sql_config.standardize_schema_table_names(schema, table)
-        #         dataset_name = sql_config.get_identifier(schema, table)
-        #         self.report.report_table_scanned(dataset_name)
-        #
-        #         if not sql_config.table_pattern.allowed(dataset_name):
-        #             self.report.report_dropped(dataset_name)
-        #             continue
-        #
-        #         columns = inspector.get_columns(table, schema)
-        #         try:
-        #             table_info: dict = inspector.get_table_comment(table, schema)
-        #         except NotImplementedError:
-        #             description: Optional[str] = None
-        #             properties: Dict[str, str] = {}
-        #         else:
-        #             description = table_info["text"]
-        #
-        #             # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-        #             properties = table_info.get("properties", {})
-        #
-        #         # TODO: capture inspector.get_pk_constraint
-        #         # TODO: capture inspector.get_sorted_table_and_fkc_names
-        #
-        #         dataset_snapshot = DatasetSnapshot(
-        #             urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
-        #             aspects=[],
-        #         )
-        #         if description is not None or properties:
-        #             dataset_properties = DatasetPropertiesClass(
-        #                 description=description,
-        #                 customProperties=properties,
-        #                 # uri=dataset_name,
-        #             )
-        #             dataset_snapshot.aspects.append(dataset_properties)
-        #         schema_metadata = get_schema_metadata(
-        #             self.report, dataset_name, self.platform, columns
-        #         )
-        #         dataset_snapshot.aspects.append(schema_metadata)
-        #
-        #         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        #         wu = SqlWorkUnit(id=dataset_name, mce=mce)
-        #         self.report.report_workunit(wu)
-        #         yield wu
 
     def get_report(self):
         return self.report
