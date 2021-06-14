@@ -38,7 +38,7 @@ public class AuthUtils {
     public static Http.Cookie createActorCookie(final String actorUrn, final Integer ttlInHours) {
         return Http.Cookie.builder(ACTOR, actorUrn)
                 .withHttpOnly(false)
-                .withMaxAge(Duration.of(ttlInHours, ChronoUnit.MINUTES))
+                .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
                 .build();
     }
 
