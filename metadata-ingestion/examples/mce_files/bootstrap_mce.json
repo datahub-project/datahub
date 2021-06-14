@@ -126,14 +126,6 @@
                         }
                     },
                     {
-                        "com.linkedin.pegasus2avro.dataset.EditableDatasetProperties": {
-                            "description": "Dataset Description Updated",
-                            "tags": [
-                                "myfaketags"
-                            ]
-                        }
-                    },
-                    {
                         "com.linkedin.pegasus2avro.common.Ownership": {
                             "owners": [
                                 {
