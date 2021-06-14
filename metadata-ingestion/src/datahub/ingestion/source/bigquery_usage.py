@@ -251,7 +251,9 @@ class BigQueryUsageSource:
     ) -> Iterable[ReadEvent]:
         # We only store the most recently used query events, which are used when
         # resolving job information within the read events.
-        query_jobs = cachetools.LRUCache(maxsize=2 * self.query_log_delay)
+        query_jobs = cachetools.LRUCache[str, QueryEvent](
+            maxsize=2 * self.query_log_delay
+        )
 
         def event_processor(
             events: Iterable[Union[ReadEvent, QueryEvent]]
