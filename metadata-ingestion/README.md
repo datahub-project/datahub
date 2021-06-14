@@ -669,7 +669,9 @@ Pull metadata from dbt artifacts files:
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
 - load_schemas:
   - Load schemas from dbt catalog file, not necessary when the underlying data platform already has this data.
-
+- node_pattern: 
+  - Use this filter to exclude and include nodes using allow or deny method
+  
 ```yml
 source:
   type: "dbt"
@@ -678,6 +680,12 @@ source:
     catalog_path: "./path/dbt/catalog_file.json"
     target_platform: "postgres" # optional, eg "postgres", "snowflake", etc.
     load_schemas: True or False
+    node_pattern:  # optional, default AllowDenyPattern.allow_all()
+      deny:
+        - test
+      allow: 
+        - "^.*"  
+    
 ```
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
