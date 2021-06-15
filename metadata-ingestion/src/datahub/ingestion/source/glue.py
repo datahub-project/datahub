@@ -337,13 +337,6 @@ class GlueSource(Source):
                             "command": job["Command"]["ScriptLocation"],
                         },
                     ),
-                    OwnershipClass(
-                        owners=[],
-                        lastModified=AuditStampClass(
-                            time=int(time.time() * 1000),
-                            actor="urn:li:corpuser:datahub",
-                        ),
-                    ),
                     Status(removed=False),
                 ],
             )
@@ -382,13 +375,6 @@ class GlueSource(Source):
                         inputDatasets=node["inputDatasets"],
                         outputDatasets=node["outputDatasets"],
                         inputDatajobs=node["inputDatajobs"],
-                    ),
-                    OwnershipClass(
-                        owners=[],
-                        lastModified=AuditStampClass(
-                            time=int(time.time() * 1000),
-                            actor="urn:li:corpuser:datahub",
-                        ),
                     ),
                     Status(removed=False),
                 ],
