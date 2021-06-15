@@ -1,0 +1,1 @@
+This folder are all about smartnews metadata
