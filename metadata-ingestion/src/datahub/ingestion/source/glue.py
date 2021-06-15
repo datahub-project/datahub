@@ -276,7 +276,7 @@ class GlueSource(Source):
             # otherwise, a node represents a transformation
             else:
                 node_urn = mce_builder.make_data_job_urn_with_flow(
-                    flow_urn, job_id=node["Id"]
+                    flow_urn, job_id=f'{node["NodeType"]}-{node["Id"]}'
                 )
 
             return {
@@ -337,6 +337,14 @@ class GlueSource(Source):
                             "command": job["Command"]["ScriptLocation"],
                         },
                     ),
+                    OwnershipClass(
+                        owners=[],
+                        lastModified=AuditStampClass(
+                            time=int(time.time() * 1000),
+                            actor="urn:li:corpuser:datahub",
+                        ),
+                    ),
+                    Status(removed=False),
                 ],
             )
         )
@@ -361,7 +369,7 @@ class GlueSource(Source):
                 urn=node["urn"],
                 aspects=[
                     DataJobInfoClass(
-                        name=f"{job['Name']}:{node['Id']}",
+                        name=f"{job['Name']}:{node['NodeType']}-{node['Id']}",
                         type="GLUE",
                         description=None,
                         customProperties={x["Name"]: x["Value"] for x in node["Args"]},
@@ -371,11 +379,19 @@ class GlueSource(Source):
                         outputDatasets=node["outputDatasets"],
                         inputDatajobs=node["inputDatajobs"],
                     ),
+                    OwnershipClass(
+                        owners=[],
+                        lastModified=AuditStampClass(
+                            time=int(time.time() * 1000),
+                            actor="urn:li:corpuser:datahub",
+                        ),
+                    ),
+                    Status(removed=False),
                 ],
             )
         )
 
-        return MetadataWorkUnit(id=node["Id"], mce=mce)
+        return MetadataWorkUnit(id=f'{job["Name"]}-{node["Id"]}', mce=mce)
 
     def get_all_tables(self) -> List[dict]:
         def get_tables_from_database(database_name: str) -> List[dict]:
