@@ -207,6 +207,9 @@ class GlueSource(Source):
                 URN of the flow (i.e. the AWS Glue job itself).
         """
 
+        new_dataset_ids = []
+        new_dataset_mces = []
+
         def process_node(node):
             """
             Process a single node in the DAG.
@@ -225,6 +228,8 @@ class GlueSource(Source):
                     full_table_name = (
                         f"{node_args['database']}.{node_args['table_name']}"
                     )
+
+                    # we know that the table will already be covered when ingesting Glue tables
                     node_urn = f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.env})"
 
                 # if data object is S3 bucket
@@ -236,6 +241,34 @@ class GlueSource(Source):
 
                     node_urn = (
                         f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{self.env})"
+                    )
+
+                    dataset_snapshot = DatasetSnapshot(
+                        urn=node_urn,
+                        aspects=[],
+                    )
+
+                    dataset_snapshot.aspects.append(Status(removed=False))
+                    dataset_snapshot.aspects.append(
+                        OwnershipClass(
+                            owners=[],
+                            lastModified=AuditStampClass(
+                                time=int(time.time() * 1000),
+                                actor="urn:li:corpuser:datahub",
+                            ),
+                        )
+                    )
+                    dataset_snapshot.aspects.append(
+                        DatasetPropertiesClass(
+                            customProperties={k: str(v) for k, v in node_args.items()},
+                            uri=node_args["connection_options"]["path"],
+                            tags=[],
+                        )
+                    )
+
+                    new_dataset_ids.append(node["Id"])
+                    new_dataset_mces.append(
+                        MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                     )
 
                 else:
@@ -278,7 +311,7 @@ class GlueSource(Source):
             if target_node_type == "DataSink":
                 nodes[edge["Target"]]["outputDatasets"].append(target_node["urn"])
 
-        return nodes
+        return nodes, new_dataset_ids, new_dataset_mces
 
     def get_dataflow_wu(self, flow_urn: str, job: Dict[str, Any]) -> MetadataWorkUnit:
         """
@@ -406,7 +439,9 @@ class GlueSource(Source):
                 yield flow_wu
 
                 dag = self.get_dataflow_graph(job["Command"]["ScriptLocation"])
-                nodes = self.process_dataflow_graph(dag, flow_urn)
+                nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
+                    dag, flow_urn
+                )
 
                 for node in nodes.values():
 
@@ -414,6 +449,11 @@ class GlueSource(Source):
                         job_wu = self.get_datajob_wu(node, job)
                         self.report.report_workunit(job_wu)
                         yield job_wu
+
+                for dataset_id, dataset_mce in zip(new_dataset_ids, new_dataset_mces):
+                    dataset_wu = MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
+                    self.report.report_workunit(dataset_wu)
+                    yield dataset_wu
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner(time: int) -> OwnershipClass:

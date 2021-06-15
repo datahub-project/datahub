@@ -13,6 +13,7 @@ cp tmp/test_mysql_ingest0/mysql_mces.json tests/integration/mysql/mysql_mce_gold
 cp tmp/test_mssql_ingest0/mssql_mces.json tests/integration/sql_server/mssql_mce_golden.json
 cp tmp/test_mongodb_ingest0/mongodb_mces.json tests/integration/mongodb/mongodb_mce_golden.json
 cp tmp/test_feast_ingest0/feast_mces.json tests/integration/feast/feast_mce_golden.json
+cp tmp/test_glue_ingest0/glue_mces.json tests/unit/glue/glue_mce_golden.json
 
 # Print success message.
 set +x
