@@ -1,0 +1,8 @@
+source:
+  type: "file"
+  config:
+    filename: "feature_store/fs_result.json"
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://ec2-54-250-157-230.ap-northeast-1.compute.amazonaws.com:8080"

@@ -1,0 +1,7 @@
+uuid_batch,1w/2w/4w/8w aggregated ad features,uuid,daily,2020-09-03,90,ads_ranking
+uuid_realtime,1h/12h/1d/3d aggregated ad features,uuid,realtime,2020-09-03,90,ads_ranking
+uuid_history,16w aggregated extended ad click/postback sequence features,uuid,daily,2021-01-30,90,ads_ranking
+uuid_ad_uuid_daily_features_d,daily imported ad features,uuid,daily,2020-09-03,90,ads_ranking
+device_token_location_gps,user real-time location per app activation,device_token,realtime,2021-05-06,90,infrastructure
+device_token_location_manual_selection,user manually set location update,device_token,realtime,2021-05-06,90,infrastructure
+Collapse
