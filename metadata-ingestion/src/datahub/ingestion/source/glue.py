@@ -238,6 +238,9 @@ class GlueSource(Source):
                     # remove S3 prefix
                     s3_name = node_args["connection_options"]["path"][5:]
 
+                    if s3_name.endswith("/"):
+                        s3_name = s3_name[:-1]
+
                     node_urn = (
                         f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{self.env})"
                     )

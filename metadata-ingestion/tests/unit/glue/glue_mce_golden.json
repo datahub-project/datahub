@@ -474,21 +474,6 @@
               "description": "The first test job",
               "project": null
             }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
           }
         ]
       }
@@ -525,21 +510,6 @@
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2)"
               ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
             }
           }
         ]
@@ -578,21 +548,6 @@
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0)"
               ]
             }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
           }
         ]
       }
@@ -629,21 +584,6 @@
               ],
               "outputDatasets": [],
               "inputDatajobs": []
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
             }
           }
         ]
@@ -683,21 +623,6 @@
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4)"
               ]
             }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
           }
         ]
       }
@@ -732,21 +657,6 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": []
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
             }
           }
         ]
@@ -783,21 +693,6 @@
               "outputDatasets": [],
               "inputDatajobs": []
             }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
           }
         ]
       }
@@ -808,7 +703,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons/,PROD)",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.Status": {
@@ -863,21 +758,6 @@
               "description": "The second test job",
               "project": null
             }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
           }
         ]
       }
@@ -917,21 +797,6 @@
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1)"
               ]
             }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
           }
         ]
       }
@@ -968,21 +833,6 @@
               ],
               "outputDatasets": [],
               "inputDatajobs": []
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
             }
           }
         ]
@@ -1021,21 +871,6 @@
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1)"
               ]
             }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
           }
         ]
       }
@@ -1069,26 +904,11 @@
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [],
               "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons/,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)"
               ],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2)"
               ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
             }
           }
         ]
