@@ -97,7 +97,7 @@ def test_get_column_type_not_contained():
     )
 
 
-# @freeze_time(FROZEN_TIME)
+@freeze_time(FROZEN_TIME)
 def test_glue_ingest(tmp_path, pytestconfig):
 
     glue_source_instance = glue_source()

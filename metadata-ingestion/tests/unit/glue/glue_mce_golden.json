@@ -20,7 +20,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1623719115219,
+                "time": 1586847600000,
                 "actor": "urn:li:corpuser:datahub",
                 "impersonator": null
               }
@@ -62,12 +62,12 @@
               "platform": "urn:li:dataPlatform:glue",
               "version": 0,
               "created": {
-                "time": 1623719115219,
+                "time": 1586847600000,
                 "actor": "urn:li:corpuser:etl",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1623719115219,
+                "time": 1586847600000,
                 "actor": "urn:li:corpuser:etl",
                 "impersonator": null
               },
@@ -217,7 +217,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1623719115224,
+                "time": 1586847600000,
                 "actor": "urn:li:corpuser:datahub",
                 "impersonator": null
               }
@@ -258,12 +258,12 @@
               "platform": "urn:li:dataPlatform:glue",
               "version": 0,
               "created": {
-                "time": 1623719115224,
+                "time": 1586847600000,
                 "actor": "urn:li:corpuser:etl",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1623719115224,
+                "time": 1586847600000,
                 "actor": "urn:li:corpuser:etl",
                 "impersonator": null
               },
@@ -325,7 +325,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1623719115228,
+                "time": 1586847600000,
                 "actor": "urn:li:corpuser:datahub",
                 "impersonator": null
               }
@@ -366,12 +366,12 @@
               "platform": "urn:li:dataPlatform:glue",
               "version": 0,
               "created": {
-                "time": 1623719115228,
+                "time": 1586847600000,
                 "actor": "urn:li:corpuser:etl",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1623719115228,
+                "time": 1586847600000,
                 "actor": "urn:li:corpuser:etl",
                 "impersonator": null
               },
@@ -702,7 +702,7 @@
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [],
               "lastModified": {
-                "time": 1623719115235,
+                "time": 1586847600000,
                 "actor": "urn:li:corpuser:datahub",
                 "impersonator": null
               }
@@ -909,7 +909,7 @@
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [],
               "lastModified": {
-                "time": 1623719115248,
+                "time": 1586847600000,
                 "actor": "urn:li:corpuser:datahub",
                 "impersonator": null
               }
