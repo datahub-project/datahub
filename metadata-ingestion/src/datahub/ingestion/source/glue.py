@@ -260,7 +260,6 @@ class GlueSource(Source):
                     dataset_snapshot.aspects.append(
                         DatasetPropertiesClass(
                             customProperties={k: str(v) for k, v in node_args.items()},
-                            uri=node_args["connection_options"]["path"],
                             tags=[],
                         )
                     )
