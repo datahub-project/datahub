@@ -127,7 +127,7 @@ def get_endpoints(sw_dict: dict) -> dict:
                             # taking the first example
                             url_details[p_k]["data"] = res_cont["application/json"][ex_field][0]
                     else:
-                        warnings.warn(f"endpoint does not give consistent data --- {p_k}")
+                        warnings.warn(f"Field in swagger file does not give consistent data --- {p_k}")
                 elif "text/csv" in res_cont.keys():
                     url_details[p_k]["data"] = res_cont["text/csv"]["schema"]
 
