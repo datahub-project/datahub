@@ -337,7 +337,6 @@ class GlueSource(Source):
                             "command": job["Command"]["ScriptLocation"],
                         },
                     ),
-                    Status(removed=False),
                 ],
             )
         )
@@ -364,7 +363,6 @@ class GlueSource(Source):
                     DataJobInfoClass(
                         name=f"{job['Name']}:{node['NodeType']}-{node['Id']}",
                         type="GLUE",
-                        description=None,
                         customProperties={
                             **{x["Name"]: x["Value"] for x in node["Args"]},
                             "transformType": node["NodeType"],
@@ -376,7 +374,6 @@ class GlueSource(Source):
                         outputDatasets=node["outputDatasets"],
                         inputDatajobs=node["inputDatajobs"],
                     ),
-                    Status(removed=False),
                 ],
             )
         )
