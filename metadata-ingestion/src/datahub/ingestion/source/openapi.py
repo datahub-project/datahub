@@ -7,6 +7,7 @@ from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.ingestion.api.source import Source, SourceReport
 from dataclasses import dataclass
 import logging
+import warnings
 from datahub.metadata.schema_classes import (DatasetPropertiesClass, InstitutionalMemoryClass,
                                              InstitutionalMemoryMetadataClass, AuditStampClass, GlobalTagsClass,
                                              TagAssociationClass)
@@ -42,6 +43,11 @@ class OpenApiConfig(ConfigModel):
             sw_dict = get_swag_json(self.url, username=self.username, password=self.password,
                                     swagger_file=self.swagger_file)
         return sw_dict
+
+
+# class ParserWarning(UserWarning):
+#     def __init__(self, message: str, key: str) -> None:
+#         self.message
 
 
 @dataclass
@@ -81,7 +87,13 @@ class APISource(Source, ABC):
 
         # Getting all the URLs accepting the "GET" method,
         # together with their description and the tags
-        url_endpoints = get_endpoints(sw_dict)
+        with warnings.catch_warnings(record=True) as warn_c:
+            url_endpoints = get_endpoints(sw_dict)
+
+            # catch eventual warnings
+            for w in warn_c:
+                w_spl = w.message.args[0].split(" --- ")
+                self.report.report_warning(key=w_spl[1], reason=w_spl[0])
 
         # here we put a sample from the listing of urls. To be used for later guessing of comosed urls.
         root_dataset_samples = {}

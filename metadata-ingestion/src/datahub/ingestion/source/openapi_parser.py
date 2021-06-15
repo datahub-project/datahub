@@ -138,7 +138,7 @@ def get_endpoints(sw_dict: dict) -> dict:
                             # taking the first example
                             url_details[p_k]["data"] = res_cont["application/json"][ex_field][0]
                     else:
-                        warnings.warn(f"endpoint {p_k} does not give consistent data")
+                        warnings.warn(f"endpoint does not give consistent data --- {p_k} ")
                 elif "text/csv" in res_cont.keys():
                     url_details[p_k]["data"] = res_cont["text/csv"]["schema"]
 
@@ -265,12 +265,12 @@ def extract_fields(response, dataset_name: str) -> (List, Dict):
     dict_data = json.loads(response.content)
     if isinstance(dict_data, str):
         # no sense
-        warnings.warn(f"Empty data in {dataset_name}")
+        warnings.warn(f"Empty data --- {dataset_name}")
         return [], {}
     elif isinstance(dict_data, list):
         # it's maybe just a list
         if len(dict_data) == 0:
-            warnings.warn(f"Empty data in {dataset_name}")
+            warnings.warn(f"Empty data --- {dataset_name}")
             return [], {}
         # so we take the fields of the first element,
         # if it's a dict
@@ -299,7 +299,7 @@ def extract_fields(response, dataset_name: str) -> (List, Dict):
             else:
                 return [], {}  # it's empty!
         else:
-            warnings.warn("Unable to get the attributes of {dataset_name}")
+            warnings.warn(f"Unable to get the attributes --- {dataset_name}")
             return [], {}
 
 
