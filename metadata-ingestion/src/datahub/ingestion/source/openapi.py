@@ -1,8 +1,7 @@
 from abc import ABC
 import time
-from typing import List, Iterable, Dict, Optional
+from typing import Iterable, Dict, Optional
 from datahub.configuration.common import ConfigModel
-from dataclasses import field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.ingestion.api.source import Source, SourceReport
@@ -12,10 +11,9 @@ from datahub.metadata.schema_classes import (DatasetPropertiesClass, Institution
                                              InstitutionalMemoryMetadataClass, AuditStampClass, GlobalTagsClass,
                                              TagAssociationClass)
 from tqdm.auto import tqdm
-from collections import Counter
-from datahub.ingestion.source.openapi_parser import (get_swag_json, get_tok, get_url_basepath, get_endpoints,
-                                                     set_metadata, clean_url, request_call, extract_fields,
-                                                     try_guessing, compose_url_attr)
+from datahub.ingestion.source.openapi_parser import (get_swag_json, get_tok, get_url_basepath, set_metadata,
+                                                     clean_url, request_call, extract_fields, try_guessing,
+                                                     compose_url_attr, get_endpoints)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.emitter.mce_builder import make_tag_urn
@@ -214,7 +212,7 @@ class APISource(Source, ABC):
 
 class OpenApiSource(APISource):
     def __init__(self, config: OpenApiConfig, ctx: PipelineContext):
-        super().__init__(config, ctx, "api")
+        super().__init__(config, ctx, "OpenApi")
 
     @classmethod
     def create(cls, config_dict, ctx):
