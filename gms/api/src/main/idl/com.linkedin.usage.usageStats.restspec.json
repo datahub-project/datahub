@@ -1,0 +1,13 @@
+{
+  "name" : "usageStats",
+  "namespace" : "com.linkedin.usage",
+  "path" : "/usageStats",
+  "schema" : "com.linkedin.common.EntityRelationships",
+  "doc" : "Rest.li entry point: /usageStats\n\ngenerated from: com.linkedin.metadata.resources.usage.UsageStats",
+  "simple" : {
+    "supports" : [ ],
+    "entity" : {
+      "path" : "/usageStats"
+    }
+  }
+}
