@@ -7,7 +7,8 @@ import click
 from pydantic import ValidationError
 
 import datahub as datahub_package
-from datahub.check.check_cli import check
+from datahub.cli.check_cli import check
+from datahub.cli.docker import docker
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
 
@@ -25,7 +26,13 @@ BASE_LOGGING_FORMAT = (
 logging.basicConfig(format=BASE_LOGGING_FORMAT)
 
 
-@click.group()
+@click.group(
+    context_settings=dict(
+        # Avoid truncation of help text.
+        # See https://github.com/pallets/click/issues/486.
+        max_content_width=120,
+    )
+)
 @click.option("--debug/--no-debug", default=False)
 @click.version_option(
     version=datahub_package.nice_version_name(),
@@ -45,7 +52,7 @@ def datahub(debug: bool) -> None:
 
 @datahub.command()
 def version() -> None:
-    """Print version number and exit"""
+    """Print version number and exit."""
     click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
     click.echo(f"Python version: {sys.version}")
 
@@ -55,11 +62,11 @@ def version() -> None:
     "-c",
     "--config",
     type=click.Path(exists=True, dir_okay=False),
-    help="Config file in .toml or .yaml format",
+    help="Config file in .toml or .yaml format.",
     required=True,
 )
 def ingest(config: str) -> None:
-    """Main command for ingesting metadata into DataHub"""
+    """Ingest metadata into DataHub."""
 
     config_file = pathlib.Path(config)
     pipeline_config = load_config_file(config_file)
@@ -77,12 +84,16 @@ def ingest(config: str) -> None:
 
 
 datahub.add_command(check)
+datahub.add_command(docker)
 
 
 def main(**kwargs):
     # This wrapper prevents click from suppressing errors.
     try:
         sys.exit(datahub(standalone_mode=False, **kwargs))
+    except click.exceptions.Abort:
+        # Click already automatically prints an abort message, so we can just exit.
+        sys.exit(1)
     except click.ClickException as error:
         error.show()
         sys.exit(1)
