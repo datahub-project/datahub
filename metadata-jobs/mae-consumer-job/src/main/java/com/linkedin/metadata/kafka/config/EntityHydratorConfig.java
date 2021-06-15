@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.config;
 
-import com.linkedin.metadata.kafka.hydrator.HydratorFactory;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.kafka.hydrator.EntityHydrator;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.restli.client.Client;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 
 
 @Configuration
-public class HydratorFactoryConfig {
+public class EntityHydratorConfig {
   @Value("${GMS_HOST:localhost}")
   private String gmsHost;
   @Value("${GMS_PORT:8080}")
@@ -20,8 +21,9 @@ public class HydratorFactoryConfig {
   private String gmsSslProtocol;
 
   @Bean
-  public HydratorFactory getHydratorFactory() {
+  public EntityHydrator getEntityHydrator() {
     Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
-    return new HydratorFactory(restClient);
+    EntityClient entityClient = new EntityClient(restClient);
+    return new EntityHydrator(entityClient);
   }
 }

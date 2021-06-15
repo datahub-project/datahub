@@ -1,34 +1,24 @@
 package com.linkedin.metadata.kafka.hydrator;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.common.urn.DatasetUrn;
-import java.net.URISyntaxException;
-import java.util.Optional;
+import com.linkedin.metadata.aspect.DatasetAspect;
+import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-public class DatasetHydrator implements Hydrator {
+public class DatasetHydrator extends BaseHydrator<DatasetSnapshot> {
 
   private static final String PLATFORM = "platform";
   private static final String NAME = "name";
 
-  public DatasetHydrator() {
-  }
-
   @Override
-  public Optional<ObjectNode> getHydratedEntity(String urn) {
-    DatasetUrn datasetUrn;
-    try {
-      datasetUrn = DatasetUrn.createFromString(urn);
-    } catch (URISyntaxException e) {
-      log.info("Invalid Dataset URN: {}", urn);
-      return Optional.empty();
+  protected void hydrateFromSnapshot(ObjectNode document, DatasetSnapshot snapshot) {
+    for (DatasetAspect aspect : snapshot.getAspects()) {
+      if (aspect.isDatasetKey()) {
+        document.put(PLATFORM, aspect.getDatasetKey().getPlatform().toString());
+        document.put(NAME, aspect.getDatasetKey().getName());
+      }
     }
-
-    ObjectNode jsonObject = HydratorFactory.OBJECT_MAPPER.createObjectNode();
-    jsonObject.put(PLATFORM, datasetUrn.getPlatformEntity().getPlatformNameEntity());
-    jsonObject.put(NAME, datasetUrn.getDatasetNameEntity());
-    return Optional.of(jsonObject);
   }
 }
