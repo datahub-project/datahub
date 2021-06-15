@@ -131,8 +131,6 @@ def get_endpoints(sw_dict: dict) -> dict:
                 elif "text/csv" in res_cont.keys():
                     url_details[p_k]["data"] = res_cont["text/csv"]["schema"]
 
-
-
             # checking whether there are defined parameters to execute the call... 
             if "parameters" in p_o["get"].keys():
                 url_details[p_k]["parameters"] = p_o["get"]["parameters"]

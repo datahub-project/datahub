@@ -100,6 +100,10 @@ class APISource(Source, ABC):
 
         # looping on all the urls. Each URL will be a dataset, for our definition
         for endpoint_k, endpoint_dets in tqdm(url_endpoints.items(), desc="Checking urls..."):
+            if endpoint_k in self.report.warnings.keys():
+                # already checked that does not work
+                continue
+
             if endpoint_k in config.ignore_endpoints:
                 continue
 
