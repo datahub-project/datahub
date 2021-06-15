@@ -236,7 +236,6 @@ class GlueSource(Source):
                 elif node_args.get("connection_type") == "s3":
 
                     # remove S3 prefix
-                    # TODO: include file format in properties
                     s3_name = node_args["connection_options"]["path"][5:]
 
                     node_urn = (
@@ -430,6 +429,9 @@ class GlueSource(Source):
 
         if self.extract_transforms:
 
+            # prevent adding duplicate S3 sources
+            seen_dataset_urns = set()
+
             for job in self.get_all_jobs():
 
                 flow_urn = mce_builder.make_data_flow_urn("glue", job["Name"], self.env)
@@ -451,9 +453,12 @@ class GlueSource(Source):
                         yield job_wu
 
                 for dataset_id, dataset_mce in zip(new_dataset_ids, new_dataset_mces):
-                    dataset_wu = MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
-                    self.report.report_workunit(dataset_wu)
-                    yield dataset_wu
+
+                    if dataset_mce.proposedSnapshot.urn not in seen_dataset_urns:
+                        dataset_wu = MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
+                        self.report.report_workunit(dataset_wu)
+                        seen_dataset_urns.add(dataset_mce.proposedSnapshot.urn)
+                        yield dataset_wu
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner(time: int) -> OwnershipClass:

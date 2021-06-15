@@ -761,7 +761,7 @@
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
               "customProperties": {
-                "paths": "[\"yr\", \"quarter\", \"month\", \"dayofmonth\", \"dayofweek\", \"flightdate\", \"uniquecarrier\", \"airlineid\", \"carrier\", \"tailnum\", \"flightnum\", \"originairportid\", \"originairportseqid\", \"origincitymarketid\", \"origin\", \"origincityname\", \"originstate\", \"originstatefips\", \"originstatename\", \"originwac\", \"destairportid\", \"destairportseqid\", \"destcitymarketid\", \"dest\", \"destcityname\", \"deststate\", \"deststatefips\", \"deststatename\", \"destwac\", \"crsdeptime\", \"deptime\", \"depdelay\", \"depdelayminutes\", \"depdel15\", \"departuredelaygroups\", \"deptimeblk\", \"taxiout\", \"wheelsoff\", \"wheelson\", \"taxiin\", \"crsarrtime\", \"arrtime\", \"arrdelay\", \"arrdelayminutes\", \"arrdel15\", \"arrivaldelaygroups\", \"arrtimeblk\", \"cancelled\", \"cancellationcode\", \"diverted\", \"crselapsedtime\", \"actualelapsedtime\", \"airtime\", \"flights\", \"distance\", \"distancegroup\", \"carrierdelay\", \"weatherdelay\", \"nasdelay\", \"securitydelay\", \"lateaircraftdelay\", \"firstdeptime\", \"totaladdgtime\", \"longestaddgtime\", \"divairportlandings\", \"divreacheddest\", \"divactualelapsedtime\", \"divarrdelay\", \"divdistance\", \"div1airport\", \"div1airportid\", \"div1airportseqid\", \"div1wheelson\", \"div1totalgtime\", \"div1longestgtime\", \"div1wheelsoff\", \"div1tailnum\", \"div2airport\", \"div2airportid\", \"div2airportseqid\", \"div2wheelson\", \"div2totalgtime\", \"div2longestgtime\", \"div2wheelsoff\", \"div2tailnum\", \"div3airport\", \"div3airportid\", \"div3airportseqid\", \"div3wheelson\", \"div3totalgtime\", \"div3longestgtime\", \"div3wheelsoff\", \"div3tailnum\", \"div4airport\", \"div4airportid\", \"div4airportseqid\", \"div4wheelson\", \"div4totalgtime\", \"div4longestgtime\", \"div4wheelsoff\", \"div4tailnum\", \"div5airport\", \"div5airportid\", \"div5airportseqid\", \"div5wheelson\", \"div5totalgtime\", \"div5longestgtime\", \"div5wheelsoff\", \"div5tailnum\", \"year\"]",
+                "paths": "[\"yr\", \"quarter\", \"month\", \"dayofmonth\", \"dayofweek\", \"flightdate\", \"uniquecarrier\"]",
                 "name2": "\"Transform0Output1\"",
                 "name1": "\"Transform0Output0\"",
                 "transformation_ctx": "\"Transform0\""
@@ -887,46 +887,6 @@
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),Transform2)"
               ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons/,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "connection_type": "s3",
-                "format": "json",
-                "connection_options": "{'path': 's3://test-glue-jsons/', 'partitionKeys': []}",
-                "transformation_ctx": "DataSink0"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": "s3://test-glue-jsons/",
-              "tags": []
             }
           }
         ]
