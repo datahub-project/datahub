@@ -89,15 +89,13 @@ def check_sw_version(sw_dict: dict) -> None:
 
     if version[0] == 3 and version[1] > 0:
         raise NotImplementedError("This plugin is not compatible with Swagger version >3.0")
-    elif version[0] == 2.0:
-        raise NotImplementedError("This plugin is not compatible with Swagger 2.x")
 
 
 def get_endpoints(sw_dict: dict) -> dict:
     """
     Get all the URLs accepting the "GET" method, together with their description and the tags
     """
-    url_details = defaultdict(dict)
+    url_details = {}
 
     check_sw_version(sw_dict)
 
@@ -109,6 +107,18 @@ def get_endpoints(sw_dict: dict) -> dict:
                 base_res = p_o["get"]["responses"]['200']
             except KeyError:  # if you read a plain yml file the 200 will be an integer
                 base_res = p_o["get"]["responses"][200]
+
+            if "description" in p_o["get"].keys():
+                desc = p_o["get"]["description"]
+            else:  # still testing
+                desc = p_o["get"]["summary"]
+
+            try:
+                tags = p_o["get"]["tags"]
+            except KeyError:
+                tags = []
+
+            url_details[p_k] = {"description": desc, "tags": tags}
 
             # trying if dataset is defined in swagger...
             if "content" in base_res.keys():
@@ -130,25 +140,13 @@ def get_endpoints(sw_dict: dict) -> dict:
                         warnings.warn(f"Field in swagger file does not give consistent data --- {p_k}")
                 elif "text/csv" in res_cont.keys():
                     url_details[p_k]["data"] = res_cont["text/csv"]["schema"]
+            elif "examples" in base_res.keys():
+                url_details[p_k]["data"] = base_res["examples"]["application/json"]
 
-            # checking whether there are defined parameters to execute the call... 
+            # checking whether there are defined parameters to execute the call...
             if "parameters" in p_o["get"].keys():
                 url_details[p_k]["parameters"] = p_o["get"]["parameters"]
 
-            if p_k in url_details.keys():  # only if we already added stuff...
-                if "description" in p_o["get"].keys():
-                    desc = p_o["get"]["description"]
-                else:  # still testing
-                    desc = p_o["get"]["summary"]
-
-                try:
-                    tags = p_o["get"]["tags"]
-                except KeyError:
-                    tags = []
-
-                url_details[p_k] = {"description": desc, "tags": tags}
-
-            
     return url_details
 
 

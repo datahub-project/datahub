@@ -6,6 +6,174 @@ import warnings
 
 
 class TestGetEndpoints(unittest.TestCase):
+
+    openapi20 = """
+swagger: "2.0"
+info:
+  title: Simple API overview
+  version: v2
+paths:
+  /:
+    get:
+      operationId: listVersionsv2
+      summary: List API versions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: |-
+            200 300 response
+          examples:
+            application/json: |-
+              {
+                  "versions": [
+                      {
+                          "status": "CURRENT",
+                          "updated": "2011-01-21T11:33:21Z",
+                          "id": "v2.0",
+                          "links": [
+                              {
+                                  "href": "http://127.0.0.1:8774/v2/",
+                                  "rel": "self"
+                              }
+                          ]
+                      },
+                      {
+                          "status": "EXPERIMENTAL",
+                          "updated": "2013-07-23T11:33:21Z",
+                          "id": "v3.0",
+                          "links": [
+                              {
+                                  "href": "http://127.0.0.1:8774/v3/",
+                                  "rel": "self"
+                              }
+                          ]
+                      }
+                  ]
+              }
+        "300":
+          description: |-
+            200 300 response
+          examples:
+            application/json: |-
+              {
+                  "versions": [
+                      {
+                          "status": "CURRENT",
+                          "updated": "2011-01-21T11:33:21Z",
+                          "id": "v2.0",
+                          "links": [
+                              {
+                                  "href": "http://127.0.0.1:8774/v2/",
+                                  "rel": "self"
+                              }
+                          ]
+                      },
+                      {
+                          "status": "EXPERIMENTAL",
+                          "updated": "2013-07-23T11:33:21Z",
+                          "id": "v3.0",
+                          "links": [
+                              {
+                                  "href": "http://127.0.0.1:8774/v3/",
+                                  "rel": "self"
+                              }
+                          ]
+                      }
+                  ]
+              }
+  /v2:
+    get:
+      operationId: getVersionDetailsv2
+      summary: Show API version details
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: |-
+            200 203 response
+          examples:
+            application/json: |-
+              {
+                  "version": {
+                      "status": "CURRENT",
+                      "updated": "2011-01-21T11:33:21Z",
+                      "media-types": [
+                          {
+                              "base": "application/xml",
+                              "type": "application/vnd.openstack.compute+xml;version=2"
+                          },
+                          {
+                              "base": "application/json",
+                              "type": "application/vnd.openstack.compute+json;version=2"
+                          }
+                      ],
+                      "id": "v2.0",
+                      "links": [
+                          {
+                              "href": "http://127.0.0.1:8774/v2/",
+                              "rel": "self"
+                          },
+                          {
+                              "href": "http://docs.openstack.org/api/openstack-compute/2/os-compute-devguide-2.pdf",
+                              "type": "application/pdf",
+                              "rel": "describedby"
+                          },
+                          {
+                              "href": "http://docs.openstack.org/api/openstack-compute/2/wadl/os-compute-2.wadl",
+                              "type": "application/vnd.sun.wadl+xml",
+                              "rel": "describedby"
+                          },
+                          {
+                            "href": "http://docs.openstack.org/api/openstack-compute/2/wadl/os-compute-2.wadl",
+                            "type": "application/vnd.sun.wadl+xml",
+                            "rel": "describedby"
+                          }
+                      ]
+                  }
+              }
+        "203":
+          description: |-
+            200 203 response
+          examples:
+            application/json: |-
+              {
+                  "version": {
+                      "status": "CURRENT",
+                      "updated": "2011-01-21T11:33:21Z",
+                      "media-types": [
+                          {
+                              "base": "application/xml",
+                              "type": "application/vnd.openstack.compute+xml;version=2"
+                          },
+                          {
+                              "base": "application/json",
+                              "type": "application/vnd.openstack.compute+json;version=2"
+                          }
+                      ],
+                      "id": "v2.0",
+                      "links": [
+                          {
+                              "href": "http://23.253.228.211:8774/v2/",
+                              "rel": "self"
+                          },
+                          {
+                              "href": "http://docs.openstack.org/api/openstack-compute/2/os-compute-devguide-2.pdf",
+                              "type": "application/pdf",
+                              "rel": "describedby"
+                          },
+                          {
+                              "href": "http://docs.openstack.org/api/openstack-compute/2/wadl/os-compute-2.wadl",
+                              "type": "application/vnd.sun.wadl+xml",
+                              "rel": "describedby"
+                          }
+                      ]
+                  }
+              }
+consumes:
+- application/json
+    """
+
     # https://github.com/OAI/OpenAPI-Specification/blob/main/examples/v3.0/api-with-examples.yaml
     openapi30 = """
 openapi: "3.0.0"
@@ -181,7 +349,7 @@ paths:
 """
 
     def test_get_endpoints_openapi30(self) -> None:
-        """ extracting 'get' type endpoints from swagger file"""
+        """ extracting 'get' type endpoints from swagger 3.0 file"""
         sw_file_raw = yaml.safe_load(self.openapi30)
         url_endpoints = get_endpoints(sw_file_raw)
 
@@ -190,22 +358,13 @@ paths:
         self.assertEqual(url_endpoints["/"].keys(), d4k.keys())
 
     def test_get_endpoints_openapi20(self) -> None:
-        """ incompatibility w/ swagger 2.0"""
-        try:
-            _ = get_endpoints({"swagger": "2.0.0"})
-            self.assertFalse(True)
-        except NotImplementedError:
-            self.assertFalse(False)
+        """ extracting 'get' type endpoints from swagger 2.0 file"""
+        sw_file_raw = yaml.safe_load(self.openapi20)
+        url_endpoints = get_endpoints(sw_file_raw)
 
-    def test_warns(self) -> None:
-        with warnings.catch_warnings(record=True) as w:
-            # Cause all warnings to always be triggered.
-            warnings.simplefilter("always")
-
-            # Verify some things
-            assert len(w) == 1
-            assert issubclass(w[-1].category, DeprecationWarning)
-            assert "deprecated" in str(w[-1].message)
+        self.assertEqual(len(url_endpoints), 2)
+        d4k = {"data": "", "tags": "", "description": ""}
+        self.assertEqual(url_endpoints["/"].keys(), d4k.keys())
 
 
 class TestExplodeDict(unittest.TestCase):
