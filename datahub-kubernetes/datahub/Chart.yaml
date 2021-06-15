@@ -20,11 +20,11 @@ dependencies:
   - name: datahub-mae-consumer
     version: 0.2.1
     repository: file://./charts/datahub-mae-consumer
-    condition: datahub-mae-consumer.enabled
+    condition: global.datahub_standalone_consumers_enabled
   - name: datahub-mce-consumer
     version: 0.2.1
     repository: file://./charts/datahub-mce-consumer
-    condition: datahub-mce-consumer.enabled
+    condition: global.datahub_standalone_consumers_enabled
   - name: datahub-ingestion-cron
     version: 0.2.1
     repository: file://./charts/datahub-ingestion-cron
