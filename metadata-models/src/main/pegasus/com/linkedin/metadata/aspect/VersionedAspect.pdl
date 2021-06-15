@@ -2,7 +2,7 @@ namespace com.linkedin.metadata.aspect
 
 import com.linkedin.common.AuditStamp
 
-record AspectWithMetadata {
+record VersionedAspect {
     aspect: Aspect
     version: long
 }

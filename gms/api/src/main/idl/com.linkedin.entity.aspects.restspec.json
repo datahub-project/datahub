@@ -2,7 +2,7 @@
   "name" : "aspects",
   "namespace" : "com.linkedin.entity",
   "path" : "/aspects",
-  "schema" : "com.linkedin.metadata.aspect.AspectWithMetadata",
+  "schema" : "com.linkedin.metadata.aspect.VersionedAspect",
   "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.AspectResource",
   "collection" : {
     "identifier" : {

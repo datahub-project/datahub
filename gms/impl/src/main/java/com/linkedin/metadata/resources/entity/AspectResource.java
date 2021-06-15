@@ -1,7 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.aspect.AspectWithMetadata;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
  * Single unified resource for fetching, updating, searching, & browsing DataHub entities
  */
 @RestLiCollection(name = "aspects", namespace = "com.linkedin.entity")
-public class AspectResource extends CollectionResourceTaskTemplate<String, AspectWithMetadata> {
+public class AspectResource extends CollectionResourceTaskTemplate<String, VersionedAspect> {
 
   private final Logger _logger = LoggerFactory.getLogger("EntityResource");
 
@@ -35,7 +35,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Aspec
    */
   @RestMethod.Get
   @Nonnull
-  public Task<AspectWithMetadata> get(
+  public Task<VersionedAspect> get(
       @Nonnull String urnStr,
       @QueryParam("aspect") @Optional @Nullable String aspectName,
       @QueryParam("version") @Optional @Nullable Long version
@@ -43,7 +43,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Aspec
     _logger.info("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtils.toTask(() -> {
-      final AspectWithMetadata aspect = _entityService.getAspectWithMetadata(urn, aspectName, version);
+      final VersionedAspect aspect = _entityService.getVersionedAspect(urn, aspectName, version);
       if (aspect == null) {
         throw RestliUtils.resourceNotFoundException();
       }

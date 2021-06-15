@@ -10,7 +10,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.Aspect;
-import com.linkedin.metadata.aspect.AspectWithMetadata;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
@@ -258,22 +258,22 @@ public class EbeanEntityServiceTest {
     _entityService.updateAspect(entityUrn, aspectName, writeAspect, TEST_AUDIT_STAMP, 1, true);
 
 
-    AspectWithMetadata writtenAspectWithMetadata = new AspectWithMetadata();
-    writtenAspectWithMetadata.setAspect(Aspect.create(writeAspect));
-    writtenAspectWithMetadata.setVersion(1);
+    VersionedAspect writtenVersionedAspect = new VersionedAspect();
+    writtenVersionedAspect.setAspect(Aspect.create(writeAspect));
+    writtenVersionedAspect.setVersion(1);
 
-    AspectWithMetadata readAspect1 = _entityService.getAspectWithMetadata(entityUrn, aspectName, 1);
-    assertTrue(DataTemplateUtil.areEqual(writtenAspectWithMetadata, readAspect1));
+    VersionedAspect readAspect1 = _entityService.getVersionedAspect(entityUrn, aspectName, 1);
+    assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspect1));
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(
         Mockito.eq(entityUrn),
         Mockito.eq(null),
         Mockito.any());
 
-    AspectWithMetadata readAspect2 = _entityService.getAspectWithMetadata(entityUrn, aspectName, -1);
-    assertTrue(DataTemplateUtil.areEqual(writtenAspectWithMetadata, readAspect2));
+    VersionedAspect readAspect2 = _entityService.getVersionedAspect(entityUrn, aspectName, -1);
+    assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspect2));
 
-    AspectWithMetadata readAspectVersion0 = _entityService.getAspectWithMetadata(entityUrn, aspectName, 0);
-    assertFalse(DataTemplateUtil.areEqual(writtenAspectWithMetadata, readAspectVersion0));
+    VersionedAspect readAspectVersion0 = _entityService.getVersionedAspect(entityUrn, aspectName, 0);
+    assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspectVersion0));
 
     verifyNoMoreInteractions(_mockProducer);
   }

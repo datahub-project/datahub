@@ -542,7 +542,7 @@ public class GmsGraphQLEngine {
         }), loaderOptions);
     }
 
-    private static DataLoader<AspectLoadKey, DataFetcherResult<Aspect>> createAspectLoader(final QueryContext queryContext) {
+    private static DataLoader<VersionedAspectKey, DataFetcherResult<Aspect>> createAspectLoader(final QueryContext queryContext) {
         BatchLoaderContextProvider contextProvider = () -> queryContext;
         DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
         return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {

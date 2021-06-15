@@ -6,7 +6,7 @@ import com.linkedin.data.element.DataElement;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 
-import com.linkedin.metadata.aspect.AspectWithMetadata;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import graphql.schema.DataFetchingEnvironment;
 import java.lang.reflect.InvocationTargetException;
 import javax.annotation.Nonnull;
@@ -25,7 +25,7 @@ public class ResolverUtils {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private static final Logger _logger = LoggerFactory.getLogger("ResolverUtils");
+    private static final Logger _logger = LoggerFactory.getLogger(ResolverUtils.class.getName());
 
     private ResolverUtils() { }
 
@@ -67,7 +67,7 @@ public class ResolverUtils {
     }
 
     @Nonnull
-    public static AspectWithMetadata getAspectFromLocalContext(DataFetchingEnvironment environment) {
+    public static VersionedAspect getAspectFromLocalContext(DataFetchingEnvironment environment) {
         String fieldName = environment.getField().getName();
         Long version = environment.getArgument("version");
 
@@ -84,7 +84,7 @@ public class ResolverUtils {
                                 Class.forName(prefetchedAspect.getSchema().getUnionMemberKey()),
                                 new Class[]{DataMap.class}).newInstance(prefetchedAspect.getValue())));
 
-                        AspectWithMetadata resultWithMetadata = new AspectWithMetadata();
+                        VersionedAspect resultWithMetadata = new VersionedAspect();
 
                         resultWithMetadata.setAspect(
                             (com.linkedin.metadata.aspect.Aspect)

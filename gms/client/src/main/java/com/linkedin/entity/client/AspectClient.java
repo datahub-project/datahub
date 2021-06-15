@@ -2,7 +2,7 @@ package com.linkedin.entity.client;
 
 import com.linkedin.entity.AspectsGetRequestBuilder;
 import com.linkedin.entity.AspectsRequestBuilders;
-import com.linkedin.metadata.aspect.AspectWithMetadata;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import javax.annotation.Nonnull;
@@ -29,7 +29,7 @@ public class AspectClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public AspectWithMetadata getAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version)
+    public VersionedAspect getAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version)
         throws RemoteInvocationException {
 
         AspectsGetRequestBuilder requestBuilder =

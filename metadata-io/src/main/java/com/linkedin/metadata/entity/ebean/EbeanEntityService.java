@@ -6,7 +6,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.Aspect;
-import com.linkedin.metadata.aspect.AspectWithMetadata;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
@@ -105,8 +105,8 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Override
-  public AspectWithMetadata getAspectWithMetadata(@Nonnull Urn urn, @Nonnull String aspectName, long version) {
-    AspectWithMetadata result = new AspectWithMetadata();
+  public VersionedAspect getVersionedAspect(@Nonnull Urn urn, @Nonnull String aspectName, long version) {
+    VersionedAspect result = new VersionedAspect();
 
     if (version < 0) {
       version = _entityDao.getMaxVersion(urn.toString(), aspectName) + version + 1;

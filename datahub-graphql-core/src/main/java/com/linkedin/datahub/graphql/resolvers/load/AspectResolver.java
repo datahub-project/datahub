@@ -1,11 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
-import com.linkedin.datahub.graphql.AspectLoadKey;
+import com.linkedin.datahub.graphql.VersionedAspectKey;
 import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.aspect.AspectMapper;
-import com.linkedin.metadata.aspect.AspectWithMetadata;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -26,19 +26,19 @@ public class AspectResolver implements DataFetcher<CompletableFuture<Aspect>> {
 
     @Override
     public CompletableFuture<Aspect> get(DataFetchingEnvironment environment) {
-        final DataLoader<AspectLoadKey, Aspect> loader = environment.getDataLoaderRegistry().getDataLoader("Aspect");
+        final DataLoader<VersionedAspectKey, Aspect> loader = environment.getDataLoaderRegistry().getDataLoader("Aspect");
 
         String fieldName = environment.getField().getName();
         Long version = environment.getArgument("version");
         String urn = ((Entity) environment.getSource()).getUrn();
 
         // first, we try fetching the aspect from the local cache
-        AspectWithMetadata aspectFromContext = ResolverUtils.getAspectFromLocalContext(environment);
+        VersionedAspect aspectFromContext = ResolverUtils.getAspectFromLocalContext(environment);
         if (aspectFromContext != null) {
             return CompletableFuture.completedFuture(AspectMapper.map(aspectFromContext));
         }
 
         // if the aspect is not in the cache, we need to fetch it from GMS Aspect Resource
-        return loader.load(new AspectLoadKey(urn, fieldName, version));
+        return loader.load(new VersionedAspectKey(urn, fieldName, version));
     }
 }

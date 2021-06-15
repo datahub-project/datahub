@@ -2546,7 +2546,7 @@
     }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
   }, {
     "type" : "record",
-    "name" : "AspectWithMetadata",
+    "name" : "VersionedAspect",
     "namespace" : "com.linkedin.metadata.aspect",
     "fields" : [ {
       "name" : "aspect",
@@ -2560,7 +2560,7 @@
     "name" : "aspects",
     "namespace" : "com.linkedin.entity",
     "path" : "/aspects",
-    "schema" : "com.linkedin.metadata.aspect.AspectWithMetadata",
+    "schema" : "com.linkedin.metadata.aspect.VersionedAspect",
     "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.AspectResource",
     "collection" : {
       "identifier" : {
