@@ -15,8 +15,6 @@ import com.linkedin.metadata.builders.search.TagIndexBuilder;
 import com.linkedin.metadata.builders.search.GlossaryTermInfoIndexBuilder;
 import com.linkedin.metadata.builders.search.GlossaryNodeInfoIndexBuilder;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.restli.client.Client;
 import java.util.HashSet;
 import java.util.Set;
@@ -70,13 +68,5 @@ public class IndexBuildersConfig {
   @Bean
   public Client restliClient() {
     return DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort);
-  }
-
-  /**
-   * Convention for naming search indices
-   */
-  @Bean
-  public IndexConvention indexConvention() {
-    return new IndexConventionImpl(indexPrefix);
   }
 }

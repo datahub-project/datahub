@@ -7,9 +7,7 @@ REQUIRED_CONTAINERS = [
     "elasticsearch-setup",
     "elasticsearch",
     "datahub-gms",
-    "datahub-mce-consumer",
     "datahub-frontend-react",
-    "datahub-mae-consumer",
     "kafka-setup",
     "schema-registry",
     "broker",
@@ -21,6 +19,8 @@ REQUIRED_CONTAINERS = [
     # "schema-registry-ui",
     # "kibana",
     # "kafka-rest-proxy",
+    # "datahub-mce-consumer",
+    # "datahub-mae-consumer"
 ]
 
 ENSURE_EXIT_SUCCESS = [

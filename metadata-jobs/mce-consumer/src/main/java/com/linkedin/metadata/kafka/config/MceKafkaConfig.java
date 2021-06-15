@@ -24,13 +24,14 @@ import org.springframework.kafka.listener.ErrorHandler;
 
 @Slf4j
 @Configuration
-public class KafkaConfig {
+public class MceKafkaConfig {
+
   @Value("${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}")
   private String kafkaBootstrapServers;
   @Value("${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}")
   private String kafkaSchemaRegistryUrl;
 
-  @Bean
+  @Bean(name = "mceKafkaContainerFactory")
   public KafkaListenerContainerFactory<?> kafkaListenerContainerFactory(KafkaProperties properties) {
     KafkaProperties.Consumer consumerProps = properties.getConsumer();
 

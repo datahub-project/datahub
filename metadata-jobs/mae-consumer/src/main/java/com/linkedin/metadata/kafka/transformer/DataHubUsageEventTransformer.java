@@ -9,6 +9,7 @@ import com.linkedin.metadata.kafka.hydrator.EntityType;
 import com.linkedin.metadata.kafka.hydrator.HydratorFactory;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nonnull;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -36,7 +37,7 @@ public class DataHubUsageEventTransformer {
     String document;
   }
 
-  public DataHubUsageEventTransformer(HydratorFactory hydratorFactory) {
+  public DataHubUsageEventTransformer(@Nonnull HydratorFactory hydratorFactory) {
     this.hydratorFactory = hydratorFactory;
   }
 
