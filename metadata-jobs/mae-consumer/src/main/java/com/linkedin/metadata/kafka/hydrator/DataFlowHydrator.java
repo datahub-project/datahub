@@ -9,6 +9,7 @@ import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 import com.linkedin.restli.client.Client;
 import java.net.URISyntaxException;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -20,7 +21,7 @@ public class DataFlowHydrator implements Hydrator {
   private static final String ORCHESTRATOR = "orchestrator";
   private static final String NAME = "name";
 
-  public DataFlowHydrator(Client restliClient) {
+  public DataFlowHydrator(@Nonnull Client restliClient) {
     _restliClient = restliClient;
     _remoteDAO = new RestliRemoteDAO<>(DataFlowSnapshot.class, DataFlowAspect.class, _restliClient);
   }

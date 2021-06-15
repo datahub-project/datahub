@@ -6,6 +6,7 @@ import com.linkedin.restli.client.Client;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 
 
 public class HydratorFactory {
@@ -14,7 +15,7 @@ public class HydratorFactory {
 
   public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  public HydratorFactory(Client restliClient) {
+  public HydratorFactory(@Nonnull Client restliClient) {
     _restliClient = restliClient;
     _hydratorMap = new HashMap<>();
     _hydratorMap.put(EntityType.DATASET, new DatasetHydrator());

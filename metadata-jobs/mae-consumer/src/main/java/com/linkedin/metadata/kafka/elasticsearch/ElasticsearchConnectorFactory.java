@@ -21,7 +21,7 @@ public class ElasticsearchConnectorFactory {
 
   @Bean(name = "elasticsearchConnector")
   @Nonnull
-  public ElasticsearchConnector createInstance(RestHighLevelClient elasticSearchRestHighLevelClient) {
+  public ElasticsearchConnector createInstance(@Nonnull RestHighLevelClient elasticSearchRestHighLevelClient) {
     return new ElasticsearchConnector(elasticSearchRestHighLevelClient, bulkRequestsLimit, bulkFlushPeriod);
   }
 

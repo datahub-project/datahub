@@ -73,6 +73,14 @@ spec:
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
             failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           env:
+            {{- if not .Values.global.datahub_standalone_consumers_enabled }}
+            - name: MCE_CONSUMER_ENABLED
+              value: "true"
+            - name: MAE_CONSUMER_ENABLED
+              value: "true"
+            {{- end }}
+            - name: DATAHUB_ANALYTICS_ENABLED
+              value: "{{ .Values.global.datahub_analytics_enabled }}"
             - name: EBEAN_DATASOURCE_USERNAME
               value: "{{ .Values.global.sql.datasource.username }}"
             - name: EBEAN_DATASOURCE_PASSWORD

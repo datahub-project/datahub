@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.kafka.config.MetadataChangeEventsProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
@@ -15,6 +16,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@Conditional(MetadataChangeEventsProcessorCondition.class)
 @EnableKafka
 public class MetadataChangeEventsProcessor {
 
@@ -40,7 +43,7 @@ public class MetadataChangeEventsProcessor {
   }
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}", topics = "${KAFKA_MCE_TOPIC_NAME:"
-      + Topics.METADATA_CHANGE_EVENT + "}")
+      + Topics.METADATA_CHANGE_EVENT + "}", containerFactory = "mceKafkaContainerFactory")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     log.debug("Record ", record);

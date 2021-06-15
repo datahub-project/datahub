@@ -20,7 +20,7 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Slf4j
 @Configuration
-public class KafkaConfig {
+public class MaeKafkaConfig {
   @Value("${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}")
   private String kafkaBootstrapServer;
   @Value("${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}")
