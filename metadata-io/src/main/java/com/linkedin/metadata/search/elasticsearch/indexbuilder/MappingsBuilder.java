@@ -71,7 +71,9 @@ public class MappingsBuilder {
         // Add keyword subfield with fielddata set to true for aggregation queries
         subFields.put("keyword", ImmutableMap.of("type", "text", "analyzer", "urn_component", "fielddata", true));
       }
-      mappingForField.put("fields", subFields);
+      if (!subFields.isEmpty()) {
+        mappingForField.put("fields", subFields);
+      }
     } else if (fieldType == FieldType.BOOLEAN) {
       mappingForField.put("type", "boolean");
     } else if (fieldType == FieldType.COUNT) {
@@ -90,5 +92,4 @@ public class MappingsBuilder {
 
     return mappings;
   }
-
 }

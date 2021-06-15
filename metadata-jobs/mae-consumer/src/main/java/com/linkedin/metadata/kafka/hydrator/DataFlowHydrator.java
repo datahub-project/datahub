@@ -1,46 +1,25 @@
 package com.linkedin.metadata.kafka.hydrator;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.common.urn.DataFlowUrn;
-import com.linkedin.datajob.DataFlowInfo;
 import com.linkedin.metadata.aspect.DataFlowAspect;
-import com.linkedin.metadata.dao.RestliRemoteDAO;
 import com.linkedin.metadata.snapshot.DataFlowSnapshot;
-import com.linkedin.restli.client.Client;
-import java.net.URISyntaxException;
-import java.util.Optional;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-public class DataFlowHydrator implements Hydrator {
-  private final Client _restliClient;
-  private final RestliRemoteDAO<DataFlowSnapshot, DataFlowAspect, DataFlowUrn> _remoteDAO;
+public class DataFlowHydrator extends BaseHydrator<DataFlowSnapshot> {
 
   private static final String ORCHESTRATOR = "orchestrator";
   private static final String NAME = "name";
 
-  public DataFlowHydrator(@Nonnull Client restliClient) {
-    _restliClient = restliClient;
-    _remoteDAO = new RestliRemoteDAO<>(DataFlowSnapshot.class, DataFlowAspect.class, _restliClient);
-  }
-
   @Override
-  public Optional<ObjectNode> getHydratedEntity(String urn) {
-    DataFlowUrn dataFlowUrn;
-    try {
-      dataFlowUrn = DataFlowUrn.createFromString(urn);
-    } catch (URISyntaxException e) {
-      log.info("Invalid DataFlow URN: {}", urn);
-      return Optional.empty();
+  protected void hydrateFromSnapshot(ObjectNode document, DataFlowSnapshot snapshot) {
+    for (DataFlowAspect aspect : snapshot.getAspects()) {
+      if (aspect.isDataFlowInfo()) {
+        document.put(NAME, aspect.getDataFlowInfo().getName());
+      } else if (aspect.isDataFlowKey()) {
+        document.put(ORCHESTRATOR, aspect.getDataFlowKey().getOrchestrator());
+      }
     }
-
-    ObjectNode jsonObject = HydratorFactory.OBJECT_MAPPER.createObjectNode();
-    jsonObject.put(ORCHESTRATOR, dataFlowUrn.getOrchestratorEntity());
-
-    _remoteDAO.get(DataFlowInfo.class, dataFlowUrn).ifPresent(dataFlowInfo -> jsonObject.put(NAME, dataFlowInfo.getName()));
-
-    return Optional.of(jsonObject);
   }
 }

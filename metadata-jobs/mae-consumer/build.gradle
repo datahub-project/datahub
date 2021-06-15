@@ -15,6 +15,7 @@ dependencies {
     compile (project(':gms:factories')) {
         exclude group: 'org.neo4j.test'
     }
+    compile project(':gms:client')
     compile project(':metadata-utils')
     compile project(":entity-registry")
     compile project(':metadata-builders')
