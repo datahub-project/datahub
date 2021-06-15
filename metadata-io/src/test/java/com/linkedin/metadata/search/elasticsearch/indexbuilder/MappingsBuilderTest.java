@@ -6,6 +6,7 @@ import java.util.Map;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 
@@ -52,8 +53,7 @@ public class MappingsBuilderTest {
     Map<String, Object> foreignKey = (Map<String, Object>) properties.get("foreignKey");
     assertEquals(foreignKey.get("type"), "text");
     assertEquals(foreignKey.get("analyzer"), "urn_component");
-    Map<String, Object> foreignKeySubfields = (Map<String, Object>) foreignKey.get("fields");
-    assertTrue(foreignKeySubfields.isEmpty());
+    assertFalse(foreignKey.containsKey("fields"));
 
     // URN_PARTIAL
     Map<String, Object> nestedForeignKey = (Map<String, Object>) properties.get("nestedForeignKey");

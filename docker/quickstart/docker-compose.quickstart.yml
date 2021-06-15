@@ -55,48 +55,13 @@ services:
     - NEO4J_URI=bolt://neo4j
     - NEO4J_USERNAME=neo4j
     - NEO4J_PASSWORD=datahub
+    - MAE_CONSUMER_ENABLED=true
+    - MCE_CONSUMER_ENABLED=true
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
     mem_limit: 850m
     ports:
     - 8080:8080
-  datahub-mae-consumer:
-    container_name: datahub-mae-consumer
-    depends_on:
-    - kafka-setup
-    - elasticsearch-setup
-    - neo4j
-    environment:
-    - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
-    - ELASTICSEARCH_HOST=elasticsearch
-    - ELASTICSEARCH_PORT=9200
-    - NEO4J_HOST=http://neo4j:7474
-    - NEO4J_URI=bolt://neo4j
-    - NEO4J_USERNAME=neo4j
-    - NEO4J_PASSWORD=datahub
-    - GMS_HOST=datahub-gms
-    - GMS_PORT=8080
-    hostname: datahub-mae-consumer
-    image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-latest}
-    mem_limit: 256m
-    ports:
-    - 9091:9091
-  datahub-mce-consumer:
-    container_name: datahub-mce-consumer
-    depends_on:
-    - kafka-setup
-    - datahub-gms
-    environment:
-    - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
-    - GMS_HOST=datahub-gms
-    - GMS_PORT=8080
-    hostname: datahub-mce-consumer
-    image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-latest}
-    mem_limit: 384m
-    ports:
-    - 9090:9090
   elasticsearch:
     container_name: elasticsearch
     environment:

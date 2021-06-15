@@ -8,8 +8,8 @@ import org.springframework.boot.autoconfigure.elasticsearch.rest.RestClientAutoC
 @SpringBootApplication(exclude = {RestClientAutoConfiguration.class})
 public class MaeConsumerApplication {
 
-    public static void main(String[] args) {
-        Class<?>[] primarySources = {MaeConsumerApplication.class, MaeConsumerConfig.class};
-        SpringApplication.run(primarySources, args);
-    }
+  public static void main(String[] args) {
+    Class<?>[] primarySources = {MaeConsumerApplication.class, com.linkedin.metadata.kafka.MaeConsumerConfig.class};
+    SpringApplication.run(primarySources, args);
+  }
 }
