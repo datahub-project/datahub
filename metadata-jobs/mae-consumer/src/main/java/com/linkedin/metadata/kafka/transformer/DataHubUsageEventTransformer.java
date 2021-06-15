@@ -5,16 +5,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
-import com.linkedin.metadata.kafka.hydrator.EntityType;
 import com.linkedin.metadata.kafka.hydrator.EntityHydrator;
+import com.linkedin.metadata.kafka.hydrator.EntityType;
 import java.util.Optional;
 import java.util.Set;
-import javax.annotation.Nonnull;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import static com.linkedin.metadata.kafka.transformer.DataHubUsageEventConstants.*;
+import static com.linkedin.metadata.kafka.transformer.DataHubUsageEventConstants.ACTOR_URN;
+import static com.linkedin.metadata.kafka.transformer.DataHubUsageEventConstants.ENTITY_TYPE;
+import static com.linkedin.metadata.kafka.transformer.DataHubUsageEventConstants.ENTITY_URN;
+import static com.linkedin.metadata.kafka.transformer.DataHubUsageEventConstants.TIMESTAMP;
+import static com.linkedin.metadata.kafka.transformer.DataHubUsageEventConstants.TYPE;
 
 
 /**
@@ -37,13 +40,8 @@ public class DataHubUsageEventTransformer {
     String document;
   }
 
-<<<<<<< HEAD:metadata-jobs/mae-consumer-job/src/main/java/com/linkedin/metadata/kafka/transformer/DataHubUsageEventTransformer.java
   public DataHubUsageEventTransformer(EntityHydrator entityHydrator) {
     this._entityHydrator = entityHydrator;
-=======
-  public DataHubUsageEventTransformer(@Nonnull HydratorFactory hydratorFactory) {
-    this.hydratorFactory = hydratorFactory;
->>>>>>> origin/master:metadata-jobs/mae-consumer/src/main/java/com/linkedin/metadata/kafka/transformer/DataHubUsageEventTransformer.java
   }
 
   public Optional<TransformedDocument> transformDataHubUsageEvent(String dataHubUsageEvent) {
