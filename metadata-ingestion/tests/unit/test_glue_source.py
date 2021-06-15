@@ -1,35 +1,17 @@
-import unittest
-from datetime import datetime
-
-from tests.test_helpers import mce_helpers
-
 import json
+
 from botocore.stub import Stubber
 from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.glue import GlueSource, GlueSourceConfig, get_column_type
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     MapTypeClass,
-    MySqlDDL,
-    NumberTypeClass,
-    SchemaField,
     SchemaFieldDataType,
-    SchemaMetadata,
     StringTypeClass,
 )
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    DatasetPropertiesClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-)
+from tests.test_helpers import mce_helpers
 from tests.unit.test_glue_source_stubs import (
     get_databases_response,
     get_dataflow_graph_response_1,
@@ -88,13 +70,10 @@ def test_get_column_type_not_contained():
     field_type = "bad_column_type"
     data_type = get_column_type(glue_source_instance, field_type, "a_table", "a_field")
     assert data_type.to_obj() == SchemaFieldDataType(type=StringTypeClass()).to_obj()
-    assert (
-        glue_source_instance.report.warnings["bad_column_type"]
-        == [
-            "The type 'bad_column_type' is not recognised for field 'a_field' in table 'a_table', "
-            "setting as StringTypeClass."
-        ],
-    )
+    assert glue_source_instance.report.warnings["bad_column_type"] == [
+        "The type 'bad_column_type' is not recognised for field 'a_field' in table 'a_table', "
+        "setting as StringTypeClass."
+    ]
 
 
 @freeze_time(FROZEN_TIME)
@@ -150,17 +129,13 @@ def test_glue_ingest(tmp_path, pytestconfig):
                 wu.mce.to_obj() for wu in glue_source_instance.get_workunits()
             ]
 
-            with open(str(tmp_path / "glue_mces.json"), "w") as f:
+            with open(str(tmp_path / "glue_mce.json"), "w") as f:
                 json.dump(mce_objects, f, indent=2)
 
-    output = mce_helpers.load_json_file(str(tmp_path / "glue_mces.json"))
+    output = mce_helpers.load_json_file(str(tmp_path / "glue_mce.json"))
 
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
-    # golden = mce_helpers.load_json_file(
-    #     str(test_resources_dir / "glue_mces_golden.json")
-    # )
-    # mce_helpers.assert_mces_equal(output, golden)
-    # create_metadata_work_unit(timestamp)
-    # expected_metadata_work_unit = create_metadata_work_unit(timestamp)
-
-    # assert(expected_metadata_work_unit, actual_work_unit)
+    golden = mce_helpers.load_json_file(
+        str(test_resources_dir / "glue_mce_golden.json")
+    )
+    mce_helpers.assert_mces_equal(output, golden)
