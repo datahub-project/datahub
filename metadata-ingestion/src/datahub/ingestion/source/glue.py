@@ -372,7 +372,11 @@ class GlueSource(Source):
                         name=f"{job['Name']}:{node['NodeType']}-{node['Id']}",
                         type="GLUE",
                         description=None,
-                        customProperties={x["Name"]: x["Value"] for x in node["Args"]},
+                        customProperties={
+                            **{x["Name"]: x["Value"] for x in node["Args"]},
+                            "transformType": node["NodeType"],
+                            "nodeId": node["Id"],
+                        },
                     ),
                     DataJobInputOutputClass(
                         inputDatasets=node["inputDatasets"],
