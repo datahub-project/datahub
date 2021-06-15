@@ -2,10 +2,17 @@
   "name" : "usageStats",
   "namespace" : "com.linkedin.usage",
   "path" : "/usageStats",
-  "schema" : "com.linkedin.common.EntityRelationships",
+  "schema" : "com.linkedin.usage.UsageAggregation",
   "doc" : "Rest.li entry point: /usageStats\n\ngenerated from: com.linkedin.metadata.resources.usage.UsageStats",
   "simple" : {
     "supports" : [ ],
+    "actions" : [ {
+      "name" : "batchIngest",
+      "parameters" : [ {
+        "name" : "buckets",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.usage.UsageAggregation\" }"
+      } ]
+    } ],
     "entity" : {
       "path" : "/usageStats"
     }

@@ -4,8 +4,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.CreateResponse;
 import com.linkedin.restli.server.RoutingException;
-import com.linkedin.restli.server.annotations.RestLiSimpleResource;
-import com.linkedin.restli.server.annotations.RestMethod;
+import com.linkedin.restli.server.annotations.*;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 import com.linkedin.usage.UsageAggregation;
 
@@ -19,15 +18,18 @@ import java.util.List;
  */
 @RestLiSimpleResource(name = "usageStats", namespace = "com.linkedin.usage")
 public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
+    private static final String ACTION_BATCH_INGEST = "batchIngest";
+    private static final String PARAM_BUCKETS = "buckets";
+
     @Inject
     @Named("searchService")
     private SearchService _searchService;
 
-    @RestMethod.BatchCreate
+    @Action(name = ACTION_BATCH_INGEST)
     @Nonnull
-    public Task<CreateResponse> batchCreate(@Nonnull List<UsageAggregation> data)
+    public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets)
     {
-        throw new RoutingException("'batch_create' not implemented", 400);
+        throw new RoutingException("'batch_ingest' not implemented", 400);
     }
 
 }
