@@ -474,6 +474,21 @@
               "description": "The first test job",
               "project": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
           }
         ]
       }
@@ -484,16 +499,18 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Transform0)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
               "customProperties": {
                 "f": "lambda row : ()",
-                "transformation_ctx": "\"Transform0\""
+                "transformation_ctx": "\"Transform0\"",
+                "transformType": "Filter",
+                "nodeId": "Transform0"
               },
               "externalUrl": null,
-              "name": "test-job-1:Transform0",
+              "name": "test-job-1:Filter-Transform0",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -506,8 +523,23 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Transform2)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2)"
               ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
             }
           }
         ]
@@ -519,16 +551,18 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Transform1)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform1)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
               "customProperties": {
                 "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\"), (\"flightnum\", \"string\", \"flightnum\", \"string\"), (\"origin\", \"string\", \"origin\", \"string\"), (\"dest\", \"string\", \"dest\", \"string\"), (\"depdelay\", \"int\", \"depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"weatherdelay\", \"int\"), (\"year\", \"string\", \"year\", \"string\")]",
-                "transformation_ctx": "\"Transform1\""
+                "transformation_ctx": "\"Transform1\"",
+                "transformType": "ApplyMapping",
+                "nodeId": "Transform1"
               },
               "externalUrl": null,
-              "name": "test-job-1:Transform1",
+              "name": "test-job-1:ApplyMapping-Transform1",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -541,8 +575,23 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Transform0)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0)"
               ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
             }
           }
         ]
@@ -554,16 +603,18 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Transform2)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
               "customProperties": {
                 "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\"), (\"flightnum\", \"string\", \"flightnum\", \"string\"), (\"origin\", \"string\", \"origin\", \"string\"), (\"dest\", \"string\", \"dest\", \"string\"), (\"depdelay\", \"int\", \"depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"weatherdelay\", \"int\"), (\"year\", \"string\", \"year\", \"string\")]",
-                "transformation_ctx": "\"Transform2\""
+                "transformation_ctx": "\"Transform2\"",
+                "transformType": "ApplyMapping",
+                "nodeId": "Transform2"
               },
               "externalUrl": null,
-              "name": "test-job-1:Transform2",
+              "name": "test-job-1:ApplyMapping-Transform2",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -579,6 +630,21 @@
               "outputDatasets": [],
               "inputDatajobs": []
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
           }
         ]
       }
@@ -589,17 +655,19 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Transform3)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Join-Transform3)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
               "customProperties": {
                 "keys2": "[\"(right) flightdate\"]",
                 "transformation_ctx": "\"Transform3\"",
-                "keys1": "[\"yr\"]"
+                "keys1": "[\"yr\"]",
+                "transformType": "Join",
+                "nodeId": "Transform3"
               },
               "externalUrl": null,
-              "name": "test-job-1:Transform3",
+              "name": "test-job-1:Join-Transform3",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -612,8 +680,23 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Transform4)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4)"
               ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
             }
           }
         ]
@@ -625,16 +708,18 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Transform4)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
               "customProperties": {
                 "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\"), (\"flightnum\", \"string\", \"flightnum\", \"string\"), (\"origin\", \"string\", \"origin\", \"string\"), (\"dest\", \"string\", \"dest\", \"string\"), (\"depdelay\", \"int\", \"depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"weatherdelay\", \"int\"), (\"year\", \"string\", \"year\", \"string\")]",
-                "transformation_ctx": "\"Transform4\""
+                "transformation_ctx": "\"Transform4\"",
+                "transformType": "ApplyMapping",
+                "nodeId": "Transform4"
               },
               "externalUrl": null,
-              "name": "test-job-1:Transform4",
+              "name": "test-job-1:ApplyMapping-Transform4",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -647,6 +732,21 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
             }
           }
         ]
@@ -658,16 +758,18 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Transform5)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform5)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
               "customProperties": {
                 "mappings": "[(\"yr\", \"int\", \"(right) yr\", \"int\"), (\"flightdate\", \"string\", \"(right) flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"(right) uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"(right) airlineid\", \"int\"), (\"carrier\", \"string\", \"(right) carrier\", \"string\"), (\"flightnum\", \"string\", \"(right) flightnum\", \"string\"), (\"origin\", \"string\", \"(right) origin\", \"string\"), (\"dest\", \"string\", \"(right) dest\", \"string\"), (\"depdelay\", \"int\", \"(right) depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"(right) carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"(right) weatherdelay\", \"int\"), (\"year\", \"string\", \"(right) year\", \"string\")]",
-                "transformation_ctx": "\"Transform5\""
+                "transformation_ctx": "\"Transform5\"",
+                "transformType": "ApplyMapping",
+                "nodeId": "Transform5"
               },
               "externalUrl": null,
-              "name": "test-job-1:Transform5",
+              "name": "test-job-1:ApplyMapping-Transform5",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -680,6 +782,21 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": []
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
             }
           }
         ]
@@ -718,7 +835,7 @@
               },
               "externalUrl": null,
               "description": null,
-              "uri": "s3://test-glue-jsons/",
+              "uri": null,
               "tags": []
             }
           }
@@ -746,6 +863,21 @@
               "description": "The second test job",
               "project": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
           }
         ]
       }
@@ -756,7 +888,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),Transform0)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SplitFields-Transform0)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -764,10 +896,12 @@
                 "paths": "[\"yr\", \"quarter\", \"month\", \"dayofmonth\", \"dayofweek\", \"flightdate\", \"uniquecarrier\"]",
                 "name2": "\"Transform0Output1\"",
                 "name1": "\"Transform0Output0\"",
-                "transformation_ctx": "\"Transform0\""
+                "transformation_ctx": "\"Transform0\"",
+                "transformType": "SplitFields",
+                "nodeId": "Transform0"
               },
               "externalUrl": null,
-              "name": "test-job-2:Transform0",
+              "name": "test-job-2:SplitFields-Transform0",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -780,8 +914,23 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),Transform1)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1)"
               ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
             }
           }
         ]
@@ -793,16 +942,18 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),Transform1)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
               "customProperties": {
                 "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"quarter\", \"int\", \"quarter\", \"int\"), (\"month\", \"int\", \"month\", \"int\"), (\"dayofmonth\", \"int\", \"dayofmonth\", \"int\"), (\"dayofweek\", \"int\", \"dayofweek\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\"), (\"tailnum\", \"string\", \"tailnum\", \"string\"), (\"flightnum\", \"string\", \"flightnum\", \"string\"), (\"originairportid\", \"int\", \"originairportid\", \"int\"), (\"originairportseqid\", \"int\", \"originairportseqid\", \"int\"), (\"origincitymarketid\", \"int\", \"origincitymarketid\", \"int\"), (\"origin\", \"string\", \"origin\", \"string\"), (\"origincityname\", \"string\", \"origincityname\", \"string\"), (\"originstate\", \"string\", \"originstate\", \"string\"), (\"originstatefips\", \"string\", \"originstatefips\", \"string\"), (\"originstatename\", \"string\", \"originstatename\", \"string\"), (\"originwac\", \"int\", \"originwac\", \"int\"), (\"destairportid\", \"int\", \"destairportid\", \"int\"), (\"destairportseqid\", \"int\", \"destairportseqid\", \"int\"), (\"destcitymarketid\", \"int\", \"destcitymarketid\", \"int\"), (\"dest\", \"string\", \"dest\", \"string\"), (\"destcityname\", \"string\", \"destcityname\", \"string\"), (\"deststate\", \"string\", \"deststate\", \"string\"), (\"deststatefips\", \"string\", \"deststatefips\", \"string\"), (\"deststatename\", \"string\", \"deststatename\", \"string\"), (\"destwac\", \"int\", \"destwac\", \"int\"), (\"crsdeptime\", \"string\", \"crsdeptime\", \"string\"), (\"deptime\", \"string\", \"deptime\", \"string\"), (\"depdelay\", \"int\", \"depdelay\", \"int\"), (\"depdelayminutes\", \"int\", \"depdelayminutes\", \"int\"), (\"depdel15\", \"int\", \"depdel15\", \"int\"), (\"departuredelaygroups\", \"int\", \"departuredelaygroups\", \"int\"), (\"deptimeblk\", \"string\", \"deptimeblk\", \"string\"), (\"taxiout\", \"int\", \"taxiout\", \"int\"), (\"wheelsoff\", \"string\", \"wheelsoff\", \"string\"), (\"wheelson\", \"string\", \"wheelson\", \"string\"), (\"taxiin\", \"int\", \"taxiin\", \"int\"), (\"crsarrtime\", \"int\", \"crsarrtime\", \"int\"), (\"arrtime\", \"string\", \"arrtime\", \"string\"), (\"arrdelay\", \"int\", \"arrdelay\", \"int\"), (\"arrdelayminutes\", \"int\", \"arrdelayminutes\", \"int\"), (\"arrdel15\", \"int\", \"arrdel15\", \"int\"), (\"arrivaldelaygroups\", \"int\", \"arrivaldelaygroups\", \"int\"), (\"arrtimeblk\", \"string\", \"arrtimeblk\", \"string\"), (\"cancelled\", \"int\", \"cancelled\", \"int\"), (\"cancellationcode\", \"string\", \"cancellationcode\", \"string\"), (\"diverted\", \"int\", \"diverted\", \"int\"), (\"crselapsedtime\", \"int\", \"crselapsedtime\", \"int\"), (\"actualelapsedtime\", \"int\", \"actualelapsedtime\", \"int\"), (\"airtime\", \"int\", \"airtime\", \"int\"), (\"flights\", \"int\", \"flights\", \"int\"), (\"distance\", \"int\", \"distance\", \"int\"), (\"distancegroup\", \"int\", \"distancegroup\", \"int\"), (\"carrierdelay\", \"int\", \"carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"weatherdelay\", \"int\"), (\"nasdelay\", \"int\", \"nasdelay\", \"int\"), (\"securitydelay\", \"int\", \"securitydelay\", \"int\"), (\"lateaircraftdelay\", \"int\", \"lateaircraftdelay\", \"int\"), (\"firstdeptime\", \"string\", \"firstdeptime\", \"string\"), (\"totaladdgtime\", \"int\", \"totaladdgtime\", \"int\"), (\"longestaddgtime\", \"int\", \"longestaddgtime\", \"int\"), (\"divairportlandings\", \"int\", \"divairportlandings\", \"int\"), (\"divreacheddest\", \"int\", \"divreacheddest\", \"int\"), (\"divactualelapsedtime\", \"int\", \"divactualelapsedtime\", \"int\"), (\"divarrdelay\", \"int\", \"divarrdelay\", \"int\"), (\"divdistance\", \"int\", \"divdistance\", \"int\"), (\"div1airport\", \"string\", \"div1airport\", \"string\"), (\"div1airportid\", \"int\", \"div1airportid\", \"int\"), (\"div1airportseqid\", \"int\", \"div1airportseqid\", \"int\"), (\"div1wheelson\", \"string\", \"div1wheelson\", \"string\"), (\"div1totalgtime\", \"int\", \"div1totalgtime\", \"int\"), (\"div1longestgtime\", \"int\", \"div1longestgtime\", \"int\"), (\"div1wheelsoff\", \"string\", \"div1wheelsoff\", \"string\"), (\"div1tailnum\", \"string\", \"div1tailnum\", \"string\"), (\"div2airport\", \"string\", \"div2airport\", \"string\"), (\"div2airportid\", \"int\", \"div2airportid\", \"int\"), (\"div2airportseqid\", \"int\", \"div2airportseqid\", \"int\"), (\"div2wheelson\", \"string\", \"div2wheelson\", \"string\"), (\"div2totalgtime\", \"int\", \"div2totalgtime\", \"int\"), (\"div2longestgtime\", \"int\", \"div2longestgtime\", \"int\"), (\"div2wheelsoff\", \"string\", \"div2wheelsoff\", \"string\"), (\"div2tailnum\", \"string\", \"div2tailnum\", \"string\"), (\"div3airport\", \"string\", \"div3airport\", \"string\"), (\"div3airportid\", \"int\", \"div3airportid\", \"int\"), (\"div3airportseqid\", \"int\", \"div3airportseqid\", \"int\"), (\"div3wheelson\", \"string\", \"div3wheelson\", \"string\"), (\"div3totalgtime\", \"int\", \"div3totalgtime\", \"int\"), (\"div3longestgtime\", \"int\", \"div3longestgtime\", \"int\"), (\"div3wheelsoff\", \"string\", \"div3wheelsoff\", \"string\"), (\"div3tailnum\", \"string\", \"div3tailnum\", \"string\"), (\"div4airport\", \"string\", \"div4airport\", \"string\"), (\"div4airportid\", \"int\", \"div4airportid\", \"int\"), (\"div4airportseqid\", \"int\", \"div4airportseqid\", \"int\"), (\"div4wheelson\", \"string\", \"div4wheelson\", \"string\"), (\"div4totalgtime\", \"int\", \"div4totalgtime\", \"int\"), (\"div4longestgtime\", \"int\", \"div4longestgtime\", \"int\"), (\"div4wheelsoff\", \"string\", \"div4wheelsoff\", \"string\"), (\"div4tailnum\", \"string\", \"div4tailnum\", \"string\"), (\"div5airport\", \"string\", \"div5airport\", \"string\"), (\"div5airportid\", \"int\", \"div5airportid\", \"int\"), (\"div5airportseqid\", \"int\", \"div5airportseqid\", \"int\"), (\"div5wheelson\", \"string\", \"div5wheelson\", \"string\"), (\"div5totalgtime\", \"int\", \"div5totalgtime\", \"int\"), (\"div5longestgtime\", \"int\", \"div5longestgtime\", \"int\"), (\"div5wheelsoff\", \"string\", \"div5wheelsoff\", \"string\"), (\"div5tailnum\", \"string\", \"div5tailnum\", \"string\"), (\"year\", \"string\", \"year\", \"string\")]",
-                "transformation_ctx": "\"Transform1\""
+                "transformation_ctx": "\"Transform1\"",
+                "transformType": "ApplyMapping",
+                "nodeId": "Transform1"
               },
               "externalUrl": null,
-              "name": "test-job-2:Transform1",
+              "name": "test-job-2:ApplyMapping-Transform1",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -818,6 +969,21 @@
               "outputDatasets": [],
               "inputDatajobs": []
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
           }
         ]
       }
@@ -828,16 +994,18 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),Transform2)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
               "customProperties": {
                 "missing_values_column": "\"dayofmonth\"",
-                "transformation_ctx": "\"Transform2\""
+                "transformation_ctx": "\"Transform2\"",
+                "transformType": "FillMissingValues",
+                "nodeId": "Transform2"
               },
               "externalUrl": null,
-              "name": "test-job-2:Transform2",
+              "name": "test-job-2:FillMissingValues-Transform2",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -850,8 +1018,23 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),Transform1)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1)"
               ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
             }
           }
         ]
@@ -863,16 +1046,18 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),Transform3)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SelectFields-Transform3)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
               "customProperties": {
                 "paths": "[]",
-                "transformation_ctx": "\"Transform3\""
+                "transformation_ctx": "\"Transform3\"",
+                "transformType": "SelectFields",
+                "nodeId": "Transform3"
               },
               "externalUrl": null,
-              "name": "test-job-2:Transform3",
+              "name": "test-job-2:SelectFields-Transform3",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -887,8 +1072,23 @@
                 "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons/,PROD)"
               ],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),Transform2)"
+                "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2)"
               ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
             }
           }
         ]
