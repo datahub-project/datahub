@@ -10,7 +10,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.sql.Timestamp;
@@ -75,7 +74,7 @@ public class EbeanEntityService extends EntityService {
 
     // Add "key" aspects for each urn. TODO: Replace this with a materialized key aspect.
     urnToAspects.keySet().forEach(key -> {
-      final RecordTemplate keyAspect = EntityKeyUtils.convertUrnToEntityKey(key, getEntityRegistry());
+      final RecordTemplate keyAspect = buildKeyAspect(key);
       urnToAspects.get(key).add(keyAspect);
     });
 

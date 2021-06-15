@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.linkedin.metadata.kafka.hydrator.EntityType;
-import com.linkedin.metadata.kafka.hydrator.HydratorFactory;
+import com.linkedin.metadata.kafka.hydrator.EntityHydrator;
 import java.util.Optional;
 import java.util.Set;
 import lombok.Value;
@@ -28,7 +28,7 @@ public class DataHubUsageEventTransformer {
           DataHubUsageEventType.ENTITY_VIEW_EVENT, DataHubUsageEventType.ENTITY_SECTION_VIEW_EVENT,
           DataHubUsageEventType.ENTITY_ACTION_EVENT);
 
-  private final HydratorFactory hydratorFactory;
+  private final EntityHydrator _entityHydrator;
 
   @Value
   public static class TransformedDocument {
@@ -36,8 +36,8 @@ public class DataHubUsageEventTransformer {
     String document;
   }
 
-  public DataHubUsageEventTransformer(HydratorFactory hydratorFactory) {
-    this.hydratorFactory = hydratorFactory;
+  public DataHubUsageEventTransformer(EntityHydrator entityHydrator) {
+    this._entityHydrator = entityHydrator;
   }
 
   public Optional<TransformedDocument> transformDataHubUsageEvent(String dataHubUsageEvent) {
@@ -103,9 +103,9 @@ public class DataHubUsageEventTransformer {
   }
 
   private void setFieldsForEntity(EntityType entityType, String urn, ObjectNode searchObject) {
-    Optional<ObjectNode> entityObject = hydratorFactory.getHydratedEntity(entityType, urn);
+    Optional<ObjectNode> entityObject = _entityHydrator.getHydratedEntity(urn);
     if (!entityObject.isPresent()) {
-      log.info("No matches for entity type {} urn {}", entityType, urn);
+      log.info("No matches for urn {}", urn);
       return;
     }
     Streams.stream(entityObject.get().fieldNames())
