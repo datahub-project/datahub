@@ -1,0 +1,23 @@
+namespace com.linkedin.usage
+
+import com.linkedin.common.Urn
+
+/**
+ * Metrics for usage data for a given resource and bucket. Not all fields
+ * make sense for all buckets, so every field is optional.
+ */
+record UsageAggregationMetrics {
+    /** Users within this bucket, with frequency counts */
+    users: optional array[{
+        record UsersUsageCounts {
+            user: Urn,
+            count: int,
+
+            /** If user_email is set, we attempt to resolve the user's urn upon ingest */
+            user_email: optional string,
+        }
+    }]
+
+    /** Frequent SQL queries; mostly makes sense for datasets in SQL databases */
+    top_sql_queries: optional array[string]
+}

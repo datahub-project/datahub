@@ -16,4 +16,6 @@ record UsageAggregation {
   /** Resource associated with these usage stats */
   resource: Urn
 
+  /** Metrics associated with this bucket */
+  metrics: UsageAggregationMetrics
 }

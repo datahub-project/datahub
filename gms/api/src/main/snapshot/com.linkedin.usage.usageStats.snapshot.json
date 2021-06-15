@@ -30,8 +30,48 @@
       "name" : "resource",
       "type" : "com.linkedin.common.Urn",
       "doc" : " Resource associated with these usage stats "
+    }, {
+      "name" : "metrics",
+      "type" : {
+        "type" : "record",
+        "name" : "UsageAggregationMetrics",
+        "doc" : "Metrics for usage data for a given resource and bucket. Not all fields\nmake sense for all buckets, so every field is optional.",
+        "fields" : [ {
+          "name" : "users",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "UsersUsageCounts",
+              "fields" : [ {
+                "name" : "user",
+                "type" : "com.linkedin.common.Urn"
+              }, {
+                "name" : "count",
+                "type" : "int"
+              }, {
+                "name" : "user_email",
+                "type" : "string",
+                "doc" : " If user_email is set, we attempt to resolve the user's urn upon ingest ",
+                "optional" : true
+              } ]
+            }
+          },
+          "doc" : " Users within this bucket, with frequency counts ",
+          "optional" : true
+        }, {
+          "name" : "top_sql_queries",
+          "type" : {
+            "type" : "array",
+            "items" : "string"
+          },
+          "doc" : " Frequent SQL queries; mostly makes sense for datasets in SQL databases ",
+          "optional" : true
+        } ]
+      },
+      "doc" : " Metrics associated with this bucket "
     } ]
-  } ],
+  }, "com.linkedin.usage.UsageAggregationMetrics", "com.linkedin.usage.UsersUsageCounts" ],
   "schema" : {
     "name" : "usageStats",
     "namespace" : "com.linkedin.usage",
