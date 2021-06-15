@@ -61,7 +61,9 @@ datahubUpgrade:
     tag: "v0.8.1"
 
 global:
+
   datahub_analytics_enabled: true
+  datahub_standalone_consumers_enabled: false
 
   elasticsearch:
     host: "elasticsearch-master"

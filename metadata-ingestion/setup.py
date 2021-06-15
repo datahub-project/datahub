@@ -77,7 +77,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.6"
+        "acryl-pyhive[hive]>=0.6.7"
     },
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
@@ -100,8 +100,6 @@ all_exclude_plugins: Set[str] = {
 }
 
 mypy_stubs = {
-    # for Python 3.6 support
-    "dataclasses",
     "types-dataclasses",
     "sqlalchemy-stubs",
     "types-pkg_resources",
@@ -124,7 +122,7 @@ base_dev_requirements = {
     "coverage>=5.1",
     "flake8>=3.8.3",
     "isort>=5.7.0",
-    "mypy>=0.782",
+    "mypy>=0.901",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
     "pytest-docker",
@@ -146,6 +144,7 @@ base_dev_requirements = {
             "looker",
             "glue",
             "hive",
+            "oracle",
             "datahub-kafka",
             "datahub-rest",
             # airflow is added below
