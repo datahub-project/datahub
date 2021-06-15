@@ -69,6 +69,7 @@ public class MetadataAuditEventsProcessor {
 
     try {
       final MetadataAuditEvent event = EventUtils.avroToPegasusMAE(record);
+      log.info(event.toString());
       if (event.hasNewSnapshot()) {
         final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(event.getNewSnapshot());
 
