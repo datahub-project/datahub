@@ -308,7 +308,7 @@ class GlueSource(Source):
                 nodes[edge["Target"]]["inputDatajobs"].append(source_node["urn"])
             # track output datasets (these can't be input datasets)
             if target_node_type == "DataSink":
-                nodes[edge["Target"]]["outputDatasets"].append(target_node["urn"])
+                nodes[edge["Source"]]["outputDatasets"].append(target_node["urn"])
 
         return nodes, new_dataset_ids, new_dataset_mces
 

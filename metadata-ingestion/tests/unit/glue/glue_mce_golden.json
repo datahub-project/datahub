@@ -883,7 +883,9 @@
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [],
-              "outputDatasets": [],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons/,PROD)"
+              ],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),Transform2)"
               ]
