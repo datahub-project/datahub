@@ -100,7 +100,9 @@ def test_get_column_type_not_contained():
 # @freeze_time(FROZEN_TIME)
 def test_glue_ingest(tmp_path, pytestconfig):
 
-    with Stubber(glue_source().glue_client) as glue_stubber:
+    glue_source_instance = glue_source()
+
+    with Stubber(glue_source_instance.glue_client) as glue_stubber:
 
         glue_stubber.add_response("get_databases", get_databases_response, {})
         glue_stubber.add_response(
@@ -125,7 +127,7 @@ def test_glue_ingest(tmp_path, pytestconfig):
             {"PythonScript": get_object_body_2},
         )
 
-        with Stubber(glue_source().s3_client) as s3_stubber:
+        with Stubber(glue_source_instance.s3_client) as s3_stubber:
 
             s3_stubber.add_response(
                 "get_object",
@@ -144,7 +146,9 @@ def test_glue_ingest(tmp_path, pytestconfig):
                 },
             )
 
-            mce_objects = [wu.mce.to_obj() for wu in glue_source().get_workunits()]
+            mce_objects = [
+                wu.mce.to_obj() for wu in glue_source_instance.get_workunits()
+            ]
 
             with open(str(tmp_path / "glue_mces.json"), "w") as f:
                 json.dump(mce_objects, f, indent=2)
