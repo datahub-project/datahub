@@ -2,11 +2,11 @@ import unittest
 from datahub.ingestion.source.openapi_parser import (flatten2list, get_endpoints, guessing_url_name,
                                                      maybe_theres_simple_id, try_guessing)
 import yaml
-import warnings
 
 
 class TestGetEndpoints(unittest.TestCase):
 
+    # https://github.com/OAI/OpenAPI-Specification/blob/main/examples/v2.0/yaml/api-with-examples.yaml
     openapi20 = """
 swagger: "2.0"
 info:
