@@ -2,6 +2,7 @@ import unittest
 from datahub.ingestion.source.openapi_parser import (flatten2list, get_endpoints, guessing_url_name,
                                                      maybe_theres_simple_id, try_guessing)
 import yaml
+import warnings
 
 
 class TestGetEndpoints(unittest.TestCase):
@@ -195,6 +196,16 @@ paths:
             self.assertFalse(True)
         except NotImplementedError:
             self.assertFalse(False)
+
+    def test_warns(self) -> None:
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("always")
+
+            # Verify some things
+            assert len(w) == 1
+            assert issubclass(w[-1].category, DeprecationWarning)
+            assert "deprecated" in str(w[-1].message)
 
 
 class TestExplodeDict(unittest.TestCase):

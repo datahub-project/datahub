@@ -69,14 +69,14 @@ class APISource(Source, ABC):
         elif status_code == 403:
             self.report.report_warning(key=key, reason="Not authorised to get endpoint")
         elif status_code == 404:
-            self.report.report_warning(key=key, reason=f"Unable to find an example for {key}"
-                                                       f" in. Please add it to the list of forced examples.")
+            self.report.report_warning(key=key, reason=f"Unable to find an example for endpoint."
+                                                       f"  Please add it to the list of forced examples.")
         elif status_code == 500:
             self.report.report_warning(key=key, reason="Server error for reaching endpoint")
         elif status_code == 504:
             self.report.report_warning(key=key, reason="Timeout for reaching endpoint")
         else:
-            raise Exception(f"Unable to retrieve {key}, response code {status_code}")
+            raise Exception(f"Unable to retrieve endpoint, response code {status_code}")
 
     def get_workunits(self) -> Iterable[ApiWorkUnit]:
         config = self.config

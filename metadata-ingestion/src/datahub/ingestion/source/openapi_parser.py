@@ -9,6 +9,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField, Schem
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.schema_classes import StringTypeClass, SchemaFieldDataTypeClass
 from typing import List, Union, Generator, Dict
+from collections import defaultdict
 
 
 def flatten(d: dict, prefix: str = "") -> Generator:
@@ -96,25 +97,13 @@ def get_endpoints(sw_dict: dict) -> dict:
     """
     Get all the URLs accepting the "GET" method, together with their description and the tags
     """
-    url_details = {}
+    url_details = defaultdict(dict)
 
     check_sw_version(sw_dict)
 
     for p_k, p_o in sw_dict["paths"].items():
         # will track only the "get" methods, which are the ones that give us data
         if "get" in p_o.keys():
-
-            if "description" in p_o["get"].keys():
-                desc = p_o["get"]["description"]
-            else:  # still testing
-                desc = p_o["get"]["summary"]
-
-            try:
-                tags = p_o["get"]["tags"]
-            except KeyError:
-                tags = []
-
-            url_details[p_k] = {"description":  desc, "tags": tags}
 
             try:
                 base_res = p_o["get"]["responses"]['200']
@@ -142,11 +131,25 @@ def get_endpoints(sw_dict: dict) -> dict:
                 elif "text/csv" in res_cont.keys():
                     url_details[p_k]["data"] = res_cont["text/csv"]["schema"]
 
-            # if dataset is not defined in swagger, we have to extrapolate it.
+
 
             # checking whether there are defined parameters to execute the call... 
             if "parameters" in p_o["get"].keys():
                 url_details[p_k]["parameters"] = p_o["get"]["parameters"]
+
+            if p_k in url_details.keys():  # only if we already added stuff...
+                if "description" in p_o["get"].keys():
+                    desc = p_o["get"]["description"]
+                else:  # still testing
+                    desc = p_o["get"]["summary"]
+
+                try:
+                    tags = p_o["get"]["tags"]
+                except KeyError:
+                    tags = []
+
+                url_details[p_k] = {"description": desc, "tags": tags}
+
             
     return url_details
 
