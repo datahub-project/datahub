@@ -70,26 +70,27 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
+    "druid": sql_common | {"pydruid>=0.6.2"},
+    "feast": {"docker"},
+    "glue": {"boto3"},
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.6"
+        "acryl-pyhive[hive]>=0.6.7"
     },
-    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
-    "mssql-odbc": sql_common | {"pyodbc"},
-    "mysql": sql_common | {"pymysql>=1.0.2"},
-    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
-    "snowflake": sql_common | {"snowflake-sqlalchemy"},
-    "oracle": sql_common | {"cx_Oracle"},
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
     "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
-    "druid": sql_common | {"pydruid>=0.6.2"},
     "mongodb": {"pymongo>=3.11"},
+    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
+    "mssql-odbc": sql_common | {"pyodbc"},
+    "mysql": sql_common | {"pymysql>=1.0.2"},
+    "oracle": sql_common | {"cx_Oracle"},
+    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    "snowflake": sql_common | {"snowflake-sqlalchemy"},
     "superset": {"requests"},
-    "glue": {"boto3"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -98,19 +99,34 @@ all_exclude_plugins: Set[str] = {
     "mssql-odbc",
 }
 
+mypy_stubs = {
+    "types-dataclasses",
+    "sqlalchemy-stubs",
+    "types-pkg_resources",
+    "types-six",
+    "types-python-dateutil",
+    "types-requests",
+    "types-toml",
+    "types-PyMySQL",
+    "types-PyYAML",
+    "types-freezegun",
+    # versions 0.1.13 and 0.1.14 seem to have issues
+    "types-click==0.1.12",
+}
+
 base_dev_requirements = {
     *base_requirements,
     *framework_common,
+    *mypy_stubs,
     "black>=19.10b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "isort>=5.7.0",
-    "mypy>=0.782",
+    "mypy>=0.901",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
     "pytest-docker",
     "tox",
-    "sqlalchemy-stubs",
     "deepdiff",
     "requests-mock",
     "freezegun",
@@ -123,9 +139,12 @@ base_dev_requirements = {
             "mysql",
             "mssql",
             "mongodb",
+            "feast",
             "ldap",
             "looker",
             "glue",
+            "hive",
+            "oracle",
             "datahub-kafka",
             "datahub-rest",
             # airflow is added below
@@ -161,6 +180,7 @@ entry_points = {
         "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.druid:DruidSource",
+        "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.glue:GlueSource",
         "hive = datahub.ingestion.source.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",

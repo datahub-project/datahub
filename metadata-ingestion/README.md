@@ -37,6 +37,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | console       | _included by default_                                      | Console sink                        |
 | athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| feast         | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
 | glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
 | hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
 | mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
@@ -278,8 +279,8 @@ We have two options for the underlying library used to connect to SQL Server: (1
 
 Extracts:
 
-- List of databases, schema, and tables
-- Column types associated with each table
+- List of databases, schema, tables and views
+- Column types associated with each table/view
 
 ```yml
 source:
@@ -289,6 +290,7 @@ source:
     password: pass
     host_port: localhost:1433
     database: DemoDatabase
+    include_views: True
     table_pattern:
       deny:
         - "^.*\\.sys_.*" # deny all tables that start with sys_
@@ -470,6 +472,8 @@ Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
 
+Using the Oracle source requires that you've also installed the correct drivers; see the [cx_Oracle docs](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html). The easiest one is the [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html).
+
 ```yml
 source:
   type: oracle
@@ -481,8 +485,30 @@ source:
     password: pass
     host_port: localhost:5432
     database: dbname
+    service_name: svc # omit database if using this option
     # table_pattern/schema_pattern is same as above
     # options is same as above
+```
+
+### Feast `feast`
+
+**Note: Feast ingestion requires Docker to be installed.**
+
+Extracts:
+
+- List of feature tables (modeled as `MLFeatureTable`s), features (`MLFeature`s), and entities (`MLPrimaryKey`s)
+- Column types associated with each feature and entity
+
+Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then
+parsed to DataHub's native objects. This was done because of a dependency conflict in the `feast` module.
+
+```yml
+source:
+  type: feast
+  config:
+    core_url: localhost:6565 # default
+    env: "PROD" # Optional, default is "PROD"
+    use_local_build: False # Whether to build Feast ingestion image locally, default is False
 ```
 
 ### Google BigQuery `bigquery`
@@ -529,6 +555,8 @@ source:
 
 ### AWS Glue `glue`
 
+Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](./s3-ingestion.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
+
 Extracts:
 
 - List of tables
@@ -539,15 +567,19 @@ Extracts:
 source:
   type: glue
   config:
-    aws_region: aws_region_name # i.e. "eu-west-1"
-    env: environment used for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". # Optional, defaults to "PROD".
+    aws_region: # aws_region_name, i.e. "eu-west-1"
+    env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
+    
+    # Filtering patterns for databases and tables to scan
     database_pattern: # Optional, to filter databases scanned, same as schema_pattern above.
     table_pattern: # Optional, to filter tables scanned, same as table_pattern above.
-    aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules.
-    # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-    aws_secret_access_key # Optional.
-    aws_session_token # Optional.
-    aws_role # Optional (Role chaining supported by using a sorted list).
+    
+    # Credentials. If not specified here, these are picked up according to boto3 rules.
+    # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
+    aws_access_key_id: # Optional.
+    aws_secret_access_key: # Optional.
+    aws_session_token: # Optional.
+    aws_role: # Optional (Role chaining supported by using a sorted list).
 ```
 
 ### Druid `druid`
@@ -792,6 +824,8 @@ sink:
     connection:
       bootstrap: "localhost:9092"
       producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
+      schema_registry_url: "http://localhost:8081"
+      schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
 
 ### Console `console`

@@ -212,7 +212,7 @@ record ServiceKey {
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "enableAutoComplete": true
+    "enableAutocomplete": true
   }
   name: string
 }
