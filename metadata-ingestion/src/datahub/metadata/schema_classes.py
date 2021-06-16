@@ -509,13 +509,13 @@ class EditableChartPropertiesClass(DictWrapper):
     
     @property
     def description(self) -> Union[None, str]:
-        # No docs available.
+        """Getter: Edited documentation of the chart """
         return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
     def description(self, value: Union[None, str]) -> None:
-        # No docs available.
+        """Setter: Edited documentation of the chart """
         self._inner_dict['description'] = value
     
     
@@ -1794,13 +1794,13 @@ class EditableDashboardPropertiesClass(DictWrapper):
     
     @property
     def description(self) -> Union[None, str]:
-        # No docs available.
+        """Getter: Edited documentation of the dashboard"""
         return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
     def description(self, value: Union[None, str]) -> None:
-        # No docs available.
+        """Setter: Edited documentation of the dashboard"""
         self._inner_dict['description'] = value
     
     
@@ -2147,13 +2147,13 @@ class EditableDataflowPropertiesClass(DictWrapper):
     
     @property
     def description(self) -> Union[None, str]:
-        # No docs available.
+        """Getter: Edited documentation of the data flow"""
         return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
     def description(self, value: Union[None, str]) -> None:
-        # No docs available.
+        """Setter: Edited documentation of the data flow"""
         self._inner_dict['description'] = value
     
     
@@ -2227,13 +2227,13 @@ class EditableDatajobPropertiesClass(DictWrapper):
     
     @property
     def description(self) -> Union[None, str]:
-        # No docs available.
+        """Getter: Edited documentation of the data job """
         return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
     def description(self, value: Union[None, str]) -> None:
-        # No docs available.
+        """Setter: Edited documentation of the data job """
         self._inner_dict['description'] = value
     
     

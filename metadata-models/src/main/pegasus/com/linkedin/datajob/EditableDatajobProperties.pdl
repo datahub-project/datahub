@@ -10,5 +10,12 @@ import com.linkedin.common.ChangeAuditStamps
   "name": "editableDatajobProperties"
 }
 record EditableDatajobProperties includes ChangeAuditStamps {
+  /**
+   * Edited documentation of the data job 
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "fieldName": "editedDescription",
+  }
   description: optional string
 }

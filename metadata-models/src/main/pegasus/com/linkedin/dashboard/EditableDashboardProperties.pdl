@@ -10,5 +10,12 @@ import com.linkedin.common.ChangeAuditStamps
   "name": "editableDashboardProperties"
 }
 record EditableDashboardProperties includes ChangeAuditStamps {
+  /**
+   * Edited documentation of the dashboard
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "fieldName": "editedDescription",
+  }
   description: optional string
 }
