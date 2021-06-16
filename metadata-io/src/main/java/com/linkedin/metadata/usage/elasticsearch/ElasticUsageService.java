@@ -1,5 +1,6 @@
 package com.linkedin.metadata.usage.elasticsearch;
 
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
@@ -16,6 +17,8 @@ import org.elasticsearch.common.xcontent.XContentType;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ElasticUsageService implements UsageService {
     private static final String BASE_INDEX_NAME = "usageStats";
@@ -39,14 +42,27 @@ public class ElasticUsageService implements UsageService {
     @Override
     public void configure() {
         try {
-            // TODO configure mappings
             new IndexBuilder(elasticClient,
                     indexConvention.getIndexName(BASE_INDEX_NAME),
-                    null,
+                    this.getMappings(),
                     SettingsBuilder.getSettings()).buildIndex();
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private Map<String, Object> getMappings() {
+        Map<String, Object> mappings = new HashMap<>();
+
+        Map<String, Object> dateType = ImmutableMap.<String, Object>builder().put("type", "date").put("format", "epoch_millis").build();
+        mappings.put("bucket", dateType);
+        mappings.put("bucket_end", dateType);
+
+        Map<String, Object> textType = ImmutableMap.<String, Object>builder().put("type", "keyword").build();
+        mappings.put("duration", textType);
+        mappings.put("resource", dateType);
+
+        return ImmutableMap.of("properties", mappings);
     }
 
     @Override
