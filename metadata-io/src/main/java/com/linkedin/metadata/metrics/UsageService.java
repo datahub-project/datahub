@@ -3,7 +3,7 @@ package com.linkedin.metadata.metrics;
 import javax.annotation.Nonnull;
 
 
-public interface MetricsService {
+public interface UsageService {
 
   void configure();
 
