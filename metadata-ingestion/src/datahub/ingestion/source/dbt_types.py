@@ -21,7 +21,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 
 # we map from format_type since this is what dbt uses
 # see https://github.com/fishtown-analytics/dbt/blob/master/plugins/postgres/dbt/include/postgres/macros/catalog.sql#L22
-POSTGRES_TYPES = {
+POSTGRES_TYPES_MAP = {
     "boolean": BooleanType,
     "bytea": BytesType,
     '"char"': StringType,
@@ -32,50 +32,41 @@ POSTGRES_TYPES = {
     "integer": NumberType,
     "regproc": None,  # object identifier
     "text": StringType,
-    "oid": None,
-    "tid": None,
-    "xid": None,
-    "cid": None,
-    "oidvector": None,
-    "pg_type": None,
-    "pg_attribute": None,
-    "pg_proc": None,
-    "pg_class": None,
-    "json": None,
-    "xml": None,
-    "pg_node_tree": None,
-    "pg_ndistinct": None,
-    "pg_dependencies": None,
-    "pg_mcv_list": None,
-    "pg_ddl_command": None,
-    "xid8": None,
-    "point": None,
-    "lseg": None,
-    "path": None,
-    "box": None,
-    "polygon": None,
-    "line": None,
-    "real": None,
-    "double precision": None,
+    "oid": None,  # object identifier
+    "tid": None,  # object identifier
+    "xid": None,  # object identifier
+    "cid": None,  # object identifier
+    "oidvector": None,  # object identifier
+    "json": RecordType,
+    "xml": RecordType,
+    "xid8": None,  # object identifier
+    "point": None,  # 2-d point
+    "lseg": None,  # line segment
+    "path": None,  # path of points
+    "box": None,  # a pair of corner points
+    "polygon": None,  # closed set of points
+    "line": None,  # infinite line
+    "real": NumberType,
+    "double precision": NumberType,
     "unknown": None,
-    "circle": None,
-    "money": None,
-    "macaddr": None,
-    "inet": None,
-    "cidr": None,
-    "macaddr8": None,
-    "aclitem": None,
-    "character": None,
-    "character varying": None,
-    "date": None,
-    "time without time zone": None,
-    "timestamp without time zone": None,
-    "timestamp with time zone": None,
+    "circle": None,  # circle with center and radius
+    "money": NumberType,
+    "macaddr": None,  # MAC address
+    "inet": None,  # IPv4 or IPv6 host address
+    "cidr": None,  # IPv4 or IPv6 network specification
+    "macaddr8": None,  # MAC address
+    "aclitem": None,  # system info
+    "character": StringType,
+    "character varying": StringType,
+    "date": DateType,
+    "time without time zone": TimeType,
+    "timestamp without time zone": TimeType,
+    "timestamp with time zone": TimeType,
     "interval": None,
-    "time with time zone": None,
-    "bit": None,
-    "bit varying": None,
-    "numeric": None,
+    "time with time zone": TimeType,
+    "bit": BytesType,
+    "bit varying": BytesType,
+    "numeric": NumberType,
     "refcursor": None,
     "regprocedure": None,
     "regoper": None,
@@ -92,7 +83,7 @@ POSTGRES_TYPES = {
     "tsquery": None,
     "regconfig": None,
     "regdictionary": None,
-    "jsonb": None,
+    "jsonb": BytesType,
     "jsonpath": None,
     "txid_snapshot": None,
     "pg_snapshot": None,
@@ -106,7 +97,7 @@ POSTGRES_TYPES = {
     "record[]": ArrayType,
     "cstring": None,
     '"any"': None,
-    "anyarray": None,
+    "anyarray": ArrayType,
     "void": None,
     "trigger": None,
     "event_trigger": None,
@@ -195,4 +186,64 @@ POSTGRES_TYPES = {
     "daterange[]": ArrayType,
     "int8range[]": ArrayType,
     "cstring[]": ArrayType,
+}
+
+# Postgres types with modifiers (identifiable by non-empty typmodin and typmodout columns)
+POSTGRES_MODIFIED_TYPES = {
+    "character varying",
+    "character varying[]",
+    "bit varying",
+    "bit varying[]",
+    "time with time zone",
+    "time with time zone[]",
+    "time without time zone",
+    "time without time zone[]",
+    "timestamp with time zone",
+    "timestamp with time zone[]",
+    "timestamp without time zone",
+    "timestamp without time zone[]",
+    "numeric",
+    "numeric[]",
+    "interval",
+    "interval[]",
+    "character",
+    "character[]",
+    "bit",
+    "bit[]",
+}
+
+# see https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
+SNOWFLAKE_TYPES_MAP = {
+    "NUMBER": NumberType,
+    "DECIMAL": NumberType,
+    "NUMERIC": NumberType,
+    "INT": NumberType,
+    "INTEGER": NumberType,
+    "BIGINT": NumberType,
+    "SMALLINT": NumberType,
+    "FLOAT": NumberType,
+    "FLOAT4": NumberType,
+    "FLOAT8": NumberType,
+    "DOUBLE": NumberType,
+    "DOUBLE PRECISION": NumberType,
+    "REAL": NumberType,
+    "VARCHAR": StringType,
+    "CHAR": StringType,
+    "CHARACTER": StringType,
+    "STRING": StringType,
+    "TEXT": StringType,
+    "BINARY": BytesType,
+    "VARBINARY": BytesType,
+    "BOOLEAN": BytesType,
+    "DATE": DateType,
+    "DATETIME": DateType,
+    "TIME": TimeType,
+    "TIMESTAMP": TimeType,
+    "TIMESTAMP_LTZ": TimeType,
+    "TIMESTAMP_NTZ": TimeType,
+    "TIMESTAMP_TZ": TimeType,
+    "VARIANT": RecordType,
+    "OBJECT": RecordType,
+    "ARRAY": ArrayType,
+    "GEOGRAPHY": None,
 }
