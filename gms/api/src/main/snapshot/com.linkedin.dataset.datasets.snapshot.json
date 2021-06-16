@@ -601,6 +601,25 @@
       "doc" : "A key-value map of platform-specific properties",
       "optional" : true
     }, {
+      "name" : "editableProperties",
+      "type" : {
+        "type" : "record",
+        "name" : "EditableDatasetProperties",
+        "doc" : "EditableDatasetProperties stores editable changes made to dataset properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+        "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+        "fields" : [ {
+          "name" : "description",
+          "type" : "string",
+          "doc" : "Documentation of the dataset",
+          "optional" : true
+        } ],
+        "Aspect" : {
+          "name" : "editableDatasetProperties"
+        }
+      },
+      "doc" : "Editable properties",
+      "optional" : true
+    }, {
       "name" : "removed",
       "type" : "boolean",
       "doc" : "whether the dataset is removed or not",
@@ -1265,7 +1284,7 @@
       },
       "doc" : "List of downstream dataset lineage information"
     } ]
-  }, "com.linkedin.dataset.PlatformNativeType", "com.linkedin.dataset.SchemaFieldPath", "com.linkedin.dataset.Upstream", "com.linkedin.dataset.UpstreamLineage", {
+  }, "com.linkedin.dataset.EditableDatasetProperties", "com.linkedin.dataset.PlatformNativeType", "com.linkedin.dataset.SchemaFieldPath", "com.linkedin.dataset.Upstream", "com.linkedin.dataset.UpstreamLineage", {
     "type" : "record",
     "name" : "UpstreamLineageDelta",
     "namespace" : "com.linkedin.dataset",
@@ -1318,7 +1337,7 @@
       "Aspect" : {
         "name" : "datasetKey"
       }
-    }, "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths" ]
+    }, "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.EditableDatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths" ]
   }, "com.linkedin.metadata.key.DatasetKey", {
     "type" : "record",
     "name" : "AggregationMetadata",

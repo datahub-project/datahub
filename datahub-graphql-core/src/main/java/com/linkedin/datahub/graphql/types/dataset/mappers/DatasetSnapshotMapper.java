@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
+import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -51,6 +53,7 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
         result.setPlatform(partialPlatform);
 
         ModelUtils.getAspectsFromSnapshot(dataset).forEach(aspect -> {
+            result.setTags(new ArrayList<>());
             if (aspect instanceof DatasetProperties) {
                 final DatasetProperties datasetProperties = (DatasetProperties) aspect;
                 result.setProperties(StringMapMapper.map(datasetProperties.getCustomProperties()));
@@ -79,8 +82,12 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
               result.setGlobalTags(GlobalTagsMapper.map((GlobalTags) aspect));
             } else if (aspect instanceof EditableSchemaMetadata) {
               result.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map((EditableSchemaMetadata) aspect));
+            } else if (aspect instanceof EditableDatasetProperties) {
+                final EditableDatasetProperties editableDatasetProperties = (EditableDatasetProperties) aspect;
+                final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
+                editableProperties.setDescription(editableDatasetProperties.getDescription());
+                result.setEditableProperties(editableProperties);
             }
-            result.setTags(new ArrayList<>());
         });
 
         return result;

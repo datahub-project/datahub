@@ -80,6 +80,11 @@ record Dataset includes DatasetKey, ChangeAuditStamps, VersionTag {
   properties: optional map[string, string]
 
   /**
+   * Editable properties
+   */
+  editableProperties: optional EditableDatasetProperties
+
+  /**
    * whether the dataset is removed or not
    */
   @deprecated

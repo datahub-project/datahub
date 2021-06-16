@@ -1,13 +1,16 @@
 package com.linkedin.datahub.graphql.types.datajob.mappers;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.DataJobUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.datajob.DataJob;
+import com.linkedin.datajob.EditableDatajobProperties;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;
@@ -24,7 +27,9 @@ public class DataJobUpdateInputMapper implements InputModelMapper<DataJobUpdateI
     public DataJob apply(@Nonnull final DataJobUpdateInput dataJobUpdateInput,
                          @Nonnull final Urn actor) {
         final DataJob result = new DataJob();
-
+        final AuditStamp auditStamp = new AuditStamp();
+        auditStamp.setActor(actor, SetMode.IGNORE_NULL);
+        auditStamp.setTime(System.currentTimeMillis());
         if (dataJobUpdateInput.getOwnership() != null) {
             result.setOwnership(OwnershipUpdateMapper.map(dataJobUpdateInput.getOwnership(), actor));
         }
@@ -39,6 +44,16 @@ public class DataJobUpdateInputMapper implements InputModelMapper<DataJobUpdateI
                     )
             );
             result.setGlobalTags(globalTags);
+        }
+
+        if (dataJobUpdateInput.getEditableProperties() != null) {
+            final EditableDatajobProperties editableDatajobProperties = new EditableDatajobProperties();
+            editableDatajobProperties.setDescription(dataJobUpdateInput.getEditableProperties().getDescription());
+            if (!editableDatajobProperties.hasCreated()) {
+                editableDatajobProperties.setCreated(auditStamp);
+            }
+            editableDatajobProperties.setLastModified(auditStamp);
+            result.setEditableProperties(editableDatajobProperties);
         }
         return result;
     }

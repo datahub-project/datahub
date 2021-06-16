@@ -175,6 +175,9 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
         if (dataFlow.hasGlobalTags()) {
             aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getGlobalTags()));
         }
+        if (dataFlow.hasEditableProperties()) {
+            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getEditableProperties()));
+        }
         return ModelUtils.newSnapshot(DataFlowSnapshot.class, urn, aspects);
     }
 
