@@ -39,7 +39,7 @@ class DBTConfig(ConfigModel):
     env: str = "PROD"
     target_platform: str
     load_schemas: bool
-    node_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
 class DBTColumn:
@@ -93,7 +93,7 @@ def extract_dbt_entities(
     load_catalog: bool,
     target_platform: str,
     environment: str,
-    node_pattern: AllowDenyPattern,
+    node_type_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
     dbt_entities = []
     for key in nodes:
@@ -101,7 +101,7 @@ def extract_dbt_entities(
         dbtNode = DBTNode()
 
         # check if node pattern allowed based on config file
-        if not node_pattern.allowed(node["resource_type"]):
+        if not node_type_pattern.allowed(node["resource_type"]):
             continue
         dbtNode.dbt_name = key
         dbtNode.database = node["database"]
@@ -157,7 +157,7 @@ def loadManifestAndCatalog(
     load_catalog: bool,
     target_platform: str,
     environment: str,
-    node_pattern: AllowDenyPattern,
+    node_type_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
     with open(manifest_path, "r") as manifest:
         with open(catalog_path, "r") as catalog:
@@ -180,7 +180,7 @@ def loadManifestAndCatalog(
                 load_catalog,
                 target_platform,
                 environment,
-                node_pattern,
+                node_type_pattern,
             )
 
             return nodes
@@ -344,7 +344,7 @@ class DBTSource(Source):
             self.config.load_schemas,
             self.config.target_platform,
             self.config.env,
-            self.config.node_pattern,
+            self.config.node_type_pattern,
         )
 
         for node in nodes:
