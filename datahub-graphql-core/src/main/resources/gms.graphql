@@ -665,36 +665,31 @@ type DatasetEditableProperties {
     """
     Description
     """
-    description: String!
-
-    """
-    Tags
-    """
-    globalTags: GlobalTags
+    description: String
 }
 type ChartEditableProperties {
     """
     Description
     """
-    description: String!
+    description: String
 }
 type DashboardEditableProperties {
     """
     Description
     """
-    description: String!
+    description: String
 }
 type DataJobEditableProperties {
     """
     Description
     """
-    description: String!
+    description: String
 }
 type DataFlowEditableProperties {
     """
     Description
     """
-    description: String!
+    description: String
 }
 
 type EntityRelationship {
@@ -1532,11 +1527,6 @@ input DatasetEditablePropertiesUpdate {
     Description
     """
     description: String!
-
-    """
-    Tags
-    """
-    globalTags: GlobalTagsUpdate
 }
 
 input ChartEditablePropertiesUpdate {

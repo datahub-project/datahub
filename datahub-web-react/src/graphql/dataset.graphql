@@ -32,9 +32,6 @@ query getDataset($urn: String!) {
         }
         editableProperties {
             description
-            globalTags {
-                ...globalTagsFields
-            }
         }
         ownership {
             ...ownershipFields

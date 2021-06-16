@@ -15,9 +15,4 @@ record EditableDatasetProperties includes ChangeAuditStamps {
    * Documentation of the dataset
    */
   description: optional string
-
-  /**
-   * globalTags
-   */
-  globalTags: optional GlobalTags
 }

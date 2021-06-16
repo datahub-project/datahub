@@ -29,7 +29,7 @@ type Props = {
 };
 
 export default function UpdateDescriptionModal({ title, description, original, onClose, onSubmit, isAddDesc }: Props) {
-    const [updatedDesc, setDesc] = useState(description);
+    const [updatedDesc, setDesc] = useState(description || original);
 
     return (
         <Modal
@@ -49,11 +49,6 @@ export default function UpdateDescriptionModal({ title, description, original, o
             }
         >
             <Form layout="vertical">
-                {!isAddDesc && (description || original) && (
-                    <Form.Item label={<FormLabel>Original:</FormLabel>}>
-                        <DescriptionMarkdown source={original || ''} />
-                    </Form.Item>
-                )}
                 {isAddDesc ? (
                     <Form.Item>
                         <MarkDownHelpLink href="https://joplinapp.org/markdown" target="_blank" type="secondary">
@@ -62,11 +57,16 @@ export default function UpdateDescriptionModal({ title, description, original, o
                         <MDEditor value={updatedDesc} onChange={(v) => setDesc(v || '')} preview="live" height={400} />
                     </Form.Item>
                 ) : (
-                    <Form.Item label={<FormLabel>Updated:</FormLabel>}>
+                    <Form.Item>
                         <MarkDownHelpLink href="https://joplinapp.org/markdown" target="_blank" type="secondary">
                             markdown supported
                         </MarkDownHelpLink>
                         <MDEditor value={updatedDesc} onChange={(v) => setDesc(v || '')} preview="live" height={400} />
+                    </Form.Item>
+                )}
+                {!isAddDesc && description && original && (
+                    <Form.Item label={<FormLabel>Original:</FormLabel>}>
+                        <DescriptionMarkdown source={original || ''} />
                     </Form.Item>
                 )}
             </Form>

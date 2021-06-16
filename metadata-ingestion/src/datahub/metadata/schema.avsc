@@ -1869,15 +1869,6 @@
                         ],
                         "doc": "Documentation of the dataset",
                         "default": null
-                      },
-                      {
-                        "name": "globalTags",
-                        "type": [
-                          "null",
-                          "com.linkedin.pegasus2avro.common.GlobalTags"
-                        ],
-                        "doc": "globalTags",
-                        "default": null
                       }
                     ],
                     "Aspect": {

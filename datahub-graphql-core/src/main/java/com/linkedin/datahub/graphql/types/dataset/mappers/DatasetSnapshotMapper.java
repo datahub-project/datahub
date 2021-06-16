@@ -86,9 +86,6 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
                 final EditableDatasetProperties editableDatasetProperties = (EditableDatasetProperties) aspect;
                 final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
                 editableProperties.setDescription(editableDatasetProperties.getDescription());
-                if (editableDatasetProperties.getGlobalTags() != null) {
-                    editableProperties.setGlobalTags(GlobalTagsMapper.map(editableDatasetProperties.getGlobalTags()));
-                }
                 result.setEditableProperties(editableProperties);
             }
         });

@@ -78,12 +78,6 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
         if (datasetUpdateInput.getEditableProperties() != null) {
             final EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties();
             editableDatasetProperties.setDescription(datasetUpdateInput.getEditableProperties().getDescription());
-            if (datasetUpdateInput.getEditableProperties().getGlobalTags() != null) {
-                final GlobalTags globalTags = new GlobalTags();
-                globalTags.setTags(new TagAssociationArray(datasetUpdateInput.getEditableProperties().getGlobalTags().getTags().stream().map(
-                        element -> TagAssociationUpdateMapper.map(element)).collect(Collectors.toList())));
-                editableDatasetProperties.setGlobalTags(globalTags);
-            }
             result.setEditableProperties(editableDatasetProperties);
         }
 

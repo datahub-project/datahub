@@ -1569,11 +1569,6 @@
       "type" : "string",
       "doc" : "Documentation of the dataset",
       "optional" : true
-    }, {
-      "name" : "globalTags",
-      "type" : "com.linkedin.common.GlobalTags",
-      "doc" : "globalTags",
-      "optional" : true
     } ],
     "Aspect" : {
       "name" : "editableDatasetProperties"

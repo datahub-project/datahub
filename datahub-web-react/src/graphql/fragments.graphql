@@ -112,9 +112,6 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     editableProperties {
         description
-        globalTags {
-            ...globalTagsFields
-        }
     }
     ownership {
         ...ownershipFields

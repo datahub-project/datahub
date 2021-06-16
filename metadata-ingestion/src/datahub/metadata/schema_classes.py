@@ -2754,7 +2754,6 @@ class EditableDatasetPropertiesClass(DictWrapper):
         lastModified: "AuditStampClass",
         deleted: Union[None, "AuditStampClass"]=None,
         description: Union[None, str]=None,
-        globalTags: Union[None, "GlobalTagsClass"]=None,
     ):
         super().__init__()
         
@@ -2762,7 +2761,6 @@ class EditableDatasetPropertiesClass(DictWrapper):
         self.lastModified = lastModified
         self.deleted = deleted
         self.description = description
-        self.globalTags = globalTags
     
     @classmethod
     def construct_with_defaults(cls) -> "EditableDatasetPropertiesClass":
@@ -2776,7 +2774,6 @@ class EditableDatasetPropertiesClass(DictWrapper):
         self.lastModified = AuditStampClass.construct_with_defaults()
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
-        self.globalTags = self.RECORD_SCHEMA.field_map["globalTags"].default
     
     
     @property
@@ -2825,18 +2822,6 @@ class EditableDatasetPropertiesClass(DictWrapper):
     def description(self, value: Union[None, str]) -> None:
         """Setter: Documentation of the dataset"""
         self._inner_dict['description'] = value
-    
-    
-    @property
-    def globalTags(self) -> Union[None, "GlobalTagsClass"]:
-        """Getter: globalTags"""
-        return self._inner_dict.get('globalTags')  # type: ignore
-    
-    
-    @globalTags.setter
-    def globalTags(self, value: Union[None, "GlobalTagsClass"]) -> None:
-        """Setter: globalTags"""
-        self._inner_dict['globalTags'] = value
     
     
 class UpstreamClass(DictWrapper):

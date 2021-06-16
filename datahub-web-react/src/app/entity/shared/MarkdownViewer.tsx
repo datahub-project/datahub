@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Typography } from 'antd';
+import { Button } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import MDEditor from '@uiw/react-md-editor';
 import styled from 'styled-components';
 
-const { Text } = Typography;
+// const { Text } = Typography;
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -33,24 +33,36 @@ const MarkdownContainer = styled.div<{ editable?: string }>`
 
 const CustomButton = styled(Button)`
     padding: 0;
+    color: #6a737d;
 `;
 
 const MarkdownViewContainer = styled.div<{
     showall?: string;
     limit?: string;
+    over?: string;
 }>`
     display: block;
     overflow-wrap: break-word;
     word-wrap: break-word;
+    overflow-x: hidden;
+    overflow-y: auto;
     ${(props) =>
         props.showall
             ? ''
             : `
         max-height: ${props.limit}px;
+        ${
+            props.over &&
+            `
+            &::after {
+                content: '...';
+                color: #6a737d;
+                position: absolute;
+                bottom: 2rem;
+            }
+        `
+        }
         `}
-    margin-bottom: 10px;
-    overflow-x: hidden;
-    overflow-y: auto;
 `;
 
 const MarkdownView = styled(MDEditor.Markdown)`
@@ -87,14 +99,16 @@ export default function MarkdownViewer({ source, limit = 150, editable, onEditCl
 
     return (
         <MarkdownContainer editable={editable ? 'true' : undefined}>
-            <MarkdownViewContainer showall={height >= limit && showAll ? 'true' : undefined} limit={`${limit}`}>
+            <MarkdownViewContainer
+                showall={height >= limit && showAll ? 'true' : undefined}
+                limit={`${limit}`}
+                over={height >= limit ? 'true' : undefined}
+            >
                 <MarkdownView ref={ref} source={source} />
             </MarkdownViewContainer>
             {height >= limit && (
                 <CustomButton type="link" onClick={() => setShowAll(!showAll)}>
-                    <Text italic type="secondary">
-                        {showAll ? 'show less' : '... show more'}
-                    </Text>
+                    {showAll ? 'show less' : 'show more'}
                 </CustomButton>
             )}
             <EditIcon twoToneColor="#52c41a" onClick={onEditClicked} />
