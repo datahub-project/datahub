@@ -8,6 +8,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
@@ -99,6 +100,11 @@ public abstract class EntityService {
    * @return the {@link RecordTemplate} representation of the requested aspect object
    */
   public abstract RecordTemplate getAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final String aspectName,
+      long version);
+
+  public abstract VersionedAspect getVersionedAspect(
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
       long version);

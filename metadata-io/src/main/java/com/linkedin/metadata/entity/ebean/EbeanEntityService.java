@@ -5,6 +5,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.aspect.Aspect;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
@@ -92,11 +94,45 @@ public class EbeanEntityService extends EntityService {
   @Override
   @Nullable
   public RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
+    if (version < 0) {
+      version = _entityDao.getMaxVersion(urn.toString(), aspectName) - version + 1;
+    }
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
     return maybeAspect
         .map(ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata()))
         .orElse(null);
+  }
+
+  @Override
+  public VersionedAspect getVersionedAspect(@Nonnull Urn urn, @Nonnull String aspectName, long version) {
+    VersionedAspect result = new VersionedAspect();
+
+    if (version < 0) {
+      version = _entityDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
+    }
+
+    final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
+    final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
+    RecordTemplate aspect = maybeAspect
+        .map(ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata()))
+        .orElse(null);
+
+    if (aspect == null) {
+      return null;
+    }
+
+    Aspect resultAspect = new Aspect();
+
+    RecordUtils.setSelectedRecordTemplateInUnion(
+        resultAspect,
+        aspect
+    );
+;
+    result.setAspect(resultAspect);
+    result.setVersion(version);
+
+    return result;
   }
 
   @Override
