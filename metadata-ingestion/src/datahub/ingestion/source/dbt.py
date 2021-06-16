@@ -28,6 +28,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
+from src.datahub.ingestion.source.dbt_types import (
+    SNOWFLAKE_TYPES_MAP,
+    POSTGRES_TYPES_MAP,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +260,8 @@ _field_type_mapping = {
     "text": StringTypeClass,
     "timestamp with time zone": DateTypeClass,
     "integer": NumberTypeClass,
+    **POSTGRES_TYPES_MAP,
+    **SNOWFLAKE_TYPES_MAP,
 }
 
 
