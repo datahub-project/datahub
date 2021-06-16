@@ -21,7 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ElasticUsageService implements UsageService {
-    private static final String BASE_INDEX_NAME = "usageStats";
+    private static final String USAGE_STATS_BASE_INDEX_NAME = "usageStats_v1";
 
     private final RestHighLevelClient elasticClient;
     private final IndexConvention indexConvention;
@@ -43,7 +43,7 @@ public class ElasticUsageService implements UsageService {
     public void configure() {
         try {
             new IndexBuilder(elasticClient,
-                    indexConvention.getIndexName(BASE_INDEX_NAME),
+                    indexConvention.getIndexName(USAGE_STATS_BASE_INDEX_NAME),
                     this.getMappings(),
                     SettingsBuilder.getSettings()).buildIndex();
         } catch (IOException e) {
@@ -67,7 +67,7 @@ public class ElasticUsageService implements UsageService {
 
     @Override
     public void upsertDocument(@Nonnull String document, @Nonnull String docId) {
-        final String indexName = indexConvention.getIndexName(BASE_INDEX_NAME);
+        final String indexName = indexConvention.getIndexName(USAGE_STATS_BASE_INDEX_NAME);
         final IndexRequest indexRequest = new IndexRequest(indexName).id(docId).source(document, XContentType.JSON);
         final UpdateRequest updateRequest = new UpdateRequest(indexName, docId).doc(document, XContentType.JSON)
                 .detectNoop(false)
