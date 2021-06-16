@@ -33,6 +33,7 @@ public class AspectResolver implements DataFetcher<CompletableFuture<Aspect>> {
         String urn = ((Entity) environment.getSource()).getUrn();
 
         // first, we try fetching the aspect from the local cache
+        // we need to convert it into a VersionedAspect so we can make use of existing mappers
         VersionedAspect aspectFromContext = ResolverUtils.getAspectFromLocalContext(environment);
         if (aspectFromContext != null) {
             return CompletableFuture.completedFuture(AspectMapper.map(aspectFromContext));

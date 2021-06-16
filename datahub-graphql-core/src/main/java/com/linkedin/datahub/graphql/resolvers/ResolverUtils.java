@@ -66,6 +66,28 @@ public class ResolverUtils {
         return facetFilters;
     }
 
+    private static Object constructAspectFromDataElement(DataElement aspectDataElement)
+        throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, InstantiationException {
+        String restliAspectClassName = aspectDataElement.getSchema().getUnionMemberKey();
+        // construct the restli aspect class from the aspect's DataMap stored in local context
+        Object constructedAspect = Class.forName(restliAspectClassName)
+            .cast((
+                ConstructorUtils.getMatchingAccessibleConstructor(
+                    Class.forName(restliAspectClassName),
+                    new Class[]{DataMap.class}
+                ).newInstance(aspectDataElement.getValue())
+            ));
+
+        return constructedAspect;
+    }
+
+    private static com.linkedin.metadata.aspect.Aspect constructAspectUnionInstanceFromAspect(Object constructedAspect)
+        throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        return (com.linkedin.metadata.aspect.Aspect)
+            com.linkedin.metadata.aspect.Aspect.class.getMethod("create", constructedAspect.getClass())
+                .invoke(com.linkedin.metadata.aspect.Aspect.class, constructedAspect);
+    }
+
     @Nonnull
     public static VersionedAspect getAspectFromLocalContext(DataFetchingEnvironment environment) {
         String fieldName = environment.getField().getName();
@@ -76,20 +98,18 @@ public class ResolverUtils {
         // otherwise, we should just fetch the entity from the aspect resource
         if (localContext == null && version == 0 || version == null) {
             if (localContext instanceof Map) {
+                // de-register the prefetched aspect from local context. Since aspects will only
+                // ever be first-class properties of an entity type, local context will always
+                // contain a map of { aspectName: DataMap }
                 DataElement prefetchedAspect = ((Map<String, DataElement>) localContext).getOrDefault(fieldName, null);
+
                 if (prefetchedAspect != null) {
                     try {
-                        Object result = Class.forName(prefetchedAspect.getSchema().getUnionMemberKey())
-                            .cast((ConstructorUtils.getMatchingAccessibleConstructor(
-                                Class.forName(prefetchedAspect.getSchema().getUnionMemberKey()),
-                                new Class[]{DataMap.class}).newInstance(prefetchedAspect.getValue())));
+                        Object constructedAspect = constructAspectFromDataElement(prefetchedAspect);
 
                         VersionedAspect resultWithMetadata = new VersionedAspect();
 
-                        resultWithMetadata.setAspect(
-                            (com.linkedin.metadata.aspect.Aspect)
-                                com.linkedin.metadata.aspect.Aspect.class.getMethod("create", result.getClass())
-                                    .invoke(com.linkedin.metadata.aspect.Aspect.class, result));
+                        resultWithMetadata.setAspect(constructAspectUnionInstanceFromAspect(constructedAspect));
 
                         resultWithMetadata.setVersion(0);
 
