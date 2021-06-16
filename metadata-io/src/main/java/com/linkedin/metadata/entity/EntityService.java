@@ -347,4 +347,6 @@ public abstract class EntityService {
   }
 
   public abstract void setWritable();
+
+  public abstract void disableWrite();
 }

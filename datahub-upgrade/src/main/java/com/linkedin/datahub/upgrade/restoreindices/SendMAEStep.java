@@ -70,8 +70,10 @@ public class SendMAEStep implements UpgradeStep {
           try {
             urn = Urn.createFromString(aspect.getKey().getUrn());
           } catch (Exception e) {
-            throw new RuntimeException(
-                String.format("Failed to bind Urn with value %s into Urn object", aspect.getKey().getUrn(), e));
+            context.report()
+                .addLine(
+                    String.format("Failed to bind Urn with value %s into Urn object: %s", aspect.getKey().getUrn(), e));
+            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
           // 2. Verify that the entity associated with the aspect is found in the registry.
@@ -81,8 +83,7 @@ public class SendMAEStep implements UpgradeStep {
             entitySpec = _entityRegistry.getEntitySpec(entityName);
           } catch (Exception e) {
             context.report()
-                .addLine(String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName,
-                    e.toString()));
+                .addLine(String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName, e));
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
           final String aspectName = aspect.getKey().getAspect();
@@ -96,9 +97,8 @@ public class SendMAEStep implements UpgradeStep {
             entitySpec.getAspectSpec(aspectName);
           } catch (Exception e) {
             context.report()
-                .addLine(
-                    String.format("Failed to find aspect spec with name %s associated with entity named %s", aspectName,
-                        entityName, e.toString()));
+                .addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s: %s",
+                    aspectName, entityName, e));
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
@@ -158,18 +158,18 @@ public class SendMAEStep implements UpgradeStep {
 
   private int getBatchSize(final Map<String, Optional<String>> parsedArgs) {
     int resolvedBatchSize = DEFAULT_BATCH_SIZE;
-    if (parsedArgs.containsKey(NoCodeUpgrade.BATCH_SIZE_ARG_NAME) && parsedArgs.get(NoCodeUpgrade.BATCH_SIZE_ARG_NAME)
+    if (parsedArgs.containsKey(RestoreIndices.BATCH_SIZE_ARG_NAME) && parsedArgs.get(NoCodeUpgrade.BATCH_SIZE_ARG_NAME)
         .isPresent()) {
-      resolvedBatchSize = Integer.parseInt(parsedArgs.get(NoCodeUpgrade.BATCH_SIZE_ARG_NAME).get());
+      resolvedBatchSize = Integer.parseInt(parsedArgs.get(RestoreIndices.BATCH_SIZE_ARG_NAME).get());
     }
     return resolvedBatchSize;
   }
 
   private long getBatchDelayMs(final Map<String, Optional<String>> parsedArgs) {
     long resolvedBatchDelayMs = DEFAULT_BATCH_DELAY_MS;
-    if (parsedArgs.containsKey(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME) && parsedArgs.get(
+    if (parsedArgs.containsKey(RestoreIndices.BATCH_DELAY_MS_ARG_NAME) && parsedArgs.get(
         NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME).isPresent()) {
-      resolvedBatchDelayMs = Long.parseLong(parsedArgs.get(NoCodeUpgrade.BATCH_DELAY_MS_ARG_NAME).get());
+      resolvedBatchDelayMs = Long.parseLong(parsedArgs.get(RestoreIndices.BATCH_DELAY_MS_ARG_NAME).get());
     }
     return resolvedBatchDelayMs;
   }

@@ -210,4 +210,9 @@ public class EbeanEntityService extends EntityService {
   public void setWritable() {
     _entityDao.setWritable();
   }
+
+  @Nonnull
+  public void disableWrite() {
+    _entityDao.disableWrite();
+  }
 }

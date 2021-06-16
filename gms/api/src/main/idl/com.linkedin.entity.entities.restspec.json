@@ -74,6 +74,8 @@
       } ],
       "returns" : "com.linkedin.metadata.query.BrowseResult"
     }, {
+      "name" : "disableWrite"
+    }, {
       "name" : "getBrowsePaths",
       "parameters" : [ {
         "name" : "urn",

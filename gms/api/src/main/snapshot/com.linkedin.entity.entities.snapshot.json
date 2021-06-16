@@ -158,7 +158,13 @@
         "items" : "ChartDataSourceType"
       },
       "doc" : "Data sources for the chart",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "/*/string" : {
+          "entityTypes" : [ "dataset" ],
+          "name" : "Consumes"
+        }
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -3892,6 +3898,8 @@
           "type" : "int"
         } ],
         "returns" : "com.linkedin.metadata.query.BrowseResult"
+      }, {
+        "name" : "disableWrite"
       }, {
         "name" : "getBrowsePaths",
         "parameters" : [ {

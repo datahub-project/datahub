@@ -11,11 +11,14 @@ dependencies {
   compile externalDependency.javaxInject
   compile externalDependency.lombok
   compile externalDependency.picocli
+  compile externalDependency.parquet
   compile externalDependency.springBeans
   compile externalDependency.springBootAutoconfigure
   compile externalDependency.springCore
   compile externalDependency.springKafka
 
+  compile 'com.amazonaws:aws-java-sdk-s3:1.12.1'
+  compile 'org.apache.hadoop:hadoop-client:3.1.0'
   runtime externalDependency.mariadbConnector
   runtime externalDependency.mysqlConnector
   runtime externalDependency.postgresql

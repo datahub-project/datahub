@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.nocode;
+package com.linkedin.datahub.upgrade.commonsteps;
 
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -11,7 +11,7 @@ import java.util.function.Function;
 
 public class GMSEnableWriteModeStep implements UpgradeStep {
 
-  GMSEnableWriteModeStep() { }
+  public GMSEnableWriteModeStep() { }
 
   @Override
   public String id() {
