@@ -10,11 +10,13 @@ import com.linkedin.datahub.graphql.generated.DataJobInfo;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.DataJobEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.datajob.EditableDatajobProperties;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.DataJobSnapshot;
 import java.util.stream.Collectors;
@@ -52,6 +54,10 @@ public class DataJobSnapshotMapper implements ModelMapper<DataJobSnapshot, DataJ
                 result.setStatus(StatusMapper.map(status));
             } else if (aspect instanceof GlobalTags) {
                 result.setGlobalTags(GlobalTagsMapper.map(GlobalTags.class.cast(aspect)));
+            } else if (aspect instanceof EditableDatajobProperties) {
+                final DataJobEditableProperties dataJobEditableProperties = new DataJobEditableProperties();
+                dataJobEditableProperties.setDescription(((EditableDatajobProperties) aspect).getDescription());
+                result.setEditableProperties(dataJobEditableProperties);
             }
         });
 

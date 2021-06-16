@@ -394,6 +394,44 @@
                   },
                   {
                     "type": "record",
+                    "name": "EditableChartProperties",
+                    "namespace": "com.linkedin.pegasus2avro.chart",
+                    "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+                    "fields": [
+                      {
+                        "name": "created",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                      },
+                      {
+                        "name": "deleted",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.AuditStamp"
+                        ],
+                        "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics.",
+                        "default": null
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "default": null
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "editableChartProperties"
+                    }
+                  },
+                  {
+                    "type": "record",
                     "name": "Ownership",
                     "namespace": "com.linkedin.pegasus2avro.common",
                     "doc": "Ownership information of an entity.",
@@ -1134,6 +1172,44 @@
                       "name": "dashboardInfo"
                     }
                   },
+                  {
+                    "type": "record",
+                    "name": "EditableDashboardProperties",
+                    "namespace": "com.linkedin.pegasus2avro.dashboard",
+                    "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+                    "fields": [
+                      {
+                        "name": "created",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                      },
+                      {
+                        "name": "deleted",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.AuditStamp"
+                        ],
+                        "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics.",
+                        "default": null
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "default": null
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "editableDashboardProperties"
+                    }
+                  },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
                   "com.linkedin.pegasus2avro.common.GlobalTags",
@@ -1270,6 +1346,44 @@
                     ],
                     "Aspect": {
                       "name": "dataFlowInfo"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "EditableDataflowProperties",
+                    "namespace": "com.linkedin.pegasus2avro.datajob",
+                    "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+                    "fields": [
+                      {
+                        "name": "created",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                      },
+                      {
+                        "name": "deleted",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.AuditStamp"
+                        ],
+                        "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics.",
+                        "default": null
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "default": null
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "editableDataflowProperties"
                     }
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
@@ -1525,6 +1639,44 @@
                       "name": "dataJobInputOutput"
                     }
                   },
+                  {
+                    "type": "record",
+                    "name": "EditableDatajobProperties",
+                    "namespace": "com.linkedin.pegasus2avro.datajob",
+                    "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+                    "fields": [
+                      {
+                        "name": "created",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                      },
+                      {
+                        "name": "deleted",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.AuditStamp"
+                        ],
+                        "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics.",
+                        "default": null
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "default": null
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "editableDatajobProperties"
+                    }
+                  },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
                   "com.linkedin.pegasus2avro.common.GlobalTags",
@@ -1682,6 +1834,45 @@
                     ],
                     "Aspect": {
                       "name": "datasetProperties"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "EditableDatasetProperties",
+                    "namespace": "com.linkedin.pegasus2avro.dataset",
+                    "doc": "EditableDatasetProperties stores editable changes made to dataset properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+                    "fields": [
+                      {
+                        "name": "created",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                      },
+                      {
+                        "name": "lastModified",
+                        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
+                        "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                      },
+                      {
+                        "name": "deleted",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.AuditStamp"
+                        ],
+                        "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics.",
+                        "default": null
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the dataset",
+                        "default": null
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "editableDatasetProperties"
                     }
                   },
                   {

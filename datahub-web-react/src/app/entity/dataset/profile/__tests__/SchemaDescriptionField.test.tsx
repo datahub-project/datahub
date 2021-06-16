@@ -10,7 +10,6 @@ describe('SchemaDescriptionField', () => {
                 <SchemaDescriptionField
                     description="test description"
                     updatedDescription="test description updated"
-                    onHover
                     onUpdate={async () => {}}
                 />
             </TestPageContainer>,
@@ -26,7 +25,6 @@ describe('SchemaDescriptionField', () => {
                 <SchemaDescriptionField
                     description="test description"
                     updatedDescription="test description updated"
-                    onHover
                     onUpdate={async () => {}}
                 />
             </TestPageContainer>,
@@ -37,7 +35,6 @@ describe('SchemaDescriptionField', () => {
         expect(getByText('Cancel')).toBeInTheDocument();
         expect(getByText('Update')).toBeInTheDocument();
         expect(getByText('Original:')).toBeInTheDocument();
-        expect(getByText('Updated:')).toBeInTheDocument();
         fireEvent.click(getByText('Cancel'));
         await waitFor(() => expect(queryByText('Update description')).not.toBeInTheDocument());
     });

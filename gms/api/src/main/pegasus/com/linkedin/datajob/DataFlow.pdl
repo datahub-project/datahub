@@ -34,4 +34,9 @@ record DataFlow includes DataFlowKey, ChangeAuditStamps {
    * List of global tags applied to the chart
    */
   globalTags: optional GlobalTags
+
+  /**
+   * Editable properties
+   */
+  editableProperties: optional EditableDataflowProperties
 }
