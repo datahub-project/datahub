@@ -9,7 +9,6 @@ public interface UsageService {
 
   /**
    * Write an aggregated usage metric bucket.
-   * TODO this
    *
    * @param document the document to update / insert
    * @param docId the ID of the document

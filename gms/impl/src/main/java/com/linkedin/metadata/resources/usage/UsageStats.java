@@ -4,12 +4,9 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.WindowDuration;
-import com.linkedin.common.urn.TestEntityUrn;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.metrics.UsageService;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
-import com.linkedin.restli.server.RoutingException;
 import com.linkedin.restli.server.annotations.*;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 import com.linkedin.usage.UsageAggregation;
@@ -19,9 +16,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
-import java.util.*;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Rest.li entry point: /usageStats
@@ -70,7 +65,12 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             document.set("metrics.users", users);
         });
 
-        // TODO: metrics here
+        Optional.ofNullable(bucket.getMetrics().getTop_sql_queries()).ifPresent(top_sql_queries -> {
+            ArrayNode sqlQueriesDocument = JsonNodeFactory.instance.arrayNode();
+            top_sql_queries.forEach(sqlQueriesDocument::add);
+            document.set("metrics.top_sql_queries", sqlQueriesDocument);
+        });
+
         _usageService.upsertDocument(document.toString(), id);
     }
 
