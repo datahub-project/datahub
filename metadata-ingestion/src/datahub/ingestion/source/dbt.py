@@ -36,6 +36,8 @@ class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
     env: str = "PROD"
+    target_platform: str
+    load_schemas: bool
 
 
 class DBTColumn:
@@ -56,7 +58,7 @@ class DBTNode:
     dbt_file_path: str
     node_type: str  # source, model
     materialization: str  # table, view, ephemeral
-    name: str
+    name: str  # name, identifier
     columns: List[DBTColumn]
     upstream_urns: List[str]
     datahub_urn: str
@@ -84,33 +86,51 @@ def get_columns(catalog_node: dict) -> List[DBTColumn]:
 
 
 def extract_dbt_entities(
-    nodes: Dict[str, dict], catalog: Dict[str, dict], platform: str, environment: str
+    nodes: Dict[str, dict],
+    catalog: Dict[str, dict],
+    load_catalog: bool,
+    target_platform: str,
+    environment: str,
 ) -> List[DBTNode]:
     dbt_entities = []
-
     for key in nodes:
         node = nodes[key]
         dbtNode = DBTNode()
 
+        if key not in catalog and load_catalog is False:
+            continue
+
+        if "identifier" in node and load_catalog is False:
+            dbtNode.name = node["identifier"]
+        else:
+            dbtNode.name = node["name"]
         dbtNode.dbt_name = key
-        dbtNode.node_type = node["resource_type"]
-        dbtNode.name = node["name"]
         dbtNode.database = node["database"]
         dbtNode.schema = node["schema"]
         dbtNode.dbt_file_path = node["original_file_path"]
+        dbtNode.node_type = node["resource_type"]
 
         if "materialized" in node["config"].keys():
             # It's a model
             dbtNode.materialization = node["config"]["materialized"]
             dbtNode.upstream_urns = get_upstreams(
-                node["depends_on"]["nodes"], nodes, platform, environment
+                node["depends_on"]["nodes"],
+                nodes,
+                load_catalog,
+                target_platform,
+                environment,
             )
         else:
             # It's a source
-            dbtNode.materialization = catalog[key]["metadata"]["type"]
+            dbtNode.materialization = catalog[key]["metadata"][
+                "type"
+            ]  # get materialization from catalog? required?
             dbtNode.upstream_urns = []
 
-        if dbtNode.materialization != "ephemeral":
+        if (
+            dbtNode.materialization != "ephemeral" and load_catalog
+        ):  # we don't want columns if platform isn't 'dbt'
+            logger.debug("Loading schema info")
             dbtNode.columns = get_columns(catalog[dbtNode.dbt_name])
         else:
             dbtNode.columns = []
@@ -119,7 +139,7 @@ def extract_dbt_entities(
             dbtNode.database,
             dbtNode.schema,
             dbtNode.name,
-            platform,
+            target_platform,
             environment,
         )
 
@@ -129,9 +149,12 @@ def extract_dbt_entities(
 
 
 def loadManifestAndCatalog(
-    manifest_path: str, catalog_path: str, platform: str, environment: str
+    manifest_path: str,
+    catalog_path: str,
+    load_catalog: bool,
+    target_platform: str,
+    environment: str,
 ) -> List[DBTNode]:
-
     with open(manifest_path, "r") as manifest:
         with open(catalog_path, "r") as catalog:
             dbt_manifest_json = json.load(manifest)
@@ -148,17 +171,22 @@ def loadManifestAndCatalog(
             all_catalog_entities = {**catalog_nodes, **catalog_sources}
 
             nodes = extract_dbt_entities(
-                all_manifest_entities, all_catalog_entities, platform, environment
+                all_manifest_entities,
+                all_catalog_entities,
+                load_catalog,
+                target_platform,
+                environment,
             )
 
             return nodes
 
 
 def get_urn_from_dbtNode(
-    database: str, schema: str, name: str, platform: str, env: str
+    database: str, schema: str, name: str, target_platform: str, env: str
 ) -> str:
+
     db_fqn = f"{database}.{schema}.{name}".replace('"', "")
-    return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{db_fqn},{env})"
+    return f"urn:li:dataset:(urn:li:dataPlatform:{target_platform},{db_fqn},{env})"
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -170,19 +198,30 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 
 
 def get_upstreams(
-    upstreams: List[str], all_nodes: Dict[str, dict], platform: str, environment: str
+    upstreams: List[str],
+    all_nodes: Dict[str, dict],
+    load_catalog: bool,
+    target_platform: str,
+    environment: str,
 ) -> List[str]:
     upstream_urns = []
 
     for upstream in upstreams:
-        upstream_node = all_nodes[upstream]
+        dbtNode_upstream = DBTNode()
+
+        dbtNode_upstream.database = all_nodes[upstream]["database"]
+        dbtNode_upstream.schema = all_nodes[upstream]["schema"]
+        if "identifier" in all_nodes[upstream] and load_catalog is False:
+            dbtNode_upstream.name = all_nodes[upstream]["identifier"]
+        else:
+            dbtNode_upstream.name = all_nodes[upstream]["name"]
 
         upstream_urns.append(
             get_urn_from_dbtNode(
-                upstream_node["database"],
-                upstream_node["schema"],
-                upstream_node["name"],
-                platform,
+                dbtNode_upstream.database,
+                dbtNode_upstream.schema,
+                dbtNode_upstream.name,
+                target_platform,
                 environment,
             )
         )
@@ -297,7 +336,8 @@ class DBTSource(Source):
         nodes = loadManifestAndCatalog(
             self.config.manifest_path,
             self.config.catalog_path,
-            platform,
+            self.config.load_schemas,
+            self.config.target_platform,
             self.config.env,
         )
 
@@ -320,8 +360,9 @@ class DBTSource(Source):
             if upstreams is not None:
                 dataset_snapshot.aspects.append(upstreams)
 
-            schema_metadata = get_schema_metadata(self.report, node, platform)
-            dataset_snapshot.aspects.append(schema_metadata)
+            if self.config.load_schemas:
+                schema_metadata = get_schema_metadata(self.report, node, platform)
+                dataset_snapshot.aspects.append(schema_metadata)
 
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             wu = MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)

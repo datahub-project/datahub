@@ -1,0 +1,57 @@
+plugins {
+    id 'base'
+}
+
+ext {
+  python_executable = 'python3'
+  venv_name = 'venv'
+}
+
+task checkPythonVersion(type: Exec) {
+  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 6)'
+}
+
+task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
+  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools"
+}
+
+task installPackage(type: Exec, dependsOn: environmentSetup) {
+  commandLine "${venv_name}/bin/pip", 'install', '-e', '.'
+}
+
+task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/codegen.sh"
+}
+
+task install(dependsOn: [installPackage, codegen])
+
+task installDev(type: Exec, dependsOn: [install]) {
+  commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev]'
+}
+task lint(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && black --check --diff src/ tests/ && isort --check --diff src/ tests/ && flake8 --count --statistics src/ tests/ && mypy src/ tests/"
+}
+task lintFix(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && " +
+    "black src/ tests/ && " +
+    "isort src/ tests/ && " +
+    "flake8 src/ tests/ && " +
+    "mypy src/ tests/"
+}
+
+task test(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest -vv"
+}
+
+build.dependsOn install
+check.dependsOn lint
+check.dependsOn test
+
+clean {
+  delete venv_name
+  delete 'build'
+  delete 'dist'
+}

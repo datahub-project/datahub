@@ -36,7 +36,10 @@ query getDataset($urn: String!) {
         institutionalMemory {
             elements {
                 url
-                author
+                author {
+                    urn
+                    username
+                }
                 description
                 created {
                     actor
@@ -70,6 +73,9 @@ query getDataset($urn: String!) {
                 globalTags {
                     ...globalTagsFields
                 }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
             }
             primaryKeys
         }
@@ -93,6 +99,9 @@ query getDataset($urn: String!) {
         }
         downstreamLineage {
             ...downstreamRelationshipFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
         }
         upstreamLineage {
             ...upstreamRelationshipFields

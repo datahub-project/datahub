@@ -33,12 +33,16 @@ dependencies {
   play externalDependency.shiroCore
   play externalDependency.playCache
 
+  play externalDependency.kafkaClients
+
   playTest externalDependency.mockito
   playTest externalDependency.playTest
 
+  playRun externalDependency.lombok
   playRun externalDependency.guice
   playRun externalDependency.playDocs
   playRun externalDependency.playGuice
+  playRun externalDependency.logbackClassic
 }
 
 model {

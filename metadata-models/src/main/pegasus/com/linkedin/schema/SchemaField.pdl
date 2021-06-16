@@ -2,6 +2,7 @@ namespace com.linkedin.schema
 
 import com.linkedin.dataset.SchemaFieldPath
 import com.linkedin.common.GlobalTags
+import com.linkedin.common.GlossaryTerms
 
 /**
  * SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema
@@ -11,6 +12,10 @@ record SchemaField {
   /**
    * Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.
    */
+  @Searchable = {
+    "fieldName": "fieldPaths",
+    "fieldType": "TEXT_PARTIAL"
+  }
   fieldPath: SchemaFieldPath
 
   /**
@@ -26,6 +31,11 @@ record SchemaField {
   /**
    * Description
    */
+  @Searchable = {
+    "fieldName": "fieldDescriptions",
+    "fieldType": "TEXT",
+    "boostScore": 0.1
+  }
   description: optional string
 
   /**
@@ -46,5 +56,17 @@ record SchemaField {
   /**
    * Tags associated with the field
    */
+  @Searchable = {
+    "/tags/*/tag": {
+      "fieldName": "fieldTags",
+      "fieldType": "URN_PARTIAL",
+      "boostScore": 0.5
+    }
+  }
   globalTags: optional GlobalTags
+
+  /**
+   * Glossary terms associated with the field
+   */
+  glossaryTerms: optional GlossaryTerms
 }

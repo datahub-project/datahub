@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: linkedin/datahub-gms
   pullPolicy: Always
-  tag: latest
+  tag: v0.8.1
 
 imagePullSecrets: []
 nameOverride: ""
@@ -146,6 +146,8 @@ readinessProbe:
 #This section is useful if we are installing this chart separately for testing
 # helm install datahub-gms datahub-gms/
 global:
+  datahub_analytics_enabled: true
+
   elasticsearch:
     host: "elasticsearch"
     port: "9200"

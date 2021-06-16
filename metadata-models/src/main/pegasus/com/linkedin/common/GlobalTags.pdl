@@ -3,6 +3,9 @@ namespace com.linkedin.common
 /**
  * Tag aspect used for applying tags to an entity
  */
+@Aspect = {
+  "name": "globalTags"
+}
 record GlobalTags {
 
   /**

@@ -65,5 +65,3 @@ Read the [metadata service developer guide](../how/build-metadata-service.md) to
 [Search Document]: ../what/search-document.md
 [metadata aspect]: ../what/aspect.md
 [Python emitters]: https://datahubproject.io/docs/metadata-ingestion/#using-as-a-library
-
-

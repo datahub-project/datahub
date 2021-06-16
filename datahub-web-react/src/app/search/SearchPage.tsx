@@ -6,12 +6,13 @@ import styled from 'styled-components';
 
 import { SearchablePage } from './SearchablePage';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { FacetFilterInput } from '../../types.generated';
+import { FacetFilterInput, EntityType } from '../../types.generated';
 import useFilters from './utils/useFilters';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { EntitySearchResults } from './EntitySearchResults';
 import { IconStyleType } from '../entity/Entity';
 import { AllEntitiesSearchResults } from './AllEntitiesSearchResults';
+import analytics, { EventType } from '../analytics';
 
 const ALL_ENTITIES_TAB_NAME = 'All';
 
@@ -48,13 +49,23 @@ export const SearchPage = () => {
     const searchTypes = entityRegistry.getSearchEntityTypes();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const query: string = params.query ? (params.query as string) : '';
+    const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);
 
-    const onSearch = (q: string) => {
-        navigateToSearchUrl({ type: activeType, query: q, page: 1, history, entityRegistry });
+    const onSearch = (q: string, type?: EntityType) => {
+        if (query.trim().length === 0) {
+            return;
+        }
+        analytics.event({
+            type: EventType.SearchEvent,
+            query: q,
+            entityTypeFilter: activeType,
+            pageNumber: 1,
+            originPath: window.location.pathname,
+        });
+        navigateToSearchUrl({ type: type || activeType, query: q, page: 1, history, entityRegistry });
     };
 
     const onChangeSearchType = (newType: string) => {

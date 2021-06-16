@@ -14,6 +14,7 @@ Current chart version is `0.2.0`
 | extraVolumes | Templatable string of additional `volumes` to be passed to the `tpl` function | "" |
 | extraVolumeMounts | Templatable string of additional `volumeMounts` to be passed to the `tpl` function | "" |
 | fullnameOverride | string | `"datahub-mae-consumer"` |  |
+| global.datahub_analytics_enabled | boolean | true |  |
 | global.elasticsearch.host | string | `"elasticsearch"` |  |
 | global.elasticsearch.port | string | `"9200"` |  |
 | global.kafka.bootstrap.server | string | `"broker:9092"` |  |
@@ -30,7 +31,7 @@ Current chart version is `0.2.0`
 | global.hostAliases[0].ip | string | `"192.168.0.104"` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"linkedin/datahub-mae-consumer"` |  |
-| image.tag | string | `"latest"` |  |
+| image.tag | string | `"v0.8.1"` |  |
 | imagePullSecrets | list | `[]` |  |
 | ingress.annotations | object | `{}` |  |
 | ingress.enabled | bool | `false` |  |

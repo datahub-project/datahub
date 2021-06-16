@@ -1,0 +1,98 @@
+[
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+                "urn": "urn:li:chart:(looker,dashboard_elements.2)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                            "customProperties": {},
+                            "externalUrl": null,
+                            "title": "",
+                            "description": "Some text",
+                            "lastModified": {
+                                "created": {
+                                    "time": 1615443388000,
+                                    "actor": "urn:li:corpuser:etl",
+                                    "impersonator": null
+                                },
+                                "lastModified": {
+                                    "time": 1615443388000,
+                                    "actor": "urn:li:corpuser:etl",
+                                    "impersonator": null
+                                },
+                                "deleted": null
+                            },
+                            "chartUrl": "https://looker.company.com/x/",
+                            "inputs": [],
+                            "type": null,
+                            "access": null,
+                            "lastRefreshed": null
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+                "urn": "urn:li:dashboard:(looker,dashboards.1)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                            "customProperties": {},
+                            "externalUrl": null,
+                            "title": "foo",
+                            "description": "lorem ipsum",
+                            "charts": [
+                                "urn:li:chart:(looker,dashboard_elements.2)"
+                            ],
+                            "lastModified": {
+                                "created": {
+                                    "time": 1615443388000,
+                                    "actor": "urn:li:corpuser:etl",
+                                    "impersonator": null
+                                },
+                                "lastModified": {
+                                    "time": 1615443388000,
+                                    "actor": "urn:li:corpuser:etl",
+                                    "impersonator": null
+                                },
+                                "deleted": null
+                            },
+                            "dashboardUrl": "https://looker.company.com/dashboards/1",
+                            "access": null,
+                            "lastRefreshed": null
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Ownership": {
+                            "owners": [
+                                {
+                                    "owner": "urn:li:corpuser:etl",
+                                    "type": "DATAOWNER",
+                                    "source": null
+                                }
+                            ],
+                            "lastModified": {
+                                "time": 1615443388000,
+                                "actor": "urn:li:corpuser:etl",
+                                "impersonator": null
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    }
+    ]

@@ -11,7 +11,7 @@ MCE-s can be sent over Kafka, for highly scalable async publishing from source s
 
 ## Pull-based Integration
 
-DataHub ships with a Python based [metadata-ingestion system](../../metadata-ingestion/README.md) that can connect to different sources to pull metadata from them. This metadata is then pushed via Kafka or HTTP to the DataHub storage tier. Metadata ingestion pipelines can be [orchestrated by Airflow](../../metadata-ingestion/examples/airflow) to set up scheduled ingestion easily. If you don't find a source already supported, it is very easy to [write your own](../../metadata-ingestion/README.md#contributing).
+DataHub ships with a Python based [metadata-ingestion system](../../metadata-ingestion/README.md) that can connect to different sources to pull metadata from them. This metadata is then pushed via Kafka or HTTP to the DataHub storage tier. Metadata ingestion pipelines can be [integrated with Airflow](../../metadata-ingestion/README.md#lineage-with-airflow) to set up scheduled ingestion or capture lineage. If you don't find a source already supported, it is very easy to [write your own](../../metadata-ingestion/README.md#contributing).
 
 ## Push-based Integration
 

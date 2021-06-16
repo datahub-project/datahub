@@ -5,6 +5,9 @@ import styled, { useTheme } from 'styled-components';
 
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
+import AnalyticsLink from './AnalyticsLink';
+import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
+import EntityRegistry from '../entity/EntityRegistry';
 
 const HeaderTitle = styled(Typography.Title)`
     && {
@@ -28,22 +31,29 @@ const styles = {
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    logoImage: { width: '36px', height: '32px' },
+    logoImage: { height: '32px', width: 'auto' },
 };
 
 type Props = {
     initialQuery: string;
     placeholderText: string;
-    suggestions: Array<string>;
-    onSearch: (query: string) => void;
+    suggestions: Array<AutoCompleteResultForEntity>;
+    onSearch: (query: string, type?: EntityType) => void;
     onQueryChange: (query: string) => void;
     authenticatedUserUrn: string;
     authenticatedUserPictureLink?: string | null;
+    entityRegistry: EntityRegistry;
 };
 
 const defaultProps = {
     authenticatedUserPictureLink: undefined,
 };
+
+const NavGroup = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+`;
 
 /**
  * A header containing a Logo, Search Bar view, & an account management dropdown.
@@ -56,6 +66,7 @@ export const SearchHeader = ({
     onQueryChange,
     authenticatedUserUrn,
     authenticatedUserPictureLink,
+    entityRegistry,
 }: Props) => {
     const themeConfig = useTheme();
 
@@ -73,8 +84,12 @@ export const SearchHeader = ({
                 suggestions={suggestions}
                 onSearch={onSearch}
                 onQueryChange={onQueryChange}
+                entityRegistry={entityRegistry}
             />
-            <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
+            <NavGroup>
+                <AnalyticsLink />
+                <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
+            </NavGroup>
         </Header>
     );
 };

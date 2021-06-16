@@ -10,6 +10,8 @@ import { useEntityRegistry } from './useEntityRegistry';
 import { HomePage } from './home/HomePage';
 import { SearchPage } from './search/SearchPage';
 import { isLoggedInVar } from './auth/checkAuthStatus';
+import { useTrackPageView } from './analytics';
+import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
 
 const ProtectedRoute = ({
     isLoggedIn,
@@ -28,6 +30,7 @@ const ProtectedRoute = ({
  * Container for all views behind an authentication wall.
  */
 export const Routes = (): JSX.Element => {
+    useTrackPageView();
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const entityRegistry = useEntityRegistry();
 
@@ -55,6 +58,7 @@ export const Routes = (): JSX.Element => {
                     path={PageRoutes.BROWSE_RESULTS}
                     render={() => <BrowseResultsPage />}
                 />
+                <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                 {/* Starting the react app locally opens /assets by default. For a smoother dev experience, we'll redirect to the homepage */}
                 <Route path={PageRoutes.ASSETS} component={() => <Redirect to="/" />} exact />
                 <Route component={NoPageFound} />

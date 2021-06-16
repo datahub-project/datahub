@@ -86,8 +86,7 @@ export const sampleSchema: Schema = {
     ],
     platformSchema: {
         __typename: 'TableSchema',
-        schema:
-            '{ "type": "record", "name": "SampleHdfsSchema", "namespace": "com.linkedin.dataset", "doc": "Sample HDFS dataset", "fields": [ { "name": "field_foo", "type": [ "string" ] }, { "name": "field_bar", "type": [ "boolean" ] } ] }',
+        schema: '{ "type": "record", "name": "SampleHdfsSchema", "namespace": "com.linkedin.dataset", "doc": "Sample HDFS dataset", "fields": [ { "name": "field_foo", "type": [ "string" ] }, { "name": "field_bar", "type": [ "boolean" ] } ] }',
     },
 };
 
@@ -112,6 +111,21 @@ export const sampleSchemaWithTags: Schema = {
                             name: 'Legacy',
                             description: 'this is a legacy dataset',
                             type: EntityType.Tag,
+                        },
+                    },
+                ],
+            },
+            glossaryTerms: {
+                terms: [
+                    {
+                        term: {
+                            type: EntityType.GlossaryTerm,
+                            urn: 'urn:li:glossaryTerm:sample-glossary-term',
+                            name: 'sample-glossary-term',
+                            glossaryTermInfo: {
+                                definition: 'sample definition',
+                                termSource: 'sample term source',
+                            },
                         },
                     },
                 ],

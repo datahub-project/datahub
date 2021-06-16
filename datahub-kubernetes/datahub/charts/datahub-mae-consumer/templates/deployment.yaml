@@ -33,7 +33,7 @@ spec:
         {{- with .Values.global.credentialsAndCertsSecrets }}
         - name: datahub-certs-dir
           secret:
-            defaultMode: 256
+            defaultMode: 0444
             secretName: {{ .name }}
         {{- end }}
         {{- if .Values.exporters.jmx.enabled }}
@@ -54,21 +54,31 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 9091
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /actuator/health
-              port: 9091
+              port: http
             initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
             failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
           readinessProbe:
             httpGet:
               path: /actuator/health
-              port: 9091
+              port: http
             initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
             failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           env:
+            - name: MAE_CONSUMER_ENABLED
+              value: "true"
+            - name: GMS_HOST
+              value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
+            - name: GMS_PORT
+              value: "{{ .Values.global.datahub.gms.port }}"
             - name: KAFKA_BOOTSTRAP_SERVER
               value: "{{ .Values.global.kafka.bootstrap.server }}"
             - name: KAFKA_SCHEMAREGISTRY_URL
@@ -77,6 +87,19 @@ spec:
               value: "{{ .Values.global.elasticsearch.host }}"
             - name: ELASTICSEARCH_PORT
               value: "{{ .Values.global.elasticsearch.port }}"
+            {{- with .Values.global.elasticsearch.useSSL }}
+            - name: ELASTICSEARCH_USE_SSL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.global.elasticsearch.auth }}
+            - name: ELASTICSEARCH_USERNAME
+              value: {{ .username }}
+            - name: ELASTICSEARCH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .password.secretRef }}"
+                  key: "{{ .password.secretKey }}"
+            {{- end }}
             - name: NEO4J_HOST
               value: "{{ .Values.global.neo4j.host }}"
             - name: NEO4J_URI
@@ -88,6 +111,8 @@ spec:
                 secretKeyRef:
                   name: "{{ .Values.global.neo4j.password.secretRef }}"
                   key: "{{ .Values.global.neo4j.password.secretKey }}"
+            - name: DATAHUB_ANALYTICS_ENABLED
+              value: "{{ .Values.global.datahub_analytics_enabled }}"
             {{- if .Values.global.springKafkaConfigurationOverrides }}
             {{- range $configName, $configValue := .Values.global.springKafkaConfigurationOverrides }}
             - name: SPRING_KAFKA_PROPERTIES_{{ $configName | replace "." "_" | upper }}

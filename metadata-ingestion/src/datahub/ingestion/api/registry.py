@@ -84,10 +84,7 @@ class Registry(Generic[T]):
             # If it's not an exception, then it's a registered type.
             return tp
 
-    def summary(self, verbose=True):
-        col_width = 15
-        verbose_col_width = 20
-
+    def summary(self, verbose=True, col_width=15, verbose_col_width=20):
         lines = []
         for key in sorted(self._mapping.keys()):
             line = f"{key}"

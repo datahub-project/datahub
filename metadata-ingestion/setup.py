@@ -1,7 +1,11 @@
 import os
+import sys
 from typing import Dict, Set
 
 import setuptools
+
+is_py37_or_newer = sys.version_info >= (3, 7)
+
 
 package_metadata: dict = {}
 with open("./src/datahub/__init__.py") as fp:
@@ -50,7 +54,7 @@ kafka_common = {
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy>=1.3.24",
+    "sqlalchemy==1.3.24",
 }
 
 # Note: for all of these, framework_common will be added.
@@ -62,40 +66,67 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {"apache-airflow >= 1.10.2"},
     # Source plugins
     "kafka": kafka_common,
+    "kafka-connect": {"requests"},
     "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
+    "druid": sql_common | {"pydruid>=0.6.2"},
+    "feast": {"docker"},
+    "glue": {"boto3"},
     "hive": sql_common
     | {
-        # Acryl maintains a fork of PyHive, which adds support for table comments
+        # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.6"
+        "acryl-pyhive[hive]>=0.6.7"
     },
-    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
-    "mysql": sql_common | {"pymysql>=1.0.2"},
-    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "snowflake": sql_common | {"snowflake-sqlalchemy"},
-    "oracle": sql_common | {"cx_Oracle"},
     "ldap": {"python-ldap>=2.4"},
-    "druid": sql_common | {"pydruid>=0.6.2"},
+    "looker": {"looker-sdk==21.6.0"},
+    "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
     "mongodb": {"pymongo>=3.11"},
+    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
+    "mssql-odbc": sql_common | {"pyodbc"},
+    "mysql": sql_common | {"pymysql>=1.0.2"},
+    "oracle": sql_common | {"cx_Oracle"},
+    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    "snowflake": sql_common | {"snowflake-sqlalchemy"},
     "superset": {"requests"},
-    "glue": {"boto3"},
+}
+
+all_exclude_plugins: Set[str] = {
+    # SQL Server ODBC requires additional drivers, and so we don't want to keep
+    # it included in the default "all" installation.
+    "mssql-odbc",
+}
+
+mypy_stubs = {
+    "types-dataclasses",
+    "sqlalchemy-stubs",
+    "types-pkg_resources",
+    "types-six",
+    "types-python-dateutil",
+    "types-requests",
+    "types-toml",
+    "types-PyMySQL",
+    "types-PyYAML",
+    "types-freezegun",
+    # versions 0.1.13 and 0.1.14 seem to have issues
+    "types-click==0.1.12",
 }
 
 base_dev_requirements = {
     *base_requirements,
     *framework_common,
+    *mypy_stubs,
     "black>=19.10b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "isort>=5.7.0",
-    "mypy>=0.782",
+    "mypy>=0.901",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
     "pytest-docker",
     "tox",
-    "sqlalchemy-stubs",
     "deepdiff",
     "requests-mock",
     "freezegun",
@@ -108,8 +139,12 @@ base_dev_requirements = {
             "mysql",
             "mssql",
             "mongodb",
+            "feast",
             "ldap",
+            "looker",
             "glue",
+            "hive",
+            "oracle",
             "datahub-kafka",
             "datahub-rest",
             # airflow is added below
@@ -117,6 +152,12 @@ base_dev_requirements = {
         for dependency in plugins[plugin]
     ),
 }
+
+if is_py37_or_newer:
+    # The lookml plugin only works on Python 3.7 or newer.
+    base_dev_requirements = base_dev_requirements.union(
+        {dependency for plugin in ["lookml"] for dependency in plugins[plugin]}
+    )
 
 dev_requirements = {
     *base_dev_requirements,
@@ -127,6 +168,42 @@ dev_requirements_airflow_2 = {
     *base_dev_requirements,
     "apache-airflow>=2.0.2",
     "apache-airflow-providers-snowflake",
+}
+
+
+entry_points = {
+    "console_scripts": ["datahub = datahub.entrypoints:main"],
+    "datahub.ingestion.source.plugins": [
+        "file = datahub.ingestion.source.mce_file:MetadataFileSource",
+        "sqlalchemy = datahub.ingestion.source.sql_generic:SQLAlchemyGenericSource",
+        "athena = datahub.ingestion.source.athena:AthenaSource",
+        "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
+        "dbt = datahub.ingestion.source.dbt:DBTSource",
+        "druid = datahub.ingestion.source.druid:DruidSource",
+        "feast = datahub.ingestion.source.feast:FeastSource",
+        "glue = datahub.ingestion.source.glue:GlueSource",
+        "hive = datahub.ingestion.source.hive:HiveSource",
+        "kafka = datahub.ingestion.source.kafka:KafkaSource",
+        "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
+        "ldap = datahub.ingestion.source.ldap:LDAPSource",
+        "looker = datahub.ingestion.source.looker:LookerDashboardSource",
+        "lookml = datahub.ingestion.source.lookml:LookMLSource",
+        "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
+        "mssql = datahub.ingestion.source.mssql:SQLServerSource",
+        "mysql = datahub.ingestion.source.mysql:MySQLSource",
+        "oracle = datahub.ingestion.source.oracle:OracleSource",
+        "postgres = datahub.ingestion.source.postgres:PostgresSource",
+        "redshift = datahub.ingestion.source.redshift:RedshiftSource",
+        "snowflake = datahub.ingestion.source.snowflake:SnowflakeSource",
+        "superset = datahub.ingestion.source.superset:SupersetSource",
+    ],
+    "datahub.ingestion.sink.plugins": [
+        "file = datahub.ingestion.sink.file:FileSink",
+        "console = datahub.ingestion.sink.console:ConsoleSink",
+        "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
+        "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
+    ],
+    "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }
 
 
@@ -170,45 +247,11 @@ setuptools.setup(
     python_requires=">=3.6",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
-    include_package_data=True,
     package_data={
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
     },
-    entry_points={
-        "console_scripts": ["datahub = datahub.entrypoints:datahub"],
-        "datahub.ingestion.source.plugins": [
-            "file = datahub.ingestion.source.mce_file:MetadataFileSource",
-            "sqlalchemy = datahub.ingestion.source.sql_generic:SQLAlchemyGenericSource",
-            "athena = datahub.ingestion.source.athena:AthenaSource",
-            "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
-            "dbt = datahub.ingestion.source.dbt:DBTSource",
-            "druid = datahub.ingestion.source.druid:DruidSource",
-            "glue = datahub.ingestion.source.glue:GlueSource",
-            "hive = datahub.ingestion.source.hive:HiveSource",
-            "kafka = datahub.ingestion.source.kafka:KafkaSource",
-            "ldap = datahub.ingestion.source.ldap:LDAPSource",
-            "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
-            "mssql = datahub.ingestion.source.mssql:SQLServerSource",
-            "mysql = datahub.ingestion.source.mysql:MySQLSource",
-            "oracle = datahub.ingestion.source.oracle:OracleSource",
-            "postgres = datahub.ingestion.source.postgres:PostgresSource",
-            "snowflake = datahub.ingestion.source.snowflake:SnowflakeSource",
-            "superset = datahub.ingestion.source.superset:SupersetSource",
-        ],
-        "datahub.ingestion.sink.plugins": [
-            "file = datahub.ingestion.sink.file:FileSink",
-            "console = datahub.ingestion.sink.console:ConsoleSink",
-            "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
-            "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
-        ],
-        "apache_airflow_provider": [
-            "provider_info=datahub.integrations.airflow.get_provider_info:get_provider_info"
-        ],
-        "airflow.plugins": [
-            "datahub = datahub.integrations.airflow.get_provider_info:DatahubAirflowPlugin"
-        ],
-    },
+    entry_points=entry_points,
     # Dependencies.
     install_requires=list(base_requirements | framework_common),
     extras_require={
@@ -217,7 +260,15 @@ setuptools.setup(
             plugin: list(framework_common | dependencies)
             for (plugin, dependencies) in plugins.items()
         },
-        "all": list(framework_common.union(*plugins.values())),
+        "all": list(
+            framework_common.union(
+                *[
+                    requirements
+                    for plugin, requirements in plugins.items()
+                    if plugin not in all_exclude_plugins
+                ]
+            )
+        ),
         "dev": list(dev_requirements),
         "dev-airflow2": list(dev_requirements_airflow_2),
     },

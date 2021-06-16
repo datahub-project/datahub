@@ -12,6 +12,7 @@ import CompactContext from './CompactContext';
 export interface EntityProfileProps {
     title: string;
     tags?: React.ReactNode;
+    tagCardHeader?: string;
     header: React.ReactNode;
     tabs?: Array<{
         name: string;
@@ -19,6 +20,7 @@ export interface EntityProfileProps {
         content: React.ReactNode;
     }>;
     titleLink?: string;
+    onTabChange?: (selectedTab: string) => void;
 }
 
 const TagsTitle = styled(Typography.Title)`
@@ -55,15 +57,23 @@ const LayoutDiv = styled(({ isCompact: _, ...props }: LayoutProps & LayoutPropsE
 const defaultProps = {
     tags: [],
     tabs: [],
+    tagCardHeader: 'Tags',
 };
 
 /**
  * A default container view for presenting Entity details.
  */
-export const EntityProfile = ({ title, tags, header, tabs, titleLink }: EntityProfileProps) => {
+export const EntityProfile = ({
+    title,
+    tags,
+    header,
+    tabs,
+    titleLink,
+    onTabChange,
+    tagCardHeader,
+}: EntityProfileProps) => {
     const isCompact = React.useContext(CompactContext);
     const defaultTabPath = tabs && tabs?.length > 0 ? tabs[0].path : '';
-
     /* eslint-disable spaced-comment */
     return (
         <LayoutContent isCompact={isCompact}>
@@ -84,21 +94,23 @@ export const EntityProfile = ({ title, tags, header, tabs, titleLink }: EntityPr
                         {header}
                     </LayoutDiv>
                 </Col>
-                <Col md={isCompact ? 24 : 8} xs={24} sm={24}>
-                    <TagCard>
-                        <TagsTitle type="secondary" level={4}>
-                            <TagIcon /> Tags
-                        </TagsTitle>
-                        {tags}
-                    </TagCard>
-                </Col>
+                {tags && (
+                    <Col md={isCompact ? 24 : 8} xs={24} sm={24}>
+                        <TagCard>
+                            <TagsTitle type="secondary" level={4}>
+                                <TagIcon /> {tagCardHeader}
+                            </TagsTitle>
+                            {tags}
+                        </TagCard>
+                    </Col>
+                )}
             </Row>
             {!isCompact && (
                 <>
                     <Divider style={{ marginBottom: '0px' }} />
                     <Row style={{ padding: '0px 0px 10px 0px' }}>
                         <Col span={24}>
-                            <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} />
+                            <RoutedTabs defaultPath={defaultTabPath} tabs={tabs || []} onTabChange={onTabChange} />
                         </Col>
                     </Row>
                 </>

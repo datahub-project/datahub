@@ -1,0 +1,20 @@
+namespace com.linkedin.common
+
+/**
+ * Related business terms information
+ */
+@Aspect = {
+   "name": "glossaryTerms"
+}
+record GlossaryTerms {
+
+  /**
+   * The related business terms
+   */
+  terms: array[GlossaryTermAssociation]
+
+  /**
+   * Audit stamp containing who reported the related business term
+   */
+  auditStamp: AuditStamp
+}

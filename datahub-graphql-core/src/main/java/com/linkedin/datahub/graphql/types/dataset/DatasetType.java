@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -18,19 +19,24 @@ import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetUpdateInputMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.dataset.client.Datasets;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.Entity;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.common.CollectionResponse;
 
+import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -45,11 +51,10 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEntityType<Dataset>, MutableType<DatasetUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "name";
 
-    private final Datasets _datasetsClient;
+    private final EntityClient _datasetsClient;
 
-    public DatasetType(final Datasets datasetsClient) {
+    public DatasetType(final EntityClient datasetsClient) {
         _datasetsClient = datasetsClient;
     }
 
@@ -69,25 +74,30 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     }
 
     @Override
-    public List<Dataset> batchLoad(final List<String> urns, final QueryContext context) {
+    public List<DataFetcherResult<Dataset>> batchLoad(final List<String> urns, final QueryContext context) {
 
         final List<DatasetUrn> datasetUrns = urns.stream()
                 .map(DatasetUtils::getDatasetUrn)
                 .collect(Collectors.toList());
 
         try {
-            final Map<DatasetUrn, com.linkedin.dataset.Dataset> datasetMap = _datasetsClient.batchGet(datasetUrns
+            final Map<Urn, Entity> datasetMap = _datasetsClient.batchGet(datasetUrns
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()));
 
-            final List<com.linkedin.dataset.Dataset> gmsResults = new ArrayList<>();
+            final List<Entity> gmsResults = new ArrayList<>();
             for (DatasetUrn urn : datasetUrns) {
                 gmsResults.add(datasetMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsDataset -> gmsDataset == null ? null : DatasetMapper.map(gmsDataset))
-                    .collect(Collectors.toList());
+                .map(gmsDataset ->
+                    gmsDataset == null ? null : DataFetcherResult.<Dataset>newResult()
+                        .data(DatasetSnapshotMapper.map(gmsDataset.getValue().getDatasetSnapshot()))
+                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataset.getValue().getDatasetSnapshot()))
+                        .build()
+                )
+                .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Datasets", e);
         }
@@ -100,8 +110,8 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final CollectionResponse<com.linkedin.dataset.Dataset> searchResult = _datasetsClient.search(query, facetFilters, start, count);
-        return SearchResultsMapper.map(searchResult, DatasetMapper::map);
+        final SearchResult searchResult = _datasetsClient.search("dataset", query, facetFilters, start, count);
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -111,8 +121,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _datasetsClient.autoComplete(query, field, facetFilters, limit);
+        final AutoCompleteResult result = _datasetsClient.autoComplete("dataset", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -125,12 +134,14 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
         final BrowseResult result = _datasetsClient.browse(
+                "dataset",
                 pathStr,
                 facetFilters,
                 start,
                 count);
         final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<Dataset> datasets = batchLoad(urns, context);
+        final List<Dataset> datasets = batchLoad(urns, context)
+            .stream().map(datasetDataFetcherResult -> datasetDataFetcherResult.getData()).collect(Collectors.toList());
         final BrowseResults browseResults = new BrowseResults();
         browseResults.setStart(result.getFrom());
         browseResults.setCount(result.getPageSize());
@@ -153,6 +164,8 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         // TODO: Verify that updater is owner.
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
         final com.linkedin.dataset.Dataset partialDataset = DatasetUpdateInputMapper.map(input, actor);
+        partialDataset.setUrn(DatasetUrn.createFromString(input.getUrn()));
+
 
         // TODO: Migrate inner mappers to InputModelMappers & remove
         // Create Audit Stamp
@@ -174,11 +187,13 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         partialDataset.setLastModified(auditStamp);
 
         try {
-            _datasetsClient.update(DatasetUtils.getDatasetUrn(input.getUrn()), partialDataset);
+            Entity entity = new Entity();
+            entity.setValue(Snapshot.create(Datasets.toSnapshot(partialDataset.getUrn(), partialDataset)));
+            _datasetsClient.update(entity);
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }
 
-        return load(input.getUrn(), context);
+        return load(input.getUrn(), context).getData();
     }
 }
