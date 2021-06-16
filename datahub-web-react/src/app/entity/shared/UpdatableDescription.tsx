@@ -18,7 +18,7 @@ const AddNewDescription = styled(Tag)`
 export type Props = {
     isCompact?: boolean;
     updateEntity: (options?: MutationFunctionOptions<any, any> | undefined) => Promise<FetchResult>;
-    updatedDescription?: string;
+    updatedDescription?: string | null;
     originalDescription?: string | null;
     entityType: EntityType;
     urn: string;
