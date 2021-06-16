@@ -206,7 +206,7 @@ source:
     password: pass
     host_port: localhost:1433
     database: DemoDatabase
-    include_views: True
+    include_views: True # whether to include views, defaults to True
     table_pattern:
       deny:
         - "^.*\\.sys_.*" # deny all tables that start with sys_
@@ -243,6 +243,7 @@ source:
     password: pass
     host_port: localhost:1433
     database: DemoDatabase
+    include_views: True # whether to include views, defaults to True
     uri_args:
       # See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15
       driver: "ODBC Driver 17 for SQL Server"
@@ -317,6 +318,7 @@ source:
     password: pass
     host_port: localhost:5432
     database: DemoDatabase
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -337,6 +339,7 @@ source:
     password: pass
     host_port: example.something.us-west-2.redshift.amazonaws.com:5439
     database: DemoDatabase
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -358,6 +361,7 @@ source:
     database: db_name
     warehouse: "COMPUTE_WH" # optional
     role: "sysadmin" # optional
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -402,6 +406,7 @@ source:
     host_port: localhost:5432
     database: dbname
     service_name: svc # omit database if using this option
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -442,6 +447,7 @@ source:
     options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
       credentials_path: "/path/to/keyfile.json" # optional
+      include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
 
@@ -466,6 +472,7 @@ source:
     # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
     # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
     work_group: athena_workgroup # "primary"
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
 
@@ -485,11 +492,11 @@ source:
   config:
     aws_region: # aws_region_name, i.e. "eu-west-1"
     env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
-    
+
     # Filtering patterns for databases and tables to scan
     database_pattern: # Optional, to filter databases scanned, same as schema_pattern above.
     table_pattern: # Optional, to filter tables scanned, same as table_pattern above.
-    
+
     # Credentials. If not specified here, these are picked up according to boto3 rules.
     # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
     aws_access_key_id: # Optional.
@@ -541,6 +548,7 @@ source:
     options: {} # same as above
     schema_pattern: {} # same as above
     table_pattern: {} # same as above
+    include_views: True # whether to include views, defaults to True
 ```
 
 ### MongoDB `mongodb`
