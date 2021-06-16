@@ -1,6 +1,5 @@
 package com.linkedin.metadata.usage.elasticsearch;
 
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
@@ -19,7 +18,7 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 
 public class ElasticUsageService implements UsageService {
-    private static final String baseIndexName = "usageStats";
+    private static final String BASE_INDEX_NAME = "usageStats";
 
     private final RestHighLevelClient elasticClient;
     private final IndexConvention indexConvention;
@@ -40,9 +39,9 @@ public class ElasticUsageService implements UsageService {
     @Override
     public void configure() {
         try {
-            // TODO configure this
+            // TODO configure mappings
             new IndexBuilder(elasticClient,
-                    indexConvention.getIndexName(baseIndexName),
+                    indexConvention.getIndexName(BASE_INDEX_NAME),
                     null,
                     SettingsBuilder.getSettings()).buildIndex();
         } catch (IOException e) {
@@ -52,7 +51,7 @@ public class ElasticUsageService implements UsageService {
 
     @Override
     public void upsertDocument(@Nonnull String document, @Nonnull String docId) {
-        final String indexName = indexConvention.getIndexName(baseIndexName);
+        final String indexName = indexConvention.getIndexName(BASE_INDEX_NAME);
         final IndexRequest indexRequest = new IndexRequest(indexName).id(docId).source(document, XContentType.JSON);
         final UpdateRequest updateRequest = new UpdateRequest(indexName, docId).doc(document, XContentType.JSON)
                 .detectNoop(false)

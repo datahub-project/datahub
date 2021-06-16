@@ -7,7 +7,9 @@ import com.linkedin.common.WindowDuration;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
-import com.linkedin.restli.server.annotations.*;
+import com.linkedin.restli.server.annotations.Action;
+import com.linkedin.restli.server.annotations.ActionParam;
+import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 import com.linkedin.usage.UsageAggregation;
 import org.slf4j.Logger;
@@ -34,8 +36,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     @Action(name = ACTION_BATCH_INGEST)
     @Nonnull
-    public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets)
-    {
+    public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {
         _logger.info("Ingesting {} usage stats aggregations", buckets.length);
         return RestliUtils.toTask(() -> {
             for (UsageAggregation agg: buckets) {
