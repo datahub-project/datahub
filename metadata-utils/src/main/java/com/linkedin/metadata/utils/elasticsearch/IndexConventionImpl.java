@@ -23,7 +23,7 @@ public class IndexConventionImpl implements IndexConvention {
   }
 
   private String createIndexName(String baseName) {
-    return (_prefix.map(prefix -> prefix + "_").orElse("") + baseName + SUFFIX + "_" + VERSION).toLowerCase();
+    return (_prefix.map(prefix -> prefix + "_").orElse("") + baseName).toLowerCase();
   }
 
   @Nonnull
@@ -35,7 +35,7 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getIndexName(EntitySpec entitySpec) {
-    return this.getIndexName(entitySpec.getName());
+    return this.getIndexName(entitySpec.getName()) + SUFFIX + "_" + VERSION;
   }
 
   @Nonnull

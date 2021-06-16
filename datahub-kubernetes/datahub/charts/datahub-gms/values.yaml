@@ -146,6 +146,8 @@ readinessProbe:
 #This section is useful if we are installing this chart separately for testing
 # helm install datahub-gms datahub-gms/
 global:
+  datahub_analytics_enabled: true
+
   elasticsearch:
     host: "elasticsearch"
     port: "9200"
