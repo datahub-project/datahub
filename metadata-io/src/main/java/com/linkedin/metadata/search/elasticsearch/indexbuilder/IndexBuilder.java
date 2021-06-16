@@ -2,7 +2,6 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
-import com.linkedin.metadata.models.EntitySpec;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;

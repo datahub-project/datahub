@@ -2,6 +2,7 @@ package com.linkedin.metadata.usage.elasticsearch;
 
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -40,7 +41,10 @@ public class ElasticUsageService implements UsageService {
     public void configure() {
         try {
             // TODO configure this
-            new IndexBuilder(elasticClient, indexConvention.getIndexName(baseIndexName), null, null).buildIndex();
+            new IndexBuilder(elasticClient,
+                    indexConvention.getIndexName(baseIndexName),
+                    null,
+                    SettingsBuilder.getSettings()).buildIndex();
         } catch (IOException e) {
             e.printStackTrace();
         }
