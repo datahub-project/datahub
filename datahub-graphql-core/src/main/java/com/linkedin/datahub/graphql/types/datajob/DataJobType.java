@@ -29,11 +29,13 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.DataJobAspect;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.DataJobSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,7 +76,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
     }
 
     @Override
-    public List<DataJob> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
+    public List<DataFetcherResult<DataJob>> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
         final List<DataJobUrn> dataJobUrns = urns.stream()
             .map(this::getDataJobUrn)
             .collect(Collectors.toList());
@@ -89,7 +91,11 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                 .map(jobUrn -> dataJobMap.getOrDefault(jobUrn, null)).collect(Collectors.toList());
 
             return gmsResults.stream()
-                .map(gmsDataJob -> gmsDataJob == null ? null : DataJobSnapshotMapper.map(gmsDataJob.getValue().getDataJobSnapshot()))
+                .map(gmsDataJob -> gmsDataJob == null ? null
+                    : DataFetcherResult.<DataJob>newResult()
+                        .data(DataJobSnapshotMapper.map(gmsDataJob.getValue().getDataJobSnapshot()))
+                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataJob.getValue().getDataJobSnapshot()))
+                        .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load DataJobs", e);
@@ -139,7 +145,8 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                 start,
                 count);
         final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<DataJob> dataJobs = batchLoad(urns, context);
+        final List<DataJob> dataJobs = batchLoad(urns, context).stream().map(dataFetcherResult -> dataFetcherResult.getData()).collect(
+            Collectors.toList());
         final BrowseResults browseResults = new BrowseResults();
         browseResults.setStart(result.getFrom());
         browseResults.setCount(result.getPageSize());
@@ -192,6 +199,6 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }
 
-        return load(input.getUrn(), context);
+        return load(input.getUrn(), context).getData();
     }
 }

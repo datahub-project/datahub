@@ -81,6 +81,7 @@ you to specify the OIDC scopes requested & how the DataHub username is parsed fr
 AUTH_OIDC_USER_NAME_CLAIM=your-custom-claim
 AUTH_OIDC_USER_NAME_CLAIM_REGEX=your-custom-regex
 AUTH_OIDC_SCOPE=your-custom-scope
+AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
 ```
 
 - `AUTH_OIDC_USER_NAME_CLAIM`: The attribute that will contain the username used on the DataHub platform. By default, this is "preferred_username" provided
@@ -90,7 +91,10 @@ the userNameClaim field will contain an email address, and we want to omit the d
 regex to do so. (e.g. `([^@]+)`)
 - `AUTH_OIDC_SCOPE`: a string representing the scopes to be requested from the identity provider, granted by the end user. For more info,
   see [OpenID Connect Scopes](https://auth0.com/docs/scopes/openid-connect-scopes).
-  
+- `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`: a string representing the token authentication method to use with the identity provider. Default value
+is `client_secret_basic`, which uses HTTP Basic authentication. Another option is `client_secret_post`, which includes the client_id and secret_id 
+as form parameters in the HTTP POST request. For more info, see [OAuth 2.0 Client Authentication](https://darutk.medium.com/oauth-2-0-client-authentication-4b5f929305d4)
+
 Once configuration has been updated, `datahub-frontend-react` will need to be restarted to pick up the new environment variables:
 
 ```
