@@ -27,7 +27,6 @@ public class EbeanUtils {
       @Nonnull final String jsonAspect, @Nonnull final EntityRegistry entityRegistry) {
     return toAspectRecord(PegasusUtils.urnToEntityName(entityUrn), aspectName, jsonAspect, entityRegistry);
   }
-
   public static RecordTemplate toAspectRecord(@Nonnull final String entityName, @Nonnull final String aspectName,
       @Nonnull final String jsonAspect, @Nonnull final EntityRegistry entityRegistry) {
     final EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);

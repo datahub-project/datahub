@@ -106,9 +106,9 @@ public class EbeanEntityService extends EntityService {
 
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
-    RecordTemplate aspect = maybeAspect
-        .map(ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata()))
-        .orElse(null);
+    RecordTemplate aspect =
+        maybeAspect.map(ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata(), getEntityRegistry()))
+            .orElse(null);
 
     if (aspect == null) {
       return null;
@@ -116,11 +116,8 @@ public class EbeanEntityService extends EntityService {
 
     Aspect resultAspect = new Aspect();
 
-    RecordUtils.setSelectedRecordTemplateInUnion(
-        resultAspect,
-        aspect
-    );
-;
+    RecordUtils.setSelectedRecordTemplateInUnion(resultAspect, aspect);
+    ;
     result.setAspect(resultAspect);
     result.setVersion(version);
 
