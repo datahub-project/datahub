@@ -484,6 +484,7 @@ source:
   type: glue
   config:
     aws_region: # aws_region_name, i.e. "eu-west-1"
+    extract_transforms: True # whether to ingest Glue jobs, defaults to True
     env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
 
     # Filtering patterns for databases and tables to scan
