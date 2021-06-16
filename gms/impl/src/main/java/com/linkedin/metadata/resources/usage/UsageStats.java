@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.WindowDuration;
-import com.linkedin.metadata.metrics.UsageService;
+import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.*;
@@ -39,7 +39,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         _logger.info("Ingesting {} usage stats aggregations", buckets.length);
         return RestliUtils.toTask(() -> {
             for (UsageAggregation agg: buckets) {
-                ingest(agg);
+                this.ingest(agg);
             }
             return null;
         });

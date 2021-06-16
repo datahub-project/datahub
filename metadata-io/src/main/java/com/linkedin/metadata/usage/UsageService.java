@@ -1,4 +1,4 @@
-package com.linkedin.metadata.metrics;
+package com.linkedin.metadata.usage;
 
 import javax.annotation.Nonnull;
 

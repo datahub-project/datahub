@@ -26,7 +26,7 @@ import org.elasticsearch.index.reindex.ReindexRequest;
 
 @Slf4j
 @RequiredArgsConstructor
-public class EntityIndexBuilder {
+public class IndexBuilder {
 
   private final RestHighLevelClient searchClient;
   private final EntitySpec entitySpec;
