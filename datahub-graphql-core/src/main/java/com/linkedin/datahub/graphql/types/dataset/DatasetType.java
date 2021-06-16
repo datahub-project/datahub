@@ -29,12 +29,14 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.dataset.client.Datasets;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 
+import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -72,7 +74,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     }
 
     @Override
-    public List<Dataset> batchLoad(final List<String> urns, final QueryContext context) {
+    public List<DataFetcherResult<Dataset>> batchLoad(final List<String> urns, final QueryContext context) {
 
         final List<DatasetUrn> datasetUrns = urns.stream()
                 .map(DatasetUtils::getDatasetUrn)
@@ -89,9 +91,13 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                 gmsResults.add(datasetMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsDataset -> gmsDataset == null ? null : DatasetSnapshotMapper.map(
-                        gmsDataset.getValue().getDatasetSnapshot()))
-                    .collect(Collectors.toList());
+                .map(gmsDataset ->
+                    gmsDataset == null ? null : DataFetcherResult.<Dataset>newResult()
+                        .data(DatasetSnapshotMapper.map(gmsDataset.getValue().getDatasetSnapshot()))
+                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataset.getValue().getDatasetSnapshot()))
+                        .build()
+                )
+                .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Datasets", e);
         }
@@ -134,7 +140,8 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                 start,
                 count);
         final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<Dataset> datasets = batchLoad(urns, context);
+        final List<Dataset> datasets = batchLoad(urns, context)
+            .stream().map(datasetDataFetcherResult -> datasetDataFetcherResult.getData()).collect(Collectors.toList());
         final BrowseResults browseResults = new BrowseResults();
         browseResults.setStart(result.getFrom());
         browseResults.setCount(result.getPageSize());
@@ -187,6 +194,6 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }
 
-        return load(input.getUrn(), context);
+        return load(input.getUrn(), context).getData();
     }
 }

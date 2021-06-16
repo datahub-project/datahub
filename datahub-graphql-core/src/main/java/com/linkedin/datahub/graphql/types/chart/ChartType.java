@@ -25,6 +25,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.configs.ChartSearchConfig;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -32,6 +33,7 @@ import com.linkedin.metadata.snapshot.ChartSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 
+import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
@@ -68,7 +70,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
     }
 
     @Override
-    public List<Chart> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
+    public List<DataFetcherResult<Chart>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
         final List<Urn> chartUrns = urns.stream()
                 .map(this::getChartUrn)
                 .collect(Collectors.toList());
@@ -84,7 +86,11 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                 gmsResults.add(chartMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsChart -> gmsChart == null ? null : ChartSnapshotMapper.map(gmsChart.getValue().getChartSnapshot()))
+                    .map(gmsChart -> gmsChart == null ? null
+                        : DataFetcherResult.<Chart>newResult()
+                            .data(ChartSnapshotMapper.map(gmsChart.getValue().getChartSnapshot()))
+                            .localContext(SnapshotToAspectMap.extractAspectMap(gmsChart.getValue().getChartSnapshot()))
+                            .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Charts", e);
@@ -129,7 +135,8 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                 start,
                 count);
         final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<Chart> charts = batchLoad(urns, context);
+        final List<Chart> charts = batchLoad(urns, context).stream().map(chartResult -> chartResult.getData()).collect(
+            Collectors.toList());
         final BrowseResults browseResults = new BrowseResults();
         browseResults.setStart(result.getFrom());
         browseResults.setCount(result.getPageSize());
@@ -168,6 +175,6 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }
 
-        return load(input.getUrn(), context);
+        return load(input.getUrn(), context).getData();
     }
 }
