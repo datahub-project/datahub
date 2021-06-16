@@ -160,13 +160,13 @@ source:
     name: test_endpoint # this name will appear in DatHub
     url: https://test_endpoint.com/
     swagger_file: classicapi/doc/swagger.json  # where to search for the OpenApi definitions
-    get_token: True  # optional, if you need to get a token beforehand 
+    get_token: True  # optional, if you need to get an authentication token beforehand 
     username: your_username  # optional
     password: your_password  # optional
     forced_examples:  # optionals
-      /accounts/groupname/{name}: dunno
-      /accounts/username/{name}: neighter
-    ignore_endpoints: [this, that, that_other]  # optional, the endpoints to ignore
+      /accounts/groupname/{name}: test
+      /accounts/username/{name}: test
+    ignore_endpoints: [/ignore/this, /ignore/that, /also/that_other]  # optional, the endpoints to ignore
 
 sink:
   type: "datahub-rest"
@@ -182,7 +182,7 @@ You can specify the example in the `forced_examples` part of the
 configuration file. In the example, when parsing the endpoint `/accounts/groupname/{name}`, 
 the plugin will call the URL:
 
-    https://second_serviceboh-vd.ch/accounts/groupname/dunno
+    https://second_serviceboh-vd.ch/accounts/groupname/test
 
 #### Automatically recorded examples
 

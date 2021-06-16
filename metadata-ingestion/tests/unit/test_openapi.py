@@ -1,7 +1,14 @@
 import unittest
-from datahub.ingestion.source.openapi_parser import (flatten2list, get_endpoints, guessing_url_name,
-                                                     maybe_theres_simple_id, try_guessing)
+
 import yaml
+
+from datahub.ingestion.source.openapi_parser import (
+    flatten2list,
+    get_endpoints,
+    guessing_url_name,
+    maybe_theres_simple_id,
+    try_guessing,
+)
 
 
 class TestGetEndpoints(unittest.TestCase):
@@ -191,7 +198,7 @@ paths:
             200 response
           content:
             application/json:
-              examples: 
+              examples:
                 foo:
                   value:
                     {
@@ -224,8 +231,8 @@ paths:
           description: |-
             300 response
           content:
-            application/json: 
-              examples: 
+            application/json:
+              examples:
                 foo:
                   value: |
                    {
@@ -263,7 +270,7 @@ paths:
           description: |-
             200 response
           content:
-            application/json: 
+            application/json:
               examples:
                 foo:
                   value:
@@ -309,7 +316,7 @@ paths:
           description: |-
             203 response
           content:
-            application/json: 
+            application/json:
               examples:
                 foo:
                   value:
@@ -349,7 +356,7 @@ paths:
 """
 
     def test_get_endpoints_openapi30(self) -> None:
-        """ extracting 'get' type endpoints from swagger 3.0 file"""
+        """extracting 'get' type endpoints from swagger 3.0 file"""
         sw_file_raw = yaml.safe_load(self.openapi30)
         url_endpoints = get_endpoints(sw_file_raw)
 
@@ -358,7 +365,7 @@ paths:
         self.assertEqual(url_endpoints["/"].keys(), d4k.keys())
 
     def test_get_endpoints_openapi20(self) -> None:
-        """ extracting 'get' type endpoints from swagger 2.0 file"""
+        """extracting 'get' type endpoints from swagger 2.0 file"""
         sw_file_raw = yaml.safe_load(self.openapi20)
         url_endpoints = get_endpoints(sw_file_raw)
 
@@ -368,39 +375,38 @@ paths:
 
 
 class TestExplodeDict(unittest.TestCase):
-
     def test_d1(self):
         #  exploding keys of a dict...
         d = {"a": {"b": 3}, "c": 2, "asdasd": {"ytkhj": 2, "uylkj": 3}}
 
-        exp_l = ['a-b', 'c', 'asdasd-ytkhj', 'asdasd-uylkj']
+        exp_l = ["a-b", "c", "asdasd-ytkhj", "asdasd-uylkj"]
 
         cal_l = flatten2list(d)
         self.assertEqual(exp_l, cal_l)
 
 
 class TestGuessing(unittest.TestCase):
-    extr_data = {"advancedcomputersearches": {'id': 202, 'name': '_unmanaged'}}
+    extr_data = {"advancedcomputersearches": {"id": 202, "name": "_unmanaged"}}
 
     def test_name_id(self):
         #  guessing in presence of name fields
         url2complete = "/advancedcomputersearches/name/{name}/id/"
         guessed_url = guessing_url_name(url2complete, self.extr_data)
-        should_be = '/advancedcomputersearches/name/_unmanaged/id/'
+        should_be = "/advancedcomputersearches/name/_unmanaged/id/"
         self.assertEqual(guessed_url, should_be)
 
     def test_name_id2(self):
         #  guessing in presence of name fields, other
         url2complete = "/advancedcomputersearches/{name}/id/"
         guessed_url = guessing_url_name(url2complete, self.extr_data)
-        should_be = '/advancedcomputersearches/_unmanaged/id/'
+        should_be = "/advancedcomputersearches/_unmanaged/id/"
         self.assertEqual(guessed_url, should_be)
 
     def test_only_id(self):
         #  guessing in presence of name and id fields
         url2complete = "/advancedcomputersearches/name/{name}/id/{id}"
         guessed_url = guessing_url_name(url2complete, self.extr_data)
-        should_be = '/advancedcomputersearches/name/_unmanaged/id/202'
+        should_be = "/advancedcomputersearches/name/_unmanaged/id/202"
         self.assertEqual(guessed_url, should_be)
 
     def test_no_k_f(self):
@@ -437,7 +443,7 @@ class TestGuessing(unittest.TestCase):
         should_be = "/advancedcomputersearches/name/1/asd/1/jhg"
         self.assertEqual(guessed_url, should_be)
 
-    extr_data2 = {"advancedcomputersearches": {'id': 202, 'name': '_unmanaged'}}
+    extr_data2 = {"advancedcomputersearches": {"id": 202, "name": "_unmanaged"}}
 
     def test_no_good_guesses(self):
         url2complete = "/advancedcomputersearches/name/{nasde}/asd/{asd}/jhg"

@@ -1,15 +1,20 @@
-import requests
-from requests.auth import HTTPBasicAuth
-import yaml
-import re
-import warnings
-import time
 import json
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField, SchemaMetadata, OtherSchemaClass
+import re
+import time
+import warnings
+from typing import Any, Dict, Generator, List, Tuple
+
+import requests
+import yaml
+from requests.auth import HTTPBasicAuth
+
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
-from datahub.metadata.schema_classes import StringTypeClass, SchemaFieldDataTypeClass
-from typing import List, Union, Generator, Dict
-from collections import defaultdict
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    OtherSchemaClass,
+    SchemaField,
+    SchemaMetadata,
+)
+from datahub.metadata.schema_classes import SchemaFieldDataTypeClass, StringTypeClass
 
 
 def flatten(d: dict, prefix: str = "") -> Generator:
@@ -41,41 +46,51 @@ def flatten2list(d: dict) -> list:
     return [d[1:] if d[0] == "-" else d for d in fl_l]
 
 
-def request_call(url: str, token: str = None, username: str = None, password: str = None) :
-    
-    headers = {'accept': 'application/json'}
+def request_call(
+    url: str, token: str = None, username: str = None, password: str = None
+) -> requests.Response:
+
+    headers = {"accept": "application/json"}
 
     if username is not None and password is not None:
-        response = requests.get(url, headers=headers, auth=HTTPBasicAuth(username, password))
+        response = requests.get(
+            url, headers=headers, auth=HTTPBasicAuth(username, password)
+        )
     elif token is not None:
-        headers['Authorization'] = "Bearer " + token
+        headers["Authorization"] = "Bearer " + token
         response = requests.get(url, headers=headers)
     else:
         response = requests.get(url, headers=headers)
     return response
 
 
-def get_swag_json(url: str, token: str = None, username: str = None, password: str = None, swagger_file: str = "") :
-    tot_url = url+swagger_file
+def get_swag_json(
+    url: str,
+    token: str = None,
+    username: str = None,
+    password: str = None,
+    swagger_file: str = "",
+) -> Dict:
+    tot_url = url + swagger_file
     if token is not None:
         response = request_call(url=tot_url, token=token)
     else:
         response = request_call(url=tot_url, username=username, password=password)
 
     if response.status_code == 200:
-        try: 
+        try:
             dict_data = json.loads(response.content)
         except json.JSONDecodeError:  # it's not a JSON!
-            dict_data = yaml.safe_load(response.content)  
+            dict_data = yaml.safe_load(response.content)
         return dict_data
     else:
-        raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}") 
+        raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
 
 
 def get_url_basepath(sw_dict: dict) -> str:
     try:
         return sw_dict["basePath"]
-    except KeyError: # no base path defined
+    except KeyError:  # no base path defined
         return ""
 
 
@@ -88,10 +103,12 @@ def check_sw_version(sw_dict: dict) -> None:
     version = [int(v) for v in v_split]
 
     if version[0] == 3 and version[1] > 0:
-        raise NotImplementedError("This plugin is not compatible with Swagger version >3.0")
+        raise NotImplementedError(
+            "This plugin is not compatible with Swagger version >3.0"
+        )
 
 
-def get_endpoints(sw_dict: dict) -> dict:
+def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
     """
     Get all the URLs accepting the "GET" method, together with their description and the tags
     """
@@ -104,7 +121,7 @@ def get_endpoints(sw_dict: dict) -> dict:
         if "get" in p_o.keys():
 
             try:
-                base_res = p_o["get"]["responses"]['200']
+                base_res = p_o["get"]["responses"]["200"]
             except KeyError:  # if you read a plain yml file the 200 will be an integer
                 base_res = p_o["get"]["responses"][200]
 
@@ -132,12 +149,18 @@ def get_endpoints(sw_dict: dict) -> dict:
 
                     if ex_field:
                         if isinstance(res_cont["application/json"][ex_field], dict):
-                            url_details[p_k]["data"] = res_cont["application/json"][ex_field]
+                            url_details[p_k]["data"] = res_cont["application/json"][
+                                ex_field
+                            ]
                         elif isinstance(res_cont["application/json"][ex_field], list):
                             # taking the first example
-                            url_details[p_k]["data"] = res_cont["application/json"][ex_field][0]
+                            url_details[p_k]["data"] = res_cont["application/json"][
+                                ex_field
+                            ][0]
                     else:
-                        warnings.warn(f"Field in swagger file does not give consistent data --- {p_k}")
+                        warnings.warn(
+                            f"Field in swagger file does not give consistent data --- {p_k}"
+                        )
                 elif "text/csv" in res_cont.keys():
                     url_details[p_k]["data"] = res_cont["text/csv"]["schema"]
             elif "examples" in base_res.keys():
@@ -157,25 +180,29 @@ def guessing_url_name(url: str, examples: dict) -> str:
     extr_data = {"advancedcomputersearches": {'id': 202, 'name': '_unmanaged'}}
     -->> guessed_url = /advancedcomputersearches/name/_unmanaged/id/202'
     """
-    if url[0] == '/':
+    if url[0] == "/":
         url2op = url[1:]  # operational url does not need the very first /
     else:
         url2op = url
     divisions = url2op.split("/")
 
     # the very first part of the url should stay the same.
-    root = url2op.split("{")[0]  
+    root = url2op.split("{")[0]
 
-    needed_n = [a for a in divisions if not a.find("{")]  # search for stuff like "{example}"
-    cleaned_needed_n = [name[1:-1] for name in needed_n]  # no parenthesis, {example} -> example
-    
+    needed_n = [
+        a for a in divisions if not a.find("{")
+    ]  # search for stuff like "{example}"
+    cleaned_needed_n = [
+        name[1:-1] for name in needed_n
+    ]  # no parenthesis, {example} -> example
+
     # in the cases when the parameter name is specified, we have to correct the root.
     # in the example, advancedcomputersearches/name/ -> advancedcomputersearches/
     for field in cleaned_needed_n:
         if field in root:
             div_pos = root.find(field)
             if div_pos > 0:
-                root = root[:div_pos - 1]  # like "base/field" should become "base"
+                root = root[: div_pos - 1]  # like "base/field" should become "base"
 
     if root in examples.keys():
         # if our root is contained in our samples examples...
@@ -186,7 +213,6 @@ def guessing_url_name(url: str, examples: dict) -> str:
         return url
 
     # we got our example! Let's search for the needed parameters...
-
     guessed_url = url  # just a copy of the original url
 
     # substituting the parameter's name w the value
@@ -201,11 +227,11 @@ def compose_url_attr(raw_url: str, attr_list: list) -> str:
     """
     This function will compose URLs based on attr_list.
     Examples:
-    asd = compose_url_attr(raw_url="http://asd.com/{id}/boh/{name}", 
+    asd = compose_url_attr(raw_url="http://asd.com/{id}/boh/{name}",
                            attr_list=["2", "my"])
     asd == "http://asd.com/2/boh/my"
-    
-    asd2 = compose_url_attr(raw_url="http://asd.com/{id}", 
+
+    asd2 = compose_url_attr(raw_url="http://asd.com/{id}",
                            attr_list=["2",])
     asd2 == "http://asd.com/2"
     """
@@ -249,15 +275,17 @@ def clean_url(url: str) -> str:
     for prot in protocols:
         if prot in url:
             parts = url.split(prot)
-            return prot+parts[1].replace("//", "/")
+            return prot + parts[1].replace("//", "/")
     raise Exception(f"Unable to understand URL {url}")
 
 
-def extract_fields(response, dataset_name: str) -> (List, Dict):
+def extract_fields(
+    response: requests.Response, dataset_name: str
+) -> Tuple[List[Any], Dict[Any, Any]]:
     """
     Given a URL, this function will extract the fields contained in the
     response of the call to that URL, supposing that the response is a JSON.
-    
+
     The list in the output tuple will contain the fields name.
     The dict in the output tuple will contain a sample of data.
     """
@@ -277,13 +305,15 @@ def extract_fields(response, dataset_name: str) -> (List, Dict):
             return flatten2list(dict_data[0]), dict_data[0]
         elif isinstance(dict_data[0], str):
             # this is actually data
-            return "contains_a_string", dict_data[0]
+            return ["contains_a_string"], {"contains_a_string": dict_data[0]}
         else:
-            raise ValueError("unknown format")  
+            raise ValueError("unknown format")
     if len(dict_data.keys()) > 1:
         # the elements are directly inside the dict
         return flatten2list(dict_data), dict_data
-    dst_key = list(dict_data.keys())[0]  # the first and unique key is the dataset's name
+    dst_key = list(dict_data.keys())[
+        0
+    ]  # the first and unique key is the dataset's name
 
     try:
         return flatten2list(dict_data[dst_key]), dict_data[dst_key]
@@ -292,8 +322,6 @@ def extract_fields(response, dataset_name: str) -> (List, Dict):
         # ..but will take the keys of the first element (to be improved)
         if isinstance(dict_data[dst_key], list):
             if len(dict_data[dst_key]) > 0:
-                # for elem in dict_data[dst_key]:
-                #    d2r = DDataset(service_name=service_name, dataset_name=dataset_name+)
                 return flatten2list(dict_data[dst_key][0]), dict_data[dst_key][0]
             else:
                 return [], {}  # it's empty!
@@ -302,22 +330,24 @@ def extract_fields(response, dataset_name: str) -> (List, Dict):
             return [], {}
 
 
-def get_tok(url: str, username: str = "", password: str = "") -> Union[str, None]:
+def get_tok(url: str, username: str = "", password: str = "") -> str:
     """
     Trying to post username/password to get auth.
     Simplified version: it expect a POST at api/authenticate
     """
     data = {"username": username, "password": password}
-    url2post = url+"api/authenticate/"
+    url2post = url + "api/authenticate/"
     response = requests.post(url2post, data=data)
     if response.status_code == 200:
         cont = json.loads(response.content)
-        return cont['tokens']['access']
+        return cont["tokens"]["access"]
     else:
-        return None
+        raise Exception("Unable to get a valid token")
 
 
-def set_metadata(dataset_name: str, fields: List, platform: str = "api") -> SchemaMetadata:
+def set_metadata(
+    dataset_name: str, fields: List, platform: str = "api"
+) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
 
     for column in fields:
