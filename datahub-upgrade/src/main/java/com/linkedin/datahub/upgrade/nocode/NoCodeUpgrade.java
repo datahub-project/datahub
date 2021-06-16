@@ -60,6 +60,7 @@ public class NoCodeUpgrade implements Upgrade {
     steps.add(new GMSQualificationStep());
     steps.add(new UpgradeQualificationStep(server));
     steps.add(new CreateAspectTableStep(server));
+    steps.add(new CreateAspectIndexStep(server));
     steps.add(new IngestDataPlatformsStep(entityService));
     steps.add(new DataMigrationStep(server, entityService, entityRegistry));
     steps.add(new GMSEnableWriteModeStep());

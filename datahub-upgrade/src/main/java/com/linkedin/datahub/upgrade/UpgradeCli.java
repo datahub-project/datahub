@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
+import com.linkedin.datahub.upgrade.nocode.CreateAspectIndexUpgrade;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import java.util.List;
 import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
@@ -34,10 +35,15 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("noCodeCleanup")
   private NoCodeCleanupUpgrade noCodeCleanup;
 
+  @Inject
+  @Named("createAspectIndexUpgrade")
+  private CreateAspectIndexUpgrade createAspectIndexUpgrade;
+
   @Override
   public void run(String... cmdLineArgs) {
     _upgradeManager.register(noCodeUpgrade);
     _upgradeManager.register(noCodeCleanup);
+    _upgradeManager.register(createAspectIndexUpgrade);
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);
