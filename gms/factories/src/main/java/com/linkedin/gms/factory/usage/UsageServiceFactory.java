@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.usage;
 
-import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.usage.UsageService;
+import com.linkedin.metadata.usage.elasticsearch.ElasticUsageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -12,15 +12,15 @@ import javax.annotation.Nonnull;
 
 
 @Configuration
-@Import({ElasticSearchServiceFactory.class})
-public class SearchServiceFactory {
+@Import({ElasticUsageServiceFactory.class})
+public class UsageServiceFactory {
   @Autowired
-  @Qualifier("elasticSearchService")
-  private ElasticSearchService elasticSearchService;
+  @Qualifier("elasticUsageService")
+  private ElasticUsageService elasticUsageService;
 
-  @Bean(name = "searchService")
+  @Bean(name = "usageService")
   @Nonnull
-  protected SearchService getInstance() {
-    return elasticSearchService;
+  protected UsageService getInstance() {
+    return elasticUsageService;
   }
 }

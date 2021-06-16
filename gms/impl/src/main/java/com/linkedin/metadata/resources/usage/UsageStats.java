@@ -30,7 +30,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     @Named("usageService")
     private UsageService _usageService;
 
-    private final Logger _logger = LoggerFactory.getLogger("UsageStats");
+    private final Logger _logger = LoggerFactory.getLogger(UsageStats.class.getName());
 
     @Action(name = ACTION_BATCH_INGEST)
     @Nonnull

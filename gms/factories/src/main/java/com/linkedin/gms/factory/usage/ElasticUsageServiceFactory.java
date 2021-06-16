@@ -2,13 +2,7 @@ package com.linkedin.gms.factory.usage;
 
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
-import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
-import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
-import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.usage.elasticsearch.ElasticUsageService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +17,7 @@ import javax.annotation.Nonnull;
 
 @Configuration
 @Import({RestHighLevelClientFactory.class, IndexConventionFactory.class})
-public class ElasticSearchServiceFactory {
+public class ElasticUsageServiceFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
   private RestHighLevelClient searchClient;
@@ -44,14 +38,10 @@ public class ElasticSearchServiceFactory {
   @Value("${ES_BULK_RETRY_INTERVAL:1}")
   private Long retryInterval;
 
-  @Bean(name = "elasticSearchService")
+  @Bean(name = "elasticUsageService")
   @Nonnull
-  protected ElasticSearchService getInstance() {
-    EntityRegistry entityRegistry = SnapshotEntityRegistry.getInstance();
-    return new ElasticSearchService(new ESIndexBuilders(entityRegistry, searchClient, indexConvention),
-        new ESSearchDAO(entityRegistry, searchClient, indexConvention),
-        new ESBrowseDAO(entityRegistry, searchClient, indexConvention),
-        new ESWriteDAO(entityRegistry, searchClient, indexConvention, bulkRequestsLimit, bulkFlushPeriod, numRetries,
-            retryInterval));
+  protected ElasticUsageService getInstance() {
+    return new ElasticUsageService(searchClient, indexConvention,
+            bulkRequestsLimit, bulkFlushPeriod, numRetries, retryInterval);
   }
 }
