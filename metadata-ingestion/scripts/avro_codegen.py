@@ -13,7 +13,13 @@ def load_schema_file(schema_file: str) -> str:
     with open(schema_file) as f:
         raw_schema_text = f.read()
 
-    redo_spaces = json.dumps(json.loads(raw_schema_text), indent=2)
+    # Remove some weird string issues from Java's Avro.
+    no_spaces_schema = json.dumps(json.loads(raw_schema_text))
+    schema_json = no_spaces_schema.replace(
+        '{"type": "string", "avro.java.string": "String"}', '"string"'
+    )
+    redo_spaces = json.dumps(json.loads(schema_json), indent=2)
+
     return redo_spaces
 
 
@@ -80,13 +86,7 @@ def generate(schema_files: List[str], outdir: str) -> None:
 
     merged_schema = merge_schemas(schemas)
 
-    no_spaces_schema = json.dumps(json.loads(merged_schema))
-    schema_json = no_spaces_schema.replace(
-        '{"type": "string", "avro.java.string": "String"}', '"string"'
-    )
-    redo_spaces = json.dumps(json.loads(schema_json), indent=2)
-
-    write_schema_files(redo_spaces, outdir)
+    write_schema_files(merged_schema, outdir)
     with open(f"{outdir}/__init__.py", "w"):
         # Truncate this file.
         pass
