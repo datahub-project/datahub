@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql;
 
 import com.linkedin.dataplatform.client.DataPlatforms;
+import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.lineage.client.Lineages;
 import com.linkedin.lineage.client.Relationships;
@@ -34,6 +35,7 @@ public class GmsClientFactory {
     private static Lineages _lineages;
     private static Relationships _relationships;
     private static EntityClient _entities;
+    private static AspectClient _aspects;
 
 
     private GmsClientFactory() { }
@@ -80,5 +82,16 @@ public class GmsClientFactory {
             }
         }
         return _entities;
+    }
+
+    public static AspectClient getAspectsClient() {
+        if (_aspects == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_aspects == null) {
+                    _aspects = new AspectClient(REST_CLIENT);
+                }
+            }
+        }
+        return _aspects;
     }
 }

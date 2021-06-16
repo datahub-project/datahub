@@ -208,7 +208,7 @@
                             },
                             "fields": [
                                 {
-                                    "fieldPath": "field_foo",
+                                    "fieldPath": "field_foo_2",
                                     "jsonPath": null,
                                     "nullable": false,
                                     "description": {
@@ -1118,13 +1118,7 @@
                                 "deleted": null
                             },
                             "chartUrl": null,
-                            "inputs": {
-                                "array": [
-                                    {
-                                        "string": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
-                                    }
-                                ]
-                            },
+                            "inputs": ["urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"],
                             "type": null,
                             "access": null,
                             "lastRefreshed": null
