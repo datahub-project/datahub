@@ -102,6 +102,10 @@ spec:
               value: "{{ .Values.global.elasticsearch.host }}"
             - name: ELASTICSEARCH_PORT
               value: "{{ .Values.global.elasticsearch.port }}"
+            {{- with .Values.global.elasticsearch.indexPrefix }}
+            - name: INDEX_PREFIX
+              value: {{ . }}
+            {{- end }}
             {{- with .Values.global.elasticsearch.useSSL }}
             - name: ELASTICSEARCH_USE_SSL
               value: {{ . | quote }}
@@ -140,6 +144,14 @@ spec:
                   name: {{ $.Values.global.credentialsAndCertsSecrets.name }}
                   key: {{ $envVarValue }}
             {{- end }}
+            {{- end }}
+            {{- with .Values.global.kafka.topics }}
+            - name: METADATA_CHANGE_EVENT_NAME
+              value: {{ .metadata_change_event_name }}
+            - name: FAILED_METADATA_CHANGE_EVENT_NAME
+              value: {{ .failed_metadata_change_event_name }}
+            - name: METADATA_AUDIT_EVENT_NAME
+              value: {{ .metadata_audit_event_name }}
             {{- end }}
           {{- with .Values.extraEnvs }}
             {{- toYaml . | nindent 12 }}

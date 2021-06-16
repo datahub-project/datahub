@@ -1,5 +1,8 @@
 # Values to start up datahub after starting up the datahub-prerequisites chart with "prerequisites" release name
 # Copy this chart and change configuration as needed.
+acryl-api-gateway:
+  enabled: true
+
 datahub-gms:
   enabled: true
   image:
@@ -97,6 +100,8 @@ global:
   datahub:
     gms:
       port: "8080"
+    frontend:
+      port: "9002"
     mae_consumer:
       port: "9091"
     appVersion: "1.0"

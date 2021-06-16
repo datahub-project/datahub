@@ -3,10 +3,10 @@ name: documentation
 on:
   pull_request:
     branches:
-      - master
+      - acryl-main
   push:
     branches:
-      - master
+      - acryl-main
   # release:
   #   types: [published, edited]
 

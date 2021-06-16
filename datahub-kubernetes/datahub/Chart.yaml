@@ -29,3 +29,7 @@ dependencies:
     version: 0.2.1
     repository: file://./charts/datahub-ingestion-cron
     condition: datahub-ingestion-cron.enabled
+  - name: acryl-api-gateway
+    version: 0.0.1
+    repository: file://./charts/acryl-api-gateway
+    condition: acryl-api-gateway.enabled

@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "acryl-api-gateway.fullname" . }}
+  labels:
+    {{- include "acryl-api-gateway.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "acryl-api-gateway.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "acryl-api-gateway.selectorLabels" . | nindent 8 }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "acryl-api-gateway.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+      {{- if .Values.extraVolumes }}
+        {{ toYaml .Values.extraVolumes | nindent 8 }}
+      {{- end }}
+      initContainers:
+      {{- if .Values.extraInitContainers }}
+      {{- .Values.extraInitContainers | toYaml | nindent 6 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8089
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          env:
+            - name: GMS_HOST
+              value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
+            - name: GMS_PORT
+              value: "{{ .Values.global.datahub.gms.port }}"
+            - name: FRONTEND_HOST
+              value: {{ printf "%s-%s" .Release.Name "datahub-frontend" }}
+            - name: FRONTEND_PORT
+              value: "{{ .Values.global.datahub.frontend.port }}"
+            - name: AUTH_ENABLED
+              value: "true"
+            - name: API_KEY_SECRET
+              valueFrom:
+                {{- if .Values.existingApiKeySecret }}
+                secretKeyRef:
+                  name: "{{ .Values.existingApiKeySecret.name }}"
+                  key: "{{ .Values.existingApiKeySecret.key }}"
+                {{- else }}
+                secretKeyRef:
+                  name: {{ printf "%s-api-key-secret" .Release.Name }}
+                  key: acryl.api.key.secret
+                {{- end }}
+          {{- if .Values.extraEnvs }}
+            {{ toYaml .Values.extraEnvs | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+          {{- if .Values.extraVolumeMounts }}
+            {{ toYaml .Values.extraVolumeMounts | nindent 10 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

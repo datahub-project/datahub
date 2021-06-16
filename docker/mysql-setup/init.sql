@@ -2,6 +2,9 @@
 CREATE DATABASE IF NOT EXISTS DATAHUB_DB_NAME;
 USE DATAHUB_DB_NAME;
 
+CREATE USER IF NOT EXISTS 'USER_NAME'@'%' IDENTIFIED BY 'PASSWORD';
+GRANT ALL PRIVILEGES ON DATAHUB_DB_NAME.* To 'USER_NAME'@'%';
+
 -- create metadata aspect table
 create table if not exists metadata_aspect_v2 (
   urn                           varchar(500) not null,

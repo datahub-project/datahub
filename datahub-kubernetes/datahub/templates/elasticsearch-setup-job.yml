@@ -49,6 +49,13 @@ spec:
               value: {{ . | quote }}
             {{- end }}
             {{- with .Values.global.elasticsearch.auth }}
+            - name: ELASTICSEARCH_MASTER_USERNAME
+              value: {{ .master_username }}
+            - name: ELASTICSEARCH_MASTER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .master_password.secretRef }}"
+                  key: "{{ .master_password.secretKey }}"
             - name: ELASTICSEARCH_USERNAME
               value: {{ .username }}
             - name: ELASTICSEARCH_PASSWORD
@@ -59,6 +66,10 @@ spec:
             {{- end }}
             - name: DATAHUB_ANALYTICS_ENABLED
               value: {{ .Values.global.datahub_analytics_enabled | quote }}
+            {{- with .Values.global.elasticsearch.indexPrefix }}
+            - name: INDEX_PREFIX
+              value: {{ . }}
+            {{- end }}
           {{- with .Values.elasticsearchSetupJob.extraEnvs }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
