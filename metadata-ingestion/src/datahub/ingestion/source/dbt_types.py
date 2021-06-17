@@ -12,6 +12,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
     UnionType,
+    NullType,
 )
 
 # these can be obtained by running `select format_type(oid, null),* from pg_type;`
@@ -99,7 +100,7 @@ POSTGRES_TYPES_MAP = {
     "cstring": None,
     '"any"': UnionType,
     "anyarray": ArrayType,
-    "void": None,
+    "void": NullType,
     "trigger": None,
     "event_trigger": None,
     "language_handler": None,
@@ -248,7 +249,7 @@ SNOWFLAKE_TYPES_MAP = {
     "TEXT": StringType,
     "BINARY": BytesType,
     "VARBINARY": BytesType,
-    "BOOLEAN": BytesType,
+    "BOOLEAN": BooleanType,
     "DATE": DateType,
     "DATETIME": DateType,
     "TIME": TimeType,
