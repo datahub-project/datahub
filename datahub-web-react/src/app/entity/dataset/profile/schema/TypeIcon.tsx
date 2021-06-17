@@ -92,7 +92,7 @@ export default function TypeIcon({ type, nativeDataType }: Props) {
             <TypeIconContainer data-testid={`icon-${type}`}>
                 {Icon && <Icon style={{ fontSize: size }} />}
                 <TypeSubtitle type="secondary" hasicon={Icon ? 'yes' : undefined}>
-                    {text}
+                    {type === SchemaFieldDataType.Null ? nativeDataType : text}
                 </TypeSubtitle>
             </TypeIconContainer>
         </NativeDataTypeTooltip>
