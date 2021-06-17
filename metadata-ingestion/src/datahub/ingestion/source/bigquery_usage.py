@@ -8,6 +8,10 @@ from typing import Any, Counter, Dict, Iterable, List, Optional, Union
 import cachetools
 from google.cloud.logging_v2.client import Client
 
+from datahub.configuration.common import ConfigModel
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import UsageStatsWorkUnit
 from datahub.utilities.delayed_iter import delayed_iter
 
 # ProtobufEntry is generated dynamically using a namedtuple, so mypy
@@ -18,7 +22,6 @@ from datahub.utilities.delayed_iter import delayed_iter
 # AuditLogEntry = ProtobufEntry
 AuditLogEntry = Any
 
-BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 DEBUG_INCLUDE_FULL_PAYLOADS = False
 GCP_LOGGING_PAGE_SIZE = 1000
 
@@ -27,7 +30,8 @@ GCP_LOGGING_PAGE_SIZE = 1000
 PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)_(\d{4}|\d{6}|\d{8}|\d{10})$")
 
 time_start = datetime.now(tz=timezone.utc) - timedelta(days=21)
-filter_rule = f"""
+BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+BQ_FILTER_RULE_TEMPLATE = f"""
 protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
@@ -203,19 +207,37 @@ class AggregatedDataset:
     # TODO add column usage counters
 
 
-class BigQueryUsageSource:
-    def __init__(self, project: str, client_options: dict = {}) -> None:
-        client_options = client_options.copy()
-        if project is not None:
-            client_options["project"] = project
+class BigQueryUsageConfig(ConfigModel):
+    project_id: Optional[str] = None
+    extra_client_options: dict = {}
+
+    query_log_delay: int = 100
+
+
+class BigQueryUsageSource(Source):
+    config: BigQueryUsageConfig
+    report: SourceReport
+
+    client: Client
+
+    def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
+        super().__init__(ctx)
+        self.config = config
+
+        client_options = self.config.extra_client_options.copy()
+        if self.config.project_id is not None:
+            client_options["project"] = self.config.project_id
 
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
         self.client = Client(**client_options, _use_grpc=False)
 
-        self.query_log_delay = 100
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigQueryUsageSource":
+        config = BigQueryUsageConfig.parse_obj(config_dict)
+        return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[None]:
+    def get_workunits(self) -> Iterable[UsageStatsWorkUnit]:
         bigquery_log_entries = self._get_bigquery_log_entries()
         parsed_events = self._parse_bigquery_log_entries(bigquery_log_entries)
         hydrated_read_events = self._join_events_by_job_id(parsed_events)
@@ -228,7 +250,7 @@ class BigQueryUsageSource:
     def _get_bigquery_log_entries(self) -> Iterable[AuditLogEntry]:
         entry: AuditLogEntry
         for entry in self.client.list_entries(
-            filter_=filter_rule, page_size=GCP_LOGGING_PAGE_SIZE
+            filter_=BQ_FILTER_RULE_TEMPLATE, page_size=GCP_LOGGING_PAGE_SIZE
         ):
             yield entry
 
@@ -242,9 +264,10 @@ class BigQueryUsageSource:
             elif QueryEvent.can_parse_entry(entry):
                 event = QueryEvent.from_entry(entry)
             else:
-                # TODO: add better error handling
-                print("Unable to parse:", entry)
-                exit(1)
+                self.report.report_failure(
+                    f"{entry.log_name}-{entry.insert_id}",
+                    f"unable to parse log entry: {entry!r}",
+                )
             yield event
 
     def _join_events_by_job_id(
@@ -253,7 +276,7 @@ class BigQueryUsageSource:
         # We only store the most recently used query events, which are used when
         # resolving job information within the read events.
         query_jobs = cachetools.LRUCache[str, QueryEvent](
-            maxsize=2 * self.query_log_delay
+            maxsize=2 * self.config.query_log_delay
         )
 
         def event_processor(
@@ -270,7 +293,9 @@ class BigQueryUsageSource:
         # additional events to be processed before attempting to resolve BigQuery
         # job information from the logs.
         original_read_events = event_processor(events)
-        delayed_read_events = delayed_iter(original_read_events, self.query_log_delay)
+        delayed_read_events = delayed_iter(
+            original_read_events, self.config.query_log_delay
+        )
 
         for event in delayed_read_events:
             if event.jobName:
@@ -280,12 +305,12 @@ class BigQueryUsageSource:
 
                     # TODO also join into the query itself for column references
                 else:
-                    # TODO raise a warning and suggest increasing the buffer size option
-                    breakpoint()
+                    self.report.report_warning(
+                        "<general>",
+                        "failed to match table read event with job; try increasing `query_log_delay`",
+                    )
 
             yield event
-
-        # pprint(query_jobs)
 
     def _aggregate_enriched_read_events(
         self, events: Iterable[ReadEvent]
@@ -321,7 +346,12 @@ class BigQueryUsageSource:
 
 if __name__ == "__main__":
     # TODO: remove this bit
-    source = BigQueryUsageSource(project="harshal-playground-306419")
+    source = BigQueryUsageSource.create(
+        dict(
+            project_id="harshal-playground-306419",
+        ),
+        PipelineContext(run_id="bq-usage"),
+    )
     events = list(source.get_workunits())
     # pprint(events)
     pprint(f"Processed {len(events)} entries")
