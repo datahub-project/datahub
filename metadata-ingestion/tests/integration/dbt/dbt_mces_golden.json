@@ -577,6 +577,21 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null
+                            },
+                            {
+                                "fieldPath": "native",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "some native type",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,
