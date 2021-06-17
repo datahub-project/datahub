@@ -83,7 +83,6 @@ import pathlib
 
 def _load_schema(schema_name: str) -> str:
     return (pathlib.Path(__file__).parent / f"{schema_name}.avsc").read_text()
-
 """
 individual_schema_method = """
 @functools.lru_cache(maxsize=None)
@@ -93,7 +92,7 @@ def get{schema_name}Schema() -> str:
 
 
 def make_load_schema_methods(schemas: Iterable[str]) -> str:
-    return load_schema_method + "\n".join(
+    return load_schema_method + "".join(
         individual_schema_method.format(schema_name=schema) for schema in schemas
     )
 

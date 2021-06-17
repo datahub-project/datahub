@@ -11,11 +11,9 @@ import pathlib
 def _load_schema(schema_name: str) -> str:
     return (pathlib.Path(__file__).parent / f"{schema_name}.avsc").read_text()
 
-
 @functools.lru_cache(maxsize=None)
 def getMetadataChangeEventSchema() -> str:
     return _load_schema("MetadataChangeEvent")
-
 
 @functools.lru_cache(maxsize=None)
 def getMetadataAuditEventSchema() -> str:
