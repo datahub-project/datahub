@@ -31,6 +31,7 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass
 from src.datahub.ingestion.source.dbt_types import (
     SNOWFLAKE_TYPES_MAP,
     POSTGRES_TYPES_MAP,
+    resolve_postgres_modified_type,
 )
 
 logger = logging.getLogger(__name__)
@@ -278,13 +279,16 @@ def get_column_type(
     if match is not None:
         column_type_stripped = match.group()
 
-    TypeClass: Any = None
-    for key in _field_type_mapping.keys():
-        if key == column_type_stripped:
-            TypeClass = _field_type_mapping[column_type_stripped]
-            break
+    TypeClass: Any = _field_type_mapping.get(column_type_stripped)
 
     if TypeClass is None:
+
+        # attempt Postgres modified type
+        TypeClass = resolve_postgres_modified_type(column_type_stripped)
+
+    # if still not found, report the warning
+    if TypeClass is None:
+
         report.report_warning(
             dataset_name, f"unable to map type {column_type} to metadata schema"
         )
