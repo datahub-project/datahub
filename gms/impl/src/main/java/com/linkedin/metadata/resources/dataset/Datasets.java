@@ -14,6 +14,7 @@ import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.dataset.DatasetKey;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.PegasusUtils;
@@ -181,6 +182,8 @@ public final class Datasets extends BaseBrowsableEntityResource<
         value.setGlobalTags(GlobalTags.class.cast(aspect));
       } else if (aspect instanceof EditableSchemaMetadata) {
         value.setEditableSchemaMetadata(EditableSchemaMetadata.class.cast(aspect));
+      } else if (aspect instanceof EditableDatasetProperties) {
+        value.setEditableProperties(EditableDatasetProperties.class.cast(aspect));
       } else if (aspect instanceof GlossaryTerms) {
         value.setGlossaryTerms((GlossaryTerms) aspect);
       }
@@ -224,6 +227,9 @@ public final class Datasets extends BaseBrowsableEntityResource<
     }
     if (dataset.hasEditableSchemaMetadata()) {
       aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getEditableSchemaMetadata()));
+    }
+    if (dataset.hasEditableProperties()) {
+      aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getEditableProperties()));
     }
     return ModelUtils.newSnapshot(DatasetSnapshot.class, datasetUrn, aspects);
   }

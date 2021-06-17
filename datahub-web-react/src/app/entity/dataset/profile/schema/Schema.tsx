@@ -50,7 +50,7 @@ interface ExtendedSchemaFields extends SchemaField {
 
 const defaultColumns = [
     {
-        width: 288,
+        width: 100,
         title: 'Type',
         dataIndex: 'type',
         key: 'type',
@@ -63,7 +63,7 @@ const defaultColumns = [
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        width: 192,
+        width: 100,
         render: (fieldPath: string) => {
             if (!fieldPath.includes('.')) {
                 return <Typography.Text strong>{fieldPath}</Typography.Text>;
@@ -84,10 +84,10 @@ const defaultColumns = [
                 }
             }
             return (
-                <>
+                <span>
                     <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
                     {lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
-                </>
+                </span>
             );
         },
     },
@@ -108,7 +108,6 @@ function convertEditableSchemaMetadataForUpdate(
 
 export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema }: Props) {
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
-    const [descHoveredIndex, setDescHoveredIndex] = useState<string | undefined>(undefined);
     const [showRaw, setShowRaw] = useState(false);
     const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
 
@@ -195,7 +194,7 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         return updateSchema(newFieldInfo, record);
     };
 
-    const descriptionRender = (description: string, record: SchemaField, rowIndex: number | undefined) => {
+    const descriptionRender = (description: string, record: SchemaField) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
             (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
         ) || { fieldPath: record.fieldPath };
@@ -203,7 +202,6 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
             <DescriptionField
                 description={description}
                 updatedDescription={relevantEditableFieldInfo.description}
-                onHover={descHoveredIndex !== undefined && descHoveredIndex === `${record.fieldPath}-${rowIndex}`}
                 onUpdate={(update) => onUpdateDescription(update, relevantEditableFieldInfo)}
             />
         );
@@ -233,19 +231,11 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         dataIndex: 'description',
         key: 'description',
         render: descriptionRender,
-        width: 700,
-        onCell: (record: SchemaField, rowIndex: number | undefined) => ({
-            onMouseEnter: () => {
-                setDescHoveredIndex(`${record.fieldPath}-${rowIndex}`);
-            },
-            onMouseLeave: () => {
-                setDescHoveredIndex(undefined);
-            },
-        }),
+        width: 300,
     };
 
     const tagAndTermColumn = {
-        width: 400,
+        width: 150,
         title: 'Tags & Terms',
         dataIndex: 'globalTags',
         key: 'tag',
@@ -291,8 +281,6 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
                         dataSource={rows}
                         rowKey="fieldPath"
                         expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
-                        defaultExpandAllRows
-                        expandRowByClick
                         pagination={false}
                     />
                 )

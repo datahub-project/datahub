@@ -107,6 +107,7 @@ public class AuthModule extends AbstractModule {
                 oidcConfiguration.setClientId(_oidcConfigs.getClientId());
                 oidcConfiguration.setSecret(_oidcConfigs.getClientSecret());
                 oidcConfiguration.setDiscoveryURI(_oidcConfigs.getDiscoveryUri());
+                oidcConfiguration.setClientAuthenticationMethodAsString(_oidcConfigs.getClientAuthenticationMethod());
                 oidcConfiguration.setScope(_oidcConfigs.getScope());
 
                 final OidcClient oidcClient = new OidcClient(oidcConfiguration);

@@ -44,14 +44,20 @@
         "emails": {
           "type": "text[]",
           "comment": null,
-          "index": 4,
+          "index": 5,
           "name": "emails"
         },
         "cost": {
           "type": "money",
           "comment": null,
-          "index": 4,
+          "index": 6,
           "name": "cost"
+        },
+        "native": {
+          "type": "some native type",
+          "comment": null,
+          "index": 7,
+          "name": "native"
         }
       },
       "stats": {

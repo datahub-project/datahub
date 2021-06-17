@@ -30,6 +30,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.TagAspect;
 import com.linkedin.metadata.configs.TagSearchConfig;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -37,6 +38,7 @@ import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.tag.TagProperties;
 
+import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
@@ -72,7 +74,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
     }
 
     @Override
-    public List<Tag> batchLoad(final List<String> urns, final QueryContext context) {
+    public List<DataFetcherResult<Tag>> batchLoad(final List<String> urns, final QueryContext context) {
 
         final List<TagUrn> tagUrns = urns.stream()
                 .map(this::getTagUrn)
@@ -89,7 +91,11 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                 gmsResults.add(tagMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsTag -> gmsTag == null ? null : TagSnapshotMapper.map(gmsTag.getValue().getTagSnapshot()))
+                    .map(gmsTag -> gmsTag == null ? null
+                        : DataFetcherResult.<Tag>newResult()
+                            .data(TagSnapshotMapper.map(gmsTag.getValue().getTagSnapshot()))
+                            .localContext(SnapshotToAspectMap.extractAspectMap(gmsTag.getValue().getTagSnapshot()))
+                            .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Tags", e);
@@ -155,7 +161,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }
 
-        return load(input.getUrn(), context);
+        return load(input.getUrn(), context).getData();
     }
 
     private TagUrn getTagUrn(final String urnStr) {

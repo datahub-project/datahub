@@ -110,6 +110,9 @@ fragment nonRecursiveDatasetFields on Dataset {
         key
         value
     }
+    editableProperties {
+        description
+    }
     ownership {
         ...ownershipFields
     }
@@ -198,6 +201,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
             value
         }
     }
+    editableProperties {
+        description
+    }
     ownership {
         ...ownershipFields
     }
@@ -248,6 +254,9 @@ fragment dataJobFields on DataJob {
             key
             value
         }
+    }
+    editableProperties {
+        description
     }
     globalTags {
         ...globalTagsFields

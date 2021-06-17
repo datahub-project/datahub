@@ -180,6 +180,21 @@ public class EbeanAspectDao {
   }
 
   @Nullable
+  public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+    validateConnection();
+    List<EbeanAspectV2> result = _server.find(EbeanAspectV2.class)
+        .where()
+        .eq("urn", urn).eq("aspect", aspectName)
+        .orderBy()
+        .desc("version")
+        .findList();
+    if (result.size() == 0) {
+      return -1;
+    }
+    return result.get(0).getKey().getVersion();
+  }
+
+  @Nullable
   public EbeanAspectV2 getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version) {
     validateConnection();
     return getAspect(new EbeanAspectV2.PrimaryKey(urn, aspectName, version));
