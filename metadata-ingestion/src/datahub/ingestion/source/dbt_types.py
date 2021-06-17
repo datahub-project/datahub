@@ -220,7 +220,7 @@ def resolve_postgres_modified_type(type_string: str) -> Any:
         return ArrayType
 
     for modified_type_base in POSTGRES_MODIFIED_TYPES:
-        if re.match(rf"{modified_type_base}\([0-9,]+\)", type_string):
+        if re.match(rf"{re.escape(modified_type_base)}\([0-9,]+\)", type_string):
             return POSTGRES_TYPES_MAP[modified_type_base]
 
     return None

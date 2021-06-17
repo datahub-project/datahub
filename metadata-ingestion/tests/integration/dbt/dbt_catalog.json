@@ -150,6 +150,12 @@
           "comment": null,
           "index": 3,
           "name": "amount"
+        },
+        "name": {
+          "type": "character varying(129)",
+          "comment": null,
+          "index": 4,
+          "name": "name"
         }
       },
       "stats": {
