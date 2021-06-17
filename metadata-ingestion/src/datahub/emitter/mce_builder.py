@@ -14,6 +14,7 @@ from datahub.metadata.schema_classes import (
 
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
+UNKNOWN_USER = "urn:li:corpuser:unknown"
 
 T = TypeVar("T")
 

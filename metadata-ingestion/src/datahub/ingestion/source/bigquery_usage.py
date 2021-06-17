@@ -1,4 +1,6 @@
 import collections
+import enum
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -6,13 +8,23 @@ from pprint import pprint
 from typing import Any, Counter, Dict, Iterable, List, Optional, Union
 
 import cachetools
+import pydantic
 from google.cloud.logging_v2.client import Client
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import UsageStatsWorkUnit
+from datahub.metadata.schema_classes import (
+    UsageAggregationClass,
+    UsageAggregationMetricsClass,
+    UsersUsageCountsClass,
+    WindowDurationClass,
+)
 from datahub.utilities.delayed_iter import delayed_iter
+
+logger = logging.getLogger(__name__)
 
 # ProtobufEntry is generated dynamically using a namedtuple, so mypy
 # can't really deal with it. As such, we short circuit mypy's typing
@@ -29,9 +41,8 @@ GCP_LOGGING_PAGE_SIZE = 1000
 # See https://cloud.google.com/bigquery/docs/partitioned-tables.
 PARTITIONED_TABLE_REGEX = re.compile(r"^(.+)_(\d{4}|\d{6}|\d{8}|\d{10})$")
 
-time_start = datetime.now(tz=timezone.utc) - timedelta(days=21)
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-BQ_FILTER_RULE_TEMPLATE = f"""
+BQ_FILTER_RULE_TEMPLATE = """
 protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
@@ -50,13 +61,32 @@ AND
     )
 )
 AND
-timestamp >= "{time_start.strftime(BQ_DATETIME_FORMAT)}"
+timestamp >= "{start_time}"
+AND
+timestamp <= "{end_time}"
 """.strip()
 
 
-def get_time_bucket(original: datetime) -> datetime:
-    # This rounds/floors the timestamp to the closest day.
-    return original.replace(hour=0, minute=0, second=0, microsecond=0)
+@enum.unique
+class _BucketDuration(str, enum.Enum):
+    DAY = WindowDurationClass.DAY
+    HOUR = WindowDurationClass.HOUR
+
+
+def get_time_bucket(original: datetime, bucketing: _BucketDuration) -> datetime:
+    """Floors the timestamp to the closest day or hour."""
+
+    if bucketing == _BucketDuration.HOUR:
+        return original.replace(minute=0, second=0, microsecond=0)
+    else:  # day
+        return original.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def get_bucket_duration_delta(bucketing: _BucketDuration) -> timedelta:
+    if bucketing == _BucketDuration.HOUR:
+        return timedelta(hours=1)
+    else:  # day
+        return timedelta(days=1)
 
 
 @dataclass(frozen=True, order=True)
@@ -90,6 +120,15 @@ class BigQueryTableRef:
             return BigQueryTableRef(self.project, self.dataset, matches.group(1))
 
         return self
+
+    def __str__(self) -> str:
+        return f"projects/{self.project}/datasets/{self.dataset}/tables/{self.table}"
+
+
+def _table_ref_to_urn(ref: BigQueryTableRef, env: str) -> str:
+    return builder.make_dataset_urn(
+        "bigquery", f"{ref.project}.{ref.dataset}.{ref.table}", env
+    )
 
 
 def _job_name_ref(project: str, jobId: str) -> str:
@@ -210,19 +249,46 @@ class AggregatedDataset:
 class BigQueryUsageConfig(ConfigModel):
     project_id: Optional[str] = None
     extra_client_options: dict = {}
+    env: str = builder.DEFAULT_ENV
 
-    query_log_delay: int = 100
+    # start_time and end_time will be populated by the validators.
+    bucket_duration: _BucketDuration = _BucketDuration.DAY
+    end_time: datetime = None  # type: ignore
+    start_time: datetime = None  # type: ignore
+
+    query_log_delay: pydantic.PositiveInt = 100
+    top_n_queries: Optional[pydantic.PositiveInt] = 10
+
+    @pydantic.validator("end_time", pre=True, always=True)
+    def default_end_time(cls, v, *, values, **kwargs):
+        return v or get_time_bucket(
+            datetime.now(tz=timezone.utc), values["bucket_duration"]
+        )
+
+    @pydantic.validator("start_time", pre=True, always=True)
+    def default_start_time(cls, v, *, values, **kwargs):
+        return v or (
+            values["end_time"] - get_bucket_duration_delta(values["bucket_duration"])
+        )
+
+
+class BigQueryUsageSourceReport(SourceReport):
+    dropped_table: Counter[str] = field(default_factory=collections.Counter)
+
+    def report_dropped(self, key: str) -> None:
+        self.dropped_table[key] += 1
 
 
 class BigQueryUsageSource(Source):
     config: BigQueryUsageConfig
-    report: SourceReport
+    report: BigQueryUsageSourceReport
 
     client: Client
 
     def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config = config
+        self.report = BigQueryUsageSourceReport()
 
         client_options = self.config.extra_client_options.copy()
         if self.config.project_id is not None:
@@ -241,18 +307,28 @@ class BigQueryUsageSource(Source):
         bigquery_log_entries = self._get_bigquery_log_entries()
         parsed_events = self._parse_bigquery_log_entries(bigquery_log_entries)
         hydrated_read_events = self._join_events_by_job_id(parsed_events)
-
         aggregated_info = self._aggregate_enriched_read_events(hydrated_read_events)
-        pprint(aggregated_info)
 
-        yield from []
+        for time_bucket in aggregated_info.values():
+            for aggregate in time_bucket.values():
+                wu = self._make_usage_stat(aggregate)
+                self.report.report_workunit(wu)
+                yield wu
 
     def _get_bigquery_log_entries(self) -> Iterable[AuditLogEntry]:
+        filter = BQ_FILTER_RULE_TEMPLATE.format(
+            start_time=self.config.start_time.strftime(BQ_DATETIME_FORMAT),
+            end_time=self.config.end_time.strftime(BQ_DATETIME_FORMAT),
+        )
+
         entry: AuditLogEntry
-        for entry in self.client.list_entries(
-            filter_=BQ_FILTER_RULE_TEMPLATE, page_size=GCP_LOGGING_PAGE_SIZE
+        for i, entry in enumerate(
+            self.client.list_entries(filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE)
         ):
+            if i % GCP_LOGGING_PAGE_SIZE == 0:
+                logger.info("processing log entry %d", i)
             yield entry
+        logger.debug("finished loading log entries from BigQuery")
 
     def _parse_bigquery_log_entries(
         self, entries: Iterable[AuditLogEntry]
@@ -275,7 +351,7 @@ class BigQueryUsageSource(Source):
     ) -> Iterable[ReadEvent]:
         # We only store the most recently used query events, which are used when
         # resolving job information within the read events.
-        query_jobs = cachetools.LRUCache[str, QueryEvent](
+        query_jobs: cachetools.LRUCache[str, QueryEvent] = cachetools.LRUCache(
             maxsize=2 * self.config.query_log_delay
         )
 
@@ -324,12 +400,11 @@ class BigQueryUsageSource(Source):
         ] = collections.defaultdict(dict)
 
         for event in events:
-            floored_ts = get_time_bucket(event.timestamp)
+            floored_ts = get_time_bucket(event.timestamp, self.config.bucket_duration)
             resource = event.resource.remove_extras()
 
             if resource.is_anonymous():
-                # TODO report dropped (ideally just once)
-                breakpoint()
+                self.report.report_dropped(str(resource))
                 continue
 
             agg_bucket = datasets[floored_ts].setdefault(
@@ -343,12 +418,42 @@ class BigQueryUsageSource(Source):
 
         return datasets
 
+    def _make_usage_stat(self, agg: AggregatedDataset) -> UsageStatsWorkUnit:
+        return UsageStatsWorkUnit(
+            id=f"{agg.bucket_start_time.isoformat()}-{agg.resource}",
+            usageStats=UsageAggregationClass(
+                bucket=int(agg.bucket_start_time.timestamp()),
+                duration=self.config.bucket_duration,
+                resource=_table_ref_to_urn(agg.resource, self.config.env),
+                metrics=UsageAggregationMetricsClass(
+                    users=[
+                        UsersUsageCountsClass(
+                            user=builder.UNKNOWN_USER,
+                            count=count,
+                            user_email=user_email,
+                        )
+                        for user_email, count in agg.userCounts.most_common()
+                    ],
+                    top_sql_queries=[
+                        query
+                        for query, _ in agg.queryFreq.most_common(
+                            self.config.top_n_queries
+                        )
+                    ],
+                ),
+            ),
+        )
+
+    def get_report(self) -> SourceReport:
+        return self.report
+
 
 if __name__ == "__main__":
     # TODO: remove this bit
     source = BigQueryUsageSource.create(
         dict(
             project_id="harshal-playground-306419",
+            start_time=datetime.now(tz=timezone.utc) - timedelta(days=25),
         ),
         PipelineContext(run_id="bq-usage"),
     )
