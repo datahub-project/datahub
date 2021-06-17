@@ -200,7 +200,7 @@ class AggregatedDataset:
 
     queryFreq: Counter[str] = field(default_factory=collections.Counter)
     userCounts: Counter[str] = field(default_factory=collections.Counter)
-    # TODO add total count of users
+    # TODO add column usage counters
 
 
 class BigQueryUsageSource:
