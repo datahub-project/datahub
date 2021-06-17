@@ -210,10 +210,10 @@ class GlueSource(Source):
         new_dataset_ids = []
         new_dataset_mces = []
 
-        def process_node(node):
-            """
-            Process a single node in the DAG.
-            """
+        nodes = {}
+
+        # iterate through each node to populate processed nodes
+        for node in dataflow_graph["DagNodes"]:
 
             node_type = node["NodeType"]
 
@@ -235,7 +235,7 @@ class GlueSource(Source):
                 # if data object is S3 bucket
                 elif node_args.get("connection_type") == "s3":
 
-                    # remove S3 prefix
+                    # remove S3 prefix (s3://)
                     s3_name = node_args["connection_options"]["path"][5:]
 
                     if s3_name.endswith("/"):
@@ -282,7 +282,7 @@ class GlueSource(Source):
                     flow_urn, job_id=f'{node["NodeType"]}-{node["Id"]}'
                 )
 
-            return {
+            nodes[node["id"]] = {
                 **node,
                 "urn": node_urn,
                 # to be filled in after traversing edges
@@ -290,8 +290,6 @@ class GlueSource(Source):
                 "inputDatasets": [],
                 "outputDatasets": [],
             }
-
-        nodes = {node["Id"]: process_node(node) for node in dataflow_graph["DagNodes"]}
 
         # traverse edges to fill in node properties
         for edge in dataflow_graph["DagEdges"]:
