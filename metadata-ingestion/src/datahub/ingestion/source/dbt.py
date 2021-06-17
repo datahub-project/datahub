@@ -25,6 +25,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
+    TimeTypeClass,
     StringTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
@@ -252,15 +253,17 @@ def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
     return ulc
 
 
-# This is from a fairly narrow data source that is posgres specific, we would expect this to expand over
-# time or be replaced with a more thorough mechanism
+# See https://github.com/fishtown-analytics/dbt/blob/master/core/dbt/adapters/sql/impl.py
 _field_type_mapping = {
     "boolean": BooleanTypeClass,
     "date": DateTypeClass,
+    "time": TimeTypeClass,
     "numeric": NumberTypeClass,
     "text": StringTypeClass,
     "timestamp with time zone": DateTypeClass,
+    "timestamp without time zone": DateTypeClass,
     "integer": NumberTypeClass,
+    "float8": NumberTypeClass,
     **POSTGRES_TYPES_MAP,
     **SNOWFLAKE_TYPES_MAP,
 }
