@@ -1,5 +1,5 @@
 import re
-from typing import Any, ValuesView
+from typing import Any, Dict, ValuesView
 
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
@@ -7,12 +7,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesType,
     DateType,
     EnumType,
+    NullType,
     NumberType,
     RecordType,
     StringType,
     TimeType,
     UnionType,
-    NullType,
 )
 
 # these can be obtained by running `select format_type(oid, null),* from pg_type;`
@@ -23,7 +23,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 # see https://github.com/fishtown-analytics/dbt/blob/master/plugins/postgres/dbt/include/postgres/macros/catalog.sql#L22
 
 # see https://www.npgsql.org/dev/types.html for helpful type annotations
-POSTGRES_TYPES_MAP = {
+POSTGRES_TYPES_MAP: Dict[str, Any] = {
     "boolean": BooleanType,
     "bytea": BytesType,
     '"char"': StringType,
@@ -228,7 +228,7 @@ def resolve_postgres_modified_type(type_string: str) -> Any:
 
 
 # see https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
-SNOWFLAKE_TYPES_MAP = {
+SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
     "NUMBER": NumberType,
     "DECIMAL": NumberType,
     "NUMERIC": NumberType,

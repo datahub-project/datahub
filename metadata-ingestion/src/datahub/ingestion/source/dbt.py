@@ -7,6 +7,11 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.source.dbt_types import (
+    POSTGRES_TYPES_MAP,
+    SNOWFLAKE_TYPES_MAP,
+    resolve_postgres_modified_type,
+)
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -29,11 +34,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
-from datahub.ingestion.source.dbt_types import (
-    POSTGRES_TYPES_MAP,
-    SNOWFLAKE_TYPES_MAP,
-    resolve_postgres_modified_type,
-)
 
 logger = logging.getLogger(__name__)
 
