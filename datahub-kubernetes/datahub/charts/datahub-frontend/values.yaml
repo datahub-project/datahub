@@ -39,6 +39,10 @@ securityContext: {}
 service:
   type: LoadBalancer
   port: 9002
+  # Annotations to add to the service, this will help in adding 
+  # Internal load balancer or various other annotation support in AWS 
+  annotations: {}
+    # service.beta.kubernetes.io/aws-load-balancer-internal: "true"
 
 ingress:
   enabled: false

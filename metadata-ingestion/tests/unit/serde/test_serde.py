@@ -75,7 +75,7 @@ def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
 
     # Deserialized from Avro.
     fo.seek(0)
-    in_records = list(fastavro.reader(fo))
+    in_records = list(fastavro.reader(fo, return_record_name=True))
     in_mces = [
         MetadataChangeEventClass.from_obj(record, tuples=True) for record in in_records
     ]

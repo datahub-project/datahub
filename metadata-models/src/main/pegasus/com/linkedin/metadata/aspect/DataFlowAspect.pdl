@@ -2,6 +2,7 @@ namespace com.linkedin.metadata.aspect
 
 import com.linkedin.metadata.key.DataFlowKey
 import com.linkedin.datajob.DataFlowInfo
+import com.linkedin.datajob.EditableDataflowProperties
 import com.linkedin.common.Ownership
 import com.linkedin.common.Status
 import com.linkedin.common.GlobalTags
@@ -13,6 +14,7 @@ import com.linkedin.common.BrowsePaths
 typeref DataFlowAspect = union[
     DataFlowKey,
     DataFlowInfo,
+    EditableDataflowProperties,
     Ownership,
     Status,
     GlobalTags,

@@ -39,4 +39,9 @@ record DataJob includes DataJobKey, ChangeAuditStamps {
    * List of global tags applied to the chart
    */
   globalTags: optional GlobalTags
+
+  /**
+   * Editable properties
+   */
+  editableProperties: optional EditableDatajobProperties
 }

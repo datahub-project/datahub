@@ -47,14 +47,7 @@ export default function DashboardProfile({ urn }: { urn: string }) {
     }
 
     const getHeader = (dashboard: Dashboard) => (
-        <DashboardHeader
-            urn={urn}
-            description={dashboard.info?.description}
-            platform={dashboard.tool}
-            ownership={dashboard.ownership}
-            lastModified={dashboard.info?.lastModified}
-            externalUrl={dashboard.info?.externalUrl}
-        />
+        <DashboardHeader dashboard={dashboard} updateDashboard={updateDashboard} />
     );
 
     const getTabs = ({ ownership, info }: Dashboard) => {
