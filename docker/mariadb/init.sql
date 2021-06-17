@@ -12,7 +12,7 @@ create table metadata_aspect_v2 (
 );
 
 -- create index on the "aspect" column to support aspect-oriented queries.
-CREATE INDEX aspectName ON metadata_aspect_v2 (aspect);
+create INDEX if not exists aspectName on metadata_aspect_v2 (aspect);
 
 insert into metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) values(
   'urn:li:corpuser:datahub',

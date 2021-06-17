@@ -39,7 +39,7 @@ WHERE NOT EXISTS (SELECT * from metadata_aspect_v2);
 DROP TABLE temp_metadata_aspect_v2;
 
 -- create index on the "aspect" column to support aspect-oriented queries.
-CREATE INDEX aspectName ON metadata_aspect_v2 (aspect);
+CREATE INDEX IF NOT EXISTS aspectName ON metadata_aspect_v2 (aspect);
 
 -- create metadata index table
 CREATE TABLE IF NOT EXISTS metadata_index (

@@ -31,7 +31,7 @@ public class CreateAspectIndexStep implements UpgradeStep {
     return (context) -> {
       try {
         _server.execute(_server.createSqlUpdate(
-            "CREATE INDEX aspectName ON metadata_aspect_v2 (aspect)"));
+            "CREATE INDEX IF NOT EXISTS aspectName ON metadata_aspect_v2 (aspect)"));
       } catch (Exception e) {
         context.report().addLine(String.format("Failed to create aspect index for metadata_aspect_v2: %s", e.toString()));
         return new DefaultUpgradeStepResult(
