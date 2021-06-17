@@ -184,6 +184,13 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
             }
         }
 
+        if (partialDataset.hasEditableProperties()) {
+            partialDataset.getEditableProperties().setLastModified(auditStamp);
+            if (!partialDataset.getEditableProperties().hasCreated()) {
+                partialDataset.getEditableProperties().setCreated(auditStamp);
+            }
+        }
+
         partialDataset.setLastModified(auditStamp);
 
         try {

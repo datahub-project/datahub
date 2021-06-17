@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.generated.ChartQueryType;
 import com.linkedin.datahub.graphql.generated.ChartType;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.ChartEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -49,6 +50,10 @@ public class ChartSnapshotMapper implements ModelMapper<ChartSnapshot, Chart> {
                 result.setStatus(StatusMapper.map(aspect.getStatus()));
             } else if (aspect.isGlobalTags()) {
                 result.setGlobalTags(GlobalTagsMapper.map(aspect.getGlobalTags()));
+            } else if (aspect.isEditableChartProperties()) {
+                final ChartEditableProperties chartEditableProperties = new ChartEditableProperties();
+                chartEditableProperties.setDescription(aspect.getEditableChartProperties().getDescription());
+                result.setEditableProperties(chartEditableProperties);
             } else {
                 // throw new RuntimeException(String.format("Unrecognized aspect %s returned", aspect.toString()));
             }

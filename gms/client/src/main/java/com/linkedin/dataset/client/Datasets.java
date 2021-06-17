@@ -285,6 +285,9 @@ public class Datasets extends BaseBrowsableClient<Dataset, DatasetUrn> {
         if (dataset.getProperties() != null) {
             aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, getDatasetPropertiesAspect(dataset)));
         }
+        if (dataset.getEditableProperties() != null) {
+            aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getEditableProperties()));
+        }
         if (dataset.getDeprecation() != null) {
             aspects.add(ModelUtils.newAspectUnion(DatasetAspect.class, dataset.getDeprecation()));
         }

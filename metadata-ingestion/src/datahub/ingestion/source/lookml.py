@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 class LookMLSourceConfig(ConfigModel):  # pragma: no cover
     base_folder: str
     connection_to_platform_map: Dict[str, str]
-    platform_name: str = "looker_views"
+    platform_name: str = "looker"
     actor: str = "urn:li:corpuser:etl"
     model_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()

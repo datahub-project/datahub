@@ -25,6 +25,7 @@
         "@types/react-dom": "^17.0.0",
         "@types/react-router": "^5.1.8",
         "@types/react-router-dom": "^5.1.6",
+        "@uiw/react-md-editor": "^3.3.4",
         "@visx/drag": "^1.7.0",
         "@visx/responsive": "^1.7.0",
         "@vx/axis": "^0.0.199",
