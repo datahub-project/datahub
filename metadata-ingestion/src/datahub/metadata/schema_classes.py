@@ -509,13 +509,13 @@ class EditableChartPropertiesClass(DictWrapper):
     
     @property
     def description(self) -> Union[None, str]:
-        # No docs available.
+        """Getter: Edited documentation of the chart """
         return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
     def description(self, value: Union[None, str]) -> None:
-        # No docs available.
+        """Setter: Edited documentation of the chart """
         self._inner_dict['description'] = value
     
     
@@ -1794,13 +1794,13 @@ class EditableDashboardPropertiesClass(DictWrapper):
     
     @property
     def description(self) -> Union[None, str]:
-        # No docs available.
+        """Getter: Edited documentation of the dashboard"""
         return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
     def description(self, value: Union[None, str]) -> None:
-        # No docs available.
+        """Setter: Edited documentation of the dashboard"""
         self._inner_dict['description'] = value
     
     
@@ -2077,11 +2077,11 @@ class DataJobInputOutputClass(DictWrapper):
         self._inner_dict['inputDatajobs'] = value
     
     
-class EditableDataflowPropertiesClass(DictWrapper):
+class EditableDataFlowPropertiesClass(DictWrapper):
     """Stores editable changes made to properties. This separates changes made from
     ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"""
     
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.datajob.EditableDataflowProperties")
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.datajob.EditableDataFlowProperties")
     def __init__(self,
         created: "AuditStampClass",
         lastModified: "AuditStampClass",
@@ -2096,7 +2096,7 @@ class EditableDataflowPropertiesClass(DictWrapper):
         self.description = description
     
     @classmethod
-    def construct_with_defaults(cls) -> "EditableDataflowPropertiesClass":
+    def construct_with_defaults(cls) -> "EditableDataFlowPropertiesClass":
         self = cls.construct({})
         self._restore_defaults()
         
@@ -2147,21 +2147,21 @@ class EditableDataflowPropertiesClass(DictWrapper):
     
     @property
     def description(self) -> Union[None, str]:
-        # No docs available.
+        """Getter: Edited documentation of the data flow"""
         return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
     def description(self, value: Union[None, str]) -> None:
-        # No docs available.
+        """Setter: Edited documentation of the data flow"""
         self._inner_dict['description'] = value
     
     
-class EditableDatajobPropertiesClass(DictWrapper):
+class EditableDataJobPropertiesClass(DictWrapper):
     """Stores editable changes made to properties. This separates changes made from
     ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"""
     
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.datajob.EditableDatajobProperties")
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.datajob.EditableDataJobProperties")
     def __init__(self,
         created: "AuditStampClass",
         lastModified: "AuditStampClass",
@@ -2176,7 +2176,7 @@ class EditableDatajobPropertiesClass(DictWrapper):
         self.description = description
     
     @classmethod
-    def construct_with_defaults(cls) -> "EditableDatajobPropertiesClass":
+    def construct_with_defaults(cls) -> "EditableDataJobPropertiesClass":
         self = cls.construct({})
         self._restore_defaults()
         
@@ -2227,13 +2227,13 @@ class EditableDatajobPropertiesClass(DictWrapper):
     
     @property
     def description(self) -> Union[None, str]:
-        # No docs available.
+        """Getter: Edited documentation of the data job """
         return self._inner_dict.get('description')  # type: ignore
     
     
     @description.setter
     def description(self, value: Union[None, str]) -> None:
-        # No docs available.
+        """Setter: Edited documentation of the data job """
         self._inner_dict['description'] = value
     
     
@@ -4395,7 +4395,7 @@ class DataFlowSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["DataFlowKeyClass", "DataFlowInfoClass", "EditableDataflowPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]],
+        aspects: List[Union["DataFlowKeyClass", "DataFlowInfoClass", "EditableDataFlowPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]],
     ):
         super().__init__()
         
@@ -4427,13 +4427,13 @@ class DataFlowSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["DataFlowKeyClass", "DataFlowInfoClass", "EditableDataflowPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]:
+    def aspects(self) -> List[Union["DataFlowKeyClass", "DataFlowInfoClass", "EditableDataFlowPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]:
         """Getter: The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["DataFlowKeyClass", "DataFlowInfoClass", "EditableDataflowPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]) -> None:
+    def aspects(self, value: List[Union["DataFlowKeyClass", "DataFlowInfoClass", "EditableDataFlowPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -4444,7 +4444,7 @@ class DataJobSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "EditableDatajobPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]],
+        aspects: List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "EditableDataJobPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]],
     ):
         super().__init__()
         
@@ -4476,13 +4476,13 @@ class DataJobSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "EditableDatajobPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]:
+    def aspects(self) -> List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "EditableDataJobPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]:
         """Getter: The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     
     @aspects.setter
-    def aspects(self, value: List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "EditableDatajobPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]) -> None:
+    def aspects(self, value: List[Union["DataJobKeyClass", "DataJobInfoClass", "DataJobInputOutputClass", "EditableDataJobPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -6062,6 +6062,70 @@ class TrainingDataClass(DictWrapper):
         self._inner_dict['trainingData'] = value
     
     
+class MetadataAuditEventClass(DictWrapper):
+    """Kafka event for capturing update made to an entity's metadata."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataAuditEvent")
+    def __init__(self,
+        newSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
+        auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
+        oldSnapshot: Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]=None,
+    ):
+        super().__init__()
+        
+        self.auditHeader = auditHeader
+        self.oldSnapshot = oldSnapshot
+        self.newSnapshot = newSnapshot
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MetadataAuditEventClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.auditHeader = self.RECORD_SCHEMA.field_map["auditHeader"].default
+        self.oldSnapshot = self.RECORD_SCHEMA.field_map["oldSnapshot"].default
+        self.newSnapshot = ChartSnapshotClass.construct_with_defaults()
+    
+    
+    @property
+    def auditHeader(self) -> Union[None, "KafkaAuditHeaderClass"]:
+        """Getter: Kafka audit header. See go/kafkaauditheader for more info."""
+        return self._inner_dict.get('auditHeader')  # type: ignore
+    
+    
+    @auditHeader.setter
+    def auditHeader(self, value: Union[None, "KafkaAuditHeaderClass"]) -> None:
+        """Setter: Kafka audit header. See go/kafkaauditheader for more info."""
+        self._inner_dict['auditHeader'] = value
+    
+    
+    @property
+    def oldSnapshot(self) -> Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
+        """Getter: Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot."""
+        return self._inner_dict.get('oldSnapshot')  # type: ignore
+    
+    
+    @oldSnapshot.setter
+    def oldSnapshot(self, value: Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
+        """Setter: Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot."""
+        self._inner_dict['oldSnapshot'] = value
+    
+    
+    @property
+    def newSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
+        """Getter: Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."""
+        return self._inner_dict.get('newSnapshot')  # type: ignore
+    
+    
+    @newSnapshot.setter
+    def newSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
+        """Setter: Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."""
+        self._inner_dict['newSnapshot'] = value
+    
+    
 class MetadataChangeEventClass(DictWrapper):
     """Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead."""
     
@@ -7570,8 +7634,8 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.datajob.DataFlowInfo': DataFlowInfoClass,
     'com.linkedin.pegasus2avro.datajob.DataJobInfo': DataJobInfoClass,
     'com.linkedin.pegasus2avro.datajob.DataJobInputOutput': DataJobInputOutputClass,
-    'com.linkedin.pegasus2avro.datajob.EditableDataflowProperties': EditableDataflowPropertiesClass,
-    'com.linkedin.pegasus2avro.datajob.EditableDatajobProperties': EditableDatajobPropertiesClass,
+    'com.linkedin.pegasus2avro.datajob.EditableDataFlowProperties': EditableDataFlowPropertiesClass,
+    'com.linkedin.pegasus2avro.datajob.EditableDataJobProperties': EditableDataJobPropertiesClass,
     'com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType': AzkabanJobTypeClass,
     'com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo': DataPlatformInfoClass,
     'com.linkedin.pegasus2avro.dataplatform.PlatformType': PlatformTypeClass,
@@ -7640,6 +7704,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.ml.metadata.SourceCodeUrl': SourceCodeUrlClass,
     'com.linkedin.pegasus2avro.ml.metadata.SourceCodeUrlType': SourceCodeUrlTypeClass,
     'com.linkedin.pegasus2avro.ml.metadata.TrainingData': TrainingDataClass,
+    'com.linkedin.pegasus2avro.mxe.MetadataAuditEvent': MetadataAuditEventClass,
     'com.linkedin.pegasus2avro.mxe.MetadataChangeEvent': MetadataChangeEventClass,
     'com.linkedin.pegasus2avro.schema.ArrayType': ArrayTypeClass,
     'com.linkedin.pegasus2avro.schema.BinaryJsonSchema': BinaryJsonSchemaClass,
@@ -7710,8 +7775,8 @@ __SCHEMA_TYPES = {
     'DataFlowInfo': DataFlowInfoClass,
     'DataJobInfo': DataJobInfoClass,
     'DataJobInputOutput': DataJobInputOutputClass,
-    'EditableDataflowProperties': EditableDataflowPropertiesClass,
-    'EditableDatajobProperties': EditableDatajobPropertiesClass,
+    'EditableDataFlowProperties': EditableDataFlowPropertiesClass,
+    'EditableDataJobProperties': EditableDataJobPropertiesClass,
     'AzkabanJobType': AzkabanJobTypeClass,
     'DataPlatformInfo': DataPlatformInfoClass,
     'PlatformType': PlatformTypeClass,
@@ -7780,6 +7845,7 @@ __SCHEMA_TYPES = {
     'SourceCodeUrl': SourceCodeUrlClass,
     'SourceCodeUrlType': SourceCodeUrlTypeClass,
     'TrainingData': TrainingDataClass,
+    'MetadataAuditEvent': MetadataAuditEventClass,
     'MetadataChangeEvent': MetadataChangeEventClass,
     'ArrayType': ArrayTypeClass,
     'BinaryJsonSchema': BinaryJsonSchemaClass,

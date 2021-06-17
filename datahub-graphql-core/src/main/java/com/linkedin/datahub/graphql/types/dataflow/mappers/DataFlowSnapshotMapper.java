@@ -12,7 +12,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
-import com.linkedin.datajob.EditableDataflowProperties;
+import com.linkedin.datajob.EditableDataFlowProperties;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 import javax.annotation.Nonnull;
@@ -47,9 +47,9 @@ public class DataFlowSnapshotMapper implements ModelMapper<DataFlowSnapshot, Dat
                 result.setStatus(StatusMapper.map(status));
             } else if (aspect instanceof GlobalTags) {
                 result.setGlobalTags(GlobalTagsMapper.map(GlobalTags.class.cast(aspect)));
-            } else if (aspect instanceof EditableDataflowProperties) {
+            } else if (aspect instanceof EditableDataFlowProperties) {
                 final DataFlowEditableProperties dataFlowEditableProperties = new DataFlowEditableProperties();
-                dataFlowEditableProperties.setDescription(((EditableDataflowProperties) aspect).getDescription());
+                dataFlowEditableProperties.setDescription(((EditableDataFlowProperties) aspect).getDescription());
                 result.setEditableProperties(dataFlowEditableProperties);
             }
         });

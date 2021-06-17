@@ -472,7 +472,12 @@
         "fields" : [ {
           "name" : "description",
           "type" : "string",
-          "optional" : true
+          "doc" : "Edited documentation of the dashboard",
+          "optional" : true,
+          "Searchable" : {
+            "fieldName" : "editedDescription",
+            "fieldType" : "TEXT"
+          }
         } ],
         "Aspect" : {
           "name" : "editableDashboardProperties"
