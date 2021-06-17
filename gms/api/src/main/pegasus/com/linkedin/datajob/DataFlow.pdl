@@ -38,5 +38,5 @@ record DataFlow includes DataFlowKey, ChangeAuditStamps {
   /**
    * Editable properties
    */
-  editableProperties: optional EditableDataflowProperties
+  editableProperties: optional EditableDataFlowProperties
 }

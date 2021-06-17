@@ -553,22 +553,27 @@
       "name" : "editableProperties",
       "type" : {
         "type" : "record",
-        "name" : "EditableDatajobProperties",
+        "name" : "EditableDataJobProperties",
         "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
         "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
         "fields" : [ {
           "name" : "description",
           "type" : "string",
-          "optional" : true
+          "doc" : "Edited documentation of the data job ",
+          "optional" : true,
+          "Searchable" : {
+            "fieldName" : "editedDescription",
+            "fieldType" : "TEXT"
+          }
         } ],
         "Aspect" : {
-          "name" : "editableDatajobProperties"
+          "name" : "editableDataJobProperties"
         }
       },
       "doc" : "Editable properties",
       "optional" : true
     } ]
-  }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", "com.linkedin.datajob.EditableDatajobProperties", "com.linkedin.datajob.azkaban.AzkabanJobType", {
+  }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.datajob.azkaban.AzkabanJobType", {
     "type" : "typeref",
     "name" : "DataJobAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -603,7 +608,7 @@
       "Aspect" : {
         "name" : "dataJobKey"
       }
-    }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDatajobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+    }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
   }, "com.linkedin.metadata.key.DataJobKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
