@@ -10,7 +10,7 @@ mutation updateDataset($input: DatasetUpdateInput!) {
     }
 }
 
-query getDataset($urn: String!) {
+query getDataset($urn: String!, $version: Long) {
     dataset(urn: $urn) {
         urn
         name
@@ -47,11 +47,14 @@ query getDataset($urn: String!) {
                 }
             }
         }
-        schema {
+        schemaMetadata(version: $version) {
+            aspectVersion
+            createdAt
             datasetUrn
             name
             platformUrn
             version
+            cluster
             hash
             platformSchema {
                 ... on TableSchema {
