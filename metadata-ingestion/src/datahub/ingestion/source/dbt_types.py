@@ -1,4 +1,5 @@
-from typing import ValuesView
+import re
+from typing import Any, ValuesView
 
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
@@ -11,8 +12,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
-
-import re
 
 # these can be obtained by running `select format_type(oid, null),* from pg_type;`
 # we've omitted the types without a meaningful DataHub type (e.g. postgres-specific types, index vectors, etc.)
@@ -212,14 +211,16 @@ POSTGRES_MODIFIED_TYPES = {
 }
 
 
-def resolve_postgres_modified_type(type_string: str) -> str:
+def resolve_postgres_modified_type(type_string: str) -> Any:
 
     if type_string.endswith("[]"):
         return ArrayType
 
     for modified_type_base in POSTGRES_MODIFIED_TYPES:
-        if re.match(f"{modified_type_base}\([0-9]+\)"):
+        if re.match(rf"{modified_type_base}\([0-9]+\)", type_string):
             return modified_type_base
+
+    return None
 
 
 # see https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html

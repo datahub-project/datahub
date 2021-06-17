@@ -25,13 +25,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
-    TimeTypeClass,
     StringTypeClass,
+    TimeTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 from src.datahub.ingestion.source.dbt_types import (
-    SNOWFLAKE_TYPES_MAP,
     POSTGRES_TYPES_MAP,
+    SNOWFLAKE_TYPES_MAP,
     resolve_postgres_modified_type,
 )
 
