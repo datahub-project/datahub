@@ -862,118 +862,6 @@
                           "name": "email",
                           "doc": "email address of this user"
                         },
-<<<<<<< HEAD
-                        "java": {
-                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
-                        }
-                      },
-                      {
-                        "name": "jobId",
-                        "type": "string",
-                        "doc": "Unique Identifier of the data job",
-                        "Searchable": {
-                          "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
-                        }
-                      }
-                    ],
-                    "Aspect": {
-                      "name": "dataJobKey"
-                    }
-                  },
-                  {
-                    "type": "record",
-                    "name": "DataJobInfo",
-                    "namespace": "com.linkedin.pegasus2avro.datajob",
-                    "doc": "Information about a Data processing job",
-                    "fields": [
-                      {
-                        "name": "customProperties",
-                        "type": {
-                          "type": "map",
-                          "values": "string"
-                        },
-                        "doc": "Custom property bag.",
-                        "default": {}
-                      },
-                      {
-                        "name": "externalUrl",
-                        "type": [
-                          "null",
-                          "string"
-                        ],
-                        "doc": "URL where the reference exist",
-                        "default": null,
-                        "java": {
-                          "class": "com.linkedin.pegasus2avro.common.url.Url",
-                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
-                        }
-                      },
-                      {
-                        "name": "name",
-                        "type": "string",
-                        "doc": "Job name",
-                        "Searchable": {
-                          "boostScore": 10.0,
-                          "enableAutocomplete": true,
-                          "fieldType": "TEXT_PARTIAL"
-                        }
-                      },
-                      {
-                        "name": "description",
-                        "type": [
-                          "null",
-                          "string"
-                        ],
-                        "doc": "Job description",
-                        "default": null,
-                        "Searchable": {
-                          "fieldType": "TEXT",
-                          "hasValuesFieldName": "hasDescription"
-                        }
-                      },
-                      {
-                        "name": "type",
-                        "type": [
-                          {
-                            "type": "enum",
-                            "name": "AzkabanJobType",
-                            "namespace": "com.linkedin.pegasus2avro.datajob.azkaban",
-                            "doc": "The various types of support azkaban jobs",
-                            "symbols": [
-                              "COMMAND",
-                              "HADOOP_JAVA",
-                              "HADOOP_SHELL",
-                              "HIVE",
-                              "PIG",
-                              "SQL",
-                              "GLUE"
-                            ],
-                            "symbolDocs": {
-                              "COMMAND": "The command job type is one of the basic built-in types. It runs multiple UNIX commands using java processbuilder.\nUpon execution, Azkaban spawns off a process to run the command.",
-                              "GLUE": "Glue type is for running AWS Glue job transforms.",
-                              "HADOOP_JAVA": "Runs a java program with ability to access Hadoop cluster.\nhttps://azkaban.readthedocs.io/en/latest/jobTypes.html#java-job-type",
-                              "HADOOP_SHELL": "In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster\nsecurely, via Hadoop tokens.",
-                              "HIVE": "Hive type is for running Hive jobs.",
-                              "PIG": "Pig type is for running Pig jobs.",
-                              "SQL": "SQL is for running Presto, mysql queries etc"
-                            }
-                          }
-                        ],
-                        "doc": "Datajob type"
-                      },
-                      {
-                        "name": "flowUrn",
-                        "type": [
-                          "null",
-                          "string"
-                        ],
-                        "doc": "DataFlow urn that this job is part of",
-                        "default": null,
-                        "Relationship": {
-                          "entityTypes": [
-                            "dataFlow"
-=======
                         {
                           "Searchable": {
                             "fieldType": "KEYWORD",
@@ -982,7 +870,6 @@
                           "type": [
                             "null",
                             "string"
->>>>>>> 1efc08d845820ab3f390c272b8fb251ef23e9410
                           ],
                           "name": "title",
                           "default": null,
@@ -1656,6 +1543,7 @@
                               "type": "enum",
                               "symbolDocs": {
                                 "COMMAND": "The command job type is one of the basic built-in types. It runs multiple UNIX commands using java processbuilder.\nUpon execution, Azkaban spawns off a process to run the command.",
+                                "GLUE": "Glue type is for running AWS Glue job transforms.",
                                 "HADOOP_JAVA": "Runs a java program with ability to access Hadoop cluster.\nhttps://azkaban.readthedocs.io/en/latest/jobTypes.html#java-job-type",
                                 "HADOOP_SHELL": "In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster\nsecurely, via Hadoop tokens.",
                                 "HIVE": "Hive type is for running Hive jobs.",
@@ -1670,7 +1558,8 @@
                                 "HADOOP_SHELL",
                                 "HIVE",
                                 "PIG",
-                                "SQL"
+                                "SQL",
+                                "GLUE"
                               ],
                               "doc": "The various types of support azkaban jobs"
                             }
