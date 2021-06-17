@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class SourceConfig(DynamicTypedConfig):
-    extractor: str = "mce"
+    extractor: str = "generic"
 
 
 class PipelineConfig(ConfigModel):

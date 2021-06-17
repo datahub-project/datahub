@@ -1,14 +1,14 @@
-from typing import Iterable, cast
+from typing import Iterable
 
 from datahub.ingestion.api import RecordEnvelope
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Extractor, WorkUnit
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 
-class WorkUnitMCEExtractor(Extractor):
-    """An extractor that simply returns MCE-s inside workunits back as records"""
+class WorkUnitRecordExtractor(Extractor):
+    """An extractor that simply returns the data inside workunits back as records."""
 
     def configure(self, config_dict: dict, ctx: PipelineContext) -> None:
         pass
@@ -16,17 +16,22 @@ class WorkUnitMCEExtractor(Extractor):
     def get_records(
         self, workunit: WorkUnit
     ) -> Iterable[RecordEnvelope[MetadataChangeEvent]]:
-        workunit = cast(MetadataWorkUnit, workunit)
-        if len(workunit.mce.proposedSnapshot.aspects) == 0:
-            raise AttributeError("every mce must have at least one aspect")
-        if not workunit.mce.validate():
-            raise ValueError(f"source produced an invalid MCE: {workunit.mce}")
-        yield RecordEnvelope(
-            workunit.mce,
-            {
-                "workunit_id": workunit.id,
-            },
-        )
+        if isinstance(workunit, MetadataWorkUnit):
+            if len(workunit.mce.proposedSnapshot.aspects) == 0:
+                raise AttributeError("every mce must have at least one aspect")
+            if not workunit.mce.validate():
+                raise ValueError(f"source produced an invalid MCE: {workunit.mce}")
+            yield RecordEnvelope(
+                workunit.mce,
+                {
+                    "workunit_id": workunit.id,
+                },
+            )
+        elif isinstance(workunit, UsageStatsWorkUnit):
+            # TODO this
+            pass
+        else:
+            raise ValueError(f"unknown WorkUnit type {type(workunit)}")
 
     def close(self):
         pass
