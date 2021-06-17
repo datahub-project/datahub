@@ -8,3 +8,4 @@ sink:
   config:
     connection:
       bootstrap: localhost:9092
+      schema_registry_url: http://localhost:8081

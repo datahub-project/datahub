@@ -250,6 +250,7 @@ setuptools.setup(
     package_data={
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
+        "datahub.metadata.schemas": ["*.avsc"],
     },
     entry_points=entry_points,
     # Dependencies.
