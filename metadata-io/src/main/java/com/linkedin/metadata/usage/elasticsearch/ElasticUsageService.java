@@ -60,7 +60,7 @@ public class ElasticUsageService implements UsageService {
 
         Map<String, Object> textType = ImmutableMap.<String, Object>builder().put("type", "keyword").build();
         mappings.put("duration", textType);
-        mappings.put("resource", dateType);
+        mappings.put("resource", textType);
 
         return ImmutableMap.of("properties", mappings);
     }
