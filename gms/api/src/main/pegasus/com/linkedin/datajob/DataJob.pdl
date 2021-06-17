@@ -43,5 +43,5 @@ record DataJob includes DataJobKey, ChangeAuditStamps {
   /**
    * Editable properties
    */
-  editableProperties: optional EditableDatajobProperties
+  editableProperties: optional EditableDataJobProperties
 }

@@ -1360,7 +1360,7 @@
                   },
                   {
                     "type": "record",
-                    "name": "EditableDataflowProperties",
+                    "name": "EditableDataFlowProperties",
                     "namespace": "com.linkedin.pegasus2avro.datajob",
                     "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
                     "fields": [
@@ -1398,7 +1398,7 @@
                       }
                     ],
                     "Aspect": {
-                      "name": "editableDataflowProperties"
+                      "name": "editableDataFlowProperties"
                     }
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
@@ -1656,7 +1656,7 @@
                   },
                   {
                     "type": "record",
-                    "name": "EditableDatajobProperties",
+                    "name": "EditableDataJobProperties",
                     "namespace": "com.linkedin.pegasus2avro.datajob",
                     "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
                     "fields": [
@@ -1694,7 +1694,7 @@
                       }
                     ],
                     "Aspect": {
-                      "name": "editableDatajobProperties"
+                      "name": "editableDataJobProperties"
                     }
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",

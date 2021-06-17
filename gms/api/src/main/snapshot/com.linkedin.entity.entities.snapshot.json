@@ -252,7 +252,12 @@
     "fields" : [ {
       "name" : "description",
       "type" : "string",
-      "optional" : true
+      "doc" : "Edited documentation of the chart ",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedDescription",
+        "fieldType" : "TEXT"
+      }
     } ],
     "Aspect" : {
       "name" : "editableChartProperties"
@@ -1148,7 +1153,12 @@
     "fields" : [ {
       "name" : "description",
       "type" : "string",
-      "optional" : true
+      "doc" : "Edited documentation of the dashboard",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedDescription",
+        "fieldType" : "TEXT"
+      }
     } ],
     "Aspect" : {
       "name" : "editableDashboardProperties"
@@ -1312,31 +1322,41 @@
     }
   }, {
     "type" : "record",
-    "name" : "EditableDataflowProperties",
+    "name" : "EditableDataFlowProperties",
     "namespace" : "com.linkedin.datajob",
     "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
     "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
     "fields" : [ {
       "name" : "description",
       "type" : "string",
-      "optional" : true
+      "doc" : "Edited documentation of the data flow",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedDescription",
+        "fieldType" : "TEXT"
+      }
     } ],
     "Aspect" : {
-      "name" : "editableDataflowProperties"
+      "name" : "editableDataFlowProperties"
     }
   }, {
     "type" : "record",
-    "name" : "EditableDatajobProperties",
+    "name" : "EditableDataJobProperties",
     "namespace" : "com.linkedin.datajob",
     "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
     "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
     "fields" : [ {
       "name" : "description",
       "type" : "string",
-      "optional" : true
+      "doc" : "Edited documentation of the data job ",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedDescription",
+        "fieldType" : "TEXT"
+      }
     } ],
     "Aspect" : {
-      "name" : "editableDatajobProperties"
+      "name" : "editableDataJobProperties"
     }
   }, "com.linkedin.datajob.azkaban.AzkabanJobType", {
     "type" : "record",
@@ -1568,7 +1588,11 @@
       "name" : "description",
       "type" : "string",
       "doc" : "Documentation of the dataset",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedDescription",
+        "fieldType" : "TEXT"
+      }
     } ],
     "Aspect" : {
       "name" : "editableDatasetProperties"
@@ -2053,7 +2077,7 @@
                   "Aspect" : {
                     "name" : "dataFlowKey"
                   }
-                }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.EditableDataflowProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.EditableDataFlowProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2109,7 +2133,7 @@
                   "Aspect" : {
                     "name" : "dataJobKey"
                   }
-                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDatajobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
