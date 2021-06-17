@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
@@ -12,15 +13,18 @@ import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
+import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.aspect.AspectType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
@@ -50,6 +54,7 @@ import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
+import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
@@ -97,6 +102,7 @@ public class GmsGraphQLEngine {
             GmsClientFactory.getRelationshipsClient()
     );
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
+    public static final AspectType ASPECT_TYPE = new AspectType(GmsClientFactory.getAspectsClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -196,6 +202,7 @@ public class GmsGraphQLEngine {
         return GraphQLEngine.builder()
                 .addSchema(schema())
                 .addDataLoaders(loaderSuppliers(LOADABLE_TYPES))
+                .addDataLoader("Aspect", (context) -> createAspectLoader(context))
                 .configureRuntimeWiring(GmsGraphQLEngine::configureRuntimeWiring);
     }
 
@@ -292,6 +299,9 @@ public class GmsGraphQLEngine {
                             new LoadableTypeResolver<>(
                                     UPSTREAM_LINEAGE_TYPE,
                                     (env) -> ((Entity) env.getSource()).getUrn()))
+                    )
+                    .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
+                        new AspectResolver())
                     )
             )
             .type("Owner", typeWiring -> typeWiring
@@ -459,6 +469,7 @@ public class GmsGraphQLEngine {
             .type("HyperParameterValueType", typeWiring -> typeWiring
                     .typeResolver(new HyperParameterValueTypeResolver())
             )
+            .type("Aspect", typeWiring -> typeWiring.typeResolver(new AspectInterfaceTypeResolver()))
             .type("ResultsType", typeWiring -> typeWiring
                     .typeResolver(new ResultsTypeResolver()));
     }
@@ -519,7 +530,7 @@ public class GmsGraphQLEngine {
     }
 
 
-    private static <T> DataLoader<String, T> createDataLoader(final LoadableType<T> graphType, final QueryContext queryContext) {
+    private static <T> DataLoader<String, DataFetcherResult<T>> createDataLoader(final LoadableType<T> graphType, final QueryContext queryContext) {
         BatchLoaderContextProvider contextProvider = () -> queryContext;
         DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
         return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {
@@ -527,6 +538,18 @@ public class GmsGraphQLEngine {
                 return graphType.batchLoad(keys, context.getContext());
             } catch (Exception e) {
                 throw new RuntimeException(String.format("Failed to retrieve entities of type %s", graphType.name()), e);
+            }
+        }), loaderOptions);
+    }
+
+    private static DataLoader<VersionedAspectKey, DataFetcherResult<Aspect>> createAspectLoader(final QueryContext queryContext) {
+        BatchLoaderContextProvider contextProvider = () -> queryContext;
+        DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
+        return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {
+            try {
+                return ASPECT_TYPE.batchLoad(keys, context.getContext());
+            } catch (Exception e) {
+                throw new RuntimeException(String.format("Failed to retrieve entities of type Aspect", e));
             }
         }), loaderOptions);
     }

@@ -17,6 +17,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
 
+import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
@@ -46,7 +47,7 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
     }
 
     @Override
-    public List<CorpGroup> batchLoad(final List<String> urns, final QueryContext context) {
+    public List<DataFetcherResult<CorpGroup>> batchLoad(final List<String> urns, final QueryContext context) {
         try {
             final List<CorpGroupUrn> corpGroupUrns = urns
                     .stream()
@@ -61,7 +62,8 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup> {
                 results.add(corpGroupMap.getOrDefault(urn, null));
             }
             return results.stream()
-                    .map(gmsCorpGroup -> gmsCorpGroup == null ? null : CorpGroupSnapshotMapper.map(gmsCorpGroup.getValue().getCorpGroupSnapshot()))
+                    .map(gmsCorpGroup -> gmsCorpGroup == null ? null
+                        : DataFetcherResult.<CorpGroup>newResult().data(CorpGroupSnapshotMapper.map(gmsCorpGroup.getValue().getCorpGroupSnapshot())).build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load CorpGroup", e);

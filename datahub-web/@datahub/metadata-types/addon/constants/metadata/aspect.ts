@@ -6,7 +6,7 @@ type AspectsOfSnapshot<Snapshot> = Snapshot extends { aspects: Array<infer Aspec
  * @param {SnapshotMetadataAspectKeyName} metadataAspectKey the metadata aspect key to find on the aspect's metadata object
  * @returns {((aspect: ArrayElement<Snapshot['aspects']>) => boolean)}
  */
-const getMetadataAspectWithMetadataAspectKey = <Aspect extends {}, AspectKey extends keyof Aspect>(
+const getMetadataVersionedAspectAspectKey = <Aspect extends {}, AspectKey extends keyof Aspect>(
   metadataAspectKey: AspectKey
 ): ((aspect: Aspect) => boolean) => (aspect: Aspect): boolean => aspect.hasOwnProperty(metadataAspectKey);
 
@@ -40,7 +40,7 @@ export const getMetadataAspect = <
 ): AspectsOfSnapshot<Snapshot>[AspectKey] | undefined => {
   const { aspects = [] } = snapshot || {};
   // Find the aspect with the metadata key that matches the passed in metadataAspectKey
-  const [relevantAspect] = aspects.filter(getMetadataAspectWithMetadataAspectKey(metadataAspectKey));
+  const [relevantAspect] = aspects.filter(getMetadataVersionedAspectAspectKey(metadataAspectKey));
 
   return relevantAspect ? getMetadataAspectValue(metadataAspectKey, relevantAspect) : undefined;
 };

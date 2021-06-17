@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.types.chart.mappers;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.chart.EditableChartProperties;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.generated.ChartUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
@@ -29,7 +32,9 @@ public class ChartUpdateInputSnapshotMapper implements InputModelMapper<ChartUpd
     public ChartSnapshot apply(@Nonnull final ChartUpdateInput chartUpdateInput,
                                @Nonnull final Urn actor) {
         final ChartSnapshot result = new ChartSnapshot();
-
+        final AuditStamp auditStamp = new AuditStamp();
+        auditStamp.setActor(actor, SetMode.IGNORE_NULL);
+        auditStamp.setTime(System.currentTimeMillis());
         try {
             result.setUrn(ChartUrn.createFromString(chartUpdateInput.getUrn()));
         } catch (URISyntaxException e) {
@@ -52,6 +57,16 @@ public class ChartUpdateInputSnapshotMapper implements InputModelMapper<ChartUpd
                     )
             );
             aspects.add(ChartAspect.create(globalTags));
+        }
+
+        if (chartUpdateInput.getEditableProperties() != null) {
+            final EditableChartProperties editableChartProperties = new EditableChartProperties();
+            editableChartProperties.setDescription(chartUpdateInput.getEditableProperties().getDescription());
+            if (!editableChartProperties.hasCreated()) {
+                editableChartProperties.setCreated(auditStamp);
+            }
+            editableChartProperties.setLastModified(auditStamp);
+            aspects.add(ChartAspect.create(editableChartProperties));
         }
 
         result.setAspects(aspects);

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.chart.mappers;
 
+import com.linkedin.chart.EditableChartProperties;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
@@ -39,6 +40,12 @@ public class ChartUpdateInputMapper implements InputModelMapper<ChartUpdateInput
                     )
             );
             result.setGlobalTags(globalTags);
+        }
+
+        if (chartUpdateInput.getEditableProperties() != null) {
+            final EditableChartProperties editableChartProperties = new EditableChartProperties();
+            editableChartProperties.setDescription(chartUpdateInput.getEditableProperties().getDescription());
+            result.setEditableProperties(editableChartProperties);
         }
         return result;
     }

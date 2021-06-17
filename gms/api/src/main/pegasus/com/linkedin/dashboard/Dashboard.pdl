@@ -34,4 +34,9 @@ record Dashboard includes DashboardKey {
    * List of global tags applied to the dashboard
    */
   globalTags: optional GlobalTags
+
+  /**
+   * Editable properties
+   */
+  editableProperties: optional EditableDashboardProperties
 }
