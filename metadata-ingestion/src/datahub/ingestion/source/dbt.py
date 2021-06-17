@@ -5,6 +5,7 @@ import time
 from typing import Any, Dict, Iterable, List
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
@@ -28,7 +29,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
-from datahub.configuration.common import AllowDenyPattern
 
 logger = logging.getLogger(__name__)
 
