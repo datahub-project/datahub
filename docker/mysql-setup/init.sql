@@ -13,6 +13,7 @@ create table if not exists metadata_aspect_v2 (
   createdby                     varchar(255) not null,
   createdfor                    varchar(255),
   constraint pk_metadata_aspect primary key (urn,aspect,version)
+  index aspectName (`aspect`)
 );
 
 -- create default records for datahub user if not exists
@@ -37,10 +38,6 @@ INSERT INTO metadata_aspect_v2
 SELECT * FROM temp_metadata_aspect_v2
 WHERE NOT EXISTS (SELECT * from metadata_aspect_v2);
 DROP TABLE temp_metadata_aspect_v2;
-
--- create index on the "aspect" column to support aspect-oriented queries.
--- TODO: Add conditional index creation.
-ALTER TABLE metadata_aspect_v2 ADD INDEX (aspect);
 
 -- create metadata index table
 CREATE TABLE IF NOT EXISTS metadata_index (
