@@ -15,7 +15,7 @@ record MLFeatureSnapshot {
   urn: MLFeatureUrn
 
   /**
-   * The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects.
+   * The list of metadata aspects associated with the MLFeature. Depending on the use case, this can either be all, or a selection, of supported aspects.
    */
   aspects: array[MLFeatureAspect]
 }

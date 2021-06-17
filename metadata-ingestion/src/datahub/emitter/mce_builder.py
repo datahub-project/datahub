@@ -52,6 +52,26 @@ def make_data_job_urn(
     )
 
 
+def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
+
+    return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
+
+
+def make_ml_feature_urn(
+    feature_table_name: str,
+    feature_name: str,
+) -> str:
+
+    return f"urn:li:mlFeature:({feature_table_name},{feature_name})"
+
+
+def make_ml_feature_table_urn(platform: str, feature_table_name: str) -> str:
+
+    return (
+        f"urn:li:mlFeatureTable:(urn:li:dataPlatform:{platform},{feature_table_name})"
+    )
+
+
 def make_lineage_mce(
     upstream_urns: List[str],
     downstream_urn: str,
