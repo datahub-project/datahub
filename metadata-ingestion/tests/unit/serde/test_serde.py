@@ -11,7 +11,8 @@ import datahub.metadata.schema_classes as models
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.mce_file import iterate_mce_file
-from datahub.metadata.schema_classes import SCHEMA_JSON_STR, MetadataChangeEventClass
+from datahub.metadata.schema_classes import MetadataChangeEventClass
+from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
 
 # The current PytestConfig solution is somewhat ugly and not ideal.
@@ -68,7 +69,7 @@ def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
     mces = list(iterate_mce_file(str(json_path)))
 
     # Serialize to Avro.
-    parsed_schema = fastavro.parse_schema(json.loads(SCHEMA_JSON_STR))
+    parsed_schema = fastavro.parse_schema(json.loads(getMetadataChangeEventSchema()))
     fo = io.BytesIO()
     out_records = [mce.to_obj(tuples=True) for mce in mces]
     fastavro.writer(fo, parsed_schema, out_records)
