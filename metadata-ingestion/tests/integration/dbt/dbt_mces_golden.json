@@ -530,6 +530,38 @@
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null
+                            },
+                            {
+                                "fieldPath": "emails",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": null
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "text[]",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null
+                            },
+                            {
+                                "fieldPath": "cost",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "money",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null
                             }
                         ],
                         "primaryKeys": null,

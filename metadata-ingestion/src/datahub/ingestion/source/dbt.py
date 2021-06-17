@@ -99,14 +99,13 @@ def extract_dbt_entities(
     environment: str,
 ) -> List[DBTNode]:
     dbt_entities = []
-    for key in nodes:
-        node = nodes[key]
+    for key, node in nodes.items():
         dbtNode = DBTNode()
 
-        if key not in catalog and load_catalog is False:
+        if key not in catalog and not load_catalog:
             continue
 
-        if "identifier" in node and load_catalog is False:
+        if "identifier" in node and not load_catalog:
             dbtNode.name = node["identifier"]
         else:
             dbtNode.name = node["name"]
@@ -176,15 +175,13 @@ def loadManifestAndCatalog(
 
             all_catalog_entities = {**catalog_nodes, **catalog_sources}
 
-            nodes = extract_dbt_entities(
+            return extract_dbt_entities(
                 all_manifest_entities,
                 all_catalog_entities,
                 load_catalog,
                 target_platform,
                 environment,
             )
-
-            return nodes
 
 
 def get_urn_from_dbtNode(
@@ -196,11 +193,11 @@ def get_urn_from_dbtNode(
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
-    properties = {}
-    properties["dbt_node_type"] = node.node_type
-    properties["materialization"] = node.materialization
-    properties["dbt_file_path"] = node.dbt_file_path
-    return properties
+    return {
+        "dbt_node_type": node.node_type,
+        "materialization": node.materialization,
+        "dbt_file_path": node.dbt_file_path,
+    }
 
 
 def get_upstreams(
@@ -217,7 +214,7 @@ def get_upstreams(
 
         dbtNode_upstream.database = all_nodes[upstream]["database"]
         dbtNode_upstream.schema = all_nodes[upstream]["schema"]
-        if "identifier" in all_nodes[upstream] and load_catalog is False:
+        if "identifier" in all_nodes[upstream] and not load_catalog:
             dbtNode_upstream.name = all_nodes[upstream]["identifier"]
         else:
             dbtNode_upstream.name = all_nodes[upstream]["name"]
@@ -248,9 +245,7 @@ def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
         )
         ucl.append(uc)
 
-    ulc = UpstreamLineage(upstreams=ucl)
-
-    return ulc
+    return UpstreamLineage(upstreams=ucl)
 
 
 # See https://github.com/fishtown-analytics/dbt/blob/master/core/dbt/adapters/sql/impl.py
@@ -275,19 +270,12 @@ def get_column_type(
     """
     Maps known DBT types to datahub types
     """
-    column_type_stripped = ""
-
-    pattern = re.compile(r"[\w ]+")  # drop all non alphanumerics
-    match = pattern.match(column_type)
-    if match is not None:
-        column_type_stripped = match.group()
-
-    TypeClass: Any = _field_type_mapping.get(column_type_stripped)
+    TypeClass: Any = _field_type_mapping.get(column_type)
 
     if TypeClass is None:
 
         # attempt Postgres modified type
-        TypeClass = resolve_postgres_modified_type(column_type_stripped)
+        TypeClass = resolve_postgres_modified_type(column_type)
 
     # if still not found, report the warning
     if TypeClass is None:
@@ -317,7 +305,7 @@ def get_schema_metadata(
         canonical_schema.append(field)
 
     actor, sys_time = "urn:li:corpuser:dbt_executor", int(time.time()) * 1000
-    schema_metadata = SchemaMetadata(
+    return SchemaMetadata(
         schemaName=node.dbt_name,
         platform=f"urn:li:dataPlatform:{platform}",
         version=0,
@@ -327,7 +315,6 @@ def get_schema_metadata(
         lastModified=AuditStamp(time=sys_time, actor=actor),
         fields=canonical_schema,
     )
-    return schema_metadata
 
 
 class DBTSource(Source):

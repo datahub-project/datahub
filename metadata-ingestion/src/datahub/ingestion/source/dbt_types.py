@@ -11,6 +11,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     RecordType,
     StringType,
     TimeType,
+    UnionType,
 )
 
 # these can be obtained by running `select format_type(oid, null),* from pg_type;`
@@ -19,6 +20,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 
 # we map from format_type since this is what dbt uses
 # see https://github.com/fishtown-analytics/dbt/blob/master/plugins/postgres/dbt/include/postgres/macros/catalog.sql#L22
+
+# see https://www.npgsql.org/dev/types.html for helpful type annotations
 POSTGRES_TYPES_MAP = {
     "boolean": BooleanType,
     "bytea": BytesType,
@@ -38,7 +41,7 @@ POSTGRES_TYPES_MAP = {
     "json": RecordType,
     "xml": RecordType,
     "xid8": None,  # object identifier
-    "point": None,  # 2-d point
+    "point": None,  # 2D point
     "lseg": None,  # line segment
     "path": None,  # path of points
     "box": None,  # a pair of corner points
@@ -74,18 +77,18 @@ POSTGRES_TYPES_MAP = {
     "regtype": None,
     "regrole": None,
     "regnamespace": None,
-    "uuid": None,
+    "uuid": StringType,
     "pg_lsn": None,
-    "tsvector": None,
-    "gtsvector": None,
-    "tsquery": None,
+    "tsvector": None,  # text search vector
+    "gtsvector": None,  # GiST for tsvector. Probably internal type.
+    "tsquery": None,  # text search query tree
     "regconfig": None,
     "regdictionary": None,
     "jsonb": BytesType,
-    "jsonpath": None,
+    "jsonpath": None,  # path to property in a JSON doc
     "txid_snapshot": None,
     "pg_snapshot": None,
-    "int4range": None,
+    "int4range": None,  # don't have support for ranges yet
     "numrange": None,
     "tsrange": None,
     "tstzrange": None,
@@ -94,7 +97,7 @@ POSTGRES_TYPES_MAP = {
     "record": RecordType,
     "record[]": ArrayType,
     "cstring": None,
-    '"any"': None,
+    '"any"': UnionType,
     "anyarray": ArrayType,
     "void": None,
     "trigger": None,
@@ -217,8 +220,8 @@ def resolve_postgres_modified_type(type_string: str) -> Any:
         return ArrayType
 
     for modified_type_base in POSTGRES_MODIFIED_TYPES:
-        if re.match(rf"{modified_type_base}\([0-9]+\)", type_string):
-            return modified_type_base
+        if re.match(rf"{modified_type_base}\([0-9,]+\)", type_string):
+            return POSTGRES_TYPES_MAP[modified_type_base]
 
     return None
 

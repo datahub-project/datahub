@@ -40,6 +40,18 @@
           "comment": null,
           "index": 4,
           "name": "email"
+        },
+        "emails": {
+          "type": "text[]",
+          "comment": null,
+          "index": 4,
+          "name": "emails"
+        },
+        "cost": {
+          "type": "money",
+          "comment": null,
+          "index": 4,
+          "name": "cost"
         }
       },
       "stats": {
