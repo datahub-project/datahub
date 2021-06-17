@@ -1519,6 +1519,13 @@ class VersionTagClass(DictWrapper):
         self._inner_dict['versionTag'] = value
     
     
+class WindowDurationClass(object):
+    """Enum to define the length of a bucket when doing aggregations"""
+    
+    DAY = "DAY"
+    HOUR = "HOUR"
+    
+    
 class TransformationTypeClass(object):
     """Type of the transformation involved in generating destination fields from source fields."""
     
@@ -7593,6 +7600,199 @@ class TagPropertiesClass(DictWrapper):
         self._inner_dict['description'] = value
     
     
+class UsageAggregationClass(DictWrapper):
+    """Usage data for a given resource, rolled up into a bucket."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.usage.UsageAggregation")
+    def __init__(self,
+        bucket: int,
+        duration: Union[str, "WindowDurationClass"],
+        resource: str,
+        metrics: "UsageAggregationMetricsClass",
+    ):
+        super().__init__()
+        
+        self.bucket = bucket
+        self.duration = duration
+        self.resource = resource
+        self.metrics = metrics
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "UsageAggregationClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.bucket = int()
+        self.duration = WindowDurationClass.DAY
+        self.resource = str()
+        self.metrics = UsageAggregationMetricsClass.construct_with_defaults()
+    
+    
+    @property
+    def bucket(self) -> int:
+        """Getter:  Bucket start time in milliseconds """
+        return self._inner_dict.get('bucket')  # type: ignore
+    
+    
+    @bucket.setter
+    def bucket(self, value: int) -> None:
+        """Setter:  Bucket start time in milliseconds """
+        self._inner_dict['bucket'] = value
+    
+    
+    @property
+    def duration(self) -> Union[str, "WindowDurationClass"]:
+        """Getter:  Bucket duration """
+        return self._inner_dict.get('duration')  # type: ignore
+    
+    
+    @duration.setter
+    def duration(self, value: Union[str, "WindowDurationClass"]) -> None:
+        """Setter:  Bucket duration """
+        self._inner_dict['duration'] = value
+    
+    
+    @property
+    def resource(self) -> str:
+        """Getter:  Resource associated with these usage stats """
+        return self._inner_dict.get('resource')  # type: ignore
+    
+    
+    @resource.setter
+    def resource(self, value: str) -> None:
+        """Setter:  Resource associated with these usage stats """
+        self._inner_dict['resource'] = value
+    
+    
+    @property
+    def metrics(self) -> "UsageAggregationMetricsClass":
+        """Getter:  Metrics associated with this bucket """
+        return self._inner_dict.get('metrics')  # type: ignore
+    
+    
+    @metrics.setter
+    def metrics(self, value: "UsageAggregationMetricsClass") -> None:
+        """Setter:  Metrics associated with this bucket """
+        self._inner_dict['metrics'] = value
+    
+    
+class UsageAggregationMetricsClass(DictWrapper):
+    """Metrics for usage data for a given resource and bucket. Not all fields
+    make sense for all buckets, so every field is optional."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.usage.UsageAggregationMetrics")
+    def __init__(self,
+        users: Union[None, List["UsersUsageCountsClass"]]=None,
+        top_sql_queries: Union[None, List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.users = users
+        self.top_sql_queries = top_sql_queries
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "UsageAggregationMetricsClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.users = self.RECORD_SCHEMA.field_map["users"].default
+        self.top_sql_queries = self.RECORD_SCHEMA.field_map["top_sql_queries"].default
+    
+    
+    @property
+    def users(self) -> Union[None, List["UsersUsageCountsClass"]]:
+        """Getter:  Users within this bucket, with frequency counts """
+        return self._inner_dict.get('users')  # type: ignore
+    
+    
+    @users.setter
+    def users(self, value: Union[None, List["UsersUsageCountsClass"]]) -> None:
+        """Setter:  Users within this bucket, with frequency counts """
+        self._inner_dict['users'] = value
+    
+    
+    @property
+    def top_sql_queries(self) -> Union[None, List[str]]:
+        """Getter:  Frequent SQL queries; mostly makes sense for datasets in SQL databases """
+        return self._inner_dict.get('top_sql_queries')  # type: ignore
+    
+    
+    @top_sql_queries.setter
+    def top_sql_queries(self, value: Union[None, List[str]]) -> None:
+        """Setter:  Frequent SQL queries; mostly makes sense for datasets in SQL databases """
+        self._inner_dict['top_sql_queries'] = value
+    
+    
+class UsersUsageCountsClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.usage.UsersUsageCounts")
+    def __init__(self,
+        user: str,
+        count: int,
+        user_email: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.user = user
+        self.count = count
+        self.user_email = user_email
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "UsersUsageCountsClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.user = str()
+        self.count = int()
+        self.user_email = self.RECORD_SCHEMA.field_map["user_email"].default
+    
+    
+    @property
+    def user(self) -> str:
+        # No docs available.
+        return self._inner_dict.get('user')  # type: ignore
+    
+    
+    @user.setter
+    def user(self, value: str) -> None:
+        # No docs available.
+        self._inner_dict['user'] = value
+    
+    
+    @property
+    def count(self) -> int:
+        # No docs available.
+        return self._inner_dict.get('count')  # type: ignore
+    
+    
+    @count.setter
+    def count(self, value: int) -> None:
+        # No docs available.
+        self._inner_dict['count'] = value
+    
+    
+    @property
+    def user_email(self) -> Union[None, str]:
+        """Getter:  If user_email is set, we attempt to resolve the user's urn upon ingest """
+        return self._inner_dict.get('user_email')  # type: ignore
+    
+    
+    @user_email.setter
+    def user_email(self, value: Union[None, str]) -> None:
+        """Setter:  If user_email is set, we attempt to resolve the user's urn upon ingest """
+        self._inner_dict['user_email'] = value
+    
+    
 __SCHEMA_TYPES = {
     'com.linkedin.events.KafkaAuditHeader': KafkaAuditHeaderClass,
     'com.linkedin.pegasus2avro.chart.ChartInfo': ChartInfoClass,
@@ -7624,6 +7824,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.common.Status': StatusClass,
     'com.linkedin.pegasus2avro.common.TagAssociation': TagAssociationClass,
     'com.linkedin.pegasus2avro.common.VersionTag': VersionTagClass,
+    'com.linkedin.pegasus2avro.common.WindowDuration': WindowDurationClass,
     'com.linkedin.pegasus2avro.common.fieldtransformer.TransformationType': TransformationTypeClass,
     'com.linkedin.pegasus2avro.common.fieldtransformer.UDFTransformer': UDFTransformerClass,
     'com.linkedin.pegasus2avro.dashboard.DashboardInfo': DashboardInfoClass,
@@ -7735,6 +7936,9 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.schema.UnionType': UnionTypeClass,
     'com.linkedin.pegasus2avro.schema.UrnForeignKey': UrnForeignKeyClass,
     'com.linkedin.pegasus2avro.tag.TagProperties': TagPropertiesClass,
+    'com.linkedin.pegasus2avro.usage.UsageAggregation': UsageAggregationClass,
+    'com.linkedin.pegasus2avro.usage.UsageAggregationMetrics': UsageAggregationMetricsClass,
+    'com.linkedin.pegasus2avro.usage.UsersUsageCounts': UsersUsageCountsClass,
     'KafkaAuditHeader': KafkaAuditHeaderClass,
     'ChartInfo': ChartInfoClass,
     'ChartQuery': ChartQueryClass,
@@ -7765,6 +7969,7 @@ __SCHEMA_TYPES = {
     'Status': StatusClass,
     'TagAssociation': TagAssociationClass,
     'VersionTag': VersionTagClass,
+    'WindowDuration': WindowDurationClass,
     'TransformationType': TransformationTypeClass,
     'UDFTransformer': UDFTransformerClass,
     'DashboardInfo': DashboardInfoClass,
@@ -7876,6 +8081,9 @@ __SCHEMA_TYPES = {
     'UnionType': UnionTypeClass,
     'UrnForeignKey': UrnForeignKeyClass,
     'TagProperties': TagPropertiesClass,
+    'UsageAggregation': UsageAggregationClass,
+    'UsageAggregationMetrics': UsageAggregationMetricsClass,
+    'UsersUsageCounts': UsersUsageCountsClass,
 }
 
 _json_converter = avrojson.AvroJsonConverter(use_logical_types=False, schema_types=__SCHEMA_TYPES)

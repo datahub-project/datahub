@@ -18,4 +18,8 @@ def getMetadataChangeEventSchema() -> str:
 @functools.lru_cache(maxsize=None)
 def getMetadataAuditEventSchema() -> str:
     return _load_schema("MetadataAuditEvent")
+
+@functools.lru_cache(maxsize=None)
+def getUsageAggregationSchema() -> str:
+    return _load_schema("UsageAggregation")
 # fmt: on
