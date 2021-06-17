@@ -9,6 +9,7 @@ from .....schema_classes import DatasetFieldMappingClass
 from .....schema_classes import DatasetLineageTypeClass
 from .....schema_classes import DatasetPropertiesClass
 from .....schema_classes import DatasetUpstreamLineageClass
+from .....schema_classes import EditableDatasetPropertiesClass
 from .....schema_classes import UpstreamClass
 from .....schema_classes import UpstreamLineageClass
 
@@ -18,6 +19,7 @@ DatasetFieldMapping = DatasetFieldMappingClass
 DatasetLineageType = DatasetLineageTypeClass
 DatasetProperties = DatasetPropertiesClass
 DatasetUpstreamLineage = DatasetUpstreamLineageClass
+EditableDatasetProperties = EditableDatasetPropertiesClass
 Upstream = UpstreamClass
 UpstreamLineage = UpstreamLineageClass
 # fmt: on
