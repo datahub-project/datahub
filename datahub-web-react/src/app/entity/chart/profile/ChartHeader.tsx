@@ -1,9 +1,11 @@
 import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
-import { AuditStamp, ChartType, Ownership, EntityType } from '../../../../types.generated';
+import { FetchResult, MutationFunctionOptions } from '@apollo/client';
+import { EntityType, Chart } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { AvatarsGroup } from '../../../shared/avatar';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
+import UpdatableDescription from '../../shared/UpdatableDescription';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 const styles = {
@@ -11,23 +13,13 @@ const styles = {
 };
 
 export type Props = {
-    urn: string;
-    platform: string;
-    description?: string | null;
-    ownership?: Ownership | null;
-    lastModified?: AuditStamp;
-    externalUrl?: string | null;
-    chartType?: ChartType | null;
+    chart: Chart;
+    updateChart: (options?: MutationFunctionOptions<any, any> | undefined) => Promise<FetchResult>;
 };
 
 export default function ChartHeader({
-    urn,
-    platform,
-    description,
-    ownership,
-    externalUrl,
-    lastModified,
-    chartType,
+    chart: { urn, type, info, tool, ownership, editableProperties },
+    updateChart,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -38,7 +30,7 @@ export default function ChartHeader({
             entityType: EntityType.Chart,
             entityUrn: urn,
         });
-        window.open(externalUrl || undefined, '_blank');
+        window.open(info?.externalUrl || undefined, '_blank');
     };
 
     return (
@@ -46,21 +38,27 @@ export default function ChartHeader({
             <Row justify="space-between">
                 <Space split={<Divider type="vertical" />}>
                     <Typography.Text strong type="secondary">
-                        {chartType ? `${capitalizeFirstLetter(chartType.toLowerCase())} ` : ''}Chart
+                        {info?.type ? `${capitalizeFirstLetter(info?.type.toLowerCase())} ` : ''}Chart
                     </Typography.Text>
                     <Typography.Text strong type="secondary">
-                        {capitalizeFirstLetter(platform.toLowerCase())}
+                        {capitalizeFirstLetter(tool.toLowerCase())}
                     </Typography.Text>
-                    {externalUrl && (
-                        <Button onClick={openExternalUrl}>View in {capitalizeFirstLetter(platform)}</Button>
+                    {info?.externalUrl && (
+                        <Button onClick={openExternalUrl}>View in {capitalizeFirstLetter(tool)}</Button>
                     )}
                 </Space>
             </Row>
-            <Typography.Paragraph>{description}</Typography.Paragraph>
+            <UpdatableDescription
+                updateEntity={updateChart}
+                updatedDescription={editableProperties?.description}
+                originalDescription={info?.description}
+                entityType={type}
+                urn={urn}
+            />
             <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
-            {lastModified && (
+            {info?.lastModified && (
                 <Typography.Text type="secondary">
-                    Last modified at {new Date(lastModified.time).toLocaleDateString('en-US')}
+                    Last modified at {new Date(info?.lastModified.time).toLocaleDateString('en-US')}
                 </Typography.Text>
             )}
         </Space>

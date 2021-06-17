@@ -182,6 +182,9 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
         if (dataJob.hasGlobalTags()) {
             aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getGlobalTags()));
         }
+        if (dataJob.hasEditableProperties()) {
+            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getEditableProperties()));
+        }
         return ModelUtils.newSnapshot(DataJobSnapshot.class, urn, aspects);
     }
 
@@ -193,7 +196,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
 
         try {
             Entity entity = new Entity();
-            entity.setValue(Snapshot.create(toSnapshot(partialDataJob, partialDataJob.getUrn())));
+            entity.setValue(Snapshot.create(toSnapshot(partialDataJob, DataJobUrn.createFromString(input.getUrn()))));
             _dataJobsClient.update(entity);
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);

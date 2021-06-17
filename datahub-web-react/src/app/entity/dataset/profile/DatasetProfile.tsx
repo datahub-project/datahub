@@ -58,7 +58,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         return <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />;
     }
 
-    const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} />;
+    const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} updateDataset={updateDataset} />;
 
     const getTabs = ({
         ownership,

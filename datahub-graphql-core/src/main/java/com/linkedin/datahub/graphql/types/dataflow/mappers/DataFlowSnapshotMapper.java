@@ -4,6 +4,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.datahub.graphql.generated.DataFlow;
+import com.linkedin.datahub.graphql.generated.DataFlowEditableProperties;
 import com.linkedin.datahub.graphql.generated.DataFlowInfo;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -11,6 +12,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.datajob.EditableDataflowProperties;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 import javax.annotation.Nonnull;
@@ -45,6 +47,10 @@ public class DataFlowSnapshotMapper implements ModelMapper<DataFlowSnapshot, Dat
                 result.setStatus(StatusMapper.map(status));
             } else if (aspect instanceof GlobalTags) {
                 result.setGlobalTags(GlobalTagsMapper.map(GlobalTags.class.cast(aspect)));
+            } else if (aspect instanceof EditableDataflowProperties) {
+                final DataFlowEditableProperties dataFlowEditableProperties = new DataFlowEditableProperties();
+                dataFlowEditableProperties.setDescription(((EditableDataflowProperties) aspect).getDescription());
+                result.setEditableProperties(dataFlowEditableProperties);
             }
         });
         return result;

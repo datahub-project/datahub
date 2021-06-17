@@ -247,6 +247,11 @@ type Dataset implements EntityWithRelationships & Entity {
     properties: [StringMapEntry!]
 
     """
+    A list of editable platform-specific metadata tuples
+    """
+    editableProperties: DatasetEditableProperties
+
+    """
     External URL associated with the Dataset
     """
     externalUrl: String
@@ -711,6 +716,36 @@ enum SchemaFieldDataType {
     ARRAY
     UNION
     STRUCT
+}
+type DatasetEditableProperties {
+    """
+    Description
+    """
+    description: String
+}
+type ChartEditableProperties {
+    """
+    Description
+    """
+    description: String
+}
+type DashboardEditableProperties {
+    """
+    Description
+    """
+    description: String
+}
+type DataJobEditableProperties {
+    """
+    Description
+    """
+    description: String
+}
+type DataFlowEditableProperties {
+    """
+    Description
+    """
+    description: String
 }
 
 type EntityRelationship {
@@ -1398,78 +1433,98 @@ type BrowsePath {
 }
 
 input ChartUpdateInput {
-   """
-   The chart urn
-   """
-   urn: String!
+    """
+    The chart urn
+    """
+    urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+    """
+    Update to global tags
+    """
+    globalTags: GlobalTagsUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: ChartEditablePropertiesUpdate
 }
 
 input DashboardUpdateInput {
-   """
-   The dashboard urn
-   """
-   urn: String!
+    """
+    The dashboard urn
+    """
+    urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+    """
+    Update to global tags
+    """
+    globalTags: GlobalTagsUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: DashboardEditablePropertiesUpdate
 }
 
 input DataFlowUpdateInput {
-   """
-   The dataFlow urn
-   """
-   urn: String!
+    """
+    The dataFlow urn
+    """
+    urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+    """
+    Update to global tags
+    """
+    globalTags: GlobalTagsUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: DataFlowEditablePropertiesUpdate
 }
 
 input DataJobUpdateInput {
-   """
-   The dataJob urn
-   """
-   urn: String!
+    """
+    The dataJob urn
+    """
+    urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+    """
+    Update to global tags
+    """
+    globalTags: GlobalTagsUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: DataJobEditablePropertiesUpdate
 }
 
 input DatasetUpdateInput {
     """
     The dataset urn
     """
-   urn: String!
+    urn: String!
 
     """
     Update to ownership
@@ -1495,6 +1550,11 @@ input DatasetUpdateInput {
     Update to editable schema metadata of the dataset
     """
     editableSchemaMetadata: EditableSchemaMetadataUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: DatasetEditablePropertiesUpdate
 }
 
 input EditableSchemaMetadataUpdate {
@@ -1516,6 +1576,41 @@ input EditableSchemaFieldInfoUpdate {
     Tags associated with the field
     """
     globalTags: GlobalTagsUpdate
+}
+
+input DatasetEditablePropertiesUpdate {
+    """
+    Description
+    """
+    description: String!
+}
+
+input ChartEditablePropertiesUpdate {
+    """
+    Description
+    """
+    description: String!
+}
+
+input DashboardEditablePropertiesUpdate {
+    """
+    Description
+    """
+    description: String!
+}
+
+input DataJobEditablePropertiesUpdate {
+    """
+    Description
+    """
+    description: String!
+}
+
+input DataFlowEditablePropertiesUpdate {
+    """
+    Description
+    """
+    description: String!
 }
 
 input GlobalTagsUpdate {
@@ -1657,6 +1752,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     Entities downstream of the given entity
     """
     downstreamLineage: DownstreamEntityRelationships
+
+    """
+    Editable properties
+    """
+    editableProperties: DashboardEditableProperties
 }
 
 type DashboardInfo {
@@ -1778,6 +1878,11 @@ type Chart implements EntityWithRelationships & Entity {
     Entities downstream of the given entity
     """
     downstreamLineage: DownstreamEntityRelationships
+
+    """
+    Editable properties
+    """
+    editableProperties: ChartEditableProperties
 }
 
 type ChartInfo {
@@ -2361,6 +2466,11 @@ type DataFlow implements Entity {
     DataJobs
     """
     dataJobs: DataFlowDataJobsRelationships
+
+    """
+    Editable properties
+    """
+    editableProperties: DataFlowEditableProperties
 }
 
 type DataFlowInfo {
@@ -2446,6 +2556,10 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     status: Status
 
+    """
+    Editable properties
+    """
+    editableProperties: DataJobEditableProperties
 }
 
 type DataJobInfo {
