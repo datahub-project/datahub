@@ -167,6 +167,7 @@ class GlueSource(Source):
 
         jobs = []
 
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_jobs
         paginator = self.glue_client.get_paginator("get_jobs")
         for page in paginator.paginate():
             jobs += page["Jobs"]
@@ -189,10 +190,12 @@ class GlueSource(Source):
         key = url.path[1:]
 
         # download the script contents
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.get_object
         obj = self.s3_client.get_object(Bucket=bucket, Key=key)
         script = obj["Body"].read().decode("utf-8")
 
         # extract the job DAG from the script
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_dataflow_graph
         return self.glue_client.get_dataflow_graph(PythonScript=script)
 
     def process_dataflow_graph(self, dataflow_graph, flow_urn):
@@ -384,6 +387,8 @@ class GlueSource(Source):
     def get_all_tables(self) -> List[dict]:
         def get_tables_from_database(database_name: str) -> List[dict]:
             new_tables = []
+
+            # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_tables
             paginator = self.glue_client.get_paginator("get_tables")
             for page in paginator.paginate(DatabaseName=database_name):
                 new_tables += page["TableList"]
@@ -392,6 +397,8 @@ class GlueSource(Source):
 
         def get_database_names() -> List[str]:
             database_names = []
+
+            # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_databases
             paginator = self.glue_client.get_paginator("get_databases")
             for page in paginator.paginate():
                 for db in page["DatabaseList"]:
