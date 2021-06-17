@@ -3,9 +3,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM jwilder/dockerize:0.6.1 AS base
-
-RUN apk add --no-cache curl jq
+FROM dockdevx/jwilderslim:1.0 AS base
 
 FROM base AS prod-install
 
