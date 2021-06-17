@@ -423,7 +423,12 @@
                           "null",
                           "string"
                         ],
-                        "default": null
+                        "doc": "Edited documentation of the chart ",
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "editedDescription",
+                          "fieldType": "TEXT"
+                        }
                       }
                     ],
                     "Aspect": {
@@ -1203,7 +1208,12 @@
                           "null",
                           "string"
                         ],
-                        "default": null
+                        "doc": "Edited documentation of the dashboard",
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "editedDescription",
+                          "fieldType": "TEXT"
+                        }
                       }
                     ],
                     "Aspect": {
@@ -1350,7 +1360,7 @@
                   },
                   {
                     "type": "record",
-                    "name": "EditableDataflowProperties",
+                    "name": "EditableDataFlowProperties",
                     "namespace": "com.linkedin.pegasus2avro.datajob",
                     "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
                     "fields": [
@@ -1379,11 +1389,16 @@
                           "null",
                           "string"
                         ],
-                        "default": null
+                        "doc": "Edited documentation of the data flow",
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "editedDescription",
+                          "fieldType": "TEXT"
+                        }
                       }
                     ],
                     "Aspect": {
-                      "name": "editableDataflowProperties"
+                      "name": "editableDataFlowProperties"
                     }
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
@@ -1641,7 +1656,7 @@
                   },
                   {
                     "type": "record",
-                    "name": "EditableDatajobProperties",
+                    "name": "EditableDataJobProperties",
                     "namespace": "com.linkedin.pegasus2avro.datajob",
                     "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
                     "fields": [
@@ -1670,11 +1685,16 @@
                           "null",
                           "string"
                         ],
-                        "default": null
+                        "doc": "Edited documentation of the data job ",
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "editedDescription",
+                          "fieldType": "TEXT"
+                        }
                       }
                     ],
                     "Aspect": {
-                      "name": "editableDatajobProperties"
+                      "name": "editableDataJobProperties"
                     }
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
@@ -1868,7 +1888,11 @@
                           "string"
                         ],
                         "doc": "Documentation of the dataset",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldName": "editedDescription",
+                          "fieldType": "TEXT"
+                        }
                       }
                     ],
                     "Aspect": {
