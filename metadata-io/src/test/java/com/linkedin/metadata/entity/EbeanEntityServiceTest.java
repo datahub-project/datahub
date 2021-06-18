@@ -201,7 +201,7 @@ public class EbeanEntityServiceTest {
     _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP);
 
     // List aspects
-    ListResult<RecordTemplate> batch1 = _entityService.listLatestAspects(aspectName, 0, 2);
+    ListResult<RecordTemplate> batch1 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 0, 2);
 
     assertEquals(2, batch1.getNextStart());
     assertEquals(2, batch1.getPageSize());
@@ -211,7 +211,7 @@ public class EbeanEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(writeAspect1,  batch1.getValues().get(0)));
     assertTrue(DataTemplateUtil.areEqual(writeAspect2,  batch1.getValues().get(1)));
 
-    ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(aspectName, 2, 2);
+    ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 2, 2);
     assertEquals(1, batch2.getValues().size());
     assertTrue(DataTemplateUtil.areEqual(writeAspect3,  batch2.getValues().get(0)));
   }
