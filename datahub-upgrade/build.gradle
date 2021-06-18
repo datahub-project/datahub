@@ -9,6 +9,7 @@ dependencies {
   compile project(':gms:factories')
 
   compile externalDependency.javaxInject
+  compile externalDependency.hadoopClient
   compile externalDependency.lombok
   compile externalDependency.picocli
   compile externalDependency.parquet

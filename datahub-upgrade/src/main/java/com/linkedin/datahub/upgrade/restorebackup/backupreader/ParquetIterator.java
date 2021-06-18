@@ -10,6 +10,10 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.parquet.hadoop.ParquetReader;
 
 
+/**
+ * Iterator to retrieve EbeanAspectV2 objects from the ParquetReader
+ * Converts the avro GeneralRecord object into EbeanAspectV2
+ */
 @RequiredArgsConstructor
 public class ParquetIterator implements BackupIterator {
   private final ParquetReader<GenericRecord> _parquetReader;

@@ -37,9 +37,9 @@ public class RestoreBackup implements Upgrade {
       final EntityRegistry entityRegistry, final GraphService graphClient, final RestHighLevelClient searchClient) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new GMSQualificationStep());
-//    steps.add(new DeleteSearchIndicesStep(searchClient));
-//    steps.add(new DeleteGraphRelationshipsStep(graphClient));
-//    steps.add(new ClearAspectV2TableStep(server));
+    steps.add(new DeleteSearchIndicesStep(searchClient));
+    steps.add(new DeleteGraphRelationshipsStep(graphClient));
+    steps.add(new ClearAspectV2TableStep(server));
     steps.add(new RestoreStorageStep(entityService, entityRegistry));
     return steps;
   }

@@ -1,6 +1,5 @@
 package com.linkedin.datahub.upgrade.restoreindices;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -15,7 +14,6 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.ebean.EbeanServer;
 import io.ebean.PagedList;
-import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -102,8 +100,7 @@ public class SendMAEStep implements UpgradeStep {
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
-          // 5. Write the row back using the EntityService
-          boolean emitMae = aspect.getKey().getVersion() == 0L;
+          // 5. Produce MAE events for the aspect record
           _entityService.produceMetadataAuditEvent(urn, null, aspectRecord);
 
           totalRowsMigrated++;
@@ -125,21 +122,6 @@ public class SendMAEStep implements UpgradeStep {
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
-  }
-
-  private AuditStamp toAuditStamp(final EbeanAspectV2 aspect) {
-    final AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setTime(aspect.getCreatedOn().getTime());
-
-    try {
-      auditStamp.setActor(new Urn(aspect.getCreatedBy()));
-      if (aspect.getCreatedFor() != null) {
-        auditStamp.setImpersonator(new Urn(aspect.getCreatedFor()));
-      }
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-    return auditStamp;
   }
 
   private PagedList<EbeanAspectV2> getPagedAspects(final int start, final int pageSize) {
