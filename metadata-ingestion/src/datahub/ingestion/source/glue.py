@@ -3,7 +3,7 @@ import time
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from functools import reduce
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import boto3
@@ -198,7 +198,9 @@ class GlueSource(Source):
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_dataflow_graph
         return self.glue_client.get_dataflow_graph(PythonScript=script)
 
-    def process_dataflow_graph(self, dataflow_graph, flow_urn):
+    def process_dataflow_graph(
+        self, dataflow_graph: Dict[str, Any], flow_urn: str
+    ) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[MetadataChangeEvent]]:
         """
         Prepare a job's DAG for ingestion.
 
