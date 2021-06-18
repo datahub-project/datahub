@@ -20,7 +20,7 @@ Current chart version is `0.2.0`
 | global.datahub.gms.port | string | `"8080"` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"linkedin/datahub-frontend-react"` |  |
-| image.tag | string | `"v0.8.1"` |  |
+| image.tag | string | `"v0.8.3"` |  |
 | imagePullSecrets | list | `[]` |  |
 | ingress.annotations | object | `{}` |  |
 | ingress.enabled | bool | `false` |  |

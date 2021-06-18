@@ -8,7 +8,7 @@ A Helm chart for datahub's metadata-ingestion framework with kerberos authentica
 |-----|------|---------|-------------|
 | image.pullPolicy | string | `"Always"` | Image pull policy |
 | image.repository | string | `"linkedin/datahub-ingestion"` | DataHub Ingestion image repository |
-| image.tag | string | `"v0.8.1"` | DataHub Ingestion image tag |
+| image.tag | string | `"v0.8.3"` | DataHub Ingestion image tag |
 | imagePullSecrets | array | `[]` (does not add image pull secrets to deployed pods) | Docker registry secret names as an array |
 | labels | string | `{}` | Metadata labels to be added to each crawling cron job |
 | crons | type | `{}` | A map of crawling parameters per different technology being crawler, the key in the object will be used as the name for the new cron job |
