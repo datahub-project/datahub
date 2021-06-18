@@ -1,4 +1,5 @@
-import { Typography, message } from 'antd';
+import { Typography, message, Tag } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
@@ -7,10 +8,23 @@ import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated'
 import UpdateDescriptionModal from '../../../shared/DescriptionModal';
 import MarkdownViewer from '../../../shared/MarkdownViewer';
 
+const EditIcon = styled(EditOutlined)`
+    cursor: pointer;
+    padding: 2px;
+    margin-left: 8px;
+    display: none;
+`;
+
 const DescriptionContainer = styled.div`
     position: relative;
     display: flex;
     flex-direction: row;
+    width: 100%;
+    height: 100%;
+    min-height: 22px;
+    &:hover ${EditIcon} {
+        display: block;
+    }
 `;
 
 const DescriptionText = styled(MarkdownViewer)`
@@ -25,6 +39,10 @@ const EditedLabel = styled(Typography.Text)`
     font-style: italic;
 `;
 
+const AddNewDescription = styled(Tag)`
+    cursor: pointer;
+`;
+
 type Props = {
     description: string;
     updatedDescription?: string | null;
@@ -37,11 +55,18 @@ export default function DescriptionField({ description, updatedDescription, onUp
     const [showAddModal, setShowAddModal] = useState(false);
 
     const onCloseModal = () => setShowAddModal(false);
+    const currentDesc: string = !!updatedDescription || updatedDescription === '' ? updatedDescription : description;
 
     const onUpdateModal = async (desc: string | null) => {
         message.loading({ content: 'Updating...' });
-        await onUpdate(desc || '');
-        message.success({ content: 'Updated!', duration: 2 });
+        try {
+            await onUpdate(desc || '');
+            message.destroy();
+            message.success({ content: 'Updated!', duration: 2 });
+        } catch (e) {
+            message.destroy();
+            message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
+        }
         onCloseModal();
     };
 
@@ -52,22 +77,25 @@ export default function DescriptionField({ description, updatedDescription, onUp
                 e.stopPropagation();
             }}
         >
-            <DescriptionText
-                source={updatedDescription || description}
-                editable
-                onEditClicked={() => setShowAddModal(true)}
-            />
-            {updatedDescription && <EditedLabel>(edited)</EditedLabel>}
+            <DescriptionText source={currentDesc} />
+            <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />
+            {(!!updatedDescription || updatedDescription === '') && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <div>
                     <UpdateDescriptionModal
-                        title="Update description"
-                        description={updatedDescription || description}
+                        title={currentDesc ? 'Update description' : 'Add description'}
+                        description={currentDesc}
                         original={description}
                         onClose={onCloseModal}
                         onSubmit={onUpdateModal}
+                        isAddDesc={currentDesc === null}
                     />
                 </div>
+            )}
+            {currentDesc === null && (
+                <AddNewDescription color="success" onClick={() => setShowAddModal(true)}>
+                    + Add Description
+                </AddNewDescription>
             )}
         </DescriptionContainer>
     );

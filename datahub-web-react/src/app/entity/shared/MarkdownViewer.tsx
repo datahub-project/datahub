@@ -4,8 +4,6 @@ import { EditOutlined } from '@ant-design/icons';
 import MDEditor from '@uiw/react-md-editor';
 import styled from 'styled-components';
 
-// const { Text } = Typography;
-
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
     position: absolute;
@@ -111,7 +109,7 @@ export default function MarkdownViewer({ source, limit = 150, editable, onEditCl
                     {showAll ? 'show less' : 'show more'}
                 </CustomButton>
             )}
-            <EditIcon twoToneColor="#52c41a" onClick={onEditClicked} />
+            {editable && <EditIcon twoToneColor="#52c41a" onClick={onEditClicked} />}
         </MarkdownContainer>
     );
 }
