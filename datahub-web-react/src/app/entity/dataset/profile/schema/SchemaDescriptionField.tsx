@@ -15,6 +15,11 @@ const EditIcon = styled(EditOutlined)`
     display: none;
 `;
 
+const AddNewDescription = styled(Tag)`
+    cursor: pointer;
+    display: none;
+`;
+
 const DescriptionContainer = styled.div`
     position: relative;
     display: flex;
@@ -23,6 +28,10 @@ const DescriptionContainer = styled.div`
     height: 100%;
     min-height: 22px;
     &:hover ${EditIcon} {
+        display: block;
+    }
+
+    &:hover ${AddNewDescription} {
         display: block;
     }
 `;
@@ -37,10 +46,6 @@ const EditedLabel = styled(Typography.Text)`
     top: -15px;
     color: rgba(150, 150, 150, 0.5);
     font-style: italic;
-`;
-
-const AddNewDescription = styled(Tag)`
-    cursor: pointer;
 `;
 
 type Props = {
@@ -92,7 +97,7 @@ export default function DescriptionField({ description, updatedDescription, onUp
                     />
                 </div>
             )}
-            {currentDesc === null && (
+            {!currentDesc && currentDesc !== '' && (
                 <AddNewDescription color="success" onClick={() => setShowAddModal(true)}>
                     + Add Description
                 </AddNewDescription>
