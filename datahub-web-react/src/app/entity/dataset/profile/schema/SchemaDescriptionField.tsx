@@ -11,6 +11,7 @@ import MarkdownViewer from '../../../shared/MarkdownViewer';
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
     padding: 2px;
+    margin-top: 4px;
     margin-left: 8px;
     display: none;
 `;
@@ -83,8 +84,8 @@ export default function DescriptionField({ description, updatedDescription, onUp
             }}
         >
             <DescriptionText source={currentDesc} />
-            <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />
-            {(!!updatedDescription || updatedDescription === '') && <EditedLabel>(edited)</EditedLabel>}
+            {currentDesc && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
+            {updatedDescription && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <div>
                     <UpdateDescriptionModal
@@ -93,11 +94,11 @@ export default function DescriptionField({ description, updatedDescription, onUp
                         original={description}
                         onClose={onCloseModal}
                         onSubmit={onUpdateModal}
-                        isAddDesc={currentDesc === null}
+                        isAddDesc={!currentDesc}
                     />
                 </div>
             )}
-            {!currentDesc && currentDesc !== '' && (
+            {!currentDesc && (
                 <AddNewDescription color="success" onClick={() => setShowAddModal(true)}>
                     + Add Description
                 </AddNewDescription>
