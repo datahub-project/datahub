@@ -41,6 +41,7 @@ spec:
           containers:
             - name: datahub-upgrade-job
               image: "{{ .Values.datahubUpgrade.image.repository }}:{{ .Values.datahubUpgrade.image.tag }}"
+              imagePullPolicy: {{ .Values.datahubUpgrade.imagePullPolicy | default "Always" }}
               args: [ "-u", "NoCodeDataMigrationCleanup" ]
               env:
                 - name: DATAHUB_GMS_HOST

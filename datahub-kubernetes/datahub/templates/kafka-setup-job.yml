@@ -45,6 +45,7 @@ spec:
       containers:
         - name: kafka-setup-job
           image: "{{ .Values.kafkaSetupJob.image.repository }}:{{ .Values.kafkaSetupJob.image.tag }}"
+          imagePullPolicy: {{ .Values.kafkaSetupJob.imagePullPolicy | default "Always" }}
           env:
             - name: KAFKA_ZOOKEEPER_CONNECT
               value: {{ .Values.global.kafka.zookeeper.server | quote }}

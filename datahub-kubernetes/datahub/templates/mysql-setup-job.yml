@@ -39,6 +39,7 @@ spec:
       containers:
         - name: mysql-setup-job
           image: "{{ .Values.mysqlSetupJob.image.repository }}:{{ .Values.mysqlSetupJob.image.tag }}"
+          imagePullPolicy: {{ .Values.mysqlSetupJob.imagePullPolicy | default "Always" }}
           env:
             - name: DATAHUB_DB_NAME
               value: {{ .Values.global.sql.datasource.db | quote }}

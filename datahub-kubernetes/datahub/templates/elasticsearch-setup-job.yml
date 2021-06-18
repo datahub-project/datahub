@@ -39,6 +39,7 @@ spec:
       containers:
         - name: elasticsearch-setup-job
           image: "{{ .Values.elasticsearchSetupJob.image.repository }}:{{ .Values.elasticsearchSetupJob.image.tag }}"
+          imagePullPolicy: {{ .Values.elasticsearchSetupJob.imagePullPolicy | default "Always" }}
           env:
             - name: ELASTICSEARCH_HOST
               value: {{ .Values.global.elasticsearch.host | quote }}
