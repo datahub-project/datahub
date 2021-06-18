@@ -61,7 +61,7 @@ export default function DescriptionField({ description, updatedDescription, onUp
     const [showAddModal, setShowAddModal] = useState(false);
 
     const onCloseModal = () => setShowAddModal(false);
-    const currentDesc: string = !!updatedDescription || updatedDescription === '' ? updatedDescription : description;
+    const currentDesc: string = updatedDescription || description;
 
     const onUpdateModal = async (desc: string | null) => {
         message.loading({ content: 'Updating...' });
