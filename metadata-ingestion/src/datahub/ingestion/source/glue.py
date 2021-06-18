@@ -285,7 +285,7 @@ class GlueSource(Source):
                     flow_urn, job_id=f'{node["NodeType"]}-{node["Id"]}'
                 )
 
-            nodes[node["id"]] = {
+            nodes[node["Id"]] = {
                 **node,
                 "urn": node_urn,
                 # to be filled in after traversing edges
