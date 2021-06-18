@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.hadoop.ParquetReader;
 
@@ -30,6 +31,9 @@ public class S3BackupReader implements BackupReader {
 
   public S3BackupReader() {
     _client = AmazonS3ClientBuilder.standard().withRegion(Regions.US_WEST_2).build();
+    // Need below to solve issue with hadoop path class not working in linux systems
+    // https://stackoverflow.com/questions/41864985/hadoop-ioexception-failure-to-login
+    UserGroupInformation.setLoginUser(UserGroupInformation.createRemoteUser("hduser"));
   }
 
   @Override
@@ -45,7 +49,6 @@ public class S3BackupReader implements BackupReader {
       context.report().addLine("BACKUP_S3_BUCKET and BACKUP_S3_PATH must be set to run RestoreBackup through S3");
       return null;
     }
-
     Optional<String> localFilePath = getFileKey(bucket.get(), path.get()).flatMap(key -> saveFile(bucket.get(), key));
     if (!localFilePath.isPresent()) {
       context.report()

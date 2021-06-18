@@ -17,8 +17,10 @@ dependencies {
   compile externalDependency.springCore
   compile externalDependency.springKafka
 
-  compile 'com.amazonaws:aws-java-sdk-s3:1.12.1'
-  compile 'org.apache.hadoop:hadoop-client:3.1.0'
+  compile externalDependency.awsJavaSdkCore
+  compile externalDependency.awsJavaSdkSts
+  compile externalDependency.awsJavaSdkS3
+  compile externalDependency.hadoopClient
   runtime externalDependency.mariadbConnector
   runtime externalDependency.mysqlConnector
   runtime externalDependency.postgresql
