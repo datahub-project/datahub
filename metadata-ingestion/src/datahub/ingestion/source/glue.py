@@ -213,7 +213,7 @@ class GlueSource(Source):
         new_dataset_ids = []
         new_dataset_mces = []
 
-        nodes = {}
+        nodes: dict = {}
 
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
@@ -305,13 +305,13 @@ class GlueSource(Source):
 
             # note that source nodes can't be data sinks
             if source_node_type == "DataSource":
-                nodes[edge["Target"]]["inputDatasets"].append(source_node["urn"])
+                target_node["inputDatasets"].append(source_node["urn"])
             # keep track of input data jobs (as defined in schemas)
             else:
-                nodes[edge["Target"]]["inputDatajobs"].append(source_node["urn"])
+                target_node["inputDatajobs"].append(source_node["urn"])
             # track output datasets (these can't be input datasets)
             if target_node_type == "DataSink":
-                nodes[edge["Source"]]["outputDatasets"].append(target_node["urn"])
+                source_node["outputDatasets"].append(target_node["urn"])
 
         return nodes, new_dataset_ids, new_dataset_mces
 
