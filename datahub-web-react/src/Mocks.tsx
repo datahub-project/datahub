@@ -279,6 +279,7 @@ export const dataset3 = {
         ],
     },
     schema: null,
+    schemaMetadata: null,
     editableSchemaMetadata: null,
     deprecation: null,
 } as Dataset;
