@@ -138,11 +138,12 @@ public class EbeanEntityService extends EntityService {
   @Override
   @Nonnull
   public ListResult<RecordTemplate> listLatestAspects(
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       int count) {
 
-    final ListResult<String> aspectMetadataList = _entityDao.listLatestAspectMetadata(aspectName, start, count);
+    final ListResult<String> aspectMetadataList = _entityDao.listLatestAspectMetadata(entityName, aspectName, start, count);
 
     final List<RecordTemplate> aspects = new ArrayList<>();
     for (int i = 0; i < aspectMetadataList.getValues().size(); i++) {

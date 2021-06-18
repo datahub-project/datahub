@@ -11,9 +11,6 @@ CREATE TABLE metadata_aspect_v2 (
   CONSTRAINT pk_metadata_aspect PRIMARY KEY (urn,aspect,version)
 );
 
--- create index on the "aspect" column to support aspect-oriented queries.
-CREATE INDEX aspectName ON metadata_aspect_v2 (aspect);
-
 INSERT INTO metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
   'corpUserInfo',
