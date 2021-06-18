@@ -211,4 +211,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       return null;
     });
   }
+
+  /*
+  Used to disable writes in GMS during restore
+   */
+  @Action(name = "disableWrite")
+  @Nonnull
+  public Task<Void> disableWrite() {
+    _logger.info("setting entity resource to not be writable");
+    return RestliUtils.toTask(() -> {
+      _entityService.disableWrite();
+      return null;
+    });
+  }
 }
