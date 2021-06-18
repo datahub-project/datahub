@@ -327,8 +327,8 @@ class BigQueryUsageSource(Source):
         for i, entry in enumerate(
             self.client.list_entries(filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE)
         ):
-            if i % GCP_LOGGING_PAGE_SIZE == 0:
-                logger.info("processing log entry %d", i)
+            if i == 0:
+                logger.debug("starting log load from BigQuery")
             yield entry
         logger.debug("finished loading log entries from BigQuery")
 
