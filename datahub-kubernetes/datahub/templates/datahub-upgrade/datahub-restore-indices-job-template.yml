@@ -98,7 +98,7 @@ spec:
                     secretKeyRef:
                       name: "{{ .Values.global.neo4j.password.secretRef }}"
                       key: "{{ .Values.global.neo4j.password.secretKey }}"
-              {{- with .Values.datahubUpgrade.restoreBackup.extraEnvs }}
+              {{- with .Values.datahubUpgrade.extraEnvs }}
                 {{- toYaml . | nindent 16 }}
               {{- end }}
               volumeMounts:
