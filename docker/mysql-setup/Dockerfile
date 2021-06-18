@@ -1,4 +1,4 @@
-FROM jwilder/dockerize:0.6.1
+FROM dockdevx/jwilderslim:1.0
 
 RUN apk add --no-cache mysql-client
 
