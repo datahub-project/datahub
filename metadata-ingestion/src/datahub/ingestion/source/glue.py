@@ -246,9 +246,7 @@ class GlueSource(Source):
                     if s3_name.endswith("/"):
                         s3_name = s3_name[:-1]
 
-                    node_urn = (
-                        f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{self.env})"
-                    )
+                    node_urn = f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name}:{node_args.get('format')},{self.env})"
 
                     dataset_snapshot = DatasetSnapshot(
                         urn=node_urn,
