@@ -9,7 +9,7 @@ import java.time.temporal.ChronoUnit;
 public class AuthUtils {
 
     public static final String SESSION_TTL_CONFIG_PATH = "auth.session.ttlInHours";
-    public static final Integer DEFAULT_SESSION_TTL_HOURS = 24;
+    public static final Integer DEFAULT_SESSION_TTL_HOURS = 720;
     public static final CorpuserUrn DEFAULT_ACTOR_URN = new CorpuserUrn("datahub");
 
     public static final String LOGIN_ROUTE = "/login";
