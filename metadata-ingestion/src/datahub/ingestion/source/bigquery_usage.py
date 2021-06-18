@@ -1,15 +1,15 @@
 import collections
+import dataclasses
 import enum
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pprint import pprint
 from typing import Any, Counter, Dict, Iterable, List, Optional, Union
 
 import cachetools
 import pydantic
-from google.cloud.logging_v2.client import Client
+from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -147,7 +147,8 @@ class ReadEvent:
 
     payload: Any
 
-    # FIXME: we really should use composition here, but this is just simpler.
+    # We really should use composition here since the query isn't actually
+    # part of the read event, but this solution is just simpler.
     query: Optional[str] = None  # populated via join
 
     @classmethod
@@ -241,8 +242,8 @@ class AggregatedDataset:
     bucket_start_time: datetime
     resource: BigQueryTableRef
 
-    queryFreq: Counter[str] = field(default_factory=collections.Counter)
-    userCounts: Counter[str] = field(default_factory=collections.Counter)
+    queryFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
+    userCounts: Counter[str] = dataclasses.field(default_factory=collections.Counter)
     # TODO add column usage counters
 
 
@@ -272,8 +273,9 @@ class BigQueryUsageConfig(ConfigModel):
         )
 
 
+@dataclass
 class BigQueryUsageSourceReport(SourceReport):
-    dropped_table: Counter[str] = field(default_factory=collections.Counter)
+    dropped_table: Counter[str] = dataclasses.field(default_factory=collections.Counter)
 
     def report_dropped(self, key: str) -> None:
         self.dropped_table[key] += 1
@@ -283,7 +285,7 @@ class BigQueryUsageSource(Source):
     config: BigQueryUsageConfig
     report: BigQueryUsageSourceReport
 
-    client: Client
+    client: GCPLoggingClient
 
     def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
         super().__init__(ctx)
@@ -296,7 +298,7 @@ class BigQueryUsageSource(Source):
 
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
-        self.client = Client(**client_options, _use_grpc=False)
+        self.client = GCPLoggingClient(**client_options, _use_grpc=False)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigQueryUsageSource":
@@ -446,19 +448,3 @@ class BigQueryUsageSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-
-if __name__ == "__main__":
-    # TODO: remove this bit
-    source = BigQueryUsageSource.create(
-        dict(
-            project_id="harshal-playground-306419",
-            start_time=datetime.now(tz=timezone.utc) - timedelta(days=25),
-        ),
-        PipelineContext(run_id="bq-usage"),
-    )
-    events = list(source.get_workunits())
-    # pprint(events)
-    pprint(f"Processed {len(events)} entries")
-    breakpoint()
-    exit(0)

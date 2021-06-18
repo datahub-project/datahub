@@ -132,12 +132,14 @@ base_dev_requirements = {
     "deepdiff",
     "requests-mock",
     "freezegun",
+    "jsonpickle",
     "build",
     "twine",
     *list(
         dependency
         for plugin in [
             "bigquery",
+            "bigquery-usage",
             "mysql",
             "mssql",
             "mongodb",
@@ -180,6 +182,7 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.athena:AthenaSource",
         "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
+        "bigquery-usage = datahub.ingestion.source.bigquery_usage:BigQueryUsageSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.druid:DruidSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
