@@ -99,7 +99,6 @@ class DatahubRestEmitter:
 
         raw_usage_obj = usageStats.to_obj()
         usage_obj = _rest_li_ify(raw_usage_obj)
-        breakpoint()
 
         snapshot = {
             "buckets": [
