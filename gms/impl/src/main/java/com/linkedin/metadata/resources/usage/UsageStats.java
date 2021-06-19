@@ -28,6 +28,13 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     private static final String ACTION_BATCH_INGEST = "batchIngest";
     private static final String PARAM_BUCKETS = "buckets";
 
+    private static final String ACTION_QUERY = "query";
+    private static final String PARAM_RESOURCE = "resource";
+    private static final String PARAM_WINDOW = "window";
+    private static final String PARAM_START_TIME = "start_time";
+    private static final String PARAM_END_TIME = "end_time";
+    private static final String PARAM_MAX_BUCKETS = "max_buckets";
+
     @Inject
     @Named("usageService")
     private UsageService _usageService;
@@ -46,6 +53,21 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         });
     }
 
+    @Action(name = ACTION_QUERY)
+    @Nonnull
+    public Task<Void> query(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
+                            @ActionParam(PARAM_WINDOW) @Nonnull WindowDuration window,
+                            @ActionParam(PARAM_START_TIME) Integer start_time,
+                            @ActionParam(PARAM_END_TIME) Integer end_time/*,
+                            @ActionParam(PARAM_MAX_BUCKETS) Integer max_buckets*/) {
+        _logger.info("Attempting to query usage stats");
+        return RestliUtils.toTask(() -> {
+            // TODO this
+            return null;
+        });
+    }
+
+
     private void ingest(@Nonnull UsageAggregation bucket) {
         String id = String.format("(%d,%s,%s)", bucket.getBucket(), bucket.getDuration(), bucket.getResource());
 
@@ -62,6 +84,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
                 ObjectNode userDocument = JsonNodeFactory.instance.objectNode();
                 userDocument.set("user", JsonNodeFactory.instance.textNode(userUsage.getUser().toString()));
                 userDocument.set("count", JsonNodeFactory.instance.numberNode(userUsage.getCount()));
+                users.add(userDocument);
             });
             document.set("metrics.users", users);
         });

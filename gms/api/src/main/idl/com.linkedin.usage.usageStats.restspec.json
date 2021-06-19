@@ -12,6 +12,21 @@
         "name" : "buckets",
         "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.usage.UsageAggregation\" }"
       } ]
+    }, {
+      "name" : "query",
+      "parameters" : [ {
+        "name" : "resource",
+        "type" : "string"
+      }, {
+        "name" : "window",
+        "type" : "com.linkedin.common.WindowDuration"
+      }, {
+        "name" : "start_time",
+        "type" : "int"
+      }, {
+        "name" : "end_time",
+        "type" : "int"
+      } ]
     } ],
     "entity" : {
       "path" : "/usageStats"
