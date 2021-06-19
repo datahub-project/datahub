@@ -242,9 +242,11 @@ class AggregatedDataset:
     bucket_start_time: datetime
     resource: BigQueryTableRef
 
+    readCount: int = 0
+    queryCount: int = 0
     queryFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
-    userCounts: Counter[str] = dataclasses.field(default_factory=collections.Counter)
-    # TODO add column usage counters
+    userFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
+    columnFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
 
 
 class BigQueryUsageConfig(ConfigModel):
@@ -414,9 +416,13 @@ class BigQueryUsageSource(Source):
                 AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
             )
 
-            agg_bucket.userCounts[event.actor_email] += 1
+            agg_bucket.readCount += 1
+            agg_bucket.userFreq[event.actor_email] += 1
             if event.query:
+                agg_bucket.queryCount += 1
                 agg_bucket.queryFreq[event.query] += 1
+            for column in event.fieldsRead:
+                agg_bucket.columnFreq[column] += 1
 
         return datasets
 
@@ -434,7 +440,7 @@ class BigQueryUsageSource(Source):
                             count=count,
                             user_email=user_email,
                         )
-                        for user_email, count in agg.userCounts.most_common()
+                        for user_email, count in agg.userFreq.most_common()
                     ],
                     top_sql_queries=[
                         query
