@@ -202,7 +202,7 @@ class GlueSource(Source):
 
     def get_dataflow_s3_names(
         self, dataflow_graph: Dict[str, Any]
-    ) -> Tuple[Iterator[str], Optional[str]]:
+    ) -> Iterator[Tuple[str, Optional[str]]]:
 
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
