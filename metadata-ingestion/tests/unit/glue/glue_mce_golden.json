@@ -483,6 +483,31 @@
   {
     "auditHeader": null,
     "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+        "urn": "urn:li:dataFlow:(glue,test-job-2,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+              "customProperties": {
+                "role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole-glue-crawler",
+                "created": "2021-06-10 16:58:32.469000",
+                "modified": "2021-06-10 16:58:32.469000",
+                "command": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-2.py"
+              },
+              "externalUrl": null,
+              "name": "test-job-2",
+              "description": "The second test job",
+              "project": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
         "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0)",
         "aspects": [
@@ -495,7 +520,7 @@
                 "nodeId": "Transform0"
               },
               "externalUrl": null,
-              "name": "test-job-1:Filter-Transform0",
+              "name": "test-job-2:Filter-Transform0",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -532,7 +557,7 @@
                 "nodeId": "Transform1"
               },
               "externalUrl": null,
-              "name": "test-job-1:ApplyMapping-Transform1",
+              "name": "test-job-2:ApplyMapping-Transform1",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -569,7 +594,7 @@
                 "nodeId": "Transform2"
               },
               "externalUrl": null,
-              "name": "test-job-1:ApplyMapping-Transform2",
+              "name": "test-job-2:ApplyMapping-Transform2",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -607,7 +632,7 @@
                 "nodeId": "Transform3"
               },
               "externalUrl": null,
-              "name": "test-job-1:Join-Transform3",
+              "name": "test-job-2:Join-Transform3",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -644,7 +669,7 @@
                 "nodeId": "Transform4"
               },
               "externalUrl": null,
-              "name": "test-job-1:ApplyMapping-Transform4",
+              "name": "test-job-2:ApplyMapping-Transform4",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -679,7 +704,7 @@
                 "nodeId": "Transform5"
               },
               "externalUrl": null,
-              "name": "test-job-1:ApplyMapping-Transform5",
+              "name": "test-job-2:ApplyMapping-Transform5",
               "description": null,
               "type": {
                 "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
@@ -692,71 +717,6 @@
               "inputDatasets": [],
               "outputDatasets": [],
               "inputDatajobs": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons:json,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.Status": {
-              "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "connection_type": "s3",
-                "format": "json",
-                "connection_options": "{'path': 's3://test-glue-jsons/', 'partitionKeys': []}",
-                "transformation_ctx": "DataSink1"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(glue,test-job-2,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
-              "customProperties": {
-                "role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole-glue-crawler",
-                "created": "2021-06-10 16:58:32.469000",
-                "modified": "2021-06-10 16:58:32.469000",
-                "command": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-2.py"
-              },
-              "externalUrl": null,
-              "name": "test-job-2",
-              "description": "The second test job",
-              "project": null
             }
           }
         ]
@@ -904,7 +864,7 @@
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [],
               "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons:json,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)"
               ],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2)"

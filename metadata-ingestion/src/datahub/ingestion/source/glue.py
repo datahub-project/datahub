@@ -1,9 +1,11 @@
 import json
 import time
+import typing
+from collections import defaultdict
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from functools import reduce
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 import boto3
@@ -198,24 +200,9 @@ class GlueSource(Source):
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_dataflow_graph
         return self.glue_client.get_dataflow_graph(PythonScript=script)
 
-    def process_dataflow_graph(
-        self, dataflow_graph: Dict[str, Any], flow_urn: str
-    ) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[MetadataChangeEvent]]:
-        """
-        Prepare a job's DAG for ingestion.
-
-        Parameters
-        ----------
-            dataflow_graph:
-                Job DAG returned from get_dataflow_graph()
-            flow_urn:
-                URN of the flow (i.e. the AWS Glue job itself).
-        """
-
-        new_dataset_ids = []
-        new_dataset_mces = []
-
-        nodes: dict = {}
+    def get_dataflow_s3_names(
+        self, dataflow_graph: Dict[str, Any]
+    ) -> Tuple[Iterator[str], Optional[str]]:
 
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
@@ -227,18 +214,8 @@ class GlueSource(Source):
 
                 node_args = {x["Name"]: json.loads(x["Value"]) for x in node["Args"]}
 
-                # if data object is Glue table
-                if "database" in node_args and "table_name" in node_args:
-
-                    full_table_name = (
-                        f"{node_args['database']}.{node_args['table_name']}"
-                    )
-
-                    # we know that the table will already be covered when ingesting Glue tables
-                    node_urn = f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.env})"
-
                 # if data object is S3 bucket
-                elif node_args.get("connection_type") == "s3":
+                if node_args.get("connection_type") == "s3":
 
                     # remove S3 prefix (s3://)
                     s3_name = node_args["connection_options"]["path"][5:]
@@ -246,53 +223,123 @@ class GlueSource(Source):
                     if s3_name.endswith("/"):
                         s3_name = s3_name[:-1]
 
-                    node_urn = f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name}:{node_args.get('format')},{self.env})"
+                    extension = node_args.get("format")
 
-                    dataset_snapshot = DatasetSnapshot(
-                        urn=node_urn,
-                        aspects=[],
-                    )
+                    yield s3_name, extension
 
-                    dataset_snapshot.aspects.append(Status(removed=False))
-                    dataset_snapshot.aspects.append(
-                        OwnershipClass(
-                            owners=[],
-                            lastModified=AuditStampClass(
-                                time=int(time.time() * 1000),
-                                actor="urn:li:corpuser:datahub",
-                            ),
-                        )
-                    )
-                    dataset_snapshot.aspects.append(
-                        DatasetPropertiesClass(
-                            customProperties={k: str(v) for k, v in node_args.items()},
-                            tags=[],
-                        )
-                    )
+    def process_dataflow_node(
+        self,
+        node: Dict[str, Any],
+        flow_urn: str,
+        new_dataset_mces: List[MetadataChangeEvent],
+        s3_names: typing.DefaultDict[str, Set[Union[str, None]]],
+    ) -> Dict[str, Any]:
 
-                    new_dataset_ids.append(node["Id"])
-                    new_dataset_mces.append(
-                        MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                    )
+        node_type = node["NodeType"]
+
+        # for nodes representing datasets, we construct a dataset URN accordingly
+        if node_type in ["DataSource", "DataSink"]:
+
+            node_args = {x["Name"]: json.loads(x["Value"]) for x in node["Args"]}
+
+            # if data object is Glue table
+            if "database" in node_args and "table_name" in node_args:
+
+                full_table_name = f"{node_args['database']}.{node_args['table_name']}"
+
+                # we know that the table will already be covered when ingesting Glue tables
+                node_urn = f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.env})"
+
+            # if data object is S3 bucket
+            elif node_args.get("connection_type") == "s3":
+
+                # remove S3 prefix (s3://)
+                s3_name = node_args["connection_options"]["path"][5:]
+
+                if s3_name.endswith("/"):
+                    s3_name = s3_name[:-1]
+
+                if len(s3_names[s3_name]) > 1:
+
+                    node_urn = f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name}_{node_args.get('format')},{self.env})"
 
                 else:
+                    node_urn = (
+                        f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{self.env})"
+                    )
 
-                    raise ValueError(f"Unrecognized Glue data object type: {node_args}")
-
-            # otherwise, a node represents a transformation
-            else:
-                node_urn = mce_builder.make_data_job_urn_with_flow(
-                    flow_urn, job_id=f'{node["NodeType"]}-{node["Id"]}'
+                dataset_snapshot = DatasetSnapshot(
+                    urn=node_urn,
+                    aspects=[],
                 )
 
-            nodes[node["Id"]] = {
-                **node,
-                "urn": node_urn,
-                # to be filled in after traversing edges
-                "inputDatajobs": [],
-                "inputDatasets": [],
-                "outputDatasets": [],
-            }
+                dataset_snapshot.aspects.append(Status(removed=False))
+                dataset_snapshot.aspects.append(
+                    OwnershipClass(
+                        owners=[],
+                        lastModified=AuditStampClass(
+                            time=int(time.time() * 1000),
+                            actor="urn:li:corpuser:datahub",
+                        ),
+                    )
+                )
+                dataset_snapshot.aspects.append(
+                    DatasetPropertiesClass(
+                        customProperties={k: str(v) for k, v in node_args.items()},
+                        tags=[],
+                    )
+                )
+
+                new_dataset_mces.append(
+                    MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                )
+
+            else:
+
+                raise ValueError(f"Unrecognized Glue data object type: {node_args}")
+
+        # otherwise, a node represents a transformation
+        else:
+            node_urn = mce_builder.make_data_job_urn_with_flow(
+                flow_urn, job_id=f'{node["NodeType"]}-{node["Id"]}'
+            )
+
+        return {
+            **node,
+            "urn": node_urn,
+            # to be filled in after traversing edges
+            "inputDatajobs": [],
+            "inputDatasets": [],
+            "outputDatasets": [],
+        }
+
+    def process_dataflow_graph(
+        self,
+        dataflow_graph: Dict[str, Any],
+        flow_urn: str,
+        s3_names: typing.DefaultDict[str, Set[Union[str, None]]],
+    ) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[MetadataChangeEvent]]:
+        """
+        Prepare a job's DAG for ingestion.
+        Parameters
+        ----------
+            dataflow_graph:
+                Job DAG returned from get_dataflow_graph()
+            flow_urn:
+                URN of the flow (i.e. the AWS Glue job itself).
+        """
+
+        new_dataset_ids: List[str] = []
+        new_dataset_mces: List[MetadataChangeEvent] = []
+
+        nodes: dict = {}
+
+        # iterate through each node to populate processed nodes
+        for node in dataflow_graph["DagNodes"]:
+
+            nodes[node["Id"]] = self.process_dataflow_node(
+                node, flow_urn, new_dataset_mces, s3_names
+            )
 
         # traverse edges to fill in node properties
         for edge in dataflow_graph["DagEdges"]:
@@ -439,8 +486,7 @@ class GlueSource(Source):
 
         if self.extract_transforms:
 
-            # prevent adding duplicate S3 sources
-            seen_dataset_urns = set()
+            dags = {}
 
             for job in self.get_all_jobs():
 
@@ -451,8 +497,26 @@ class GlueSource(Source):
                 yield flow_wu
 
                 dag = self.get_dataflow_graph(job["Command"]["ScriptLocation"])
+
+                dags[flow_urn] = dag
+
+            # run a first pass to pick up s3 names
+            # in Glue, it's possible for two buckets to have files of different extensions
+            # if this happens, we append the extension in the URN so the sources can be distinguished
+            # (see process_dataflow_node() for details)
+            s3_names: typing.DefaultDict[str, Set[Union[str, None]]] = defaultdict(
+                lambda: set()
+            )
+
+            for dag in dags.values():
+                for s3_name, extension in self.get_dataflow_s3_names(dag):
+                    s3_names[s3_name].add(extension)
+
+            # run second pass to generate node workunits
+            for flow_urn, dag in dags.items():
+
                 nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
-                    dag, flow_urn
+                    dag, flow_urn, s3_names
                 )
 
                 for node in nodes.values():
@@ -464,11 +528,9 @@ class GlueSource(Source):
 
                 for dataset_id, dataset_mce in zip(new_dataset_ids, new_dataset_mces):
 
-                    if dataset_mce.proposedSnapshot.urn not in seen_dataset_urns:
-                        dataset_wu = MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
-                        self.report.report_workunit(dataset_wu)
-                        seen_dataset_urns.add(dataset_mce.proposedSnapshot.urn)
-                        yield dataset_wu
+                    dataset_wu = MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
+                    self.report.report_workunit(dataset_wu)
+                    yield dataset_wu
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner(time: int) -> OwnershipClass:
