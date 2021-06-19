@@ -232,7 +232,7 @@ class GlueSource(Source):
         node: Dict[str, Any],
         flow_urn: str,
         new_dataset_mces: List[MetadataChangeEvent],
-        s3_names: typing.DefaultDict[str, Set[Union[str, None]]],
+        s3_formats: typing.DefaultDict[str, Set[Union[str, None]]],
     ) -> Dict[str, Any]:
 
         node_type = node["NodeType"]
@@ -259,8 +259,8 @@ class GlueSource(Source):
                 if s3_name.endswith("/"):
                     s3_name = s3_name[:-1]
 
-                if len(s3_names[s3_name]) > 1:
-
+                # append S3 format if different ones exist
+                if len(s3_formats[s3_name]) > 1:
                     node_urn = f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name}_{node_args.get('format')},{self.env})"
 
                 else:
@@ -500,23 +500,24 @@ class GlueSource(Source):
 
                 dags[flow_urn] = dag
 
-            # run a first pass to pick up s3 names
+            # run a first pass to pick up s3 bucket names and formats
             # in Glue, it's possible for two buckets to have files of different extensions
             # if this happens, we append the extension in the URN so the sources can be distinguished
-            # (see process_dataflow_node() for details)
-            s3_names: typing.DefaultDict[str, Set[Union[str, None]]] = defaultdict(
+            # see process_dataflow_node() for details
+
+            s3_formats: typing.DefaultDict[str, Set[Union[str, None]]] = defaultdict(
                 lambda: set()
             )
 
             for dag in dags.values():
                 for s3_name, extension in self.get_dataflow_s3_names(dag):
-                    s3_names[s3_name].add(extension)
+                    s3_formats[s3_name].add(extension)
 
             # run second pass to generate node workunits
             for flow_urn, dag in dags.items():
 
                 nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
-                    dag, flow_urn, s3_names
+                    dag, flow_urn, s3_formats
                 )
 
                 for node in nodes.values():
