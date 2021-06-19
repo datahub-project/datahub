@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.WindowDuration;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
@@ -12,6 +13,8 @@ import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 import com.linkedin.usage.UsageAggregation;
+import com.linkedin.usage.UsageAggregationArray;
+import com.linkedin.usage.UsageQueryResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,15 +58,22 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     @Action(name = ACTION_QUERY)
     @Nonnull
-    public Task<Void> query(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
-                            @ActionParam(PARAM_WINDOW) @Nonnull WindowDuration window,
-                            @ActionParam(PARAM_START_TIME) Integer start_time,
-                            @ActionParam(PARAM_END_TIME) Integer end_time/*,
-                            @ActionParam(PARAM_MAX_BUCKETS) Integer max_buckets*/) {
+    public Task<UsageQueryResult> query(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
+                                        @ActionParam(PARAM_WINDOW) @Nonnull WindowDuration window,
+                                        @ActionParam(PARAM_START_TIME) Long start_time,
+                                        @ActionParam(PARAM_END_TIME) Long end_time,
+                                        @ActionParam(PARAM_MAX_BUCKETS) Integer max_buckets) {
         _logger.info("Attempting to query usage stats");
         return RestliUtils.toTask(() -> {
-            // TODO this
-            return null;
+            UsageAggregationArray buckets = new UsageAggregationArray();
+            buckets.addAll(_usageService.query(resource, window, start_time, end_time, max_buckets));
+
+            StringMap aggregations = new StringMap();
+            // TODO: compute the aggregations here
+
+            return new UsageQueryResult()
+                    .setBuckets(buckets)
+                    .setAggregations(aggregations);
         });
     }
 

@@ -16,6 +16,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHan
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.usage.UsageAggregation;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -28,6 +29,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.*;
+import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -36,13 +38,20 @@ import org.elasticsearch.search.sort.SortOrder;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class ElasticUsageService implements UsageService {
     private static final String USAGE_STATS_BASE_INDEX_NAME = "usageStats_v1";
+
+    // ElasticSearch defaults to a size of 10. We need to set size to a large number
+    // to avoid this restriction.
+    // See https://www.elastic.co/guide/en/elasticsearch/reference/6.8/search-request-from-size.html.
+    private static final int ELASTIC_FETCH_ALL_SIZE = 10000;
 
     private final RestHighLevelClient elasticClient;
     private final IndexConvention indexConvention;
@@ -98,7 +107,7 @@ public class ElasticUsageService implements UsageService {
 
     @Nonnull
     @Override
-    public SearchResult query(@Nonnull String resource, @Nonnull WindowDuration window, Long start_time, Long end_time) {
+    public List<UsageAggregation> query(@Nonnull String resource, @Nonnull WindowDuration window, Long start_time, Long end_time, Integer max_buckets) {
         final BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
         finalQuery.must(QueryBuilders.matchQuery("resource", resource));
         finalQuery.must(QueryBuilders.matchQuery("window", window.name()));
@@ -113,6 +122,11 @@ public class ElasticUsageService implements UsageService {
         final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(finalQuery);
         searchSourceBuilder.sort(new FieldSortBuilder("bucket").order(SortOrder.DESC));
+        if (max_buckets != null) {
+           searchSourceBuilder.size(max_buckets);
+        } else {
+            searchSourceBuilder.size(ELASTIC_FETCH_ALL_SIZE);
+        }
 
         final SearchRequest searchRequest = new SearchRequest();
         searchRequest.source(searchSourceBuilder);
@@ -122,23 +136,19 @@ public class ElasticUsageService implements UsageService {
             final SearchResponse searchResponse = elasticClient.search(searchRequest, RequestOptions.DEFAULT);
             final SearchHits hits = searchResponse.getHits();
 
-            hits.getHits()[0].getSourceAsMap();
-
-//            List<Urn> resultList = getResults(searchResponse);
-//            SearchResultMetadata searchResultMetadata = extractSearchResultMetadata(searchResponse);
-//            searchResultMetadata.setUrns(new UrnArray(resultList));
-//
-//            return new SearchResult().setEntities(new UrnArray(resultList))
-//                    .setMetadata(searchResultMetadata)
-//                    .setFrom(from)
-//                    .setPageSize(size)
-//                    .setNumEntities(totalCount);
-//            hits.getHits();
-            return null;
+            return Arrays.stream(hits.getHits())
+                    .map(ElasticUsageService::parseDocument)
+                    .collect(Collectors.toList());
         } catch (Exception e) {
             log.error("Search query failed:" + e.getMessage());
             throw new ESQueryException("Search query failed:", e);
         }
+    }
+
+    @Nonnull
+    static UsageAggregation parseDocument(@Nonnull SearchHit doc) {
+        doc.getSourceAsMap();
+        return null;
     }
 
 }

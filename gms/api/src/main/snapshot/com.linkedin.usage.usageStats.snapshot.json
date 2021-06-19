@@ -71,7 +71,28 @@
       },
       "doc" : " Metrics associated with this bucket "
     } ]
-  }, "com.linkedin.usage.UsageAggregationMetrics", "com.linkedin.usage.UsersUsageCounts" ],
+  }, "com.linkedin.usage.UsageAggregationMetrics", {
+    "type" : "record",
+    "name" : "UsageQueryResult",
+    "namespace" : "com.linkedin.usage",
+    "doc" : "Results of a query for usage data.",
+    "fields" : [ {
+      "name" : "buckets",
+      "type" : {
+        "type" : "array",
+        "items" : "UsageAggregation"
+      },
+      "doc" : " Raw buckets ",
+      "optional" : true
+    }, {
+      "name" : "aggregations",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : " Aggregated metrics "
+    } ]
+  }, "com.linkedin.usage.UsersUsageCounts" ],
   "schema" : {
     "name" : "usageStats",
     "namespace" : "com.linkedin.usage",
@@ -96,11 +117,15 @@
           "type" : "com.linkedin.common.WindowDuration"
         }, {
           "name" : "start_time",
-          "type" : "int"
+          "type" : "long"
         }, {
           "name" : "end_time",
+          "type" : "long"
+        }, {
+          "name" : "max_buckets",
           "type" : "int"
-        } ]
+        } ],
+        "returns" : "com.linkedin.usage.UsageQueryResult"
       } ],
       "entity" : {
         "path" : "/usageStats"

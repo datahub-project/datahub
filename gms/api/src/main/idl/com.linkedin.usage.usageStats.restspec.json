@@ -22,11 +22,15 @@
         "type" : "com.linkedin.common.WindowDuration"
       }, {
         "name" : "start_time",
-        "type" : "int"
+        "type" : "long"
       }, {
         "name" : "end_time",
+        "type" : "long"
+      }, {
+        "name" : "max_buckets",
         "type" : "int"
-      } ]
+      } ],
+      "returns" : "com.linkedin.usage.UsageQueryResult"
     } ],
     "entity" : {
       "path" : "/usageStats"
