@@ -1,0 +1,13 @@
+version: '3.5'
+services:
+  ingestion:
+    build:
+      context: ../../
+      dockerfile: docker/ingest-api/Dockerfile    
+    hostname: ingestion
+    container_name: ingest-api
+    
+
+networks:
+  default:
+    name: datahub_network
