@@ -21,7 +21,7 @@ class FieldParam(TypedDict):
 class dataset_params(BaseModel):
     dataset_name: str 
     dataset_type: str 
-    fields: List[FieldParam]
+    fields: List[FieldParam] 
     owner: str
     description: Optional[str]     
     
@@ -52,6 +52,7 @@ async def create_item(item: dataset_params) -> None:
     """
     This endpoint is meant for manually defined or parsed file datasets.
     """
+    #todo - add timestamp to the dataset name
     all_mce=[]
     if item.description:
         all_mce.append(make_dataset_description_mce(

@@ -5,8 +5,10 @@ RUN apt-get update && apt-get install -y \
         libldap2-dev \
         libsasl2-dev \
         ldap-utils \
-    && pip install fastapi[all]
-COPY ./metadata-ingestion/setup.py /setup.py
-RUN pip install --use-feature=in-tree-build .[all]
+    && python3 -m pip install --user --upgrade pip \
+    && python3 -m pip install --user virtualenv \
+    && source env/bin/activate
+COPY ../../metadata-ingestion/setup.py /setup.py
+RUN pip install --use-feature=in-tree-build .[all] fastapi[all]
 COPY ./ingest-api /ingest-api && cd /ingest-api
-CMD ["python","app.py"]
+CMD ["python"]
