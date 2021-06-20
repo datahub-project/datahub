@@ -4,52 +4,16 @@ from dataclasses import fields
 import time
 from typing import List, Optional, Type, TypeVar, Union, Dict
 
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    DatasetLineageTypeClass,
-    DatasetSnapshotClass,
-    MetadataChangeEventClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-    InstitutionalMemoryClass,
-    InstitutionalMemoryMetadataClass,
-    BrowsePathsClass,
-    SchemaMetadataClass,
-    OtherSchemaClass,
-    DatasetPropertiesClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    BooleanTypeClass, 
-    FixedTypeClass, 
-    StringTypeClass, 
-    BytesTypeClass, 
-    NumberTypeClass, 
-    DateTypeClass, 
-    TimeTypeClass, 
-    EnumTypeClass, 
-    NullTypeClass, 
-    MapTypeClass, 
-    ArrayTypeClass, 
-    UnionTypeClass, 
-    RecordTypeClass
-)
+from datahub.ingestion.api import RecordEnvelope
+from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+import json
+from pathlib import Path
+from datahub.metadata.schema_classes import *
 
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
 
 T = TypeVar("T")
-
-def getVarType(
-    input: str
-    ) ->Union[BooleanTypeClass, FixedTypeClass, StringTypeClass, BytesTypeClass, NumberTypeClass, 
-                DateTypeClass, TimeTypeClass, EnumTypeClass, NullTypeClass, MapTypeClass, ArrayTypeClass, 
-                UnionTypeClass, RecordTypeClass]:
-    return {"bool":BooleanTypeClass,"fixed":FixedTypeClass,"string":StringTypeClass,
-            "byte":BytesTypeClass,"num":NumberTypeClass,"date":DateTypeClass,
-            "time":TimeTypeClass,"enum":EnumTypeClass,"null":NullTypeClass,
-            "map":MapTypeClass,"array":ArrayTypeClass,"union":UnionTypeClass,
-            "record":RecordTypeClass
-            }.get(input,StringTypeClass)
 
 def get_sys_time() -> int:
     return int(time.time() * 1000)
@@ -62,7 +26,7 @@ def make_path(platform: str, name: str, env:str = DEFAULT_FLOW_CLUSTER) -> str:
     return f"/{env}/{platform}/{name}"
 
 def make_platform(platform:str) -> str:
-    return f"urn:li.dataPlatform:{platform}"
+    return f"urn:li:dataPlatform:{platform}"
 
 def make_user_urn(username: str) -> str:
     return f"urn:li:corpuser:{username}"
@@ -122,7 +86,7 @@ def make_institutionalmemory_mce(
     return mce
 
 def make_browsepath_mce(
-    datset_urn: str,
+    dataset_urn: str,
     path:List[str],        
 ) -> MetadataChangeEventClass:
     """
@@ -131,7 +95,7 @@ def make_browsepath_mce(
     sys_time = get_sys_time()
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
-        urn=datset_urn,
+        urn=dataset_urn,
         aspects=[
                 BrowsePathsClass(
                     paths = path            
@@ -220,40 +184,38 @@ def make_dataset_description_mce(
             ],
         )
     )
-# fieldPath: str,
-# type: "SchemaFieldDataTypeClass",
-# nativeDataType: str,
-# jsonPath: Union[None, str]=None,
-# nullable: Optional[bool]=None,
-# description: Union[None, str]=None,
-# recursive: Optional[bool]=None,
-# globalTags: Union[None, "GlobalTagsClass"]=None,
-# glossaryTerms: Union[None, "GlossaryTermsClass"]=None,
-# fieldPath: str,
-# type: "SchemaFieldDataTypeClass",
-# nativeDataType: str,
 def make_schema_mce(
     datset_urn: str,
     platformName:str,
     actor : str,
     fields: List[Dict[str, str]],
-    primaryKeys : List[str] = None,    
+    primaryKeys : List[str] = None,  
+    foreignKeysSpecs: List[str] = None,  
 ) -> MetadataChangeEventClass:
     sys_time = get_sys_time()
     actor = make_user_urn(actor)
     for item in fields:
-        item["type"] = {"bool":BooleanTypeClass(),"fixed":FixedTypeClass(),"string":StringTypeClass(),
-                        "byte":BytesTypeClass(),"num":NumberTypeClass(),"date":DateTypeClass(),
-                        "time":TimeTypeClass(),"enum":EnumTypeClass(),"null":NullTypeClass(),
-                        "map":MapTypeClass(),"array":ArrayTypeClass(),"union":UnionTypeClass(),
+        item["type"] = {"bool":  BooleanTypeClass(), 
+                        "fixed": FixedTypeClass(), 
+                        "string":StringTypeClass(),
+                        "byte":  BytesTypeClass(),
+                        "num":   NumberTypeClass(),
+                        "date":  DateTypeClass(),
+                        "time":  TimeTypeClass(),
+                        "enum":  EnumTypeClass(),
+                        "null":  NullTypeClass(),
+                        "map":   MapTypeClass(),
+                        "array": ArrayTypeClass(),
+                        "union": UnionTypeClass(),
                         "record":RecordTypeClass()
-                        }.get(input,StringTypeClass())       
+                        }.get(item["type"])           
+        
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
         urn=datset_urn,
         aspects=[
             SchemaMetadataClass(
-                schemaName = OtherSchemaClass,
+                schemaName = "OtherSchema",
                 platform = make_platform(platformName),
                 version = 0,
                 created = AuditStampClass(
@@ -263,12 +225,47 @@ def make_schema_mce(
                                 time=sys_time,
                                 actor=actor,),
                 hash ="",
-                platformSchema = OtherSchemaClass(
-                                rawSchema="",),
-                fields = [SchemaFieldClass(**item) for item in fields],
-                primaryKeys = None,
+                platformSchema = OtherSchemaClass(rawSchema=""),                
+                fields = [SchemaFieldClass(fieldPath=item["fieldPath"], 
+                                            type=SchemaFieldDataTypeClass(type=item["type"]), 
+                                            nativeDataType=item.get("nativeType",""),
+                                            description=item.get("description",""),
+                                            nullable=item.get('nullable', None)) for item in fields],
+                primaryKeys = primaryKeys,
                 foreignKeysSpecs = None,                 
             )
         ],    
     ))
     return mce
+
+def generate_json_output(mce: MetadataChangeEventClass, file_loc:str)->None:
+    path = Path(file_loc)
+    work_unit = MetadataWorkUnit(f"myfile:0", mce)
+    envelope = RecordEnvelope(work_unit.mce, {"workunit_id": work_unit.id,})
+    record = envelope.record
+    with open(path, 'w') as f:
+        json.dump(record.to_obj, f, indent=4)
+
+def make_ownership_mce(
+    owner: str,
+    dataset_urn:str
+    ) -> MetadataChangeEventClass:
+    return MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=dataset_urn,
+            aspects=[
+                OwnershipClass(
+                    owners=[
+                        OwnerClass(
+                            owner=make_user_urn(owner),
+                            type=OwnershipTypeClass.DATAOWNER,
+                        )                        
+                    ],
+                    lastModified=AuditStampClass(
+                        time=int(time.time() * 1000),
+                        actor=make_user_urn(owner),
+                    ),
+                )
+            ],
+        )
+    )
