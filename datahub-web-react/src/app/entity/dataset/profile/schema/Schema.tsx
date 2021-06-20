@@ -25,6 +25,9 @@ import DescriptionField from './SchemaDescriptionField';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 
 const MAX_FIELD_PATH_LENGTH = 100;
+const SchemaContainer = styled.div`
+    margin-bottom: 100px;
+`;
 const ViewRawButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;
@@ -264,7 +267,7 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
     };
 
     return (
-        <>
+        <SchemaContainer>
             {schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0 && (
                 <ViewRawButtonContainer>
                     {!showVersions ? (
@@ -295,6 +298,6 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
                     />
                 )
             )}
-        </>
+        </SchemaContainer>
     );
 }
