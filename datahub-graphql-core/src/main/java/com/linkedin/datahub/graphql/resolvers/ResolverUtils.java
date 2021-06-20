@@ -96,7 +96,7 @@ public class ResolverUtils {
         Object localContext = environment.getLocalContext();
         // if we have context & the version is 0, we should try to retrieve it from the fetched entity
         // otherwise, we should just fetch the entity from the aspect resource
-        if (localContext == null && version == 0 || version == null) {
+        if (localContext != null && version == 0 || version == null) {
             if (localContext instanceof Map) {
                 // de-register the prefetched aspect from local context. Since aspects will only
                 // ever be first-class properties of an entity type, local context will always
