@@ -1,6 +1,13 @@
 import { Space, Badge } from 'antd';
 import React from 'react';
-import { Tag } from '../stories/sampleSchema';
+
+type Tag = {
+    name: string;
+    value?: string;
+    color: string;
+    category: string;
+    descriptor?: boolean;
+};
 
 type Props = {
     tags: Tag[];

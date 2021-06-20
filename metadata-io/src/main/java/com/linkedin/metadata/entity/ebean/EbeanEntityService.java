@@ -95,7 +95,7 @@ public class EbeanEntityService extends EntityService {
   @Nullable
   public RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
     if (version < 0) {
-      version = _entityDao.getMaxVersion(urn.toString(), aspectName) - version + 1;
+      version = _entityDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
     }
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));

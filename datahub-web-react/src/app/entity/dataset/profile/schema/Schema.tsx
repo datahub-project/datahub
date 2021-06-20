@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-
-import { Button, Table, Typography } from 'antd';
+import { Button, Pagination, Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 import TypeIcon from './TypeIcon';
 import {
     Schema,
+    SchemaMetadata,
     SchemaFieldDataType,
     GlobalTags,
     EditableSchemaMetadata,
@@ -35,9 +35,13 @@ const LighterText = styled(Typography.Text)`
     color: rgba(0, 0, 0, 0.45);
 `;
 
+const ShowVersionButton = styled(Button)`
+    margin-right: 15px;
+`;
+
 export type Props = {
     urn: string;
-    schema?: Schema | null;
+    schema?: SchemaMetadata | Schema | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     updateEditableSchema: (
         update: EditableSchemaMetadataUpdate,
@@ -109,6 +113,7 @@ function convertEditableSchemaMetadataForUpdate(
 export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema }: Props) {
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
     const [showRaw, setShowRaw] = useState(false);
+    const [showVersions, setShowVersions] = useState(false);
     const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
 
     useEffect(() => {
@@ -262,6 +267,11 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         <>
             {schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0 && (
                 <ViewRawButtonContainer>
+                    {!showVersions ? (
+                        <ShowVersionButton onClick={() => setShowVersions(true)}>Version History</ShowVersionButton>
+                    ) : (
+                        <Pagination simple size="default" defaultCurrent={0} total={5} />
+                    )}
                     <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>
                 </ViewRawButtonContainer>
             )}

@@ -36,7 +36,7 @@ const EMPTY_ARR: never[] = [];
  */
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
+    const { loading, error, data } = useGetDatasetQuery({ variables: { urn, version: 0 } });
     const user = useGetAuthenticatedUser();
     const [updateDataset] = useUpdateDatasetMutation({
         update(cache, { data: newDataset }) {
@@ -67,6 +67,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         properties,
         institutionalMemory,
         schema,
+        schemaMetadata,
         editableSchemaMetadata,
     }: Dataset) => {
         return [
@@ -76,7 +77,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 content: (
                     <SchemaView
                         urn={urn}
-                        schema={schema}
+                        schema={schemaMetadata || schema}
                         editableSchemaMetadata={editableSchemaMetadata}
                         updateEditableSchema={(update) => {
                             analytics.event({

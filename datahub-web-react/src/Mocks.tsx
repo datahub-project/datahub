@@ -748,6 +748,7 @@ export const mocks = [
             query: GetDatasetDocument,
             variables: {
                 urn: 'urn:li:dataset:3',
+                version: 0,
             },
         },
         result: {

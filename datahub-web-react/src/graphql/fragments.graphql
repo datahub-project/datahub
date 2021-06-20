@@ -130,11 +130,14 @@ fragment nonRecursiveDatasetFields on Dataset {
             }
         }
     }
-    schema {
+    schemaMetadata(version: 0) {
+        aspectVersion
+        createdAt
         datasetUrn
         name
         platformUrn
         version
+        cluster
         hash
         platformSchema {
             ... on TableSchema {
