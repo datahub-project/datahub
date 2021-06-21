@@ -231,6 +231,7 @@ class GlueSource(Source):
         self,
         node: Dict[str, Any],
         flow_urn: str,
+        new_dataset_ids: List[str],
         new_dataset_mces: List[MetadataChangeEvent],
         s3_formats: typing.DefaultDict[str, Set[Union[str, None]]],
     ) -> Dict[str, Any]:
@@ -293,6 +294,7 @@ class GlueSource(Source):
                 new_dataset_mces.append(
                     MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 )
+                new_dataset_ids.append(f"{node['NodeType']}-{node['Id']}")
 
             else:
 
@@ -338,7 +340,7 @@ class GlueSource(Source):
         for node in dataflow_graph["DagNodes"]:
 
             nodes[node["Id"]] = self.process_dataflow_node(
-                node, flow_urn, new_dataset_mces, s3_names
+                node, flow_urn, new_dataset_ids, new_dataset_mces, s3_names
             )
 
         # traverse edges to fill in node properties
