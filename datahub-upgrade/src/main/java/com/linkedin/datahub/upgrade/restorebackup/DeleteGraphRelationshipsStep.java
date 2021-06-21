@@ -11,7 +11,7 @@ import java.util.function.Function;
 
 public class DeleteGraphRelationshipsStep implements UpgradeStep {
 
-  private final String deletePattern = "*";
+  private final String deletePattern = ".*";
 
   private final GraphService _graphClient;
 
