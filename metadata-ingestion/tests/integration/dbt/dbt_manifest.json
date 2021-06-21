@@ -1340,9 +1340,7 @@
     "macro.dbt.drop_relation": {
       "arguments": [],
       "depends_on": {
-        "macros": [
-          "macro.dbt.default__drop_relation"
-        ]
+        "macros": []
       },
       "description": "",
       "docs": {
@@ -1491,7 +1489,9 @@
     "macro.dbt.get_catalog": {
       "arguments": [],
       "depends_on": {
-        "macros": []
+        "macros": [
+          "macro.dbt_postgres.postgres__get_catalog"
+        ]
       },
       "description": "",
       "docs": {
@@ -1808,9 +1808,7 @@
     "macro.dbt.list_schemas": {
       "arguments": [],
       "depends_on": {
-        "macros": [
-          "macro.dbt_postgres.postgres__list_schemas"
-        ]
+        "macros": []
       },
       "description": "",
       "docs": {
@@ -2125,9 +2123,7 @@
     "macro.dbt.rename_relation": {
       "arguments": [],
       "depends_on": {
-        "macros": [
-          "macro.dbt.default__rename_relation"
-        ]
+        "macros": []
       },
       "description": "",
       "docs": {
@@ -2976,7 +2972,7 @@
     "invocation_id": "just-some-random-id",
     "project_id": "d7ed27e3f02ff95ca753dd76aed208ee",
     "send_anonymous_usage_stats": true,
-    "user_id": "c3ca0276-3ea5-44eb-8429-a6f62a173eaf"
+    "user_id": "42f923a6-43bf-43ad-a6e2-6f51517dcc94"
   },
   "nodes": {
     "model.sample_dbt.customer_details": {
@@ -3059,7 +3055,7 @@
     },
     "model.sample_dbt.monthly_billing_with_cust": {
       "alias": "monthly_billing_with_cust",
-      "build_path": "target/run/sample_dbt/models/billing/monthly_billing_with_cust.sql",
+      "build_path": "target/compiled/sample_dbt/models/billing/monthly_billing_with_cust.sql",
       "checksum": {
         "checksum": "96468f0564c87d3dfb75f80f0bf1dac169f67137dd46eeefdb2a9939a03fad13",
         "name": "sha256"
@@ -3085,12 +3081,7 @@
       "database": "pagila",
       "deferred": false,
       "depends_on": {
-        "macros": [
-          "macro.dbt.run_hooks",
-          "macro.dbt.statement",
-          "macro.dbt.persist_docs",
-          "macro.dbt.drop_relation_if_exists"
-        ],
+        "macros": [],
         "nodes": [
           "model.sample_dbt.payments_by_customer_by_month",
           "model.sample_dbt.customer_details"
@@ -3140,7 +3131,7 @@
     },
     "model.sample_dbt.payments_base": {
       "alias": "payments_base",
-      "build_path": "target/run/sample_dbt/models/base/payments_base.sql",
+      "build_path": "target/compiled/sample_dbt/models/base/payments_base.sql",
       "checksum": {
         "checksum": "697370dca0dcbac9bb193630534ee3a54c9503488607b564a6390924bf4baa70",
         "name": "sha256"
@@ -3166,12 +3157,7 @@
       "database": "pagila",
       "deferred": false,
       "depends_on": {
-        "macros": [
-          "macro.dbt.run_hooks",
-          "macro.dbt.statement",
-          "macro.dbt.persist_docs",
-          "macro.dbt.drop_relation_if_exists"
-        ],
+        "macros": [],
         "nodes": [
           "source.sample_dbt.pagila.payment_p2020_01",
           "source.sample_dbt.pagila.payment_p2020_02",
@@ -3243,7 +3229,7 @@
     },
     "model.sample_dbt.payments_by_customer_by_month": {
       "alias": "payments_by_customer_by_month",
-      "build_path": "target/run/sample_dbt/models/transform/payments_by_customer_by_month.sql",
+      "build_path": "target/compiled/sample_dbt/models/transform/payments_by_customer_by_month.sql",
       "checksum": {
         "checksum": "691757217fdc0ad849160f0b24bff8fa09385b51f9f5605dda388a6d47d1ab28",
         "name": "sha256"
@@ -3269,12 +3255,7 @@
       "database": "pagila",
       "deferred": false,
       "depends_on": {
-        "macros": [
-          "macro.dbt.run_hooks",
-          "macro.dbt.statement",
-          "macro.dbt.persist_docs",
-          "macro.dbt.drop_relation_if_exists"
-        ],
+        "macros": [],
         "nodes": [
           "model.sample_dbt.payments_base"
         ]

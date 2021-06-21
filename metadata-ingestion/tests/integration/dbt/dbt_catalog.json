@@ -4,8 +4,8 @@
     "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json",
     "dbt_version": "0.19.1",
     "env": {},
-    "generated_at": "2021-06-18T16:47:44.575855Z",
-    "invocation_id": "a67c7011-fa1b-488a-87fa-e198a6b64d16"
+    "generated_at": "2021-06-21T17:28:04.980076Z",
+    "invocation_id": "a878f3a5-ecf3-44b1-94ac-4334c92ca3f6"
   },
   "nodes": {
     "model.sample_dbt.monthly_billing_with_cust": {
@@ -154,6 +154,52 @@
     }
   },
   "sources": {
+    "source.sample_dbt.pagila.actor": {
+      "columns": {
+        "actor_id": {
+          "comment": null,
+          "index": 1,
+          "name": "actor_id",
+          "type": "integer"
+        },
+        "first_name": {
+          "comment": null,
+          "index": 2,
+          "name": "first_name",
+          "type": "text"
+        },
+        "last_name": {
+          "comment": null,
+          "index": 3,
+          "name": "last_name",
+          "type": "text"
+        },
+        "last_update": {
+          "comment": null,
+          "index": 4,
+          "name": "last_update",
+          "type": "timestamp with time zone"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "actor",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.actor"
+    },
     "source.sample_dbt.pagila.address": {
       "columns": {
         "address": {
@@ -224,6 +270,46 @@
       },
       "unique_id": "source.sample_dbt.pagila.address"
     },
+    "source.sample_dbt.pagila.category": {
+      "columns": {
+        "category_id": {
+          "comment": null,
+          "index": 1,
+          "name": "category_id",
+          "type": "integer"
+        },
+        "last_update": {
+          "comment": null,
+          "index": 3,
+          "name": "last_update",
+          "type": "timestamp with time zone"
+        },
+        "name": {
+          "comment": null,
+          "index": 2,
+          "name": "name",
+          "type": "text"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "category",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.category"
+    },
     "source.sample_dbt.pagila.city": {
       "columns": {
         "city": {
@@ -269,6 +355,46 @@
         }
       },
       "unique_id": "source.sample_dbt.pagila.city"
+    },
+    "source.sample_dbt.pagila.country": {
+      "columns": {
+        "country": {
+          "comment": null,
+          "index": 2,
+          "name": "country",
+          "type": "text"
+        },
+        "country_id": {
+          "comment": null,
+          "index": 1,
+          "name": "country_id",
+          "type": "integer"
+        },
+        "last_update": {
+          "comment": null,
+          "index": 3,
+          "name": "last_update",
+          "type": "timestamp with time zone"
+        }
+      },
+      "metadata": {
+        "comment": null,
+        "database": "pagila",
+        "name": "country",
+        "owner": "postgres",
+        "schema": "public",
+        "type": "BASE TABLE"
+      },
+      "stats": {
+        "has_stats": {
+          "description": "Indicates whether there are statistics for this table",
+          "id": "has_stats",
+          "include": false,
+          "label": "Has Stats?",
+          "value": false
+        }
+      },
+      "unique_id": "source.sample_dbt.pagila.country"
     },
     "source.sample_dbt.pagila.customer": {
       "columns": {
