@@ -48,6 +48,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
 | superset      | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
+| mlflow        | `pip install 'acryl-datahub[mlflow]'`                      | MlFlow source                       |
 | mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
 | looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
@@ -527,6 +528,23 @@ source:
         - "^(lookup|sys).*"
     # options is same as above
 ```
+
+### MlFlow `mlflow`
+
+Extracts:
+
+- List of experiments
+- Parameters and ML features associated for each experiment
+
+```yml
+source:
+  type: mlflow
+  config:
+    tracking_uri: localhost:5000
+    # table_pattern/schema_pattern is same as above
+    # options is same as above
+```
+
 
 ### Other databases using SQLAlchemy `sqlalchemy`
 

@@ -1,0 +1,46 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+        "urn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,first_experiment,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
+              "description": null,
+              "date": null,
+              "version": null,
+              "type": null,
+              "hyperParameters": {},
+              "mlFeatures": [],
+              "tags": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+        "urn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,second_experiment,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
+              "description": null,
+              "date": null,
+              "version": null,
+              "type": null,
+              "hyperParameters": {},
+              "mlFeatures": [],
+              "tags": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
+]

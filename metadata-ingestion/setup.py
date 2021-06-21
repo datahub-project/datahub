@@ -52,6 +52,10 @@ kafka_common = {
     "fastavro>=1.2.0",
 }
 
+mlflow_common = {
+    "mlflow>=1.17.0"
+}
+
 sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
@@ -82,6 +86,7 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
     "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
+    "mlflow": mlflow_common,
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -188,6 +193,7 @@ entry_points = {
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "lookml = datahub.ingestion.source.lookml:LookMLSource",
+        "mlflow = datahub.ingestion.source.mlflow:MlFlowSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.mysql:MySQLSource",
