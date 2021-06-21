@@ -116,7 +116,7 @@ def make_lineage_mce(
     lineage have to be one of the 3
     """
     sys_time = get_sys_time()
-    actor = make_user_urn(actor)
+    actor = actor
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
             urn=downstream_urn,
@@ -139,30 +139,6 @@ def make_lineage_mce(
     )
     return mce
 
-
-
-
-def get_aspect_if_available(
-    mce: MetadataChangeEventClass, type: Type[T]
-) -> Optional[T]:
-    all_aspects = mce.proposedSnapshot.aspects
-    aspects: List[T] = [aspect for aspect in all_aspects if isinstance(aspect, type)]
-
-    if len(aspects) > 1:
-        raise ValueError(f"MCE contains multiple aspects of type {type}: {aspects}")
-    if aspects:
-        return aspects[0]
-    return None
-
-
-def get_or_add_aspect(mce: MetadataChangeEventClass, default: T) -> T:
-    existing = get_aspect_if_available(mce, type(default))
-    if existing is not None:
-        return existing
-    mce.proposedSnapshot.aspects.append(default)
-    return default
-
-
 def make_dataset_description_mce(
     dataset_name: str,
     description: str,
@@ -179,13 +155,13 @@ def make_dataset_description_mce(
                 DatasetPropertiesClass(
                     description=description,
                     externalUrl = externalUrl,
-                    tags = [make_tag_urn(tag) for tag in tags]
+#                    tags = [make_tag_urn(tag) for tag in tags]
                 )
             ],
         )
     )
 def make_schema_mce(
-    datset_urn: str,
+    dataset_urn: str,
     platformName:str,
     actor : str,
     fields: List[Dict[str, str]],
@@ -193,7 +169,7 @@ def make_schema_mce(
     foreignKeysSpecs: List[str] = None,  
 ) -> MetadataChangeEventClass:
     sys_time = get_sys_time()
-    actor = make_user_urn(actor)
+    
     for item in fields:
         item["type"] = {"bool":  BooleanTypeClass(), 
                         "fixed": FixedTypeClass(), 
@@ -212,18 +188,18 @@ def make_schema_mce(
         
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
-        urn=datset_urn,
+        urn=dataset_urn,
         aspects=[
             SchemaMetadataClass(
                 schemaName = "OtherSchema",
-                platform = make_platform(platformName),
+                platform = platformName,
                 version = 0,
                 created = AuditStampClass(
                                 time=sys_time,
-                                actor=actor,),
+                                actor=actor),
                 lastModified = AuditStampClass(
                                 time=sys_time,
-                                actor=actor,),
+                                actor=actor),
                 hash ="",
                 platformSchema = OtherSchemaClass(rawSchema=""),                
                 fields = [SchemaFieldClass(fieldPath=item["fieldPath"], 
@@ -231,23 +207,15 @@ def make_schema_mce(
                                             nativeDataType=item.get("nativeType",""),
                                             description=item.get("description",""),
                                             nullable=item.get('nullable', None)) for item in fields],
-                primaryKeys = primaryKeys,
+                primaryKeys = primaryKeys, #no visual impact in UI
                 foreignKeysSpecs = None,                 
             )
         ],    
     ))
     return mce
 
-def generate_json_output(mce: MetadataChangeEventClass, file_loc:str)->None:
-    path = Path(file_loc)
-    work_unit = MetadataWorkUnit(f"myfile:0", mce)
-    envelope = RecordEnvelope(work_unit.mce, {"workunit_id": work_unit.id,})
-    record = envelope.record
-    with open(path, 'w') as f:
-        json.dump(record.to_obj, f, indent=4)
-
 def make_ownership_mce(
-    owner: str,
+    actor: str,
     dataset_urn:str
     ) -> MetadataChangeEventClass:
     return MetadataChangeEventClass(
@@ -257,15 +225,41 @@ def make_ownership_mce(
                 OwnershipClass(
                     owners=[
                         OwnerClass(
-                            owner=make_user_urn(owner),
+                            owner=actor,
                             type=OwnershipTypeClass.DATAOWNER,
                         )                        
                     ],
                     lastModified=AuditStampClass(
                         time=int(time.time() * 1000),
-                        actor=make_user_urn(owner),
+                        actor=make_user_urn(actor),
                     ),
                 )
             ],
         )
     )
+
+def generate_json_output(mces: List[MetadataChangeEventClass], file_loc:str)->None:
+    """
+    Generates the json MCE files that can be ingested via CLI. For debugging
+    """    
+    path = Path(file_loc)
+    mce_objs = [item.to_obj() for item in mces]
+    # work_unit = MetadataWorkUnit(f"myfile:0", mce)
+    # envelope = RecordEnvelope(work_unit.mce, {"workunit_id": work_unit.id,})
+    # record = envelope.record
+    with open(path, 'w') as f:
+        json.dump(mce_objs, f, indent=4)
+
+def delete_mce(
+    dataset_name:str,
+    ) -> MetadataChangeEventClass:
+    return MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=dataset_name,
+            aspects=[
+                StatusClass(
+                    removed = True
+                )
+            ]
+        )
+    ) 
