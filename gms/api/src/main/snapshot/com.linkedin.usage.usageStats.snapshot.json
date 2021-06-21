@@ -117,13 +117,16 @@
           "type" : "com.linkedin.common.WindowDuration"
         }, {
           "name" : "start_time",
-          "type" : "long"
+          "type" : "long",
+          "optional" : true
         }, {
           "name" : "end_time",
-          "type" : "long"
+          "type" : "long",
+          "optional" : true
         }, {
           "name" : "max_buckets",
-          "type" : "int"
+          "type" : "int",
+          "optional" : true
         } ],
         "returns" : "com.linkedin.usage.UsageQueryResult"
       } ],

@@ -1,7 +1,6 @@
 package com.linkedin.metadata.usage;
 
 import com.linkedin.common.WindowDuration;
-import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.usage.UsageAggregation;
 
 import javax.annotation.Nonnull;
@@ -23,5 +22,5 @@ public interface UsageService {
    * Get a list of buckets that match a set of criteria.
    */
   @Nonnull
-  List<UsageAggregation> query(@Nonnull String resource, @Nonnull WindowDuration window, Long start_time, Long end_time, Integer max_buckets);
+  List<UsageAggregation> query(@Nonnull String resource, @Nonnull WindowDuration window, Long startTime, Long endTime, Integer maxBuckets);
 }

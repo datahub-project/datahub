@@ -59,14 +59,14 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     @Action(name = ACTION_QUERY)
     @Nonnull
     public Task<UsageQueryResult> query(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
-                                        @ActionParam(PARAM_WINDOW) @Nonnull WindowDuration window,
-                                        @ActionParam(PARAM_START_TIME) Long start_time,
-                                        @ActionParam(PARAM_END_TIME) Long end_time,
-                                        @ActionParam(PARAM_MAX_BUCKETS) Integer max_buckets) {
+                                        @ActionParam(PARAM_WINDOW) @Nonnull WindowDuration duration,
+                                        @ActionParam(PARAM_START_TIME) @com.linkedin.restli.server.annotations.Optional Long startTime,
+                                        @ActionParam(PARAM_END_TIME) @com.linkedin.restli.server.annotations.Optional Long endTime,
+                                        @ActionParam(PARAM_MAX_BUCKETS) @com.linkedin.restli.server.annotations.Optional Integer maxBuckets) {
         _logger.info("Attempting to query usage stats");
         return RestliUtils.toTask(() -> {
             UsageAggregationArray buckets = new UsageAggregationArray();
-            buckets.addAll(_usageService.query(resource, window, start_time, end_time, max_buckets));
+            buckets.addAll(_usageService.query(resource, duration, startTime, endTime, maxBuckets));
 
             StringMap aggregations = new StringMap();
             // TODO: compute the aggregations here
@@ -81,6 +81,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     private void ingest(@Nonnull UsageAggregation bucket) {
         String id = String.format("(%d,%s,%s)", bucket.getBucket(), bucket.getDuration(), bucket.getResource());
 
+        // TODO move documentation generation logic into ElasticUsageService class
         ObjectNode document = JsonNodeFactory.instance.objectNode();
         document.set("bucket", JsonNodeFactory.instance.numberNode(bucket.getBucket()));
         document.set("duration", JsonNodeFactory.instance.textNode(bucket.getDuration().toString()));
@@ -93,6 +94,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             usersUsageCounts.forEach(userUsage -> {
                 ObjectNode userDocument = JsonNodeFactory.instance.objectNode();
                 userDocument.set("user", JsonNodeFactory.instance.textNode(userUsage.getUser().toString()));
+                userDocument.set("user_email", JsonNodeFactory.instance.textNode(userUsage.getUser_email()));
                 userDocument.set("count", JsonNodeFactory.instance.numberNode(userUsage.getCount()));
                 users.add(userDocument);
             });

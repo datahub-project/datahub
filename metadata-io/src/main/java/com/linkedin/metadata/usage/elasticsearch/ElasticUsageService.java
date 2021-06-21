@@ -1,22 +1,19 @@
 package com.linkedin.metadata.usage.elasticsearch;
 
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.common.UrnArray;
-import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.dao.exception.ESQueryException;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.SearchResult;
-import com.linkedin.metadata.query.SearchResultMetadata;
-import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.common.WindowDuration;
 import com.linkedin.usage.UsageAggregation;
+import com.linkedin.usage.UsageAggregationMetrics;
+import com.linkedin.usage.UsersUsageCounts;
+import com.linkedin.usage.UsersUsageCountsArray;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -28,7 +25,8 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.index.query.*;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -36,8 +34,8 @@ import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -107,23 +105,23 @@ public class ElasticUsageService implements UsageService {
 
     @Nonnull
     @Override
-    public List<UsageAggregation> query(@Nonnull String resource, @Nonnull WindowDuration window, Long start_time, Long end_time, Integer max_buckets) {
+    public List<UsageAggregation> query(@Nonnull String resource, @Nonnull WindowDuration duration, Long startTime, Long endTime, Integer maxBuckets) {
         final BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
         finalQuery.must(QueryBuilders.matchQuery("resource", resource));
-        finalQuery.must(QueryBuilders.matchQuery("window", window.name()));
-        if (start_time != null) {
-            finalQuery.must(QueryBuilders.rangeQuery("bucket").gte(start_time));
+        finalQuery.must(QueryBuilders.matchQuery("duration", duration.name()));
+        if (startTime != null) {
+            finalQuery.must(QueryBuilders.rangeQuery("bucket").gte(startTime));
         }
-        if (end_time != null) {
-            finalQuery.must(QueryBuilders.rangeQuery("bucket_end").lte(end_time));
+        if (endTime != null) {
+            finalQuery.must(QueryBuilders.rangeQuery("bucket_end").lte(endTime));
         }
-        // TODO handle top N queries
+        // TODO handle "latest N buckets" style queries
 
         final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(finalQuery);
         searchSourceBuilder.sort(new FieldSortBuilder("bucket").order(SortOrder.DESC));
-        if (max_buckets != null) {
-           searchSourceBuilder.size(max_buckets);
+        if (maxBuckets != null) {
+           searchSourceBuilder.size(maxBuckets);
         } else {
             searchSourceBuilder.size(ELASTIC_FETCH_ALL_SIZE);
         }
@@ -147,8 +145,39 @@ public class ElasticUsageService implements UsageService {
 
     @Nonnull
     static UsageAggregation parseDocument(@Nonnull SearchHit doc) {
-        doc.getSourceAsMap();
-        return null;
+        try {
+            Map<String, Object> docFields = doc.getSourceAsMap();
+            UsageAggregation agg = new UsageAggregation();
+            UsageAggregationMetrics metrics = new UsageAggregationMetrics();
+
+            agg.setBucket((Long) docFields.get("bucket"));
+            agg.setDuration(WindowDuration.valueOf((String) docFields.get("duration")));
+            agg.setResource(Urn.createFromString((String) docFields.get("resource")));
+            agg.setMetrics(metrics);
+
+            if (docFields.containsKey("metrics.users")) {
+                UsersUsageCountsArray users = new UsersUsageCountsArray();
+                List<Map<String, Object>> docUsers = (List<Map<String, Object>>) docFields.get("metrics.users");
+                for (Map<String, Object> map : docUsers) {
+                    UsersUsageCounts userUsage = new UsersUsageCounts();
+                    userUsage.setUser(Urn.createFromString((String) map.get("user")));
+                    userUsage.setCount((Integer) map.get("count"));
+                    users.add(userUsage);
+                }
+                metrics.setUsers(users);
+            }
+
+            if (docFields.containsKey("metrics.top_sql_queries")) {
+                StringArray queries = new StringArray();
+                List<String> docQueries = (List<String>) docFields.get("metrics.top_sql_queries");
+                queries.addAll(docQueries);
+                metrics.setTop_sql_queries(queries);
+            }
+
+            return agg;
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
 }
