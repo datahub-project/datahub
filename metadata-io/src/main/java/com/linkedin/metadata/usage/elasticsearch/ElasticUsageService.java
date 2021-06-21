@@ -150,7 +150,7 @@ public class ElasticUsageService implements UsageService {
             UsageAggregation agg = new UsageAggregation();
             UsageAggregationMetrics metrics = new UsageAggregationMetrics();
 
-            agg.setBucket((Long) docFields.get("bucket"));
+            agg.setBucket(Long.valueOf(((Number) docFields.get("bucket")).longValue()));
             agg.setDuration(WindowDuration.valueOf((String) docFields.get("duration")));
             agg.setResource(Urn.createFromString((String) docFields.get("resource")));
             agg.setMetrics(metrics);

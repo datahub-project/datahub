@@ -430,7 +430,7 @@ class BigQueryUsageSource(Source):
         return UsageStatsWorkUnit(
             id=f"{agg.bucket_start_time.isoformat()}-{agg.resource}",
             usageStats=UsageAggregationClass(
-                bucket=int(agg.bucket_start_time.timestamp()),
+                bucket=int(agg.bucket_start_time.timestamp() * 1000),
                 duration=self.config.bucket_duration,
                 resource=_table_ref_to_urn(agg.resource, self.config.env),
                 metrics=UsageAggregationMetricsClass(
