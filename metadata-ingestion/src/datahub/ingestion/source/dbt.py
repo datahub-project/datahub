@@ -166,7 +166,7 @@ def loadManifestAndCatalog(
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
-) -> List[DBTNode]:  # sourcery skip: inline-immediately-returned-variable
+) -> List[DBTNode]:
     with open(manifest_path, "r") as manifest:
         dbt_manifest_json = json.load(manifest)
 
