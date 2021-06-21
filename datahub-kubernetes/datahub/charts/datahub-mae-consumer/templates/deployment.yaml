@@ -115,6 +115,8 @@ spec:
                   name: "{{ .Values.global.neo4j.password.secretRef }}"
                   key: "{{ .Values.global.neo4j.password.secretKey }}"
             {{- end }}
+            - name: DATAHUB_ANALYTICS_ENABLED
+              - value: "{{ .Values.global.datahub_analytics_enabled }}"
             {{- if .Values.global.springKafkaConfigurationOverrides }}
             {{- range $configName, $configValue := .Values.global.springKafkaConfigurationOverrides }}
             - name: SPRING_KAFKA_PROPERTIES_{{ $configName | replace "." "_" | upper }}
