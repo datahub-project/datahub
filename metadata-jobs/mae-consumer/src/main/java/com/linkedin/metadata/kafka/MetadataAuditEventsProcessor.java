@@ -72,8 +72,6 @@ public class MetadataAuditEventsProcessor {
       if (event.hasNewSnapshot()) {
         final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(event.getNewSnapshot());
 
-        log.info(snapshot.toString());
-
         final EntitySpec entitySpec =
             SnapshotEntityRegistry.getInstance().getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
         updateElasticsearch(snapshot, entitySpec);
