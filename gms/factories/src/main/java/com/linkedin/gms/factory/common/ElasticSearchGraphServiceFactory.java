@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.metadata.graph.elastic.ESGraphReadDAO;
+import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -50,6 +50,6 @@ public class ElasticSearchGraphServiceFactory {
             bulkFlushPeriod,
             numRetries,
             retryInterval),
-        new ESGraphReadDAO(searchClient, indexConvention));
+        new ESGraphQueryDAO(searchClient, indexConvention));
   }
 }

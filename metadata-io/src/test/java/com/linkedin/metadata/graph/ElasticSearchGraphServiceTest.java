@@ -2,7 +2,7 @@ package com.linkedin.metadata.graph;
 
 import com.linkedin.common.urn.Urn;
 
-import com.linkedin.metadata.graph.elastic.ESGraphReadDAO;
+import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.query.RelationshipDirection;
@@ -70,7 +70,7 @@ public class ElasticSearchGraphServiceTest {
 
   @Nonnull
   private ElasticSearchGraphService buildService() {
-    ESGraphReadDAO readDAO = new ESGraphReadDAO(_searchClient, _indexConvention);
+    ESGraphQueryDAO readDAO = new ESGraphQueryDAO(_searchClient, _indexConvention);
     ESGraphWriteDAO writeDAO = new ESGraphWriteDAO(_searchClient, _indexConvention, 1, 1, 1, 1);
     return new ElasticSearchGraphService(_searchClient, _indexConvention, writeDAO, readDAO);
   }

@@ -42,7 +42,7 @@ public class ElasticSearchGraphService implements GraphService {
   private final RestHighLevelClient searchClient;
   private final IndexConvention _indexConvention;
   private final ESGraphWriteDAO _graphWriteDAO;
-  private final ESGraphReadDAO _graphReadDAO;
+  private final ESGraphQueryDAO _graphReadDAO;
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "graph_service_v1";
@@ -141,34 +141,22 @@ public class ElasticSearchGraphService implements GraphService {
     RelationshipFilter outgoingFilter = new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
     RelationshipFilter incomingFilter = new RelationshipFilter().setDirection(RelationshipDirection.INCOMING);
 
-    SearchResponse outgoingEdges = _graphReadDAO.getSearchResponse(
+    _graphReadDAO.deleteByQuery(
         null,
         urnFilter,
         null,
         emptyFilter,
         relationshipTypes,
-        outgoingFilter,
-        0,
-        MAX_ELASTIC_RESULT
+        outgoingFilter
     );
 
-    SearchResponse incomingEdges = _graphReadDAO.getSearchResponse(
+    _graphReadDAO.deleteByQuery(
         null,
         urnFilter,
         null,
         emptyFilter,
         relationshipTypes,
-        incomingFilter,
-        0,
-        MAX_ELASTIC_RESULT
-    );
-
-    outgoingEdges.getHits().forEach(
-        hit -> _graphWriteDAO.deleteDocument(hit.getId())
-    );
-
-    incomingEdges.getHits().forEach(
-        hit -> _graphWriteDAO.deleteDocument(hit.getId())
+        incomingFilter
     );
 
     return;
@@ -182,19 +170,13 @@ public class ElasticSearchGraphService implements GraphService {
     Filter urnFilter = createUrnFilter(urn);
     Filter emptyFilter = new Filter().setCriteria(new CriterionArray());
 
-    SearchResponse edges = _graphReadDAO.getSearchResponse(
+    _graphReadDAO.deleteByQuery(
         null,
         urnFilter,
         null,
         emptyFilter,
         relationshipTypes,
-        relationshipFilter,
-        0,
-        MAX_ELASTIC_RESULT
-    );
-
-    edges.getHits().forEach(
-        hit -> _graphWriteDAO.deleteDocument(hit.getId())
+        relationshipFilter
     );
   }
 

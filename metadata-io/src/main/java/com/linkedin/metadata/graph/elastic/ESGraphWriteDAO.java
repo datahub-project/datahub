@@ -1,8 +1,8 @@
 package com.linkedin.metadata.graph.elastic;
 
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
+
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import java.io.IOException;
 import javax.annotation.Nonnull;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
