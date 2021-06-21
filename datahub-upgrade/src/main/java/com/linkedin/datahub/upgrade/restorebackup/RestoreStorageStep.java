@@ -11,6 +11,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.BackupIterator;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.BackupReader;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.LocalParquetReader;
+import com.linkedin.datahub.upgrade.restorebackup.backupreader.S3BackupReader;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanUtils;
@@ -34,7 +35,7 @@ public class RestoreStorageStep implements UpgradeStep {
   public RestoreStorageStep(final EntityService entityService, final EntityRegistry entityRegistry) {
     _entityService = entityService;
     _entityRegistry = entityRegistry;
-    _backupReaders = ImmutableList.of(new LocalParquetReader())
+    _backupReaders = ImmutableList.of(new LocalParquetReader(), new S3BackupReader())
         .stream()
         .collect(Collectors.toMap(BackupReader::getName, Function.identity()));
   }
