@@ -18,6 +18,8 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.reindex.BulkByScrollResponse;
+import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
@@ -28,7 +30,7 @@ import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
  */
 @Slf4j
 @RequiredArgsConstructor
-public class ESGraphReadDAO {
+public class ESGraphQueryDAO {
 
   private final RestHighLevelClient client;
   private final IndexConvention indexConvention;
@@ -104,6 +106,55 @@ public class ESGraphReadDAO {
     try {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       return searchResponse;
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+  public BulkByScrollResponse deleteByQuery(
+      @Nullable final String sourceType,
+      @Nonnull  final Filter sourceEntityFilter,
+      @Nullable final String destinationType,
+      @Nonnull final Filter destinationEntityFilter,
+      @Nonnull final List<String> relationshipTypes,
+      @Nonnull final RelationshipFilter relationshipFilter) {
+    // also delete any relationship going to or from it
+    final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
+
+    DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest();
+
+    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+
+    // set source filter
+    String sourceNode = relationshipDirection == RelationshipDirection.OUTGOING ? "source" : "destination";
+    if (sourceType != null && sourceType.length() > 0) {
+      finalQuery.must(QueryBuilders.termQuery(sourceNode + ".entityType", sourceType));
+    }
+    addCriterionToQueryBuilder(sourceEntityFilter.getCriteria(), sourceNode, finalQuery);
+
+    // set destination filter
+    String destinationNode = relationshipDirection == RelationshipDirection.OUTGOING ? "destination" : "source";
+    if (destinationType != null && destinationType.length() > 0) {
+      finalQuery.must(QueryBuilders.termQuery(destinationNode + ".entityType", destinationType));
+    }
+    addCriterionToQueryBuilder(destinationEntityFilter.getCriteria(), destinationNode, finalQuery);
+
+    // set relationship filter
+    if (relationshipTypes.size() > 0) {
+      BoolQueryBuilder relationshipQuery = QueryBuilders.boolQuery();
+      relationshipTypes.forEach(relationshipType
+          -> relationshipQuery.should(QueryBuilders.termQuery("relationshipType", relationshipType)));
+      finalQuery.must(relationshipQuery);
+    }
+
+    deleteByQueryRequest.setQuery(finalQuery);
+
+    deleteByQueryRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+
+    try {
+      final BulkByScrollResponse deleteResponse = client.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
+      return deleteResponse;
     } catch (IOException e) {
       e.printStackTrace();
     }
