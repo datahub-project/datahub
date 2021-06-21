@@ -15,6 +15,7 @@ import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 import com.linkedin.usage.UsageAggregation;
 import com.linkedin.usage.UsageAggregationArray;
 import com.linkedin.usage.UsageQueryResult;
+import com.linkedin.usage.UsageQueryResultAggregations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +69,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             UsageAggregationArray buckets = new UsageAggregationArray();
             buckets.addAll(_usageService.query(resource, duration, startTime, endTime, maxBuckets));
 
-            StringMap aggregations = new StringMap();
+            UsageQueryResultAggregations aggregations = new UsageQueryResultAggregations();
             // TODO: compute the aggregations here
 
             return new UsageQueryResult()

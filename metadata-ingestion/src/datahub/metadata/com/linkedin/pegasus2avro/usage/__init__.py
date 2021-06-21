@@ -6,10 +6,10 @@
 # fmt: off
 from .....schema_classes import UsageAggregationClass
 from .....schema_classes import UsageAggregationMetricsClass
-from .....schema_classes import UsersUsageCountsClass
+from .....schema_classes import UserUsageCountsClass
 
 
 UsageAggregation = UsageAggregationClass
 UsageAggregationMetrics = UsageAggregationMetricsClass
-UsersUsageCounts = UsersUsageCountsClass
+UserUsageCounts = UserUsageCountsClass
 # fmt: on

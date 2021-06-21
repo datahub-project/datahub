@@ -205,11 +205,11 @@ basicAuditStamp = models.AuditStampClass(
                 resource="urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
                 metrics=models.UsageAggregationMetricsClass(
                     users=[
-                        models.UsersUsageCountsClass(
+                        models.UserUsageCountsClass(
                             user="urn:li:corpuser:jdoe",
                             count=5,
                         ),
-                        models.UsersUsageCountsClass(
+                        models.UserUsageCountsClass(
                             user="urn:li:corpuser:unknown",
                             count=3,
                             user_email="foo@example.com",

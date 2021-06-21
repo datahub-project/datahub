@@ -4657,19 +4657,32 @@
             {
               "type": [
                 "null",
+                "int"
+              ],
+              "name": "unique_user_count",
+              "default": null,
+              "doc": " Unique user count "
+            },
+            {
+              "type": [
+                "null",
                 {
                   "type": "array",
                   "items": {
                     "type": "record",
-                    "name": "UsersUsageCounts",
+                    "name": "UserUsageCounts",
                     "namespace": "com.linkedin.pegasus2avro.usage",
                     "fields": [
                       {
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                         },
-                        "type": "string",
-                        "name": "user"
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "name": "user",
+                        "default": null
                       },
                       {
                         "type": "int",
@@ -4684,13 +4697,23 @@
                         "default": null,
                         "doc": " If user_email is set, we attempt to resolve the user's urn upon ingest "
                       }
-                    ]
+                    ],
+                    "doc": " Records a single user's usage counts for a given resource "
                   }
                 }
               ],
               "name": "users",
               "default": null,
               "doc": " Users within this bucket, with frequency counts "
+            },
+            {
+              "type": [
+                "null",
+                "int"
+              ],
+              "name": "total_sql_queries",
+              "default": null,
+              "doc": " Total SQL query count "
             },
             {
               "type": [

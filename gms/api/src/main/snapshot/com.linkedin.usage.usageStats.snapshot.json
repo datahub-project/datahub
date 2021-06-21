@@ -37,15 +37,22 @@
         "name" : "UsageAggregationMetrics",
         "doc" : "Metrics for usage data for a given resource and bucket. Not all fields\nmake sense for all buckets, so every field is optional.",
         "fields" : [ {
+          "name" : "unique_user_count",
+          "type" : "int",
+          "doc" : " Unique user count ",
+          "optional" : true
+        }, {
           "name" : "users",
           "type" : {
             "type" : "array",
             "items" : {
               "type" : "record",
-              "name" : "UsersUsageCounts",
+              "name" : "UserUsageCounts",
+              "doc" : " Records a single user's usage counts for a given resource ",
               "fields" : [ {
                 "name" : "user",
-                "type" : "com.linkedin.common.Urn"
+                "type" : "com.linkedin.common.Urn",
+                "optional" : true
               }, {
                 "name" : "count",
                 "type" : "int"
@@ -58,6 +65,11 @@
             }
           },
           "doc" : " Users within this bucket, with frequency counts ",
+          "optional" : true
+        }, {
+          "name" : "total_sql_queries",
+          "type" : "int",
+          "doc" : " Total SQL query count ",
           "optional" : true
         }, {
           "name" : "top_sql_queries",
@@ -87,12 +99,28 @@
     }, {
       "name" : "aggregations",
       "type" : {
-        "type" : "map",
-        "values" : "string"
+        "type" : "record",
+        "name" : "UsageQueryResultAggregations",
+        "fields" : [ {
+          "name" : "total_unique_users",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "total_sql_queries",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "users",
+          "type" : {
+            "type" : "array",
+            "items" : "UserUsageCounts"
+          },
+          "optional" : true
+        } ]
       },
-      "doc" : " Aggregated metrics "
+      "doc" : "Aggregated metrics. All fields are optional here, since they will be populated\nonly if the underlying buckets contain the data required to generate that aggregation."
     } ]
-  }, "com.linkedin.usage.UsersUsageCounts" ],
+  }, "com.linkedin.usage.UsageQueryResultAggregations", "com.linkedin.usage.UserUsageCounts" ],
   "schema" : {
     "name" : "usageStats",
     "namespace" : "com.linkedin.usage",

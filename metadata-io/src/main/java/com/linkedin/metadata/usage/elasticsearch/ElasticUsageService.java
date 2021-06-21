@@ -12,8 +12,8 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.usage.UsageAggregation;
 import com.linkedin.usage.UsageAggregationMetrics;
-import com.linkedin.usage.UsersUsageCounts;
-import com.linkedin.usage.UsersUsageCountsArray;
+import com.linkedin.usage.UserUsageCounts;
+import com.linkedin.usage.UserUsageCountsArray;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -156,10 +156,10 @@ public class ElasticUsageService implements UsageService {
             agg.setMetrics(metrics);
 
             if (docFields.containsKey("metrics.users")) {
-                UsersUsageCountsArray users = new UsersUsageCountsArray();
+                UserUsageCountsArray users = new UserUsageCountsArray();
                 List<Map<String, Object>> docUsers = (List<Map<String, Object>>) docFields.get("metrics.users");
                 for (Map<String, Object> map : docUsers) {
-                    UsersUsageCounts userUsage = new UsersUsageCounts();
+                    UserUsageCounts userUsage = new UserUsageCounts();
                     userUsage.setUser(Urn.createFromString((String) map.get("user")));
                     userUsage.setCount((Integer) map.get("count"));
                     users.add(userUsage);

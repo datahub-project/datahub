@@ -39,6 +39,15 @@
         "doc": "Metrics for usage data for a given resource and bucket. Not all fields\nmake sense for all buckets, so every field is optional.",
         "fields": [
           {
+            "name": "unique_user_count",
+            "type": [
+              "null",
+              "int"
+            ],
+            "doc": " Unique user count ",
+            "default": null
+          },
+          {
             "name": "users",
             "type": [
               "null",
@@ -46,11 +55,16 @@
                 "type": "array",
                 "items": {
                   "type": "record",
-                  "name": "UsersUsageCounts",
+                  "name": "UserUsageCounts",
+                  "doc": " Records a single user's usage counts for a given resource ",
                   "fields": [
                     {
                       "name": "user",
-                      "type": "string",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "default": null,
                       "java": {
                         "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                       }
@@ -73,6 +87,15 @@
               }
             ],
             "doc": " Users within this bucket, with frequency counts ",
+            "default": null
+          },
+          {
+            "name": "total_sql_queries",
+            "type": [
+              "null",
+              "int"
+            ],
+            "doc": " Total SQL query count ",
             "default": null
           },
           {

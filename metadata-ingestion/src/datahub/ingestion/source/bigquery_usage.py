@@ -19,7 +19,7 @@ from datahub.ingestion.api.workunit import UsageStatsWorkUnit
 from datahub.metadata.schema_classes import (
     UsageAggregationClass,
     UsageAggregationMetricsClass,
-    UsersUsageCountsClass,
+    UserUsageCountsClass,
     WindowDurationClass,
 )
 from datahub.utilities.delayed_iter import delayed_iter
@@ -434,14 +434,16 @@ class BigQueryUsageSource(Source):
                 duration=self.config.bucket_duration,
                 resource=_table_ref_to_urn(agg.resource, self.config.env),
                 metrics=UsageAggregationMetricsClass(
+                    unique_user_count=len(agg.userFreq),
                     users=[
-                        UsersUsageCountsClass(
+                        UserUsageCountsClass(
                             user=builder.UNKNOWN_USER,
                             count=count,
                             user_email=user_email,
                         )
                         for user_email, count in agg.userFreq.most_common()
                     ],
+                    total_sql_queries=agg.queryCount,
                     top_sql_queries=[
                         query
                         for query, _ in agg.queryFreq.most_common(

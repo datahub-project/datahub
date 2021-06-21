@@ -7685,12 +7685,16 @@ class UsageAggregationMetricsClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.usage.UsageAggregationMetrics")
     def __init__(self,
-        users: Union[None, List["UsersUsageCountsClass"]]=None,
+        unique_user_count: Union[None, int]=None,
+        users: Union[None, List["UserUsageCountsClass"]]=None,
+        total_sql_queries: Union[None, int]=None,
         top_sql_queries: Union[None, List[str]]=None,
     ):
         super().__init__()
         
+        self.unique_user_count = unique_user_count
         self.users = users
+        self.total_sql_queries = total_sql_queries
         self.top_sql_queries = top_sql_queries
     
     @classmethod
@@ -7701,20 +7705,46 @@ class UsageAggregationMetricsClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
+        self.unique_user_count = self.RECORD_SCHEMA.field_map["unique_user_count"].default
         self.users = self.RECORD_SCHEMA.field_map["users"].default
+        self.total_sql_queries = self.RECORD_SCHEMA.field_map["total_sql_queries"].default
         self.top_sql_queries = self.RECORD_SCHEMA.field_map["top_sql_queries"].default
     
     
     @property
-    def users(self) -> Union[None, List["UsersUsageCountsClass"]]:
+    def unique_user_count(self) -> Union[None, int]:
+        """Getter:  Unique user count """
+        return self._inner_dict.get('unique_user_count')  # type: ignore
+    
+    
+    @unique_user_count.setter
+    def unique_user_count(self, value: Union[None, int]) -> None:
+        """Setter:  Unique user count """
+        self._inner_dict['unique_user_count'] = value
+    
+    
+    @property
+    def users(self) -> Union[None, List["UserUsageCountsClass"]]:
         """Getter:  Users within this bucket, with frequency counts """
         return self._inner_dict.get('users')  # type: ignore
     
     
     @users.setter
-    def users(self, value: Union[None, List["UsersUsageCountsClass"]]) -> None:
+    def users(self, value: Union[None, List["UserUsageCountsClass"]]) -> None:
         """Setter:  Users within this bucket, with frequency counts """
         self._inner_dict['users'] = value
+    
+    
+    @property
+    def total_sql_queries(self) -> Union[None, int]:
+        """Getter:  Total SQL query count """
+        return self._inner_dict.get('total_sql_queries')  # type: ignore
+    
+    
+    @total_sql_queries.setter
+    def total_sql_queries(self, value: Union[None, int]) -> None:
+        """Setter:  Total SQL query count """
+        self._inner_dict['total_sql_queries'] = value
     
     
     @property
@@ -7729,13 +7759,13 @@ class UsageAggregationMetricsClass(DictWrapper):
         self._inner_dict['top_sql_queries'] = value
     
     
-class UsersUsageCountsClass(DictWrapper):
-    # No docs available.
+class UserUsageCountsClass(DictWrapper):
+    """ Records a single user's usage counts for a given resource """
     
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.usage.UsersUsageCounts")
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.usage.UserUsageCounts")
     def __init__(self,
-        user: str,
         count: int,
+        user: Union[None, str]=None,
         user_email: Union[None, str]=None,
     ):
         super().__init__()
@@ -7745,26 +7775,26 @@ class UsersUsageCountsClass(DictWrapper):
         self.user_email = user_email
     
     @classmethod
-    def construct_with_defaults(cls) -> "UsersUsageCountsClass":
+    def construct_with_defaults(cls) -> "UserUsageCountsClass":
         self = cls.construct({})
         self._restore_defaults()
         
         return self
     
     def _restore_defaults(self) -> None:
-        self.user = str()
+        self.user = self.RECORD_SCHEMA.field_map["user"].default
         self.count = int()
         self.user_email = self.RECORD_SCHEMA.field_map["user_email"].default
     
     
     @property
-    def user(self) -> str:
+    def user(self) -> Union[None, str]:
         # No docs available.
         return self._inner_dict.get('user')  # type: ignore
     
     
     @user.setter
-    def user(self, value: str) -> None:
+    def user(self, value: Union[None, str]) -> None:
         # No docs available.
         self._inner_dict['user'] = value
     
@@ -7938,7 +7968,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.tag.TagProperties': TagPropertiesClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregation': UsageAggregationClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregationMetrics': UsageAggregationMetricsClass,
-    'com.linkedin.pegasus2avro.usage.UsersUsageCounts': UsersUsageCountsClass,
+    'com.linkedin.pegasus2avro.usage.UserUsageCounts': UserUsageCountsClass,
     'KafkaAuditHeader': KafkaAuditHeaderClass,
     'ChartInfo': ChartInfoClass,
     'ChartQuery': ChartQueryClass,
@@ -8083,7 +8113,7 @@ __SCHEMA_TYPES = {
     'TagProperties': TagPropertiesClass,
     'UsageAggregation': UsageAggregationClass,
     'UsageAggregationMetrics': UsageAggregationMetricsClass,
-    'UsersUsageCounts': UsersUsageCountsClass,
+    'UserUsageCounts': UserUsageCountsClass,
 }
 
 _json_converter = avrojson.AvroJsonConverter(use_logical_types=False, schema_types=__SCHEMA_TYPES)
