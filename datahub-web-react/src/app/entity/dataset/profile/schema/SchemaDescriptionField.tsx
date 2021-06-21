@@ -1,116 +1,108 @@
-import { Typography, Modal, Button, Input, Form, message } from 'antd';
+import { Typography, message, Tag } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
+import UpdateDescriptionModal from '../../../shared/DescriptionModal';
+import MarkdownViewer from '../../../shared/MarkdownViewer';
 
-const { TextArea } = Input;
+const EditIcon = styled(EditOutlined)`
+    cursor: pointer;
+    padding: 2px;
+    margin-top: 4px;
+    margin-left: 8px;
+    display: none;
+`;
+
+const AddNewDescription = styled(Tag)`
+    cursor: pointer;
+    display: none;
+`;
 
 const DescriptionContainer = styled.div`
     position: relative;
     display: flex;
     flex-direction: row;
+    width: 100%;
+    height: 100%;
+    min-height: 22px;
+    &:hover ${EditIcon} {
+        display: block;
+    }
+
+    &:hover ${AddNewDescription} {
+        display: block;
+    }
 `;
 
-const DescriptionText = styled(Typography.Text)`
+const DescriptionText = styled(MarkdownViewer)`
     padding-right: 8px;
-    max-width: 600px;
-    display: block;
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-`;
-
-const DescriptionTextInModal = styled(Typography.Text)`
-    padding: 4px 10px;
-`;
-
-const FormLabel = styled(Typography.Text)`
-    font-size: 10px;
-    font-weight: bold;
-`;
-
-const EditIcon = styled(EditOutlined)`
-    cursor: pointer;
-    margin-top: 4px;
 `;
 
 const EditedLabel = styled(Typography.Text)`
-    padding-left: 8px;
-    color: rgb(150, 150, 150);
+    position: absolute;
+    right: -10px;
+    top: -15px;
+    color: rgba(150, 150, 150, 0.5);
     font-style: italic;
 `;
-
-const MessageKey = 'UpdateSchemaDescription';
 
 type Props = {
     description: string;
     updatedDescription?: string | null;
-    onHover: boolean;
     onUpdate: (
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
 };
 
-export default function DescriptionField({ description, updatedDescription, onHover, onUpdate }: Props) {
+export default function DescriptionField({ description, updatedDescription, onUpdate }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
-    const [updatedDesc, setDesc] = useState(updatedDescription || description);
 
     const onCloseModal = () => setShowAddModal(false);
+    const currentDesc: string = updatedDescription || description;
 
-    const onUpdateModal = async () => {
-        message.loading({ content: 'Updating...', key: MessageKey });
-        await onUpdate(updatedDesc);
-        message.success({ content: 'Updated!', key: MessageKey, duration: 2 });
+    const onUpdateModal = async (desc: string | null) => {
+        message.loading({ content: 'Updating...' });
+        try {
+            await onUpdate(desc || '');
+            message.destroy();
+            message.success({ content: 'Updated!', duration: 2 });
+        } catch (e) {
+            message.destroy();
+            message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
+        }
         onCloseModal();
     };
 
     return (
-        <DescriptionContainer>
-            <DescriptionText>{updatedDescription || description}</DescriptionText>
-            {onHover && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
-            {showAddModal && (
-                <Modal
-                    title="Update description"
-                    visible
-                    onCancel={onCloseModal}
-                    okButtonProps={{ disabled: !updatedDesc || updatedDesc.length === 0 }}
-                    okText="Update"
-                    footer={
-                        <>
-                            <Button onClick={onCloseModal}>Cancel</Button>
-                            <Button
-                                onClick={onUpdateModal}
-                                disabled={
-                                    !updatedDesc ||
-                                    updatedDesc.length === 0 ||
-                                    updatedDesc === (updatedDescription || description)
-                                }
-                            >
-                                Update
-                            </Button>
-                        </>
-                    }
-                >
-                    <Form layout="vertical">
-                        {(updatedDescription || description) && (
-                            <Form.Item label={<FormLabel>Original:</FormLabel>}>
-                                <DescriptionTextInModal>{description}</DescriptionTextInModal>
-                            </Form.Item>
-                        )}
-                        <Form.Item label={<FormLabel>Updated:</FormLabel>}>
-                            <TextArea
-                                value={updatedDesc}
-                                onChange={(e) => setDesc(e.target.value)}
-                                placeholder="Description"
-                                autoSize={{ minRows: 2, maxRows: 6 }}
-                            />
-                        </Form.Item>
-                    </Form>
-                </Modal>
-            )}
+        <DescriptionContainer
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }}
+        >
+            <DescriptionText source={currentDesc} />
+            {currentDesc && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
             {updatedDescription && <EditedLabel>(edited)</EditedLabel>}
+            {showAddModal && (
+                <div>
+                    <UpdateDescriptionModal
+                        title={currentDesc ? 'Update description' : 'Add description'}
+                        description={currentDesc}
+                        original={description}
+                        onClose={onCloseModal}
+                        onSubmit={onUpdateModal}
+                        isAddDesc={!currentDesc}
+                    />
+                </div>
+            )}
+            {!currentDesc && (
+                <AddNewDescription color="success" onClick={() => setShowAddModal(true)}>
+                    + Add Description
+                </AddNewDescription>
+            )}
         </DescriptionContainer>
     );
 }

@@ -73,7 +73,7 @@ class SQLAlchemyConfig(ConfigModel):
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
-    include_views: Optional[bool] = False
+    include_views: Optional[bool] = True
     include_tables: Optional[bool] = True
 
     @abstractmethod

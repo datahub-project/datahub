@@ -125,7 +125,7 @@ base_dev_requirements = {
     "mypy>=0.901",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
-    "pytest-docker",
+    "pytest-docker>=0.10.3",
     "tox",
     "deepdiff",
     "requests-mock",
@@ -250,6 +250,7 @@ setuptools.setup(
     package_data={
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
+        "datahub.metadata.schemas": ["*.avsc"],
     },
     entry_points=entry_points,
     # Dependencies.

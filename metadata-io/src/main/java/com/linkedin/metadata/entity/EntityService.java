@@ -110,17 +110,19 @@ public abstract class EntityService {
       long version);
 
   /**
-   * Retrieves a list of all persisted aspects with a specific name, sorted by corresponding urn.
+   * Retrieves a list of all aspects belonging to an entity of a particular type, sorted by urn.
    *
    * Note that once we drop support for legacy 'getAllDataPlatforms' endpoint,
    * we can drop support for this unless otherwise required. Only visible for backwards compatibility.
    *
-   * @param aspectName name of the aspect requested
+   * @param entityName name of the entity type the aspect belongs to, e.g. 'dataset'
+   * @param aspectName name of the aspect requested, e.g. 'ownership'
    * @param start the starting index of the returned aspects, used in pagination
    * @param count the count of the aspects to be returned, used in pagination
    * @return a {@link ListResult} of {@link RecordTemplate}s representing the requested aspect.
    */
   public abstract ListResult<RecordTemplate> listLatestAspects(
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       int count);
