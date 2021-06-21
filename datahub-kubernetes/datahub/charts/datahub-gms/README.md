@@ -38,7 +38,7 @@ Current chart version is `0.2.0`
 | global.sql.datasource.password.secretKey | string | `"mysql-password"` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"linkedin/datahub-gms"` |  |
-| image.tag | string | `"v0.8.1"` |  |
+| image.tag | string | `"v0.8.3"` |  |
 | imagePullSecrets | list | `[]` |  |
 | ingress.annotations | object | `{}` |  |
 | ingress.enabled | bool | `false` |  |

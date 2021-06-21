@@ -10,5 +10,12 @@ import com.linkedin.common.ChangeAuditStamps
   "name": "editableChartProperties"
 }
 record EditableChartProperties includes ChangeAuditStamps {
+  /**
+   * Edited documentation of the chart 
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "fieldName": "editedDescription",
+  }
   description: optional string
 }

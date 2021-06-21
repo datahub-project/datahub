@@ -426,12 +426,17 @@
                           "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."
                         },
                         {
+                          "Searchable": {
+                            "fieldName": "editedDescription",
+                            "fieldType": "TEXT"
+                          },
                           "type": [
                             "null",
                             "string"
                           ],
                           "name": "description",
-                          "default": null
+                          "default": null,
+                          "doc": "Edited documentation of the chart "
                         }
                       ],
                       "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"
@@ -1211,12 +1216,17 @@
                           "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."
                         },
                         {
+                          "Searchable": {
+                            "fieldName": "editedDescription",
+                            "fieldType": "TEXT"
+                          },
                           "type": [
                             "null",
                             "string"
                           ],
                           "name": "description",
-                          "default": null
+                          "default": null,
+                          "doc": "Edited documentation of the dashboard"
                         }
                       ],
                       "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"
@@ -1362,9 +1372,9 @@
                     {
                       "type": "record",
                       "Aspect": {
-                        "name": "editableDataflowProperties"
+                        "name": "editableDataFlowProperties"
                       },
-                      "name": "EditableDataflowProperties",
+                      "name": "EditableDataFlowProperties",
                       "namespace": "com.linkedin.pegasus2avro.datajob",
                       "fields": [
                         {
@@ -1387,12 +1397,17 @@
                           "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."
                         },
                         {
+                          "Searchable": {
+                            "fieldName": "editedDescription",
+                            "fieldType": "TEXT"
+                          },
                           "type": [
                             "null",
                             "string"
                           ],
                           "name": "description",
-                          "default": null
+                          "default": null,
+                          "doc": "Edited documentation of the data flow"
                         }
                       ],
                       "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"
@@ -1653,9 +1668,9 @@
                     {
                       "type": "record",
                       "Aspect": {
-                        "name": "editableDatajobProperties"
+                        "name": "editableDataJobProperties"
                       },
-                      "name": "EditableDatajobProperties",
+                      "name": "EditableDataJobProperties",
                       "namespace": "com.linkedin.pegasus2avro.datajob",
                       "fields": [
                         {
@@ -1678,12 +1693,17 @@
                           "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."
                         },
                         {
+                          "Searchable": {
+                            "fieldName": "editedDescription",
+                            "fieldType": "TEXT"
+                          },
                           "type": [
                             "null",
                             "string"
                           ],
                           "name": "description",
-                          "default": null
+                          "default": null,
+                          "doc": "Edited documentation of the data job "
                         }
                       ],
                       "doc": "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines"
@@ -1876,6 +1896,10 @@
                           "doc": "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics."
                         },
                         {
+                          "Searchable": {
+                            "fieldName": "editedDescription",
+                            "fieldType": "TEXT"
+                          },
                           "type": [
                             "null",
                             "string"

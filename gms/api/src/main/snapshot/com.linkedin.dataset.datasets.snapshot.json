@@ -611,7 +611,11 @@
           "name" : "description",
           "type" : "string",
           "doc" : "Documentation of the dataset",
-          "optional" : true
+          "optional" : true,
+          "Searchable" : {
+            "fieldName" : "editedDescription",
+            "fieldType" : "TEXT"
+          }
         } ],
         "Aspect" : {
           "name" : "editableDatasetProperties"

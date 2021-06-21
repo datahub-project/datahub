@@ -10,7 +10,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.datajob.DataFlow;
-import com.linkedin.datajob.EditableDataflowProperties;
+import com.linkedin.datajob.EditableDataFlowProperties;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;
@@ -48,13 +48,13 @@ public class DataFlowUpdateInputMapper implements InputModelMapper<DataFlowUpdat
         }
 
         if (dataFlowUpdateInput.getEditableProperties() != null) {
-            final EditableDataflowProperties editableDataflowProperties = new EditableDataflowProperties();
-            editableDataflowProperties.setDescription(dataFlowUpdateInput.getEditableProperties().getDescription());
-            if (!editableDataflowProperties.hasCreated()) {
-                editableDataflowProperties.setCreated(auditStamp);
+            final EditableDataFlowProperties editableDataFlowProperties = new EditableDataFlowProperties();
+            editableDataFlowProperties.setDescription(dataFlowUpdateInput.getEditableProperties().getDescription());
+            if (!editableDataFlowProperties.hasCreated()) {
+                editableDataFlowProperties.setCreated(auditStamp);
             }
-            editableDataflowProperties.setLastModified(auditStamp);
-            result.setEditableProperties(editableDataflowProperties);
+            editableDataFlowProperties.setLastModified(auditStamp);
+            result.setEditableProperties(editableDataFlowProperties);
         }
         return result;
     }
