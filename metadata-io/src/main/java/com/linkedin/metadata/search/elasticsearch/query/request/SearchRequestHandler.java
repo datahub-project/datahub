@@ -192,6 +192,9 @@ public class SearchRequestHandler {
 
   public SearchResult extractResult(@Nonnull SearchResponse searchResponse, int from, int size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
+
+    // searchResponse.getHits().getHits()[0].field("sourceUrn")
+
     List<Urn> resultList = getResults(searchResponse);
     SearchResultMetadata searchResultMetadata = extractSearchResultMetadata(searchResponse);
     searchResultMetadata.setUrns(new UrnArray(resultList));

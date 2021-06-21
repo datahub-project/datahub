@@ -28,4 +28,6 @@ public interface GraphService {
       @Nonnull final Urn urn,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter);
+
+  void configure();
 }
