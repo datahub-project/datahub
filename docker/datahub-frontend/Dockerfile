@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM openjdk:8-jre-alpine as base
+FROM adoptopenjdk/openjdk8:alpine-jre as base
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 RUN apk --no-cache add curl
 
