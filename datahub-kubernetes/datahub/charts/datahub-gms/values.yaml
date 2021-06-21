@@ -151,6 +151,7 @@ readinessProbe:
 # helm install datahub-gms datahub-gms/
 global:
   datahub_analytics_enabled: true
+  graphService: neo4j
 
   elasticsearch:
     host: "elasticsearch"

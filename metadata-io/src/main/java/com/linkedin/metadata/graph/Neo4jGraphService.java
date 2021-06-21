@@ -146,6 +146,11 @@ public class Neo4jGraphService implements GraphService {
     runQuery(buildStatement(statement, params)).consume();
   }
 
+  @Override
+  public void configure() {
+    // Do nothing
+  }
+
   // visible for testing
   @Nonnull
   Statement buildStatement(@Nonnull String queryTemplate, @Nonnull Map<String, Object> params) {
