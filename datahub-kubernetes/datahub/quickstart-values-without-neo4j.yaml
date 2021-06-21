@@ -43,7 +43,7 @@ datahub-ingestion-cron:
   enabled: false
 
 global:
-  graphService: neo4j
+  graphService: elasticsearch
 
   elasticsearch:
     host: "elasticsearch-master"
@@ -57,14 +57,6 @@ global:
       server: "prerequisites-zookeeper:2181"
     schemaregistry:
       url: "http://prerequisites-cp-schema-registry:8081"
-
-  neo4j:
-    host: "prerequisites-neo4j-community:7474"
-    uri: "bolt://prerequisites-neo4j-community"
-    username: "neo4j"
-    password:
-      secretRef: neo4j-secrets
-      secretKey: neo4j-password
 
   sql:
     datasource:
