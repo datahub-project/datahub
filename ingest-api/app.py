@@ -2,12 +2,26 @@ import uvicorn
 from fastapi import FastAPI
 from typing import Optional, List
 from typing_extensions import TypedDict
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from helper.mce_convenience import delete_mce, make_schema_mce, make_dataset_urn, \
                     make_user_urn, make_dataset_description_mce, \
                     make_browsepath_mce, make_ownership_mce, make_platform, get_sys_time 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from string import ascii_letters, digits
+
 import logging
+from logging.handlers import TimedRotatingFileHandler
+
+logformatter = logging.Formatter('%(asctime)s;%(levelname)s;%(message)s')
+log = TimedRotatingFileHandler('./log/debug.log', 'midnight', 1, backupCount=5)
+log.setLevel(logging.INFO)
+log.setFormatter(logformatter)
+
+
+logger = logging.getLogger('main')
+logger.addHandler(log)    
+logger.setLevel(logging.DEBUG)
+
 #todo - add a logger for this endpoint
 #add a docker volume also since this is the best place to capture input activity.
 
@@ -49,7 +63,14 @@ class create_dataset_params(BaseModel):
                 ]
             }
         }
-
+    @validator('dataset_name')
+    def dataset_name_alphanumeric(cls, v):
+        assert len(set(v).difference(ascii_letters+digits+' '))==0, 'dataset_name must be alphanumeric/space character only'
+        return v
+    @validator('dataset_type')
+    def dataset_type_alphanumeric(cls, v):
+        assert v.isalpha(), 'dataset_type must be alphabetical string only'
+        return v
 
 @app.post("/make_dataset")
 async def create_item(item: create_dataset_params) -> None:
@@ -57,8 +78,8 @@ async def create_item(item: create_dataset_params) -> None:
     This endpoint is meant for manually defined or parsed file datasets.
     """
     
-    item["dataset_type"] = item["dataset_type"].lower()
-    item["dataset_name"] = "{}_{}".format(item.dataset_name,str(get_sys_time))
+    item.dataset_type = item.dataset_type.lower()
+    item.dataset_name = "{}_{}".format(item.dataset_name,str(get_sys_time()))
     datasetName = make_dataset_urn(item.dataset_type, item.dataset_name)
     platformName = make_platform(item.dataset_type)        
     browsePath = "/{}/{}".format(item.dataset_type, item.dataset_name) 
@@ -98,7 +119,7 @@ async def delete_item(item: delete_dataset_params) -> None:
     """
     This endpoint is meant for manually defined or parsed file datasets.
     """
-    
+    ## how to check that this dataset exist?
     datasetName = make_dataset_urn(item.platform, item.dataset_name)
     mce = delete_mce(dataset_name = datasetName)
     emitter = DatahubRestEmitter("http://localhost:8080")
