@@ -727,6 +727,46 @@
   {
     "auditHeader": null,
     "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "connection_type": "s3",
+                "format": "json",
+                "connection_options": "{'path': 's3://test-glue-jsons/', 'partitionKeys': []}",
+                "transformation_ctx": "DataSink1"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
         "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SplitFields-Transform0)",
         "aspects": [
@@ -869,6 +909,46 @@
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2)"
               ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [],
+              "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "connection_type": "s3",
+                "format": "json",
+                "connection_options": "{'path': 's3://test-glue-jsons/', 'partitionKeys': []}",
+                "transformation_ctx": "DataSink0"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
             }
           }
         ]
