@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import time
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
 from datahub.configuration import ConfigModel
@@ -65,6 +66,7 @@ class DBTNode:
     columns: List[DBTColumn]
     upstream_urns: List[str]
     datahub_urn: str
+    max_loaded_at: Optional[str]
 
     def __repr__(self):
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
@@ -97,9 +99,11 @@ def extract_dbt_entities(
     environment: str,
     node_type_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
+
+    sources_by_id = {x["unique_id"]: x for x in sources_results}
+
     dbt_entities = []
-    for key in nodes:
-        node = nodes[key]
+    for key, node in nodes.items():
         dbtNode = DBTNode()
 
         # check if node pattern allowed based on config file
@@ -110,7 +114,8 @@ def extract_dbt_entities(
         dbtNode.schema = node["schema"]
         dbtNode.dbt_file_path = node["original_file_path"]
         dbtNode.node_type = node["resource_type"]
-        if "identifier" in node and load_catalog is False:
+        dbtNode.max_loaded_at = sources_by_id.get(key, {}).get("max_loaded_at")
+        if "identifier" in node and not load_catalog:
             dbtNode.name = node["identifier"]
         else:
             dbtNode.name = node["name"]
@@ -207,11 +212,11 @@ def get_urn_from_dbtNode(
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
-    properties = {}
-    properties["dbt_node_type"] = node.node_type
-    properties["materialization"] = node.materialization
-    properties["dbt_file_path"] = node.dbt_file_path
-    return properties
+    return {
+        "dbt_node_type": node.node_type,
+        "materialization": node.materialization,
+        "dbt_file_path": node.dbt_file_path,
+    }
 
 
 def get_upstreams(
@@ -228,7 +233,7 @@ def get_upstreams(
 
         dbtNode_upstream.database = all_nodes[upstream]["database"]
         dbtNode_upstream.schema = all_nodes[upstream]["schema"]
-        if "identifier" in all_nodes[upstream] and load_catalog is False:
+        if "identifier" in all_nodes[upstream] and not load_catalog:
             dbtNode_upstream.name = all_nodes[upstream]["identifier"]
         else:
             dbtNode_upstream.name = all_nodes[upstream]["name"]
@@ -259,9 +264,7 @@ def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
         )
         ucl.append(uc)
 
-    ulc = UpstreamLineage(upstreams=ucl)
-
-    return ulc
+    return UpstreamLineage(upstreams=ucl)
 
 
 # This is from a fairly narrow data source that is posgres specific, we would expect this to expand over
@@ -320,18 +323,25 @@ def get_schema_metadata(
 
         canonical_schema.append(field)
 
-    actor, sys_time = "urn:li:corpuser:dbt_executor", int(time.time()) * 1000
-    schema_metadata = SchemaMetadata(
+    actor, sys_time = "urn:li:corpuser:dbt_executor", int(time.time() * 1000)
+
+    last_modified = sys_time
+
+    if node.max_loaded_at is not None:
+        last_modified = int(
+            datetime.fromisoformat(node.max_loaded_at).timestamp() * 1000
+        )
+
+    return SchemaMetadata(
         schemaName=node.dbt_name,
         platform=f"urn:li:dataPlatform:{platform}",
         version=0,
         hash="",
         platformSchema=MySqlDDL(tableSchema=""),
         created=AuditStamp(time=sys_time, actor=actor),
-        lastModified=AuditStamp(time=sys_time, actor=actor),
+        lastModified=AuditStamp(time=last_modified, actor=actor),
         fields=canonical_schema,
     )
-    return schema_metadata
 
 
 class DBTSource(Source):
