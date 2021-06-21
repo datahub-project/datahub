@@ -44,9 +44,9 @@ public class GraphServiceFactory {
   @Bean(name = "graphService")
   @Primary
   protected GraphService createInstance() {
-    if (graphService.equals("neo4j")) {
+    if (graphService.equalsIgnoreCase("neo4j")) {
       return new Neo4jGraphService(neo4jDriver);
-    } else if (graphService.equals("elastic")) {
+    } else if (graphService.equalsIgnoreCase("elasticsearch")) {
       return _elasticSearchGraphService;
     } else {
       throw new RuntimeException(
