@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import time
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
+    sources_path: Optional[str]
     env: str = "PROD"
     target_platform: str
     load_schemas: bool
@@ -90,6 +91,7 @@ def get_columns(catalog_node: dict) -> List[DBTColumn]:
 def extract_dbt_entities(
     nodes: Dict[str, dict],
     catalog: Dict[str, dict],
+    sources_results: Dict[str, dict],
     load_catalog: bool,
     target_platform: str,
     environment: str,
@@ -154,36 +156,46 @@ def extract_dbt_entities(
 def loadManifestAndCatalog(
     manifest_path: str,
     catalog_path: str,
+    sources_path: Optional[str],
     load_catalog: bool,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
-) -> List[DBTNode]:
+) -> List[DBTNode]:  # sourcery skip: inline-immediately-returned-variable
     with open(manifest_path, "r") as manifest:
-        with open(catalog_path, "r") as catalog:
-            dbt_manifest_json = json.load(manifest)
-            dbt_catalog_json = json.load(catalog)
+        dbt_manifest_json = json.load(manifest)
 
-            manifest_nodes = dbt_manifest_json["nodes"]
-            manifest_sources = dbt_manifest_json["sources"]
+    with open(catalog_path, "r") as catalog:
+        dbt_catalog_json = json.load(catalog)
 
-            all_manifest_entities = {**manifest_nodes, **manifest_sources}
+    if sources_path is not None:
+        with open(sources_path, "r") as sources:
+            dbt_sources_json = json.load(sources)
+            sources_results = dbt_sources_json["results"]
+    else:
+        sources_results = {}
 
-            catalog_nodes = dbt_catalog_json["nodes"]
-            catalog_sources = dbt_catalog_json["sources"]
+    manifest_nodes = dbt_manifest_json["nodes"]
+    manifest_sources = dbt_manifest_json["sources"]
 
-            all_catalog_entities = {**catalog_nodes, **catalog_sources}
+    all_manifest_entities = {**manifest_nodes, **manifest_sources}
 
-            nodes = extract_dbt_entities(
-                all_manifest_entities,
-                all_catalog_entities,
-                load_catalog,
-                target_platform,
-                environment,
-                node_type_pattern,
-            )
+    catalog_nodes = dbt_catalog_json["nodes"]
+    catalog_sources = dbt_catalog_json["sources"]
 
-            return nodes
+    all_catalog_entities = {**catalog_nodes, **catalog_sources}
+
+    nodes = extract_dbt_entities(
+        all_manifest_entities,
+        all_catalog_entities,
+        sources_results,
+        load_catalog,
+        target_platform,
+        environment,
+        node_type_pattern,
+    )
+
+    return nodes
 
 
 def get_urn_from_dbtNode(
@@ -341,6 +353,7 @@ class DBTSource(Source):
         nodes = loadManifestAndCatalog(
             self.config.manifest_path,
             self.config.catalog_path,
+            self.config.sources_path,
             self.config.load_schemas,
             self.config.target_platform,
             self.config.env,

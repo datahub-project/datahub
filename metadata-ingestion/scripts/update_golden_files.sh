@@ -15,6 +15,7 @@ cp tmp/test_mongodb_ingest0/mongodb_mces.json tests/integration/mongodb/mongodb_
 cp tmp/test_feast_ingest0/feast_mces.json tests/integration/feast/feast_mce_golden.json
 cp tmp/test_lookml_ingest0/lookml_mces.json tests/integration/lookml/expected_output.json
 cp tmp/test_looker_ingest0/looker_mces.json tests/integration/looker/expected_output.json
+cp tmp/test_dbt_ingest0/dbt_mces.json tests/integration/dbt/dbt_mces_golden.json
 
 # Print success message.
 set +x
