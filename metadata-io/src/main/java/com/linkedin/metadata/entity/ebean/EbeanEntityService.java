@@ -91,11 +91,20 @@ public class EbeanEntityService extends EntityService {
     return urnToAspects;
   }
 
+  /*
+   * When a user tries to fetch a negative version, we want to index most recent to least recent snapshots.
+   * To do this, we want to fetch the maximum version and subtract the negative version from that. Since -1 represents
+   * the maximum version, we need to add 1 to the final result.
+   */
+  private long calculateVersionNumber(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
+    return _entityDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
+  }
+
   @Override
   @Nullable
   public RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
     if (version < 0) {
-      version = _entityDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
+      version = calculateVersionNumber(urn, aspectName, version);
     }
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
@@ -109,7 +118,7 @@ public class EbeanEntityService extends EntityService {
     VersionedAspect result = new VersionedAspect();
 
     if (version < 0) {
-      version = _entityDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
+      version = calculateVersionNumber(urn, aspectName, version);
     }
 
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
