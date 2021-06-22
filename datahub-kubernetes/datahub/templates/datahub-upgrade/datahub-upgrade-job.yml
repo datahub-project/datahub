@@ -47,7 +47,7 @@ spec:
             - "-a"
             - "batchDelayMs=100"
             - "-a"
-            - "dbType={{ .Values.datahubUpgrade.dbType }}"
+            - "dbType={{ .Values.datahubUpgrade.noCodeDataMigration.sqlDbType }}"
           env:
             - name: DATAHUB_GMS_HOST
               value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
