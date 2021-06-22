@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.elastic;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
@@ -112,6 +113,10 @@ public class ElasticSearchGraphService implements GraphService {
         offset,
         count
     );
+
+    if (Objects.isNull(response)) {
+      return ImmutableList.of();
+    }
 
     return Arrays.stream(response.getHits().getHits())
         .map(hit -> ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null))
