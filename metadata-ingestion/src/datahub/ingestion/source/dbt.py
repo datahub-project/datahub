@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 import time
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
@@ -9,6 +8,11 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.source.dbt_types import (
+    POSTGRES_TYPES_MAP,
+    SNOWFLAKE_TYPES_MAP,
+    resolve_postgres_modified_type,
+)
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -28,6 +32,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
+    TimeTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
@@ -267,15 +272,19 @@ def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
     return UpstreamLineage(upstreams=ucl)
 
 
-# This is from a fairly narrow data source that is posgres specific, we would expect this to expand over
-# time or be replaced with a more thorough mechanism
+# See https://github.com/fishtown-analytics/dbt/blob/master/core/dbt/adapters/sql/impl.py
 _field_type_mapping = {
     "boolean": BooleanTypeClass,
     "date": DateTypeClass,
+    "time": TimeTypeClass,
     "numeric": NumberTypeClass,
     "text": StringTypeClass,
     "timestamp with time zone": DateTypeClass,
+    "timestamp without time zone": DateTypeClass,
     "integer": NumberTypeClass,
+    "float8": NumberTypeClass,
+    **POSTGRES_TYPES_MAP,
+    **SNOWFLAKE_TYPES_MAP,
 }
 
 
@@ -285,20 +294,16 @@ def get_column_type(
     """
     Maps known DBT types to datahub types
     """
-    column_type_stripped = ""
-
-    pattern = re.compile(r"[\w ]+")  # drop all non alphanumerics
-    match = pattern.match(column_type)
-    if match is not None:
-        column_type_stripped = match.group()
-
-    TypeClass: Any = None
-    for key in _field_type_mapping.keys():
-        if key == column_type_stripped:
-            TypeClass = _field_type_mapping[column_type_stripped]
-            break
+    TypeClass: Any = _field_type_mapping.get(column_type)
 
     if TypeClass is None:
+
+        # attempt Postgres modified type
+        TypeClass = resolve_postgres_modified_type(column_type)
+
+    # if still not found, report the warning
+    if TypeClass is None:
+
         report.report_warning(
             dataset_name, f"unable to map type {column_type} to metadata schema"
         )
