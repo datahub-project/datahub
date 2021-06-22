@@ -7,10 +7,9 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import io.ebean.EbeanServer;
 import java.util.function.Function;
 
-// Do we need SQL-tech specific migration paths?
 public class CreateAspectTableStep implements UpgradeStep {
 
-  private static final String DEFAULT_DB_TYPE = "mysql";
+  private static final String DB_TYPE_ARG = "dbType";
 
   enum DbType {
     MY_SQL,
@@ -38,8 +37,8 @@ public class CreateAspectTableStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
 
-      DbType targetDbType = context.parsedArgs().containsKey("dbType")
-          ? DbType.valueOf(context.parsedArgs().get("dbType").get())
+      DbType targetDbType = context.parsedArgs().containsKey(DB_TYPE_ARG)
+          ? DbType.valueOf(context.parsedArgs().get(DB_TYPE_ARG).get())
           : DbType.MY_SQL;
 
       String sqlUpdateStr;
@@ -71,6 +70,7 @@ public class CreateAspectTableStep implements UpgradeStep {
               + "  createdfor                    varchar(255),\n"
               + "  constraint pk_metadata_aspect primary key (urn,aspect,version)\n"
               + ")";
+          break;
       }
 
       try {
