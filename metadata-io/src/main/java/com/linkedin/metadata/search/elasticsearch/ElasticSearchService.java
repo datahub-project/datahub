@@ -15,11 +15,14 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 @RequiredArgsConstructor
 public class ElasticSearchService implements SearchService {
 
+  private final Logger _logger = LoggerFactory.getLogger(ElasticSearchService.class.getName());
   private final ESIndexBuilders indexBuilders;
   private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;

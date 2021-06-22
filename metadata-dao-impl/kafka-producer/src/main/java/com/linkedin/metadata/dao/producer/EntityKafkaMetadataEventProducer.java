@@ -6,6 +6,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.Configs;
@@ -26,6 +27,8 @@ import org.apache.avro.specific.SpecificRecord;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -35,6 +38,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 @Slf4j
 public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
 
+  private final Logger _logger = LoggerFactory.getLogger(EntityKafkaMetadataEventProducer.class.getName());
   private final Producer<String, ? extends IndexedRecord> _producer;
   private final Optional<Callback> _callback;
   private final TopicConvention _topicConvention;

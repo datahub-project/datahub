@@ -18,6 +18,8 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -27,6 +29,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 @RequiredArgsConstructor
 public class ESSearchDAO {
 
+  private final Logger logger = LoggerFactory.getLogger(ESSearchDAO.class.getName());
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient client;
   private final IndexConvention indexConvention;

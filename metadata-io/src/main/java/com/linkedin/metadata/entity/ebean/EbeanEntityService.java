@@ -26,6 +26,8 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.linkedin.metadata.PegasusUtils.*;
 
@@ -38,6 +40,7 @@ public class EbeanEntityService extends EntityService {
 
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
 
+  private final Logger _logger = LoggerFactory.getLogger(EbeanEntityService.class.getName());
   private final EbeanAspectDao _entityDao;
 
   private Boolean _alwaysEmitAuditEvent = false;

@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 @RestLiCollection(name = "aspects", namespace = "com.linkedin.entity")
 public class AspectResource extends CollectionResourceTaskTemplate<String, VersionedAspect> {
 
-  private final Logger _logger = LoggerFactory.getLogger("EntityResource");
+  private final Logger _logger = LoggerFactory.getLogger(AspectResource.class.getName());
 
   @Inject
   @Named("entityService")

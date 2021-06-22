@@ -48,17 +48,15 @@ import static com.linkedin.metadata.entity.EntityService.*;
 public class EbeanAspectDao {
 
   public static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
-
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
 
+  private final Logger _logger = LoggerFactory.getLogger(EbeanAspectDao.class.getName());
   private final EbeanServer _server;
   private boolean _connectionValidated = false;
   private final Map<String, Retention> _aspectRetentionMap = new HashMap<>();
   private final Clock _clock = Clock.systemUTC();
 
   private int _queryKeysCount = 0; // 0 means no pagination on keys
-
-  private final Logger _logger = LoggerFactory.getLogger("EbeanAspectDao");
 
   /**
    * Constructor for EntityEbeanDao.

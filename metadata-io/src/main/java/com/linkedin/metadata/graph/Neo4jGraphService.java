@@ -26,10 +26,15 @@ import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.exceptions.Neo4jException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class Neo4jGraphService implements GraphService {
 
   private static final int MAX_TRANSACTION_RETRY = 3;
+
+  private final Logger _logger = LoggerFactory.getLogger(Neo4jGraphService.class.getName());
   private final Driver _driver;
   private SessionConfig _sessionConfig;
 

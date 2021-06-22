@@ -41,12 +41,15 @@ import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 @Slf4j
 @RequiredArgsConstructor
 public class ESBrowseDAO {
 
+  private final Logger logger = LoggerFactory.getLogger(ESBrowseDAO.class.getName());
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient client;
   private final IndexConvention indexConvention;

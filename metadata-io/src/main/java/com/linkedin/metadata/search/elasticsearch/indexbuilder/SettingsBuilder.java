@@ -4,13 +4,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * Builder for generating settings for elasticsearch indices
  */
 public class SettingsBuilder {
+
   private static final Map<String, Object> SETTINGS = buildSettings();
+  private final Logger logger = LoggerFactory.getLogger(SettingsBuilder.class.getName());
 
   private SettingsBuilder() {
   }

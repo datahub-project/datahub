@@ -25,6 +25,8 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.linkedin.metadata.dao.Neo4jUtil.*;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
@@ -35,6 +37,8 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
  */
 @RestLiSimpleResource(name = "relationships", namespace = "com.linkedin.lineage")
 public final class Relationships extends SimpleResourceTemplate<EntityRelationships> {
+
+    private final Logger _logger = LoggerFactory.getLogger(Relationships.class.getName());
 
     private static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
     private static final Integer MAX_DOWNSTREAM_CNT = 100;

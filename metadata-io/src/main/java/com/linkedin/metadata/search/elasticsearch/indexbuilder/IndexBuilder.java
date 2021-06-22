@@ -22,12 +22,15 @@ import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.ReindexRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 @Slf4j
 @RequiredArgsConstructor
 public class IndexBuilder {
 
+  private final Logger logger = LoggerFactory.getLogger(IndexBuilder.class.getName());
   private final RestHighLevelClient searchClient;
   private final EntitySpec entitySpec;
   private final String indexName;

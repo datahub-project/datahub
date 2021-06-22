@@ -25,6 +25,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.linkedin.metadata.PegasusUtils.*;
 
@@ -65,10 +67,12 @@ public abstract class EntityService {
    */
   public static final long LATEST_ASPECT_VERSION = 0;
 
+  private final Logger _logger = LoggerFactory.getLogger(EntityService.class.getName());
   private final EntityEventProducer _producer;
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
   private Boolean _emitAspectSpecificAuditEvent = false;
+
 
   protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;

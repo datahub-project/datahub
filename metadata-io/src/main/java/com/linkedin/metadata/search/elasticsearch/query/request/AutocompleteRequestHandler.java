@@ -27,14 +27,17 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 @Slf4j
 public class AutocompleteRequestHandler {
 
-  private final List<String> _defaultAutocompleteFields;
-
   private static final String ANALYZER = "word_delimited";
+
+  private final Logger logger = LoggerFactory.getLogger(AutocompleteRequestHandler.class.getName());
+  private final List<String> _defaultAutocompleteFields;
 
   private static final Map<EntitySpec, AutocompleteRequestHandler> AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();

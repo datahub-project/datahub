@@ -70,7 +70,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
   private final Clock _clock = Clock.systemUTC();
 
-  private final Logger _logger = LoggerFactory.getLogger("EntityResource");
+  private final Logger _logger = LoggerFactory.getLogger(EntityResource.class.getName());
 
   @Inject
   @Named("entityService")
