@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.DynamicRecordMetadata;
 import com.linkedin.data.template.FieldDef;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
