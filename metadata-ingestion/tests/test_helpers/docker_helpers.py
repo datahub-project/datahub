@@ -19,12 +19,15 @@ def wait_for_port(
     container_port: int,
     timeout: float = 30.0,
 ) -> None:
-    # port = docker_services.port_for(container_name, container_port)
-    docker_services.wait_until_responsive(
-        timeout=timeout,
-        pause=0.5,
-        check=lambda: is_responsive(container_name, container_port),
-    )
+    try:
+        # port = docker_services.port_for(container_name, container_port)
+        docker_services.wait_until_responsive(
+            timeout=timeout,
+            pause=0.5,
+            check=lambda: is_responsive(container_name, container_port),
+        )
+    finally:
+        subprocess.run(f"docker logs {container_name}", shell=True, check=True)
 
 
 @pytest.fixture
