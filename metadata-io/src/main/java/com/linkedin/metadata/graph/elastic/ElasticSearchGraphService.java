@@ -114,7 +114,7 @@ public class ElasticSearchGraphService implements GraphService {
         count
     );
 
-    if (Objects.isNull(response)) {
+    if (response == null) {
       return ImmutableList.of();
     }
 
