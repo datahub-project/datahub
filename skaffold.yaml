@@ -25,7 +25,7 @@ profiles:
           context: ./docker/datahub-mce-consumer
     deploy:
       kustomize:
-        path: ./kubernetes/base  
+        path: ./kubernetes/base
   - name: dev-tokyo
     build:
       tagPolicy:
@@ -34,20 +34,28 @@ profiles:
       artifacts:
       - image: datahub-gms
         custom:
-          buildCommand: ./gradlew build
-        context: ./docker/datahub-gms
+          buildCommand: ./gradlew :gms:war:build
+          dependencies:
+            dockerfile:
+              path: ./docker/datahub-gms/Dockerfile
       - image: datahub-frontend
         custom:
-          buildCommand: ./gradlew build
-        context: ./docker/datahub-frontend
+          buildCommand: ./gradlew :datahub-frontend:dist -PenableEmber=false
+          dependencies:
+            dockerfile:
+              path: ./docker/datahub-frontend/Dockerfile
       - image: datahub-mae-consumer
         custom:
-          buildCommand: ./gradlew build
-        context: ./docker/datahub-mae-consumer
+          buildCommand: ./gradlew :metadata-jobs:mae-consumer-job:build
+          dependencies:
+            dockerfile:
+              path: ./docker/datahub-mae-consumer/Dockerfile
       - image: datahub-mce-consumer
         custom:
-          buildCommand: ./gradlew build
-        context: ./docker/datahub-mce-consumer
+          buildCommand: ./gradlew :metadata-jobs:mce-consumer-job:build
+          dependencies:
+            dockerfile:
+              path: ./docker/datahub-mce-consumer/Dockerfile
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
