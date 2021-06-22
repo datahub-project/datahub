@@ -4,6 +4,8 @@ import time
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
+import dateutil.parser
+
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
@@ -334,7 +336,7 @@ def get_schema_metadata(
 
     if node.max_loaded_at is not None:
         last_modified = int(
-            datetime.fromisoformat(node.max_loaded_at).timestamp() * 1000
+            dateutil.parser.parse(node.max_loaded_at).timestamp() * 1000
         )
 
     return SchemaMetadata(
