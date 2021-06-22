@@ -27,6 +27,7 @@ def wait_for_port(
             check=lambda: is_responsive(container_name, container_port),
         )
     finally:
+        # use check=True to raise an error if command gave bad exit code
         subprocess.run(f"docker logs {container_name}", shell=True, check=True)
 
 
