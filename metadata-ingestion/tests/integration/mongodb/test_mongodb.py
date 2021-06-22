@@ -40,6 +40,6 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
         # Verify the output.
         output = mce_helpers.load_json_file(str(tmp_path / "mongodb_mces.json"))
         golden = mce_helpers.load_json_file(
-            str(test_resources_dir / "mongodb_mce_golden.json")
+            str(test_resources_dir / "mongodb_mces_golden.json")
         )
         mce_helpers.assert_mces_equal(output, golden)

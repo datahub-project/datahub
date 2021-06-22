@@ -10,7 +10,7 @@ from click.testing import CliRunner
 import datahub.metadata.schema_classes as models
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.mce_file import iterate_mce_file
+from datahub.ingestion.source.file import iterate_mce_file
 from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers

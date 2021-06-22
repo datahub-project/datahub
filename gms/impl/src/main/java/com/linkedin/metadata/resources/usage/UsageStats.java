@@ -1,9 +1,8 @@
 package com.linkedin.metadata.resources.usage;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.WindowDuration;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
@@ -15,13 +14,19 @@ import com.linkedin.usage.UsageAggregation;
 import com.linkedin.usage.UsageAggregationArray;
 import com.linkedin.usage.UsageQueryResult;
 import com.linkedin.usage.UsageQueryResultAggregations;
+import com.linkedin.usage.UserUsageCounts;
+import com.linkedin.usage.UserUsageCountsArray;
+import com.linkedin.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Rest.li entry point: /usageStats
@@ -33,7 +38,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     private static final String ACTION_QUERY = "query";
     private static final String PARAM_RESOURCE = "resource";
-    private static final String PARAM_WINDOW = "duration";
+    private static final String PARAM_DURATION = "duration";
     private static final String PARAM_START_TIME = "startTime";
     private static final String PARAM_END_TIME = "endTime";
     private static final String PARAM_MAX_BUCKETS = "maxBuckets";
@@ -59,7 +64,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     @Action(name = ACTION_QUERY)
     @Nonnull
     public Task<UsageQueryResult> query(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
-                                        @ActionParam(PARAM_WINDOW) @Nonnull WindowDuration duration,
+                                        @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration,
                                         @ActionParam(PARAM_START_TIME) @com.linkedin.restli.server.annotations.Optional Long startTime,
                                         @ActionParam(PARAM_END_TIME) @com.linkedin.restli.server.annotations.Optional Long endTime,
                                         @ActionParam(PARAM_MAX_BUCKETS) @com.linkedin.restli.server.annotations.Optional Integer maxBuckets) {
@@ -69,7 +74,50 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             buckets.addAll(_usageService.query(resource, duration, startTime, endTime, maxBuckets));
 
             UsageQueryResultAggregations aggregations = new UsageQueryResultAggregations();
-            // TODO: compute the aggregations here
+            // TODO: make the aggregation computation logic reusable
+
+            // Compute aggregations for users and unique user count.
+            {
+                Map<Pair<Urn, String>, Integer> userAgg = new HashMap<>();
+                buckets.forEach((bucket) -> {
+                    Optional.ofNullable(bucket.getMetrics().getUsers()).ifPresent(usersUsageCounts -> {
+                        usersUsageCounts.forEach((userCount -> {
+                            Pair<Urn, String> key = new Pair<>(userCount.getUser(), userCount.getUserEmail());
+                            int count = userAgg.getOrDefault(key, 0);
+                            count += userCount.getCount();
+                            userAgg.put(key, count);
+                        }));
+                    });
+                });
+
+                if (!userAgg.isEmpty()) {
+                    UserUsageCountsArray users = new UserUsageCountsArray();
+                    users.addAll(userAgg.entrySet().stream().map((mapping) -> new UserUsageCounts()
+                            .setUser(mapping.getKey().getFirst(), SetMode.REMOVE_IF_NULL)
+                            .setUserEmail(mapping.getKey().getSecond(), SetMode.REMOVE_IF_NULL)
+                            .setCount(mapping.getValue())).collect(Collectors.toList()));
+                    aggregations.setUsers(users);
+                    aggregations.setUniqueUserCount(userAgg.size());
+                }
+            }
+
+            // Compute aggregation for total query count.
+            {
+                Integer totalQueryCount = null;
+
+                for (UsageAggregation bucket : buckets) {
+                    if (bucket.getMetrics().getTotalSqlQueries() != null) {
+                        if (totalQueryCount == null) {
+                            totalQueryCount = 0;
+                        }
+                        totalQueryCount += bucket.getMetrics().getTotalSqlQueries();
+                    }
+                }
+
+                if (totalQueryCount != null) {
+                    aggregations.setTotalSqlQueries(totalQueryCount);
+                }
+            }
 
             return new UsageQueryResult()
                     .setBuckets(buckets)
@@ -79,46 +127,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
 
     private void ingest(@Nonnull UsageAggregation bucket) {
-        String id = String.format("(%d,%s,%s)", bucket.getBucket(), bucket.getDuration(), bucket.getResource());
-
-        // TODO move documentation generation logic into ElasticUsageService class
-        ObjectNode document = JsonNodeFactory.instance.objectNode();
-        document.set("bucket", JsonNodeFactory.instance.numberNode(bucket.getBucket()));
-        document.set("duration", JsonNodeFactory.instance.textNode(bucket.getDuration().toString()));
-        document.set("bucket_end", JsonNodeFactory.instance.numberNode(bucket.getBucket() + windowDurationToMillis(bucket.getDuration())));
-        document.set("resource", JsonNodeFactory.instance.textNode(bucket.getResource().toString()));
-
-        Optional.ofNullable(bucket.getMetrics().getUsers()).ifPresent(usersUsageCounts -> {
-            ArrayNode users = JsonNodeFactory.instance.arrayNode();
-            // TODO attempt to resolve users into emails
-            usersUsageCounts.forEach(userUsage -> {
-                ObjectNode userDocument = JsonNodeFactory.instance.objectNode();
-                userDocument.set("user", JsonNodeFactory.instance.textNode(userUsage.getUser().toString()));
-                userDocument.set("user_email", JsonNodeFactory.instance.textNode(userUsage.getUserEmail()));
-                userDocument.set("count", JsonNodeFactory.instance.numberNode(userUsage.getCount()));
-                users.add(userDocument);
-            });
-            document.set("metrics.users", users);
-        });
-
-        Optional.ofNullable(bucket.getMetrics().getTopSqlQueries()).ifPresent(top_sql_queries -> {
-            ArrayNode sqlQueriesDocument = JsonNodeFactory.instance.arrayNode();
-            top_sql_queries.forEach(sqlQueriesDocument::add);
-            document.set("metrics.top_sql_queries", sqlQueriesDocument);
-        });
-
-        _usageService.upsertDocument(document.toString(), id);
-    }
-
-    private static int windowDurationToMillis(@Nonnull WindowDuration duration) {
-        if (duration == WindowDuration.DAY) {
-            return 24 * 60 * 60 * 1000;
-        } else if (duration == WindowDuration.HOUR) {
-            return 60 * 60 * 1000;
-        } else {
-            throw new IllegalArgumentException("invalid WindowDuration enum state");
-        }
-
+        // TODO attempt to resolve users into emails
+        _usageService.upsertDocument(bucket);
     }
 
 }

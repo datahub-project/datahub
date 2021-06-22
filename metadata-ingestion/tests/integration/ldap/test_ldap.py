@@ -44,6 +44,6 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
         output = mce_helpers.load_json_file(str(tmp_path / "ldap_mces.json"))
         golden = mce_helpers.load_json_file(
-            str(test_resources_dir / "ldap_mce_golden.json")
+            str(test_resources_dir / "ldap_mces_golden.json")
         )
         mce_helpers.assert_mces_equal(output, golden)
