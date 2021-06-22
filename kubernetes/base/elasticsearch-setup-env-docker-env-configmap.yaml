@@ -1,0 +1,11 @@
+apiVersion: v1
+data:
+  ELASTICSEARCH_HOST: elasticsearch
+  ELASTICSEARCH_PORT: "9200"
+  ELASTICSEARCH_PROTOCOL: http
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: elasticsearch-setup-elasticsearch-setup-env-docker-env
+  name: elasticsearch-setup-env-docker-env

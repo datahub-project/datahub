@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: datahub-frontend-react
+  name: datahub-frontend-react
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: datahub-frontend-react
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: datahub-frontend-react
+    spec:
+      containers:
+        - env:
+            - name: DATAHUB_APP_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_APP_VERSION
+                  name: datahub-frontend-env-docker-env
+            - name: DATAHUB_GMS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_GMS_HOST
+                  name: datahub-frontend-env-docker-env
+            - name: DATAHUB_GMS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_GMS_PORT
+                  name: datahub-frontend-env-docker-env
+            - name: DATAHUB_PLAY_MEM_BUFFER_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_PLAY_MEM_BUFFER_SIZE
+                  name: datahub-frontend-env-docker-env
+            - name: DATAHUB_SECRET
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_SECRET
+                  name: datahub-frontend-env-docker-env
+            - name: DATAHUB_TRACKING_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_TRACKING_TOPIC
+                  name: datahub-frontend-env-docker-env
+            - name: ELASTIC_CLIENT_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: ELASTIC_CLIENT_HOST
+                  name: datahub-frontend-env-docker-env
+            - name: ELASTIC_CLIENT_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: ELASTIC_CLIENT_PORT
+                  name: datahub-frontend-env-docker-env
+            - name: KAFKA_BOOTSTRAP_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_BOOTSTRAP_SERVER
+                  name: datahub-frontend-env-docker-env
+          image: datahub-frontend-react:latest
+          name: datahub-frontend-react
+          ports:
+            - containerPort: 9002
+          resources: {}
+      hostname: datahub-frontend-react
+      restartPolicy: Always
+status: {}

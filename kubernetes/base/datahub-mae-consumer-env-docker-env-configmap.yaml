@@ -1,0 +1,18 @@
+apiVersion: v1
+data:
+  ELASTICSEARCH_HOST: elasticsearch
+  ELASTICSEARCH_PORT: "9200"
+  GMS_HOST: datahub-gms
+  GMS_PORT: "8080"
+  KAFKA_BOOTSTRAP_SERVER: broker:29092
+  KAFKA_SCHEMAREGISTRY_URL: http://schema-registry:8081
+  NEO4J_HOST: http://neo4j:7474
+  NEO4J_PASSWORD: datahub
+  NEO4J_URI: bolt://neo4j
+  NEO4J_USERNAME: neo4j
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: datahub-mae-consumer-datahub-mae-consumer-env-docker-env
+  name: datahub-mae-consumer-env-docker-env

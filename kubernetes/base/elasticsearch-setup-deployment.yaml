@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: elasticsearch-setup
+  name: elasticsearch-setup
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: elasticsearch-setup
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: elasticsearch-setup
+    spec:
+      containers:
+        - env:
+            - name: ELASTICSEARCH_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: ELASTICSEARCH_HOST
+                  name: elasticsearch-setup-env-docker-env
+            - name: ELASTICSEARCH_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: ELASTICSEARCH_PORT
+                  name: elasticsearch-setup-env-docker-env
+            - name: ELASTICSEARCH_PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  key: ELASTICSEARCH_PROTOCOL
+                  name: elasticsearch-setup-env-docker-env
+          image: linkedin/datahub-elasticsearch-setup:latest
+          name: elasticsearch-setup
+          resources: {}
+      hostname: elasticsearch-setup
+      restartPolicy: Always
+status: {}

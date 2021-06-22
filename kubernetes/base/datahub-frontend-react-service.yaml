@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: datahub-frontend-react
+  name: datahub-frontend-react
+spec:
+  ports:
+    - name: "9002"
+      port: 9002
+      targetPort: 9002
+  selector:
+    io.kompose.service: datahub-frontend-react
+status:
+  loadBalancer: {}

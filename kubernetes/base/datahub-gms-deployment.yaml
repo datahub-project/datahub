@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: datahub-gms
+  name: datahub-gms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: datahub-gms
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: datahub-gms
+    spec:
+      containers:
+        - image: 165463520094.dkr.ecr.ap-northeast-1.amazonaws.com/data-catalog/datahub-gms:latest
+          name: datahub-gms
+          ports:
+            - containerPort: 8080
+          resources: {}
+      hostname: datahub-gms
+      restartPolicy: Always
+status: {}

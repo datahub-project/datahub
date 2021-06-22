@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: schema-registry-ui
+  name: schema-registry-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: schema-registry-ui
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: schema-registry-ui
+    spec:
+      containers:
+        - env:
+            - name: ALLOW_DELETION
+              valueFrom:
+                configMapKeyRef:
+                  key: ALLOW_DELETION
+                  name: schema-registry-ui-env-docker-env
+            - name: ALLOW_GLOBAL
+              valueFrom:
+                configMapKeyRef:
+                  key: ALLOW_GLOBAL
+                  name: schema-registry-ui-env-docker-env
+            - name: ALLOW_TRANSITIVE
+              valueFrom:
+                configMapKeyRef:
+                  key: ALLOW_TRANSITIVE
+                  name: schema-registry-ui-env-docker-env
+            - name: PROXY
+              valueFrom:
+                configMapKeyRef:
+                  key: PROXY
+                  name: schema-registry-ui-env-docker-env
+            - name: READONLY_MODE
+              valueFrom:
+                configMapKeyRef:
+                  key: READONLY_MODE
+                  name: schema-registry-ui-env-docker-env
+            - name: SCHEMAREGISTRY_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: SCHEMAREGISTRY_URL
+                  name: schema-registry-ui-env-docker-env
+          image: landoop/schema-registry-ui:latest
+          name: schema-registry-ui
+          ports:
+            - containerPort: 8000
+          resources: {}
+      hostname: schema-registry-ui
+      restartPolicy: Always
+status: {}

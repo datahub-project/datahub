@@ -1,0 +1,14 @@
+apiVersion: v1
+data:
+  ALLOW_DELETION: "true"
+  ALLOW_GLOBAL: "true"
+  ALLOW_TRANSITIVE: "true"
+  PROXY: "true"
+  READONLY_MODE: "true"
+  SCHEMAREGISTRY_URL: http://schema-registry:8081
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: schema-registry-ui-schema-registry-ui-env-docker-env
+  name: schema-registry-ui-env-docker-env

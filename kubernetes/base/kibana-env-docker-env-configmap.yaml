@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  ELASTICSEARCH_URL: http://elasticsearch:9200
+  SERVER_HOST: 0.0.0.0
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: kibana-kibana-env-docker-env
+  name: kibana-env-docker-env

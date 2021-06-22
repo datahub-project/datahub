@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: kafka-rest-proxy
+  name: kafka-rest-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: kafka-rest-proxy
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: kafka-rest-proxy
+    spec:
+      containers:
+        - env:
+            - name: KAFKA_REST_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_REST_BOOTSTRAP_SERVERS
+                  name: kafka-rest-proxy-env-docker-env
+            - name: KAFKA_REST_HOST_NAME
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_REST_HOST_NAME
+                  name: kafka-rest-proxy-env-docker-env
+            - name: KAFKA_REST_LISTENERS
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_REST_LISTENERS
+                  name: kafka-rest-proxy-env-docker-env
+            - name: KAFKA_REST_SCHEMA_REGISTRY_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_REST_SCHEMA_REGISTRY_URL
+                  name: kafka-rest-proxy-env-docker-env
+          image: confluentinc/cp-kafka-rest:5.4.0
+          name: kafka-rest-proxy
+          ports:
+            - containerPort: 8082
+          resources: {}
+      hostname: kafka-rest-proxy
+      restartPolicy: Always
+status: {}

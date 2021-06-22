@@ -1,0 +1,14 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  creationTimestamp: null
+  name: datahub_network
+spec:
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              io.kompose.network/datahub_network: "true"
+  podSelector:
+    matchLabels:
+      io.kompose.network/datahub_network: "true"

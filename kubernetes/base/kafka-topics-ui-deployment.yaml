@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: kafka-topics-ui
+  name: kafka-topics-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: kafka-topics-ui
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: kafka-topics-ui
+    spec:
+      containers:
+        - env:
+            - name: KAFKA_REST_PROXY_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_REST_PROXY_URL
+                  name: kafka-topics-ui-env-docker-env
+            - name: PROXY
+              valueFrom:
+                configMapKeyRef:
+                  key: PROXY
+                  name: kafka-topics-ui-env-docker-env
+          image: landoop/kafka-topics-ui:0.9.4
+          name: kafka-topics-ui
+          ports:
+            - containerPort: 8000
+          resources: {}
+      hostname: kafka-topics-ui
+      restartPolicy: Always
+status: {}

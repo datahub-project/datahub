@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: neo4j
+  name: neo4j
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: neo4j
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: neo4j
+    spec:
+      containers:
+        - env:
+            - name: NEO4J_AUTH
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_AUTH
+                  name: neo4j-env-docker-env
+            - name: NEO4J_dbms_allow__upgrade
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_dbms_allow__upgrade
+                  name: neo4j-env-docker-env
+            - name: NEO4J_dbms_default__database
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_dbms_default__database
+                  name: neo4j-env-docker-env
+          image: neo4j:4.0.6
+          name: neo4j
+          ports:
+            - containerPort: 7474
+            - containerPort: 7687
+          resources: {}
+          volumeMounts:
+            - mountPath: /data
+              name: neo4jdata
+      hostname: neo4j
+      restartPolicy: Always
+      volumes:
+        - name: neo4jdata
+          persistentVolumeClaim:
+            claimName: neo4jdata
+status: {}

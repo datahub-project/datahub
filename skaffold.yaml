@@ -1,0 +1,80 @@
+apiVersion: skaffold/v1beta16
+kind: Config
+profiles:
+  - name: local
+    build:
+      tagPolicy:
+        envTemplate:
+          template: "{{.IMAGE_NAME}}"
+      artifacts:
+        - image: datahub-gms
+          custom:
+            buildCommand: ./gradlew build
+          context: ./docker/datahub-gms
+        - image: datahub-frontend-react
+          custom:
+            buildCommand: ./gradlew build
+          context: ./docker/datahub-frontend-react
+        - image: datahub-mae-consumer
+          custom:
+            buildCommand: ./gradlew build
+          context: ./docker/datahub-mae-consumer
+        - image: datahub-mce-consumer
+          custom:
+            buildCommand: ./gradlew build
+          context: ./docker/datahub-mce-consumer
+    deploy:
+      kustomize:
+        path: ./kubernetes/local/tokyo  
+  - name: dev-tokyo
+    build:
+      tagPolicy:
+        gitCommit:
+          variant: AbbrevCommitSha
+      artifacts:
+      - image: datahub-gms
+        custom:
+          buildCommand: ./gradlew build
+        context: ./docker/datahub-gms
+      - image: datahub-frontend-react
+        custom:
+          buildCommand: ./gradlew build
+        context: ./docker/datahub-frontend-react
+      - image: datahub-mae-consumer
+        custom:
+          buildCommand: ./gradlew build
+        context: ./docker/datahub-mae-consumer
+      - image: datahub-mce-consumer
+        custom:
+          buildCommand: ./gradlew build
+        context: ./docker/datahub-mce-consumer
+    deploy:
+      statusCheckDeadlineSeconds: 600
+      kustomize:
+        path: ./kubernetes/dev/tokyo
+  - name: prd-tokyo
+    build:
+      tagPolicy:
+        gitCommit:
+          variant: AbbrevCommitSha
+      artifacts:
+      - image: datahub-gms
+        custom:
+          buildCommand: ./gradlew build
+        context: ./docker/datahub-gms
+      - image: datahub-frontend-react
+        custom:
+          buildCommand: ./gradlew build
+        context: ./docker/datahub-frontend-react
+      - image: datahub-mae-consumer
+        custom:
+          buildCommand: ./gradlew build
+        context: ./docker/datahub-mae-consumer
+      - image: datahub-mce-consumer
+        custom:
+          buildCommand: ./gradlew build
+        context: ./docker/datahub-mce-consumer
+    deploy:
+      statusCheckDeadlineSeconds: 600
+      kustomize:
+        path: ./kubernetes/prd/tokyo
