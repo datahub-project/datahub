@@ -55,6 +55,7 @@ import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
+import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.pegasus2avro.usage.UsageQueryResult;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
@@ -105,7 +106,7 @@ public class GmsGraphQLEngine {
     );
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
     public static final AspectType ASPECT_TYPE = new AspectType(GmsClientFactory.getAspectsClient());
-    public static final UsageType USAGE_TYPE = new UsageType(GmsClientFactory.getAspectsClient());
+    public static final UsageType USAGE_TYPE = new UsageType(GmsClientFactory.getUsageClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.

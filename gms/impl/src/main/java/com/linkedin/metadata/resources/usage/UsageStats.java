@@ -101,7 +101,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             document.set("metrics.users", users);
         });
 
-        Optional.ofNullable(bucket.getMetrics().getTop_sql_queries()).ifPresent(top_sql_queries -> {
+        Optional.ofNullable(bucket.getMetrics().getTopSqlQueries()).ifPresent(top_sql_queries -> {
             ArrayNode sqlQueriesDocument = JsonNodeFactory.instance.arrayNode();
             top_sql_queries.forEach(sqlQueriesDocument::add);
             document.set("metrics.top_sql_queries", sqlQueriesDocument);

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.usage;
 
+import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.UsageQueryResultAggregations;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -18,9 +19,14 @@ public class UserUsageCountsMapper implements
   @Override
   public UserUsageCounts apply(@Nonnull final com.linkedin.usage.UserUsageCounts pdlUsageResultAggregations) {
     UserUsageCounts result = new UserUsageCounts();
-    result.setUser(CorpUserUr);
-    result.setTotalSqlQueries(pdlUsageResultAggregations.getTotalSqlQueries());
-    result.setUniqueUserCount(pdlUsageResultAggregations.getUniqueUserCount());
-    result.setUsers(pdlUsageResultAggregations.getUsers());
+    if (pdlUsageResultAggregations.hasUser()) {
+      CorpUser partialUser = new CorpUser();
+      partialUser.setUrn(pdlUsageResultAggregations.getUser().toString());
+      result.setUser(partialUser);
+    }
+
+    result.setCount(pdlUsageResultAggregations.getCount());
+    result.setUserEmail(pdlUsageResultAggregations.getUserEmail());
+    return result;
   }
 }

@@ -171,7 +171,7 @@ public class ElasticUsageService implements UsageService {
                 StringArray queries = new StringArray();
                 List<String> docQueries = (List<String>) docFields.get("metrics.top_sql_queries");
                 queries.addAll(docQueries);
-                metrics.setTop_sql_queries(queries);
+                metrics.setTopSqlQueries(queries);
             }
 
             return agg;
