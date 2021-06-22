@@ -155,6 +155,7 @@ public class ElasticUsageService implements UsageService {
             agg.setResource(Urn.createFromString((String) docFields.get("resource")));
             agg.setMetrics(metrics);
 
+            metrics.setUnique_user_count((Integer) docFields.get("metrics.unique_user_count"));
             if (docFields.containsKey("metrics.users")) {
                 UserUsageCountsArray users = new UserUsageCountsArray();
                 List<Map<String, Object>> docUsers = (List<Map<String, Object>>) docFields.get("metrics.users");
@@ -167,6 +168,7 @@ public class ElasticUsageService implements UsageService {
                 metrics.setUsers(users);
             }
 
+            metrics.setTotal_sql_queries((Integer) docFields.get("metrics.top_sql_queries"));
             if (docFields.containsKey("metrics.top_sql_queries")) {
                 StringArray queries = new StringArray();
                 List<String> docQueries = (List<String>) docFields.get("metrics.top_sql_queries");

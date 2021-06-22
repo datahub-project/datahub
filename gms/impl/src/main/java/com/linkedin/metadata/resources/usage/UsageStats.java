@@ -88,12 +88,15 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         document.set("bucket_end", JsonNodeFactory.instance.numberNode(bucket.getBucket() + windowDurationToMillis(bucket.getDuration())));
         document.set("resource", JsonNodeFactory.instance.textNode(bucket.getResource().toString()));
 
+        document.set("metrics.unique_user_count", JsonNodeFactory.instance.numberNode(bucket.getMetrics().getUnique_user_count()));
         Optional.ofNullable(bucket.getMetrics().getUsers()).ifPresent(usersUsageCounts -> {
             ArrayNode users = JsonNodeFactory.instance.arrayNode();
             // TODO attempt to resolve users into emails
             usersUsageCounts.forEach(userUsage -> {
                 ObjectNode userDocument = JsonNodeFactory.instance.objectNode();
-                userDocument.set("user", JsonNodeFactory.instance.textNode(userUsage.getUser().toString()));
+                if (userUsage.getUser() != null) {
+                    userDocument.set("user", JsonNodeFactory.instance.textNode(userUsage.getUser().toString()));
+                }
                 userDocument.set("user_email", JsonNodeFactory.instance.textNode(userUsage.getUser_email()));
                 userDocument.set("count", JsonNodeFactory.instance.numberNode(userUsage.getCount()));
                 users.add(userDocument);
@@ -101,6 +104,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             document.set("metrics.users", users);
         });
 
+        document.set("metrics.total_sql_queries", JsonNodeFactory.instance.numberNode(bucket.getMetrics().getTotal_sql_queries()));
         Optional.ofNullable(bucket.getMetrics().getTop_sql_queries()).ifPresent(top_sql_queries -> {
             ArrayNode sqlQueriesDocument = JsonNodeFactory.instance.arrayNode();
             top_sql_queries.forEach(sqlQueriesDocument::add);
