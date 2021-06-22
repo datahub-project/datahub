@@ -261,7 +261,7 @@ you will need to run
 `./gradlew :gms:impl:build -Prest.model.compatibility=ignore`
 before running `build`.
 
-Then, run `/.gradlew build` from the repository root to rebuild Datahub with access to your new entity.
+Then, run `./gradlew build` from the repository root to rebuild Datahub with access to your new entity.
 
 Then, re-deploy gms, mae-consumer and mce-consumer (see [docker development](../../docker/README.md) for details on how
 to deploy during development). This will allow Datahub to read and write Snapshots of your new entity, along with server
