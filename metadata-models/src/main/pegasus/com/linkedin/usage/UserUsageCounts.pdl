@@ -8,5 +8,5 @@ record UserUsageCounts {
     count: int
 
     /** If user_email is set, we attempt to resolve the user's urn upon ingest */
-    user_email: optional string
+    userEmail: optional string
 }

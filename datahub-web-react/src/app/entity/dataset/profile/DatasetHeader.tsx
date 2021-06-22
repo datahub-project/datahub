@@ -1,6 +1,8 @@
-import { Badge, Divider, Popover, Space, Typography } from 'antd';
+import { Badge, Popover, Space, Typography } from 'antd';
 import { FetchResult, MutationFunctionOptions } from '@apollo/client';
+import styled from 'styled-components';
 import React from 'react';
+
 import { Dataset } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { AvatarsGroup } from '../../../shared/avatar';
@@ -13,6 +15,17 @@ export type Props = {
     updateDataset: (options?: MutationFunctionOptions<any, any> | undefined) => Promise<FetchResult>;
 };
 
+const HeaderInfoItem = styled.div`
+    display: inline-block;
+    text-align: left;
+    width: 125px;
+`;
+
+const HeaderInfoItems = styled.div`
+    display: inline-block;
+    margin-top: -16px;
+`;
+
 export default function DatasetHeader({
     dataset: { urn, type, description: originalDesc, ownership, deprecation, platform, editableProperties },
     updateDataset,
@@ -24,10 +37,36 @@ export default function DatasetHeader({
     return (
         <>
             <Space direction="vertical" size="middle">
-                <Space split={<Divider type="vertical" />}>
-                    <Typography.Text>Dataset</Typography.Text>
-                    <Typography.Text strong>{platformName}</Typography.Text>
-                </Space>
+                <HeaderInfoItems>
+                    <HeaderInfoItem>
+                        <div>
+                            <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
+                                Platform
+                            </Typography.Text>
+                        </div>
+                        <Typography.Text style={{ fontSize: 16 }}>{platformName}</Typography.Text>
+                    </HeaderInfoItem>
+                    <HeaderInfoItem>
+                        <div>
+                            <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
+                                Queries / week
+                            </Typography.Text>
+                        </div>
+                        <span>
+                            <Typography.Text style={{ fontSize: 16 }}>13.6k</Typography.Text>
+                        </span>
+                    </HeaderInfoItem>
+                    <HeaderInfoItem>
+                        <div>
+                            <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
+                                Users / week
+                            </Typography.Text>
+                        </div>
+                        <span>
+                            <Typography.Text style={{ fontSize: 16 }}>370</Typography.Text>
+                        </span>
+                    </HeaderInfoItem>
+                </HeaderInfoItems>
                 <UpdatableDescription
                     isCompact={isCompact}
                     updateEntity={updateDataset}

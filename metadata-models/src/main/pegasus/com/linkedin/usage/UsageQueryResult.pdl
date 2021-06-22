@@ -12,9 +12,9 @@ record UsageQueryResult {
    * only if the underlying buckets contain the data required to generate that aggregation.
    */
   aggregations: record UsageQueryResultAggregations {
-    total_unique_users: optional int
+    uniqueUserCount: optional int
 
-    total_sql_queries: optional int
+    totalSqlQueries: optional int
 
     users: optional array[UserUsageCounts]
   }
