@@ -682,8 +682,8 @@ Pull metadata from dbt artifacts files:
   - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
 - [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
   - This file contains metadata for sources with freshness checks.
-  - We transfer dbt's freshness checks to last-modified fields.
-  - Note that this file is optional – if not specified, we'll use time of ingestion insteaad.
+  - We transfer dbt's freshness checks to DataHub's last-modified fields.
+  - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
 - target_platform:
   - The data platform you are enriching with dbt metadata.
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
