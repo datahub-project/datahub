@@ -1,14 +1,17 @@
 package com.linkedin.datahub.graphql.types.usage;
 
+import com.linkedin.common.WindowDuration;
 import com.linkedin.datahub.graphql.QueryContext;
+
+import com.linkedin.datahub.graphql.UsageStatsKey;
 import com.linkedin.datahub.graphql.VersionedAspectKey;
 import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.types.aspect.AspectMapper;
-import com.linkedin.entity.client.AspectClient;
-import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.usage.UsageClient;
+import com.linkedin.usage.UsageQueryResult;
 import graphql.execution.DataFetcherResult;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -26,18 +29,21 @@ public class UsageType {
    * @param keys to retrieve
    * @param context the {@link QueryContext} corresponding to the request.
    */
-  public List<DataFetcherResult<Aspect>> batchLoad(@Nonnull List<VersionedAspectKey> keys, @Nonnull QueryContext context) throws Exception {
+  public List<DataFetcherResult<com.linkedin.datahub.graphql.generated.UsageQueryResult>> batchLoad(@Nonnull List<UsageStatsKey> keys, @Nonnull QueryContext context) throws Exception {
     try {
       return keys.stream().map(key -> {
         try {
-          VersionedAspect entity = _usageClient.getAspect(key.getUrn(), key.getAspectName(), key.getVersion());
-          return DataFetcherResult.<Aspect>newResult().data(AspectMapper.map(entity)).build();
-        } catch (RemoteInvocationException e) {
-          throw new RuntimeException(String.format("Failed to load Aspect for entity %s", key.getUrn()), e);
+          UsageQueryResult usageQueryResult = _usageClient.getUsageStats(
+              key.getResource(), WindowDuration.valueOf(key.getDuration().toString()), key.getStartTime(), key.getEndTime(), key.getMaxBuckets());
+          return DataFetcherResult.<com.linkedin.datahub.graphql.generated.UsageQueryResult>newResult().data(
+              UsageQueryResultMapper.map(usageQueryResult)
+          ).build();
+        } catch (RemoteInvocationException | URISyntaxException e) {
+          throw new RuntimeException(String.format("Failed to load Usage Stats for resource %s", key.getResource()), e);
         }
       }).collect(Collectors.toList());
     } catch (Exception e) {
-      throw new RuntimeException("Failed to batch load Aspects", e);
+      throw new RuntimeException("Failed to batch load Usage Stats", e);
     }
   }
 }
