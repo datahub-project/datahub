@@ -13,12 +13,11 @@ public interface UsageService {
   /**
    * Write an aggregated usage metric bucket.
    *
-   * @param document the document to update / insert
-   * @param docId the ID of the document
+   * @param bucket the bucket to upsert
    */
-  void upsertDocument(@Nonnull String document, @Nonnull String docId);
+  void upsertDocument(@Nonnull UsageAggregation bucket);
 
-  /**
+    /**
    * Get a list of buckets that match a set of criteria.
    */
   @Nonnull

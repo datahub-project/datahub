@@ -79,50 +79,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
 
     private void ingest(@Nonnull UsageAggregation bucket) {
-        String id = String.format("(%d,%s,%s)", bucket.getBucket(), bucket.getDuration(), bucket.getResource());
-
-        // TODO move documentation generation logic into ElasticUsageService class
-        ObjectNode document = JsonNodeFactory.instance.objectNode();
-        document.set("bucket", JsonNodeFactory.instance.numberNode(bucket.getBucket()));
-        document.set("duration", JsonNodeFactory.instance.textNode(bucket.getDuration().toString()));
-        document.set("bucket_end", JsonNodeFactory.instance.numberNode(bucket.getBucket() + windowDurationToMillis(bucket.getDuration())));
-        document.set("resource", JsonNodeFactory.instance.textNode(bucket.getResource().toString()));
-
-        document.set("metrics.unique_user_count", JsonNodeFactory.instance.numberNode(bucket.getMetrics().getUniqueUserCount()));
-        Optional.ofNullable(bucket.getMetrics().getUsers()).ifPresent(usersUsageCounts -> {
-            ArrayNode users = JsonNodeFactory.instance.arrayNode();
-            // TODO attempt to resolve users into emails
-            usersUsageCounts.forEach(userUsage -> {
-                ObjectNode userDocument = JsonNodeFactory.instance.objectNode();
-                if (userUsage.getUser() != null) {
-                    userDocument.set("user", JsonNodeFactory.instance.textNode(userUsage.getUser().toString()));
-                }
-                userDocument.set("user_email", JsonNodeFactory.instance.textNode(userUsage.getUserEmail()));
-                userDocument.set("count", JsonNodeFactory.instance.numberNode(userUsage.getCount()));
-                users.add(userDocument);
-            });
-            document.set("metrics.users", users);
-        });
-
-        document.set("metrics.total_sql_queries", JsonNodeFactory.instance.numberNode(bucket.getMetrics().getTotalSqlQueries()));
-        Optional.ofNullable(bucket.getMetrics().getTopSqlQueries()).ifPresent(top_sql_queries -> {
-            ArrayNode sqlQueriesDocument = JsonNodeFactory.instance.arrayNode();
-            top_sql_queries.forEach(sqlQueriesDocument::add);
-            document.set("metrics.top_sql_queries", sqlQueriesDocument);
-        });
-
-        _usageService.upsertDocument(document.toString(), id);
-    }
-
-    private static int windowDurationToMillis(@Nonnull WindowDuration duration) {
-        if (duration == WindowDuration.DAY) {
-            return 24 * 60 * 60 * 1000;
-        } else if (duration == WindowDuration.HOUR) {
-            return 60 * 60 * 1000;
-        } else {
-            throw new IllegalArgumentException("invalid WindowDuration enum state");
-        }
-
+        // TODO attempt to resolve users into emails
+        _usageService.upsertDocument(bucket);
     }
 
 }

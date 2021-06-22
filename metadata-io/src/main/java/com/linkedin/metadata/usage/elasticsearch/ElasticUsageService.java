@@ -1,5 +1,8 @@
 package com.linkedin.metadata.usage.elasticsearch;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -36,10 +39,7 @@ import org.elasticsearch.search.sort.SortOrder;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -93,8 +93,49 @@ public class ElasticUsageService implements UsageService {
         return ImmutableMap.of("properties", mappings);
     }
 
+    @Nonnull
+    String constructDocId(@Nonnull UsageAggregation bucket) {
+        return String.format("(%d,%s,%s)", bucket.getBucket(), bucket.getDuration(), bucket.getResource());
+    }
+
+    @Nonnull
+    String constructDocument(@Nonnull UsageAggregation bucket) {
+        ObjectNode document = JsonNodeFactory.instance.objectNode();
+        document.set("bucket", JsonNodeFactory.instance.numberNode(bucket.getBucket()));
+        document.set("duration", JsonNodeFactory.instance.textNode(bucket.getDuration().toString()));
+        document.set("bucket_end", JsonNodeFactory.instance.numberNode(bucket.getBucket() + windowDurationToMillis(bucket.getDuration())));
+        document.set("resource", JsonNodeFactory.instance.textNode(bucket.getResource().toString()));
+
+        document.set("metrics.unique_user_count", JsonNodeFactory.instance.numberNode(bucket.getMetrics().getUniqueUserCount()));
+        Optional.ofNullable(bucket.getMetrics().getUsers()).ifPresent(usersUsageCounts -> {
+            ArrayNode users = JsonNodeFactory.instance.arrayNode();
+            usersUsageCounts.forEach(userUsage -> {
+                ObjectNode userDocument = JsonNodeFactory.instance.objectNode();
+                if (userUsage.getUser() != null) {
+                    userDocument.set("user", JsonNodeFactory.instance.textNode(userUsage.getUser().toString()));
+                }
+                userDocument.set("user_email", JsonNodeFactory.instance.textNode(userUsage.getUserEmail()));
+                userDocument.set("count", JsonNodeFactory.instance.numberNode(userUsage.getCount()));
+                users.add(userDocument);
+            });
+            document.set("metrics.users", users);
+        });
+
+        document.set("metrics.total_sql_queries", JsonNodeFactory.instance.numberNode(bucket.getMetrics().getTotalSqlQueries()));
+        Optional.ofNullable(bucket.getMetrics().getTopSqlQueries()).ifPresent(top_sql_queries -> {
+            ArrayNode sqlQueriesDocument = JsonNodeFactory.instance.arrayNode();
+            top_sql_queries.forEach(sqlQueriesDocument::add);
+            document.set("metrics.top_sql_queries", sqlQueriesDocument);
+        });
+
+        return document.toString();
+    }
+
     @Override
-    public void upsertDocument(@Nonnull String document, @Nonnull String docId) {
+    public void upsertDocument(@Nonnull UsageAggregation bucket) {
+        final String docId = this.constructDocId(bucket);
+        final String document = this.constructDocument(bucket);
+
         final String indexName = indexConvention.getIndexName(USAGE_STATS_BASE_INDEX_NAME);
         final IndexRequest indexRequest = new IndexRequest(indexName).id(docId).source(document, XContentType.JSON);
         final UpdateRequest updateRequest = new UpdateRequest(indexName, docId).doc(document, XContentType.JSON)
@@ -182,6 +223,16 @@ public class ElasticUsageService implements UsageService {
             return agg;
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
+        }
+    }
+
+    private static int windowDurationToMillis(@Nonnull WindowDuration duration) {
+        if (duration == WindowDuration.DAY) {
+            return 24 * 60 * 60 * 1000;
+        } else if (duration == WindowDuration.HOUR) {
+            return 60 * 60 * 1000;
+        } else {
+            throw new IllegalArgumentException("invalid WindowDuration enum state");
         }
     }
 
