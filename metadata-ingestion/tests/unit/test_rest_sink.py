@@ -204,6 +204,7 @@ basicAuditStamp = models.AuditStampClass(
                 duration="DAY",
                 resource="urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
                 metrics=models.UsageAggregationMetricsClass(
+                    uniqueUserCount=2,
                     users=[
                         models.UserUsageCountsClass(
                             user="urn:li:corpuser:jdoe",
@@ -212,10 +213,11 @@ basicAuditStamp = models.AuditStampClass(
                         models.UserUsageCountsClass(
                             user="urn:li:corpuser:unknown",
                             count=3,
-                            user_email="foo@example.com",
+                            userEmail="foo@example.com",
                         ),
                     ],
-                    top_sql_queries=["SELECT * FROM foo"],
+                    totalSqlQueries=1,
+                    topSqlQueries=["SELECT * FROM foo"],
                 ),
             ),
             "/usageStats?action=batchIngest",
@@ -226,15 +228,17 @@ basicAuditStamp = models.AuditStampClass(
                         "duration": "DAY",
                         "resource": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
                         "metrics": {
-                            "top_sql_queries": ["SELECT * FROM foo"],
+                            "uniqueUserCount": 2,
                             "users": [
                                 {"count": 5, "user": "urn:li:corpuser:jdoe"},
                                 {
                                     "count": 3,
                                     "user": "urn:li:corpuser:unknown",
-                                    "user_email": "foo@example.com",
+                                    "userEmail": "foo@example.com",
                                 },
                             ],
+                            "totalSqlQueries": 1,
+                            "topSqlQueries": ["SELECT * FROM foo"],
                         },
                     }
                 ]
