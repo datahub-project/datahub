@@ -10,7 +10,7 @@ mutation updateDataset($input: DatasetUpdateInput!) {
     }
 }
 
-query getDataset($urn: String!, $version: Long) {
+query getDataset($urn: String!) {
     dataset(urn: $urn) {
         urn
         name
@@ -50,40 +50,11 @@ query getDataset($urn: String!, $version: Long) {
                 }
             }
         }
-        schemaMetadata(version: $version) {
-            aspectVersion
-            createdAt
-            datasetUrn
-            name
-            platformUrn
-            version
-            cluster
-            hash
-            platformSchema {
-                ... on TableSchema {
-                    schema
-                }
-                ... on KeyValueSchema {
-                    keySchema
-                    valueSchema
-                }
-            }
-            fields {
-                fieldPath
-                jsonPath
-                nullable
-                description
-                type
-                nativeDataType
-                recursive
-                globalTags {
-                    ...globalTagsFields
-                }
-                glossaryTerms {
-                    ...glossaryTerms
-                }
-            }
-            primaryKeys
+        schemaMetadata {
+            ...schemaMetadataFields
+        }
+        pastSchemaMetadata: schemaMetadata(version: -1) {
+            ...schemaMetadataFields
         }
         editableSchemaMetadata {
             editableSchemaFieldInfo {
@@ -111,6 +82,32 @@ query getDataset($urn: String!, $version: Long) {
         }
         upstreamLineage {
             ...upstreamRelationshipFields
+        }
+    }
+}
+
+query getDatasetSchemaVersions($urn: String!, $version1: Long, $version2: Long) {
+    dataset(urn: $urn) {
+        urn
+        name
+        type
+        origin
+        description
+        uri
+        schemaMetadata(version: $version1) {
+            ...schemaMetadataFields
+        }
+        pastSchemaMetadata: schemaMetadata(version: $version2) {
+            ...schemaMetadataFields
+        }
+        editableSchemaMetadata {
+            editableSchemaFieldInfo {
+                fieldPath
+                description
+                globalTags {
+                    ...globalTagsFields
+                }
+            }
         }
     }
 }

@@ -278,8 +278,8 @@ export const dataset3 = {
             },
         ],
     },
-    schema: null,
     schemaMetadata: null,
+    pastSchemaMetadata: null,
     editableSchemaMetadata: null,
     deprecation: null,
 } as Dataset;
@@ -748,7 +748,6 @@ export const mocks = [
             query: GetDatasetDocument,
             variables: {
                 urn: 'urn:li:dataset:3',
-                version: 0,
             },
         },
         result: {

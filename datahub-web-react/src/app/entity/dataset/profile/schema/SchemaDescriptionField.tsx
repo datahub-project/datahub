@@ -51,17 +51,17 @@ const EditedLabel = styled(Typography.Text)`
 
 type Props = {
     description: string;
-    updatedDescription?: string | null;
     onUpdate: (
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
+    editable?: boolean;
+    isEdited?: boolean;
 };
 
-export default function DescriptionField({ description, updatedDescription, onUpdate }: Props) {
+export default function DescriptionField({ description, onUpdate, editable = true, isEdited = false }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
 
     const onCloseModal = () => setShowAddModal(false);
-    const currentDesc: string = updatedDescription || description;
 
     const onUpdateModal = async (desc: string | null) => {
         message.loading({ content: 'Updating...' });
@@ -83,22 +83,22 @@ export default function DescriptionField({ description, updatedDescription, onUp
                 e.stopPropagation();
             }}
         >
-            <DescriptionText source={currentDesc} />
-            {currentDesc && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
-            {updatedDescription && <EditedLabel>(edited)</EditedLabel>}
+            <DescriptionText source={description} />
+            {editable && description && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
+            {isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <div>
                     <UpdateDescriptionModal
-                        title={currentDesc ? 'Update description' : 'Add description'}
-                        description={currentDesc}
+                        title={description ? 'Update description' : 'Add description'}
+                        description={description}
                         original={description}
                         onClose={onCloseModal}
                         onSubmit={onUpdateModal}
-                        isAddDesc={!currentDesc}
+                        isAddDesc={!description}
                     />
                 </div>
             )}
-            {!currentDesc && (
+            {editable && !description && (
                 <AddNewDescription color="success" onClick={() => setShowAddModal(true)}>
                     + Add Description
                 </AddNewDescription>

@@ -1,30 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Pagination, Table, Typography } from 'antd';
-import { AlignType } from 'rc-table/lib/interface';
+import { Button, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
-import TypeIcon from './TypeIcon';
+import { useGetDatasetSchemaVersionsLazyQuery, UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import {
     Schema,
     SchemaMetadata,
-    SchemaFieldDataType,
-    GlobalTags,
     EditableSchemaMetadata,
-    SchemaField,
     EditableSchemaMetadataUpdate,
     GlobalTagsUpdate,
     EditableSchemaFieldInfo,
     EditableSchemaFieldInfoUpdate,
     EntityType,
-    GlossaryTerms,
 } from '../../../../../types.generated';
-import TagTermGroup from '../../../../shared/tags/TagTermGroup';
-import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
+import { fieldPathSortAndParse, ExtendedSchemaFields } from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
-import DescriptionField from './SchemaDescriptionField';
+import SchemaTable from './SchemaTable';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 
-const MAX_FIELD_PATH_LENGTH = 100;
 const SchemaContainer = styled.div`
     margin-bottom: 100px;
 `;
@@ -34,73 +27,14 @@ const ViewRawButtonContainer = styled.div`
     padding-bottom: 16px;
 `;
 
-const LighterText = styled(Typography.Text)`
-    color: rgba(0, 0, 0, 0.45);
-`;
-
 const ShowVersionButton = styled(Button)`
     margin-right: 15px;
 `;
+const PaginationContainer = styled(Pagination)`
+    padding-top: 6px;
+`;
 
-export type Props = {
-    urn: string;
-    schema?: SchemaMetadata | Schema | null;
-    editableSchemaMetadata?: EditableSchemaMetadata | null;
-    updateEditableSchema: (
-        update: EditableSchemaMetadataUpdate,
-    ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
-};
-
-interface ExtendedSchemaFields extends SchemaField {
-    children?: Array<SchemaField>;
-}
-
-const defaultColumns = [
-    {
-        width: 100,
-        title: 'Type',
-        dataIndex: 'type',
-        key: 'type',
-        align: 'left' as AlignType,
-        render: (type: SchemaFieldDataType, record: SchemaField) => {
-            return <TypeIcon type={type} nativeDataType={record.nativeDataType} />;
-        },
-    },
-    {
-        title: 'Field',
-        dataIndex: 'fieldPath',
-        key: 'fieldPath',
-        width: 100,
-        render: (fieldPath: string) => {
-            if (!fieldPath.includes('.')) {
-                return <Typography.Text strong>{fieldPath}</Typography.Text>;
-            }
-            let [firstPath, lastPath] = fieldPath.split(/\.(?=[^.]+$)/);
-            const isOverflow = fieldPath.length > MAX_FIELD_PATH_LENGTH;
-            if (isOverflow) {
-                if (lastPath.length >= MAX_FIELD_PATH_LENGTH) {
-                    lastPath = `..${lastPath.substring(lastPath.length - MAX_FIELD_PATH_LENGTH)}`;
-                    firstPath = '';
-                } else {
-                    firstPath = firstPath.substring(fieldPath.length - MAX_FIELD_PATH_LENGTH);
-                    if (firstPath.includes('.')) {
-                        firstPath = `..${firstPath.substring(firstPath.indexOf('.'))}`;
-                    } else {
-                        firstPath = '..';
-                    }
-                }
-            }
-            return (
-                <span>
-                    <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
-                    {lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
-                </span>
-            );
-        },
-    },
-];
-
-function convertEditableSchemaMetadataForUpdate(
+export function convertEditableSchemaMetadataForUpdate(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
 ): EditableSchemaMetadataUpdate {
     return {
@@ -113,42 +47,47 @@ function convertEditableSchemaMetadataForUpdate(
     };
 }
 
-export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema }: Props) {
-    const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
+export type Props = {
+    urn: string;
+    schema?: SchemaMetadata | Schema | null;
+    pastSchemaMetadata?: SchemaMetadata | null;
+    editableSchemaMetadata?: EditableSchemaMetadata | null;
+    updateEditableSchema: (
+        update: EditableSchemaMetadataUpdate,
+    ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
+};
+
+export default function SchemaView({
+    urn,
+    schema,
+    pastSchemaMetadata,
+    editableSchemaMetadata,
+    updateEditableSchema,
+}: Props) {
     const [showRaw, setShowRaw] = useState(false);
     const [showVersions, setShowVersions] = useState(false);
     const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
+    // const [pastRows, setPastRows] = useState<Array<ExtendedSchemaFields>>([]);
+    const [getSchemaVersions, { loading, error, data: schemaVersions }] = useGetDatasetSchemaVersionsLazyQuery();
+    const totalVersions = pastSchemaMetadata?.aspectVersion || 0;
 
     useEffect(() => {
-        const fields = [...(schema?.fields || [])] as Array<ExtendedSchemaFields>;
-        if (fields.length > 1) {
-            // eslint-disable-next-line no-nested-ternary
-            fields.sort((a, b) => (a.fieldPath > b.fieldPath ? 1 : b.fieldPath > a.fieldPath ? -1 : 0));
-            for (let rowIndex = fields.length; rowIndex--; rowIndex >= 0) {
-                const field = fields[rowIndex];
-                if (field.fieldPath.slice(1, -1).includes('.')) {
-                    const fieldPaths = field.fieldPath.split(/\.(?=[^.]+$)/);
-                    const parentFieldIndex = fields.findIndex((f) => f.fieldPath === fieldPaths[0]);
-                    if (parentFieldIndex > -1) {
-                        if ('children' in fields[parentFieldIndex]) {
-                            fields[parentFieldIndex].children?.unshift(field);
-                        } else {
-                            fields[parentFieldIndex] = { ...fields[parentFieldIndex], children: [field] };
-                        }
-                        fields.splice(rowIndex, 1);
-                    } else if (rowIndex > 0 && fieldPaths[0].includes(fields[rowIndex - 1].fieldPath)) {
-                        if ('children' in fields[rowIndex - 1]) {
-                            fields[rowIndex - 1].children?.unshift(field);
-                        } else {
-                            fields[rowIndex - 1] = { ...fields[rowIndex - 1], children: [field] };
-                        }
-                        fields.splice(rowIndex, 1);
-                    }
-                }
-            }
+        if (!loading && !error && schemaVersions) {
+            setRows(
+                fieldPathSortAndParse(
+                    schemaVersions.dataset?.schemaMetadata?.fields,
+                    schemaVersions.dataset?.pastSchemaMetadata?.fields,
+                    !showVersions,
+                ),
+            );
         }
-        setRows(fields);
-    }, [schema?.fields]);
+    }, [schemaVersions, loading, error, showVersions]);
+
+    useEffect(() => {
+        if (schema?.fields || pastSchemaMetadata?.fields) {
+            setRows(fieldPathSortAndParse(schema?.fields, pastSchemaMetadata?.fields, !showVersions));
+        }
+    }, [schema?.fields, pastSchemaMetadata?.fields, showVersions]);
 
     const updateSchema = (newFieldInfo: EditableSchemaFieldInfoUpdate, record?: EditableSchemaFieldInfo) => {
         let existingMetadataAsUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
@@ -202,62 +141,6 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         return updateSchema(newFieldInfo, record);
     };
 
-    const descriptionRender = (description: string, record: SchemaField) => {
-        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
-            (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
-        ) || { fieldPath: record.fieldPath };
-        return (
-            <DescriptionField
-                description={description}
-                updatedDescription={relevantEditableFieldInfo.description}
-                onUpdate={(update) => onUpdateDescription(update, relevantEditableFieldInfo)}
-            />
-        );
-    };
-
-    const tagAndTermRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
-        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
-            (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
-        );
-        return (
-            <TagTermGroup
-                uneditableTags={tags}
-                editableTags={relevantEditableFieldInfo?.globalTags}
-                glossaryTerms={record.glossaryTerms as GlossaryTerms}
-                canRemove
-                canAdd={tagHoveredIndex === `${record.fieldPath}-${rowIndex}`}
-                onOpenModal={() => setTagHoveredIndex(undefined)}
-                updateTags={(update) =>
-                    onUpdateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
-                }
-            />
-        );
-    };
-
-    const descriptionColumn = {
-        title: 'Description',
-        dataIndex: 'description',
-        key: 'description',
-        render: descriptionRender,
-        width: 300,
-    };
-
-    const tagAndTermColumn = {
-        width: 150,
-        title: 'Tags & Terms',
-        dataIndex: 'globalTags',
-        key: 'tag',
-        render: tagAndTermRender,
-        onCell: (record: SchemaField, rowIndex: number | undefined) => ({
-            onMouseEnter: () => {
-                setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
-            },
-            onMouseLeave: () => {
-                setTagHoveredIndex(undefined);
-            },
-        }),
-    };
-
     const getRawSchema = (schemaValue) => {
         try {
             return JSON.stringify(JSON.parse(schemaValue), null, 2);
@@ -266,15 +149,38 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         }
     };
 
+    const onVersionChange = (page: number) => {
+        getSchemaVersions({
+            variables: {
+                urn,
+                version1: -page + 1,
+                version2: -page,
+            },
+        });
+    };
+
     return (
         <SchemaContainer>
             {schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0 && (
                 <ViewRawButtonContainer>
-                    {!showVersions ? (
-                        <ShowVersionButton onClick={() => setShowVersions(true)}>Version History</ShowVersionButton>
-                    ) : (
-                        <Pagination simple size="default" defaultCurrent={0} total={5} />
-                    )}
+                    {totalVersions > 0 &&
+                        (!showVersions ? (
+                            <ShowVersionButton onClick={() => setShowVersions(true)}>Version History</ShowVersionButton>
+                        ) : (
+                            <>
+                                <Button type="text" onClick={() => setShowVersions(false)}>
+                                    Versions
+                                </Button>
+                                <PaginationContainer
+                                    simple
+                                    size="default"
+                                    defaultCurrent={1}
+                                    defaultPageSize={1}
+                                    total={totalVersions}
+                                    onChange={onVersionChange}
+                                />
+                            </>
+                        ))}
                     <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>
                 </ViewRawButtonContainer>
             )}
@@ -289,12 +195,13 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
                 </Typography.Text>
             ) : (
                 rows.length > 0 && (
-                    <Table
-                        columns={[...defaultColumns, descriptionColumn, tagAndTermColumn]}
-                        dataSource={rows}
-                        rowKey="fieldPath"
-                        expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
-                        pagination={false}
+                    <SchemaTable
+                        rows={rows}
+                        // pastRows={pastRows}
+                        editMode={!showVersions}
+                        onUpdateDescription={onUpdateDescription}
+                        onUpdateTags={onUpdateTags}
+                        editableSchemaMetadata={editableSchemaMetadata}
                     />
                 )
             )}

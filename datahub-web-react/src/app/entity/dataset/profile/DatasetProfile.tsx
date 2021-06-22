@@ -8,7 +8,7 @@ import {
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
-import { Dataset, EntityType, GlobalTags, GlossaryTerms } from '../../../../types.generated';
+import { Dataset, EntityType, GlobalTags, GlossaryTerms, SchemaMetadata } from '../../../../types.generated';
 import LineageView from './Lineage';
 import { Properties as PropertiesView } from '../../shared/Properties';
 import DocumentsView from './Documentation';
@@ -36,7 +36,7 @@ const EMPTY_ARR: never[] = [];
  */
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const { loading, error, data } = useGetDatasetQuery({ variables: { urn, version: 0 } });
+    const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
     const user = useGetAuthenticatedUser();
     const [updateDataset] = useUpdateDatasetMutation({
         update(cache, { data: newDataset }) {
@@ -68,8 +68,9 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         institutionalMemory,
         schema,
         schemaMetadata,
+        pastSchemaMetadata,
         editableSchemaMetadata,
-    }: Dataset) => {
+    }: Dataset & { pastSchemaMetadata: SchemaMetadata }) => {
         return [
             {
                 name: TabType.Schema,
@@ -78,6 +79,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     <SchemaView
                         urn={urn}
                         schema={schemaMetadata || schema}
+                        pastSchemaMetadata={pastSchemaMetadata}
                         editableSchemaMetadata={editableSchemaMetadata}
                         updateEditableSchema={(update) => {
                             analytics.event({
@@ -170,7 +172,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                         />
                     }
                     tagCardHeader={data.dataset?.glossaryTerms ? 'Tags & Terms' : 'Tags'}
-                    tabs={getTabs(data.dataset as Dataset)}
+                    tabs={getTabs(data.dataset as Dataset & { pastSchemaMetadata: SchemaMetadata })}
                     header={getHeader(data.dataset as Dataset)}
                     onTabChange={(tab: string) => {
                         analytics.event({
