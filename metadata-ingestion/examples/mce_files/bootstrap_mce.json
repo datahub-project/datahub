@@ -340,7 +340,7 @@
                                     "jsonPath": null,
                                     "nullable": false,
                                     "description": {
-                                        "string": "Shipment info description"
+                                        "string": "Shipment info description update for test"
                                     },
                                     "type": {
                                         "type": {
@@ -351,18 +351,18 @@
                                     "recursive": false
                                 },
                                 {
-                                    "fieldPath": "shipment_info.date",
+                                    "fieldPath": "shipment_info.description",
                                     "jsonPath": null,
                                     "nullable": false,
                                     "description": {
-                                        "string": "Shipment info date description"
+                                        "string": "Shipment info Description"
                                     },
                                     "type": {
                                         "type": {
-                                            "com.linkedin.pegasus2avro.schema.DateType": {}
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
                                         }
                                     },
-                                    "nativeDataType": "Date",
+                                    "nativeDataType": "text",
                                     "recursive": false
                                 },
                                 {

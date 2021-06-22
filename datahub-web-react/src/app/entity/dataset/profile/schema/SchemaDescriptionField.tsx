@@ -35,6 +35,20 @@ const DescriptionContainer = styled.div`
     &:hover ${AddNewDescription} {
         display: block;
     }
+    & ins.diff {
+        background-color: #b7eb8f99;
+        text-decoration: none;
+        &: hover {
+            background-color: #b7eb8faa !important;
+        }
+    }
+    & del.diff {
+        background-color: #ffa39e99;
+        text-decoration: none;
+        &: hover {
+            background-color: #ffa39eaa !important;
+        }
+    }
 `;
 
 const DescriptionText = styled(MarkdownViewer)`
@@ -85,7 +99,7 @@ export default function DescriptionField({ description, onUpdate, editable = tru
         >
             <DescriptionText source={description} />
             {editable && description && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
-            {isEdited && <EditedLabel>(edited)</EditedLabel>}
+            {editable && isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <div>
                     <UpdateDescriptionModal

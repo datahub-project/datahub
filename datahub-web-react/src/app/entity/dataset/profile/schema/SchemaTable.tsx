@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
-import { markdownDiff } from 'markdown-diff';
 import styled from 'styled-components';
 import TypeIcon from './TypeIcon';
 import {
@@ -13,7 +12,7 @@ import {
     EditableSchemaFieldInfo,
     GlossaryTerms,
 } from '../../../../../types.generated';
-import { ExtendedSchemaFields } from '../../../shared/utils';
+import { diffMarkdown, ExtendedSchemaFields } from '../../../shared/utils';
 import TagTermGroup from '../../../../shared/tags/TagTermGroup';
 import DescriptionField from './SchemaDescriptionField';
 
@@ -21,6 +20,21 @@ const MAX_FIELD_PATH_LENGTH = 100;
 
 const LighterText = styled(Typography.Text)`
     color: rgba(0, 0, 0, 0.45);
+`;
+
+const TableContainer = styled.div`
+    & .table-red-row {
+        background-color: #ffa39e99;
+        &: hover > td {
+            background-color: #ffa39eaa !important;
+        }
+    }
+    & .table-green-row {
+        background-color: #b7eb8f99;
+        &: hover > td {
+            background-color: #b7eb8faa !important;
+        }
+    }
 `;
 
 const defaultColumns = [
@@ -71,8 +85,10 @@ const defaultColumns = [
 
 export type Props = {
     rows: Array<ExtendedSchemaFields>;
-    // pastRows: Array<ExtendedSchemaFields>;
-    onUpdateDescription: (updatedDescription: string, record?: EditableSchemaFieldInfo) => Promise<any>;
+    onUpdateDescription: (
+        updatedDescription: string,
+        record?: EditableSchemaFieldInfo | ExtendedSchemaFields,
+    ) => Promise<any>;
     onUpdateTags: (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => Promise<any>;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     editMode?: boolean;
@@ -80,7 +96,6 @@ export type Props = {
 
 export default function SchemaTable({
     rows,
-    // pastRows,
     onUpdateDescription,
     onUpdateTags,
     editableSchemaMetadata,
@@ -91,12 +106,23 @@ export default function SchemaTable({
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
             (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
         );
-        const descriptionDiff = editMode ? description : markdownDiff(record.pastDescription || '', description);
+
+        if (!editMode && record.pastDescription) {
+            return (
+                <DescriptionField
+                    description={diffMarkdown(record.pastDescription, description)}
+                    isEdited={!!relevantEditableFieldInfo?.description}
+                    onUpdate={(updatedDescription) => onUpdateDescription(updatedDescription, record)}
+                    editable={editMode}
+                />
+            );
+        }
+
         return (
             <DescriptionField
-                description={editMode ? relevantEditableFieldInfo?.description || description : descriptionDiff}
+                description={editMode ? relevantEditableFieldInfo?.description || description : description}
                 isEdited={!!relevantEditableFieldInfo?.description}
-                onUpdate={(update) => onUpdateDescription(update, relevantEditableFieldInfo)}
+                onUpdate={(updatedDescription) => onUpdateDescription(updatedDescription, record)}
                 editable={editMode}
             />
         );
@@ -111,7 +137,7 @@ export default function SchemaTable({
                 uneditableTags={tags}
                 editableTags={relevantEditableFieldInfo?.globalTags}
                 glossaryTerms={record.glossaryTerms as GlossaryTerms}
-                canRemove
+                canRemove={editMode}
                 canAdd={tagHoveredIndex === `${record.fieldPath}-${rowIndex}`}
                 onOpenModal={() => setTagHoveredIndex(undefined)}
                 updateTags={(update) =>
@@ -150,12 +176,17 @@ export default function SchemaTable({
     };
 
     return (
-        <Table
-            columns={[...defaultColumns, descriptionColumn, tagAndTermColumn]}
-            dataSource={rows}
-            rowKey="fieldPath"
-            expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
-            pagination={false}
-        />
+        <TableContainer>
+            <Table
+                columns={[...defaultColumns, descriptionColumn, tagAndTermColumn]}
+                dataSource={rows}
+                rowClassName={(record) =>
+                    record.isNewRow ? 'table-green-row' : `${record.isDeletedRow ? 'table-red-row' : ''}`
+                }
+                rowKey="fieldPath"
+                expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
+                pagination={false}
+            />
+        </TableContainer>
     );
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
+import { Message } from '../../../../shared/Message';
 import { useGetDatasetSchemaVersionsLazyQuery, UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import {
     Schema,
@@ -13,7 +14,7 @@ import {
     EditableSchemaFieldInfoUpdate,
     EntityType,
 } from '../../../../../types.generated';
-import { fieldPathSortAndParse, ExtendedSchemaFields } from '../../../shared/utils';
+import { convertEditableSchemaMeta, fieldPathSortAndParse, ExtendedSchemaFields } from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import SchemaTable from './SchemaTable';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
@@ -32,6 +33,7 @@ const ShowVersionButton = styled(Button)`
 `;
 const PaginationContainer = styled(Pagination)`
     padding-top: 6px;
+    margin-right: 10px;
 `;
 
 export function convertEditableSchemaMetadataForUpdate(
@@ -67,9 +69,16 @@ export default function SchemaView({
     const [showRaw, setShowRaw] = useState(false);
     const [showVersions, setShowVersions] = useState(false);
     const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
-    // const [pastRows, setPastRows] = useState<Array<ExtendedSchemaFields>>([]);
-    const [getSchemaVersions, { loading, error, data: schemaVersions }] = useGetDatasetSchemaVersionsLazyQuery();
-    const totalVersions = pastSchemaMetadata?.aspectVersion || 0;
+    const [getSchemaVersions, { loading, error, data: schemaVersions }] = useGetDatasetSchemaVersionsLazyQuery({
+        fetchPolicy: 'no-cache',
+    });
+    const hasEditableSchemaMeta =
+        editableSchemaMetadata &&
+        editableSchemaMetadata.editableSchemaFieldInfo &&
+        editableSchemaMetadata.editableSchemaFieldInfo.length > 0;
+    const totalVersions = hasEditableSchemaMeta
+        ? (pastSchemaMetadata?.aspectVersion || 0) + 1
+        : pastSchemaMetadata?.aspectVersion || 0;
 
     useEffect(() => {
         if (!loading && !error && schemaVersions) {
@@ -84,10 +93,25 @@ export default function SchemaView({
     }, [schemaVersions, loading, error, showVersions]);
 
     useEffect(() => {
-        if (schema?.fields || pastSchemaMetadata?.fields) {
+        if (hasEditableSchemaMeta && (schema?.fields || editableSchemaMetadata?.editableSchemaFieldInfo)) {
+            setRows(
+                fieldPathSortAndParse(
+                    convertEditableSchemaMeta(editableSchemaMetadata?.editableSchemaFieldInfo, schema?.fields),
+                    schema?.fields,
+                    !showVersions,
+                ),
+            );
+        } else if (schema?.fields || pastSchemaMetadata?.fields) {
             setRows(fieldPathSortAndParse(schema?.fields, pastSchemaMetadata?.fields, !showVersions));
         }
-    }, [schema?.fields, pastSchemaMetadata?.fields, showVersions]);
+    }, [
+        schema?.fields,
+        pastSchemaMetadata?.fields,
+        showVersions,
+        hasEditableSchemaMeta,
+        editableSchemaMetadata,
+        editableSchemaMetadata?.editableSchemaFieldInfo,
+    ]);
 
     const updateSchema = (newFieldInfo: EditableSchemaFieldInfoUpdate, record?: EditableSchemaFieldInfo) => {
         let existingMetadataAsUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
@@ -125,7 +149,10 @@ export default function SchemaView({
         return updateSchema(newFieldInfo, record);
     };
 
-    const onUpdateDescription = (updatedDescription: string, record?: EditableSchemaFieldInfo) => {
+    const onUpdateDescription = (
+        updatedDescription: string,
+        record?: EditableSchemaFieldInfo | ExtendedSchemaFields,
+    ) => {
         if (!record) return Promise.resolve();
         analytics.event({
             type: EventType.EntityActionEvent,
@@ -138,7 +165,7 @@ export default function SchemaView({
             description: updatedDescription,
             globalTags: { tags: convertTagsForUpdate(record?.globalTags?.tags || []) },
         };
-        return updateSchema(newFieldInfo, record);
+        return updateSchema(newFieldInfo, record as EditableSchemaFieldInfo);
     };
 
     const getRawSchema = (schemaValue) => {
@@ -150,40 +177,56 @@ export default function SchemaView({
     };
 
     const onVersionChange = (page: number) => {
+        if (page === 1) {
+            if (hasEditableSchemaMeta && (schema?.fields || editableSchemaMetadata?.editableSchemaFieldInfo)) {
+                setRows(
+                    fieldPathSortAndParse(
+                        convertEditableSchemaMeta(editableSchemaMetadata?.editableSchemaFieldInfo, schema?.fields),
+                        schema?.fields,
+                        !showVersions,
+                    ),
+                );
+            } else if (schema?.fields || pastSchemaMetadata?.fields) {
+                setRows(fieldPathSortAndParse(schema?.fields, pastSchemaMetadata?.fields, !showVersions));
+            }
+            return;
+        }
+        const version1 = hasEditableSchemaMeta ? -page + 2 : -page + 1;
         getSchemaVersions({
             variables: {
                 urn,
-                version1: -page + 1,
-                version2: -page,
+                version1,
+                version2: version1 - 1,
             },
         });
     };
 
     return (
         <SchemaContainer>
-            {schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0 && (
-                <ViewRawButtonContainer>
-                    {totalVersions > 0 &&
-                        (!showVersions ? (
-                            <ShowVersionButton onClick={() => setShowVersions(true)}>Version History</ShowVersionButton>
-                        ) : (
-                            <>
-                                <Button type="text" onClick={() => setShowVersions(false)}>
-                                    Versions
-                                </Button>
-                                <PaginationContainer
-                                    simple
-                                    size="default"
-                                    defaultCurrent={1}
-                                    defaultPageSize={1}
-                                    total={totalVersions}
-                                    onChange={onVersionChange}
-                                />
-                            </>
-                        ))}
+            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '30%' }} />}
+            <ViewRawButtonContainer>
+                {totalVersions > 0 &&
+                    (!showVersions ? (
+                        <ShowVersionButton onClick={() => setShowVersions(true)}>Version History</ShowVersionButton>
+                    ) : (
+                        <>
+                            <Button type="text" onClick={() => setShowVersions(false)}>
+                                Version
+                            </Button>
+                            <PaginationContainer
+                                simple
+                                size="default"
+                                defaultCurrent={1}
+                                defaultPageSize={1}
+                                total={totalVersions}
+                                onChange={onVersionChange}
+                            />
+                        </>
+                    ))}
+                {schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0 && (
                     <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>
-                </ViewRawButtonContainer>
-            )}
+                )}
+            </ViewRawButtonContainer>
             {showRaw ? (
                 <Typography.Text data-testid="schema-raw-view">
                     <pre>
@@ -197,7 +240,6 @@ export default function SchemaView({
                 rows.length > 0 && (
                     <SchemaTable
                         rows={rows}
-                        // pastRows={pastRows}
                         editMode={!showVersions}
                         onUpdateDescription={onUpdateDescription}
                         onUpdateTags={onUpdateTags}
