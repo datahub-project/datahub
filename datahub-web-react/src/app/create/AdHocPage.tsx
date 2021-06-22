@@ -49,7 +49,7 @@ export const AdHocPage = () => {
         }
     };
     const handleOnRemoveFile = () => {
-        form.setFieldsValue({ names: [] });
+        form.setFieldsValue({ fields: [{}] });
     };
     const onReset = () => {
         // todo: remove csv file also
