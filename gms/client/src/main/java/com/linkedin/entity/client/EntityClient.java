@@ -78,7 +78,7 @@ public class EntityClient {
     }
 
     @Nonnull
-    public RecordTemplate get(@Nonnull final Urn urn) throws RemoteInvocationException {
+    public Entity get(@Nonnull final Urn urn) throws RemoteInvocationException {
         final GetRequest<Entity> getRequest = ENTITIES_REQUEST_BUILDERS.get()
                 .id(urn.toString())
                 .build();
