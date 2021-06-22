@@ -109,6 +109,8 @@ a. policies that are tied to arbitrary attributes of a target resource object.
 
 b. ability to manage roles, role mappings, policies via React UI
 
+c. domain-partitioned access controls (asigning domains to all DH assets + then allowing policies including domain-based predicates) 
+
 ### What success looks like
 
 Based on the requirements gathered from talking with folks in the community, we decided to rally around the following goal. It should be possible to 
@@ -142,7 +144,7 @@ This section will outline the technical solution proposed to address the stated 
 
 #### API-based Role Management
 
-We aim to provide a rich API for defining privileges, roles, & role mappings. The default admin will be the `datahub` account.
+We aim to provide a rich API for defining policies, roles, & role mappings. The default admin will be the `datahub` account.
 
 ### Out of Scope
 
@@ -175,7 +177,7 @@ We propose the introduction of the following concepts into the DataHub platform.
 4. **Policy**: A fine-grained access control rule comprised of a resource type, a resource reference, and an action (specific to a resource type, eg. Read, Read / write)
     - Action (CREATE, READ, UPDATE, DELETE)
     - Match Criteria (resource type, reference filter)
-5. **Role**: A named group of privileges. Eg. Admin, User 
+5. **Role**: A named group of policies. Eg. Admin, User 
 6. **Role Mapping**: A mapping from a resolved Actor to one or more role(s), which dictate what they can do on the platform.
 
 ### Components
@@ -217,7 +219,7 @@ supports wildcard (& regex) matching, and a set of parameters used for additiona
 
 2.  *Roles*: Create, Read, Update Roles.
 
-- Accepts a name and list of Privileges,
+- Accepts a name and list of Policies,
 
 ```
 // Create a role.
@@ -225,7 +227,7 @@ POST /gms/role
 
 {  
      name: "admin_msd",
-     privileges: ["manage_datasets_msd", ....] 
+     policies: ["manage_datasets_msd", ....] 
 }
 ```
 
