@@ -12,7 +12,7 @@
     "name" : "WindowDuration",
     "namespace" : "com.linkedin.common",
     "doc" : "Enum to define the length of a bucket when doing aggregations",
-    "symbols" : [ "DAY", "HOUR" ]
+    "symbols" : [ "YEAR", "MONTH", "WEEK", "DAY", "HOUR" ]
   }, {
     "type" : "record",
     "name" : "UsageAggregation",
@@ -57,7 +57,7 @@
                 "name" : "count",
                 "type" : "int"
               }, {
-                "name" : "user_email",
+                "name" : "userEmail",
                 "type" : "string",
                 "doc" : " If user_email is set, we attempt to resolve the user's urn upon ingest ",
                 "optional" : true
@@ -102,11 +102,11 @@
         "type" : "record",
         "name" : "UsageQueryResultAggregations",
         "fields" : [ {
-          "name" : "total_unique_users",
+          "name" : "uniqueUserCount",
           "type" : "int",
           "optional" : true
         }, {
-          "name" : "total_sql_queries",
+          "name" : "totalSqlQueries",
           "type" : "int",
           "optional" : true
         }, {

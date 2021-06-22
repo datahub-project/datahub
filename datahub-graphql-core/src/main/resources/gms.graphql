@@ -172,6 +172,13 @@ type Query {
     Fetch a GlossaryTerm by primary key
     """
     glossaryTerm(urn: String!): GlossaryTerm
+
+    usageMetrics(
+        resource: String!,
+        duration: WindowDuration,
+        endTime: Long
+        maxBuckets: Int
+    ): UsageQueryResult
 }
 
 type Mutation {
@@ -2600,4 +2607,42 @@ type DataJobInputOutput {
     """
     inputDatajobs: [DataJob!]
 
+}
+
+type UserUsageCounts {
+    user: CorpUser
+    count: Int
+    userEmail: String
+}
+
+type UsageQueryResult {
+    buckets: [UsageAggregation]
+    aggregations: [UsageAggregation]
+}
+
+type UsageQueryResultAggregations {
+    uniqueUserCount: Int
+    users: [UserUsageCounts]
+    totalSqlQueries: Int
+}
+
+type UsageAggregationMetrics {
+    uniqueUserCount: Int
+    users: [UserUsageCounts]
+    totalSqlQueries: Int
+    topSqlQueries: [String]
+}
+
+type UsageAggregation {
+    bucket: Long
+    duration: WindowDuration
+    resource: String
+    metrics: UsageAggregationMetrics
+}
+
+enum WindowDuration {
+    DAY
+    WEEK
+    MONTH
+    YEAR
 }

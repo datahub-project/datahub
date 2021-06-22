@@ -94,7 +94,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             usersUsageCounts.forEach(userUsage -> {
                 ObjectNode userDocument = JsonNodeFactory.instance.objectNode();
                 userDocument.set("user", JsonNodeFactory.instance.textNode(userUsage.getUser().toString()));
-                userDocument.set("user_email", JsonNodeFactory.instance.textNode(userUsage.getUser_email()));
+                userDocument.set("user_email", JsonNodeFactory.instance.textNode(userUsage.getUserEmail()));
                 userDocument.set("count", JsonNodeFactory.instance.numberNode(userUsage.getCount()));
                 users.add(userDocument);
             });
