@@ -173,7 +173,7 @@ type Query {
     """
     glossaryTerm(urn: String!): GlossaryTerm
 
-    usageMetrics(
+    usageStats(
         resource: String!,
         duration: WindowDuration,
         endTime: Long
