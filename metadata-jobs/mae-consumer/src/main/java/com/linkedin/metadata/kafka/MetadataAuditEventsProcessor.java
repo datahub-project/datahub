@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.common.urn.Urn;
+
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.search.SearchServiceFactory;
@@ -59,6 +60,7 @@ public class MetadataAuditEventsProcessor {
     _graphService = graphService;
     _searchService = searchService;
     _searchService.configure();
+    _graphService.configure();
   }
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"
@@ -76,8 +78,8 @@ public class MetadataAuditEventsProcessor {
 
         final EntitySpec entitySpec =
             SnapshotEntityRegistry.getInstance().getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
-        updateElasticsearch(snapshot, entitySpec);
-        updateNeo4j(snapshot, entitySpec);
+        updateSearchService(snapshot, entitySpec);
+        updateGraphService(snapshot, entitySpec);
       }
     } catch (Exception e) {
       log.error("Error deserializing message: {}", e.toString());
@@ -90,7 +92,7 @@ public class MetadataAuditEventsProcessor {
    *
    * @param snapshot Snapshot
    */
-  private void updateNeo4j(final RecordTemplate snapshot, final EntitySpec entitySpec) {
+  private void updateGraphService(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     final Set<String> relationshipTypesBeingAdded = new HashSet<>();
     final List<Edge> edgesToAdd = new ArrayList<>();
     final String sourceUrnStr = snapshot.data().get("urn").toString();
@@ -122,7 +124,7 @@ public class MetadataAuditEventsProcessor {
     }
     if (edgesToAdd.size() > 0) {
       new Thread(() -> {
-        _graphService.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
+        _graphService.removeEdgesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
             createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
         edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
       }).start();
@@ -134,7 +136,7 @@ public class MetadataAuditEventsProcessor {
    *
    * @param snapshot Snapshot
    */
-  private void updateElasticsearch(final RecordTemplate snapshot, final EntitySpec entitySpec) {
+  private void updateSearchService(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     String urn = snapshot.data().get("urn").toString();
     Optional<String> searchDocument;
     try {

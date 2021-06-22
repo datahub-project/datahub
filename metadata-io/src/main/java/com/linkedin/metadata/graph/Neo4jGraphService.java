@@ -119,7 +119,7 @@ public class Neo4jGraphService implements GraphService {
     runQuery(buildStatement(statement, params)).consume();
   }
 
-  public void removeEdgeTypesFromNode(
+  public void removeEdgesFromNode(
       @Nonnull final Urn urn,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
@@ -144,6 +144,11 @@ public class Neo4jGraphService implements GraphService {
     params.put("urn", urn.toString());
 
     runQuery(buildStatement(statement, params)).consume();
+  }
+
+  @Override
+  public void configure() {
+    // Do nothing
   }
 
   // visible for testing
