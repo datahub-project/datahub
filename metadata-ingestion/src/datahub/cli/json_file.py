@@ -1,4 +1,4 @@
-from datahub.ingestion.source.mce_file import GenericFileSource
+from datahub.ingestion.source.file import GenericFileSource
 
 
 def check_mce_file(filepath: str) -> str:
