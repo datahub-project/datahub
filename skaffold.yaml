@@ -1,4 +1,4 @@
-apiVersion: skaffold/v1beta16
+apiVersion: skaffold/v2beta17
 kind: Config
 profiles:
   - name: local
@@ -6,31 +6,8 @@ profiles:
       tagPolicy:
         envTemplate:
           template: "{{.IMAGE_NAME}}"
-      artifacts:
-        - image: datahub-gms
-          custom:
-            buildCommand: ./gradlew build
-          context: ./docker/datahub-gms
-        - image: datahub-frontend-react
-          custom:
-            buildCommand: ./gradlew build
-          context: ./docker/datahub-frontend
-        - image: datahub-mae-consumer
-          custom:
-            buildCommand: ./gradlew build
-          context: ./docker/datahub-mae-consumer
-        - image: datahub-mce-consumer
-          custom:
-            buildCommand: ./gradlew build
-          context: ./docker/datahub-mce-consumer
-    deploy:
-      kustomize:
-        path: ./kubernetes/base
-  - name: dev-tokyo
-    build:
-      tagPolicy:
         gitCommit:
-          variant: AbbrevCommitSha
+          ignoreChanges: true
       artifacts:
       - image: datahub-gms
         custom:
@@ -40,7 +17,7 @@ profiles:
               path: ./docker/datahub-gms/Dockerfile
       - image: datahub-frontend
         custom:
-          buildCommand: ./gradlew :datahub-frontend:dist -PenableEmber=false
+          buildCommand: ./gradlew :datahub-frontend:dist -PenableEmber=false -x :datahub-web-react:yarnTest
           dependencies:
             dockerfile:
               path: ./docker/datahub-frontend/Dockerfile
@@ -59,7 +36,41 @@ profiles:
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
-        path: ./kubernetes/dev/tokyo
+        paths: [./kubernetes/base]
+  - name: dev-tokyo
+    build:
+      tagPolicy:
+        gitCommit:
+          variant: AbbrevCommitSha
+      artifacts:
+      - image: datahub-gms
+        custom:
+          buildCommand: ./gradlew :gms:war:build
+          dependencies:
+            dockerfile:
+              path: ./docker/datahub-gms/Dockerfile
+      - image: datahub-frontend
+        custom:
+          buildCommand: ./gradlew :datahub-frontend:dist -PenableEmber=false -x :datahub-web-react:yarnTest
+          dependencies:
+            dockerfile:
+              path: ./docker/datahub-frontend/Dockerfile
+      - image: datahub-mae-consumer
+        custom:
+          buildCommand: ./gradlew :metadata-jobs:mae-consumer-job:build
+          dependencies:
+            dockerfile:
+              path: ./docker/datahub-mae-consumer/Dockerfile
+      - image: datahub-mce-consumer
+        custom:
+          buildCommand: ./gradlew :metadata-jobs:mce-consumer-job:build
+          dependencies:
+            dockerfile:
+              path: ./docker/datahub-mce-consumer/Dockerfile
+    deploy:
+      statusCheckDeadlineSeconds: 600
+      kustomize:
+        paths: [./kubernetes/dev/tokyo]
   - name: prd-tokyo
     build:
       tagPolicy:
@@ -85,4 +96,4 @@ profiles:
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
-        path: ./kubernetes/prd/tokyo
+        paths: [./kubernetes/prd/tokyo]
