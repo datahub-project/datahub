@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: linkedin/datahub-mce-consumer
   pullPolicy: Always
-  tag: v0.8.1
+  tag: v0.8.3
 
 imagePullSecrets: []
 nameOverride: ""

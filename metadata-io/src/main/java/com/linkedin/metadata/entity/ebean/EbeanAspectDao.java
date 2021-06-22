@@ -396,23 +396,27 @@ public class EbeanAspectDao {
 
   @Nonnull
   public ListResult<String> listLatestAspectMetadata(
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
-    return listAspectMetadata(aspectName, LATEST_ASPECT_VERSION, start, pageSize);
+    return listAspectMetadata(entityName, aspectName, LATEST_ASPECT_VERSION, start, pageSize);
   }
 
   @Nonnull
   public ListResult<String> listAspectMetadata(
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final long version,
       final int start,
       final int pageSize) {
     validateConnection();
 
+    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
     final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.ALL_COLUMNS)
         .where()
+        .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
         .eq(EbeanAspectV2.VERSION_COLUMN, version)
         .setFirstRow(start)
