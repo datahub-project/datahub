@@ -1522,6 +1522,9 @@ class VersionTagClass(DictWrapper):
 class WindowDurationClass(object):
     """Enum to define the length of a bucket when doing aggregations"""
     
+    YEAR = "YEAR"
+    MONTH = "MONTH"
+    WEEK = "WEEK"
     DAY = "DAY"
     HOUR = "HOUR"
     
@@ -7626,7 +7629,7 @@ class UsageAggregationClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.bucket = int()
-        self.duration = WindowDurationClass.DAY
+        self.duration = WindowDurationClass.YEAR
         self.resource = str()
         self.metrics = UsageAggregationMetricsClass.construct_with_defaults()
     
@@ -7685,17 +7688,17 @@ class UsageAggregationMetricsClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.usage.UsageAggregationMetrics")
     def __init__(self,
-        unique_user_count: Union[None, int]=None,
+        uniqueUserCount: Union[None, int]=None,
         users: Union[None, List["UserUsageCountsClass"]]=None,
-        total_sql_queries: Union[None, int]=None,
-        top_sql_queries: Union[None, List[str]]=None,
+        totalSqlQueries: Union[None, int]=None,
+        topSqlQueries: Union[None, List[str]]=None,
     ):
         super().__init__()
         
-        self.unique_user_count = unique_user_count
+        self.uniqueUserCount = uniqueUserCount
         self.users = users
-        self.total_sql_queries = total_sql_queries
-        self.top_sql_queries = top_sql_queries
+        self.totalSqlQueries = totalSqlQueries
+        self.topSqlQueries = topSqlQueries
     
     @classmethod
     def construct_with_defaults(cls) -> "UsageAggregationMetricsClass":
@@ -7705,22 +7708,22 @@ class UsageAggregationMetricsClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.unique_user_count = self.RECORD_SCHEMA.field_map["unique_user_count"].default
+        self.uniqueUserCount = self.RECORD_SCHEMA.field_map["uniqueUserCount"].default
         self.users = self.RECORD_SCHEMA.field_map["users"].default
-        self.total_sql_queries = self.RECORD_SCHEMA.field_map["total_sql_queries"].default
-        self.top_sql_queries = self.RECORD_SCHEMA.field_map["top_sql_queries"].default
+        self.totalSqlQueries = self.RECORD_SCHEMA.field_map["totalSqlQueries"].default
+        self.topSqlQueries = self.RECORD_SCHEMA.field_map["topSqlQueries"].default
     
     
     @property
-    def unique_user_count(self) -> Union[None, int]:
+    def uniqueUserCount(self) -> Union[None, int]:
         """Getter:  Unique user count """
-        return self._inner_dict.get('unique_user_count')  # type: ignore
+        return self._inner_dict.get('uniqueUserCount')  # type: ignore
     
     
-    @unique_user_count.setter
-    def unique_user_count(self, value: Union[None, int]) -> None:
+    @uniqueUserCount.setter
+    def uniqueUserCount(self, value: Union[None, int]) -> None:
         """Setter:  Unique user count """
-        self._inner_dict['unique_user_count'] = value
+        self._inner_dict['uniqueUserCount'] = value
     
     
     @property
@@ -7736,27 +7739,27 @@ class UsageAggregationMetricsClass(DictWrapper):
     
     
     @property
-    def total_sql_queries(self) -> Union[None, int]:
+    def totalSqlQueries(self) -> Union[None, int]:
         """Getter:  Total SQL query count """
-        return self._inner_dict.get('total_sql_queries')  # type: ignore
+        return self._inner_dict.get('totalSqlQueries')  # type: ignore
     
     
-    @total_sql_queries.setter
-    def total_sql_queries(self, value: Union[None, int]) -> None:
+    @totalSqlQueries.setter
+    def totalSqlQueries(self, value: Union[None, int]) -> None:
         """Setter:  Total SQL query count """
-        self._inner_dict['total_sql_queries'] = value
+        self._inner_dict['totalSqlQueries'] = value
     
     
     @property
-    def top_sql_queries(self) -> Union[None, List[str]]:
+    def topSqlQueries(self) -> Union[None, List[str]]:
         """Getter:  Frequent SQL queries; mostly makes sense for datasets in SQL databases """
-        return self._inner_dict.get('top_sql_queries')  # type: ignore
+        return self._inner_dict.get('topSqlQueries')  # type: ignore
     
     
-    @top_sql_queries.setter
-    def top_sql_queries(self, value: Union[None, List[str]]) -> None:
+    @topSqlQueries.setter
+    def topSqlQueries(self, value: Union[None, List[str]]) -> None:
         """Setter:  Frequent SQL queries; mostly makes sense for datasets in SQL databases """
-        self._inner_dict['top_sql_queries'] = value
+        self._inner_dict['topSqlQueries'] = value
     
     
 class UserUsageCountsClass(DictWrapper):
@@ -7766,13 +7769,13 @@ class UserUsageCountsClass(DictWrapper):
     def __init__(self,
         count: int,
         user: Union[None, str]=None,
-        user_email: Union[None, str]=None,
+        userEmail: Union[None, str]=None,
     ):
         super().__init__()
         
         self.user = user
         self.count = count
-        self.user_email = user_email
+        self.userEmail = userEmail
     
     @classmethod
     def construct_with_defaults(cls) -> "UserUsageCountsClass":
@@ -7784,7 +7787,7 @@ class UserUsageCountsClass(DictWrapper):
     def _restore_defaults(self) -> None:
         self.user = self.RECORD_SCHEMA.field_map["user"].default
         self.count = int()
-        self.user_email = self.RECORD_SCHEMA.field_map["user_email"].default
+        self.userEmail = self.RECORD_SCHEMA.field_map["userEmail"].default
     
     
     @property
@@ -7812,15 +7815,15 @@ class UserUsageCountsClass(DictWrapper):
     
     
     @property
-    def user_email(self) -> Union[None, str]:
+    def userEmail(self) -> Union[None, str]:
         """Getter:  If user_email is set, we attempt to resolve the user's urn upon ingest """
-        return self._inner_dict.get('user_email')  # type: ignore
+        return self._inner_dict.get('userEmail')  # type: ignore
     
     
-    @user_email.setter
-    def user_email(self, value: Union[None, str]) -> None:
+    @userEmail.setter
+    def userEmail(self, value: Union[None, str]) -> None:
         """Setter:  If user_email is set, we attempt to resolve the user's urn upon ingest """
-        self._inner_dict['user_email'] = value
+        self._inner_dict['userEmail'] = value
     
     
 __SCHEMA_TYPES = {

@@ -37,7 +37,7 @@
         "name" : "UsageAggregationMetrics",
         "doc" : "Metrics for usage data for a given resource and bucket. Not all fields\nmake sense for all buckets, so every field is optional.",
         "fields" : [ {
-          "name" : "unique_user_count",
+          "name" : "uniqueUserCount",
           "type" : "int",
           "doc" : " Unique user count ",
           "optional" : true
@@ -67,12 +67,12 @@
           "doc" : " Users within this bucket, with frequency counts ",
           "optional" : true
         }, {
-          "name" : "total_sql_queries",
+          "name" : "totalSqlQueries",
           "type" : "int",
           "doc" : " Total SQL query count ",
           "optional" : true
         }, {
-          "name" : "top_sql_queries",
+          "name" : "topSqlQueries",
           "type" : {
             "type" : "array",
             "items" : "string"

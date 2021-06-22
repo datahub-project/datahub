@@ -17,6 +17,9 @@
         "namespace": "com.linkedin.pegasus2avro.common",
         "doc": "Enum to define the length of a bucket when doing aggregations",
         "symbols": [
+          "YEAR",
+          "MONTH",
+          "WEEK",
           "DAY",
           "HOUR"
         ]
@@ -39,7 +42,7 @@
         "doc": "Metrics for usage data for a given resource and bucket. Not all fields\nmake sense for all buckets, so every field is optional.",
         "fields": [
           {
-            "name": "unique_user_count",
+            "name": "uniqueUserCount",
             "type": [
               "null",
               "int"
@@ -74,7 +77,7 @@
                       "type": "int"
                     },
                     {
-                      "name": "user_email",
+                      "name": "userEmail",
                       "type": [
                         "null",
                         "string"
@@ -90,7 +93,7 @@
             "default": null
           },
           {
-            "name": "total_sql_queries",
+            "name": "totalSqlQueries",
             "type": [
               "null",
               "int"
@@ -99,7 +102,7 @@
             "default": null
           },
           {
-            "name": "top_sql_queries",
+            "name": "topSqlQueries",
             "type": [
               "null",
               {

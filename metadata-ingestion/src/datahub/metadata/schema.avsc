@@ -4632,6 +4632,9 @@
           "name": "WindowDuration",
           "namespace": "com.linkedin.pegasus2avro.common",
           "symbols": [
+            "YEAR",
+            "MONTH",
+            "WEEK",
             "DAY",
             "HOUR"
           ],
@@ -4659,7 +4662,7 @@
                 "null",
                 "int"
               ],
-              "name": "unique_user_count",
+              "name": "uniqueUserCount",
               "default": null,
               "doc": " Unique user count "
             },
@@ -4693,7 +4696,7 @@
                           "null",
                           "string"
                         ],
-                        "name": "user_email",
+                        "name": "userEmail",
                         "default": null,
                         "doc": " If user_email is set, we attempt to resolve the user's urn upon ingest "
                       }
@@ -4711,7 +4714,7 @@
                 "null",
                 "int"
               ],
-              "name": "total_sql_queries",
+              "name": "totalSqlQueries",
               "default": null,
               "doc": " Total SQL query count "
             },
@@ -4723,7 +4726,7 @@
                   "items": "string"
                 }
               ],
-              "name": "top_sql_queries",
+              "name": "topSqlQueries",
               "default": null,
               "doc": " Frequent SQL queries; mostly makes sense for datasets in SQL databases "
             }

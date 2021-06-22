@@ -6,14 +6,14 @@ namespace com.linkedin.usage
  */
 record UsageAggregationMetrics {
     /** Unique user count */
-    unique_user_count: optional int
+    uniqueUserCount: optional int
 
     /** Users within this bucket, with frequency counts */
     users: optional array[UserUsageCounts]
 
     /** Total SQL query count */
-    total_sql_queries: optional int
+    totalSqlQueries: optional int
 
     /** Frequent SQL queries; mostly makes sense for datasets in SQL databases */
-    top_sql_queries: optional array[string]
+    topSqlQueries: optional array[string]
 }
