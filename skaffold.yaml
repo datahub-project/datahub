@@ -4,35 +4,13 @@ profiles:
   - name: local
     build:
       tagPolicy:
-        envTemplate:
-          template: "{{.IMAGE_NAME}}"
         gitCommit:
+          variant: AbbrevCommitSha
           ignoreChanges: true
       artifacts:
       - image: datahub-gms
-        custom:
-          buildCommand: ./gradlew :gms:war:build
-          dependencies:
-            dockerfile:
-              path: ./docker/datahub-gms/Dockerfile
-      - image: datahub-frontend
-        custom:
-          buildCommand: ./gradlew :datahub-frontend:dist -PenableEmber=false -x :datahub-web-react:yarnTest
-          dependencies:
-            dockerfile:
-              path: ./docker/datahub-frontend/Dockerfile
-      - image: datahub-mae-consumer
-        custom:
-          buildCommand: ./gradlew :metadata-jobs:mae-consumer-job:build
-          dependencies:
-            dockerfile:
-              path: ./docker/datahub-mae-consumer/Dockerfile
-      - image: datahub-mce-consumer
-        custom:
-          buildCommand: ./gradlew :metadata-jobs:mce-consumer-job:build
-          dependencies:
-            dockerfile:
-              path: ./docker/datahub-mce-consumer/Dockerfile
+        docker:
+          dockerfile: ./docker/datahub-gms/Dockerfile
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
@@ -44,29 +22,17 @@ profiles:
           variant: AbbrevCommitSha
       artifacts:
       - image: datahub-gms
-        custom:
-          buildCommand: ./gradlew :gms:war:build
-          dependencies:
-            dockerfile:
-              path: ./docker/datahub-gms/Dockerfile
+        docker:
+          dockerfile: ./docker/datahub-gms/Dockerfile
       - image: datahub-frontend
-        custom:
-          buildCommand: ./gradlew :datahub-frontend:dist -PenableEmber=false -x :datahub-web-react:yarnTest
-          dependencies:
-            dockerfile:
-              path: ./docker/datahub-frontend/Dockerfile
+        docker:
+          dockerfile: ./docker/datahub-frontend/Dockerfile
       - image: datahub-mae-consumer
-        custom:
-          buildCommand: ./gradlew :metadata-jobs:mae-consumer-job:build
-          dependencies:
-            dockerfile:
-              path: ./docker/datahub-mae-consumer/Dockerfile
+        docker:
+          dockerfile: ./docker/datahub-mae-consumer/Dockerfile
       - image: datahub-mce-consumer
-        custom:
-          buildCommand: ./gradlew :metadata-jobs:mce-consumer-job:build
-          dependencies:
-            dockerfile:
-              path: ./docker/datahub-mce-consumer/Dockerfile
+        docker:
+          dockerfile: ./docker/datahub-mce-consumer/Dockerfile
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
@@ -78,21 +44,17 @@ profiles:
           variant: AbbrevCommitSha
       artifacts:
       - image: datahub-gms
-        custom:
-          buildCommand: ./gradlew build
-        context: ./docker/datahub-gms
+        docker:
+          dockerfile: ./docker/datahub-gms/Dockerfile
       - image: datahub-frontend
-        custom:
-          buildCommand: ./gradlew build
-        context: ./docker/datahub-frontend
+        docker:
+          dockerfile: ./docker/datahub-frontend/Dockerfile
       - image: datahub-mae-consumer
-        custom:
-          buildCommand: ./gradlew build
-        context: ./docker/datahub-mae-consumer
+        docker:
+          dockerfile: ./docker/datahub-mae-consumer/Dockerfile
       - image: datahub-mce-consumer
-        custom:
-          buildCommand: ./gradlew build
-        context: ./docker/datahub-mce-consumer
+        docker:
+          dockerfile: ./docker/datahub-mce-consumer/Dockerfile
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
