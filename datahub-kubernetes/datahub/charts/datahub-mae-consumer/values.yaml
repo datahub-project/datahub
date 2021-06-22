@@ -145,7 +145,7 @@ readinessProbe:
   failureThreshold: 8
 
 global:
-  graphService: neo4j
+  graph_service_impl: neo4j
   datahub_analytics_enabled: true
 
   elasticsearch:

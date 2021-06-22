@@ -3,10 +3,7 @@ package com.linkedin.gms.factory.common;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.Neo4jGraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.neo4j.driver.Driver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,39 +15,31 @@ import org.springframework.context.annotation.Primary;
 
 
 @Configuration
-@Import({Neo4jDriverFactory.class, ElasticSearchGraphServiceFactory.class})
+@Import({Neo4jGraphServiceFactory.class, ElasticSearchGraphServiceFactory.class})
 public class GraphServiceFactory {
   @Autowired
   @Qualifier("elasticSearchGraphService")
   private ElasticSearchGraphService _elasticSearchGraphService;
 
   @Autowired
-  @Qualifier("neo4jDriver")
-  private Driver neo4jDriver;
+  @Qualifier("neo4jGraphService")
+  private Neo4jGraphService _neo4jGraphService;
 
-  @Autowired
-  @Qualifier("elasticSearchRestHighLevelClient")
-  private RestHighLevelClient searchClient;
-
-  @Autowired
-  @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
-  private IndexConvention indexConvention;
-
-  @Value("${GRAPH_SERVICE:neo4j}")
-  private String graphService;
+  @Value("${GRAPH_SERVICE_IMPL:elasticsearch}")
+  private String graphServiceImpl;
 
   @Nonnull
   @DependsOn({"neo4jDriver", "elasticSearchGraphService"})
   @Bean(name = "graphService")
   @Primary
   protected GraphService createInstance() {
-    if (graphService.equalsIgnoreCase("neo4j")) {
-      return new Neo4jGraphService(neo4jDriver);
-    } else if (graphService.equalsIgnoreCase("elasticsearch")) {
+    if (graphServiceImpl.equalsIgnoreCase("neo4j")) {
+      return _neo4jGraphService;
+    } else if (graphServiceImpl.equalsIgnoreCase("elasticsearch")) {
       return _elasticSearchGraphService;
     } else {
       throw new RuntimeException(
-          "Error: Failed to initialize graph service. Graph Service provided: " + graphService
+          "Error: Failed to initialize graph service. Graph Service provided: " + graphServiceImpl
               + ". Valid options: [neo4j, elasticsearch].");
     }
   }

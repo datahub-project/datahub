@@ -18,8 +18,6 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.reindex.BulkByScrollResponse;
-import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
@@ -36,10 +34,8 @@ public class ESGraphQueryDAO {
   private final IndexConvention indexConvention;
 
   /**
-   * Converts {@link CriterionArray} to neo4j query string.
    *
    * @param criterionArray CriterionArray in a Filter
-   * @return Neo4j criteria string
    */
   @Nonnull
   public static void addCriterionToQueryBuilder(@Nonnull CriterionArray criterionArray, String node, BoolQueryBuilder finalQuery) {
@@ -63,9 +59,6 @@ public class ESGraphQueryDAO {
       @Nonnull final RelationshipFilter relationshipFilter,
       final int offset,
       final int count) {
-    // also delete any relationship going to or from it
-    final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
-
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -73,29 +66,14 @@ public class ESGraphQueryDAO {
     searchSourceBuilder.from(offset);
     searchSourceBuilder.size(count);
 
-    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-
-    // set source filter
-    String sourceNode = relationshipDirection == RelationshipDirection.OUTGOING ? "source" : "destination";
-    if (sourceType != null && sourceType.length() > 0) {
-      finalQuery.must(QueryBuilders.termQuery(sourceNode + ".entityType", sourceType));
-    }
-    addCriterionToQueryBuilder(sourceEntityFilter.getCriteria(), sourceNode, finalQuery);
-
-    // set destination filter
-    String destinationNode = relationshipDirection == RelationshipDirection.OUTGOING ? "destination" : "source";
-    if (destinationType != null && destinationType.length() > 0) {
-      finalQuery.must(QueryBuilders.termQuery(destinationNode + ".entityType", destinationType));
-    }
-    addCriterionToQueryBuilder(destinationEntityFilter.getCriteria(), destinationNode, finalQuery);
-
-    // set relationship filter
-    if (relationshipTypes.size() > 0) {
-      BoolQueryBuilder relationshipQuery = QueryBuilders.boolQuery();
-      relationshipTypes.forEach(relationshipType
-          -> relationshipQuery.should(QueryBuilders.termQuery("relationshipType", relationshipType)));
-      finalQuery.must(relationshipQuery);
-    }
+    BoolQueryBuilder finalQuery = buildQuery(
+        sourceType,
+        sourceEntityFilter,
+        destinationType,
+        destinationEntityFilter,
+        relationshipTypes,
+        relationshipFilter
+    );
 
     searchSourceBuilder.query(finalQuery);
 
@@ -112,19 +90,17 @@ public class ESGraphQueryDAO {
     return null;
   }
 
-  public BulkByScrollResponse deleteByQuery(
+  public static BoolQueryBuilder buildQuery(
       @Nullable final String sourceType,
       @Nonnull  final Filter sourceEntityFilter,
       @Nullable final String destinationType,
       @Nonnull final Filter destinationEntityFilter,
       @Nonnull final List<String> relationshipTypes,
-      @Nonnull final RelationshipFilter relationshipFilter) {
-    // also delete any relationship going to or from it
-    final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
-
-    DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest();
-
+      @Nonnull final RelationshipFilter relationshipFilter
+  ) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+
+    final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
 
     // set source filter
     String sourceNode = relationshipDirection == RelationshipDirection.OUTGOING ? "source" : "destination";
@@ -147,17 +123,7 @@ public class ESGraphQueryDAO {
           -> relationshipQuery.should(QueryBuilders.termQuery("relationshipType", relationshipType)));
       finalQuery.must(relationshipQuery);
     }
-
-    deleteByQueryRequest.setQuery(finalQuery);
-
-    deleteByQueryRequest.indices(indexConvention.getIndexName(INDEX_NAME));
-
-    try {
-      final BulkByScrollResponse deleteResponse = client.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
-      return deleteResponse;
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-    return null;
+    return finalQuery;
   }
+
 }
