@@ -263,3 +263,17 @@ def delete_mce(
             ]
         )
     ) 
+
+def recover_mce(
+    dataset_name:str,
+    ) -> MetadataChangeEventClass:
+    return MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=dataset_name,
+            aspects=[
+                StatusClass(
+                    removed = False
+                )
+            ]
+        )
+    ) 

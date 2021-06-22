@@ -4,7 +4,7 @@ from typing import Optional, List
 from typing_extensions import TypedDict
 from pydantic import BaseModel, validator
 from helper.mce_convenience import delete_mce, make_schema_mce, make_dataset_urn, \
-                    make_user_urn, make_dataset_description_mce, \
+                    make_user_urn, make_dataset_description_mce, recover_mce, \
                     make_browsepath_mce, make_ownership_mce, make_platform, get_sys_time 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from string import ascii_letters, digits
@@ -13,22 +13,40 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 
 logformatter = logging.Formatter('%(asctime)s;%(levelname)s;%(message)s')
-log = TimedRotatingFileHandler('./log/debug.log', 'midnight', 1, backupCount=5)
-log.setLevel(logging.INFO)
+
+log = TimedRotatingFileHandler('./log/debug.log', when='midnight', interval=1, backupCount=14)
+log.setLevel(logging.DEBUG)
 log.setFormatter(logformatter)
+streamLogger = logging.StreamHandler()
+streamLogger.setFormatter(logformatter)
+streamLogger.setLevel(logging.DEBUG)
 
+rootLogger = logging.getLogger("__name__")
+rootLogger.addHandler(log)    
+rootLogger.addHandler(streamLogger)
+rootLogger.setLevel(logging.DEBUG)
 
-logger = logging.getLogger('main')
-logger.addHandler(log)    
-logger.setLevel(logging.DEBUG)
+rootLogger.info("started!")
 
-#todo - add a logger for this endpoint
-#add a docker volume also since this is the best place to capture input activity.
+#todo - to refactor the classes here into additional modules when it gets unwieldy
+#env file, ie for pointing to the GMS rest endpoint.
 
+rest_endpoint = "http://datahub-gms:8080"
+datahub_url = "http://localhost:9002"
+api_emitting_port = 80
 
 app = FastAPI(title="Datahub secret API",
     description="For generating datasets",
     version="0.0.1",)
+
+@app.get("/hello")
+async def recover_item() -> None:
+    """
+    Just a hello world to ensure that the api is running. 
+    """
+    ## how to check that this dataset exist? - curl to GMS? 
+    rootLogger.info("hello world called")
+    return  "hello world"
 
 
 class FieldParam(TypedDict):
@@ -77,7 +95,7 @@ async def create_item(item: create_dataset_params) -> None:
     """
     This endpoint is meant for manually defined or parsed file datasets.
     """
-    
+    rootLogger.info("make_dataset_request_received {}".format(item))
     item.dataset_type = item.dataset_type.lower()
     item.dataset_name = "{}_{}".format(item.dataset_name,str(get_sys_time()))
     datasetName = make_dataset_urn(item.dataset_type, item.dataset_name)
@@ -101,12 +119,13 @@ async def create_item(item: create_dataset_params) -> None:
                                     actor = requestor,
                                     fields = item.fields,
                                     ))
-    emitter = DatahubRestEmitter("http://localhost:8080")
+    emitter = DatahubRestEmitter(rest_endpoint)
 
     for mce in all_mce:
         emitter.emit_mce(mce)   
-    emitter._session.close()      
-    return "dataset can be found at http://localhost:9002/dataset/{}".format(make_dataset_urn(item.dataset_type, item.dataset_name))
+    emitter._session.close()
+    rootLogger.info("make_dataset_request_completed_for {} requested_by {}".format(item.dataset_name, item.owner))      
+    return "dataset can be found at {}/dataset/{}".format(datahub_url, make_dataset_urn(item.dataset_type, item.dataset_name))
 
 
 class delete_dataset_params(BaseModel):
@@ -117,16 +136,32 @@ class delete_dataset_params(BaseModel):
 @app.post("/delete_dataset")
 async def delete_item(item: delete_dataset_params) -> None:
     """
-    This endpoint is meant for manually defined or parsed file datasets.
+    This endpoint is to support soft delete of datasets. Still require a database/ES chron job to remove the entries though, it only suppresses it from search and UI
     """
-    ## how to check that this dataset exist?
+    ## how to check that this dataset exist? - curl to GMS? 
+    rootLogger.info("remove_dataset_request_received {}".format(item))
     datasetName = make_dataset_urn(item.platform, item.dataset_name)
     mce = delete_mce(dataset_name = datasetName)
-    emitter = DatahubRestEmitter("http://localhost:8080")
+    emitter = DatahubRestEmitter(rest_endpoint)
     emitter.emit_mce(mce)
     emitter._session.close() 
-    #rootLogger.info("{} has requested to remove dataset {} from {}".format(requestor, dataset_name, platform))
-    return "dataset has been removed from search and UI"
+    rootLogger.info("remove_dataset_request_completed_for {} requested_by {}".format(item.dataset_name, item.requestor))      
+    return "dataset has been removed from search and UI. please refresh the webpage."
+
+@app.post("/recover_dataset")
+async def recover_item(item: delete_dataset_params) -> None:
+    """
+    This endpoint is meant for undoing soft deletes. 
+    """
+    ## how to check that this dataset exist? - curl to GMS? 
+    rootLogger.info("recover_dataset_request_received {}".format(item))
+    datasetName = make_dataset_urn(item.platform, item.dataset_name)
+    mce = recover_mce(dataset_name = datasetName)
+    emitter = DatahubRestEmitter(rest_endpoint)
+    emitter.emit_mce(mce)
+    emitter._session.close() 
+    rootLogger.info("recover_dataset_request_completed_for {} requested_by {}".format(item.dataset_name, item.requestor))      
+    return "dataset has been restored"
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=api_emitting_port)

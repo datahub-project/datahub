@@ -1,13 +1,19 @@
 version: '3.5'
 services:
-  ingestion:
+  ingest-api:
     build:
       context: ../../
       dockerfile: docker/ingest-api/Dockerfile    
-    hostname: ingestion
+    hostname: ingest-api
     container_name: ingest-api
-    
+    ports:
+      - "8001:80"
+    volumes:
+      - apidata:/app/log
 
 networks:
   default:
     name: datahub_network
+
+volumes:
+  apidata:
