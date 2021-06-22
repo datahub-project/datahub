@@ -14,7 +14,7 @@ profiles:
         - image: datahub-frontend-react
           custom:
             buildCommand: ./gradlew build
-          context: ./docker/datahub-frontend-react
+          context: ./docker/datahub-frontend
         - image: datahub-mae-consumer
           custom:
             buildCommand: ./gradlew build
@@ -25,7 +25,7 @@ profiles:
           context: ./docker/datahub-mce-consumer
     deploy:
       kustomize:
-        path: ./kubernetes/local/tokyo  
+        path: ./kubernetes/base  
   - name: dev-tokyo
     build:
       tagPolicy:
@@ -36,10 +36,10 @@ profiles:
         custom:
           buildCommand: ./gradlew build
         context: ./docker/datahub-gms
-      - image: datahub-frontend-react
+      - image: datahub-frontend
         custom:
           buildCommand: ./gradlew build
-        context: ./docker/datahub-frontend-react
+        context: ./docker/datahub-frontend
       - image: datahub-mae-consumer
         custom:
           buildCommand: ./gradlew build
@@ -62,10 +62,10 @@ profiles:
         custom:
           buildCommand: ./gradlew build
         context: ./docker/datahub-gms
-      - image: datahub-frontend-react
+      - image: datahub-frontend
         custom:
           buildCommand: ./gradlew build
-        context: ./docker/datahub-frontend-react
+        context: ./docker/datahub-frontend
       - image: datahub-mae-consumer
         custom:
           buildCommand: ./gradlew build
