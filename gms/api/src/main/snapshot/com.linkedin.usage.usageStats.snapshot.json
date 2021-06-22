@@ -141,18 +141,18 @@
           "name" : "resource",
           "type" : "string"
         }, {
-          "name" : "window",
+          "name" : "duration",
           "type" : "com.linkedin.common.WindowDuration"
         }, {
-          "name" : "start_time",
+          "name" : "startTime",
           "type" : "long",
           "optional" : true
         }, {
-          "name" : "end_time",
+          "name" : "endTime",
           "type" : "long",
           "optional" : true
         }, {
-          "name" : "max_buckets",
+          "name" : "maxBuckets",
           "type" : "int",
           "optional" : true
         } ],

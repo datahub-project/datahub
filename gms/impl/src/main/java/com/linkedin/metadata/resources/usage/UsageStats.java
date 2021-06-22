@@ -33,10 +33,10 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     private static final String ACTION_QUERY = "query";
     private static final String PARAM_RESOURCE = "resource";
-    private static final String PARAM_WINDOW = "window";
-    private static final String PARAM_START_TIME = "start_time";
-    private static final String PARAM_END_TIME = "end_time";
-    private static final String PARAM_MAX_BUCKETS = "max_buckets";
+    private static final String PARAM_WINDOW = "duration";
+    private static final String PARAM_START_TIME = "startTime";
+    private static final String PARAM_END_TIME = "endTime";
+    private static final String PARAM_MAX_BUCKETS = "maxBuckets";
 
     @Inject
     @Named("usageService")
