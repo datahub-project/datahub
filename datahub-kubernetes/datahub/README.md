@@ -57,6 +57,7 @@ helm install datahub datahub/
 | global.sql.datasource.username | string | `"root"` | SQL user name |
 | global.sql.datasource.password.secretRef | string | `"mysql-secrets"` | Secret that contains the MySQL password |
 | global.sql.datasource.password.secretKey | string | `"mysql-password"` | Secret key that contains the MySQL password |
+| global.graph_service_impl | string | `neo4j` | One of `neo4j` or `elasticsearch`. Determines which backend to use for the GMS graph service. Elastic is recommended for a simplified deployment. Neo4j will be the default for now to maintain backwards compatibility.
 
 ## Optional Chart Values
 
