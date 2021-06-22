@@ -29,7 +29,7 @@ public class GraphServiceFactory {
   private String graphServiceImpl;
 
   @Nonnull
-  @DependsOn({"neo4jDriver", "elasticSearchGraphService"})
+  @DependsOn({"neo4jGraphService", "elasticSearchGraphService"})
   @Bean(name = "graphService")
   @Primary
   protected GraphService createInstance() {
