@@ -76,6 +76,7 @@ public class ElasticUsageService implements UsageService {
                 .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(retryInterval), numRetries))
                 .build();
     }
+
     @Override
     public void configure() {
         try {
