@@ -100,7 +100,7 @@ spec:
                   name: "{{ .password.secretRef }}"
                   key: "{{ .password.secretKey }}"
             {{- end }}
-            - name: GRAPH_SERVICE
+            - name: GRAPH_SERVICE_IMPL
               value: {{ .Values.global.graph_service_impl }}
             {{- if eq .Values.global.graph_service_impl "neo4j" }}
             - name: NEO4J_HOST
