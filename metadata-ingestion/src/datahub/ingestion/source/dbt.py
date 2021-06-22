@@ -91,9 +91,9 @@ def get_columns(catalog_node: dict) -> List[DBTColumn]:
 
 
 def extract_dbt_entities(
-    nodes: Dict[str, dict],
-    catalog: Dict[str, dict],
-    sources_results: Dict[str, dict],
+    nodes: Dict[str, Dict[str, Any]],
+    catalog: Dict[str, Dict[str, Any]],
+    sources_results: List[Dict[str, Any]],
     load_catalog: bool,
     target_platform: str,
     environment: str,
