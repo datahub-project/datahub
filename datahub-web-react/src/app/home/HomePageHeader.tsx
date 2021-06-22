@@ -14,6 +14,7 @@ import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAl
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import AnalyticsLink from '../search/AnalyticsLink';
+import AdhocLink from '../create/AdhocLink';
 
 const Background = styled.div`
     width: 100%;
@@ -186,6 +187,7 @@ export const HomePageHeader = () => {
                     )}
                 </WelcomeText>
                 <NavGroup>
+                    <AdhocLink />
                     {isAnalyticsEnabled && <AnalyticsLink />}
                     <ManageAccount
                         urn={user?.urn || ''}
