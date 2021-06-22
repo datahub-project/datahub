@@ -61,9 +61,7 @@ public class ElasticSearchGraphService implements GraphService {
     destinationObject.put("entityType", edge.getDestination().getEntityType());
 
     searchDocument.set("source", sourceObject);
-
     searchDocument.set("destination", destinationObject);
-
     searchDocument.put("relationshipType", edge.getRelationshipType());
 
     return searchDocument.toString();
