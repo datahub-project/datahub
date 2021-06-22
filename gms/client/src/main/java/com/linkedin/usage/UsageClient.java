@@ -40,7 +40,7 @@ public class UsageClient extends BaseClient {
             .endTimeParam(endTime)
             .maxBucketsParam(maxBuckets)
             .build();
-        
+
         return _client.sendRequest(request).getResponseEntity();
     }
 }

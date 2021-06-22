@@ -177,6 +177,7 @@ type Query {
         resource: String!,
         duration: WindowDuration,
         endTime: Long
+        startTime: Long
         maxBuckets: Int
     ): UsageQueryResult
 }
