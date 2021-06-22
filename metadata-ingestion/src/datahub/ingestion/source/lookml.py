@@ -478,7 +478,7 @@ class LookMLSource(Source):  # pragma: no cover
         stamp = AuditStamp(time=sys_time, actor=actor)
         schema_metadata = SchemaMetadata(
             schemaName=looker_view.view_name,
-            platform=self.source_config.platform_name,
+            platform=f"urn:li:dataPlatform:{self.source_config.platform_name}",
             version=0,
             fields=fields,
             primaryKeys=primary_keys,

@@ -1543,6 +1543,7 @@
                               "type": "enum",
                               "symbolDocs": {
                                 "COMMAND": "The command job type is one of the basic built-in types. It runs multiple UNIX commands using java processbuilder.\nUpon execution, Azkaban spawns off a process to run the command.",
+                                "GLUE": "Glue type is for running AWS Glue job transforms.",
                                 "HADOOP_JAVA": "Runs a java program with ability to access Hadoop cluster.\nhttps://azkaban.readthedocs.io/en/latest/jobTypes.html#java-job-type",
                                 "HADOOP_SHELL": "In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster\nsecurely, via Hadoop tokens.",
                                 "HIVE": "Hive type is for running Hive jobs.",
@@ -1557,7 +1558,8 @@
                                 "HADOOP_SHELL",
                                 "HIVE",
                                 "PIG",
-                                "SQL"
+                                "SQL",
+                                "GLUE"
                               ],
                               "doc": "The various types of support azkaban jobs"
                             }

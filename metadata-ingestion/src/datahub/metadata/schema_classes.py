@@ -2272,6 +2272,9 @@ class AzkabanJobTypeClass(object):
     """SQL is for running Presto, mysql queries etc"""
     SQL = "SQL"
     
+    """Glue type is for running AWS Glue job transforms."""
+    GLUE = "GLUE"
+    
     
 class DataPlatformInfoClass(DictWrapper):
     """Information about a data platform"""
