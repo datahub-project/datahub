@@ -97,15 +97,16 @@ public class EbeanEntityService extends EntityService {
    * the maximum version, we need to add 1 to the final result.
    */
   private long calculateVersionNumber(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
-    return _entityDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
+    if (version < 0) {
+      return _entityDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
+    }
+    return version;
   }
 
   @Override
   @Nullable
   public RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
-    if (version < 0) {
-      version = calculateVersionNumber(urn, aspectName, version);
-    }
+    version = calculateVersionNumber(urn, aspectName, version);
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
     return maybeAspect
@@ -117,9 +118,7 @@ public class EbeanEntityService extends EntityService {
   public VersionedAspect getVersionedAspect(@Nonnull Urn urn, @Nonnull String aspectName, long version) {
     VersionedAspect result = new VersionedAspect();
 
-    if (version < 0) {
-      version = calculateVersionNumber(urn, aspectName, version);
-    }
+    version = calculateVersionNumber(urn, aspectName, version);
 
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
