@@ -43,7 +43,7 @@ datahub-ingestion-cron:
   enabled: false
 
 global:
-  graphService: elasticsearch
+  graph_service_impl: elasticsearch
 
   elasticsearch:
     host: "elasticsearch-master"

@@ -101,8 +101,8 @@ spec:
                   key: "{{ .password.secretKey }}"
             {{- end }}
             - name: GRAPH_SERVICE
-              value: {{ .Values.global.graphService }}
-            {{- if eq .Values.global.graphService "neo4j" }}
+              value: {{ .Values.global.graph_service_impl }}
+            {{- if eq .Values.global.graph_service_impl "neo4j" }}
             - name: NEO4J_HOST
               value: "{{ .Values.global.neo4j.host }}"
             - name: NEO4J_URI

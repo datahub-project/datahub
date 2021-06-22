@@ -124,7 +124,7 @@ public class MetadataAuditEventsProcessor {
     }
     if (edgesToAdd.size() > 0) {
       new Thread(() -> {
-        _graphService.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
+        _graphService.removeEdgesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
             createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
         edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
       }).start();

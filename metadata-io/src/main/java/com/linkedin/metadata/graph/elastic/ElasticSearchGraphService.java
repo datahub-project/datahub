@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -86,7 +87,7 @@ public class ElasticSearchGraphService implements GraphService {
   public void addEdge(@Nonnull final Edge edge) {
     String docId = toDocId(edge);
     String edgeDocument = toDocument(edge);
-    _graphWriteDAO.upsertDocument(edgeDocument, docId);
+    _graphWriteDAO.upsertDocument(docId, edgeDocument);
   }
 
   @Nonnull
@@ -116,7 +117,7 @@ public class ElasticSearchGraphService implements GraphService {
 
     return Arrays.stream(response.getHits().getHits())
         .map(hit -> ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null))
-        .filter(urn -> urn != null)
+        .filter(Objects::nonNull)
         .collect(Collectors.toList());
   }
 
@@ -141,7 +142,7 @@ public class ElasticSearchGraphService implements GraphService {
     RelationshipFilter outgoingFilter = new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
     RelationshipFilter incomingFilter = new RelationshipFilter().setDirection(RelationshipDirection.INCOMING);
 
-    _graphReadDAO.deleteByQuery(
+    _graphWriteDAO.deleteByQuery(
         null,
         urnFilter,
         null,
@@ -150,7 +151,7 @@ public class ElasticSearchGraphService implements GraphService {
         outgoingFilter
     );
 
-    _graphReadDAO.deleteByQuery(
+    _graphWriteDAO.deleteByQuery(
         null,
         urnFilter,
         null,
@@ -162,7 +163,7 @@ public class ElasticSearchGraphService implements GraphService {
     return;
   }
 
-  public void removeEdgeTypesFromNode(
+  public void removeEdgesFromNode(
       @Nonnull final Urn urn,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
@@ -170,7 +171,7 @@ public class ElasticSearchGraphService implements GraphService {
     Filter urnFilter = createUrnFilter(urn);
     Filter emptyFilter = new Filter().setCriteria(new CriterionArray());
 
-    _graphReadDAO.deleteByQuery(
+    _graphWriteDAO.deleteByQuery(
         null,
         urnFilter,
         null,
@@ -188,7 +189,9 @@ public class ElasticSearchGraphService implements GraphService {
       exists = searchClient.indices().exists(
           new GetIndexRequest(_indexConvention.getIndexName(INDEX_NAME)), RequestOptions.DEFAULT);
     } catch (IOException e) {
+      log.error("ERROR: Failed to set up elasticsearch graph index. Could not check if the index exists");
       e.printStackTrace();
+      return;
     }
 
     // If index doesn't exist, create index
@@ -202,10 +205,12 @@ public class ElasticSearchGraphService implements GraphService {
       try {
         searchClient.indices().create(createIndexRequest, RequestOptions.DEFAULT);
       } catch (IOException e) {
+        log.error("ERROR: Failed to set up elasticsearch graph index. Could not create the index.");
         e.printStackTrace();
+        return;
       }
 
-      log.info("Created Elastic Graph Index");
+      log.info("Successfully Created Elastic Graph Index");
     }
 
     return;

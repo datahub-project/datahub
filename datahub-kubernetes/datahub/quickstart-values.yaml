@@ -43,7 +43,7 @@ datahub-ingestion-cron:
   enabled: false
 
 global:
-  graphService: neo4j
+  graph_service_impl: neo4j
 
   elasticsearch:
     host: "elasticsearch-master"

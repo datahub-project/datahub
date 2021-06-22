@@ -51,11 +51,11 @@ services:
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
-    - GRAPH_SERVICE=elasticsearch
+    - GRAPH_SERVICE_IMPL=elasticsearch
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     hostname: datahub-gms
-    image: acryldata/datahub-gms:gabe-test
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
     mem_limit: 850m
     ports:
     - 8080:8080
