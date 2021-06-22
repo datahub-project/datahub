@@ -46,6 +46,11 @@ import java.util.stream.Collectors;
 public class ElasticUsageService implements UsageService {
     private static final String USAGE_STATS_BASE_INDEX_NAME = "usageStats_v1";
 
+    private static final String ES_KEY_BUCKET = "bucket";
+    private static final String ES_KEY_BUCKET_END = "bucket_end";
+    private static final String ES_KEY_DURATION = "duration";
+    private static final String ES_KEY_RESOURCE = "resource";
+
     // ElasticSearch defaults to a size of 10. We need to set size to a large number
     // to avoid this restriction.
     // See https://www.elastic.co/guide/en/elasticsearch/reference/6.8/search-request-from-size.html.
@@ -83,12 +88,12 @@ public class ElasticUsageService implements UsageService {
         Map<String, Object> mappings = new HashMap<>();
 
         Map<String, Object> dateType = ImmutableMap.<String, Object>builder().put("type", "date").put("format", "epoch_millis").build();
-        mappings.put("bucket", dateType);
-        mappings.put("bucket_end", dateType);
+        mappings.put(ES_KEY_BUCKET, dateType);
+        mappings.put(ES_KEY_BUCKET_END, dateType);
 
         Map<String, Object> textType = ImmutableMap.<String, Object>builder().put("type", "keyword").build();
-        mappings.put("duration", textType);
-        mappings.put("resource", textType);
+        mappings.put(ES_KEY_DURATION, textType);
+        mappings.put(ES_KEY_RESOURCE, textType);
 
         return ImmutableMap.of("properties", mappings);
     }
@@ -101,10 +106,10 @@ public class ElasticUsageService implements UsageService {
     @Nonnull
     String constructDocument(@Nonnull UsageAggregation bucket) {
         ObjectNode document = JsonNodeFactory.instance.objectNode();
-        document.set("bucket", JsonNodeFactory.instance.numberNode(bucket.getBucket()));
-        document.set("duration", JsonNodeFactory.instance.textNode(bucket.getDuration().toString()));
-        document.set("bucket_end", JsonNodeFactory.instance.numberNode(bucket.getBucket() + windowDurationToMillis(bucket.getDuration())));
-        document.set("resource", JsonNodeFactory.instance.textNode(bucket.getResource().toString()));
+        document.set(ES_KEY_BUCKET, JsonNodeFactory.instance.numberNode(bucket.getBucket()));
+        document.set(ES_KEY_DURATION, JsonNodeFactory.instance.textNode(bucket.getDuration().toString()));
+        document.set(ES_KEY_BUCKET_END, JsonNodeFactory.instance.numberNode(bucket.getBucket() + windowDurationToMillis(bucket.getDuration())));
+        document.set(ES_KEY_RESOURCE, JsonNodeFactory.instance.textNode(bucket.getResource().toString()));
 
         document.set("metrics.unique_user_count", JsonNodeFactory.instance.numberNode(bucket.getMetrics().getUniqueUserCount()));
         Optional.ofNullable(bucket.getMetrics().getUsers()).ifPresent(usersUsageCounts -> {
@@ -148,19 +153,19 @@ public class ElasticUsageService implements UsageService {
     @Override
     public List<UsageAggregation> query(@Nonnull String resource, @Nonnull WindowDuration duration, Long startTime, Long endTime, Integer maxBuckets) {
         final BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-        finalQuery.must(QueryBuilders.matchQuery("resource", resource));
-        finalQuery.must(QueryBuilders.matchQuery("duration", duration.name()));
+        finalQuery.must(QueryBuilders.matchQuery(ES_KEY_RESOURCE, resource));
+        finalQuery.must(QueryBuilders.matchQuery(ES_KEY_DURATION, duration.name()));
         if (startTime != null) {
-            finalQuery.must(QueryBuilders.rangeQuery("bucket").gte(startTime));
+            finalQuery.must(QueryBuilders.rangeQuery(ES_KEY_BUCKET).gte(startTime));
         }
         if (endTime != null) {
-            finalQuery.must(QueryBuilders.rangeQuery("bucket_end").lte(endTime));
+            finalQuery.must(QueryBuilders.rangeQuery(ES_KEY_BUCKET_END).lte(endTime));
         }
         // TODO handle "latest N buckets" style queries
 
         final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(finalQuery);
-        searchSourceBuilder.sort(new FieldSortBuilder("bucket").order(SortOrder.DESC));
+        searchSourceBuilder.sort(new FieldSortBuilder(ES_KEY_BUCKET).order(SortOrder.DESC));
         if (maxBuckets != null) {
            searchSourceBuilder.size(maxBuckets);
         } else {
@@ -191,9 +196,9 @@ public class ElasticUsageService implements UsageService {
             UsageAggregation agg = new UsageAggregation();
             UsageAggregationMetrics metrics = new UsageAggregationMetrics();
 
-            agg.setBucket(Long.valueOf(((Number) docFields.get("bucket")).longValue()));
-            agg.setDuration(WindowDuration.valueOf((String) docFields.get("duration")));
-            agg.setResource(Urn.createFromString((String) docFields.get("resource")));
+            agg.setBucket(Long.valueOf(((Number) docFields.get(ES_KEY_BUCKET)).longValue()));
+            agg.setDuration(WindowDuration.valueOf((String) docFields.get(ES_KEY_DURATION)));
+            agg.setResource(Urn.createFromString((String) docFields.get(ES_KEY_RESOURCE)));
             agg.setMetrics(metrics);
 
             metrics.setUniqueUserCount((Integer) docFields.get("metrics.unique_user_count"));
