@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: kibana
+  name: kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: kibana
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: kibana
+    spec:
+      containers:
+        - env:
+            - name: ELASTICSEARCH_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: ELASTICSEARCH_URL
+                  name: kibana-env-docker-env
+            - name: SERVER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: SERVER_HOST
+                  name: kibana-env-docker-env
+          image: kibana:7.9.3
+          name: kibana
+          ports:
+            - containerPort: 5601
+          resources: {}
+      hostname: kibana
+      restartPolicy: Always
+status: {}

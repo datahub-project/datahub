@@ -14,7 +14,16 @@ ENV LD_LIBRARY_PATH=/lib64
 RUN apk add libc6-compat
 
 FROM openjdk:8 as prod-build
-COPY . datahub-src
+ARG SSH_KEY_VALUE
+# RUN bash -c 'echo -e ${SSH_KEY_VALUE}'
+
+RUN mkdir -m 600 $HOME/.ssh/ && \
+    echo "${SSH_KEY_VALUE}" > $HOME/.ssh/id_rsa && \
+    chmod 400 $HOME/.ssh/id_rsa && \
+    ssh-keyscan github.com > $HOME/.ssh/known_hosts && \
+    git clone git+ssh://git@github.com/smartnews/datahub.git /datahub-src && \
+    rm -rf ~/.ssh
+    
 RUN cd datahub-src && ./gradlew :datahub-gms-graphql-service:build
 RUN cd datahub-src && cp datahub-gms-graphql-service/build/libs/datahub-gms-graphql-service.jar ../datahub-gms-graphql-service.jar
 

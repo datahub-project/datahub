@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: broker
+  name: broker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: broker
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: broker
+    spec:
+      containers:
+        - env:
+            - name: KAFKA_ADVERTISED_LISTENERS
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_ADVERTISED_LISTENERS
+                  name: broker-env-docker-env
+            - name: KAFKA_BROKER_ID
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_BROKER_ID
+                  name: broker-env-docker-env
+            - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+                  name: broker-env-docker-env
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+                  name: broker-env-docker-env
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+                  name: broker-env-docker-env
+            - name: KAFKA_ZOOKEEPER_CONNECT
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_ZOOKEEPER_CONNECT
+                  name: broker-env-docker-env
+          image: confluentinc/cp-kafka:5.4.0
+          name: broker
+          ports:
+            - containerPort: 29092
+            - containerPort: 9092
+          resources: {}
+      hostname: broker
+      restartPolicy: Always
+status: {}

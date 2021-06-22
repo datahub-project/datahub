@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  KAFKA_REST_PROXY_URL: http://kafka-rest-proxy:8082/
+  PROXY: "true"
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: kafka-topics-ui-kafka-topics-ui-env-docker-env
+  name: kafka-topics-ui-env-docker-env

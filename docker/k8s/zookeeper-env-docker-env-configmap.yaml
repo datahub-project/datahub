@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  ZOOKEEPER_CLIENT_PORT: "2181"
+  ZOOKEEPER_TICK_TIME: "2000"
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: zookeeper-zookeeper-env-docker-env
+  name: zookeeper-env-docker-env

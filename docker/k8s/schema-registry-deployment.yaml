@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: schema-registry
+  name: schema-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: schema-registry
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: schema-registry
+    spec:
+      containers:
+        - env:
+            - name: SCHEMA_REGISTRY_HOST_NAME
+              valueFrom:
+                configMapKeyRef:
+                  key: SCHEMA_REGISTRY_HOST_NAME
+                  name: schema-registry-env-docker-env
+            - name: SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL
+                  name: schema-registry-env-docker-env
+          image: confluentinc/cp-schema-registry:5.4.0
+          name: schema-registry
+          ports:
+            - containerPort: 8081
+          resources: {}
+      hostname: schema-registry
+      restartPolicy: Always
+status: {}

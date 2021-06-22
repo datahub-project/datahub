@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: elasticsearch
+  name: elasticsearch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: elasticsearch
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: elasticsearch
+    spec:
+      containers:
+        - env:
+            - name: ES_JAVA_OPTS
+              valueFrom:
+                configMapKeyRef:
+                  key: ES_JAVA_OPTS
+                  name: elasticsearch-env-docker-env
+            - name: discovery.type
+              valueFrom:
+                configMapKeyRef:
+                  key: discovery.type
+                  name: elasticsearch-env-docker-env
+            - name: xpack.security.enabled
+              valueFrom:
+                configMapKeyRef:
+                  key: xpack.security.enabled
+                  name: elasticsearch-env-docker-env
+          image: elasticsearch:7.9.3
+          livenessProbe:
+            exec:
+              command:
+                - curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1
+            failureThreshold: 4
+            initialDelaySeconds: 120
+          name: elasticsearch
+          ports:
+            - containerPort: 9200
+          resources: {}
+          volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: esdata
+      hostname: elasticsearch
+      restartPolicy: Always
+      volumes:
+        - name: esdata
+          persistentVolumeClaim:
+            claimName: esdata
+status: {}

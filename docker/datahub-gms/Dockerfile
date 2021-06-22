@@ -10,7 +10,17 @@ RUN apk --no-cache add curl tar \
     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 FROM openjdk:8 as prod-build
-COPY . /datahub-src
+ARG SSH_KEY_VALUE
+# RUN bash -c 'echo -e ${SSH_KEY_VALUE}'
+
+RUN mkdir -m 600 $HOME/.ssh/ && \
+    echo "${SSH_KEY_VALUE}" > $HOME/.ssh/id_rsa && \
+    chmod 400 $HOME/.ssh/id_rsa && \
+    ssh-keyscan github.com > $HOME/.ssh/known_hosts && \
+    git clone git+ssh://git@github.com/smartnews/datahub.git /datahub-src && \
+    rm -rf ~/.ssh
+
+# COPY . /datahub-src
 RUN cd /datahub-src && ./gradlew :gms:war:build
 RUN cp /datahub-src/gms/war/build/libs/war.war /war.war
 

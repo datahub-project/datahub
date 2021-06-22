@@ -1,0 +1,71 @@
+apiVersion: skaffold/v2beta17
+kind: Config
+metadata:
+  name: docker
+build:
+  artifacts:
+  - image: 165463520094.dkr.ecr.ap-northeast-1.amazonaws.com/data-catalog/datahub-gms
+    context: datahub-gms
+    docker:
+      dockerfile: Dockerfile
+  - image: datahub-frontend-react
+    context: datahub-frontend
+    docker:
+      dockerfile: Dockerfile
+  - image: linkedin/datahub-mae-consumer
+    context: datahub-mae-consumer
+    docker:
+      dockerfile: Dockerfile
+  - image: linkedin/datahub-mce-consumer
+    context: datahub-mce-consumer
+    docker:
+      dockerfile: Dockerfile
+deploy:
+  kubectl:
+    manifests:
+    - k8s/broker-deployment.yaml
+    - k8s/broker-env-docker-env-configmap.yaml
+    - k8s/broker-service.yaml
+    - k8s/datahub-frontend-env-docker-env-configmap.yaml
+    - k8s/datahub-frontend-react-deployment.yaml
+    - k8s/datahub-frontend-react-service.yaml
+    - k8s/datahub-gms-deployment.yaml
+    - k8s/datahub-gms-service.yaml
+    - k8s/datahub-mae-consumer-deployment.yaml
+    - k8s/datahub-mae-consumer-env-docker-env-configmap.yaml
+    - k8s/datahub-mae-consumer-service.yaml
+    - k8s/datahub-mce-consumer-deployment.yaml
+    - k8s/datahub-mce-consumer-env-docker-env-configmap.yaml
+    - k8s/datahub-mce-consumer-service.yaml
+    - k8s/datahub_network-networkpolicy.yaml
+    - k8s/elasticsearch-deployment.yaml
+    - k8s/elasticsearch-env-docker-env-configmap.yaml
+    - k8s/elasticsearch-service.yaml
+    - k8s/elasticsearch-setup-deployment.yaml
+    - k8s/elasticsearch-setup-env-docker-env-configmap.yaml
+    - k8s/esdata-persistentvolumeclaim.yaml
+    - k8s/kafka-rest-proxy-deployment.yaml
+    - k8s/kafka-rest-proxy-env-docker-env-configmap.yaml
+    - k8s/kafka-rest-proxy-service.yaml
+    - k8s/kafka-setup-deployment.yaml
+    - k8s/kafka-setup-env-docker-env-configmap.yaml
+    - k8s/kafka-topics-ui-deployment.yaml
+    - k8s/kafka-topics-ui-env-docker-env-configmap.yaml
+    - k8s/kafka-topics-ui-service.yaml
+    - k8s/kibana-deployment.yaml
+    - k8s/kibana-env-docker-env-configmap.yaml
+    - k8s/kibana-service.yaml
+    - k8s/neo4j-deployment.yaml
+    - k8s/neo4j-env-docker-env-configmap.yaml
+    - k8s/neo4j-service.yaml
+    - k8s/neo4jdata-persistentvolumeclaim.yaml
+    - k8s/schema-registry-deployment.yaml
+    - k8s/schema-registry-env-docker-env-configmap.yaml
+    - k8s/schema-registry-service.yaml
+    - k8s/schema-registry-ui-deployment.yaml
+    - k8s/schema-registry-ui-env-docker-env-configmap.yaml
+    - k8s/schema-registry-ui-service.yaml
+    - k8s/zkdata-persistentvolumeclaim.yaml
+    - k8s/zookeeper-deployment.yaml
+    - k8s/zookeeper-env-docker-env-configmap.yaml
+    - k8s/zookeeper-service.yaml

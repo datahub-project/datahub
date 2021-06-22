@@ -1,0 +1,11 @@
+apiVersion: v1
+data:
+  NEO4J_AUTH: neo4j/datahub
+  NEO4J_dbms_allow__upgrade: "true"
+  NEO4J_dbms_default__database: graph.db
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: neo4j-neo4j-env-docker-env
+  name: neo4j-env-docker-env

@@ -1,0 +1,11 @@
+apiVersion: v1
+data:
+  ES_JAVA_OPTS: -Xms512m -Xmx512m
+  discovery.type: single-node
+  xpack.security.enabled: "false"
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: elasticsearch-elasticsearch-env-docker-env
+  name: elasticsearch-env-docker-env

@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: datahub-mae-consumer
+  name: datahub-mae-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: datahub-mae-consumer
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: datahub-mae-consumer
+    spec:
+      containers:
+        - env:
+            - name: ELASTICSEARCH_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: ELASTICSEARCH_HOST
+                  name: datahub-mae-consumer-env-docker-env
+            - name: ELASTICSEARCH_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: ELASTICSEARCH_PORT
+                  name: datahub-mae-consumer-env-docker-env
+            - name: GMS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: GMS_HOST
+                  name: datahub-mae-consumer-env-docker-env
+            - name: GMS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: GMS_PORT
+                  name: datahub-mae-consumer-env-docker-env
+            - name: KAFKA_BOOTSTRAP_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_BOOTSTRAP_SERVER
+                  name: datahub-mae-consumer-env-docker-env
+            - name: KAFKA_SCHEMAREGISTRY_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_SCHEMAREGISTRY_URL
+                  name: datahub-mae-consumer-env-docker-env
+            - name: NEO4J_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_HOST
+                  name: datahub-mae-consumer-env-docker-env
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_PASSWORD
+                  name: datahub-mae-consumer-env-docker-env
+            - name: NEO4J_URI
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_URI
+                  name: datahub-mae-consumer-env-docker-env
+            - name: NEO4J_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_USERNAME
+                  name: datahub-mae-consumer-env-docker-env
+          image: linkedin/datahub-mae-consumer:latest
+          name: datahub-mae-consumer
+          ports:
+            - containerPort: 9091
+          resources: {}
+      hostname: datahub-mae-consumer
+      restartPolicy: Always
+status: {}
