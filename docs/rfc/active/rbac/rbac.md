@@ -76,32 +76,32 @@ a. a central notion of Actor identity in the DataHub backend (GMS).
 
 b. pluggable authentication responsible for resolving DataHub Actors 
     
-    - in scope: file-based username password plugin (for built-in roles), continue to support OIDC 
-    - in the future: saml, ldap / ad, api key, native authentication plugins
+- in scope: file-based username password plugin (for built-in roles), continue to support OIDC 
+- in the future: saml, ldap / ad, api key, native authentication plugins
 
 c. ability to define logical access control policies based on a combination of
 
-    - resource type: the type of resource being accessed on the DataHub platform (eg. dataset entity, dataset aspect, roles, privileges etc) (exact match or ALL)
-    - resource identifier: the primary key identifier for a resource (eg. dataset urn) (support for pattern matching)
-    - action (bound to resource type. eg. read + write) 
+- resource type: the type of resource being accessed on the DataHub platform (eg. dataset entity, dataset aspect, roles, privileges etc) (exact match or ALL)
+- resource identifier: the primary key identifier for a resource (eg. dataset urn) (support for pattern matching)
+- action (bound to resource type. eg. read + write) 
 
 with support for optional conjunctions of filtering on resource type, & identifier (eg. resource type = "entity:dataset:ownership", resource identifier = "urn:li:dataset:1", action = "UPDATE") 
 and including with support for the following resource types:
 
-    - metadata entities: datasets, charts, dashboards, etc. 
-    - metadata aspects: dataset ownership, chart info, etc. 
-    - access control objects: roles, policies, etc.
+- metadata entities: datasets, charts, dashboards, etc. 
+- metadata aspects: dataset ownership, chart info, etc. 
+- access control objects: roles, policies, etc.
 
 d. ability to define named roles that can be associated with fine-grained access control policies
 
 e. ability to configure mapping rules from DataHub Actors to named roles
     
-    - where Actor = (principal name, group names, freeform string properties) 
+- where Actor = (principal name, group names, freeform string properties) 
 
 g. ability to manage roles, role mappings, policies dynamically via Rest API
 
 h. ability to enforce fine-grained access control policies (ref.b) (Authorizer implementation)
-    - Inputs: resolved roles, role-policy mappings, resource type, resource key
+- Inputs: resolved roles, role-policy mappings, resource type, resource key
 
 #### Nice to Haves
 
@@ -194,20 +194,20 @@ GMS will be augmented to include
 1. *Policies*: Create, Read, Update fine-grained access policies.
 
 ```
-    // Create a policy.
-	POST /gms/policy
+// Create a policy.
+POST /gms/policy
 
 {  
-     name: "manage_datasets_msd",
-	 actions: ["VIEW, UPDATE"]
-	 resource: {
-	    type: "ENTITY_ASPECT",
+    name: "manage_datasets_msd",
+    actions: ["VIEW, UPDATE"]
+    resource: {
+        type: "ENTITY_ASPECT",
         urn: "urn:li:dataset:*"
-	    params: {
-	        entity: "dataset",
-	        aspect: "ownership"
-	    }
-	 }
+        params: {
+            entity: "dataset",
+            aspect: "ownership"
+        }
+    }
 }
 ```
 
@@ -220,12 +220,12 @@ supports wildcard (& regex) matching, and a set of parameters used for additiona
 - Accepts a name and list of Privileges,
 
 ```
-    // Create a role.
-	POST /gms/role
+// Create a role.
+POST /gms/role
 
 {  
      name: "admin_msd",
-	 privileges: ["manage_datasets_msd", ....] 
+     privileges: ["manage_datasets_msd", ....] 
 }
 ```
 
@@ -234,26 +234,26 @@ supports wildcard (& regex) matching, and a set of parameters used for additiona
 Role mappings help answer the question: "what roles are assigned to a user or group?". This is turn allows us to understand the privileges that the Actor making a request should have, ie. what actions we should permit them to perform.
 
 ```
-    // Create a role mapping.
-	POST /gms/roleMapping
+// Create a role mapping.
+POST /gms/roleMapping
 
 {  
-   roles: ["admin_msd"],
-	 rules: [ // How to map Actor to the roles. 
-		{
-			"authenticator": "ldap", 
-			"field": {
-				"name": "groups", 
-				"pattern": "cn=users,dc=example,dc=com" // match any in "groups" array 
-			}
-		},
-		{
-			"field": {
-				"name": "principal", 
-				"pattern": "johndoe"
-			}
-		}
-	] 
+    roles: ["admin_msd"],
+    rules: [ // How to map Actor to the roles. 
+        {
+            "authenticator": "ldap", 
+            "field": {
+                "name": "groups", 
+                "pattern": "cn=users,dc=example,dc=com" // match any in "groups" array 
+            }
+        },
+        {
+            "field": {
+                "name": "principal", 
+                "pattern": "johndoe"
+            }
+        }
+    ] 
 }
 ```
 
