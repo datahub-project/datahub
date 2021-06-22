@@ -28,7 +28,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "my_view",
-                        "platform": "looker",
+                        "platform": "urn:li:dataPlatform:looker",
                         "version": 0,
                         "created": {
                             "time": 1615443388000,
