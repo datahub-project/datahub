@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
@@ -206,7 +207,7 @@ public class ElasticUsageService implements UsageService {
             agg.setResource(Urn.createFromString((String) docFields.get(ES_KEY_RESOURCE)));
             agg.setMetrics(metrics);
 
-            metrics.setUniqueUserCount((Integer) docFields.get("metrics.unique_user_count"));
+            metrics.setUniqueUserCount((Integer) docFields.get("metrics.unique_user_count"), SetMode.REMOVE_IF_NULL);
             if (docFields.containsKey("metrics.users")) {
                 UserUsageCountsArray users = new UserUsageCountsArray();
                 List<Map<String, Object>> docUsers = (List<Map<String, Object>>) docFields.get("metrics.users");
@@ -215,14 +216,14 @@ public class ElasticUsageService implements UsageService {
                     if (map.containsKey("user")) {
                         userUsage.setUser(Urn.createFromString((String) map.get("user")));
                     }
-                    userUsage.setUserEmail((String) map.get("user_email"));
+                    userUsage.setUserEmail((String) map.get("user_email"), SetMode.REMOVE_IF_NULL);
                     userUsage.setCount((Integer) map.get("count"));
                     users.add(userUsage);
                 }
                 metrics.setUsers(users);
             }
 
-            metrics.setTotalSqlQueries((Integer) docFields.get("metrics.top_sql_queries"));
+            metrics.setTotalSqlQueries((Integer) docFields.get("metrics.total_sql_queries"), SetMode.REMOVE_IF_NULL);
             if (docFields.containsKey("metrics.top_sql_queries")) {
                 StringArray queries = new StringArray();
                 List<String> docQueries = (List<String>) docFields.get("metrics.top_sql_queries");

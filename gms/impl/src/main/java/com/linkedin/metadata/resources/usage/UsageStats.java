@@ -2,6 +2,7 @@ package com.linkedin.metadata.resources.usage;
 
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
@@ -37,7 +38,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     private static final String ACTION_QUERY = "query";
     private static final String PARAM_RESOURCE = "resource";
-    private static final String PARAM_WINDOW = "duration";
+    private static final String PARAM_DURATION = "duration";
     private static final String PARAM_START_TIME = "startTime";
     private static final String PARAM_END_TIME = "endTime";
     private static final String PARAM_MAX_BUCKETS = "maxBuckets";
@@ -63,7 +64,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     @Action(name = ACTION_QUERY)
     @Nonnull
     public Task<UsageQueryResult> query(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
-                                        @ActionParam(PARAM_WINDOW) @Nonnull WindowDuration duration,
+                                        @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration,
                                         @ActionParam(PARAM_START_TIME) @com.linkedin.restli.server.annotations.Optional Long startTime,
                                         @ActionParam(PARAM_END_TIME) @com.linkedin.restli.server.annotations.Optional Long endTime,
                                         @ActionParam(PARAM_MAX_BUCKETS) @com.linkedin.restli.server.annotations.Optional Integer maxBuckets) {
@@ -92,8 +93,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
                 if (!userAgg.isEmpty()) {
                     UserUsageCountsArray users = new UserUsageCountsArray();
                     users.addAll(userAgg.entrySet().stream().map((mapping) -> new UserUsageCounts()
-                            .setUser(mapping.getKey().getFirst())
-                            .setUserEmail(mapping.getKey().getSecond())
+                            .setUser(mapping.getKey().getFirst(), SetMode.REMOVE_IF_NULL)
+                            .setUserEmail(mapping.getKey().getSecond(), SetMode.REMOVE_IF_NULL)
                             .setCount(mapping.getValue())).collect(Collectors.toList()));
                     aggregations.setUsers(users);
                     aggregations.setUniqueUserCount(userAgg.size());
