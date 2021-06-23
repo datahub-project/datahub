@@ -5,6 +5,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
@@ -17,6 +18,9 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static com.linkedin.metadata.resources.ResourceUtils.*;
+
 
 /**
  * Single unified resource for fetching, updating, searching, & browsing DataHub entities
@@ -46,9 +50,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       final VersionedAspect aspect = _entityService.getVersionedAspect(urn, aspectName, version);
       if (aspect == null) {
         throw RestliUtils.resourceNotFoundException();
+      } else {
+        validateRecord(aspect, HttpStatus.S_500_INTERNAL_SERVER_ERROR);
       }
       return aspect;
     });
   }
-
 }
