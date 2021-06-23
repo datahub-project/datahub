@@ -620,15 +620,15 @@ Extracts:
 source:
   type: "lookml"
   config:
-    base_folder: /path/to/model/files # Where the *.model.lkml and *.view.lkml files are stored.
-    connection_to_platform_map: # mapping between connection names in the model files to platform names.
-      my_snowflake_conn: snowflake
-    platform_name: looker_views # Optional, default is "looker_views"
-    actor: "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
+    base_folder: /path/to/model/files # where the *.model.lkml and *.view.lkml files are stored
+    connection_to_platform_map: # mappings between connection names in the model files to platform names
+      connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
+    platform_name: "looker" # optional, default is "looker"
+    actor: "urn:li:corpuser:etl" # optional, default is "urn:li:corpuser:etl"
     model_pattern: {}
     view_pattern: {}
-    env: "PROD" # Optional, default is "PROD"
-    parse_table_names_from_sql: False # See note below.
+    env: "PROD" # optional, default is "PROD"
+    parse_table_names_from_sql: False # see note below
 ```
 
 Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
