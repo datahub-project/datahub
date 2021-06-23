@@ -200,10 +200,18 @@ class SagemakerSource(Source):
                 "DataCatalogConfig"
             ]["TableName"]
 
-            full_table_name = f"{node_args['database']}.{node_args['table_name']}"
+            full_table_name = f"{glue_database}.{glue_table}"
 
-            # we know that the table will already be covered when ingesting Glue tables
-            node_urn = f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.env})"
+            self.report.report_warning(
+                full_table_name,
+                f"""Note: table {full_table_name} is an AWS Glue object.
+                    To view full table metadata, run Glue ingestion
+                    (see https://datahubproject.io/docs/metadata-ingestion/#aws-glue-glue)""",
+            )
+
+            feature_sources.append(
+                f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.source_config.env})"
+            )
 
         # note that there's also an OnlineStoreConfig field, but this
         # lack enough metadata to create a dataset
