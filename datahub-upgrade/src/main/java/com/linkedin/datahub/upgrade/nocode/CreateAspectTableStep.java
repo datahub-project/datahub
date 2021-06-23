@@ -54,7 +54,7 @@ public class CreateAspectTableStep implements UpgradeStep {
               + "  createdon                     timestamp not null,\n"
               + "  createdby                     varchar(255) not null,\n"
               + "  createdfor                    varchar(255),\n"
-              + "  constraint pk_metadata_aspect primary key (urn,aspect,version)\n"
+              + "  constraint pk_metadata_aspect_v2 primary key (urn,aspect,version)\n"
               + ")";
           break;
         default:
@@ -68,7 +68,7 @@ public class CreateAspectTableStep implements UpgradeStep {
               + "  createdon                     datetime(6) not null,\n"
               + "  createdby                     varchar(255) not null,\n"
               + "  createdfor                    varchar(255),\n"
-              + "  constraint pk_metadata_aspect primary key (urn,aspect,version)\n"
+              + "  constraint pk_metadata_aspect_v2 primary key (urn,aspect,version)\n"
               + ")";
           break;
       }
