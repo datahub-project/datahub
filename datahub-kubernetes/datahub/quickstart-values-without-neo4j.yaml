@@ -63,7 +63,7 @@ global:
       host: "prerequisites-mysql:3306"
       hostForMysqlClient: "prerequisites-mysql"
       port: "3306"
-      url: "jdbc:mysql://prerequisites-mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8"
+      url: "jdbc:mysql://prerequisites-mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2"
       driver: "com.mysql.jdbc.Driver"
       username: "root"
       password:
