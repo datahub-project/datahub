@@ -9,6 +9,7 @@ import SubMenu from 'antd/lib/menu/SubMenu';
 import { MinusCircleOutlined, PlusOutlined, SettingFilled } from '@ant-design/icons';
 import adhocConfig from '../../conf/Adhoc';
 import { SearchablePage } from '../search/SearchablePage';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 
 const Title = styled(Typography.Text)`
     && {
@@ -29,6 +30,7 @@ export const AdHocPage = () => {
             span: 12,
         },
     };
+    const user = useGetAuthenticatedUser();
     const printSuccessMsg = (status) => {
         message.success(`Status:${status} - Request submitted successfully`, 3).then();
     };
@@ -37,7 +39,7 @@ export const AdHocPage = () => {
     };
     const onFinish = (values) => {
         console.log('Received values of form:', values);
-        const finalValue = { ...values, dataset_type: fileType };
+        const finalValue = { ...values, ...fileType, dataset_owner: user?.username };
         console.log('Received finalValue:', finalValue);
         // POST request using axios with error handling
         axios
@@ -55,7 +57,7 @@ export const AdHocPage = () => {
         console.log('data:', data);
         console.log('fileInfo:', fileInfo);
         // set state for file type
-        setFileType(fileInfo.type);
+        setFileType({ dataset_type: fileInfo.type });
         // get the first row as headers
         if (data.length > 0) {
             // map to array of objects
