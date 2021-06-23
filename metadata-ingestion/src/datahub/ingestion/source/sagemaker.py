@@ -40,7 +40,7 @@ class SagemakerSourceReport(SourceReport):
         self.filtered.append(table)
 
 
-class GlueSource(Source):
+class SagemakerSource(Source):
     source_config: SagemakerSourceConfig
     report = SagemakerSourceReport()
 
@@ -134,6 +134,89 @@ class GlueSource(Source):
         mce = MetadataChangeEvent(proposedSnapshot=feature_group_snapshot)
         return MetadataWorkUnit(id=feature_group_name, mce=mce)
 
+    def get_feature_type(self, aws_type: str, feature_name: str) -> str:
+
+        mapped_type = {
+            "String": MLFeatureDataType.TEXT,
+            "Integral": MLFeatureDataType.ORDINAL,
+            "Fractional": MLFeatureDataType.CONTINUOUS,
+        }.get(aws_type)
+
+        if mapped_type is None:
+            self.report.report_warning(
+                feature_name, f"unable to map type {aws_type} to metadata schema"
+            )
+            mapped_type = MLFeatureDataType.UNKNOWN
+
+        return mapped_type
+
+    def get_feature_wu(
+        self, feature_group_details: Dict[str, Any], feature: Dict[str, Any]
+    ) -> MetadataWorkUnit:
+        """
+        Generate an MLFeature workunit for a SageMaker feature.
+
+        Parameters
+        ----------
+            feature_group_details:
+                ingested SageMaker feature group from get_feature_group_details()
+            feature:
+                ingested SageMaker feature
+        """
+
+        # create snapshot instance for the feature
+        feature_snapshot = MLFeatureSnapshot(
+            urn=builder.make_ml_feature_urn(
+                feature_group_details["FeatureGroupName"],
+                feature["FeatureName"],
+            ),
+            aspects=[],
+        )
+
+        feature_sources = []
+
+        if "OfflineStoreConfig" in feature_group_details:
+
+            # remove S3 prefix (s3://)
+            s3_name = feature_group_details["OfflineStoreConfig"]["S3StorageConfig"]["S3Uri"][5:]
+
+            if s3_name.endswith("/"):
+                s3_name = s3_name[:-1]
+
+            feature_sources.append(
+                builder.make_dataset_urn(
+                    "s3",
+                    s3_name,
+                    self.source_config.env,
+                )
+            )
+
+            glue_database = feature_group_details["OfflineStoreConfig"]["DataCatalogConfig"]["Database"]
+            glue_table = feature_group_details["OfflineStoreConfig"]["DataCatalogConfig"]["TableName"]
+
+            full_table_name = f"{node_args['database']}.{node_args['table_name']}"
+
+            # we know that the table will already be covered when ingesting Glue tables
+            node_urn = f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.env})"
+
+        # note that there's also an OnlineStoreConfig field, but this
+        # lack enough metadata to create a dataset
+        # (only specifies the security config and whether it's enabled at all)
+
+        # append feature name and type
+        feature_snapshot.aspects.append(
+            MLFeaturePropertiesClass(
+                dataType=self.get_feature_type(
+                    feature["FeatureType"], feature["FeatureName"]
+                ),
+                sources=feature_sources,
+            )
+        )
+
+        # make the MCE and workunit
+        mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
+        return MetadataWorkUnit(id=feature["FeatureName"], mce=mce)
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
         feature_groups = self.get_all_feature_groups()
@@ -143,6 +226,8 @@ class GlueSource(Source):
             feature_group_details = self.get_feature_group_details(
                 feature_group["FeatureGroupName"]
             )
+
+            for feature in feature_groups
 
             yield self.get_feature_group_wu(feature_group_details)
 

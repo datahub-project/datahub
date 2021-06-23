@@ -349,7 +349,7 @@ source:
 
 Extracts:
 
-- Feature groups (support for models and jobs coming soon!)
+- Feature groups (support for models, jobs, and more coming soon!)
 
 ```yml
 source:
