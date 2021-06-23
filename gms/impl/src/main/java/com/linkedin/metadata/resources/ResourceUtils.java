@@ -13,6 +13,7 @@ import com.linkedin.restli.server.RestLiServiceException;
 public class ResourceUtils {
 
   private static final ValidationOptions DEFAULT_VALIDATION_OPTIONS = new ValidationOptions();
+  private static final UrnValidator URN_VALIDATOR = new UrnValidator();
 
   /**
    * Validates a {@link RecordTemplate} and throws {@link com.linkedin.restli.server.RestLiServiceException}
@@ -25,7 +26,7 @@ public class ResourceUtils {
     final ValidationResult result = ValidateDataAgainstSchema.validate(
         record,
         DEFAULT_VALIDATION_OPTIONS,
-        new UrnValidator());
+        URN_VALIDATOR);
     if (!result.isValid())
     {
       throw new RestLiServiceException(status, result.getMessages().toString());
