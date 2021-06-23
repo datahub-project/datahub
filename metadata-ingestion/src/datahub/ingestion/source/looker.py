@@ -49,8 +49,6 @@ class LookerDashboardSourceConfig(ConfigModel):
     client_secret: str
     base_url: str
     platform_name: str = "looker"
-    # The datahub platform where looker views are stored, must be the same as `platform_name` in lookml source
-    view_platform_name: str = "looker_views"
     actor: str = "urn:li:corpuser:etl"
     dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()

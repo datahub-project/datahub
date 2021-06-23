@@ -1,6 +1,9 @@
 query getDashboard($urn: String!) {
     dashboard(urn: $urn) {
         ...dashboardFields
+        editableProperties {
+            description
+        }
         downstreamLineage {
             ...downstreamRelationshipFields
         }
@@ -13,6 +16,9 @@ query getDashboard($urn: String!) {
 mutation updateDashboard($input: DashboardUpdateInput!) {
     updateDashboard(input: $input) {
         ...dashboardFields
+        editableProperties {
+            description
+        }
         downstreamLineage {
             ...downstreamRelationshipFields
         }

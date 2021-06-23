@@ -156,5 +156,12 @@
     "displayName": "Druid",
     "type": "OLAP_DATASTORE",
     "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/druidlogo.png"
+  },
+  "urn:li:dataPlatform:looker": {
+    "datasetNameDelimiter": ".",
+    "name": "looker",
+    "displayName": "Looker",
+    "type": "OTHERS",
+    "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/lookerlogo.png"
   }
 }

@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 class LookMLSourceConfig(ConfigModel):  # pragma: no cover
     base_folder: str
     connection_to_platform_map: Dict[str, str]
-    platform_name: str = "looker_views"
+    platform_name: str = "looker"
     actor: str = "urn:li:corpuser:etl"
     model_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -478,7 +478,7 @@ class LookMLSource(Source):  # pragma: no cover
         stamp = AuditStamp(time=sys_time, actor=actor)
         schema_metadata = SchemaMetadata(
             schemaName=looker_view.view_name,
-            platform=self.source_config.platform_name,
+            platform=f"urn:li:dataPlatform:{self.source_config.platform_name}",
             version=0,
             fields=fields,
             primaryKeys=primary_keys,
@@ -500,7 +500,7 @@ class LookMLSource(Source):  # pragma: no cover
         sys_time = int(time.time()) * 1000
 
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform_name}, {dataset_name}, {self.source_config.env})",
+            urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform_name},{dataset_name},{self.source_config.env})",
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))

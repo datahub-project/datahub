@@ -5,6 +5,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.aspect.Aspect;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
@@ -89,9 +91,22 @@ public class EbeanEntityService extends EntityService {
     return urnToAspects;
   }
 
+  /*
+   * When a user tries to fetch a negative version, we want to index most recent to least recent snapshots.
+   * To do this, we want to fetch the maximum version and subtract the negative version from that. Since -1 represents
+   * the maximum version, we need to add 1 to the final result.
+   */
+  private long calculateVersionNumber(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
+    if (version < 0) {
+      return _entityDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
+    }
+    return version;
+  }
+
   @Override
   @Nullable
   public RecordTemplate getAspect(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
+    version = calculateVersionNumber(urn, aspectName, version);
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
     return maybeAspect
@@ -100,13 +115,43 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Override
+  public VersionedAspect getVersionedAspect(@Nonnull Urn urn, @Nonnull String aspectName, long version) {
+    VersionedAspect result = new VersionedAspect();
+
+    version = calculateVersionNumber(urn, aspectName, version);
+
+    final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
+    final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
+    RecordTemplate aspect = maybeAspect
+        .map(ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata()))
+        .orElse(null);
+
+    if (aspect == null) {
+      return null;
+    }
+
+    Aspect resultAspect = new Aspect();
+
+    RecordUtils.setSelectedRecordTemplateInUnion(
+        resultAspect,
+        aspect
+    );
+;
+    result.setAspect(resultAspect);
+    result.setVersion(version);
+
+    return result;
+  }
+
+  @Override
   @Nonnull
   public ListResult<RecordTemplate> listLatestAspects(
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       int count) {
 
-    final ListResult<String> aspectMetadataList = _entityDao.listLatestAspectMetadata(aspectName, start, count);
+    final ListResult<String> aspectMetadataList = _entityDao.listLatestAspectMetadata(entityName, aspectName, start, count);
 
     final List<RecordTemplate> aspects = new ArrayList<>();
     for (int i = 0; i < aspectMetadataList.getValues().size(); i++) {

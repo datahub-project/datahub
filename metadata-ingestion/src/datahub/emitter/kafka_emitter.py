@@ -9,7 +9,7 @@ from pydantic import Field
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import SCHEMA_JSON_STR
+from datahub.metadata.schemas import getMetadataChangeEventSchema
 
 DEFAULT_KAFKA_TOPIC = "MetadataChangeEvent_v4"
 
@@ -38,7 +38,7 @@ class DatahubKafkaEmitter:
             return tuple_encoding
 
         avro_serializer = AvroSerializer(
-            schema_str=SCHEMA_JSON_STR,
+            schema_str=getMetadataChangeEventSchema(),
             schema_registry_client=schema_registry_client,
             to_dict=convert_mce_to_dict,
         )

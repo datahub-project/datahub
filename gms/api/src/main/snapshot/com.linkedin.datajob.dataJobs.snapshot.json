@@ -378,7 +378,7 @@
     "type" : "record",
     "name" : "DataJob",
     "namespace" : "com.linkedin.datajob",
-    "doc" : "Metadata bout DataJob",
+    "doc" : "Metadata about DataJob",
     "include" : [ {
       "type" : "record",
       "name" : "DataJobKey",
@@ -438,9 +438,10 @@
             "name" : "AzkabanJobType",
             "namespace" : "com.linkedin.datajob.azkaban",
             "doc" : "The various types of support azkaban jobs",
-            "symbols" : [ "COMMAND", "HADOOP_JAVA", "HADOOP_SHELL", "HIVE", "PIG", "SQL" ],
+            "symbols" : [ "COMMAND", "HADOOP_JAVA", "HADOOP_SHELL", "HIVE", "PIG", "SQL", "GLUE" ],
             "symbolDocs" : {
               "COMMAND" : "The command job type is one of the basic built-in types. It runs multiple UNIX commands using java processbuilder.\nUpon execution, Azkaban spawns off a process to run the command.",
+              "GLUE" : "Glue type is for running AWS Glue job transforms.",
               "HADOOP_JAVA" : "Runs a java program with ability to access Hadoop cluster.\nhttps://azkaban.readthedocs.io/en/latest/jobTypes.html#java-job-type",
               "HADOOP_SHELL" : "In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster\nsecurely, via Hadoop tokens.",
               "HIVE" : "Hive type is for running Hive jobs.",
@@ -549,8 +550,31 @@
       "type" : "com.linkedin.common.GlobalTags",
       "doc" : "List of global tags applied to the chart",
       "optional" : true
+    }, {
+      "name" : "editableProperties",
+      "type" : {
+        "type" : "record",
+        "name" : "EditableDataJobProperties",
+        "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+        "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+        "fields" : [ {
+          "name" : "description",
+          "type" : "string",
+          "doc" : "Edited documentation of the data job ",
+          "optional" : true,
+          "Searchable" : {
+            "fieldName" : "editedDescription",
+            "fieldType" : "TEXT"
+          }
+        } ],
+        "Aspect" : {
+          "name" : "editableDataJobProperties"
+        }
+      },
+      "doc" : "Editable properties",
+      "optional" : true
     } ]
-  }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", "com.linkedin.datajob.azkaban.AzkabanJobType", {
+  }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.datajob.azkaban.AzkabanJobType", {
     "type" : "typeref",
     "name" : "DataJobAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -585,7 +609,7 @@
       "Aspect" : {
         "name" : "dataJobKey"
       }
-    }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+    }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
   }, "com.linkedin.metadata.key.DataJobKey", {
     "type" : "record",
     "name" : "AggregationMetadata",

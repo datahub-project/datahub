@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: linkedin/datahub-mae-consumer
   pullPolicy: Always
-  tag: v0.8.1
+  tag: v0.8.3
 
 imagePullSecrets: []
 nameOverride: ""
@@ -145,6 +145,7 @@ readinessProbe:
   failureThreshold: 8
 
 global:
+  graph_service_impl: neo4j
   datahub_analytics_enabled: true
 
   elasticsearch:

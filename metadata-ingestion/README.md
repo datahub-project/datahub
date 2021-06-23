@@ -290,7 +290,7 @@ source:
     password: pass
     host_port: localhost:1433
     database: DemoDatabase
-    include_views: True
+    include_views: True # whether to include views, defaults to True
     table_pattern:
       deny:
         - "^.*\\.sys_.*" # deny all tables that start with sys_
@@ -327,6 +327,7 @@ source:
     password: pass
     host_port: localhost:1433
     database: DemoDatabase
+    include_views: True # whether to include views, defaults to True
     uri_args:
       # See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15
       driver: "ODBC Driver 17 for SQL Server"
@@ -401,6 +402,7 @@ source:
     password: pass
     host_port: localhost:5432
     database: DemoDatabase
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -421,6 +423,7 @@ source:
     password: pass
     host_port: example.something.us-west-2.redshift.amazonaws.com:5439
     database: DemoDatabase
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -442,6 +445,7 @@ source:
     database: db_name
     warehouse: "COMPUTE_WH" # optional
     role: "sysadmin" # optional
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -486,6 +490,7 @@ source:
     host_port: localhost:5432
     database: dbname
     service_name: svc # omit database if using this option
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -526,6 +531,7 @@ source:
     options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
       credentials_path: "/path/to/keyfile.json" # optional
+      include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
 
@@ -550,6 +556,7 @@ source:
     # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
     # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
     work_group: athena_workgroup # "primary"
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
 
@@ -562,18 +569,20 @@ Extracts:
 - List of tables
 - Column types associated with each table
 - Table metadata, such as owner, description and parameters
+- Jobs and their component transformations, data sources, and data sinks
 
 ```yml
 source:
   type: glue
   config:
     aws_region: # aws_region_name, i.e. "eu-west-1"
+    extract_transforms: True # whether to ingest Glue jobs, defaults to True
     env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
-    
+
     # Filtering patterns for databases and tables to scan
     database_pattern: # Optional, to filter databases scanned, same as schema_pattern above.
     table_pattern: # Optional, to filter tables scanned, same as table_pattern above.
-    
+
     # Credentials. If not specified here, these are picked up according to boto3 rules.
     # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
     aws_access_key_id: # Optional.
@@ -625,6 +634,7 @@ source:
     options: {} # same as above
     schema_pattern: {} # same as above
     table_pattern: {} # same as above
+    include_views: True # whether to include views, defaults to True
 ```
 
 ### MongoDB `mongodb`
@@ -759,6 +769,8 @@ Pull metadata from dbt artifacts files:
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
 - load_schemas:
   - Load schemas from dbt catalog file, not necessary when the underlying data platform already has this data.
+- node_type_pattern:
+  - Use this filter to exclude and include node types using allow or deny method
 
 ```yml
 source:
@@ -768,6 +780,11 @@ source:
     catalog_path: "./path/dbt/catalog_file.json"
     target_platform: "postgres" # optional, eg "postgres", "snowflake", etc.
     load_schemas: True or False
+    node_type_pattern: # optional
+      deny:
+        - ^test.*
+      allow:
+        - ^.*
 ```
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
