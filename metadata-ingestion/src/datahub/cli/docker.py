@@ -17,11 +17,13 @@ from datahub.cli.docker_check import (
 )
 from datahub.ingestion.run.pipeline import Pipeline
 
-SIMPLE_QUICKSTART_COMPOSE_FILE = "docker/quickstart/docker-compose.quickstart.yml"
+NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = "docker/quickstart/docker-compose.quickstart.yml"
+ELASTIC_QUICKSTART_COMPOSE_FILE = "docker/quickstart/docker-compose-without-neo4j.quickstart.yml"
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
 GITHUB_BASE_URL = "https://raw.githubusercontent.com/linkedin/datahub/master"
-GITHUB_QUICKSTART_COMPOSE_URL = f"{GITHUB_BASE_URL}/{SIMPLE_QUICKSTART_COMPOSE_FILE}"
+GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = f"{GITHUB_BASE_URL}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
+GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL = f"{GITHUB_BASE_URL}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
 GITHUB_BOOTSTRAP_MCES_URL = f"{GITHUB_BASE_URL}/{BOOTSTRAP_MCES_FILE}"
 
 
@@ -56,6 +58,20 @@ def docker_check_impl() -> None:
 def check() -> None:
     """Check that the Docker containers are healthy"""
     docker_check_impl()
+
+
+def check_neo4j_volume_exists():
+    ps = subprocess.run(['docker', 'volume', 'ls'], check=True, capture_output=True)
+    output = subprocess.run(('grep', '-c', 'datahub_neo4jdata'), input=ps.stdout, capture_output=True)
+
+    results = int(output.stdout.decode("utf-8").split('\n')[0])
+
+    if results > 0:
+        click.echo("Datahub Neo4j volume found, starting with neo4j as graph service")
+        return True
+
+    click.echo("No Datahub Neo4j volume found, starting with elasticsearch as graph service")
+    return False
 
 
 @docker.command()
@@ -110,12 +126,15 @@ def quickstart(
     )  # convert to list from tuple
     if not quickstart_compose_file:
         click.echo("Fetching docker-compose file from GitHub")
+        neo4j_volume_exists = check_neo4j_volume_exists()
         with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp_file:
             path = pathlib.Path(tmp_file.name)
             quickstart_compose_file.append(path)
 
             # Download the quickstart docker-compose file from GitHub.
-            quickstart_download_response = requests.get(GITHUB_QUICKSTART_COMPOSE_URL)
+            quickstart_download_response = requests.get(
+                GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL if check_neo4j_volume_exists else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
+            )
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
 
