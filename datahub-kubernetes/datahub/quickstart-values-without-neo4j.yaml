@@ -4,13 +4,13 @@ datahub-gms:
   enabled: true
   image:
     repository: linkedin/datahub-gms
-    tag: "v0.8.3"
+    tag: "v0.8.1"
 
 datahub-frontend:
   enabled: true
   image:
     repository: linkedin/datahub-frontend-react
-    tag: "v0.8.3"
+    tag: "v0.8.1"
   # Set up ingress to expose react front-end
   ingress:
     enabled: false
@@ -19,31 +19,31 @@ elasticsearchSetupJob:
   enabled: true
   image:
     repository: linkedin/datahub-elasticsearch-setup
-    tag: "v0.8.3"
+    tag: "v0.8.1"
 
 kafkaSetupJob:
   enabled: true
   image:
     repository: linkedin/datahub-kafka-setup
-    tag: "v0.8.3"
+    tag: "v0.8.1"
 
 mysqlSetupJob:
   enabled: true
   image:
     repository: acryldata/datahub-mysql-setup
-    tag: "v0.8.3"
+    tag: "v0.8.1"
 
 datahubUpgrade:
   enabled: true
   image:
     repository: acryldata/datahub-upgrade
-    tag: "v0.8.3"
+    tag: "v0.8.1"
 
 datahub-ingestion-cron:
   enabled: false
 
 global:
-  graph_service_impl: neo4j
+  graph_service_impl: elasticsearch
 
   elasticsearch:
     host: "elasticsearch-master"
@@ -57,14 +57,6 @@ global:
       server: "prerequisites-zookeeper:2181"
     schemaregistry:
       url: "http://prerequisites-cp-schema-registry:8081"
-
-  neo4j:
-    host: "prerequisites-neo4j-community:7474"
-    uri: "bolt://prerequisites-neo4j-community"
-    username: "neo4j"
-    password:
-      secretRef: neo4j-secrets
-      secretKey: neo4j-password
 
   sql:
     datasource:

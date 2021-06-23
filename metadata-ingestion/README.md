@@ -680,6 +680,10 @@ Pull metadata from dbt artifacts files:
 - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
   - This file contains schema data.
   - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
+- [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
+  - This file contains metadata for sources with freshness checks.
+  - We transfer dbt's freshness checks to DataHub's last-modified fields.
+  - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
 - target_platform:
   - The data platform you are enriching with dbt metadata.
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
@@ -694,6 +698,7 @@ source:
   config:
     manifest_path: "./path/dbt/manifest_file.json"
     catalog_path: "./path/dbt/catalog_file.json"
+    sources_path: "./path/dbt/sources_file.json" # (optional, used for freshness checks)
     target_platform: "postgres" # optional, eg "postgres", "snowflake", etc.
     load_schemas: True or False
     node_type_pattern: # optional

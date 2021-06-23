@@ -16,12 +16,15 @@ import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.common.HttpStatus;
+import com.linkedin.restli.common.validation.RestLiDataValidator;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
+import com.linkedin.restli.server.annotations.ValidatorParam;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -39,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.resources.ResourceUtils.*;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
@@ -95,6 +99,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       final Entity entity = _entityService.getEntity(urn, projectedAspects);
       if (entity == null) {
         throw RestliUtils.resourceNotFoundException();
+      } else {
+        validateRecord(entity, HttpStatus.S_500_INTERNAL_SERVER_ERROR);
       }
       return entity;
     });
@@ -116,13 +122,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       return _entityService.getEntities(urns, projectedAspects)
           .entrySet()
           .stream()
+          .peek(entry -> validateRecord(entry.getValue(), HttpStatus.S_500_INTERNAL_SERVER_ERROR))
           .collect(Collectors.toMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
     });
   }
 
   @Action(name = ACTION_INGEST)
   @Nonnull
-  public Task<Void> ingest(@ActionParam(PARAM_ENTITY) @Nonnull Entity entity) throws URISyntaxException {
+  public Task<Void> ingest(@ActionParam(PARAM_ENTITY) @Nonnull Entity entity, @ValidatorParam RestLiDataValidator validator) throws URISyntaxException {
+
+    validateRecord(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
+
     final Set<String> projectedAspects = new HashSet<>(Arrays.asList("browsePaths"));
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(entity.getValue());
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
@@ -144,6 +154,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = ACTION_BATCH_INGEST)
   @Nonnull
   public Task<Void> batchIngest(@ActionParam(PARAM_ENTITIES) @Nonnull Entity[] entities) throws URISyntaxException {
+    for (Entity entity : entities) {
+      validateRecord(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
+    }
+
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
     return RestliUtils.toTask(() -> {
