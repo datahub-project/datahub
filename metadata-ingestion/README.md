@@ -622,8 +622,8 @@ source:
   config:
     base_folder: /path/to/model/files # Where the *.model.lkml and *.view.lkml files are stored.
     connection_to_platform_map: # mapping between connection names in the model files to platform names.
-      my_snowflake_conn: snowflake
-    platform_name: looker_views # Optional, default is "looker_views"
+      connection_name: platform_name # map to platform_name or platform_name.database_name
+    platform_name: "looker" # optional, default is "looker"
     actor: "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
     model_pattern: {}
     view_pattern: {}
