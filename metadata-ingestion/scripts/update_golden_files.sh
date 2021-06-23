@@ -17,6 +17,7 @@ cp tmp/test_dbt_ingest0/dbt_mces.json tests/integration/dbt/dbt_mces_golden.json
 cp tmp/test_glue_ingest0/glue_mces.json tests/unit/glue/glue_mces_golden.json
 cp tmp/test_lookml_ingest0/lookml_mces.json tests/integration/lookml/expected_output.json
 cp tmp/test_looker_ingest0/looker_mces.json tests/integration/looker/expected_output.json
+cp tmp/test_dbt_ingest0/dbt_mces.json tests/integration/dbt/dbt_mces_golden.json
 
 # Print success message.
 set +x
