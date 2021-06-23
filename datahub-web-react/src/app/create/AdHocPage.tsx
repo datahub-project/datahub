@@ -62,13 +62,13 @@ export const AdHocPage = () => {
         if (data.length > 0) {
             // map to array of objects
             const res = data[0].data.map((item) => {
-                return { field_name: item };
+                return { field_name: item, field_description: '' };
             });
             form.setFieldsValue({ fields: res });
         }
     };
     const handleOnRemoveFile = () => {
-        form.setFieldsValue({ fields: [{}] });
+        form.setFieldsValue({ fields: [{ field_description: '' }] });
     };
     return (
         <>
@@ -104,7 +104,7 @@ export const AdHocPage = () => {
                                 <Form
                                     {...layout}
                                     form={form}
-                                    initialValues={{ fields: [{}] }}
+                                    initialValues={{ fields: [{ field_description: '' }] }}
                                     name="dynamic_form_item"
                                     onFinish={onFinish}
                                 >
@@ -231,7 +231,7 @@ export const AdHocPage = () => {
                                                     <Form.Item>
                                                         <Button
                                                             type="dashed"
-                                                            onClick={() => add()}
+                                                            onClick={() => add({ field_description: '' })}
                                                             block
                                                             icon={<PlusOutlined />}
                                                         >
