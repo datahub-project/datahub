@@ -5,12 +5,11 @@ FROM adoptopenjdk/openjdk8:alpine-jre as base
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 RUN apk --no-cache add curl
 
-FROM adoptopenjdk/openjdk8:alpine-slim as prod-build
-RUN apk --no-cache add perl
+FROM openjdk:8 as prod-build
 ARG ENABLE_EMBER="false"
-#RUN apt-get update && apt-get install -y wget \
-#    && wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
-#    && apt-get -y install ./google-chrome-stable_current_amd64.deb
+RUN apt-get update && apt-get install -y wget \
+    && wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
+    && apt-get -y install ./google-chrome-stable_current_amd64.deb
 ENV CI=true
 COPY . datahub-src
 RUN cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} -x test -x yarnLint -x yarnTest --stacktrace --debug \
