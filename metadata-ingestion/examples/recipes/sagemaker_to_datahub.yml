@@ -1,5 +1,5 @@
 source:
-  type: glue
+  type: sagemaker
   config:
     aws_region: "us-west-2"
 

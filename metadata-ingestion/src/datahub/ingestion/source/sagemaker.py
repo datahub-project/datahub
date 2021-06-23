@@ -25,7 +25,7 @@ from datahub.metadata.schema_classes import (
 class SagemakerSourceConfig(AwsSourceConfig):
     @property
     def sagemaker_client(self):
-        return self.get_client("samgemaker")
+        return self.get_client("sagemaker")
 
 
 @dataclass
@@ -178,7 +178,9 @@ class SagemakerSource(Source):
         if "OfflineStoreConfig" in feature_group_details:
 
             # remove S3 prefix (s3://)
-            s3_name = feature_group_details["OfflineStoreConfig"]["S3StorageConfig"]["S3Uri"][5:]
+            s3_name = feature_group_details["OfflineStoreConfig"]["S3StorageConfig"][
+                "S3Uri"
+            ][5:]
 
             if s3_name.endswith("/"):
                 s3_name = s3_name[:-1]
@@ -191,8 +193,12 @@ class SagemakerSource(Source):
                 )
             )
 
-            glue_database = feature_group_details["OfflineStoreConfig"]["DataCatalogConfig"]["Database"]
-            glue_table = feature_group_details["OfflineStoreConfig"]["DataCatalogConfig"]["TableName"]
+            glue_database = feature_group_details["OfflineStoreConfig"][
+                "DataCatalogConfig"
+            ]["Database"]
+            glue_table = feature_group_details["OfflineStoreConfig"][
+                "DataCatalogConfig"
+            ]["TableName"]
 
             full_table_name = f"{node_args['database']}.{node_args['table_name']}"
 
@@ -215,7 +221,10 @@ class SagemakerSource(Source):
 
         # make the MCE and workunit
         mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
-        return MetadataWorkUnit(id=feature["FeatureName"], mce=mce)
+        return MetadataWorkUnit(
+            id=f'{feature_group_details["FeatureGroupName"]}-{feature["FeatureName"]}',
+            mce=mce,
+        )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
@@ -227,7 +236,8 @@ class SagemakerSource(Source):
                 feature_group["FeatureGroupName"]
             )
 
-            for feature in feature_groups
+            for feature in feature_group_details["FeatureDefinitions"]:
+                yield self.get_feature_wu(feature_group_details, feature)
 
             yield self.get_feature_group_wu(feature_group_details)
 
