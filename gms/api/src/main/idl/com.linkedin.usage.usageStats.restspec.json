@@ -43,7 +43,7 @@
         "name" : "duration",
         "type" : "com.linkedin.common.WindowDuration"
       }, {
-        "name" : "range",
+        "name" : "rangeFromEnd",
         "type" : "com.linkedin.usage.UsageTimeRange"
       } ],
       "returns" : "com.linkedin.usage.UsageQueryResult"

@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.types.usage;
 
-import com.linkedin.common.WindowDuration;
-
 import com.linkedin.datahub.graphql.QueryContext;
 
 import com.linkedin.datahub.graphql.UsageStatsKey;
@@ -34,8 +32,7 @@ public class UsageType {
     try {
       return keys.stream().map(key -> {
         try {
-          UsageQueryResult usageQueryResult = _usageClient.getUsageStats(
-              key.getResource(), WindowDuration.valueOf(key.getDuration().toString()), key.getStartTime(), key.getEndTime(), key.getMaxBuckets());
+          UsageQueryResult usageQueryResult = _usageClient.getUsageStats(key.getResource(), key.getRange());
           return DataFetcherResult.<com.linkedin.datahub.graphql.generated.UsageQueryResult>newResult().data(
               UsageQueryResultMapper.map(usageQueryResult)
           ).build();

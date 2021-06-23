@@ -125,7 +125,7 @@
     "name" : "UsageTimeRange",
     "namespace" : "com.linkedin.usage",
     "doc" : " The range of data buckets that should be returned ",
-    "symbols" : [ "LAST_HOUR", "LAST_DAY", "LAST_WEEK", "LAST_MONTH", "LAST_QUARTER", "LAST_YEAR", "ALL" ]
+    "symbols" : [ "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR", "ALL" ]
   }, "com.linkedin.usage.UserUsageCounts" ],
   "schema" : {
     "name" : "usageStats",
@@ -172,7 +172,7 @@
           "name" : "duration",
           "type" : "com.linkedin.common.WindowDuration"
         }, {
-          "name" : "range",
+          "name" : "rangeFromEnd",
           "type" : "com.linkedin.usage.UsageTimeRange"
         } ],
         "returns" : "com.linkedin.usage.UsageQueryResult"
