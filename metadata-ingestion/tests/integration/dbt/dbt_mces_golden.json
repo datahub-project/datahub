@@ -185,7 +185,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
@@ -269,7 +269,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
@@ -303,6 +303,21 @@
                                     }
                                 },
                                 "nativeDataType": "numeric",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null
+                            },
+                            {
+                                "fieldPath": "name",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "character varying(129)",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null
@@ -478,7 +493,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
@@ -527,6 +542,53 @@
                                     }
                                 },
                                 "nativeDataType": "text",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null
+                            },
+                            {
+                                "fieldPath": "emails",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": null
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "text[]",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null
+                            },
+                            {
+                                "fieldPath": "cost",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "money",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null
+                            },
+                            {
+                                "fieldPath": "native",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "some native type",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null
@@ -672,7 +734,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
@@ -821,7 +883,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
@@ -970,7 +1032,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
@@ -1119,7 +1181,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
@@ -1268,7 +1330,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
@@ -1417,7 +1479,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
@@ -1611,7 +1673,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
@@ -1805,7 +1867,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
@@ -1924,7 +1986,7 @@
                                 "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
                                 "nativeDataType": "timestamp with time zone",
