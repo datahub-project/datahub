@@ -15,7 +15,9 @@ make a sample dataset:
 
 the api will return a string containing the url if successful.
 
-
+note:
+inside datahub/datahub-web-react/src/conf/Adhoc.ts:
+change to `const config = 'http://localhost:8001/make_dataset';`
 
 
 
