@@ -163,7 +163,7 @@ def quickstart(
         # Attempt to run docker-compose up every minute.
         if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
             click.echo()
-            subprocess.run(base_command + ["up", "-d"])
+            subprocess.run(base_command + ["up", "-d", "--remove-orphans"])
             up_attempts += 1
 
         # Check docker health every few seconds.
