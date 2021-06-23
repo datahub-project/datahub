@@ -29,6 +29,8 @@ from tests.test_helpers import mce_helpers
         "tests/unit/serde/test_serde_large.json",
         # Ensure correct representation of chart info's input list.
         "tests/unit/serde/test_serde_chart_snapshot.json",
+        # Check usage stats as well.
+        "tests/unit/serde/test_serde_usage.json",
     ],
 )
 def test_serde_to_json(
@@ -94,6 +96,8 @@ def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
         "tests/unit/serde/test_serde_large.json",
         # Check for backwards compatability with specifying all union types.
         "tests/unit/serde/test_serde_backwards_compat.json",
+        # Usage stats.
+        "tests/unit/serde/test_serde_usage.json",
         # Ensure sample MCE files are valid.
         "examples/mce_files/single_mce.json",
         "examples/mce_files/mce_list.json",
