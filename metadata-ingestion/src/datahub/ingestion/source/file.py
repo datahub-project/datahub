@@ -51,10 +51,11 @@ class GenericFileSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
-        for i, obj in enumerate(iterate_mce_file(self.config.filename)):
+        for i, obj in enumerate(iterate_generic_file(self.config.filename)):
             if not obj.validate():
                 raise ValueError(f"failed to parse: {obj} (index {i})")
 
+            wu: Union[MetadataWorkUnit, UsageStatsWorkUnit]
             if isinstance(obj, UsageAggregationClass):
                 wu = UsageStatsWorkUnit(f"file://{self.config.filename}:{i}", obj)
             else:
