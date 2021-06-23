@@ -37,9 +37,12 @@ export function fieldPathSortAndParse(
     inputFields?: Array<SchemaField>,
     pastInputFields?: Array<SchemaField>,
     isEditMode = true,
-): Array<ExtendedSchemaFields> {
+): { fields: Array<ExtendedSchemaFields>; added: number; removed: number; updated: number } {
     let fields = [...(inputFields || [])] as Array<ExtendedSchemaFields>;
     const pastFields = [...(pastInputFields || [])] as Array<ExtendedSchemaFields>;
+    let added = 0;
+    let removed = 0;
+    let updated = 0;
 
     if (!isEditMode && pastFields.length > 0) {
         fields.forEach((field, rowIndex) => {
@@ -47,18 +50,22 @@ export function fieldPathSortAndParse(
                 (pf) => pf.type === fields[rowIndex].type && pf.fieldPath === fields[rowIndex].fieldPath,
             );
             if (relevantPastFieldIndex > -1) {
-                fields[rowIndex] = {
-                    ...fields[rowIndex],
-                    pastDescription: pastFields[relevantPastFieldIndex].description,
-                    pastGlobalTags: pastFields[relevantPastFieldIndex].globalTags,
-                };
+                if (pastFields[relevantPastFieldIndex].description !== fields[rowIndex].description) {
+                    fields[rowIndex] = {
+                        ...fields[rowIndex],
+                        pastDescription: pastFields[relevantPastFieldIndex].description,
+                    };
+                    updated++;
+                }
                 pastFields.splice(relevantPastFieldIndex, 1);
             } else {
                 fields[rowIndex] = { ...fields[rowIndex], isNewRow: true };
+                added++;
             }
         });
         if (pastFields.length > 0) {
             fields = [...fields, ...pastFields.map((pf) => ({ ...pf, isDeletedRow: true }))];
+            removed = pastFields.length;
         }
     }
 
@@ -89,7 +96,7 @@ export function fieldPathSortAndParse(
         }
     }
 
-    return fields;
+    return { fields, added, removed, updated };
 }
 
 export function diffMarkdown(oldStr: string, newStr: string) {

@@ -50,7 +50,7 @@ query getDataset($urn: String!) {
                 }
             }
         }
-        schemaMetadata {
+        schemaMetadata(version: 0) {
             ...schemaMetadataFields
         }
         pastSchemaMetadata: schemaMetadata(version: -1) {
