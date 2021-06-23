@@ -57,6 +57,11 @@ sql_common = {
     "sqlalchemy==1.3.24",
 }
 
+aws_common = {
+    # AWS Python SDK
+    "boto3"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -72,7 +77,7 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
-    "glue": {"boto3"},
+    "glue": aws_common,
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
@@ -89,6 +94,7 @@ plugins: Dict[str, Set[str]] = {
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    "sagemaker": aws_common,
     "snowflake": sql_common | {"snowflake-sqlalchemy"},
     "superset": {"requests"},
 }
