@@ -77,11 +77,3 @@ class AwsSourceConfig(ConfigModel):
             )
         else:
             return boto3.client(service, region_name=self.aws_region)
-
-    @property
-    def glue_client(self):
-        return self.get_client("glue")
-
-    @property
-    def s3_client(self):
-        return self.get_client("s3")

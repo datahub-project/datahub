@@ -50,6 +50,14 @@ class GlueSourceConfig(AwsSourceConfig):
 
     extract_transforms: Optional[bool] = True
 
+    @property
+    def glue_client(self):
+        return self.get_client("glue")
+
+    @property
+    def s3_client(self):
+        return self.get_client("s3")
+
 
 @dataclass
 class GlueSourceReport(SourceReport):
