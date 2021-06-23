@@ -4,7 +4,6 @@ import com.linkedin.common.urn.UrnValidator;
 import com.linkedin.data.schema.validation.ValidateDataAgainstSchema;
 import com.linkedin.data.schema.validation.ValidationOptions;
 import com.linkedin.data.schema.validation.ValidationResult;
-import com.linkedin.data.schema.validator.DataSchemaAnnotationValidator;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
@@ -27,10 +26,11 @@ public class ResourceUtils {
         record,
         DEFAULT_VALIDATION_OPTIONS,
         URN_VALIDATOR);
-    if (!result.isValid())
-    {
+    if (!result.isValid()) {
       throw new RestLiServiceException(status, result.getMessages().toString());
     }
   }
+
+  private ResourceUtils() { }
 
 }
