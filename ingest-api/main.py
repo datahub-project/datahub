@@ -1,13 +1,13 @@
 import uvicorn
 from fastapi import FastAPI
-from typing import Optional, List
+from typing import Optional, List, Union
 from typing_extensions import TypedDict
 from pydantic import BaseModel, validator
 from helper.mce_convenience import delete_mce, make_schema_mce, make_dataset_urn, \
                     make_user_urn, make_dataset_description_mce, recover_mce, \
                     make_browsepath_mce, make_ownership_mce, make_platform, get_sys_time 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from string import ascii_letters, digits
+
 
 import logging
 from logging.handlers import TimedRotatingFileHandler
@@ -40,9 +40,9 @@ app = FastAPI(title="Datahub secret API",
     version="0.0.1",)
 
 @app.get("/hello")
-async def recover_item() -> None:
+async def hello_world() -> None:
     """
-    Just a hello world to ensure that the api is running. 
+    Just a hello world endpoint to ensure that the api is running. 
     """
     ## how to check that this dataset exist? - curl to GMS? 
     rootLogger.info("hello world called")
@@ -50,45 +50,55 @@ async def recover_item() -> None:
 
 
 class FieldParam(TypedDict):
-    name: str
-    type: str
-    description: Optional[str]
+    field_name: str
+    field_type: str
+    field_description: Optional[str]
 
 class create_dataset_params(BaseModel):
     dataset_name: str 
     dataset_type: str 
-    fields: List[FieldParam] 
-    owner: str
-    description: Optional[str]     
-    
+    dataset_fields: List[FieldParam] 
+    dataset_owner: str
+    dataset_description: Union[None,str]     
+    dataset_location: Union[None,str]
+    dataset_origin: Union[None,str]
+
     class Config:
         schema_extra = {
             "example": {
                 "dataset_name": "name of dataset",
-                "dataset_type": "csv",
-                "description": "What this dataset is about...",
-                "owner": "12345",
-                "fields": [{
-                    "name": "columnA",
-                    "type": "string",
-                    "description": "what is column A about"
+                "dataset_type": "text/csv",
+                "dataset_description": "What this dataset is about...",
+                "dataset_owner": "12345",
+                "dataset_location": "the file can be found here @...",
+                "dataset_origin": "this dataset found came from... ie internet",
+                "dataset_fields": [{
+                    "field_name": "columnA",
+                    "field_type": "string",
+                    "field_description": "what is column A about"
                 },
                 {
-                    "name": "columnB",
-                    "type": "num",
-                    "description": "what is column B about"
+                    "field_name": "columnB",
+                    "field_type": "num",
+                    "field_description": "what is column B about"
                 }
                 ]
             }
         }
-    @validator('dataset_name')
-    def dataset_name_alphanumeric(cls, v):
-        assert len(set(v).difference(ascii_letters+digits+' '))==0, 'dataset_name must be alphanumeric/space character only'
-        return v
-    @validator('dataset_type')
-    def dataset_type_alphanumeric(cls, v):
-        assert v.isalpha(), 'dataset_type must be alphabetical string only'
-        return v
+    # @validator('dataset_name')
+    # def dataset_name_alphanumeric(cls, v):
+    #     assert len(set(v).difference(ascii_letters+digits+' -_/\\'))==0, 'dataset_name must be alphanumeric/space character only'
+    #     return v
+    # @validator('dataset_type')
+    # def dataset_type_alphanumeric(cls, v):
+    #     assert v.isalpha(), 'dataset_type must be alphabetical string only'
+    #     return v
+
+def determine_type(type_string:str) -> str:
+    if type_string.lower()=='text/csv':
+        return 'csv'
+    else:
+        return 'new_undefined_type'
 
 @app.post("/make_dataset")
 async def create_item(item: create_dataset_params) -> None:
@@ -96,35 +106,44 @@ async def create_item(item: create_dataset_params) -> None:
     This endpoint is meant for manually defined or parsed file datasets.
     """
     rootLogger.info("make_dataset_request_received {}".format(item))
-    item.dataset_type = item.dataset_type.lower()
+    item.dataset_type = determine_type(item.dataset_type)
+    rootLogger.debug("type ok {}".format(item.dataset_type))
     item.dataset_name = "{}_{}".format(item.dataset_name,str(get_sys_time()))
     datasetName = make_dataset_urn(item.dataset_type, item.dataset_name)
     platformName = make_platform(item.dataset_type)        
     browsePath = "/{}/{}".format(item.dataset_type, item.dataset_name) 
     #not sure what happens when multiple different datasets all lead to the same browsepath, probably disaster.    
-    requestor = make_user_urn(item.owner)
-
-    all_mce=[]
-    if item.description:
+    requestor = make_user_urn(item.dataset_owner)
+    rootLogger.debug("defined")
+    try:
+        properties = {"dataset_origin": item.dict().get("dataset_origin", ""), "dataset_location": item.dict().get("dataset_location", "")}
+        
+        all_mce=[]
+        dataset_description = item.dataset_description if item.dataset_description else ""
         all_mce.append(make_dataset_description_mce(dataset_name = datasetName,
-                                                    description = item.description))
-    all_mce.append(make_ownership_mce(actor = requestor, 
-                                        dataset_urn = datasetName))
-    all_mce.append(make_browsepath_mce(dataset_urn=datasetName, 
-                                        path=[browsePath]))
-    for field in item.fields:
-        field["fieldPath"] = field.pop("name")
-    all_mce.append(make_schema_mce(dataset_urn = datasetName,
-                                    platformName = platformName,
-                                    actor = requestor,
-                                    fields = item.fields,
-                                    ))
-    emitter = DatahubRestEmitter(rest_endpoint)
+                                                    description = item.dataset_description, 
+                                                    customProperties=properties))
+        rootLogger.debug("properties ok")
+        all_mce.append(make_ownership_mce(actor = requestor, 
+                                            dataset_urn = datasetName))
+        all_mce.append(make_browsepath_mce(dataset_urn=datasetName, 
+                                            path=[browsePath]))
+        for field in item.dataset_fields:
+            field["fieldPath"] = field.pop("field_name")
+        all_mce.append(make_schema_mce(dataset_urn = datasetName,
+                                        platformName = platformName,
+                                        actor = requestor,
+                                        fields = item.dataset_fields,
+                                        ))
+        rootLogger.debug("all mce ok")
+        emitter = DatahubRestEmitter(rest_endpoint)
 
-    for mce in all_mce:
-        emitter.emit_mce(mce)   
-    emitter._session.close()
-    rootLogger.info("make_dataset_request_completed_for {} requested_by {}".format(item.dataset_name, item.owner))      
+        for mce in all_mce:
+            emitter.emit_mce(mce)   
+        emitter._session.close()
+    except Exception as e:
+        rootLogger.debug(e)
+    rootLogger.info("make_dataset_request_completed_for {} requested_by {}".format(item.dataset_name, item.dataset_owner))      
     return "dataset can be found at {}/dataset/{}".format(datahub_url, make_dataset_urn(item.dataset_type, item.dataset_name))
 
 

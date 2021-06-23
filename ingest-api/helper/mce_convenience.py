@@ -104,6 +104,25 @@ def make_browsepath_mce(
     ))
     return mce
 
+# def make_properties_mce(
+#     dataset_urn: str,
+#     path:List[str],        
+# ) -> MetadataChangeEventClass:
+#     """
+#     Creates browsepath for dataset. By default, if not specified, Datahub assigns it to /prod/platform/datasetname    
+#     """
+#     sys_time = get_sys_time()
+#     mce = MetadataChangeEventClass(
+#         proposedSnapshot=DatasetSnapshotClass(
+#         urn=dataset_urn,
+#         aspects=[
+#                 DatasetPropertiesClass(
+#                     paths = path            
+#                 )                
+#             ],    
+#     ))
+#     return mce
+
 def make_lineage_mce(
     upstream_urns: List[str],
     downstream_urn: str,
@@ -143,7 +162,8 @@ def make_dataset_description_mce(
     dataset_name: str,
     description: str,
     externalUrl: str = None, 
-    tags: List[str] = []
+    tags: List[str] = [],
+    customProperties: Optional[Dict[str, str]]=None
 ) -> MetadataChangeEventClass:
     """
     Tags and externalUrl doesnt seem to have any impact on UI. 
@@ -155,6 +175,7 @@ def make_dataset_description_mce(
                 DatasetPropertiesClass(
                     description=description,
                     externalUrl = externalUrl,
+                    customProperties = customProperties
 #                    tags = [make_tag_urn(tag) for tag in tags]
                 )
             ],
@@ -171,7 +192,7 @@ def make_schema_mce(
     sys_time = get_sys_time()
     
     for item in fields:
-        item["type"] = {"bool":  BooleanTypeClass(), 
+        item["field_type"] = {"bool":  BooleanTypeClass(), 
                         "fixed": FixedTypeClass(), 
                         "string":StringTypeClass(),
                         "byte":  BytesTypeClass(),
@@ -184,7 +205,7 @@ def make_schema_mce(
                         "array": ArrayTypeClass(),
                         "union": UnionTypeClass(),
                         "record":RecordTypeClass()
-                        }.get(item["type"])           
+                        }.get(item["field_type"])           
         
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
@@ -203,7 +224,7 @@ def make_schema_mce(
                 hash ="",
                 platformSchema = OtherSchemaClass(rawSchema=""),                
                 fields = [SchemaFieldClass(fieldPath=item["fieldPath"], 
-                                            type=SchemaFieldDataTypeClass(type=item["type"]), 
+                                            type=SchemaFieldDataTypeClass(type=item["field_type"]), 
                                             nativeDataType=item.get("nativeType",""),
                                             description=item.get("description",""),
                                             nullable=item.get('nullable', None)) for item in fields],
