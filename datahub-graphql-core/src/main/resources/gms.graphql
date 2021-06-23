@@ -172,14 +172,6 @@ type Query {
     Fetch a GlossaryTerm by primary key
     """
     glossaryTerm(urn: String!): GlossaryTerm
-
-    usageStats(
-        resource: String!,
-        duration: WindowDuration,
-        endTime: Long
-        startTime: Long
-        maxBuckets: Int
-    ): UsageQueryResult
 }
 
 type Mutation {
@@ -318,6 +310,14 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured glossary terms associated with the dataset
     """
     glossaryTerms: GlossaryTerms
+
+    usageStats(
+        resource: String!,
+        duration: WindowDuration,
+        endTime: Long
+        startTime: Long
+        maxBuckets: Int
+    ): UsageQueryResult
 }
 
 type GlossaryTerm implements Entity {
