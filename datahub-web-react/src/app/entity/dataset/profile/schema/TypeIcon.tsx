@@ -77,6 +77,10 @@ type Props = {
 
 export default function TypeIcon({ type, nativeDataType }: Props) {
     const { icon: Icon, size, text } = DATA_TYPE_ICON_MAP[type];
+
+    // if unable to match type to DataHub, display native type info by default
+    const nativeFallback = type === SchemaFieldDataType.Null;
+
     // eslint-disable-next-line react/prop-types
     const NativeDataTypeTooltip = ({ children }) =>
         nativeDataType ? (
@@ -92,7 +96,7 @@ export default function TypeIcon({ type, nativeDataType }: Props) {
             <TypeIconContainer data-testid={`icon-${type}`}>
                 {Icon && <Icon style={{ fontSize: size }} />}
                 <TypeSubtitle type="secondary" hasicon={Icon ? 'yes' : undefined}>
-                    {text}
+                    {nativeFallback ? nativeDataType : text}
                 </TypeSubtitle>
             </TypeIconContainer>
         </NativeDataTypeTooltip>

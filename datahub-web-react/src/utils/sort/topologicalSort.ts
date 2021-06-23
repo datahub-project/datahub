@@ -6,6 +6,7 @@ function topologicalSortHelper(
     explored: Set<string>,
     result: Array<EntityRelationship>,
     urnsArray: Array<string>,
+    nodes: Array<EntityRelationship>,
 ) {
     if (!node.entity?.urn) {
         return;
@@ -16,11 +17,14 @@ function topologicalSortHelper(
         .filter((entity) => entity?.entity?.urn && urnsArray.includes(entity?.entity?.urn))
         .forEach((n) => {
             if (n?.entity?.urn && !explored.has(n?.entity?.urn)) {
-                topologicalSortHelper(n, explored, result, urnsArray);
+                topologicalSortHelper(n, explored, result, urnsArray, nodes);
             }
         });
     if (urnsArray.includes(node?.entity?.urn)) {
-        result.push(node);
+        const fullyFetchedEntity = nodes.find((n) => n?.entity?.urn === node?.entity?.urn);
+        if (fullyFetchedEntity) {
+            result.push(fullyFetchedEntity);
+        }
     }
 }
 
@@ -34,7 +38,7 @@ export function topologicalSort(input: Array<EntityRelationship | null>) {
         .map((node) => node.entity?.urn) as Array<string>;
     nodes.forEach((node) => {
         if (node.entity?.urn && !explored.has(node.entity?.urn)) {
-            topologicalSortHelper(node, explored, result, urnsArray);
+            topologicalSortHelper(node, explored, result, urnsArray, nodes);
         }
     });
 

@@ -485,12 +485,14 @@ Extracts:
 - List of tables
 - Column types associated with each table
 - Table metadata, such as owner, description and parameters
+- Jobs and their component transformations, data sources, and data sinks
 
 ```yml
 source:
   type: glue
   config:
     aws_region: # aws_region_name, i.e. "eu-west-1"
+    extract_transforms: True # whether to ingest Glue jobs, defaults to True
     env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
 
     # Filtering patterns for databases and tables to scan
@@ -683,8 +685,8 @@ Pull metadata from dbt artifacts files:
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
 - load_schemas:
   - Load schemas from dbt catalog file, not necessary when the underlying data platform already has this data.
-- node_type_pattern: 
-  - Use this filter to exclude and include node types using allow or deny method  
+- node_type_pattern:
+  - Use this filter to exclude and include node types using allow or deny method
 
 ```yml
 source:
@@ -698,7 +700,7 @@ source:
       deny:
         - ^test.*
       allow:
-        - ^.*    
+        - ^.*
 ```
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
