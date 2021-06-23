@@ -5,6 +5,7 @@ from tests.test_helpers import mce_helpers
 def test_dbt_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
 
+    # test manifest, catalog, sources are generated from https://github.com/kevinhu/sample-dbt
     pipeline = Pipeline.create(
         {
             "run_id": "dbt-test",
@@ -13,6 +14,7 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time):
                 "config": {
                     "manifest_path": f"{test_resources_dir}/dbt_manifest.json",
                     "catalog_path": f"{test_resources_dir}/dbt_catalog.json",
+                    "sources_path": f"{test_resources_dir}/dbt_sources.json",
                     "target_platform": "dbt",
                     "load_schemas": True,
                 },

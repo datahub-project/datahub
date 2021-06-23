@@ -1,10 +1,9 @@
 import collections
 import dataclasses
-import enum
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Any, Counter, Dict, Iterable, List, Optional, Union
 
 import cachetools
@@ -12,15 +11,14 @@ import pydantic
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import UsageStatsWorkUnit
+from datahub.ingestion.source.usage_common import BaseUsageConfig, get_time_bucket
 from datahub.metadata.schema_classes import (
     UsageAggregationClass,
     UsageAggregationMetricsClass,
     UserUsageCountsClass,
-    WindowDurationClass,
 )
 from datahub.utilities.delayed_iter import delayed_iter
 
@@ -65,28 +63,6 @@ timestamp >= "{start_time}"
 AND
 timestamp <= "{end_time}"
 """.strip()
-
-
-@enum.unique
-class _BucketDuration(str, enum.Enum):
-    DAY = WindowDurationClass.DAY
-    HOUR = WindowDurationClass.HOUR
-
-
-def get_time_bucket(original: datetime, bucketing: _BucketDuration) -> datetime:
-    """Floors the timestamp to the closest day or hour."""
-
-    if bucketing == _BucketDuration.HOUR:
-        return original.replace(minute=0, second=0, microsecond=0)
-    else:  # day
-        return original.replace(hour=0, minute=0, second=0, microsecond=0)
-
-
-def get_bucket_duration_delta(bucketing: _BucketDuration) -> timedelta:
-    if bucketing == _BucketDuration.HOUR:
-        return timedelta(hours=1)
-    else:  # day
-        return timedelta(days=1)
 
 
 @dataclass(frozen=True, order=True)
@@ -249,30 +225,12 @@ class AggregatedDataset:
     columnFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
 
 
-class BigQueryUsageConfig(ConfigModel):
+class BigQueryUsageConfig(BaseUsageConfig):
     project_id: Optional[str] = None
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
 
-    # start_time and end_time will be populated by the validators.
-    bucket_duration: _BucketDuration = _BucketDuration.DAY
-    end_time: datetime = None  # type: ignore
-    start_time: datetime = None  # type: ignore
-
     query_log_delay: pydantic.PositiveInt = 100
-    top_n_queries: Optional[pydantic.PositiveInt] = 10
-
-    @pydantic.validator("end_time", pre=True, always=True)
-    def default_end_time(cls, v, *, values, **kwargs):
-        return v or get_time_bucket(
-            datetime.now(tz=timezone.utc), values["bucket_duration"]
-        )
-
-    @pydantic.validator("start_time", pre=True, always=True)
-    def default_start_time(cls, v, *, values, **kwargs):
-        return v or (
-            values["end_time"] - get_bucket_duration_delta(values["bucket_duration"])
-        )
 
 
 @dataclass
