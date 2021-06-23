@@ -120,7 +120,13 @@
       },
       "doc" : "Aggregated metrics. All fields are optional here, since they will be populated\nonly if the underlying buckets contain the data required to generate that aggregation."
     } ]
-  }, "com.linkedin.usage.UsageQueryResultAggregations", "com.linkedin.usage.UserUsageCounts" ],
+  }, "com.linkedin.usage.UsageQueryResultAggregations", {
+    "type" : "enum",
+    "name" : "UsageTimeRange",
+    "namespace" : "com.linkedin.usage",
+    "doc" : " The range of data buckets that should be returned ",
+    "symbols" : [ "LAST_HOUR", "LAST_DAY", "LAST_WEEK", "LAST_MONTH", "LAST_QUARTER", "LAST_YEAR", "ALL" ]
+  }, "com.linkedin.usage.UserUsageCounts" ],
   "schema" : {
     "name" : "usageStats",
     "namespace" : "com.linkedin.usage",
@@ -155,6 +161,19 @@
           "name" : "maxBuckets",
           "type" : "int",
           "optional" : true
+        } ],
+        "returns" : "com.linkedin.usage.UsageQueryResult"
+      }, {
+        "name" : "queryRange",
+        "parameters" : [ {
+          "name" : "resource",
+          "type" : "string"
+        }, {
+          "name" : "duration",
+          "type" : "com.linkedin.common.WindowDuration"
+        }, {
+          "name" : "range",
+          "type" : "com.linkedin.usage.UsageTimeRange"
         } ],
         "returns" : "com.linkedin.usage.UsageQueryResult"
       } ],
