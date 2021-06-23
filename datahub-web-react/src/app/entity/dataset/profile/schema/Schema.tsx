@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { Button, InputNumber, Typography } from 'antd';
+import { Button, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 import { Message } from '../../../../shared/Message';
@@ -30,32 +30,15 @@ const ViewRawButtonContainer = styled.div<{ padding?: string }>`
 `;
 
 const ShowVersionButton = styled(Button)`
+    margin-right: 10px;
+`;
+const PaginationContainer = styled(Pagination)`
+    padding-top: 5px;
     margin-right: 15px;
 `;
-const InputNumberContainer = styled(InputNumber)`
-    margin: 0 0 0 3px;
-    width: 30px;
-    & input {
-        padding: 0;
-        font-weight: bold;
-        padding-top: 2px;
-    }
-    & .ant-input-number-handler-wrap {
-        background: transparent;
-    }
-`;
-const VersionText = styled(Typography.Text)`
-    line-height: 32px;
-`;
-const VersionRightText = styled(Typography.Text)`
-    margin-left: 3px;
-    margin-right: 20px;
-    line-height: 32px;
-`;
 const SummaryContainer = styled.ul`
+    margin-top: -32px;
     margin-bottom: 16px;
-    float: right;
-    padding-right: 60px;
 `;
 
 export function convertEditableSchemaMetadataForUpdate(
@@ -91,12 +74,12 @@ export default function SchemaView({
     const [showRaw, setShowRaw] = useState(false);
     const [diffSummary, setDiffSummary] = useState({ added: 0, removed: 0, updated: 0 });
     const [showVersions, setShowVersions] = useState(false);
-    const [currentVersion, setCurrentVersion] = useState(0);
+    const totalVersions = pastSchemaMetadata?.aspectVersion || 0;
+    const [currentVersion, setCurrentVersion] = useState(totalVersions);
     const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
     const [getSchemaVersions, { loading, error, data: schemaVersions }] = useGetDatasetSchemaVersionsLazyQuery({
         fetchPolicy: 'no-cache',
     });
-    const totalVersions = pastSchemaMetadata?.aspectVersion || 0;
     const updateDiff = useCallback(
         (newFields?: Array<SchemaField>, oldFields?: Array<SchemaField>) => {
             const { fields, added, removed, updated } = fieldPathSortAndParse(newFields, oldFields, !showVersions);
@@ -183,27 +166,20 @@ export default function SchemaView({
     };
 
     const onVersionChange = (version) => {
-        if (version <= -totalVersions) {
-            setCurrentVersion(-totalVersions + 1);
-            return;
-        }
-        if (version > 0) {
-            setCurrentVersion(0);
-            return;
-        }
+        console.log('version--', version);
         if (version === null) {
             return;
         }
         setCurrentVersion(version);
-        if (version === 0) {
+        if (version === totalVersions) {
             updateDiff(schema?.fields, pastSchemaMetadata?.fields);
             return;
         }
         getSchemaVersions({
             variables: {
                 urn,
-                version1: version,
-                version2: version - 1,
+                version1: version - totalVersions,
+                version2: version - totalVersions - 1,
             },
         });
     };
@@ -220,23 +196,20 @@ export default function SchemaView({
                             <ShowVersionButton
                                 onClick={() => {
                                     setShowVersions(false);
-                                    setCurrentVersion(0);
+                                    setCurrentVersion(totalVersions);
                                 }}
                             >
                                 Back
                             </ShowVersionButton>
-                            <VersionText>Comparing version</VersionText>
-                            <InputNumberContainer
-                                autoFocus
-                                bordered={false}
-                                min={-totalVersions + 1}
-                                max={0}
-                                step={1}
-                                value={currentVersion}
+                            <PaginationContainer
+                                simple
+                                size="default"
+                                defaultCurrent={totalVersions}
+                                defaultPageSize={1}
+                                total={totalVersions}
                                 onChange={onVersionChange}
+                                current={currentVersion}
                             />
-                            <VersionText> to version </VersionText>
-                            <VersionRightText strong>{` ${currentVersion - 1}`}</VersionRightText>
                         </>
                     ))}
                 {schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0 && (
@@ -258,7 +231,9 @@ export default function SchemaView({
                         {showVersions && (
                             <SummaryContainer>
                                 <li>
-                                    <Typography.Text>{`minimum version is ${-totalVersions}`}</Typography.Text>
+                                    <Typography.Text>{`Comparing version ${currentVersion} to version ${
+                                        currentVersion - 1
+                                    }`}</Typography.Text>
                                 </li>
                                 {diffSummary.added ? (
                                     <li>
