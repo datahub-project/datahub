@@ -384,7 +384,7 @@ class LookMLSource(Source):  # pragma: no cover
         platform = self._get_platform_based_on_connection(connection)
 
         if "." in platform:
-            platform_name, database_name = platform.lower().split(".")
+            platform_name, database_name = platform.lower().split(".", maxsplit=1)
             sql_table_name = f"{database_name}.{sql_table_name}".lower()
         else:
             platform_name = platform.lower()
