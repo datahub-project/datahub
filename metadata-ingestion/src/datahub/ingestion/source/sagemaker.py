@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import List
+from typing import Any, Dict, List
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -41,7 +41,7 @@ class GlueSource(Source):
         config = SagemakerSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_all_feature_groups(self):
+    def get_all_feature_groups(self) -> List[Dict[str, Any]]:
         """
         List all feature groups in SageMaker.
         """
@@ -54,3 +54,26 @@ class GlueSource(Source):
             feature_groups += page["FeatureGroupSummaries"]
 
         return feature_groups
+
+    def get_feature_group_details(self, feature_group_name: str) -> Dict[str, Any]:
+        """
+        Get details of a feature group (including list of component features).
+        """
+
+        feature_group = self.sagemaker_client.describe_feature_group(
+            FeatureGroupName=feature_group_name
+        )
+
+        next_token = feature_group.get("NextToken")
+
+        # paginate over feature group features
+        while next_token is not None:
+            next_features = self.sagemaker_client.describe_feature_group(
+                FeatureGroupName=feature_group_name, NextToken=next_token
+            )
+            feature_group["FeatureDefinitions"].append(
+                next_features["FeatureDefinitions"]
+            )
+            next_token = feature_group.get("NextToken")
+
+        return feature_group
