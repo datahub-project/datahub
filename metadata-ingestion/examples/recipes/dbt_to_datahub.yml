@@ -2,11 +2,11 @@
 source:
   type: "dbt"
   config:
-    manifest_path: "./your/dbt/manifest.json"
-    catalog_path: "./your/dbt/catalog.json"
-    target_platform: "[target data platform]"
-    load_schemas: True # or false
+    manifest_path: "./tests/integration/dbt/dbt_manifest.json"
+    catalog_path: "./tests/integration/dbt/dbt_catalog.json"
+    target_platform: "dbt"
+    load_schemas: True # or False
 sink:
   type: "datahub-rest"
   config:
-    server: 'http://localhost:8080'
+    server: "http://localhost:8080"
