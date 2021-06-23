@@ -9,6 +9,7 @@ import { AvatarsGroup } from '../../../shared/avatar';
 import CompactContext from '../../../shared/CompactContext';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 import UpdatableDescription from '../../shared/UpdatableDescription';
+import UsageFacepile from './UsageFacepile';
 
 export type Props = {
     dataset: Dataset;
@@ -19,15 +20,17 @@ const HeaderInfoItem = styled.div`
     display: inline-block;
     text-align: left;
     width: 125px;
+    vertical-align: top;
 `;
 
 const HeaderInfoItems = styled.div`
     display: inline-block;
     margin-top: -16px;
+    vertical-align: top;
 `;
 
 export default function DatasetHeader({
-    dataset: { urn, type, description: originalDesc, ownership, deprecation, platform, editableProperties },
+    dataset: { urn, type, description: originalDesc, ownership, deprecation, platform, editableProperties, usageStats },
     updateDataset,
 }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -46,26 +49,32 @@ export default function DatasetHeader({
                         </div>
                         <Typography.Text style={{ fontSize: 16 }}>{platformName}</Typography.Text>
                     </HeaderInfoItem>
-                    <HeaderInfoItem>
-                        <div>
-                            <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
-                                Queries / week
-                            </Typography.Text>
-                        </div>
-                        <span>
-                            <Typography.Text style={{ fontSize: 16 }}>13.6k</Typography.Text>
-                        </span>
-                    </HeaderInfoItem>
-                    <HeaderInfoItem>
-                        <div>
-                            <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
-                                Users / week
-                            </Typography.Text>
-                        </div>
-                        <span>
-                            <Typography.Text style={{ fontSize: 16 }}>370</Typography.Text>
-                        </span>
-                    </HeaderInfoItem>
+                    {usageStats?.aggregations?.totalSqlQueries && (
+                        <HeaderInfoItem>
+                            <div>
+                                <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
+                                    Queries / week
+                                </Typography.Text>
+                            </div>
+                            <span>
+                                <Typography.Text style={{ fontSize: 16 }}>
+                                    {usageStats?.aggregations?.totalSqlQueries}
+                                </Typography.Text>
+                            </span>
+                        </HeaderInfoItem>
+                    )}
+                    {(usageStats?.aggregations?.users?.length || 0) > 0 && (
+                        <HeaderInfoItem>
+                            <div>
+                                <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
+                                    Top Users
+                                </Typography.Text>
+                            </div>
+                            <div>
+                                <UsageFacepile users={usageStats?.aggregations?.users} />
+                            </div>
+                        </HeaderInfoItem>
+                    )}
                 </HeaderInfoItems>
                 <UpdatableDescription
                     isCompact={isCompact}

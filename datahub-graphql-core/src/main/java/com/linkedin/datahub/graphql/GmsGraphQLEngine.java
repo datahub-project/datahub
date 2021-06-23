@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
+import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
@@ -270,7 +271,6 @@ public class GmsGraphQLEngine {
                     new LoadableTypeResolver<>(
                             GLOSSARY_TERM_TYPE,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
-            .dataFetcher("usageStats", new AuthenticatedResolver<>(new UsageTypeResolver()))
         );
     }
 
@@ -306,7 +306,8 @@ public class GmsGraphQLEngine {
                                     UPSTREAM_LINEAGE_TYPE,
                                     (env) -> ((Entity) env.getSource()).getUrn()))
                     )
-                    .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
+                .dataFetcher("usageStats", new AuthenticatedResolver<>(new UsageTypeResolver()))
+                .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
                         new AspectResolver())
                     )
             )
@@ -316,6 +317,13 @@ public class GmsGraphQLEngine {
                                     OWNER_TYPES,
                                     (env) -> ((Owner) env.getSource()).getOwner()))
                     )
+            )
+            .type("UserUsageCounts", typeWiring -> typeWiring
+                .dataFetcher("user", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                        CORP_USER_TYPE,
+                        (env) -> ((UserUsageCounts) env.getSource()).getUser().getUrn()))
+                )
             )
             .type("RelatedDataset", typeWiring -> typeWiring
                     .dataFetcher("dataset", new AuthenticatedResolver<>(
@@ -567,7 +575,7 @@ public class GmsGraphQLEngine {
             try {
                 return USAGE_TYPE.batchLoad(keys, context.getContext());
             } catch (Exception e) {
-                throw new RuntimeException(String.format("Failed to retrieve entities of type Aspect", e));
+                throw new RuntimeException(String.format("Failed to retrieve usage stats", e));
             }
         }), loaderOptions);
     }

@@ -10,7 +10,7 @@ mutation updateDataset($input: DatasetUpdateInput!) {
     }
 }
 
-query getDataset($urn: String!) {
+query getDataset($urn: String!, $endTime: Long) {
     dataset(urn: $urn) {
         urn
         name
@@ -108,6 +108,30 @@ query getDataset($urn: String!) {
         }
         upstreamLineage {
             ...upstreamRelationshipFields
+        }
+        usageStats(resource: $urn, duration: DAY, endTime: $endTime, maxBuckets: 10) {
+            buckets {
+                bucket
+                duration
+                resource
+                metrics {
+                    uniqueUserCount
+                    totalSqlQueries
+                    topSqlQueries
+                }
+            }
+            aggregations {
+                uniqueUserCount
+                totalSqlQueries
+                users {
+                    user {
+                        urn
+                        username
+                    }
+                    count
+                    userEmail
+                }
+            }
         }
     }
 }
