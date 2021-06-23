@@ -14,6 +14,7 @@ import com.linkedin.usage.UsageAggregation;
 import com.linkedin.usage.UsageAggregationArray;
 import com.linkedin.usage.UsageQueryResult;
 import com.linkedin.usage.UsageQueryResultAggregations;
+import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
 import com.linkedin.util.Pair;
@@ -23,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -42,6 +44,9 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     private static final String PARAM_START_TIME = "startTime";
     private static final String PARAM_END_TIME = "endTime";
     private static final String PARAM_MAX_BUCKETS = "maxBuckets";
+
+    private static final String ACTION_QUERY_RANGE = "queryRange";
+    private static final String PARAM_RANGE = "range";
 
     @Inject
     @Named("usageService")
@@ -125,10 +130,48 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         });
     }
 
+    @Action(name = ACTION_QUERY_RANGE)
+    @Nonnull
+    public Task<UsageQueryResult> queryRange(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
+                                        @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration,
+                                        @ActionParam(PARAM_RANGE) UsageTimeRange range) {
+        final long now = Instant.now().toEpochMilli();
+        return this.query(resource, duration, convertRangeToStartTime(range, now), now, null);
+    }
 
     private void ingest(@Nonnull UsageAggregation bucket) {
         // TODO attempt to resolve users into emails
         _usageService.upsertDocument(bucket);
+    }
+
+    @Nonnull
+    Long convertRangeToStartTime(@Nonnull UsageTimeRange range, long currentEpochMillis) {
+        // TRICKY: since start_time must be before the bucket's start, we actually
+        // need to subtract extra from the current time to ensure that we get precisely
+        // what we're looking for. Note that start_time and end_time are both inclusive,
+        // so we must also do an off-by-one adjustment.
+        final long oneHourMillis = 60 * 60 * 1000;
+        final long oneDayMillis = 24 * oneHourMillis;
+
+        if (range == UsageTimeRange.LAST_HOUR) {
+            return currentEpochMillis - (2 * oneHourMillis + 1);
+        } else if (range == UsageTimeRange.LAST_DAY) {
+            return currentEpochMillis - (2 * oneDayMillis + 1);
+        } else if (range == UsageTimeRange.LAST_WEEK) {
+            return currentEpochMillis - (8 * oneDayMillis + 1);
+        } else if (range == UsageTimeRange.LAST_MONTH) {
+            // Assuming month is last 30 days.
+            return currentEpochMillis - (31 * oneDayMillis + 1);
+        } else if (range == UsageTimeRange.LAST_QUARTER) {
+            // Assuming a quarter is 91 days.
+            return currentEpochMillis - (92 * oneDayMillis + 1);
+        } else if (range == UsageTimeRange.LAST_YEAR) {
+            return currentEpochMillis - (366 * oneDayMillis + 1);
+        } else if (range == UsageTimeRange.ALL) {
+            return 0L;
+        } else {
+            throw new IllegalArgumentException("invalid UsageTimeRange enum state: " + range.name());
+        }
     }
 
 }

@@ -243,7 +243,7 @@ public class ElasticUsageService implements UsageService {
         } else if (duration == WindowDuration.HOUR) {
             return 60 * 60 * 1000;
         } else {
-            throw new IllegalArgumentException("invalid WindowDuration enum state");
+            throw new IllegalArgumentException("invalid WindowDuration enum state: " + duration.name());
         }
     }
 

@@ -34,6 +34,19 @@
         "optional" : true
       } ],
       "returns" : "com.linkedin.usage.UsageQueryResult"
+    }, {
+      "name" : "queryRange",
+      "parameters" : [ {
+        "name" : "resource",
+        "type" : "string"
+      }, {
+        "name" : "duration",
+        "type" : "com.linkedin.common.WindowDuration"
+      }, {
+        "name" : "range",
+        "type" : "com.linkedin.usage.UsageTimeRange"
+      } ],
+      "returns" : "com.linkedin.usage.UsageQueryResult"
     } ],
     "entity" : {
       "path" : "/usageStats"
