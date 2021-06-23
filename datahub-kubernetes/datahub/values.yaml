@@ -58,7 +58,7 @@ datahubUpgrade:
     tag: "v0.8.3"
 
 global:
-
+  graph_service_impl: neo4j
   datahub_analytics_enabled: true
   datahub_standalone_consumers_enabled: false
 

@@ -33,7 +33,7 @@ services:
     - ELASTIC_CLIENT_HOST=elasticsearch
     - ELASTIC_CLIENT_PORT=9200
     hostname: datahub-frontend-react
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-latest}
     ports:
     - 9002:9002
   datahub-gms:
@@ -51,15 +51,11 @@ services:
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
-    - NEO4J_HOST=http://neo4j:7474
-    - NEO4J_URI=bolt://neo4j
-    - NEO4J_USERNAME=neo4j
-    - NEO4J_PASSWORD=datahub
-    - GRAPH_SERVICE_IMPL=neo4j
+    - GRAPH_SERVICE_IMPL=elasticsearch
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     hostname: datahub-gms
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
     mem_limit: 850m
     ports:
     - 8080:8080
@@ -83,16 +79,6 @@ services:
     - 9200:9200
     volumes:
     - esdata:/usr/share/elasticsearch/data
-  elasticsearch-setup:
-    container_name: elasticsearch-setup
-    depends_on:
-    - elasticsearch
-    environment:
-    - ELASTICSEARCH_HOST=elasticsearch
-    - ELASTICSEARCH_PORT=9200
-    - ELASTICSEARCH_PROTOCOL=http
-    hostname: elasticsearch-setup
-    image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
   kafka-setup:
     container_name: kafka-setup
     depends_on:
@@ -102,7 +88,7 @@ services:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     hostname: kafka-setup
-    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
+    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-latest}
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     container_name: mysql
@@ -130,19 +116,6 @@ services:
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
     image: acryldata/datahub-mysql-setup:head
-  neo4j:
-    container_name: neo4j
-    environment:
-    - NEO4J_AUTH=neo4j/datahub
-    - NEO4J_dbms_default__database=graph.db
-    - NEO4J_dbms_allow__upgrade=true
-    hostname: neo4j
-    image: neo4j:4.0.6
-    ports:
-    - 7474:7474
-    - 7687:7687
-    volumes:
-    - neo4jdata:/data
   schema-registry:
     container_name: schema-registry
     depends_on:
@@ -170,5 +143,4 @@ version: '2'
 volumes:
   esdata: null
   mysqldata: null
-  neo4jdata: null
   zkdata: null
