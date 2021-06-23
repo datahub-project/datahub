@@ -57,7 +57,7 @@ datahubUpgrade:
     repository: acryldata/datahub-upgrade
     tag: "v0.8.3"
   noCodeDataMigration:
-    sqlDbType: "MY_SQL"
+    sqlDbType: "MYSQL"
 
 global:
 

@@ -83,7 +83,7 @@ Execute
 ./docker/datahub-upgrade.sh -u NoCodeDataMigration -a dbType=POSTGRES
 ```
 
-where dbType can be either `MY_SQL`, `MARIA`, `POSTGRES`.
+where dbType can be either `MYSQL`, `MARIA`, `POSTGRES`.
 
 #### Docker Compose Deployments - Lose All Existing Data
 

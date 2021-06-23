@@ -12,7 +12,7 @@ public class CreateAspectTableStep implements UpgradeStep {
   private static final String DB_TYPE_ARG = "dbType";
 
   enum DbType {
-    MY_SQL,
+    MYSQL,
     POSTGRES,
     MARIA
   }
@@ -39,7 +39,7 @@ public class CreateAspectTableStep implements UpgradeStep {
 
       DbType targetDbType = context.parsedArgs().containsKey(DB_TYPE_ARG)
           ? DbType.valueOf(context.parsedArgs().get(DB_TYPE_ARG).get())
-          : DbType.MY_SQL;
+          : DbType.MYSQL;
 
       String sqlUpdateStr;
 
