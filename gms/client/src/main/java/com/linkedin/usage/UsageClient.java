@@ -1,10 +1,10 @@
 package com.linkedin.usage;
 
 import com.linkedin.common.EntityRelationships;
+
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.ActionRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.server.annotations.Optional;
 import java.net.URISyntaxException;
@@ -32,15 +32,23 @@ public class UsageClient extends BaseClient {
         @Nullable @Optional Integer maxBuckets
         ) throws RemoteInvocationException, URISyntaxException {
 
-        final ActionRequest<UsageQueryResult> request = USAGE_STATS_REQUEST_BUILDERS.
+        final UsageStatsDoQueryRequestBuilder request = USAGE_STATS_REQUEST_BUILDERS.
            actionQuery()
             .resourceParam(resource)
-            .durationParam(duration)
-            .startTimeParam(startTime)
-            .endTimeParam(endTime)
-            .maxBucketsParam(maxBuckets)
-            .build();
+            .durationParam(duration);
 
-        return _client.sendRequest(request).getResponseEntity();
+        if (startTime != null) {
+          request.startTimeParam(startTime);
+        }
+
+        if (endTime != null) {
+            request.endTimeParam(endTime);
+        }
+
+        if (maxBuckets != null) {
+            request.maxBucketsParam(maxBuckets);
+        }
+
+        return _client.sendRequest(request.build()).getResponseEntity();
     }
 }

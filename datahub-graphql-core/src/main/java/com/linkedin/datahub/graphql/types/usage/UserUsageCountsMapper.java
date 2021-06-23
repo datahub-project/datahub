@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.types.usage;
 
 import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.generated.UsageQueryResultAggregations;
+
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;

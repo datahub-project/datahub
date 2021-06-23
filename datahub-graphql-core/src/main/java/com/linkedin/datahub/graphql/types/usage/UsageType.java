@@ -1,12 +1,11 @@
 package com.linkedin.datahub.graphql.types.usage;
 
 import com.linkedin.common.WindowDuration;
+
 import com.linkedin.datahub.graphql.QueryContext;
 
 import com.linkedin.datahub.graphql.UsageStatsKey;
 import com.linkedin.datahub.graphql.VersionedAspectKey;
-import com.linkedin.datahub.graphql.generated.Aspect;
-import com.linkedin.datahub.graphql.types.aspect.AspectMapper;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageQueryResult;
@@ -29,7 +28,9 @@ public class UsageType {
    * @param keys to retrieve
    * @param context the {@link QueryContext} corresponding to the request.
    */
-  public List<DataFetcherResult<com.linkedin.datahub.graphql.generated.UsageQueryResult>> batchLoad(@Nonnull List<UsageStatsKey> keys, @Nonnull QueryContext context) throws Exception {
+  public List<DataFetcherResult<com.linkedin.datahub.graphql.generated.UsageQueryResult>> batchLoad(
+      @Nonnull List<UsageStatsKey> keys, @Nonnull QueryContext context
+  ) throws Exception {
     try {
       return keys.stream().map(key -> {
         try {

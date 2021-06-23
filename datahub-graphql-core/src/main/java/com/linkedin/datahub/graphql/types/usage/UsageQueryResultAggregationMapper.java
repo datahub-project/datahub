@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.usage;
 
-import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.generated.UsageQueryResultAggregations;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import java.util.stream.Collectors;
@@ -21,9 +20,12 @@ public class UsageQueryResultAggregationMapper implements
     UsageQueryResultAggregations result = new UsageQueryResultAggregations();
     result.setTotalSqlQueries(pdlUsageResultAggregations.getTotalSqlQueries());
     result.setUniqueUserCount(pdlUsageResultAggregations.getUniqueUserCount());
-    result.setUsers(pdlUsageResultAggregations.getUsers().stream().map(
-        aggregation -> UserUsageCountsMapper.map(aggregation)
-    ).collect(Collectors.toList()));
+    if (pdlUsageResultAggregations.hasUsers()) {
+      result.setUsers(pdlUsageResultAggregations.getUsers()
+          .stream()
+          .map(aggregation -> UserUsageCountsMapper.map(aggregation))
+          .collect(Collectors.toList()));
+    }
     return result;
   }
 }
