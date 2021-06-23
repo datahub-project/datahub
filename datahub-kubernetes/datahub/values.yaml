@@ -56,6 +56,8 @@ datahubUpgrade:
   image:
     repository: acryldata/datahub-upgrade
     tag: "v0.8.3"
+  noCodeDataMigration:
+    sqlDbType: "MYSQL"
 
 global:
   graph_service_impl: neo4j
