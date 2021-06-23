@@ -27,7 +27,7 @@ export const AdHocPage = () => {
             span: 6,
         },
         wrapperCol: {
-            span: 12,
+            span: 14,
         },
     };
     const user = useGetAuthenticatedUser();
@@ -198,14 +198,8 @@ export const AdHocPage = () => {
                                                             >
                                                                 <Select
                                                                     showSearch
-                                                                    style={{ width: 200 }}
+                                                                    style={{ width: 150 }}
                                                                     placeholder="Select field type"
-                                                                    optionFilterProp="children"
-                                                                    filterOption={(input, option) =>
-                                                                        option?.children
-                                                                            .toLowerCase()
-                                                                            .indexOf(input.toLowerCase()) >= 0
-                                                                    }
                                                                 >
                                                                     <Option value="num">Number</Option>
                                                                     <Option value="string">String</Option>
@@ -223,9 +217,14 @@ export const AdHocPage = () => {
                                                                     },
                                                                 ]}
                                                             >
-                                                                <Input placeholder="Field Description" />
+                                                                <Input
+                                                                    style={{ width: 200 }}
+                                                                    placeholder="Field Description"
+                                                                />
                                                             </Form.Item>
-                                                            <MinusCircleOutlined onClick={() => remove(name)} />
+                                                            {fields.length > 1 ? (
+                                                                <MinusCircleOutlined onClick={() => remove(name)} />
+                                                            ) : null}
                                                         </Space>
                                                     ))}
                                                     <Form.Item>
