@@ -28,7 +28,7 @@ workflows:
     jobs:
       - gradle/deliver:
           <<: *branch-filter
-          name: deliver/dev
+          name: deliver/devs
           docker: *orb_docker_gradle
           env: dev
           region: tokyo
