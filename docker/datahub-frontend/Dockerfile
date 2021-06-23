@@ -5,7 +5,8 @@ FROM adoptopenjdk/openjdk8:alpine-jre as base
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 RUN apk --no-cache add curl
 
-FROM openjdk:8 as prod-build
+FROM adoptopenjdk/openjdk8:alpine-slim as prod-build
+RUN apk --no-cache add perl
 ARG ENABLE_EMBER="false"
 #RUN apt-get update && apt-get install -y wget \
 #    && wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
