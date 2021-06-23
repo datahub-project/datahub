@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y wget \
     && apt-get -y install ./google-chrome-stable_current_amd64.deb
 ENV CI=true
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} -x test -x yarnLint -x yarnTest --stacktrace --debug \
+RUN cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} \
     && cp datahub-frontend/build/distributions/datahub-frontend.zip ../datahub-frontend.zip \
     && cd .. && rm -rf datahub-src && unzip datahub-frontend.zip
 
