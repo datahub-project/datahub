@@ -45,6 +45,8 @@ GET           /authenticate                                                   re
 POST          /logIn                                                          react.controllers.AuthenticationController.logIn()
 GET           /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
 POST          /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
+GET           /logOut                                                         @org.pac4j.play.LogoutController.logout()
+GET           /centralLogout                                                  controllers.CentralLogoutController.logout()
 
 # Data fetching in React
 POST          /api/v2/graphql                                                 react.controllers.GraphQLController.execute()
@@ -57,6 +59,10 @@ GET           /assets/*file                                                   co
 
 # Analytics route
 POST          /track                                                          react.controllers.TrackingController.track()
+
+# Adhoc creation route
+GET          /create                                                          react.controllers.AdhocController.create()
+POST          /create                                                          react.controllers.AdhocController.create()
 
 # Wildcard route accepts any routes and delegates to serveAsset which in turn serves the Ember client
 GET           /*path                                                          controllers.Application.index(path)
