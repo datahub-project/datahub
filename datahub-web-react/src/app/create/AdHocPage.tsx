@@ -18,7 +18,7 @@ const Title = styled(Typography.Text)`
 `;
 
 export const AdHocPage = () => {
-    const [fileType, setFileType] = useState({ type: 'application/octet-stream' });
+    const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
     const [form] = Form.useForm();
     const { Option } = Select;
     const layout = {
@@ -29,12 +29,6 @@ export const AdHocPage = () => {
             span: 12,
         },
     };
-    const tailLayout = {
-        wrapperCol: {
-            offset: 6,
-            span: 10,
-        },
-    };
     const printSuccessMsg = (status) => {
         message.success(`Status:${status} - Request submitted successfully`, 3).then();
     };
@@ -43,7 +37,7 @@ export const AdHocPage = () => {
     };
     const onFinish = (values) => {
         console.log('Received values of form:', values);
-        const finalValue = { ...values, type: fileType };
+        const finalValue = { ...values, dataset_type: fileType };
         console.log('Received finalValue:', finalValue);
         // POST request using axios with error handling
         axios
@@ -52,6 +46,10 @@ export const AdHocPage = () => {
             .catch((error) => {
                 printErrorMsg(error.toString());
             });
+    };
+    const onReset = () => {
+        // todo: remove csv file also
+        form.resetFields();
     };
     const handleOnFileLoad = (data, fileInfo) => {
         console.log('data:', data);
@@ -62,17 +60,13 @@ export const AdHocPage = () => {
         if (data.length > 0) {
             // map to array of objects
             const res = data[0].data.map((item) => {
-                return { fieldName: item };
+                return { field_name: item };
             });
             form.setFieldsValue({ fields: res });
         }
     };
     const handleOnRemoveFile = () => {
         form.setFieldsValue({ fields: [{}] });
-    };
-    const onReset = () => {
-        // todo: remove csv file also
-        form.resetFields();
     };
     return (
         <>
@@ -104,6 +98,7 @@ export const AdHocPage = () => {
                                     your own dataset
                                 </Title>
                                 <br />
+                                <br />
                                 <Form
                                     {...layout}
                                     form={form}
@@ -116,13 +111,15 @@ export const AdHocPage = () => {
                                         addRemoveButton
                                         onRemoveFile={handleOnRemoveFile}
                                     >
-                                        <span>Click to upload.</span>
+                                        <span>
+                                            Click here to parse your file header (CSV or delimited text file only)
+                                        </span>
                                     </CSVReader>
                                     <Divider dashed orientation="left">
                                         Dataset Info
                                     </Divider>
                                     <Form.Item
-                                        name="datasetName"
+                                        name="dataset_name"
                                         label="Dataset Name"
                                         rules={[
                                             {
@@ -134,7 +131,7 @@ export const AdHocPage = () => {
                                         <Input />
                                     </Form.Item>
                                     <Form.Item
-                                        name="datasetDescription"
+                                        name="dataset_description"
                                         label="Dataset Description"
                                         rules={[
                                             {
@@ -145,7 +142,31 @@ export const AdHocPage = () => {
                                     >
                                         <Input />
                                     </Form.Item>
-                                    <Form.Item label="Dataset Fields" name="fields">
+                                    <Form.Item
+                                        name="dataset_origin"
+                                        label="Dataset Origin"
+                                        rules={[
+                                            {
+                                                required: false,
+                                                message: 'Missing dataset origin',
+                                            },
+                                        ]}
+                                    >
+                                        <Input />
+                                    </Form.Item>
+                                    <Form.Item
+                                        name="dataset_location"
+                                        label="Dataset Location"
+                                        rules={[
+                                            {
+                                                required: false,
+                                                message: 'Missing dataset location',
+                                            },
+                                        ]}
+                                    >
+                                        <Input />
+                                    </Form.Item>
+                                    <Form.Item label="Dataset Fields" name="dataset_fields">
                                         <Form.List {...layout} name="fields">
                                             {(fields, { add, remove }) => (
                                                 <>
@@ -157,8 +178,8 @@ export const AdHocPage = () => {
                                                         >
                                                             <Form.Item
                                                                 {...restField}
-                                                                name={[name, 'fieldName']}
-                                                                fieldKey={[fieldKey, 'fieldName']}
+                                                                name={[name, 'field_name']}
+                                                                fieldKey={[fieldKey, 'field_name']}
                                                                 rules={[
                                                                     { required: true, message: 'Missing field name' },
                                                                 ]}
@@ -167,8 +188,8 @@ export const AdHocPage = () => {
                                                             </Form.Item>
                                                             <Form.Item
                                                                 {...restField}
-                                                                name={[name, 'fieldType']}
-                                                                fieldKey={[fieldKey, 'fieldType']}
+                                                                name={[name, 'field_type']}
+                                                                fieldKey={[fieldKey, 'field_type']}
                                                                 rules={[
                                                                     { required: true, message: 'Missing field type' },
                                                                 ]}
@@ -184,15 +205,15 @@ export const AdHocPage = () => {
                                                                             .indexOf(input.toLowerCase()) >= 0
                                                                     }
                                                                 >
-                                                                    <Option value="Integer">Integer</Option>
-                                                                    <Option value="String">String</Option>
-                                                                    <Option value="Boolean">Boolean</Option>
+                                                                    <Option value="num">Number</Option>
+                                                                    <Option value="string">String</Option>
+                                                                    <Option value="bool">Boolean</Option>
                                                                 </Select>
                                                             </Form.Item>
                                                             <Form.Item
                                                                 {...restField}
-                                                                name={[name, 'fieldDescription']}
-                                                                fieldKey={[fieldKey, 'fieldDescription']}
+                                                                name={[name, 'field_description']}
+                                                                fieldKey={[fieldKey, 'field_description']}
                                                                 rules={[
                                                                     {
                                                                         required: false,
@@ -218,14 +239,14 @@ export const AdHocPage = () => {
                                                 </>
                                             )}
                                         </Form.List>
-                                    </Form.Item>
-                                    <Form.Item {...tailLayout}>
-                                        <Button type="primary" htmlType="submit">
-                                            Submit
-                                        </Button>
-                                        <Button htmlType="button" onClick={onReset}>
-                                            Reset
-                                        </Button>
+                                        <Space>
+                                            <Button type="primary" htmlType="submit">
+                                                Submit
+                                            </Button>
+                                            <Button htmlType="button" onClick={onReset}>
+                                                Reset
+                                            </Button>
+                                        </Space>
                                     </Form.Item>
                                 </Form>
                             </Content>
