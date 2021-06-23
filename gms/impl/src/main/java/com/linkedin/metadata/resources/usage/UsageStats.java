@@ -46,7 +46,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     private static final String PARAM_MAX_BUCKETS = "maxBuckets";
 
     private static final String ACTION_QUERY_RANGE = "queryRange";
-    private static final String PARAM_RANGE = "range";
+    private static final String PARAM_RANGE = "rangeFromEnd";
 
     @Inject
     @Named("usageService")
@@ -153,19 +153,19 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         final long oneHourMillis = 60 * 60 * 1000;
         final long oneDayMillis = 24 * oneHourMillis;
 
-        if (range == UsageTimeRange.LAST_HOUR) {
+        if (range == UsageTimeRange.HOUR) {
             return currentEpochMillis - (2 * oneHourMillis + 1);
-        } else if (range == UsageTimeRange.LAST_DAY) {
+        } else if (range == UsageTimeRange.DAY) {
             return currentEpochMillis - (2 * oneDayMillis + 1);
-        } else if (range == UsageTimeRange.LAST_WEEK) {
+        } else if (range == UsageTimeRange.WEEK) {
             return currentEpochMillis - (8 * oneDayMillis + 1);
-        } else if (range == UsageTimeRange.LAST_MONTH) {
+        } else if (range == UsageTimeRange.MONTH) {
             // Assuming month is last 30 days.
             return currentEpochMillis - (31 * oneDayMillis + 1);
-        } else if (range == UsageTimeRange.LAST_QUARTER) {
+        } else if (range == UsageTimeRange.QUARTER) {
             // Assuming a quarter is 91 days.
             return currentEpochMillis - (92 * oneDayMillis + 1);
-        } else if (range == UsageTimeRange.LAST_YEAR) {
+        } else if (range == UsageTimeRange.YEAR) {
             return currentEpochMillis - (366 * oneDayMillis + 1);
         } else if (range == UsageTimeRange.ALL) {
             return 0L;

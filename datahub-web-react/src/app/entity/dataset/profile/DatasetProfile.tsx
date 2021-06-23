@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Alert } from 'antd';
 import {
     useGetDatasetQuery,
@@ -37,9 +37,8 @@ const EMPTY_ARR: never[] = [];
  */
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const currentTimestamp = useMemo(() => +new Date(), []);
 
-    const { loading, error, data } = useGetDatasetQuery({ variables: { urn, endTime: currentTimestamp } });
+    const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
 
     const user = useGetAuthenticatedUser();
     const [updateDataset] = useUpdateDatasetMutation({
