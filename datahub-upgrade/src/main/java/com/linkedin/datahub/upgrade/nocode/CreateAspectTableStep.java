@@ -48,7 +48,7 @@ public class CreateAspectTableStep implements UpgradeStep {
           sqlUpdateStr = "CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (\n"
               + "  urn                           varchar(500) not null,\n"
               + "  aspect                        varchar(200) not null,\n"
-              + "  version                       bigint(20) not null,\n"
+              + "  version                       bigint not null,\n"
               + "  metadata                      text not null,\n"
               + "  systemmetadata                text,\n"
               + "  createdon                     timestamp not null,\n"
