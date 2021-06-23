@@ -13,7 +13,7 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 #todo - to refactor the classes here into additional modules when it gets unwieldy
 #env file, ie for pointing to the GMS rest endpoint.
 #can run from command line without using container, by using python main.py. however, the ports need changing.
-DEBUG = True
+DEBUG = False
 datahub_url = "http://localhost:9002"
 api_emitting_port = 80 if not DEBUG else 8001
 rest_endpoint = "http://datahub-gms:8080" if not DEBUG else "http://localhost:8080" 
@@ -88,7 +88,7 @@ async def create_item(item: create_dataset_params) -> None:
     for existing_field in item.fields:
         current_field={}
         current_field.update(existing_field.dict())          
-        current_field["FieldParam"] = current_field.pop("field_name")
+        current_field["fieldPath"]  = current_field.pop("field_name")
         if "field_description" not in current_field:
             current_field["field_description"] = ""
         field_params.append(current_field)

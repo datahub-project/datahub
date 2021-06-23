@@ -226,7 +226,7 @@ def make_schema_mce(
                 fields = [SchemaFieldClass(fieldPath=item["fieldPath"], 
                                             type=SchemaFieldDataTypeClass(type=item["field_type"]), 
                                             nativeDataType=item.get("nativeType",""),
-                                            description=item.get("description",""),
+                                            description=item.get("field_description",""),
                                             nullable=item.get('nullable', None)) for item in fields],
                 primaryKeys = primaryKeys, #no visual impact in UI
                 foreignKeysSpecs = None,                 

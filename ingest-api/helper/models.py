@@ -10,7 +10,7 @@ class FieldParam(BaseModel):
 class create_dataset_params(BaseModel):
     dataset_name: str 
     dataset_type: Union[str, Dict[str,str]] 
-    dataset_fields: List[FieldParam] 
+    fields: List[FieldParam] 
     dataset_owner: str = "no_owner"
     dataset_description: str = None     
     dataset_location: str = None
