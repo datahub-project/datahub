@@ -1,0 +1,55 @@
+version: 2.1
+
+orbs:
+  gradle: smartnews/gradle@1
+
+orb_dockers:
+  gradle: &orb_docker_gradle 165463520094.dkr.ecr.ap-northeast-1.amazonaws.com/circleci-orbs/gradle:8.0-1
+
+workflow_filters:
+  branch-filter: &branch-filter
+    filters:
+      branches:
+        ignore:
+          - master
+  master-filter: &master-filter
+    filters:
+      branches:
+        only: master
+
+workflows:
+  build:
+    jobs:
+      - gradle/build:
+          <<: *branch-filter
+          name: build
+          docker: *orb_docker_gradle
+  deliver:
+    jobs:
+      - gradle/deliver:
+          <<: *branch-filter
+          name: deliver/dev
+          docker: *orb_docker_gradle
+          env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+parameters:
+  workflow_main:
+    type: boolean
+    default: true
+  workflow_terraform:
+    type: boolean
+    default: false
+  env:
+    type: string
+    default: ""
+  region:
+    type: string
+    default: ""
+  system:
+    type: string
+    default: ""
+  path:
+    type: string
+    default: ""
