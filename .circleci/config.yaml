@@ -27,7 +27,7 @@ workflows:
   deliver:
     jobs:
       - gradle/deliver:
-          <<: *master-filter
+          <<: *branch-filter
           name: deliver/dev
           docker: *orb_docker_gradle
           env: dev
