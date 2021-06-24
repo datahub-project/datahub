@@ -39,7 +39,15 @@ spec:
       containers:
         - name: datahub-upgrade-job
           image: "{{ .Values.datahubUpgrade.image.repository }}:{{ .Values.datahubUpgrade.image.tag }}"
-          args: [ "-u", "NoCodeDataMigration", "-a", "batchSize=1000", "-a", "batchDelayMs=100" ]
+          args:
+            - "-u"
+            - "NoCodeDataMigration"
+            - "-a"
+            - "batchSize=1000"
+            - "-a"
+            - "batchDelayMs=100"
+            - "-a"
+            - "dbType={{ .Values.datahubUpgrade.noCodeDataMigration.sqlDbType }}"
           env:
             - name: DATAHUB_GMS_HOST
               value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}

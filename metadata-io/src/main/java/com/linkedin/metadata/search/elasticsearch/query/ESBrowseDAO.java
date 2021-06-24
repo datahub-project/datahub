@@ -18,8 +18,10 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +40,6 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.BucketOrder;
 import org.elasticsearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
@@ -212,12 +213,15 @@ public class ESBrowseDAO {
   @Nonnull
   private BrowseResultMetadata extractGroupsResponse(@Nonnull SearchResponse groupsResponse, @Nonnull String path) {
     final ParsedTerms groups = (ParsedTerms) groupsResponse.getAggregations().getAsMap().get("groups");
-    final BrowseResultGroupArray groupsAgg = new BrowseResultGroupArray();
-    for (Terms.Bucket group : groups.getBuckets()) {
-      groupsAgg.add(
-          new BrowseResultGroup().setName(getSimpleName(group.getKeyAsString())).setCount(group.getDocCount()));
-    }
-    return new BrowseResultMetadata().setGroups(groupsAgg)
+    final List<BrowseResultGroup> groupsAgg = groups.getBuckets()
+        .stream()
+        .map(group -> new BrowseResultGroup().setName(getSimpleName(group.getKeyAsString()))
+            .setCount(group.getDocCount()))
+        // Sort by document count desc and then by name
+        .sorted(Comparator.<BrowseResultGroup, Long>comparing(BrowseResultGroup::getCount).reversed()
+            .thenComparing(Comparator.comparing(BrowseResultGroup::getName)))
+        .collect(Collectors.toList());
+    return new BrowseResultMetadata().setGroups(new BrowseResultGroupArray(groupsAgg))
         .setTotalNumEntities(groupsResponse.getHits().getTotalHits().value)
         .setPath(path);
   }
@@ -287,8 +291,7 @@ public class ESBrowseDAO {
   public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
     final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
     final SearchRequest searchRequest = new SearchRequest(indexName);
-    searchRequest.source(
-        new SearchSourceBuilder().query(QueryBuilders.termQuery(URN, urn.toString())));
+    searchRequest.source(new SearchSourceBuilder().query(QueryBuilders.termQuery(URN, urn.toString())));
     final SearchHit[] searchHits;
     try {
       searchHits = client.search(searchRequest, RequestOptions.DEFAULT).getHits().getHits();
