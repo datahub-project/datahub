@@ -67,6 +67,16 @@ workflows:
           target: mce-consumer
   deliver-prd:
     jobs:
+      - approve:
+          <<: *master-filter
+          name: approve/release
+          type: approval
+      - gradle/release:
+          <<: *master-filter
+          name: release
+          docker: *orb_docker_gradle
+          requires:
+            - approve/release
       - gradle/deliver:
           <<: *master-filter
           name: deliver/prd/gms
@@ -76,6 +86,8 @@ workflows:
           cluster: spaas_sn
           system: data-catalogue
           target: gms
+          requires:
+            - release
       - gradle/deliver:
           <<: *master-filter
           name: deliver/prd/frontend
@@ -85,6 +97,8 @@ workflows:
           cluster: spaas_sn
           system: data-catalogue
           target: frontend
+          requires:
+            - release
       - gradle/deliver:
           <<: *master-filter
           name: deliver/prd/mae-consumer
@@ -94,6 +108,8 @@ workflows:
           cluster: spaas_sn
           system: data-catalogue
           target: mae-consumer
+          requires:
+            - release
       - gradle/deliver:
           <<: *master-filter
           name: deliver/prd/mce-consumer
@@ -103,6 +119,8 @@ workflows:
           cluster: spaas_sn
           system: data-catalogue
           target: mce-consumer
+          requires:
+            - release
 parameters:
   workflow_main:
     type: boolean
