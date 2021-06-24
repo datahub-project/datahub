@@ -83,10 +83,9 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
-              "description": null,
+              "description": "First test feature group",
               "mlFeatures": [
                 "urn:li:mlFeature:(test-1,name)",
-                "urn:li:mlFeature:(test-1,id)",
                 "urn:li:mlFeature:(test-1,height)",
                 "urn:li:mlFeature:(test-1,time)"
               ],
@@ -167,7 +166,6 @@
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
               "description": null,
               "mlFeatures": [
-                "urn:li:mlFeature:(test,feature_1)",
                 "urn:li:mlFeature:(test,feature_2)",
                 "urn:li:mlFeature:(test,feature_3)"
               ],

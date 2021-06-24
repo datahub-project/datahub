@@ -114,12 +114,15 @@ class SagemakerSource(Source):
 
         feature_group_snapshot.aspects.append(
             MLFeatureTablePropertiesClass(
+                description=feature_group_details.get("Description"),
                 mlFeatures=[
                     builder.make_ml_feature_urn(
                         feature_group_name,
                         feature["FeatureName"],
                     )
                     for feature in feature_group_details["FeatureDefinitions"]
+                    if feature["FeatureName"]
+                    != feature_group_details["RecordIdentifierFeatureName"]
                 ],
                 mlPrimaryKeys=[
                     builder.make_ml_primary_key_urn(
