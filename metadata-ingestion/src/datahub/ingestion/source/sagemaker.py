@@ -74,6 +74,7 @@ class SagemakerSource(Source):
         Get details of a feature group (including list of component features).
         """
 
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_feature_group
         feature_group = self.sagemaker_client.describe_feature_group(
             FeatureGroupName=feature_group_name
         )
@@ -114,6 +115,7 @@ class SagemakerSource(Source):
         feature_group_snapshot.aspects.append(
             MLFeatureTablePropertiesClass(
                 description=feature_group_details.get("Description"),
+                # non-primary key features
                 mlFeatures=[
                     builder.make_ml_feature_urn(
                         feature_group_name,
@@ -129,6 +131,7 @@ class SagemakerSource(Source):
                         feature_group_details["RecordIdentifierFeatureName"],
                     )
                 ],
+                # additional metadata
                 customProperties={
                     "arn": feature_group_details["FeatureGroupArn"],
                     "creation_time": str(feature_group_details["CreationTime"]),
@@ -240,10 +243,6 @@ class SagemakerSource(Source):
 
             # make the MCE and workunit
             mce = MetadataChangeEvent(proposedSnapshot=primary_key_snapshot)
-            return MetadataWorkUnit(
-                id=f'{feature_group_details["FeatureGroupName"]}-{feature["FeatureName"]}',
-                mce=mce,
-            )
         else:
             # create snapshot instance for the feature
             feature_snapshot: MLFeatureSnapshot = MLFeatureSnapshot(
@@ -263,10 +262,11 @@ class SagemakerSource(Source):
 
             # make the MCE and workunit
             mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
-            return MetadataWorkUnit(
-                id=f'{feature_group_details["FeatureGroupName"]}-{feature["FeatureName"]}',
-                mce=mce,
-            )
+
+        return MetadataWorkUnit(
+            id=f'{feature_group_details["FeatureGroupName"]}-{feature["FeatureName"]}',
+            mce=mce,
+        )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 

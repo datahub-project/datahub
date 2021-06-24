@@ -36,16 +36,16 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         )
         sagemaker_stubber.add_response(
             "describe_feature_group",
-            describe_feature_group_response_2,
+            describe_feature_group_response_1,
             {
-                "FeatureGroupName": "test-1",
+                "FeatureGroupName": "test",
             },
         )
         sagemaker_stubber.add_response(
             "describe_feature_group",
-            describe_feature_group_response_1,
+            describe_feature_group_response_2,
             {
-                "FeatureGroupName": "test",
+                "FeatureGroupName": "test-1",
             },
         )
 
