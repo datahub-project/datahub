@@ -31,6 +31,7 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+ENV LOG_DEBUG="false"
 
 EXPOSE 8080
 

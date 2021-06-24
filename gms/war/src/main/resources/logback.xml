@@ -28,10 +28,6 @@
         <appender-ref ref="STDOUT" />
     </logger>
 
-    <logger name="com.linkedin" level="debug">
-        <appender-ref ref="FILE" />
-    </logger>
-
     <root level="info">
         <appender-ref ref="STDOUT" />
         <appender-ref ref="FILE"/>
