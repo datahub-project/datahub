@@ -17,6 +17,7 @@ import {
     EditableSchemaFieldInfoUpdate,
     EntityType,
     GlossaryTerms,
+    UsageQueryResult,
 } from '../../../../../types.generated';
 import TagTermGroup from '../../../../shared/tags/TagTermGroup';
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
@@ -40,6 +41,7 @@ const LighterText = styled(Typography.Text)`
 
 export type Props = {
     urn: string;
+    usageStats?: UsageQueryResult | null;
     schema?: Schema | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     updateEditableSchema: (
@@ -109,10 +111,12 @@ function convertEditableSchemaMetadataForUpdate(
     };
 }
 
-export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema }: Props) {
+export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema, usageStats }: Props) {
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
     const [showRaw, setShowRaw] = useState(false);
     const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
+
+    console.log(usageStats?.aggregations?.fields);
 
     useEffect(() => {
         const fields = [...(schema?.fields || [])] as Array<ExtendedSchemaFields>;
