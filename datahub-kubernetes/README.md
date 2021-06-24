@@ -40,9 +40,9 @@ The dependencies must be deployed before deploying Datahub. We created a separat
 [chart](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/prerequisites) 
 for deploying the dependencies with example configuration. They could also be deployed 
 separately on-prem or leveraged as managed services. To remove your dependency on Neo4j,
-remove Neo4j from the prerequisites `Chart.yaml` and `values.yaml` files.
+set enabled to false in the `datahub-kubernetes/prerequisites/values.yaml` file.
 Then, override the `graph_service_impl` field in `datahub-kubernetes/datahub/values.yaml` to
-have the value `elasticsearch`.
+have the value `elasticsearch` instead of `neo4j`.
 
 ## Quickstart
 Assuming kubectl context points to the correct kubernetes cluster, first create kubernetes secrets that contain MySQL and Neo4j passwords. 
