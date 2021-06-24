@@ -61,7 +61,7 @@ workflows:
           region: tokyo
           cluster: spaas_sn
           system: data-catalogue
-          target: mcs-consumer
+          target: mce-consumer
 parameters:
   workflow_main:
     type: boolean
