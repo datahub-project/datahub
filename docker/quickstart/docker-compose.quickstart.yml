@@ -1,6 +1,6 @@
 networks:
   default:
-    name: datahub_network
+    name: datahub-network
 services:
   broker:
     container_name: broker

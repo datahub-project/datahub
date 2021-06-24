@@ -71,7 +71,7 @@ spec:
                 configMapKeyRef:
                   key: KAFKA_BOOTSTRAP_SERVER
                   name: datahub-frontend-env-docker-env
-          image: datahub-frontend-react:latest
+          image: datahub-frontend
           name: datahub-frontend-react
           ports:
             - containerPort: 9002

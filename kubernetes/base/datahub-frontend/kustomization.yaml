@@ -1,0 +1,5 @@
+namespace: data-catalogue
+resources:
+  - datahub-frontend-env-docker-env-configmap.yaml
+  - datahub-frontend-react-deployment.yaml
+  - datahub-frontend-react-service.yaml

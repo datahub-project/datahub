@@ -25,7 +25,7 @@ spec:
         io.kompose.service: datahub-gms
     spec:
       containers:
-        - image: 165463520094.dkr.ecr.ap-northeast-1.amazonaws.com/data-catalog/datahub-gms:latest
+        - image: datahub-gms
           name: datahub-gms
           ports:
             - containerPort: 8080

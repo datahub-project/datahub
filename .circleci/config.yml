@@ -2,9 +2,11 @@ version: 2.1
 
 orbs:
   gradle: smartnews/gradle@1
+  terraform: smartnews/terraform@1
 
 orb_dockers:
   gradle: &orb_docker_gradle 165463520094.dkr.ecr.ap-northeast-1.amazonaws.com/circleci-orbs/gradle:8.0-1
+  terraform: &orb_docker_terraform 165463520094.dkr.ecr.ap-northeast-1.amazonaws.com/circleci-orbs/terraform:1
 
 workflow_filters:
   branch-filter: &branch-filter
@@ -18,22 +20,145 @@ workflow_filters:
         only: master
 
 workflows:
-  build:
-    jobs:
-      - gradle/build:
-          <<: *branch-filter
-          name: build
-          docker: *orb_docker_gradle
-  deliver:
+  deliver-dev:
     jobs:
       - gradle/deliver:
           <<: *branch-filter
-          name: deliver/devs
+          name: deliver/dev/dependencies
           docker: *orb_docker_gradle
           env: dev
           region: tokyo
           cluster: spaas_sn
           system: data-catalogue
+          target: dependencies
+      - gradle/deliver:
+          <<: *branch-filter
+          name: deliver/dev/gms
+          docker: *orb_docker_gradle
+          env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: gms
+      - gradle/deliver:
+          <<: *branch-filter
+          name: deliver/dev/frontend
+          docker: *orb_docker_gradle
+          env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: frontend
+      - gradle/deliver:
+          <<: *branch-filter
+          name: deliver/dev/mae-consumer
+          docker: *orb_docker_gradle
+          env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: mae-consumer
+      - gradle/deliver:
+          <<: *branch-filter
+          name: deliver/dev/mce-consumer
+          docker: *orb_docker_gradle
+          env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: mce-consumer
+  deliver-prd:
+    jobs:
+      - approve:
+          <<: *master-filter
+          name: approve/release
+          type: approval
+      - gradle/release:
+          <<: *master-filter
+          name: release
+          docker: *orb_docker_gradle
+          requires:
+            - approve/release
+      - gradle/deliver:
+          <<: *master-filter
+          name: deliver/prd/gms
+          docker: *orb_docker_gradle
+          env: prd
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: gms
+          requires:
+            - release
+      - gradle/deliver:
+          <<: *master-filter
+          name: deliver/prd/frontend
+          docker: *orb_docker_gradle
+          env: prd
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: frontend
+          requires:
+            - release
+      - gradle/deliver:
+          <<: *master-filter
+          name: deliver/prd/mae-consumer
+          docker: *orb_docker_gradle
+          env: prd
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: mae-consumer
+          requires:
+            - release
+      - gradle/deliver:
+          <<: *master-filter
+          name: deliver/prd/mce-consumer
+          docker: *orb_docker_gradle
+          env: prd
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: mce-consumer
+          requires:
+            - release
+
+  main:
+    when: << pipeline.parameters.workflow_main >>
+    jobs:
+      - terraform/trigger:
+          docker: *orb_docker_terraform
+          name: terraform/trigger
+          system: data-catalogue
+          path: .
+  terraform:
+    when: << pipeline.parameters.workflow_terraform >>
+    jobs:
+      - terraform/plan:
+          docker: *orb_docker_terraform
+          name: << pipeline.parameters.env >>/<< pipeline.parameters.region >>/<< pipeline.parameters.system >>/plan
+          env: << pipeline.parameters.env >>
+          region: << pipeline.parameters.region >>
+          system: << pipeline.parameters.system >>
+          path: << pipeline.parameters.path >>
+      - approve:
+          <<: *master-filter
+          name: << pipeline.parameters.env >>/<< pipeline.parameters.region >>/<< pipeline.parameters.system >>/approve
+          type: approval
+          requires:
+            - << pipeline.parameters.env >>/<< pipeline.parameters.region >>/<< pipeline.parameters.system >>/plan
+      - terraform/apply:
+          <<: *master-filter
+          docker: *orb_docker_terraform
+          name: << pipeline.parameters.env >>/<< pipeline.parameters.region >>/<< pipeline.parameters.system >>/apply
+          env: << pipeline.parameters.env >>
+          region: << pipeline.parameters.region >>
+          system: << pipeline.parameters.system >>
+          path: << pipeline.parameters.path >>
+          requires:
+            - << pipeline.parameters.env >>/<< pipeline.parameters.region >>/<< pipeline.parameters.system >>/approve
+
 parameters:
   workflow_main:
     type: boolean

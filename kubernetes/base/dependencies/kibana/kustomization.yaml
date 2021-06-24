@@ -1,0 +1,5 @@
+namespace: data-catalogue
+resources:
+  - kibana-deployment.yaml
+  - kibana-env-docker-env-configmap.yaml
+  - kibana-service.yaml

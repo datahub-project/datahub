@@ -1,0 +1,6 @@
+namespace: data-catalogue
+resources:
+  - neo4j-deployment.yaml
+  - neo4j-env-docker-env-configmap.yaml
+  - neo4j-service.yaml
+  - neo4jdata-persistentvolumeclaim.yaml

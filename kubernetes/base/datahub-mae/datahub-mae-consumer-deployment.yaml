@@ -76,7 +76,7 @@ spec:
                 configMapKeyRef:
                   key: NEO4J_USERNAME
                   name: datahub-mae-consumer-env-docker-env
-          image: linkedin/datahub-mae-consumer:latest
+          image: datahub-mae-consumer
           name: datahub-mae-consumer
           ports:
             - containerPort: 9091
