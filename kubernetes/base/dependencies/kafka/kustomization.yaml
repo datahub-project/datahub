@@ -1,0 +1,13 @@
+namespace: data-catalogue
+resources:
+  - broker-deployment.yaml
+  - broker-env-docker-env-configmap.yaml
+  - broker-service.yaml
+  - kafka-rest-proxy-deployment.yaml
+  - kafka-rest-proxy-env-docker-env-configmap.yaml
+  - kafka-rest-proxy-service.yaml
+  - kafka-setup-deployment.yaml
+  - kafka-setup-env-docker-env-configmap.yaml
+  - kafka-topics-ui-deployment.yaml
+  - kafka-topics-ui-env-docker-env-configmap.yaml
+  - kafka-topics-ui-deployment.yaml

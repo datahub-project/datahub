@@ -1,3 +1,7 @@
 namespace: data-catalogue
 resources:
-  - ../../base
+  - datahub-frontend
+  - datahub-gms
+  - datahub-mae
+  - datahub-mce
+  - dependencies

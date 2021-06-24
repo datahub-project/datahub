@@ -1,0 +1,8 @@
+namespace: data-catalogue
+resources:
+  - schema-registry-deployment.yaml
+  - schema-registry-env-docker-env-configmap.yaml
+  - schema-registry-service.yaml
+  - schema-registry-ui-deployment.yaml
+  - schema-registry-ui-env-docker-env-configmap.yaml
+  - schema-registry-ui-service.yaml

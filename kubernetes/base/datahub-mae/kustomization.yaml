@@ -1,0 +1,5 @@
+namespace: data-catalogue
+resources:
+  - datahub-mae-consumer-deployment.yaml
+  - datahub-mae-consumer-env-docker-env-configmap.yaml
+  - datahub-mae-consumer-service.yaml

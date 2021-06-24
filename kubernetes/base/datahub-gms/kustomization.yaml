@@ -1,0 +1,4 @@
+namespace: data-catalogue
+resources:
+  - datahub-gms-deployment.yaml
+  - datahub-gms-service.yaml

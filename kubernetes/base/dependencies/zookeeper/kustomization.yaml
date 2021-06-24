@@ -1,0 +1,6 @@
+namespace: data-catalogue
+resources:
+  - zkdata-persistentvolumeclaim.yaml
+  - zookeeper-deployment.yaml
+  - zookeeper-env-docker-env-configmap.yaml
+  - zookeeper-service.yaml
