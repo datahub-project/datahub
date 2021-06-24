@@ -76,11 +76,11 @@ profiles:
       statusCheckDeadlineSeconds: 600
       kustomize:
         path: ./kubernetes/prd/tokyo/dependencies
-  - name: dev-tokyo-gms
+  - name: prd-tokyo-gms
     build:
       tagPolicy:
         envTemplate:
-          template: "{{.IMAGE_NAME}}:{{.RELEASE_VERSION}}"
+          template: "{{.RELEASE_VERSION}}"
       artifacts:
         - image: datahub-gms
           docker:
@@ -93,7 +93,7 @@ profiles:
     build:
       tagPolicy:
         envTemplate:
-          template: "{{.IMAGE_NAME}}:{{.RELEASE_VERSION}}"
+          template: "{{.RELEASE_VERSION}}"
       artifacts:
         - image: datahub-frontend
           docker:
@@ -106,7 +106,7 @@ profiles:
     build:
       tagPolicy:
         envTemplate:
-          template: "{{.IMAGE_NAME}}:{{.RELEASE_VERSION}}"
+          template: "{{.RELEASE_VERSION}}"
       artifacts:
         - image: datahub-mae-consumer
           docker:
@@ -119,7 +119,7 @@ profiles:
     build:
       tagPolicy:
         envTemplate:
-          template: "{{.IMAGE_NAME}}:{{.RELEASE_VERSION}}"
+          template: "{{.RELEASE_VERSION}}"
       artifacts:
         - image: datahub-mce-consumer
           docker:
