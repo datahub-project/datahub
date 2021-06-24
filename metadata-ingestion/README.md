@@ -353,7 +353,7 @@ Extracts:
 
 ```yml
 source:
-  type: glue
+  type: sagemaker
   config:
     aws_region: # aws_region_name, i.e. "eu-west-1"
     env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".

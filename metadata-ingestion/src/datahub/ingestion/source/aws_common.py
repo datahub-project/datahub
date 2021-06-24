@@ -20,7 +20,7 @@ def assume_role(
     )
 
     assumed_role_object = sts_client.assume_role(
-        RoleArn=role_arn, RoleSessionName="DatahubIngestionSourceGlue"
+        RoleArn=role_arn, RoleSessionName="DatahubIngestionSource"
     )
     return assumed_role_object["Credentials"]
 

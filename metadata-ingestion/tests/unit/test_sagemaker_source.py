@@ -17,7 +17,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 def sagemaker_source() -> SagemakerSource:
     return SagemakerSource(
-        ctx=PipelineContext(run_id="glue-source-test"),
+        ctx=PipelineContext(run_id="sagemaker-source-test"),
         config=SagemakerSourceConfig(aws_region="us-west-2"),
     )
 
@@ -36,16 +36,16 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         )
         sagemaker_stubber.add_response(
             "describe_feature_group",
-            describe_feature_group_response_1,
+            describe_feature_group_response_2,
             {
-                "FeatureGroupName": "test",
+                "FeatureGroupName": "test-1",
             },
         )
         sagemaker_stubber.add_response(
             "describe_feature_group",
-            describe_feature_group_response_2,
+            describe_feature_group_response_1,
             {
-                "FeatureGroupName": "test-1",
+                "FeatureGroupName": "test",
             },
         )
 

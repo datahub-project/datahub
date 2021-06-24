@@ -200,25 +200,28 @@ class SagemakerSource(Source):
                 )
             )
 
-            glue_database = feature_group_details["OfflineStoreConfig"][
-                "DataCatalogConfig"
-            ]["Database"]
-            glue_table = feature_group_details["OfflineStoreConfig"][
-                "DataCatalogConfig"
-            ]["TableName"]
+            if "DataCatalogConfig" in feature_group_details["OfflineStoreConfig"]:
 
-            full_table_name = f"{glue_database}.{glue_table}"
+                # if Glue catalog associated with offline store
+                glue_database = feature_group_details["OfflineStoreConfig"][
+                    "DataCatalogConfig"
+                ]["Database"]
+                glue_table = feature_group_details["OfflineStoreConfig"][
+                    "DataCatalogConfig"
+                ]["TableName"]
 
-            self.report.report_warning(
-                full_table_name,
-                f"""Note: table {full_table_name} is an AWS Glue object.
-                    To view full table metadata, run Glue ingestion
-                    (see https://datahubproject.io/docs/metadata-ingestion/#aws-glue-glue)""",
-            )
+                full_table_name = f"{glue_database}.{glue_table}"
 
-            feature_sources.append(
-                f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.source_config.env})"
-            )
+                self.report.report_warning(
+                    full_table_name,
+                    f"""Note: table {full_table_name} is an AWS Glue object.
+                        To view full table metadata, run Glue ingestion
+                        (see https://datahubproject.io/docs/metadata-ingestion/#aws-glue-glue)""",
+                )
+
+                feature_sources.append(
+                    f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.source_config.env})"
+                )
 
         # note that there's also an OnlineStoreConfig field, but this
         # lacks enough metadata to create a dataset
