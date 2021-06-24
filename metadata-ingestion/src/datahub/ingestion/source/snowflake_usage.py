@@ -87,6 +87,8 @@ class SnowflakeJoinedAccessEvent:
 
 
 class SnowflakeUsageConfig(SnowflakeConfig, BaseUsageConfig):
+    database: str = "snowflake"
+
     @pydantic.validator("role", always=True)
     def role_accountadmin(cls, v):
         if not v or v.lower() != "accountadmin":

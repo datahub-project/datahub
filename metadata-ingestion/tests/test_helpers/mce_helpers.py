@@ -23,4 +23,4 @@ def assert_mces_equal(output: object, golden: object) -> None:
         r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['createStamp'\]\['time'\]",
     }
     diff = deepdiff.DeepDiff(golden, output, exclude_regex_paths=ignore_paths)
-    assert not diff
+    assert not diff, str(diff)

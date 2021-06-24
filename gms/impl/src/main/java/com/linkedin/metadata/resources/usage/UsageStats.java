@@ -149,7 +149,6 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
                 }
             }
 
-
             return new UsageQueryResult()
                     .setBuckets(buckets)
                     .setAggregations(aggregations);
