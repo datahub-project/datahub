@@ -3,10 +3,10 @@
 
 import sys
 import time
-from pyhive import hive
-from TCLIService.ttypes import TOperationState
 
 import simplejson as json
+from pyhive import hive
+from TCLIService.ttypes import TOperationState
 
 HIVESTORE='localhost'
 

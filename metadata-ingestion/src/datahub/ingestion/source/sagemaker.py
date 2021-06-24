@@ -129,6 +129,11 @@ class SagemakerSource(Source):
                         feature_group_details["RecordIdentifierFeatureName"],
                     )
                 ],
+                customProperties={
+                    "arn": feature_group_details["FeatureGroupArn"],
+                    "creation_time": str(feature_group_details["CreationTime"]),
+                    "status": feature_group_details["FeatureGroupStatus"],
+                },
             )
         )
 

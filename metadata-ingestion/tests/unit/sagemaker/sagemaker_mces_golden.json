@@ -83,6 +83,11 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+              "customProperties": {
+                "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-1",
+                "creation_time": "2021-06-23 13:58:10.264000",
+                "status": "Created"
+              },
               "description": "First test feature group",
               "mlFeatures": [
                 "urn:li:mlFeature:(test-1,name)",
@@ -164,6 +169,11 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+              "customProperties": {
+                "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test",
+                "creation_time": "2021-06-14 11:03:00.803000",
+                "status": "Created"
+              },
               "description": null,
               "mlFeatures": [
                 "urn:li:mlFeature:(test,feature_2)",
