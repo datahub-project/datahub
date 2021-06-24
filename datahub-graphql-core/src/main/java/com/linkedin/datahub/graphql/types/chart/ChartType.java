@@ -42,10 +42,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityType<Chart>, MutableType<ChartUpdateInput> {
+
+    private final Logger _logger = LoggerFactory.getLogger(ChartType.class.getName());
 
     private static final ChartSearchConfig CHART_SEARCH_CONFIG = new ChartSearchConfig();
     private final EntityClient _entityClient;

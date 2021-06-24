@@ -2,6 +2,7 @@ package react.analytics;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.dao.exception.ESQueryException;
+import com.linkedin.metadata.resources.entity.AspectResource;
 import graphql.BarSegment;
 import graphql.DateInterval;
 import graphql.DateRange;
@@ -32,9 +33,13 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.Cardinality;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class AnalyticsService {
+
+  private final Logger _logger = LoggerFactory.getLogger(AspectResource.class.getName());
 
   private final RestHighLevelClient _elasticClient;
 

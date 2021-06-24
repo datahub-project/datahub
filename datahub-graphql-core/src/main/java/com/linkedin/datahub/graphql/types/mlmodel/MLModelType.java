@@ -30,8 +30,13 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class MLModelType implements SearchableEntityType<MLModel> {
+
+    private final Logger _logger = LoggerFactory.getLogger(MLModelType.class.getName());
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
     private final EntityClient _mlModelsClient;

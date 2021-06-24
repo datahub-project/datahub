@@ -7,6 +7,8 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.typesafe.config.Config;
 import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import react.analytics.AnalyticsService;
 import react.auth.Authenticator;
 import graphql.ExecutionResult;
@@ -29,6 +31,8 @@ import react.resolver.GetHighlightsResolver;
 import react.resolver.IsAnalyticsEnabledResolver;
 
 public class GraphQLController extends Controller {
+
+    private final Logger _logger = LoggerFactory.getLogger(GraphQLController.class.getName());
 
     private static final String FRONTEND_SCHEMA_NAME = "datahub-frontend.graphql";
 

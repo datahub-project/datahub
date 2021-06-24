@@ -10,9 +10,14 @@ import graphql.execution.DataFetcherResult;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class AspectType {
+
+  private final Logger _logger = LoggerFactory.getLogger(AspectType.class.getName());
+
   private final AspectClient _aspectClient;
 
   public AspectType(final AspectClient aspectClient) {

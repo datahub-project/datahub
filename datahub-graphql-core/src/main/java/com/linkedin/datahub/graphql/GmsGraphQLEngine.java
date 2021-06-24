@@ -71,6 +71,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static graphql.Scalars.GraphQLLong;
@@ -80,6 +82,7 @@ import static graphql.Scalars.GraphQLLong;
  */
 public class GmsGraphQLEngine {
 
+    private final Logger _logger = LoggerFactory.getLogger(GmsGraphQLEngine.class.getName());
     private static GraphQLEngine _engine;
 
     public static final DatasetType DATASET_TYPE = new DatasetType(GmsClientFactory.getEntitiesClient());

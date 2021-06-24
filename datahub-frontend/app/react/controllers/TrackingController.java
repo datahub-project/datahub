@@ -9,6 +9,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import react.auth.Authenticator;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
@@ -24,6 +26,8 @@ import java.util.List;
 import java.util.Properties;
 
 public class TrackingController extends Controller {
+
+    private final Logger _logger = LoggerFactory.getLogger(TrackingController.class.getName());
 
     private static final List<String> KAFKA_SSL_PROTOCOLS = Collections.unmodifiableList(
             Arrays.asList(SecurityProtocol.SSL.name(),SecurityProtocol.SASL_SSL.name()));

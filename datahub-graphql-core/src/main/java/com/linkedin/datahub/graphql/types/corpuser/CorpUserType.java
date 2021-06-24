@@ -28,8 +28,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class CorpUserType implements SearchableEntityType<CorpUser> {
+
+    private final Logger _logger = LoggerFactory.getLogger(CorpUserType.class.getName());
 
     private final EntityClient _corpUsersClient;
 

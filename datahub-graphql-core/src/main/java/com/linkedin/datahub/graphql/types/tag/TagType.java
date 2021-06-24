@@ -47,8 +47,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class TagType implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag>, MutableType<TagUpdate> {
+
+    private final Logger _logger = LoggerFactory.getLogger(TagType.class.getName());
 
     private static final TagSearchConfig TAG_SEARCH_CONFIG = new TagSearchConfig();
 
