@@ -1,5 +1,5 @@
 import React from 'react';
-import { Avatar } from 'antd';
+import { Avatar, Tooltip } from 'antd';
 import { UserUsageCounts } from '../../../../types.generated';
 
 export type Props = {
@@ -8,9 +8,11 @@ export type Props = {
 
 export default function UsageFacepile({ users }: Props) {
     return (
-        <Avatar.Group maxCount={3}>
+        <Avatar.Group maxCount={2}>
             {users?.map((user) => (
-                <Avatar>{user?.userEmail?.charAt(0).toUpperCase()}</Avatar>
+                <Tooltip title={user?.userEmail}>
+                    <Avatar>{user?.userEmail?.charAt(0).toUpperCase()}</Avatar>
+                </Tooltip>
             ))}
         </Avatar.Group>
     );
