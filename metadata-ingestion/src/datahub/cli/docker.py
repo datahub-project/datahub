@@ -74,7 +74,8 @@ def check_neo4j_volume_exists():
             return True
 
         click.echo("No Datahub Neo4j volume found, starting with elasticsearch as graph service."
-                   "To use neo4j as a graph backend, ")
+                   "To use neo4j as a graph backend, run with"
+                   "`--quickstart-compose-file ./docker/quickstart/docker-compose.quickstart.yml`")
         return False
 
 
