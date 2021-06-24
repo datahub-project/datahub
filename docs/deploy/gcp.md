@@ -17,9 +17,13 @@ This guide requires the following tools:
     3.
 - [gcloud](https://cloud.google.com/sdk/docs/install) to manage GCP resources
 
-Follow the following gu
+Follow the
+following [guide](https://cloud.google.com/kubernetes-engine/docs/how-to/creating-a-zonal-cluster#before_you_begin) to
+correctly set up Google Cloud SDK.
 
-## Start up a kubernetes cluster on AWS EKS
+After setting up, run `gcloud services enable container.googleapis.com` to make sure GKE service is enabled. 
+
+## Start up a kubernetes cluster on GKE
 
 Let’s follow this [guide](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-eksctl.html) to create a new
 cluster using eksctl. Run the following command with cluster-name set to the cluster name of choice, and region set to
