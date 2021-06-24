@@ -19,7 +19,6 @@ if docker volume ls | grep -c -q datahub_neo4jdata
 then
   echo "Datahub Neo4j volume found, starting with neo4j as graph service"
   cd $DIR && docker-compose pull && docker-compose -p datahub up
-	cd $DIR && docker-compose pull && docker-compose -p datahub up
 else
   echo "No Datahub Neo4j volume found, starting with elasticsearch as graph service"
   cd $DIR && \
