@@ -79,6 +79,7 @@ class SagemakerSource(Source):
             FeatureGroupName=feature_group_name
         )
 
+        # use falsy fallback since AWS stubs require this to be a string in tests
         next_token = feature_group.get("NextToken", "")
 
         # paginate over feature group features

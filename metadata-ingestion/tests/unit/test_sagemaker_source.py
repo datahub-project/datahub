@@ -9,6 +9,7 @@ from tests.test_helpers import mce_helpers
 from tests.unit.test_sagemaker_source_stubs import (
     describe_feature_group_response_1,
     describe_feature_group_response_2,
+    describe_feature_group_response_3,
     list_feature_groups_response,
 )
 
@@ -36,6 +37,13 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         )
         sagemaker_stubber.add_response(
             "describe_feature_group",
+            describe_feature_group_response_1,
+            {
+                "FeatureGroupName": "test-2",
+            },
+        )
+        sagemaker_stubber.add_response(
+            "describe_feature_group",
             describe_feature_group_response_2,
             {
                 "FeatureGroupName": "test-1",
@@ -43,7 +51,7 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         )
         sagemaker_stubber.add_response(
             "describe_feature_group",
-            describe_feature_group_response_1,
+            describe_feature_group_response_3,
             {
                 "FeatureGroupName": "test",
             },
