@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Any, Dict, Iterable, List, Union
+from typing import Any, Dict, Iterable, List
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.aws_common import AwsSourceConfig

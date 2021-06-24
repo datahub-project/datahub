@@ -4144,6 +4144,15 @@
                     "doc": "Properties associated with a MLFeatureTable",
                     "fields": [
                       {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "Custom property bag.",
+                        "default": {}
+                      },
+                      {
                         "name": "description",
                         "type": [
                           "null",
