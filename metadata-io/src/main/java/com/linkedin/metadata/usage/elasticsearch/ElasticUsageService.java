@@ -167,7 +167,6 @@ public class ElasticUsageService implements UsageService {
         if (endTime != null) {
             finalQuery.must(QueryBuilders.rangeQuery(ES_KEY_BUCKET_END).lte(endTime));
         }
-        // TODO handle "latest N buckets" style queries
 
         final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(finalQuery);
