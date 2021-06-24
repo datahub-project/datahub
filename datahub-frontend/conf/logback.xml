@@ -10,18 +10,20 @@
   </appender>
 
   <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>${LOG_DIR}/datahub-frontend-${bySecond}.log</file>
-    <append>true</append>
+    <file>${LOG_DIR}/datahub-frontend.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <FileNamePattern>${LOG_DIR}/gms-war.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+      <!-- each archived file, size max 10MB -->
+      <maxFileSize>10MB</maxFileSize>
+      <!-- total size of all archive files, if total size > 20GB, it will delete old archived file -->
+      <totalSizeCap>20GB</totalSizeCap>
+      <!-- 60 days to keep -->
+      <maxHistory>60</maxHistory>
+    </rollingPolicy>
+
     <encoder>
       <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
-    <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
-      <maxIndex>10</maxIndex>
-      <FileNamePattern>${LOG_DIR}/${byDate}.log.%i</FileNamePattern>
-    </rollingPolicy>
-    <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
-      <MaxFileSize>20MB</MaxFileSize>
-    </triggeringPolicy>
   </appender>
 
   <root level="info">

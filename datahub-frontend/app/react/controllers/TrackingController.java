@@ -42,6 +42,7 @@ public class TrackingController extends Controller {
         _config = config;
         _isEnabled = !config.hasPath("analytics.enabled") || config.getBoolean("analytics.enabled");
         if (_isEnabled) {
+            _logger.debug("Analytics tracking is enabled");
             _producer = createKafkaProducer();
             _topic = config.getString("analytics.tracking.topic");
         } else {
@@ -64,8 +65,9 @@ public class TrackingController extends Controller {
         } catch (Exception e) {
             return badRequest();
         }
+        final String actor = new PlayQueryContext(ctx(), _config).getActor();
         try {
-            final String actor = new PlayQueryContext(ctx(), _config).getActor();
+            _logger.debug(String.format("Emitting product analytics event. actor: %s, event: %s", actor, event));
             final ProducerRecord<String, String> record = new ProducerRecord<>(
                     _topic,
                     actor,
@@ -74,6 +76,7 @@ public class TrackingController extends Controller {
              _producer.flush();
              return ok();
         } catch(Exception e) {
+            _logger.error(String.format("Failed to emit product analytics event. actor: %s, event: %s", actor, event));
             return internalServerError(e.getMessage());
         }
     }

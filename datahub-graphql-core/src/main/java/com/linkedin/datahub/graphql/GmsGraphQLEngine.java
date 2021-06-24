@@ -82,7 +82,7 @@ import static graphql.Scalars.GraphQLLong;
  */
 public class GmsGraphQLEngine {
 
-    private final Logger _logger = LoggerFactory.getLogger(GmsGraphQLEngine.class.getName());
+    private static final Logger _logger = LoggerFactory.getLogger(GmsGraphQLEngine.class.getName());
     private static GraphQLEngine _engine;
 
     public static final DatasetType DATASET_TYPE = new DatasetType(GmsClientFactory.getEntitiesClient());
@@ -538,8 +538,10 @@ public class GmsGraphQLEngine {
         DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
         return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {
             try {
+                _logger.debug(String.format("Batch loading entities of type: %s, keys: %s", graphType.name(), keys));
                 return graphType.batchLoad(keys, context.getContext());
             } catch (Exception e) {
+                _logger.error(String.format("Failed to load Entities of type: %s, keys: %s", graphType.name(), keys) + " " + e.getMessage());
                 throw new RuntimeException(String.format("Failed to retrieve entities of type %s", graphType.name()), e);
             }
         }), loaderOptions);
@@ -550,8 +552,10 @@ public class GmsGraphQLEngine {
         DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
         return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {
             try {
+                _logger.debug(String.format("Batch loading aspects with keys: %s", keys));
                 return ASPECT_TYPE.batchLoad(keys, context.getContext());
             } catch (Exception e) {
+                _logger.error(String.format("Failed to load Aspect for entity. keys: %s", keys) + " " + e.getMessage());
                 throw new RuntimeException(String.format("Failed to retrieve entities of type Aspect", e));
             }
         }), loaderOptions);

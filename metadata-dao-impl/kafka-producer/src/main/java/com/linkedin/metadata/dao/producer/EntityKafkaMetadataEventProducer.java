@@ -6,7 +6,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.ModelUtils;
-import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.Configs;
@@ -85,8 +84,10 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
 
     GenericRecord record;
     try {
+      _logger.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn), metadataAuditEvent.toString()));
       record = EventUtils.pegasusToAvroMAE(metadataAuditEvent);
     } catch (IOException e) {
+      _logger.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()));
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 

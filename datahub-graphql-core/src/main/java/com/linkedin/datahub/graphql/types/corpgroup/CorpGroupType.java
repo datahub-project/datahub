@@ -27,13 +27,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 public class CorpGroupType implements SearchableEntityType<CorpGroup> {
-
-    private final Logger _logger = LoggerFactory.getLogger(CorpGroupType.class.getName());
 
     private final EntityClient _corpGroupsClient;
 

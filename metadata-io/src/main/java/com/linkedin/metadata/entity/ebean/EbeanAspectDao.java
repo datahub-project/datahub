@@ -47,10 +47,11 @@ import static com.linkedin.metadata.entity.EntityService.*;
 
 public class EbeanAspectDao {
 
+  private static final Logger _logger = LoggerFactory.getLogger(EbeanAspectDao.class.getName());
+
   public static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
 
-  private final Logger _logger = LoggerFactory.getLogger(EbeanAspectDao.class.getName());
   private final EbeanServer _server;
   private boolean _connectionValidated = false;
   private final Map<String, Retention> _aspectRetentionMap = new HashMap<>();
@@ -98,7 +99,7 @@ public class EbeanAspectDao {
     }
     if (!AspectStorageValidationUtil.checkV2TableExists(_server)) {
       _logger.error("GMS is on a newer version than your storage layer. Please refer to "
-                    + "https://datahubproject.io/docs/advanced/no-code-upgrade for an easy upgrade guide");
+                    + "https://datahubproject.io/docs/advanced/no-code-upgrade to view the upgrade guide.");
       _canWrite = false;
       return false;
     } else {

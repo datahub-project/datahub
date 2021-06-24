@@ -15,8 +15,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -24,8 +22,6 @@ import org.slf4j.LoggerFactory;
  */
 @Slf4j
 public class SearchDocumentTransformer {
-
-  private final Logger logger = LoggerFactory.getLogger(SearchDocumentTransformer.class.getName());
 
   private SearchDocumentTransformer() {
   }

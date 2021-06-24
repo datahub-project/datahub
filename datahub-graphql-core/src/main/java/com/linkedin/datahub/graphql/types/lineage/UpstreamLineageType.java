@@ -12,13 +12,9 @@ import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 public class UpstreamLineageType implements LoadableType<UpstreamEntityRelationships> {
-
-    private final Logger _logger = LoggerFactory.getLogger(UpstreamLineageType.class.getName());
 
     private final Lineages _lineageClient;
     private final RelationshipDirection _direction = RelationshipDirection.OUTGOING;

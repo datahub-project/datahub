@@ -86,6 +86,8 @@ public class GraphQLController extends Controller {
             variables = new ObjectMapper().convertValue(variablesJson, new TypeReference<Map<String, Object>>(){ });
         }
 
+        _logger.debug(String.format("Executing graphQL query: %s, variables: %s", queryJson, variablesJson));
+
         /*
          * Init QueryContext
          */
@@ -95,6 +97,19 @@ public class GraphQLController extends Controller {
          * Execute GraphQL Query
          */
         ExecutionResult executionResult = _engine.execute(queryJson.asText(), variables, context);
+
+        if (executionResult.getErrors().size() != 0) {
+            // There were GraphQL errors. Report in error logs.
+            _logger.error(String.format("Errors while executing graphQL query: %s, result: %s, errors: %s",
+                queryJson,
+                executionResult.toSpecification(),
+                executionResult.getErrors()));
+        } else {
+            _logger.debug(String.format("Executed graphQL query: %s, result: %s"),
+                queryJson,
+                executionResult.toSpecification());
+        }
+
 
         /*
          * Format & Return Response

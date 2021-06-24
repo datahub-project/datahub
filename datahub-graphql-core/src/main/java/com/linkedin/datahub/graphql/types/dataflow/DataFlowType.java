@@ -46,15 +46,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 
 public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEntityType<DataFlow>, MutableType<DataFlowUpdateInput> {
-
-    private final Logger _logger = LoggerFactory.getLogger(DataFlowType.class.getName());
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("orchestrator", "cluster");
     private final EntityClient _dataFlowsClient;

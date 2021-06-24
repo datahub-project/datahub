@@ -32,9 +32,9 @@ import org.slf4j.LoggerFactory;
 
 public class Neo4jGraphService implements GraphService {
 
-  private static final int MAX_TRANSACTION_RETRY = 3;
+  private static final Logger _logger = LoggerFactory.getLogger(Neo4jGraphService.class.getName());
 
-  private final Logger _logger = LoggerFactory.getLogger(Neo4jGraphService.class.getName());
+  private static final int MAX_TRANSACTION_RETRY = 3;
   private final Driver _driver;
   private SessionConfig _sessionConfig;
 
@@ -48,6 +48,12 @@ public class Neo4jGraphService implements GraphService {
   }
 
   public void addEdge(@Nonnull final Edge edge) {
+
+    _logger.debug(String.format("Adding Edge source: %s, destination: %s, type: %s",
+        edge.getSource(),
+        edge.getDestination(),
+        edge.getRelationshipType()));
+
     final String sourceType = edge.getSource().getEntityType();
     final String destinationType = edge.getDestination().getEntityType();
 
@@ -84,6 +90,17 @@ public class Neo4jGraphService implements GraphService {
       final int offset,
       final int count) {
 
+    _logger.debug(
+        String.format("Finding related Neo4j nodes sourceType: %s, sourceEntityFilter: %s, destinationType: %s, ",
+            sourceType, sourceEntityFilter, destinationType)
+        + String.format(
+        "destinationEntityFilter: %s, relationshipTypes: %s, relationshipFilter: %s, ",
+            destinationEntityFilter, relationshipTypes, relationshipFilter)
+        + String.format(
+            "offset: %s, count: %s",
+            offset, count)
+    );
+
     final String srcCriteria = filterToCriteria(sourceEntityFilter);
     final String destCriteria = filterToCriteria(destinationEntityFilter);
     final String edgeCriteria = criterionToString(relationshipFilter.getCriteria());
@@ -114,6 +131,9 @@ public class Neo4jGraphService implements GraphService {
   }
 
   public void removeNode(@Nonnull final Urn urn) {
+
+    _logger.debug(String.format("Removing Neo4j node with urn: %s", urn));
+
     // also delete any relationship going to or from it
     final String matchTemplate = "MATCH (node {urn: $urn}) DETACH DELETE node";
     final String statement = String.format(matchTemplate);
@@ -128,6 +148,11 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull final Urn urn,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
+
+    _logger.debug(String.format("Removing Neo4j edge types from node with urn: %s, types: %s, filter: %s",
+        urn,
+        relationshipTypes,
+        relationshipFilter));
 
     // also delete any relationship going to or from it
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
@@ -147,6 +172,17 @@ public class Neo4jGraphService implements GraphService {
 
     final Map<String, Object> params = new HashMap<>();
     params.put("urn", urn.toString());
+
+    runQuery(buildStatement(statement, params)).consume();
+  }
+
+  public void removeNodesMatchingLabel(@Nonnull String labelPattern) {
+    _logger.debug(String.format("Removing Neo4j nodes matching label %s", labelPattern));
+    final String matchTemplate =
+        "MATCH (n) WHERE any(l IN labels(n) WHERE l=~'%s') DETACH DELETE n";
+    final String statement = String.format(matchTemplate, labelPattern);
+
+    final Map<String, Object> params = new HashMap<>();
 
     runQuery(buildStatement(statement, params)).consume();
   }
@@ -221,6 +257,7 @@ public class Neo4jGraphService implements GraphService {
    */
   @Nonnull
   private Result runQuery(@Nonnull Statement statement) {
+    _logger.debug(String.format("Running Neo4j query %s", statement.toString()));
     return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
   }
 
@@ -241,7 +278,7 @@ public class Neo4jGraphService implements GraphService {
    * @return Neo4j criteria string
    */
   @Nonnull
-  public static String filterToCriteria(@Nonnull Filter filter) {
+  private static String filterToCriteria(@Nonnull Filter filter) {
     return criterionToString(filter.getCriteria());
   }
 
@@ -252,7 +289,7 @@ public class Neo4jGraphService implements GraphService {
    * @return Neo4j criteria string
    */
   @Nonnull
-  public static String criterionToString(@Nonnull CriterionArray criterionArray) {
+  private static String criterionToString(@Nonnull CriterionArray criterionArray) {
     if (!criterionArray.stream().allMatch(criterion -> Condition.EQUAL.equals(criterion.getCondition()))) {
       throw new RuntimeException("Neo4j query filter only support EQUAL condition " + criterionArray);
     }
@@ -278,15 +315,5 @@ public class Neo4jGraphService implements GraphService {
     params.put("urn", urn.toString());
 
     return buildStatement(statement, params);
-  }
-
-  public void removeNodesMatchingLabel(@Nonnull String labelPattern) {
-    final String matchTemplate =
-        "MATCH (n) WHERE any(l IN labels(n) WHERE l=~'%s') DETACH DELETE n";
-    final String statement = String.format(matchTemplate, labelPattern);
-
-    final Map<String, Object> params = new HashMap<>();
-
-    runQuery(buildStatement(statement, params)).consume();
   }
 }

@@ -44,14 +44,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 public class DashboardType implements SearchableEntityType<Dashboard>, BrowsableEntityType<Dashboard>, MutableType<DashboardUpdateInput> {
-
-    private final Logger _logger = LoggerFactory.getLogger(DashboardType.class.getName());
 
     private final EntityClient _dashboardsClient;
     private static final DashboardSearchConfig DASHBOARDS_SEARCH_CONFIG = new DashboardSearchConfig();

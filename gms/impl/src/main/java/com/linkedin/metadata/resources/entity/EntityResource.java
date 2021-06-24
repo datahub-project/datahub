@@ -61,6 +61,8 @@ import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
 @RestLiCollection(name = "entities", namespace = "com.linkedin.entity")
 public class EntityResource extends CollectionResourceTaskTemplate<String, Entity> {
 
+  private final static Logger _logger = LoggerFactory.getLogger(EntityResource.class.getName());
+
   private static final String ACTION_SEARCH = "search";
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String PARAM_ENTITY = "entity";
@@ -69,8 +71,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
   private final Clock _clock = Clock.systemUTC();
-
-  private final Logger _logger = LoggerFactory.getLogger(EntityResource.class.getName());
 
   @Inject
   @Named("entityService")

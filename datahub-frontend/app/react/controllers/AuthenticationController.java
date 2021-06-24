@@ -109,7 +109,7 @@ public class AuthenticationController extends Controller {
         try {
             AuthenticationManager.authenticateUser(username, password);
         } catch (NamingException e) {
-            _logger.warn("Authentication error", e);
+            _logger.error("Authentication error", e);
             return badRequest("Invalid Credential");
         }
 

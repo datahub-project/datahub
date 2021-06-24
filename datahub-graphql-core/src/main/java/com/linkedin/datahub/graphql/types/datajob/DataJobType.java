@@ -47,15 +47,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import com.linkedin.r2.RemoteInvocationException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 
 public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEntityType<DataJob>, MutableType<DataJobUpdateInput> {
-
-    private final Logger _logger = LoggerFactory.getLogger(DataJobType.class.getName());
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
     private final EntityClient _dataJobsClient;

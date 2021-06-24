@@ -190,6 +190,7 @@ public abstract class EntityService {
    * @return a map of {@link Urn} to {@link Entity} object
    */
   public Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull Set<String> aspectNames) {
+    _logger.debug(String.format("Invoked getEntities with urns %s, aspects %s", urns, aspectNames));
     if (urns.isEmpty()) {
       return Collections.emptyMap();
     }
@@ -198,16 +199,19 @@ public abstract class EntityService {
   }
 
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {
+    _logger.debug(String.format("Invoked getLatestAspect with urn %s, aspect %s", urn, aspectName));
     return getAspect(urn, aspectName, LATEST_ASPECT_VERSION);
   }
 
   public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp) {
+    _logger.debug(String.format("Invoked ingestEntities with entities %s, audit stamp %s", entities, auditStamp));
     for (final Entity entity : entities) {
       ingestEntity(entity, auditStamp);
     }
   }
 
   public  void ingestEntity(@Nonnull final Entity entity, @Nonnull final AuditStamp auditStamp) {
+    _logger.debug(String.format("Invoked ingestEntity with entity %s, audit stamp %s", entity, auditStamp));
     ingestSnapshotUnion(entity.getValue(), auditStamp);
   }
 
@@ -319,6 +323,7 @@ public abstract class EntityService {
     try {
       return Urn.createFromString(urnStr);
     } catch (URISyntaxException e) {
+      _logger.error(String.format("Failed to convert urn string %s into Urn object", urnStr));
       throw new ModelConversionException(String.format("Failed to convert urn string %s into Urn object ", urnStr), e);
     }
   }

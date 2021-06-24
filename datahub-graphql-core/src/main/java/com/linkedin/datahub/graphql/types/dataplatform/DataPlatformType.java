@@ -12,13 +12,8 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 
 public class DataPlatformType implements EntityType<DataPlatform> {
-
-    private final Logger _logger = LoggerFactory.getLogger(DataPlatformType.class.getName());
 
     private final DataPlatforms _dataPlatformsClient;
     private Map<String, DataPlatform> _urnToPlatform;

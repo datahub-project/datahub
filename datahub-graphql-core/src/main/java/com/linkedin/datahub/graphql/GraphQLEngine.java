@@ -20,8 +20,6 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static graphql.schema.idl.RuntimeWiring.newRuntimeWiring;
 
@@ -35,8 +33,6 @@ import static graphql.schema.idl.RuntimeWiring.newRuntimeWiring;
  * <p>In addition, it provides a simplified 'execute' API that accepts a 1) query string and 2) set of variables.
  */
 public class GraphQLEngine {
-
-    private final Logger _logger = LoggerFactory.getLogger(GraphQLEngine.class.getName());
 
     private final GraphQL _graphQL;
     private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _dataLoaderSuppliers;

@@ -12,13 +12,10 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 public class ESWriteDAO {
 
-  private final Logger logger = LoggerFactory.getLogger(ESWriteDAO.class.getName());
   private final EntityRegistry entityRegistry;
   private final BulkProcessor bulkProcessor;
   private final IndexConvention indexConvention;
