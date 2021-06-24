@@ -10,6 +10,7 @@ As of today, there are 2 supported upgrades:
 to metadata_aspect_v2 table. Arguments:
     - *batchSize* (Optional): The number of rows to migrate at a time. Defaults to 1000.
     - *batchDelayMs* (Optional): The number of milliseconds of delay between migrated batches. Used for rate limiting. Defaults to 250. 
+    - *dbType* (optional): The target DB type. Valid values are `MYSQL`, `MARIA`, `POSTGRES`. Defaults to `MYSQL`. 
    
 2. **NoCodeDataMigrationCleanup**: Cleanses graph index, search index, and key-value store of legacy DataHub data (metadata_aspect table) once
 the No Code Data Migration has completed successfully. No arguments. 

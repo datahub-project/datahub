@@ -64,22 +64,31 @@ cd docker/datahub-upgrade/nocode
 ./run_upgrade.sh
 ```
 
-In both cases, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
-that your deployment is local. If this is not the case, you'll need to define your own environment variables to tell the
-upgrade system where your DataHub containers reside.
+Using this command, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
+that your deployment is local & that you are running MySQL. If this is not the case, you'll need to define your own environment variables to tell the
+upgrade system where your DataHub containers reside and run 
 
-You can either
+To update the default environment variables, you can either
 
 1. Change `docker/datahub-upgrade/env/docker.env` in place and then run one of the above commands OR
-2. Define a new ".env" file containing your variables and
-   execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
+2. Define a new ".env" file containing your variables and execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
 
 To see the required environment variables, see the [datahub-upgrade](../../docker/datahub-upgrade/README.md)
 documentation.
 
+To run the upgrade against a database other than MySQL, you can use the `-a dbType=<db-type>` argument.
+
+Execute 
+```
+./docker/datahub-upgrade.sh -u NoCodeDataMigration -a dbType=POSTGRES
+```
+
+where dbType can be either `MYSQL`, `MARIA`, `POSTGRES`.
+
 #### Docker Compose Deployments - Lose All Existing Data
 
-This path is quickest but will wipe your Datahub's database.
+This path is quickest but will wipe your DataHub's database.
+
 If you want to make sure your current data is migrated, refer to the Docker Compose Deployments - Preserve Data section above.
 If you are ok losing your data and re-ingesting, this approach is simplest.
 
@@ -98,7 +107,7 @@ git pull origin master
 ./docker/ingestion/ingestion.sh
 ```
 
-After that, you will be upgraded and good to go.
+After that, you will be ready to go.
 
 
 ##### How to fix the "listening to port 5005" issue
@@ -130,6 +139,9 @@ Once the storage layer has been migrated, subsequent runs of this job will be a 
 
 ### Step 3 (Optional): Cleaning Up
 
+Warning: This step clears all legacy metadata. If something is wrong with the upgraded metadata, there will no easy way to 
+re-run the migration. 
+
 This step involves removing data from previous versions of DataHub. This step should only be performed once you've
 validated that your DataHub deployment is healthy after performing the upgrade. If you're able to search, browse, and
 view your Metadata after the upgrade steps have been completed, you should be in good shape.
@@ -147,11 +159,11 @@ cd docker/datahub-upgrade/nocode
 ./run_clean.sh
 ```
 
-In both cases, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
+Using this command, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
 that your deployment is local. If this is not the case, you'll need to define your own environment variables to tell the
 upgrade system where your DataHub containers reside.
 
-You can either
+To update the default environment variables, you can either
 
 1. Change `docker/datahub-upgrade/env/docker.env` in place and then run one of the above commands OR
 2. Define a new ".env" file containing your variables and execute

@@ -382,7 +382,15 @@ class LookMLSource(Source):  # pragma: no cover
 
     def _construct_datalineage_urn(self, sql_table_name: str, connection: str) -> str:
         platform = self._get_platform_based_on_connection(connection)
-        return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{sql_table_name},{self.source_config.env})"
+
+        if "." in platform:
+            platform_name, database_name = platform.lower().split(".", maxsplit=1)
+            sql_table_name = f"{database_name}.{sql_table_name}".lower()
+        else:
+            platform_name = platform.lower()
+            sql_table_name = sql_table_name.lower()
+
+        return f"urn:li:dataset:(urn:li:dataPlatform:{platform_name},{sql_table_name},{self.source_config.env})"
 
     def _get_platform_based_on_connection(self, connection: str) -> str:
         if connection in self.source_config.connection_to_platform_map:
@@ -478,7 +486,7 @@ class LookMLSource(Source):  # pragma: no cover
         stamp = AuditStamp(time=sys_time, actor=actor)
         schema_metadata = SchemaMetadata(
             schemaName=looker_view.view_name,
-            platform=self.source_config.platform_name,
+            platform=f"urn:li:dataPlatform:{self.source_config.platform_name}",
             version=0,
             fields=fields,
             primaryKeys=primary_keys,
@@ -500,7 +508,7 @@ class LookMLSource(Source):  # pragma: no cover
         sys_time = int(time.time()) * 1000
 
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform_name}, {dataset_name}, {self.source_config.env})",
+            urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform_name},{dataset_name},{self.source_config.env})",
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))

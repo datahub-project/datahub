@@ -1,18 +1,17 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM openjdk:8-jre-alpine as base
+FROM adoptopenjdk/openjdk8:alpine-jre as base
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 RUN apk --no-cache add curl
 
-FROM openjdk:8 as prod-build
+FROM adoptopenjdk/openjdk8:alpine-slim as prod-build
+RUN apk --no-cache add perl
 ARG ENABLE_EMBER="false"
-RUN apt-get update && apt-get install -y wget \
-    && wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
-    && apt-get -y install ./google-chrome-stable_current_amd64.deb
 ENV CI=true
+ENV GRADLE_OPTS="-Xms256m -Xmx512m"
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} \
+RUN cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} -x test -x yarnTest -x yarnLint \
     && cp datahub-frontend/build/distributions/datahub-frontend.zip ../datahub-frontend.zip \
     && cd .. && rm -rf datahub-src && unzip datahub-frontend.zip
 
