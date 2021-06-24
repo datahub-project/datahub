@@ -46,7 +46,7 @@ spec:
                 configMapKeyRef:
                   key: KAFKA_SCHEMAREGISTRY_URL
                   name: datahub-mce-consumer-env-docker-env
-          image: linkedin/datahub-mce-consumer:latest
+          image: datahub-mce-consumer
           name: datahub-mce-consumer
           ports:
             - containerPort: 9090
