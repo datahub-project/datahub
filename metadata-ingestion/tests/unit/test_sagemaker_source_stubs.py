@@ -15,6 +15,7 @@ list_feature_groups_response = {
             "FeatureGroupStatus": "Created",
         },
     ],
+    "NextToken": "",
 }
 
 describe_feature_group_response_1 = {
@@ -38,7 +39,9 @@ describe_feature_group_response_1 = {
     ),
     "OnlineStoreConfig": {"EnableOnlineStore": True},
     "FeatureGroupStatus": "Created",
+    "NextToken": "",
 }
+
 describe_feature_group_response_2 = {
     "FeatureGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-1",
     "FeatureGroupName": "test-1",
@@ -54,4 +57,5 @@ describe_feature_group_response_2 = {
     "OnlineStoreConfig": {"EnableOnlineStore": True},
     "FeatureGroupStatus": "Created",
     "Description": "First test feature group",
+    "NextToken": "",
 }

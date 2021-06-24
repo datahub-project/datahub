@@ -4,17 +4,7 @@ from botocore.stub import Stubber
 from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.glue import (
-    SagemakerSource,
-    SagemakerSourceConfig,
-    get_column_type,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayTypeClass,
-    MapTypeClass,
-    SchemaFieldDataType,
-    StringTypeClass,
-)
+from datahub.ingestion.source.sagemaker import SagemakerSource, SagemakerSourceConfig
 from tests.test_helpers import mce_helpers
 from tests.unit.test_sagemaker_source_stubs import (
     describe_feature_group_response_1,
@@ -40,17 +30,23 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
     with Stubber(sagemaker_source_instance.sagemaker_client) as sagemaker_stubber:
 
         sagemaker_stubber.add_response(
-            "list_feature_groups", list_feature_groups_response, {}
-        )
-        sagemaker_stubber.add_response(
-            "describe_feature_group",
-            describe_feature_group_response_1,
-            {"FeatureGroupName": "test"},
+            "list_feature_groups",
+            list_feature_groups_response,
+            {},
         )
         sagemaker_stubber.add_response(
             "describe_feature_group",
             describe_feature_group_response_2,
-            {"FeatureGroupName": "test-1"},
+            {
+                "FeatureGroupName": "test-1",
+            },
+        )
+        sagemaker_stubber.add_response(
+            "describe_feature_group",
+            describe_feature_group_response_1,
+            {
+                "FeatureGroupName": "test",
+            },
         )
 
         mce_objects = [

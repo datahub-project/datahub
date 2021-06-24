@@ -79,17 +79,17 @@ class SagemakerSource(Source):
             FeatureGroupName=feature_group_name
         )
 
-        next_token = feature_group.get("NextToken")
+        next_token = feature_group.get("NextToken", "")
 
         # paginate over feature group features
-        while next_token is not None:
+        while next_token:
             next_features = self.sagemaker_client.describe_feature_group(
                 FeatureGroupName=feature_group_name, NextToken=next_token
             )
             feature_group["FeatureDefinitions"].append(
                 next_features["FeatureDefinitions"]
             )
-            next_token = feature_group.get("NextToken")
+            next_token = feature_group.get("NextToken", "")
 
         return feature_group
 
