@@ -42,5 +42,5 @@ export function topologicalSort(input: Array<EntityRelationship | null>) {
         }
     });
 
-    return result;
+    return result.reverse();
 }
