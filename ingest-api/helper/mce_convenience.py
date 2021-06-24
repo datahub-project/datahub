@@ -298,3 +298,11 @@ def recover_mce(
             ]
         )
     ) 
+
+def query_db(dataset_name:str) -> bool:
+    '''
+    the idea is to have the api query mysql to see if it is really created.
+    feed the dataset name, find the count of rows with the urn == name. 
+    return true if have rows>0
+    '''
+    pass
