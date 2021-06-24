@@ -18,13 +18,7 @@ workflow_filters:
         only: master
 
 workflows:
-  build:
-    jobs:
-      - gradle/build:
-          <<: *branch-filter
-          name: build
-          docker: *orb_docker_gradle
-  deliver:
+  deliver-dev:
     jobs:
       - gradle/deliver:
           <<: *branch-filter
@@ -58,6 +52,44 @@ workflows:
           name: deliver/dev/mce-consumer
           docker: *orb_docker_gradle
           env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: mce-consumer
+  deliver-prd:
+    jobs:
+      - gradle/deliver:
+          <<: *master-filter
+          name: deliver/dev/gms
+          docker: *orb_docker_gradle
+          env: prd
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: gms
+      - gradle/deliver:
+          <<: *master-filter
+          name: deliver/dev/frontend
+          docker: *orb_docker_gradle
+          env: prd
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: frontend
+      - gradle/deliver:
+          <<: *master-filter
+          name: deliver/dev/mae-consumer
+          docker: *orb_docker_gradle
+          env: prd
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: mae-consumer
+      - gradle/deliver:
+          <<: *master-filter
+          name: deliver/dev/mce-consumer
+          docker: *orb_docker_gradle
+          env: prd
           region: tokyo
           cluster: spaas_sn
           system: data-catalogue
