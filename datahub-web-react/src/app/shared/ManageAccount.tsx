@@ -4,10 +4,11 @@ import { Menu, Dropdown } from 'antd';
 import { CaretDownOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
+import axios from 'axios';
+import { isLoggedInVar } from '../auth/checkAuthStatus';
+import { GlobalCfg } from '../../conf';
 import { EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { GlobalCfg } from '../../conf';
-import { isLoggedInVar } from '../auth/checkAuthStatus';
 import CustomAvatar from './avatar/CustomAvatar';
 import analytics, { EventType } from '../analytics';
 
@@ -45,8 +46,16 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
     const themeConfig = useTheme();
     const handleLogout = () => {
         analytics.event({ type: EventType.LogOutEvent });
-        isLoggedInVar(false);
-        Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
+        axios
+            .get('/centralLogout')
+            .then((response) => {
+                isLoggedInVar(false);
+                Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
+                console.log(response);
+            })
+            .catch((error) => {
+                console.log(error);
+            });
     };
 
     const menu = (
