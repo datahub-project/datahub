@@ -60,7 +60,7 @@ workflows:
     jobs:
       - gradle/deliver:
           <<: *master-filter
-          name: deliver/dev/gms
+          name: deliver/prd/gms
           docker: *orb_docker_gradle
           env: prd
           region: tokyo
@@ -69,7 +69,7 @@ workflows:
           target: gms
       - gradle/deliver:
           <<: *master-filter
-          name: deliver/dev/frontend
+          name: deliver/prd/frontend
           docker: *orb_docker_gradle
           env: prd
           region: tokyo
@@ -78,7 +78,7 @@ workflows:
           target: frontend
       - gradle/deliver:
           <<: *master-filter
-          name: deliver/dev/mae-consumer
+          name: deliver/prd/mae-consumer
           docker: *orb_docker_gradle
           env: prd
           region: tokyo
@@ -87,7 +87,7 @@ workflows:
           target: mae-consumer
       - gradle/deliver:
           <<: *master-filter
-          name: deliver/dev/mce-consumer
+          name: deliver/prd/mce-consumer
           docker: *orb_docker_gradle
           env: prd
           region: tokyo

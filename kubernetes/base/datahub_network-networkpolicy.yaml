@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   creationTimestamp: null
-  name: datahub_network
+  name: datahub-network
 spec:
   ingress:
     - from:

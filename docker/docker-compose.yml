@@ -191,7 +191,7 @@ services:
 
 networks:
   default:
-    name: datahub_network
+    name: datahub-network
 
 volumes:
   esdata:
