@@ -61,17 +61,21 @@ def check() -> None:
 
 
 def check_neo4j_volume_exists():
-    ps = subprocess.run(['docker', 'volume', 'ls'], check=True, capture_output=True)
-    output = subprocess.run(('grep', '-c', 'datahub_neo4jdata'), input=ps.stdout, capture_output=True)
+    with get_client_with_error() as (client, error):
+        if error:
+            click.secho(
+                "Docker doesn't seem to be running. Did you start it?", fg="red"
+            )
+            return
 
-    results = int(output.stdout.decode("utf-8").split('\n')[0])
+        if len(client.volumes.list(filters={"name": "datahub_neo4jdata"})) > 0:
+            click.echo("Datahub Neo4j volume found, starting with neo4j as graph service."
+                       "If you want to run using elastic, run `datahub docker nuke` and re-ingest your data.")
+            return True
 
-    if results > 0:
-        click.echo("Datahub Neo4j volume found, starting with neo4j as graph service")
-        return True
-
-    click.echo("No Datahub Neo4j volume found, starting with elasticsearch as graph service")
-    return False
+        click.echo("No Datahub Neo4j volume found, starting with elasticsearch as graph service."
+                   "To use neo4j as a graph backend, ")
+        return False
 
 
 @docker.command()
@@ -126,14 +130,13 @@ def quickstart(
     )  # convert to list from tuple
     if not quickstart_compose_file:
         click.echo("Fetching docker-compose file from GitHub")
-        neo4j_volume_exists = check_neo4j_volume_exists()
         with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp_file:
             path = pathlib.Path(tmp_file.name)
             quickstart_compose_file.append(path)
 
             # Download the quickstart docker-compose file from GitHub.
             quickstart_download_response = requests.get(
-                GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL if check_neo4j_volume_exists else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
+                GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL if check_neo4j_volume_exists() else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
             )
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
