@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -164,13 +164,10 @@ class SagemakerSource(Source):
                 ingested SageMaker feature
         """
 
-        # create snapshot instance for the feature
-        feature_snapshot = MLFeatureSnapshot(
-            urn=builder.make_ml_feature_urn(
-                feature_group_details["FeatureGroupName"],
-                feature["FeatureName"],
-            ),
-            aspects=[],
+        # if the feature acts as the record identifier, then we ingest it as an MLPrimaryKey
+        is_record_identifier = (
+            feature_group_details["RecordIdentifierFeatureName"]
+            == feature["FeatureName"]
         )
 
         feature_sources = []
@@ -214,25 +211,55 @@ class SagemakerSource(Source):
             )
 
         # note that there's also an OnlineStoreConfig field, but this
-        # lack enough metadata to create a dataset
+        # lacks enough metadata to create a dataset
         # (only specifies the security config and whether it's enabled at all)
 
         # append feature name and type
-        feature_snapshot.aspects.append(
-            MLFeaturePropertiesClass(
-                dataType=self.get_feature_type(
-                    feature["FeatureType"], feature["FeatureName"]
+        if is_record_identifier:
+            primary_key_snapshot: MLPrimaryKeySnapshot = MLPrimaryKeySnapshot(
+                urn=builder.make_ml_primary_key_urn(
+                    feature_group_details["FeatureGroupName"],
+                    feature["FeatureName"],
                 ),
-                sources=feature_sources,
+                aspects=[
+                    MLPrimaryKeyPropertiesClass(
+                        dataType=self.get_feature_type(
+                            feature["FeatureType"], feature["FeatureName"]
+                        ),
+                        sources=feature_sources,
+                    ),
+                ],
             )
-        )
 
-        # make the MCE and workunit
-        mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
-        return MetadataWorkUnit(
-            id=f'{feature_group_details["FeatureGroupName"]}-{feature["FeatureName"]}',
-            mce=mce,
-        )
+            # make the MCE and workunit
+            mce = MetadataChangeEvent(proposedSnapshot=primary_key_snapshot)
+            return MetadataWorkUnit(
+                id=f'{feature_group_details["FeatureGroupName"]}-{feature["FeatureName"]}',
+                mce=mce,
+            )
+        else:
+            # create snapshot instance for the feature
+            feature_snapshot: MLFeatureSnapshot = MLFeatureSnapshot(
+                urn=builder.make_ml_feature_urn(
+                    feature_group_details["FeatureGroupName"],
+                    feature["FeatureName"],
+                ),
+                aspects=[
+                    MLFeaturePropertiesClass(
+                        dataType=self.get_feature_type(
+                            feature["FeatureType"], feature["FeatureName"]
+                        ),
+                        sources=feature_sources,
+                    )
+                ],
+            )
+
+            # make the MCE and workunit
+            mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
+            return MetadataWorkUnit(
+                id=f'{feature_group_details["FeatureGroupName"]}-{feature["FeatureName"]}',
+                mce=mce,
+            )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
