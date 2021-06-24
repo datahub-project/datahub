@@ -83,7 +83,7 @@ workflows:
           system: data-catalogue
           target: gms
           requires:
-            - release
+            - approve/release
       - gradle/deliver:
           <<: *master-filter
           name: deliver/prd/frontend
@@ -94,7 +94,7 @@ workflows:
           system: data-catalogue
           target: frontend
           requires:
-            - release
+            - approve/release
       - gradle/deliver:
           <<: *master-filter
           name: deliver/prd/mae-consumer
@@ -105,7 +105,7 @@ workflows:
           system: data-catalogue
           target: mae-consumer
           requires:
-            - release
+            - approve/release
       - gradle/deliver:
           <<: *master-filter
           name: deliver/prd/mce-consumer
@@ -116,7 +116,7 @@ workflows:
           system: data-catalogue
           target: mce-consumer
           requires:
-            - release
+            - approve/release
 
   main:
     when: << pipeline.parameters.workflow_main >>
