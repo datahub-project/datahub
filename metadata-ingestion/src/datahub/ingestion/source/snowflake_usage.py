@@ -1,20 +1,29 @@
+import collections
 import dataclasses
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 import pydantic
 import pydantic.dataclasses
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
+import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import UsageStatsWorkUnit
 from datahub.ingestion.source.snowflake import SnowflakeConfig
-from datahub.ingestion.source.usage_common import BaseUsageConfig
+from datahub.ingestion.source.usage_common import (
+    BaseUsageConfig,
+    GenericAggregatedDataset,
+    get_time_bucket,
+)
 
 logger = logging.getLogger(__name__)
+
+SnowflakeTableRef = str
+AggregatedDataset = GenericAggregatedDataset[SnowflakeTableRef]
 
 SNOWFLAKE_USAGE_SQL_TEMPLATE = """
 SELECT
@@ -102,10 +111,13 @@ class SnowflakeUsageSource(Source):
 
     def get_workunits(self) -> Iterable[UsageStatsWorkUnit]:
         access_events = self._get_snowflake_history()
+        aggregated_info = self._aggregate_access_events(access_events)
 
-        access_events = list(access_events)
-        breakpoint()
-        yield from []
+        for time_bucket in aggregated_info.values():
+            for aggregate in time_bucket.values():
+                wu = self._make_usage_stat(aggregate)
+                self.report.report_workunit(wu)
+                yield wu
 
     def _make_usage_query(self) -> str:
         return SNOWFLAKE_USAGE_SQL_TEMPLATE.format(
@@ -126,7 +138,12 @@ class SnowflakeUsageSource(Source):
         results = engine.execute(query)
         for row in results:
             # Make some minor type conversions.
-            event_dict = row._asdict()
+            if hasattr(row, "_asdict"):
+                # Compat with SQLAlchemy 1.3 and 1.4
+                # See https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#rowproxy-is-no-longer-a-proxy-is-now-called-row-and-behaves-like-an-enhanced-named-tuple.
+                event_dict = row._asdict()
+            else:
+                event_dict = dict(row)
             event_dict["base_objects_accessed"] = json.loads(
                 event_dict["base_objects_accessed"]
             )
@@ -136,6 +153,42 @@ class SnowflakeUsageSource(Source):
 
             event = SnowflakeJoinedAccessEvent(**event_dict)
             yield event
+
+    def _aggregate_access_events(
+        self, events: Iterable[SnowflakeJoinedAccessEvent]
+    ) -> Dict[datetime, Dict[SnowflakeTableRef, AggregatedDataset]]:
+        datasets: Dict[
+            datetime, Dict[SnowflakeTableRef, AggregatedDataset]
+        ] = collections.defaultdict(dict)
+
+        for event in events:
+            floored_ts = get_time_bucket(
+                event.query_start_time, self.config.bucket_duration
+            )
+
+            for object in event.base_objects_accessed:
+                resource = object.objectName
+
+                agg_bucket = datasets[floored_ts].setdefault(
+                    resource,
+                    AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
+                )
+                agg_bucket.add_read_entry(
+                    event.email,
+                    event.query_text,
+                    [colRef.columnName for colRef in object.columns],
+                )
+
+        return datasets
+
+    def _make_usage_stat(self, agg: AggregatedDataset) -> UsageStatsWorkUnit:
+        return agg.make_usage_workunit(
+            self.config.bucket_duration,
+            lambda resource: builder.make_dataset_urn(
+                "snowflake", resource.lower(), self.config.env
+            ),
+            self.config.top_n_queries,
+        )
 
     def get_report(self):
         return self.report
