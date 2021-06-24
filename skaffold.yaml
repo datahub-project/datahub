@@ -1,12 +1,11 @@
-apiVersion: skaffold/v2beta17
+apiVersion: skaffold/v1beta16
 kind: Config
 profiles:
   - name: local
     build:
       tagPolicy:
-        gitCommit:
-          variant: AbbrevCommitSha
-          ignoreChanges: true
+        envTemplate:
+          template: "{{.IMAGE_NAME}}"
       artifacts:
       - image: datahub-gms
         docker:
@@ -14,7 +13,7 @@ profiles:
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
-        paths: [./kubernetes/base]
+        path: ./kubernetes/base
   - name: dev-tokyo
     build:
       tagPolicy:
@@ -36,7 +35,7 @@ profiles:
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
-        paths: [./kubernetes/dev/tokyo]
+        path: ./kubernetes/dev/tokyo
   - name: prd-tokyo
     build:
       tagPolicy:
@@ -58,4 +57,4 @@ profiles:
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
-        paths: [./kubernetes/prd/tokyo]
+        path: ./kubernetes/prd/tokyo
