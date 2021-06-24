@@ -1,4 +1,4 @@
-namespace: data-catalog
+namespace: data-catalogue
 resources:
   - datahub-frontend-react-deployment.yaml
   - kafka-rest-proxy-env-docker-env-configmap.yaml
