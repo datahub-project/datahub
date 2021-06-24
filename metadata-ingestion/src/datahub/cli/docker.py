@@ -69,13 +69,14 @@ def check_neo4j_volume_exists():
             return
 
         if len(client.volumes.list(filters={"name": "datahub_neo4jdata"})) > 0:
-            click.echo("Datahub Neo4j volume found, starting with neo4j as graph service."
-                       "If you want to run using elastic, run `datahub docker nuke` and re-ingest your data.")
+            click.echo("Datahub Neo4j volume found, starting with neo4j as graph service.\n"
+                       "If you want to run using elastic, run `datahub docker nuke` and re-ingest your data.\n")
             return True
 
-        click.echo("No Datahub Neo4j volume found, starting with elasticsearch as graph service."
-                   "To use neo4j as a graph backend, run with"
-                   "`--quickstart-compose-file ./docker/quickstart/docker-compose.quickstart.yml`")
+        click.echo("No Datahub Neo4j volume found, starting with elasticsearch as graph service.\n"
+                   "To use neo4j as a graph backend, run \n"
+                   "`datahub docker quickstart --quickstart-compose-file ./docker/quickstart/docker-compose.quickstart.yml`"
+                   "\nfrom the root of the datahub repo\n")
         return False
 
 
