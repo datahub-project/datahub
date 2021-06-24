@@ -71,25 +71,60 @@ profiles:
       statusCheckDeadlineSeconds: 600
       kustomize:
         path: ./kubernetes/dev/tokyo/datahub-mce
-  - name: prd-tokyo
-    build:
-      tagPolicy:
-        gitCommit:
-          variant: AbbrevCommitSha
-      artifacts:
-      - image: datahub-gms
-        docker:
-          dockerfile: ./docker/datahub-gms/Dockerfile
-      - image: datahub-frontend
-        docker:
-          dockerfile: ./docker/datahub-frontend/Dockerfile
-      - image: datahub-mae-consumer
-        docker:
-          dockerfile: ./docker/datahub-mae-consumer/Dockerfile
-      - image: datahub-mce-consumer
-        docker:
-          dockerfile: ./docker/datahub-mce-consumer/Dockerfile
+  - name: prd-tokyo-dependencies
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
-        path: ./kubernetes/prd/tokyo
+        path: ./kubernetes/prd/tokyo/dependencies
+  - name: dev-tokyo-gms
+    build:
+      tagPolicy:
+        envTemplate:
+          template: "{{.IMAGE_NAME}}:{{.RELEASE_VERSION}}"
+      artifacts:
+        - image: datahub-gms
+          docker:
+            dockerfile: ./docker/datahub-gms/Dockerfile
+    deploy:
+      statusCheckDeadlineSeconds: 600
+      kustomize:
+        path: ./kubernetes/prd/tokyo/datahub-gms
+  - name: prd-tokyo-frontend
+    build:
+      tagPolicy:
+        envTemplate:
+          template: "{{.IMAGE_NAME}}:{{.RELEASE_VERSION}}"
+      artifacts:
+        - image: datahub-frontend
+          docker:
+            dockerfile: ./docker/datahub-frontend/Dockerfile
+    deploy:
+      statusCheckDeadlineSeconds: 600
+      kustomize:
+        path: ./kubernetes/prd/tokyo/datahub-frontend
+  - name: prd-tokyo-mae-consumer
+    build:
+      tagPolicy:
+        envTemplate:
+          template: "{{.IMAGE_NAME}}:{{.RELEASE_VERSION}}"
+      artifacts:
+        - image: datahub-mae-consumer
+          docker:
+            dockerfile: ./docker/datahub-mae-consumer/Dockerfile
+    deploy:
+      statusCheckDeadlineSeconds: 600
+      kustomize:
+        path: ./kubernetes/prd/tokyo/datahub-mae
+  - name: prd-tokyo-mce-consumer
+    build:
+      tagPolicy:
+        envTemplate:
+          template: "{{.IMAGE_NAME}}:{{.RELEASE_VERSION}}"
+      artifacts:
+        - image: datahub-mce-consumer
+          docker:
+            dockerfile: ./docker/datahub-mce-consumer/Dockerfile
+    deploy:
+      statusCheckDeadlineSeconds: 600
+      kustomize:
+        path: ./kubernetes/prd/tokyo/datahub-mce
