@@ -22,7 +22,7 @@ fi
 
 if cmp docker-compose-without-neo4j.quickstart.yml temp-without-neo4j.quickstart.yml; then
     printf 'docker-compose-without-neo4j.quickstart.yml is up to date.'
-		exit 0
+    exit 0
 else
     printf 'docker-compose-without-neo4j.quickstart.yml is out of date.'
     exit 1
