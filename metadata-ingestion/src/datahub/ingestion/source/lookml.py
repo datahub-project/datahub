@@ -14,7 +14,7 @@ if sys.version_info >= (3, 7):
     import lkml
 else:
     raise ModuleNotFoundError("The lookml plugin requires Python 3.7 or newer.")
-from sql_metadata import get_query_tables
+from sql_metadata import Parser as SQLParser
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
@@ -197,17 +197,13 @@ class LookerView:  # pragma: no cover
 
     @classmethod
     def _get_sql_table_names(cls, sql: str) -> List[str]:
-        sql_tables: List[str] = get_query_tables(sql)
+        sql_table_names: List[str] = SQLParser(sql).tables
 
-        # Remove temporary tables from WITH statements
+        # Remove cascading derived tables
         sql_table_names = [
             t
-            for t in sql_tables
-            if not re.search(
-                fr"WITH(.*,)?\s+{t}(\s*\([\w\s,]+\))?\s+AS\s+\(",
-                sql,
-                re.IGNORECASE | re.DOTALL,
-            )
+            for t in sql_table_names
+            if not re.fullmatch('\w+\.SQL_TABLE_NAME', t)
         ]
 
         # Remove quotes from tables
