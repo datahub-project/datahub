@@ -211,7 +211,7 @@ def test_gms_search_dataset(query, min_expected_results):
     assert data["elements"][0]["urn"]
 
 
-# @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_usage_fetch():
     response = requests.post(
         f"{GMS_ENDPOINT}/usageStats?action=queryRange",
@@ -226,7 +226,7 @@ def test_gms_usage_fetch():
 
     data = response.json()["value"]
 
-    assert len(data["buckets"]) == 6
+    assert len(data["buckets"]) == 3
     assert data["buckets"][0]["metrics"]["topSqlQueries"]
 
     fields = data["aggregations"].pop("fields")
@@ -234,13 +234,13 @@ def test_gms_usage_fetch():
     assert fields[0]["count"] == 7
 
     users = data["aggregations"].pop("users")
-    assert len(users) == 2
+    assert len(users) == 1
     assert users[0]["count"] == 7
 
     assert data["aggregations"] == {
         # "fields" and "users" already popped out
         "totalSqlQueries": 7,
-        "uniqueUserCount": 2,
+        "uniqueUserCount": 1,
     }
 
 

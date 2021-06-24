@@ -97,7 +97,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
                             count=count,
                         )
                         for column, count in self.columnFreq.most_common()
-                    ]
+                    ],
                 ),
             ),
         )

@@ -813,10 +813,12 @@ This source only does usage statistics. To get the tables, views, and schemas in
 ### Snowflake Usage Stats `snowflake-usage`
 
 - Fetch a list of queries issued
-- Fetch a list of tables and columns accessed (excludes system views)
+- Fetch a list of tables and columns accessed (excludes views)
 - Aggregate these statistics into buckets, by day or hour granularity
 
 Note: the user/role must have access to the account usage table. The "accountadmin" role has this by default, and other roles can be granted this permission: https://docs.snowflake.com/en/sql-reference/account-usage.html#enabling-account-usage-for-other-roles.
+
+Note: the underlying access history views that we use are only available in Snowflake's enterprise edition or higher.
 
 ```yml
 source:
