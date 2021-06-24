@@ -10,4 +10,4 @@ resources:
   - kafka-setup-env-docker-env-configmap.yaml
   - kafka-topics-ui-deployment.yaml
   - kafka-topics-ui-env-docker-env-configmap.yaml
-  - kafka-topics-ui-deployment.yaml
+  - kafka-topics-ui-service.yaml

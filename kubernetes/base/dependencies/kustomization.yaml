@@ -1,9 +1,9 @@
 namespace: data-catalogue
 resources:
-  - elasticsearch/
-  - kafka/
-  - kibana/
-  - neo4j/
-  - schema-registry/
-  - zookeeper/
+  - elasticsearch
+  - kafka
+  - kibana
+  - neo4j
+  - schema-registry
+  - zookeeper
   - datahub_network-networkpolicy.yaml
