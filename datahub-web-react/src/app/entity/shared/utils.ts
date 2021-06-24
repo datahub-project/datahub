@@ -112,3 +112,13 @@ export function diffMarkdown(oldStr: string, newStr: string) {
         )
         .join('');
 }
+
+export function diffJson(oldStr: string, newStr: string) {
+    const diffArray = diff.diffJson(oldStr || '', newStr || '');
+    return diffArray
+        .map((diffOne) =>
+            // eslint-disable-next-line no-nested-ternary
+            diffOne.added ? `+${diffOne.value}` : diffOne.removed ? `-${diffOne.value}` : diffOne.value,
+        )
+        .join('');
+}

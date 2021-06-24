@@ -6,7 +6,6 @@ import { Message } from '../../../../shared/Message';
 import { useGetDatasetSchemaVersionsLazyQuery, UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import {
     Schema,
-    SchemaField,
     SchemaMetadata,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
@@ -15,7 +14,7 @@ import {
     EditableSchemaFieldInfoUpdate,
     EntityType,
 } from '../../../../../types.generated';
-import { fieldPathSortAndParse, ExtendedSchemaFields } from '../../../shared/utils';
+import { diffJson, fieldPathSortAndParse, ExtendedSchemaFields } from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import SchemaTable from './SchemaTable';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
@@ -71,36 +70,61 @@ export default function SchemaView({
     editableSchemaMetadata,
     updateEditableSchema,
 }: Props) {
-    const [showRaw, setShowRaw] = useState(false);
-    const [diffSummary, setDiffSummary] = useState({ added: 0, removed: 0, updated: 0 });
-    const [showVersions, setShowVersions] = useState(false);
     const totalVersions = pastSchemaMetadata?.aspectVersion || 0;
+
+    const [showRaw, setShowRaw] = useState(false);
+    const [diffSummary, setDiffSummary] = useState({ added: 0, removed: 0, updated: 0, schemaRawUpdated: false });
+    const [showVersions, setShowVersions] = useState(false);
     const [currentVersion, setCurrentVersion] = useState(totalVersions);
     const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
+    const [schemaRawDiff, setSchemaRawDiff] = useState<string>('');
     const [getSchemaVersions, { loading, error, data: schemaVersions }] = useGetDatasetSchemaVersionsLazyQuery({
         fetchPolicy: 'no-cache',
     });
+
+    const getRawSchema = (schemaValue) => {
+        try {
+            return JSON.stringify(JSON.parse(schemaValue), null, 2);
+        } catch (e) {
+            return schemaValue;
+        }
+    };
+
     const updateDiff = useCallback(
-        (newFields?: Array<SchemaField>, oldFields?: Array<SchemaField>) => {
-            const { fields, added, removed, updated } = fieldPathSortAndParse(newFields, oldFields, !showVersions);
+        (currentSchema?: SchemaMetadata | Schema | null, pastSchema?: SchemaMetadata | null) => {
+            const { fields, added, removed, updated } = fieldPathSortAndParse(
+                currentSchema?.fields,
+                pastSchema?.fields,
+                !showVersions,
+            );
+            const currentSchemaRaw =
+                currentSchema?.platformSchema?.__typename === 'TableSchema'
+                    ? getRawSchema(currentSchema.platformSchema.schema)
+                    : '';
+            if (showVersions) {
+                const pastSchemaRaw =
+                    pastSchema?.platformSchema?.__typename === 'TableSchema'
+                        ? getRawSchema(pastSchema.platformSchema.schema)
+                        : '';
+                setSchemaRawDiff(diffJson(pastSchemaRaw, currentSchemaRaw));
+                setDiffSummary({ added, removed, updated, schemaRawUpdated: currentSchemaRaw === pastSchemaRaw });
+            } else {
+                setSchemaRawDiff(currentSchemaRaw);
+            }
             setRows(fields);
-            setDiffSummary({ added, removed, updated });
         },
         [showVersions],
     );
 
     useEffect(() => {
         if (!loading && !error && schemaVersions) {
-            updateDiff(
-                schemaVersions.dataset?.schemaMetadata?.fields,
-                schemaVersions.dataset?.pastSchemaMetadata?.fields,
-            );
+            updateDiff(schemaVersions.dataset?.schemaMetadata, schemaVersions.dataset?.pastSchemaMetadata);
         }
     }, [schemaVersions, loading, error, updateDiff]);
 
     useEffect(() => {
-        updateDiff(schema?.fields, pastSchemaMetadata?.fields);
-    }, [schema?.fields, pastSchemaMetadata?.fields, updateDiff]);
+        updateDiff(schema, pastSchemaMetadata);
+    }, [schema, pastSchemaMetadata, updateDiff]);
 
     const updateSchema = (newFieldInfo: EditableSchemaFieldInfoUpdate, record?: EditableSchemaFieldInfo) => {
         let existingMetadataAsUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
@@ -157,22 +181,13 @@ export default function SchemaView({
         return updateSchema(newFieldInfo, record as EditableSchemaFieldInfo);
     };
 
-    const getRawSchema = (schemaValue) => {
-        try {
-            return JSON.stringify(JSON.parse(schemaValue), null, 2);
-        } catch (e) {
-            return schemaValue;
-        }
-    };
-
     const onVersionChange = (version) => {
-        console.log('version--', version);
         if (version === null) {
             return;
         }
         setCurrentVersion(version);
         if (version === totalVersions) {
-            updateDiff(schema?.fields, pastSchemaMetadata?.fields);
+            updateDiff(schema, pastSchemaMetadata);
             return;
         }
         getSchemaVersions({
@@ -219,10 +234,7 @@ export default function SchemaView({
             {showRaw ? (
                 <Typography.Text data-testid="schema-raw-view">
                     <pre>
-                        <code>
-                            {schema?.platformSchema?.__typename === 'TableSchema' &&
-                                getRawSchema(schema.platformSchema.schema)}
-                        </code>
+                        <code>{schemaRawDiff}</code>
                     </pre>
                 </Typography.Text>
             ) : (
