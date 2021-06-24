@@ -14,6 +14,11 @@ profiles:
       statusCheckDeadlineSeconds: 600
       kustomize:
         path: ./kubernetes/base
+  - name: dev-tokyo-dependencies
+    deploy:
+      statusCheckDeadlineSeconds: 600
+      kustomize:
+        path: ./kubernetes/dev/tokyo/dependencies
   - name: dev-tokyo-gms
     build:
       tagPolicy:
@@ -26,7 +31,7 @@ profiles:
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
-        path: ./kubernetes/dev/tokyo
+        path: ./kubernetes/dev/tokyo/datahub-gms
   - name: dev-tokyo-frontend
     build:
       tagPolicy:
@@ -39,7 +44,7 @@ profiles:
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
-        path: ./kubernetes/dev/tokyo
+        path: ./kubernetes/dev/tokyo/datahub-frontend
   - name: dev-tokyo-mae-consumer
     build:
       tagPolicy:
@@ -52,7 +57,7 @@ profiles:
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
-        path: ./kubernetes/dev/tokyo
+        path: ./kubernetes/dev/tokyo/datahub-mae
   - name: dev-tokyo-mce-consumer
     build:
       tagPolicy:
@@ -65,7 +70,7 @@ profiles:
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
-        path: ./kubernetes/dev/tokyo
+        path: ./kubernetes/dev/tokyo/datahub-mce
   - name: prd-tokyo
     build:
       tagPolicy:
