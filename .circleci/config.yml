@@ -22,6 +22,15 @@ workflows:
     jobs:
       - gradle/deliver:
           <<: *branch-filter
+          name: deliver/dev/dependencies
+          docker: *orb_docker_gradle
+          env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: dependencies
+      - gradle/deliver:
+          <<: *branch-filter
           name: deliver/dev/gms
           docker: *orb_docker_gradle
           env: dev
