@@ -28,12 +28,40 @@ workflows:
     jobs:
       - gradle/deliver:
           <<: *branch-filter
-          name: deliver/devs
+          name: deliver/dev/gms
           docker: *orb_docker_gradle
           env: dev
           region: tokyo
           cluster: spaas_sn
           system: data-catalogue
+          target: gms
+      - gradle/deliver:
+          <<: *branch-filter
+          name: deliver/dev/frontend
+          docker: *orb_docker_gradle
+          env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: frontend
+      - gradle/deliver:
+          <<: *branch-filter
+          name: deliver/dev/mae-consumer
+          docker: *orb_docker_gradle
+          env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: mae-consumer
+      - gradle/deliver:
+          <<: *branch-filter
+          name: deliver/dev/mce-consumer
+          docker: *orb_docker_gradle
+          env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: mcs-consumer
 parameters:
   workflow_main:
     type: boolean

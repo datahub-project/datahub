@@ -14,7 +14,7 @@ profiles:
       statusCheckDeadlineSeconds: 600
       kustomize:
         path: ./kubernetes/base
-  - name: dev-tokyo
+  - name: dev-tokyo-gms
     build:
       tagPolicy:
         gitCommit:
@@ -23,12 +23,42 @@ profiles:
       - image: datahub-gms
         docker:
           dockerfile: ./docker/datahub-gms/Dockerfile
+    deploy:
+      statusCheckDeadlineSeconds: 600
+      kustomize:
+        path: ./kubernetes/dev/tokyo
+  - name: dev-tokyo-frontend
+    build:
+      tagPolicy:
+        gitCommit:
+          variant: AbbrevCommitSha
+      artifacts:
       - image: datahub-frontend
         docker:
           dockerfile: ./docker/datahub-frontend/Dockerfile
+    deploy:
+      statusCheckDeadlineSeconds: 600
+      kustomize:
+        path: ./kubernetes/dev/tokyo
+  - name: dev-tokyo-mae-consumer
+    build:
+      tagPolicy:
+        gitCommit:
+          variant: AbbrevCommitSha
+      artifacts:
       - image: datahub-mae-consumer
         docker:
           dockerfile: ./docker/datahub-mae-consumer/Dockerfile
+    deploy:
+      statusCheckDeadlineSeconds: 600
+      kustomize:
+        path: ./kubernetes/dev/tokyo
+  - name: dev-tokyo-mce-consumer
+    build:
+      tagPolicy:
+        gitCommit:
+          variant: AbbrevCommitSha
+      artifacts:
       - image: datahub-mce-consumer
         docker:
           dockerfile: ./docker/datahub-mce-consumer/Dockerfile
