@@ -176,7 +176,7 @@ class SnowflakeUsageSource(Source):
                 agg_bucket.add_read_entry(
                     event.email,
                     event.query_text,
-                    [colRef.columnName for colRef in object.columns],
+                    [colRef.columnName.lower() for colRef in object.columns],
                 )
 
         return datasets

@@ -10,6 +10,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.workunit import UsageStatsWorkUnit
 from datahub.metadata.schema_classes import (
+    FieldUsageCountsClass,
     UsageAggregationClass,
     UsageAggregationMetricsClass,
     UserUsageCountsClass,
@@ -90,6 +91,13 @@ class GenericAggregatedDataset(Generic[ResourceType]):
                     topSqlQueries=[
                         query for query, _ in self.queryFreq.most_common(top_n_queries)
                     ],
+                    fields=[
+                        FieldUsageCountsClass(
+                            fieldName=column,
+                            count=count,
+                        )
+                        for column, count in self.columnFreq.most_common()
+                    ]
                 ),
             ),
         )
