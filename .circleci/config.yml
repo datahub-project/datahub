@@ -73,12 +73,6 @@ workflows:
           <<: *master-filter
           name: approve/release
           type: approval
-      - gradle/release:
-          <<: *master-filter
-          name: release
-          docker: *orb_docker_gradle
-          requires:
-            - approve/release
       - gradle/deliver:
           <<: *master-filter
           name: deliver/prd/gms
