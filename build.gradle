@@ -38,6 +38,7 @@ project.ext.externalDependency = [
     'cacheApi' : 'javax.cache:cache-api:1.1.0',
     'commonsIo': 'commons-io:commons-io:2.4',
     'commonsLang': 'commons-lang:commons-lang:2.6',
+    'commonsCollections': 'commons-collections:commons-collections:3.2.2',
     'data' : 'com.linkedin.pegasus:data:' + pegasusVersion,
     'ebean': 'io.ebean:ebean:11.33.3',
     'ebeanAgent': 'io.ebean:ebean-agent:11.27.1',
@@ -108,7 +109,7 @@ project.ext.externalDependency = [
     'springBootStarterWeb': 'org.springframework.boot:spring-boot-starter-web:2.1.4.RELEASE',
     'springBootStarterJetty': 'org.springframework.boot:spring-boot-starter-jetty:2.1.4.RELEASE',
     'springKafka': 'org.springframework.kafka:spring-kafka:2.2.14.RELEASE',
-    'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.1.2.RELEASE',
+    'springActuator': 'org.springframework.boot:spring-boot-starter-actuator:2.1.4.RELEASE',
     'testng': 'org.testng:testng:7.3.0',
     'testContainers': 'org.testcontainers:testcontainers:1.15.1',
     'testContainersJunit': 'org.testcontainers:junit-jupiter:1.15.1',
@@ -120,6 +121,11 @@ allprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
   apply plugin: 'checkstyle'
+
+  configurations.all {
+    exclude group: "io.netty", module: "netty"
+    exclude group: "log4j", module: "log4j"
+  }
 }
 
 subprojects {
