@@ -48,8 +48,6 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static com.linkedin.metadata.dao.utils.SearchUtils.getQueryBuilderFromCriterion;
 
@@ -59,7 +57,6 @@ public class SearchRequestHandler {
 
   private static final Map<EntitySpec, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
-  private final Logger logger = LoggerFactory.getLogger(SearchRequestHandler.class.getName());
   private final EntitySpec _entitySpec;
   private final Set<String> _facetFields;
   private final Set<String> _defaultQueryFieldNames;

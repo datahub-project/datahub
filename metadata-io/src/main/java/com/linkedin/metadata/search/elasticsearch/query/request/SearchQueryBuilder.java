@@ -14,16 +14,12 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 public class SearchQueryBuilder {
 
   private static final String KEYWORD_LOWERCASE_ANALYZER = "custom_keyword";
   private static final String TEXT_ANALYZER = "word_delimited";
-
-  private final Logger logger = LoggerFactory.getLogger(SearchQueryBuilder.class.getName());
 
   private static final Set<FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
       new HashSet<>(Arrays.asList(FieldType.TEXT, FieldType.TEXT_PARTIAL, FieldType.URN,
