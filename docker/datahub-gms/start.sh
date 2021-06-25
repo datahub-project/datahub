@@ -31,7 +31,7 @@ dockerize \
   -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') \
   -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT -wait-http-header "$ELASTICSEARCH_AUTH_HEADER" \
   -timeout 240s \
-  java $JAVA_OPTS -Dlogback.debug=$LOG_DEBUG $JMX_OPTS \
+  java $JAVA_OPTS $JMX_OPTS \
   -jar /jetty-runner.jar \
   --jar jetty-util.jar \
   --jar jetty-jmx.jar \

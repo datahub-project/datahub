@@ -31,8 +31,6 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
-ENV LOG_DEBUG="false"
-
 EXPOSE 8080
 
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:8080/health || exit 1

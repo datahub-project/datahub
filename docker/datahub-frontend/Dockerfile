@@ -34,7 +34,6 @@ EXPOSE $SERVER_PORT
 
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT/admin || exit 1
 
-ENV LOG_DEBUG="false"
 ENV JAVA_OPTS=" \
    -Xms512m \
    -Xmx1024m \
@@ -42,6 +41,6 @@ ENV JAVA_OPTS=" \
    -Dconfig.file=datahub-frontend/conf/application.conf \
    -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
    -Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
-   -Dlogback.debug=$LOG_DEBUG \
+   -Dlogback.debug=false \
    -Dpidfile.path=/dev/null"
 CMD ["datahub-frontend/bin/playBinary"]

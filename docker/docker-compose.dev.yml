@@ -37,8 +37,6 @@ services:
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
-    environment:
-      - LOG_DEBUG=true
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ../gms/war/build/libs/:/datahub/datahub-gms/bin
@@ -50,7 +48,5 @@ services:
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
-    environment:
-      - LOG_DEBUG=true
     volumes:
       - ../datahub-frontend/build/stage/datahub-frontend:/datahub-frontend
