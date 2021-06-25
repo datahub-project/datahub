@@ -368,6 +368,12 @@ source:
     # options is same as above
 ```
 
+:::tip
+
+You can also get fine-grained usage statistics for Snowflake using the `snowflake-usage` source.
+
+:::
+
 ### Superset `superset`
 
 Extracts:
@@ -718,6 +724,75 @@ source:
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
 
+### Google BigQuery Usage Stats `bigquery-usage`
+
+- Fetch a list of queries issued
+- Fetch a list of tables and columns accessed
+- Aggregate these statistics into buckets, by day or hour granularity
+
+Note: the client must have one of the following OAuth scopes:
+
+- https://www.googleapis.com/auth/logging.read
+- https://www.googleapis.com/auth/logging.admin
+- https://www.googleapis.com/auth/cloud-platform.read-only
+- https://www.googleapis.com/auth/cloud-platform
+
+```yml
+source:
+  type: bigquery-usage
+  config:
+    project_id: project # optional - can autodetect from environment
+    options:
+      # See https://googleapis.dev/python/logging/latest/client.html for details.
+      credentials: ~ # optional - see docs
+    env: PROD
+
+    bucket_duration: "DAY"
+    start_time: ~ # defaults to the last full day in UTC (or hour)
+    end_time: ~ # defaults to the last full day in UTC (or hour)
+
+    top_n_queries: 10 # number of queries to save for each table
+```
+
+:::note
+
+This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` source.
+
+:::
+
+### Snowflake Usage Stats `snowflake-usage`
+
+- Fetch a list of queries issued
+- Fetch a list of tables and columns accessed (excludes views)
+- Aggregate these statistics into buckets, by day or hour granularity
+
+Note: the user/role must have access to the account usage table. The "accountadmin" role has this by default, and other roles can be [granted this permission](https://docs.snowflake.com/en/sql-reference/account-usage.html#enabling-account-usage-for-other-roles).
+
+Note: the underlying access history views that we use are only available in Snowflake's enterprise edition or higher.
+
+```yml
+source:
+  type: snowflake-usage
+  config:
+    username: user
+    password: pass
+    host_port: account_name
+    role: ACCOUNTADMIN
+    env: PROD
+
+    bucket_duration: "DAY"
+    start_time: ~ # defaults to the last full day in UTC (or hour)
+    end_time: ~ # defaults to the last full day in UTC (or hour)
+
+    top_n_queries: 10 # number of queries to save for each table
+```
+
+:::note
+
+This source only does usage statistics. To get the tables, views, and schemas in your Snowflake warehouse, ingest using the `snowflake` source.
+
+:::
+
 ### Kafka Connect `kafka-connect`
 
 Extracts:
@@ -773,75 +848,6 @@ sink:
       schema_registry_url: "http://localhost:8081"
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
-
-### Google BigQuery Usage Stats `bigquery-usage`
-
-- Fetch a list of queries issued
-- Fetch a list of tables and columns accessed
-- Aggregate these statistics into buckets, by day or hour granularity
-
-Note: the client must have one of the following OAuth scopes:
-
-- https://www.googleapis.com/auth/logging.read
-- https://www.googleapis.com/auth/logging.admin
-- https://www.googleapis.com/auth/cloud-platform.read-only
-- https://www.googleapis.com/auth/cloud-platform
-
-```yml
-source:
-  type: bigquery-usage
-  config:
-    project_id: project # optional - can autodetect from environment
-    options:
-      # See https://googleapis.dev/python/logging/latest/client.html for details.
-      credentials: ~ # optional - see docs
-    env: PROD
-
-    bucket_duration: "DAY"
-    start_time: ~ # defaults to the last full day in UTC (or hour)
-    end_time: ~ # defaults to the last full day in UTC (or hour)
-
-    top_n_queries: 10 # number of queries to save for each table
-```
-
-:::tip
-
-This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` source.
-
-:::
-
-### Snowflake Usage Stats `snowflake-usage`
-
-- Fetch a list of queries issued
-- Fetch a list of tables and columns accessed (excludes views)
-- Aggregate these statistics into buckets, by day or hour granularity
-
-Note: the user/role must have access to the account usage table. The "accountadmin" role has this by default, and other roles can be granted this permission: https://docs.snowflake.com/en/sql-reference/account-usage.html#enabling-account-usage-for-other-roles.
-
-Note: the underlying access history views that we use are only available in Snowflake's enterprise edition or higher.
-
-```yml
-source:
-  type: snowflake-usage
-  config:
-    username: user
-    password: pass
-    host_port: account_name
-    role: ACCOUNTADMIN
-    env: PROD
-
-    bucket_duration: "DAY"
-    start_time: ~ # defaults to the last full day in UTC (or hour)
-    end_time: ~ # defaults to the last full day in UTC (or hour)
-
-    top_n_queries: 10 # number of queries to save for each table
-```
-
-:::tip
-
-This source only does usage statistics. To get the tables, views, and schemas in your Snowflake warehouse, ingest using the `snowflake` source.
-
-:::
 
 ### Console `console`
 
