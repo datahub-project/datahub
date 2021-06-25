@@ -91,6 +91,7 @@ plugins: Dict[str, Set[str]] = {
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "snowflake": sql_common | {"snowflake-sqlalchemy"},
+    "snowflake-usage": sql_common | {"snowflake-sqlalchemy"},
     "superset": {"requests"},
 }
 
@@ -200,6 +201,7 @@ entry_points = {
         "postgres = datahub.ingestion.source.postgres:PostgresSource",
         "redshift = datahub.ingestion.source.redshift:RedshiftSource",
         "snowflake = datahub.ingestion.source.snowflake:SnowflakeSource",
+        "snowflake-usage = datahub.ingestion.source.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
     ],
     "datahub.ingestion.sink.plugins": [

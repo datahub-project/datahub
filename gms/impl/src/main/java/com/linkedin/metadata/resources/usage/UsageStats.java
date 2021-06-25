@@ -10,6 +10,8 @@ import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
+import com.linkedin.usage.FieldUsageCounts;
+import com.linkedin.usage.FieldUsageCountsArray;
 import com.linkedin.usage.UsageAggregation;
 import com.linkedin.usage.UsageAggregationArray;
 import com.linkedin.usage.UsageQueryResult;
@@ -121,6 +123,29 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
                 if (totalQueryCount != null) {
                     aggregations.setTotalSqlQueries(totalQueryCount);
+                }
+            }
+
+            // Compute aggregations for field usage counts.
+            {
+                Map<String, Integer> fieldAgg = new HashMap<>();
+                buckets.forEach((bucket) -> {
+                    Optional.ofNullable(bucket.getMetrics().getFields()).ifPresent(fieldUsageCounts -> {
+                        fieldUsageCounts.forEach((fieldCount -> {
+                            String key = fieldCount.getFieldName();
+                            int count = fieldAgg.getOrDefault(key, 0);
+                            count += fieldCount.getCount();
+                            fieldAgg.put(key, count);
+                        }));
+                    });
+                });
+
+                if (!fieldAgg.isEmpty()) {
+                    FieldUsageCountsArray fields = new FieldUsageCountsArray();
+                    fields.addAll(fieldAgg.entrySet().stream().map((mapping) -> new FieldUsageCounts()
+                            .setFieldName(mapping.getKey())
+                            .setCount(mapping.getValue())).collect(Collectors.toList()));
+                    aggregations.setFields(fields);
                 }
             }
 

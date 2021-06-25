@@ -131,6 +131,10 @@ query getDataset($urn: String!) {
                     count
                     userEmail
                 }
+                fields {
+                    fieldName
+                    count
+                }
             }
         }
     }

@@ -37,7 +37,6 @@ function getTopNQueries(responseSize: number, buckets?: Maybe<UsageAggregation>[
 }
 
 export default function QueriesTab({ dataset }: Props) {
-    console.log(dataset.usageStats);
     const topQueries = getTopNQueries(5, dataset.usageStats?.buckets);
 
     if (topQueries.length === 0) {

@@ -14,11 +14,10 @@ import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import UsageStatsWorkUnit
-from datahub.ingestion.source.usage_common import BaseUsageConfig, get_time_bucket
-from datahub.metadata.schema_classes import (
-    UsageAggregationClass,
-    UsageAggregationMetricsClass,
-    UserUsageCountsClass,
+from datahub.ingestion.source.usage_common import (
+    BaseUsageConfig,
+    GenericAggregatedDataset,
+    get_time_bucket,
 )
 from datahub.utilities.delayed_iter import delayed_iter
 
@@ -99,6 +98,9 @@ class BigQueryTableRef:
 
     def __str__(self) -> str:
         return f"projects/{self.project}/datasets/{self.dataset}/tables/{self.table}"
+
+
+AggregatedDataset = GenericAggregatedDataset[BigQueryTableRef]
 
 
 def _table_ref_to_urn(ref: BigQueryTableRef, env: str) -> str:
@@ -211,18 +213,6 @@ class QueryEvent:
             payload=entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None,
         )
         return queryEvent
-
-
-@dataclass
-class AggregatedDataset:
-    bucket_start_time: datetime
-    resource: BigQueryTableRef
-
-    readCount: int = 0
-    queryCount: int = 0
-    queryFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
-    userFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
-    columnFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
@@ -373,43 +363,15 @@ class BigQueryUsageSource(Source):
                 resource,
                 AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
             )
-
-            agg_bucket.readCount += 1
-            agg_bucket.userFreq[event.actor_email] += 1
-            if event.query:
-                agg_bucket.queryCount += 1
-                agg_bucket.queryFreq[event.query] += 1
-            for column in event.fieldsRead:
-                agg_bucket.columnFreq[column] += 1
+            agg_bucket.add_read_entry(event.actor_email, event.query, event.fieldsRead)
 
         return datasets
 
     def _make_usage_stat(self, agg: AggregatedDataset) -> UsageStatsWorkUnit:
-        return UsageStatsWorkUnit(
-            id=f"{agg.bucket_start_time.isoformat()}-{agg.resource}",
-            usageStats=UsageAggregationClass(
-                bucket=int(agg.bucket_start_time.timestamp() * 1000),
-                duration=self.config.bucket_duration,
-                resource=_table_ref_to_urn(agg.resource, self.config.env),
-                metrics=UsageAggregationMetricsClass(
-                    uniqueUserCount=len(agg.userFreq),
-                    users=[
-                        UserUsageCountsClass(
-                            user=builder.UNKNOWN_USER,
-                            count=count,
-                            userEmail=user_email,
-                        )
-                        for user_email, count in agg.userFreq.most_common()
-                    ],
-                    totalSqlQueries=agg.queryCount,
-                    topSqlQueries=[
-                        query
-                        for query, _ in agg.queryFreq.most_common(
-                            self.config.top_n_queries
-                        )
-                    ],
-                ),
-            ),
+        return agg.make_usage_workunit(
+            self.config.bucket_duration,
+            lambda resource: _table_ref_to_urn(resource, self.config.env),
+            self.config.top_n_queries,
         )
 
     def get_report(self) -> SourceReport:

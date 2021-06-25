@@ -31,32 +31,34 @@ If you run into an error, try checking the [_common setup issues_](./developing.
 
 We use a plugin architecture so that you can install only the dependencies you actually need.
 
-| Plugin Name   | Install Command                                            | Provides                            |
-| ------------- | ---------------------------------------------------------- | ----------------------------------- |
-| file          | _included by default_                                      | File source and sink                |
-| console       | _included by default_                                      | Console sink                        |
-| athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
-| bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
-| feast         | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
-| glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
-| hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
-| mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
-| mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
-| oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
-| postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
-| redshift      | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
-| sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
-| snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
-| superset      | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
-| mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
-| ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
-| looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
-| lookml        | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
-| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
-| druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| dbt           | _no additional dependencies_                               | dbt source                          |
-| datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API          |
-| datahub-kafka | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka             |
+| Plugin Name     | Install Command                                            | Provides                            |
+| --------------- | ---------------------------------------------------------- | ----------------------------------- |
+| file            | _included by default_                                      | File source and sink                |
+| console         | _included by default_                                      | Console sink                        |
+| athena          | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
+| bigquery        | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| bigquery-usage  | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
+| feast           | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
+| glue            | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
+| hive            | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
+| mssql           | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
+| mysql           | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
+| oracle          | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
+| postgres        | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
+| redshift        | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
+| sqlalchemy      | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
+| snowflake       | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
+| snowflake-usage | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
+| superset        | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
+| mongodb         | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
+| ldap            | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
+| looker          | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
+| lookml          | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
+| kafka           | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
+| druid           | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
+| dbt             | _no additional dependencies_                               | dbt source                          |
+| datahub-rest    | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API          |
+| datahub-kafka   | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka             |
 
 These plugins can be mixed and matched as desired. For example:
 
@@ -451,6 +453,12 @@ source:
     # table_pattern/schema_pattern is same as above
 ```
 
+:::tip
+
+You can also get fine-grained usage statistics for BigQuery using the `bigquery-usage` source.
+
+:::
+
 ### AWS Athena `athena`
 
 Extracts:
@@ -765,6 +773,75 @@ sink:
       schema_registry_url: "http://localhost:8081"
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
+
+### Google BigQuery Usage Stats `bigquery-usage`
+
+- Fetch a list of queries issued
+- Fetch a list of tables and columns accessed
+- Aggregate these statistics into buckets, by day or hour granularity
+
+Note: the client must have one of the following OAuth scopes:
+
+- https://www.googleapis.com/auth/logging.read
+- https://www.googleapis.com/auth/logging.admin
+- https://www.googleapis.com/auth/cloud-platform.read-only
+- https://www.googleapis.com/auth/cloud-platform
+
+```yml
+source:
+  type: bigquery-usage
+  config:
+    project_id: project # optional - can autodetect from environment
+    options:
+      # See https://googleapis.dev/python/logging/latest/client.html for details.
+      credentials: ~ # optional - see docs
+    env: PROD
+
+    bucket_duration: "DAY"
+    start_time: ~ # defaults to the last full day in UTC (or hour)
+    end_time: ~ # defaults to the last full day in UTC (or hour)
+
+    top_n_queries: 10 # number of queries to save for each table
+```
+
+:::tip
+
+This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` source.
+
+:::
+
+### Snowflake Usage Stats `snowflake-usage`
+
+- Fetch a list of queries issued
+- Fetch a list of tables and columns accessed (excludes views)
+- Aggregate these statistics into buckets, by day or hour granularity
+
+Note: the user/role must have access to the account usage table. The "accountadmin" role has this by default, and other roles can be granted this permission: https://docs.snowflake.com/en/sql-reference/account-usage.html#enabling-account-usage-for-other-roles.
+
+Note: the underlying access history views that we use are only available in Snowflake's enterprise edition or higher.
+
+```yml
+source:
+  type: snowflake-usage
+  config:
+    username: user
+    password: pass
+    host_port: account_name
+    role: ACCOUNTADMIN
+    env: PROD
+
+    bucket_duration: "DAY"
+    start_time: ~ # defaults to the last full day in UTC (or hour)
+    end_time: ~ # defaults to the last full day in UTC (or hour)
+
+    top_n_queries: 10 # number of queries to save for each table
+```
+
+:::tip
+
+This source only does usage statistics. To get the tables, views, and schemas in your Snowflake warehouse, ingest using the `snowflake` source.
+
+:::
 
 ### Console `console`
 

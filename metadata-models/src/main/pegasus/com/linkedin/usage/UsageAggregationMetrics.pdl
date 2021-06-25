@@ -16,4 +16,7 @@ record UsageAggregationMetrics {
 
     /** Frequent SQL queries; mostly makes sense for datasets in SQL databases */
     topSqlQueries: optional array[string]
+
+    /** Field-level usage stats */
+    fields: optional array[FieldUsageCounts]
 }
