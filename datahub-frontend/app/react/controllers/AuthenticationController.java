@@ -11,7 +11,8 @@ import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.core.exception.HttpAction;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.http.PlayHttpActionAdapter;
-import play.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Http;
@@ -32,6 +33,7 @@ import static react.auth.AuthUtils.*;
 
 public class AuthenticationController extends Controller {
 
+    private final Logger _logger = LoggerFactory.getLogger(AuthenticationController.class.getName());
     private final Config _configs;
     private final OidcConfigs _oidcConfigs;
     private final JAASConfigs _jaasConfigs;
@@ -107,7 +109,7 @@ public class AuthenticationController extends Controller {
         try {
             AuthenticationManager.authenticateUser(username, password);
         } catch (NamingException e) {
-            Logger.warn("Authentication error", e);
+            _logger.error("Authentication error", e);
             return badRequest("Invalid Credential");
         }
 

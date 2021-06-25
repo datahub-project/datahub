@@ -27,10 +27,10 @@ dependencies {
   compile project(path: ':gms:api', configuration: 'dataTemplate')
   compile project(':li-utils')
   compile project(':metadata-models')
-
   compile project(':metadata-utils')
   compile project(':metadata-io')
   compile spec.product.pegasus.restliServer
+  compile externalDependency.lombok
   compile externalDependency.gmaDaoApi
   compile externalDependency.gmaDaoApiDataTemplate
   compile externalDependency.gmaEbeanDao
@@ -40,7 +40,7 @@ dependencies {
   compile externalDependency.gmaRestliResourcesDataTemplate
   compile externalDependency.neo4jJavaDriver
 
-  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
 
   testCompile project(':metadata-testing:metadata-test-utils')
   testCompile externalDependency.parseqTest

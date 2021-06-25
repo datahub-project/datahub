@@ -7,6 +7,8 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.typesafe.config.Config;
 import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import react.analytics.AnalyticsService;
 import react.auth.Authenticator;
 import graphql.ExecutionResult;
@@ -29,6 +31,8 @@ import react.resolver.GetHighlightsResolver;
 import react.resolver.IsAnalyticsEnabledResolver;
 
 public class GraphQLController extends Controller {
+
+    private final Logger _logger = LoggerFactory.getLogger(GraphQLController.class.getName());
 
     private static final String FRONTEND_SCHEMA_NAME = "datahub-frontend.graphql";
 
@@ -82,6 +86,8 @@ public class GraphQLController extends Controller {
             variables = new ObjectMapper().convertValue(variablesJson, new TypeReference<Map<String, Object>>(){ });
         }
 
+        _logger.debug(String.format("Executing graphQL query: %s, variables: %s", queryJson, variablesJson));
+
         /*
          * Init QueryContext
          */
@@ -91,6 +97,19 @@ public class GraphQLController extends Controller {
          * Execute GraphQL Query
          */
         ExecutionResult executionResult = _engine.execute(queryJson.asText(), variables, context);
+
+        if (executionResult.getErrors().size() != 0) {
+            // There were GraphQL errors. Report in error logs.
+            _logger.error(String.format("Errors while executing graphQL query: %s, result: %s, errors: %s",
+                queryJson,
+                executionResult.toSpecification(),
+                executionResult.getErrors()));
+        } else {
+            _logger.debug(String.format("Executed graphQL query: %s, result: %s"),
+                queryJson,
+                executionResult.toSpecification());
+        }
+
 
         /*
          * Format & Return Response

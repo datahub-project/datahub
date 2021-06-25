@@ -25,6 +25,7 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.dao.Neo4jUtil.*;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
@@ -33,6 +34,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 /**
  * Rest.li entry point: /relationships?type={entityType}&direction={direction}&types={types}
  */
+@Slf4j
 @RestLiSimpleResource(name = "relationships", namespace = "com.linkedin.lineage")
 public final class Relationships extends SimpleResourceTemplate<EntityRelationships> {
 
