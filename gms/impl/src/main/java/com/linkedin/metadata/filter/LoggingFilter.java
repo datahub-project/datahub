@@ -52,7 +52,7 @@ public class LoggingFilter implements Filter {
     String method = requestContext.getMethod().getName();
     String uri = requestContext.getRequestURI().toString();
 
-    String logStr = String.format("%s %s - %s - %s - %sms", httpMethod, uri, method, status, duration);
+    String logStr = String.format("%s %s - %s - %s - %sms", httpMethod, uri, method, status.getCode(), duration);
     log.info(logStr);
   }
 
