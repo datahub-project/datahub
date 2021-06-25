@@ -53,7 +53,7 @@ export default function DatasetHeader({
                         <HeaderInfoItem>
                             <div>
                                 <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
-                                    Queries / week
+                                    Queries / month
                                 </Typography.Text>
                             </div>
                             <span>
