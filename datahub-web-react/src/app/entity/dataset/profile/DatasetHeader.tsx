@@ -56,12 +56,7 @@ export default function DatasetHeader({
                         </div>
                         <Space direction="horizontal">
                             {platformLogoUrl && (
-                                <PreviewImage
-                                    preview={false}
-                                    src={platformLogoUrl}
-                                    placeholder={<Typography.Text>platformName</Typography.Text>}
-                                    alt={platformName}
-                                />
+                                <PreviewImage preview={false} src={platformLogoUrl} placeholder alt={platformName} />
                             )}
                             <Typography.Text style={{ fontSize: 16 }}>{platformName}</Typography.Text>
                         </Space>
