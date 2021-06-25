@@ -38,6 +38,7 @@ module.exports = {
       "docs/CONTRIBUTING",
       "docs/demo",
       "docs/saas",
+      "releases",
     ],
     "Getting Started": [
       // Serves as user guides.
