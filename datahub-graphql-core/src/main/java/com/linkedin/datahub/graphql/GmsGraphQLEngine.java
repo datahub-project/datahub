@@ -13,9 +13,12 @@ import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
+import com.linkedin.datahub.graphql.generated.UsageQueryResult;
+import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
+import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
@@ -54,6 +57,7 @@ import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
+import com.linkedin.datahub.graphql.types.usage.UsageType;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import org.apache.commons.io.IOUtils;
@@ -103,6 +107,7 @@ public class GmsGraphQLEngine {
     );
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
     public static final AspectType ASPECT_TYPE = new AspectType(GmsClientFactory.getAspectsClient());
+    public static final UsageType USAGE_TYPE = new UsageType(GmsClientFactory.getUsageClient());
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -200,10 +205,11 @@ public class GmsGraphQLEngine {
 
     public static GraphQLEngine.Builder builder() {
         return GraphQLEngine.builder()
-                .addSchema(schema())
-                .addDataLoaders(loaderSuppliers(LOADABLE_TYPES))
-                .addDataLoader("Aspect", (context) -> createAspectLoader(context))
-                .configureRuntimeWiring(GmsGraphQLEngine::configureRuntimeWiring);
+            .addSchema(schema())
+            .addDataLoaders(loaderSuppliers(LOADABLE_TYPES))
+            .addDataLoader("Aspect", (context) -> createAspectLoader(context))
+            .addDataLoader("UsageQueryResult", (context) -> createUsageLoader(context))
+            .configureRuntimeWiring(GmsGraphQLEngine::configureRuntimeWiring);
     }
 
     public static GraphQLEngine get() {
@@ -219,52 +225,52 @@ public class GmsGraphQLEngine {
 
     private static void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
-                .dataFetcher("search", new AuthenticatedResolver<>(
-                        new SearchResolver(SEARCHABLE_TYPES)))
-                .dataFetcher("autoComplete", new AuthenticatedResolver<>(
-                        new AutoCompleteResolver(SEARCHABLE_TYPES)))
-                .dataFetcher("autoCompleteForAll", new AuthenticatedResolver<>(
-                        new AutoCompleteForAllResolver(SEARCHABLE_TYPES)))
-                .dataFetcher("browse", new AuthenticatedResolver<>(
-                        new BrowseResolver(BROWSABLE_TYPES)))
-                .dataFetcher("browsePaths", new AuthenticatedResolver<>(
-                        new BrowsePathsResolver(BROWSABLE_TYPES)))
-                .dataFetcher("dataset", new AuthenticatedResolver<>(
-                        new LoadableTypeResolver<>(
-                                DATASET_TYPE,
-                                (env) -> env.getArgument(URN_FIELD_NAME))))
-                .dataFetcher("corpUser", new AuthenticatedResolver<>(
-                        new LoadableTypeResolver<>(
-                                CORP_USER_TYPE,
-                                (env) -> env.getArgument(URN_FIELD_NAME))))
-                .dataFetcher("corpGroup", new AuthenticatedResolver<>(
-                        new LoadableTypeResolver<>(
-                                CORP_GROUP_TYPE,
-                                (env) -> env.getArgument(URN_FIELD_NAME))))
-                .dataFetcher("dashboard", new AuthenticatedResolver<>(
-                        new LoadableTypeResolver<>(
-                                DASHBOARD_TYPE,
-                                (env) -> env.getArgument(URN_FIELD_NAME))))
-                .dataFetcher("chart", new AuthenticatedResolver<>(
-                        new LoadableTypeResolver<>(
-                                CHART_TYPE,
-                                (env) -> env.getArgument(URN_FIELD_NAME))))
-                .dataFetcher("tag", new AuthenticatedResolver<>(
-                        new LoadableTypeResolver<>(
-                                TAG_TYPE,
-                                (env) -> env.getArgument(URN_FIELD_NAME))))
-                .dataFetcher("dataFlow", new AuthenticatedResolver<>(
-                        new LoadableTypeResolver<>(
-                                DATA_FLOW_TYPE,
-                                (env) -> env.getArgument(URN_FIELD_NAME))))
-                .dataFetcher("dataJob", new AuthenticatedResolver<>(
-                        new LoadableTypeResolver<>(
-                                DATA_JOB_TYPE,
-                                (env) -> env.getArgument(URN_FIELD_NAME))))
-                .dataFetcher("glossaryTerm", new AuthenticatedResolver<>(
-                        new LoadableTypeResolver<>(
-                                GLOSSARY_TERM_TYPE,
-                                (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("search", new AuthenticatedResolver<>(
+                    new SearchResolver(SEARCHABLE_TYPES)))
+            .dataFetcher("autoComplete", new AuthenticatedResolver<>(
+                    new AutoCompleteResolver(SEARCHABLE_TYPES)))
+            .dataFetcher("autoCompleteForAll", new AuthenticatedResolver<>(
+                    new AutoCompleteForAllResolver(SEARCHABLE_TYPES)))
+            .dataFetcher("browse", new AuthenticatedResolver<>(
+                    new BrowseResolver(BROWSABLE_TYPES)))
+            .dataFetcher("browsePaths", new AuthenticatedResolver<>(
+                    new BrowsePathsResolver(BROWSABLE_TYPES)))
+            .dataFetcher("dataset", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            DATASET_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("corpUser", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            CORP_USER_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("corpGroup", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            CORP_GROUP_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("dashboard", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            DASHBOARD_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("chart", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            CHART_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("tag", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            TAG_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("dataFlow", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            DATA_FLOW_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("dataJob", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            DATA_JOB_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("glossaryTerm", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            GLOSSARY_TERM_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }
 
@@ -300,7 +306,8 @@ public class GmsGraphQLEngine {
                                     UPSTREAM_LINEAGE_TYPE,
                                     (env) -> ((Entity) env.getSource()).getUrn()))
                     )
-                    .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
+                .dataFetcher("usageStats", new AuthenticatedResolver<>(new UsageTypeResolver()))
+                .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
                         new AspectResolver())
                     )
             )
@@ -310,6 +317,13 @@ public class GmsGraphQLEngine {
                                     OWNER_TYPES,
                                     (env) -> ((Owner) env.getSource()).getOwner()))
                     )
+            )
+            .type("UserUsageCounts", typeWiring -> typeWiring
+                .dataFetcher("user", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                        CORP_USER_TYPE,
+                        (env) -> ((UserUsageCounts) env.getSource()).getUser().getUrn()))
+                )
             )
             .type("RelatedDataset", typeWiring -> typeWiring
                     .dataFetcher("dataset", new AuthenticatedResolver<>(
@@ -550,6 +564,18 @@ public class GmsGraphQLEngine {
                 return ASPECT_TYPE.batchLoad(keys, context.getContext());
             } catch (Exception e) {
                 throw new RuntimeException(String.format("Failed to retrieve entities of type Aspect", e));
+            }
+        }), loaderOptions);
+    }
+
+    private static DataLoader<UsageStatsKey, DataFetcherResult<UsageQueryResult>> createUsageLoader(final QueryContext queryContext) {
+        BatchLoaderContextProvider contextProvider = () -> queryContext;
+        DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
+        return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {
+            try {
+                return USAGE_TYPE.batchLoad(keys, context.getContext());
+            } catch (Exception e) {
+                throw new RuntimeException(String.format("Failed to retrieve usage stats", e));
             }
         }), loaderOptions);
     }
