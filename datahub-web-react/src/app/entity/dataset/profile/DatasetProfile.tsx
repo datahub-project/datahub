@@ -48,7 +48,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     dataset() {
                         cache.writeQuery({
                             query: GetDatasetDocument,
-                            data: { dataset: newDataset?.updateDataset },
+                            data: { dataset: { ...newDataset?.updateDataset, usageStats: data?.dataset?.usageStats } },
                         });
                     },
                 },
