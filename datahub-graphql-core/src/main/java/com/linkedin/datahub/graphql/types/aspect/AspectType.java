@@ -13,7 +13,6 @@ import javax.annotation.Nonnull;
 
 
 public class AspectType {
-
   private final AspectClient _aspectClient;
 
   public AspectType(final AspectClient aspectClient) {

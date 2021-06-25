@@ -13,7 +13,6 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-
 public class UpstreamLineageType implements LoadableType<UpstreamEntityRelationships> {
 
     private final Lineages _lineageClient;

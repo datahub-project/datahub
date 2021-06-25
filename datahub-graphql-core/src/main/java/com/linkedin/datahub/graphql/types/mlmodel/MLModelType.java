@@ -31,7 +31,6 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.metadata.query.AutoCompleteResult;
 
-
 public class MLModelType implements SearchableEntityType<MLModel> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");

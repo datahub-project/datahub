@@ -5,11 +5,11 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import java.util.Map;
 
+
 /**
  * Builder for generating settings for elasticsearch indices
  */
 public class SettingsBuilder {
-
   private static final Map<String, Object> SETTINGS = buildSettings();
 
   private SettingsBuilder() {
