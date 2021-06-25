@@ -70,6 +70,7 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
+    "bigquery-usage": {"google-cloud-logging", "cachetools"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
     "glue": {"boto3"},
@@ -110,6 +111,7 @@ mypy_stubs = {
     "types-PyMySQL",
     "types-PyYAML",
     "types-freezegun",
+    "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
 }
@@ -130,12 +132,14 @@ base_dev_requirements = {
     "deepdiff",
     "requests-mock",
     "freezegun",
+    "jsonpickle",
     "build",
     "twine",
     *list(
         dependency
         for plugin in [
             "bigquery",
+            "bigquery-usage",
             "mysql",
             "mssql",
             "mongodb",
@@ -174,10 +178,11 @@ dev_requirements_airflow_2 = {
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
-        "file = datahub.ingestion.source.mce_file:MetadataFileSource",
+        "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.athena:AthenaSource",
         "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
+        "bigquery-usage = datahub.ingestion.source.bigquery_usage:BigQueryUsageSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.druid:DruidSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
