@@ -21,38 +21,35 @@ Follow the
 following [guide](https://cloud.google.com/kubernetes-engine/docs/how-to/creating-a-zonal-cluster#before_you_begin) to
 correctly set up Google Cloud SDK.
 
-After setting up, run `gcloud services enable container.googleapis.com` to make sure GKE service is enabled. 
+After setting up, run `gcloud services enable container.googleapis.com` to make sure GKE service is enabled.
 
 ## Start up a kubernetes cluster on GKE
 
-Let’s follow this [guide](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-eksctl.html) to create a new
-cluster using eksctl. Run the following command with cluster-name set to the cluster name of choice, and region set to
-the AWS region you are operating on.
+Let’s follow this [guide](https://cloud.google.com/kubernetes-engine/docs/how-to/creating-a-zonal-cluster) to create a
+new cluster using gcloud. Run the following command with cluster-name set to the cluster name of choice, and zone set to
+the GCP zone you are operating on.
 
 ```
-eksctl create cluster \
-    --name <<cluster-name>> \
-    --region <<region>> \
-    --with-oidc \
-    --nodes=3
+gcloud container clusters create <<cluster-name>> \
+    --zone <<zone>> \
+    -m e2-standard-2
 ```
 
-The command will provision an EKS cluster powered by 3 EC2 m3.large nodes and provision a VPC based networking layer.
+The command will provision a GKE cluster powered by 3 e2-standard-2 (2 CPU, 8GB RAM) nodes.
 
 If you are planning to run the storage layer (MySQL, Elasticsearch, Kafka) as pods in the cluster, you need at least 3
-nodes. If you decide to use managed storage services, you can reduce the number of nodes or use m3.medium nodes to save
-cost. Refer to this [guide](https://eksctl.io/usage/creating-and-managing-clusters/) to further customize the cluster
-before provisioning.
-
-Note, OIDC setup is required for following this guide when setting up the load balancer.
+nodes with the above specs. If you decide to use managed storage services, you can reduce the number of nodes or use
+m3.medium nodes to save cost. Refer to
+this [guide](https://cloud.google.com/kubernetes-engine/docs/how-to/creating-a-regional-cluster) for creating a regional
+cluster for better robustness.
 
 Run `kubectl get nodes` to confirm that the cluster has been setup correctly. You should get results like below
 
 ```
-NAME                                          STATUS   ROLES    AGE   VERSION
-ip-192-168-49-49.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-eks-d1db3c
-ip-192-168-64-56.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-eks-d1db3c
-ip-192-168-8-126.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-eks-d1db3c
+NAME                                     STATUS   ROLES    AGE   VERSION
+gke-datahub-default-pool-e5be7c4f-8s97   Ready    <none>   34h   v1.19.10-gke.1600
+gke-datahub-default-pool-e5be7c4f-d68l   Ready    <none>   34h   v1.19.10-gke.1600
+gke-datahub-default-pool-e5be7c4f-rksj   Ready    <none>   34h   v1.19.10-gke.1600
 ```
 
 ## Setup DataHub using Helm
@@ -60,215 +57,46 @@ ip-192-168-8-126.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-ek
 Once the kubernetes cluster has been set up, you can deploy DataHub and it’s prerequisites using helm. Please follow the
 steps in this [guide](../../datahub-kubernetes/README.md)
 
-## Expose endpoints using a load balancer
+## Expose endpoints using GKE ingress controller
 
 Now that all the pods are up and running, you need to expose the datahub-frontend end point by setting
-up [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/). To do this, you need to first set up an
-ingress controller. There are
-many [ingress controllers](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)  to choose
-from, but here, we will follow
-this [guide](https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html) to set up the AWS
-Application Load Balancer(ALB) Controller.
+up [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/). Easiest way to set up ingress is to use
+the GKE page on [GCP website](https://console.cloud.google.com/kubernetes/discovery).
 
-First, if you did not use eksctl to setup the kubernetes cluster, make sure to go through the prerequisites listed
-[here](https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html).
+Once all deploy is successful, you should see a page like below in the "Services & Ingress" tab on the left.
 
-Download the IAM policy document for allowing the controller to make calls to AWS APIs on your behalf.
+![Services and Ingress](../imgs/gcp/services_ingress.png)
 
-```
-curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.0/docs/install/iam_policy.json
-```
+Tick the checkbox for datahub-datahub-frontend and click "CREATE INGRESS" button. You should land on the following page.
 
-Create an IAM policy based on the policy document by running the following.
+![Ingress1](../imgs/gcp/ingress1.png)
 
-```
-aws iam create-policy \
-    --policy-name AWSLoadBalancerControllerIAMPolicy \
-    --policy-document file://iam_policy.json
-```
+Type in an arbitrary name for the ingress and click on the second step "Host and path rules". You should land on the
+following page.
 
-Use eksctl to create a service account that allows us to attach the above policy to kubernetes pods.
+![Ingress2](../imgs/gcp/ingress2.png)
 
-```
-eksctl create iamserviceaccount \
-  --cluster=<<cluster-name>> \
-  --namespace=kube-system \
-  --name=aws-load-balancer-controller \
-  --attach-policy-arn=arn:aws:iam::<<account-id>>:policy/AWSLoadBalancerControllerIAMPolicy \
-  --override-existing-serviceaccounts \
-  --approve      
-```
+Select "datahub-datahub-frontend" in the dropdown menu for backends, and then click on "ADD HOST AND PATH RULE" button.
+In the second row that got created, add in the host name of choice (here gcp.datahubproject.io) and select
+"datahub-datahub-frontend" in the backends dropdown.
 
-Install the TargetGroupBinding custom resource definition by running the following.
+This step adds the rule allowing requests from the host name of choice to get routed to datahub-frontend service. Click
+on step 3 "Frontend configuration". You should land on the following page.
 
-```
-kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
-```
+![Ingress3](../imgs/gcp/ingress3.png)
 
-Add the helm chart repository containing the latest version of the ALB controller.
+Choose HTTPS in the dropdown menu for protocol. To enable SSL, you need to add a certificate. If you do not have one,
+you can click "CREATE A NEW CERTIFICATE" and input the host name of choice. GCP will create a certificate for you.
 
-```
-helm repo add eks https://aws.github.io/eks-charts
-helm repo update
-```
+Now press "CREATE" button on the left to create ingress! After around 5 minutes, you should see the following.
 
-Install the controller into the kubernetes cluster by running the following.
+![Ingress Ready](../imgs/gcp/ingress_ready.png)
 
-```
-helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller \
-  --set clusterName=<<cluster-name>> \
-  --set serviceAccount.create=false \
-  --set serviceAccount.name=aws-load-balancer-controller \
-  -n kube-system
-```
+In your domain provider, add an A record for the host name set above using the IP address on the ingress page (noted
+with the red box). Once DNS updates, you should be able to access DataHub through the host name!!
 
-Verify the install completed by running `kubectl get deployment -n kube-system aws-load-balancer-controller`. It should
-return a result like the following.
+Note, ignore the warning icon next to ingress. It takes about ten minutes for ingress to check that the backend service
+is ready and show a check mark as follows. However, ingress is fully functional once you see the above page. 
 
-```
-NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
-aws-load-balancer-controller   2/2     2            2           142m
-```
+![Ingress Final](../imgs/gcp/ingress_final.png)
 
-Now that the controller has been set up, we can enable ingress by updating the quickstart-values.yaml (or any other
-values.yaml file used to deploy datahub). Change datahub-frontend values to the following.
-
-```
-datahub-frontend:
-  enabled: true
-  image:
-    repository: linkedin/datahub-frontend-react
-    tag: "latest"
-  ingress:
-    enabled: true
-    annotations:
-      kubernetes.io/ingress.class: alb
-      alb.ingress.kubernetes.io/scheme: internet-facing
-      alb.ingress.kubernetes.io/target-type: instance
-      alb.ingress.kubernetes.io/certificate-arn: <<certificate-arn>>
-      alb.ingress.kubernetes.io/inbound-cidrs: 0.0.0.0/0
-      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
-      alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
-    hosts:
-      - host: <<host-name>>
-        redirectPaths:
-          - path: /*
-            name: ssl-redirect
-            port: use-annotation
-        paths:
-          - /*
-```
-
-You need to request a certificate in the AWS Certificate Manager by following this
-[guide](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html), and replace certificate-arn with
-the ARN of the new certificate. You also need to replace host-name with the hostname of choice like
-demo.datahubproject.io.
-
-After updating the yaml file, run the following to apply the updates.
-
-```
-helm install datahub datahub/ --values datahub/quickstart-values.yaml
-```
-
-Once the upgrade completes, run `kubectl get ingress` to verify the ingress setup. You should see a result like the
-following.
-
-```
-NAME                       CLASS    HOSTS                         ADDRESS                                                                 PORTS   AGE
-datahub-datahub-frontend   <none>   demo.datahubproject.io   k8s-default-datahubd-80b034d83e-904097062.us-west-2.elb.amazonaws.com   80      3h5m
-```
-
-Note down the elb address in the address column. Add the DNS CNAME record to the host domain pointing the host-name (
-from above) to the elb address. DNS updates generally take a few minutes to an hour. Once that is done, you should be
-able to access datahub-frontend through the host-name.
-
-## Use AWS managed services for the storage layer
-
-Managing the storage services like MySQL, Elasticsearch, and Kafka as kubernetes pods requires a great deal of
-maintenance workload. To reduce the workload, you can use managed services like AWS [RDS](https://aws.amazon.com/rds),
-[Elasticsearch Service](https://aws.amazon.com/elasticsearch-service/), and [Managed Kafka](https://aws.amazon.com/msk/)
-as the storage layer for DataHub. Support for using AWS Neptune as graph DB is coming soon.
-
-### RDS
-
-Provision a MySQL database in AWS RDS that shares the VPC with the kubernetes cluster or has VPC peering set up between
-the VPC of the kubernetes cluster. Once the database is provisioned, you should be able to see the following page. Take
-a note of the endpoint marked by the red box.
-
-![AWS RDS](../imgs/aws-rds.png)
-
-First, add the DB password to kubernetes by running the following.
-
-```
-kubectl delete secret mysql-secrets
-kubectl create secret generic mysql-secrets --from-literal=mysql-root-password=<<password>>
-```
-
-Update the sql settings under global in the quickstart-values.yaml as follows.
-
-```
-  sql:
-    datasource:
-      host: "<<rds-endpoint>>:3306"
-      hostForMysqlClient: "<<rds-endpoint>>"
-      port: "3306"
-      url: "jdbc:mysql://<<rds-endpoint>>:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8"
-      driver: "com.mysql.jdbc.Driver"
-      username: "root"
-      password:
-        secretRef: mysql-secrets
-        secretKey: mysql-root-password
-```
-
-Run `helm install datahub datahub/ --values datahub/quickstart-values.yaml` to apply the changes.
-
-### Elasticsearch Service
-
-Provision an elasticsearch domain running elasticsearch version 7.9 or above that shares the VPC with the kubernetes
-cluster or has VPC peering set up between the VPC of the kubernetes cluster. Once the domain is provisioned, you should
-be able to see the following page. Take a note of the endpoint marked by the red box.
-
-![AWS Elasticsearch Service](../imgs/aws-elasticsearch.png)
-
-Update the elasticsearch settings under global in the quickstart-values.yaml as follows.
-
-```
-  elasticsearch:
-    host: <<elasticsearch-endpoint>>
-    port: "443"
-    indexPrefix: demo
-    useSSL: "true"
-```
-
-You can also allow communication via HTTP (without SSL) by using the settings below.
-
-```
-  elasticsearch:
-    host: <<elasticsearch-endpoint>>
-    port: "80"
-    indexPrefix: demo
-```
-
-Run `helm install datahub datahub/ --values datahub/quickstart-values.yaml` to apply the changes.
-
-### Managed Streaming for Apache Kafka (MSK)
-
-Provision an MSK cluster that shares the VPC with the kubernetes cluster or has VPC peering set up between the VPC of
-the kubernetes cluster. Once the domain is provisioned, click on the “View client information” button in the ‘Cluster
-Summary” section. You should see a page like below. Take a note of the endpoints marked by the red boxes.
-
-![AWS MSK](../imgs/aws-msk.png)
-
-Update the kafka settings under global in the quickstart-values.yaml as follows.
-
-```
-kafka:
-    bootstrap:
-      server: "<<bootstrap-server endpoint>>"
-    zookeeper:
-      server:  "<<zookeeper endpoint>>"
-    schemaregistry:
-      url: "http://prerequisites-cp-schema-registry:8081"
-```
-
-Run `helm install datahub datahub/ --values datahub/quickstart-values.yaml` to apply the changes. 
