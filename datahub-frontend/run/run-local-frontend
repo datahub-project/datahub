@@ -15,6 +15,6 @@ export JAVA_OPTS="
 	-Dconfig.file=$CONF_DIR/application.conf
 	-Djava.security.auth.login.config=$CONF_DIR/jaas.conf
 	-Dlogback.configurationFile=$CURRENT_DIR/logback.xml
-	-Dlogback.debug=false"
+	-Dlogback.debug=true"
 
 $BUILD_DIR/bin/playBinary
