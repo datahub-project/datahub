@@ -7,6 +7,9 @@
     <layout class="ch.qos.logback.classic.PatternLayout">
       <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </layout>
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>INFO</level>
+    </filter>
   </appender>
 
   <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
@@ -20,6 +23,9 @@
       <!-- 30 days to keep -->
       <maxHistory>30</maxHistory>
     </rollingPolicy>
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>INFO</level>
+    </filter>
     <encoder>
       <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
@@ -38,6 +44,8 @@
     </rollingPolicy>
     <filter class="ch.qos.logback.classic.filter.LevelFilter">
       <level>DEBUG</level>
+      <onMatch>ACCEPT</onMatch>
+      <onMismatch>DENY</onMismatch>
     </filter>
     <encoder>
       <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
@@ -45,21 +53,20 @@
   </appender>
 
   <!-- Change this to disable logging debug -->
-  <logger name="com.linkedin" level="debug">
+  <logger name="com.linkedin" level="DEBUG">
     <appender-ref ref="DEBUG_FILE"/>
   </logger>
-  <logger name="controller" level="debug">
+  <logger name="controller" level="DEBUG">
     <appender-ref ref="DEBUG_FILE"/>
   </logger>
-  <logger name="graphql" level="debug">
+  <logger name="graphql" level="DEBUG">
     <appender-ref ref="DEBUG_FILE"/>
   </logger>
-  <logger name="react" level="debug">
+  <logger name="react" level="DEBUG">
     <appender-ref ref="DEBUG_FILE"/>
   </logger>
 
-  <!-- Change this to disable logging debug -->
-  <root level="info">
+  <root level="INFO">
     <appender-ref ref="STDOUT"/>
     <appender-ref ref="FILE"/>
   </root>
