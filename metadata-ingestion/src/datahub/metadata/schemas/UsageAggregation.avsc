@@ -112,6 +112,32 @@
             ],
             "doc": " Frequent SQL queries; mostly makes sense for datasets in SQL databases ",
             "default": null
+          },
+          {
+            "name": "fields",
+            "type": [
+              "null",
+              {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "FieldUsageCounts",
+                  "doc": " Records field-level usage counts for a given resource ",
+                  "fields": [
+                    {
+                      "name": "fieldName",
+                      "type": "string"
+                    },
+                    {
+                      "name": "count",
+                      "type": "int"
+                    }
+                  ]
+                }
+              }
+            ],
+            "doc": " Field-level usage stats ",
+            "default": null
           }
         ]
       },

@@ -4,11 +4,13 @@
 # Do not modify manually!
 
 # fmt: off
+from .....schema_classes import FieldUsageCountsClass
 from .....schema_classes import UsageAggregationClass
 from .....schema_classes import UsageAggregationMetricsClass
 from .....schema_classes import UserUsageCountsClass
 
 
+FieldUsageCounts = FieldUsageCountsClass
 UsageAggregation = UsageAggregationClass
 UsageAggregationMetrics = UsageAggregationMetricsClass
 UserUsageCounts = UserUsageCountsClass

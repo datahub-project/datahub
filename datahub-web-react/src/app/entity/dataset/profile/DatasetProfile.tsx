@@ -82,6 +82,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     <SchemaView
                         urn={urn}
                         schema={schema}
+                        usageStats={dataset.usageStats}
                         editableSchemaMetadata={editableSchemaMetadata}
                         updateEditableSchema={(update) => {
                             analytics.event({

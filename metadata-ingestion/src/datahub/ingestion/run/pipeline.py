@@ -146,9 +146,9 @@ class Pipeline:
 
     def pretty_print_summary(self) -> int:
         click.echo()
-        click.secho("Source report:", bold=True)
+        click.secho(f"Source ({self.config.source.type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
-        click.secho("Sink report:", bold=True)
+        click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
         click.echo(self.sink.get_report().as_string())
         click.echo()
         if self.source.get_report().failures or self.sink.get_report().failures:
