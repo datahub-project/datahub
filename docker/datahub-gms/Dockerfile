@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM adoptopenjdk/openjdk8:alpine-jre as base
+FROM openjdk:8-jre-alpine as base
 ENV DOCKERIZE_VERSION v0.6.1
 RUN apk --no-cache add curl tar \
     && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.20.v20190813/jetty-runner-9.4.20.v20190813.jar --output jetty-runner.jar \
@@ -9,10 +9,9 @@ RUN apk --no-cache add curl tar \
     && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.20.v20190813/jetty-util-9.4.20.v20190813.jar --output jetty-util.jar \
     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
-FROM adoptopenjdk/openjdk8:alpine-slim as prod-build
-RUN apk --no-cache add perl
+FROM openjdk:8 as prod-build
 COPY . /datahub-src
-RUN cd /datahub-src && ./gradlew :gms:war:build -x test
+RUN cd /datahub-src && ./gradlew :gms:war:build
 RUN cp /datahub-src/gms/war/build/libs/war.war /war.war
 
 FROM base as prod-install
@@ -31,6 +30,7 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+
 EXPOSE 8080
 
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:8080/health || exit 1
