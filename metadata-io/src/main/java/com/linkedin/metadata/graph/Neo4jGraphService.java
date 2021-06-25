@@ -18,6 +18,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -26,13 +27,9 @@ import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.exceptions.Neo4jException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-
+@Slf4j
 public class Neo4jGraphService implements GraphService {
-
-  private static final Logger _logger = LoggerFactory.getLogger(Neo4jGraphService.class.getName());
 
   private static final int MAX_TRANSACTION_RETRY = 3;
   private final Driver _driver;
@@ -49,7 +46,7 @@ public class Neo4jGraphService implements GraphService {
 
   public void addEdge(@Nonnull final Edge edge) {
 
-    _logger.debug(String.format("Adding Edge source: %s, destination: %s, type: %s",
+    log.debug(String.format("Adding Edge source: %s, destination: %s, type: %s",
         edge.getSource(),
         edge.getDestination(),
         edge.getRelationshipType()));
@@ -90,7 +87,7 @@ public class Neo4jGraphService implements GraphService {
       final int offset,
       final int count) {
 
-    _logger.debug(
+    log.debug(
         String.format("Finding related Neo4j nodes sourceType: %s, sourceEntityFilter: %s, destinationType: %s, ",
             sourceType, sourceEntityFilter, destinationType)
         + String.format(
@@ -132,7 +129,7 @@ public class Neo4jGraphService implements GraphService {
 
   public void removeNode(@Nonnull final Urn urn) {
 
-    _logger.debug(String.format("Removing Neo4j node with urn: %s", urn));
+    log.debug(String.format("Removing Neo4j node with urn: %s", urn));
 
     // also delete any relationship going to or from it
     final String matchTemplate = "MATCH (node {urn: $urn}) DETACH DELETE node";
@@ -149,7 +146,7 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
 
-    _logger.debug(String.format("Removing Neo4j edge types from node with urn: %s, types: %s, filter: %s",
+    log.debug(String.format("Removing Neo4j edge types from node with urn: %s, types: %s, filter: %s",
         urn,
         relationshipTypes,
         relationshipFilter));
@@ -177,7 +174,7 @@ public class Neo4jGraphService implements GraphService {
   }
 
   public void removeNodesMatchingLabel(@Nonnull String labelPattern) {
-    _logger.debug(String.format("Removing Neo4j nodes matching label %s", labelPattern));
+    log.debug(String.format("Removing Neo4j nodes matching label %s", labelPattern));
     final String matchTemplate =
         "MATCH (n) WHERE any(l IN labels(n) WHERE l=~'%s') DETACH DELETE n";
     final String statement = String.format(matchTemplate, labelPattern);
@@ -262,7 +259,7 @@ public class Neo4jGraphService implements GraphService {
    */
   @Nonnull
   private Result runQuery(@Nonnull Statement statement) {
-    _logger.debug(String.format("Running Neo4j query %s", statement.toString()));
+    log.debug(String.format("Running Neo4j query %s", statement.toString()));
     return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
   }
 

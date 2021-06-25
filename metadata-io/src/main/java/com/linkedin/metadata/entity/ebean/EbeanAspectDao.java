@@ -39,15 +39,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.RollbackException;
 import javax.persistence.Table;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.entity.EntityService.*;
 
-
+@Slf4j
 public class EbeanAspectDao {
-
-  private static final Logger _logger = LoggerFactory.getLogger(EbeanAspectDao.class.getName());
 
   public static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
@@ -98,7 +95,7 @@ public class EbeanAspectDao {
       return true;
     }
     if (!AspectStorageValidationUtil.checkV2TableExists(_server)) {
-      _logger.error("GMS is on a newer version than your storage layer. Please refer to "
+      log.error("GMS is on a newer version than your storage layer. Please refer to "
                     + "https://datahubproject.io/docs/advanced/no-code-upgrade to view the upgrade guide.");
       _canWrite = false;
       return false;

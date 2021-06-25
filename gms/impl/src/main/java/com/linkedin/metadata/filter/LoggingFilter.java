@@ -6,12 +6,11 @@ import com.linkedin.restli.server.filter.Filter;
 import com.linkedin.restli.server.filter.FilterRequestContext;
 import com.linkedin.restli.server.filter.FilterResponseContext;
 import java.util.concurrent.CompletableFuture;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class LoggingFilter implements Filter {
 
-  private final static Logger _logger = LoggerFactory.getLogger(LoggingFilter.class.getName());
   private static final String START_TIME = "startTime";
 
   @Override
@@ -36,7 +35,7 @@ public class LoggingFilter implements Filter {
       final FilterRequestContext requestContext,
       final FilterResponseContext responseContext) {
     logResponse(requestContext, responseContext);
-    _logger.error(th.getMessage());
+    log.error(th.getMessage());
     return CompletableFuture.completedFuture(null);
   }
 
@@ -53,8 +52,8 @@ public class LoggingFilter implements Filter {
     String method = requestContext.getMethod().getName();
     String uri = requestContext.getRequestURI().toString();
 
-    String log = String.format("%s %s - %s - %s - %sms", httpMethod, uri, method, status, duration);
-    _logger.info(log);
+    String logStr = String.format("%s %s - %s - %s - %sms", httpMethod, uri, method, status, duration);
+    log.info(logStr);
   }
 
 }

@@ -26,8 +26,6 @@ import org.apache.avro.specific.SpecificRecord;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -37,7 +35,6 @@ import org.slf4j.LoggerFactory;
 @Slf4j
 public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
 
-  private final Logger _logger = LoggerFactory.getLogger(EntityKafkaMetadataEventProducer.class.getName());
   private final Producer<String, ? extends IndexedRecord> _producer;
   private final Optional<Callback> _callback;
   private final TopicConvention _topicConvention;
@@ -84,10 +81,10 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
 
     GenericRecord record;
     try {
-      _logger.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn), metadataAuditEvent.toString()));
+      log.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn), metadataAuditEvent.toString()));
       record = EventUtils.pegasusToAvroMAE(metadataAuditEvent);
     } catch (IOException e) {
-      _logger.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()));
+      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()));
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 
