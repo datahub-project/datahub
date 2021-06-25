@@ -193,7 +193,7 @@ Provision a MySQL database in AWS RDS that shares the VPC with the kubernetes cl
 the VPC of the kubernetes cluster. Once the database is provisioned, you should be able to see the following page. Take
 a note of the endpoint marked by the red box.
 
-![AWS RDS](../imgs/aws-rds.png)
+![AWS RDS](../imgs/aws/aws-rds.png)
 
 First, add the DB password to kubernetes by running the following.
 
@@ -226,7 +226,7 @@ Provision an elasticsearch domain running elasticsearch version 7.9 or above tha
 cluster or has VPC peering set up between the VPC of the kubernetes cluster. Once the domain is provisioned, you should
 be able to see the following page. Take a note of the endpoint marked by the red box.
 
-![AWS Elasticsearch Service](../imgs/aws-elasticsearch.png)
+![AWS Elasticsearch Service](../imgs/aws/aws-elasticsearch.png)
 
 Update the elasticsearch settings under global in the quickstart-values.yaml as follows.
 
@@ -255,7 +255,7 @@ Provision an MSK cluster that shares the VPC with the kubernetes cluster or has 
 the kubernetes cluster. Once the domain is provisioned, click on the “View client information” button in the ‘Cluster
 Summary” section. You should see a page like below. Take a note of the endpoints marked by the red boxes.
 
-![AWS MSK](../imgs/aws-msk.png)
+![AWS MSK](../imgs/aws/aws-msk.png)
 
 Update the kafka settings under global in the quickstart-values.yaml as follows.
 

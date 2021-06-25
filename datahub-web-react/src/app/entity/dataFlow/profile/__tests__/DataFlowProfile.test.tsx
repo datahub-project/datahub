@@ -50,9 +50,9 @@ describe('DataJobProfile', () => {
         const jobsList = getAllByTestId('datajob-item-preview');
 
         expect(jobsList.length).toBe(3);
-        expect(jobsList[0].innerHTML).toMatch(/DataJobInfoName3/);
+        expect(jobsList[0].innerHTML).toMatch(/DataJobInfoName2/);
         expect(jobsList[1].innerHTML).toMatch(/DataJobInfoName/);
-        expect(jobsList[2].innerHTML).toMatch(/DataJobInfoName2/);
+        expect(jobsList[2].innerHTML).toMatch(/DataJobInfoName3/);
         await act(() => promise);
     });
 });

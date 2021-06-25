@@ -18,6 +18,7 @@ cp tmp/test_glue_ingest0/glue_mces.json               tests/unit/glue/glue_mces_
 cp tmp/test_sagemaker_ingest0/sagemaker_mces.json     tests/unit/sagemaker/sagemaker_mces_golden.json
 cp tmp/test_lookml_ingest0/lookml_mces.json           tests/integration/lookml/expected_output.json
 cp tmp/test_looker_ingest0/looker_mces.json           tests/integration/looker/expected_output.json
+cp tmp/test_bq_usage_source0/bigquery_usages.json tests/integration/bigquery-usage/bigquery_usages_golden.json
 
 # Print success message.
 set +x
