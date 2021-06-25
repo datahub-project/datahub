@@ -89,7 +89,19 @@ datahub-frontend:
       value: your-datahub-url      
 ```
 
-You can also package OIDC client secrets into a k8s secret by running `kubectl create ` 
+You can also package OIDC client secrets into a k8s secret by running
+
+```kubectl create secret generic datahub-oidc-secret --from-literal=secret=<<OIDC SECRET>>``` 
+
+Then set the secret env as follows. 
+
+```
+    - name: AUTH_OIDC_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: datahub-oidc-secret
+          key: secret
+```
 
 #### Advanced
 
