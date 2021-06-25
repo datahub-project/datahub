@@ -1,4 +1,4 @@
-import { Badge, Popover, Space, Typography } from 'antd';
+import { Badge, Image, Popover, Space, Typography } from 'antd';
 import { FetchResult, MutationFunctionOptions } from '@apollo/client';
 import styled from 'styled-components';
 import React from 'react';
@@ -28,6 +28,12 @@ const HeaderInfoItems = styled.div`
     margin-top: -16px;
     vertical-align: top;
 `;
+const PreviewImage = styled(Image)`
+    max-height: 20px;
+    padding-top: 3px;
+    width: auto;
+    object-fit: contain;
+`;
 
 export default function DatasetHeader({
     dataset: { urn, type, description: originalDesc, ownership, deprecation, platform, editableProperties, usageStats },
@@ -36,6 +42,7 @@ export default function DatasetHeader({
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
     const platformName = capitalizeFirstLetter(platform.name);
+    const platformLogoUrl = platform.info?.logoUrl;
 
     return (
         <>
@@ -47,7 +54,12 @@ export default function DatasetHeader({
                                 Platform
                             </Typography.Text>
                         </div>
-                        <Typography.Text style={{ fontSize: 16 }}>{platformName}</Typography.Text>
+                        <Space direction="horizontal">
+                            {platformLogoUrl && (
+                                <PreviewImage preview={false} src={platformLogoUrl} placeholder alt={platformName} />
+                            )}
+                            <Typography.Text style={{ fontSize: 16 }}>{platformName}</Typography.Text>
+                        </Space>
                     </HeaderInfoItem>
                     {usageStats?.aggregations?.totalSqlQueries && (
                         <HeaderInfoItem>
