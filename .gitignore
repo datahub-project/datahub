@@ -29,7 +29,8 @@ venv.bak/
 dmypy.json
 MANIFEST
 *.pyc
-
+**/*.log
+**/*bin.zip
 # Added by mp-maker
 **/build
 /config

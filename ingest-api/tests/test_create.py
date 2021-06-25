@@ -1,15 +1,12 @@
-from requests.api import request
-# import pytest
-
-# import requests
-# #this is the outline of the test
-
-# def test_make_dataset():
-#     request_body = {}
-#     response = requests.post()
-#     response_check -> make sure it is 205
+import sys
+from os.path import dirname, abspath
+folder_path = dirname(dirname(abspath(__file__)))
+sys.path.insert(1, folder_path)
 
 
+inputs = {"dataset_name":"",
+
+        }
 
 # def make_mce():
 #     send request
