@@ -105,9 +105,9 @@ public class GraphQLController extends Controller {
                 executionResult.toSpecification(),
                 executionResult.getErrors()));
         } else {
-            _logger.debug(String.format("Executed graphQL query: %s, result: %s"),
+            _logger.debug(String.format("Executed graphQL query: %s, result: %s",
                 queryJson,
-                executionResult.toSpecification());
+                executionResult.toSpecification()));
         }
 
 

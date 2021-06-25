@@ -5,6 +5,9 @@
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
@@ -18,7 +21,9 @@
             <!-- 30 days to keep -->
             <maxHistory>30</maxHistory>
         </rollingPolicy>
-
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
         <encoder>
             <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
@@ -37,6 +42,8 @@
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
             <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
         </filter>
         <encoder>
             <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
@@ -44,15 +51,15 @@
     </appender>
 
     <!-- Remove this to disable logging debug -->
-    <logger name="com.linkedin" level="debug">
+    <logger name="com.linkedin" level="DEBUG">
         <appender-ref ref="DEBUG_FILE"/>
     </logger>
 
-    <logger name="org.apache.kafka.clients" level="info">
+    <logger name="org.apache.kafka.clients" level="INFO">
         <appender-ref ref="STDOUT" />
     </logger>
 
-    <root level="info">
+    <root level="INFO">
         <appender-ref ref="STDOUT" />
         <appender-ref ref="FILE"/>
     </root>
