@@ -8,8 +8,8 @@ import java.time.temporal.ChronoUnit;
 
 public class AuthUtils {
 
-    public static final String SESSION_TTL_CONFIG_PATH = "auth.session.ttlInDays";
-    public static final Integer DEFAULT_SESSION_TTL_DAYS = 30;
+    public static final String SESSION_TTL_CONFIG_PATH = "auth.session.ttlInHours";
+    public static final Integer DEFAULT_SESSION_TTL_HOURS = 720;
     public static final CorpuserUrn DEFAULT_ACTOR_URN = new CorpuserUrn("datahub");
 
     public static final String LOGIN_ROUTE = "/login";
@@ -30,15 +30,15 @@ public class AuthUtils {
     }
 
     /**
-     * Creates a client authentication cookie (actor cookie) with a specified TTL in days.
+     * Creates a client authentication cookie (actor cookie) with a specified TTL in hours.
      *
      * @param actorUrn the urn of the authenticated actor, e.g. "urn:li:corpuser:datahub"
-     * @param ttlInDays the number of days until the actor cookie expires after being set
+     * @param ttlInHours the number of hours until the actor cookie expires after being set
      */
-    public static Http.Cookie createActorCookie(final String actorUrn, final Integer ttlInDays) {
+    public static Http.Cookie createActorCookie(final String actorUrn, final Integer ttlInHours) {
         return Http.Cookie.builder(ACTOR, actorUrn)
                 .withHttpOnly(false)
-                .withMaxAge(Duration.of(ttlInDays, ChronoUnit.DAYS))
+                .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
                 .build();
     }
 
