@@ -7,6 +7,7 @@ import com.linkedin.lineage.client.Lineages;
 import com.linkedin.lineage.client.Relationships;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.restli.client.Client;
+import com.linkedin.usage.UsageClient;
 import com.linkedin.util.Configuration;
 
 /**
@@ -36,6 +37,7 @@ public class GmsClientFactory {
     private static Relationships _relationships;
     private static EntityClient _entities;
     private static AspectClient _aspects;
+    private static UsageClient _usage;
 
 
     private GmsClientFactory() { }
@@ -93,5 +95,16 @@ public class GmsClientFactory {
             }
         }
         return _aspects;
+    }
+
+    public static UsageClient getUsageClient() {
+        if (_usage == null) {
+            synchronized (GmsClientFactory.class) {
+                if (_usage == null) {
+                    _usage = new UsageClient(REST_CLIENT);
+                }
+            }
+        }
+        return _usage;
     }
 }

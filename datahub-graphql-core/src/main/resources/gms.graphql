@@ -310,6 +310,8 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured glossary terms associated with the dataset
     """
     glossaryTerms: GlossaryTerms
+
+    usageStats(resource: String!, range: TimeRange): UsageQueryResult
 }
 
 type GlossaryTerm implements Entity {
@@ -2600,4 +2602,51 @@ type DataJobInputOutput {
     """
     inputDatajobs: [DataJob!]
 
+}
+
+type UserUsageCounts {
+    user: CorpUser
+    count: Int
+    userEmail: String
+}
+
+type UsageQueryResult {
+    buckets: [UsageAggregation]
+    aggregations: UsageQueryResultAggregations
+}
+
+type UsageQueryResultAggregations {
+    uniqueUserCount: Int
+    users: [UserUsageCounts]
+    totalSqlQueries: Int
+}
+
+type UsageAggregationMetrics {
+    uniqueUserCount: Int
+    users: [UserUsageCounts]
+    totalSqlQueries: Int
+    topSqlQueries: [String]
+}
+
+type UsageAggregation {
+    bucket: Long
+    duration: WindowDuration
+    resource: String
+    metrics: UsageAggregationMetrics
+}
+
+enum WindowDuration {
+    DAY
+    WEEK
+    MONTH
+    YEAR
+}
+
+enum TimeRange {
+    DAY
+    WEEK
+    MONTH
+    QUARTER
+    YEAR
+    ALL
 }
