@@ -81,8 +81,10 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
 
     GenericRecord record;
     try {
+      log.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn), metadataAuditEvent.toString()));
       record = EventUtils.pegasusToAvroMAE(metadataAuditEvent);
     } catch (IOException e) {
+      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()));
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 

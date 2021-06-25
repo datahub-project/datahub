@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.PegasusUtils.*;
 
@@ -57,6 +58,7 @@ import static com.linkedin.metadata.PegasusUtils.*;
  * TODO: Consider whether we can abstract away virtual versioning semantics to subclasses of this class.
  * TODO: Extract out a nested 'AspectService'.
  */
+@Slf4j
 public abstract class EntityService {
 
   /**
@@ -69,6 +71,7 @@ public abstract class EntityService {
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
   private Boolean _emitAspectSpecificAuditEvent = false;
+
 
   protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;
@@ -186,6 +189,7 @@ public abstract class EntityService {
    * @return a map of {@link Urn} to {@link Entity} object
    */
   public Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull Set<String> aspectNames) {
+    log.debug(String.format("Invoked getEntities with urns %s, aspects %s", urns, aspectNames));
     if (urns.isEmpty()) {
       return Collections.emptyMap();
     }
@@ -194,16 +198,19 @@ public abstract class EntityService {
   }
 
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {
+    log.debug(String.format("Invoked getLatestAspect with urn %s, aspect %s", urn, aspectName));
     return getAspect(urn, aspectName, LATEST_ASPECT_VERSION);
   }
 
   public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp) {
+    log.debug(String.format("Invoked ingestEntities with entities %s, audit stamp %s", entities, auditStamp));
     for (final Entity entity : entities) {
       ingestEntity(entity, auditStamp);
     }
   }
 
   public  void ingestEntity(@Nonnull final Entity entity, @Nonnull final AuditStamp auditStamp) {
+    log.debug(String.format("Invoked ingestEntity with entity %s, audit stamp %s", entity, auditStamp));
     ingestSnapshotUnion(entity.getValue(), auditStamp);
   }
 
@@ -315,6 +322,7 @@ public abstract class EntityService {
     try {
       return Urn.createFromString(urnStr);
     } catch (URISyntaxException e) {
+      log.error(String.format("Failed to convert urn string %s into Urn object", urnStr));
       throw new ModelConversionException(String.format("Failed to convert urn string %s into Urn object ", urnStr), e);
     }
   }

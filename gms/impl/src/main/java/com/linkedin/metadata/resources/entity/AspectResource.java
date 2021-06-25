@@ -15,16 +15,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Single unified resource for fetching, updating, searching, & browsing DataHub entities
  */
+@Slf4j
 @RestLiCollection(name = "aspects", namespace = "com.linkedin.entity")
 public class AspectResource extends CollectionResourceTaskTemplate<String, VersionedAspect> {
-
-  private final Logger _logger = LoggerFactory.getLogger("EntityResource");
 
   @Inject
   @Named("entityService")
@@ -40,7 +38,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @QueryParam("aspect") @Optional @Nullable String aspectName,
       @QueryParam("version") @Optional @Nullable Long version
       ) throws URISyntaxException {
-    _logger.info("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
+    log.info("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtils.toTask(() -> {
       final VersionedAspect aspect = _entityService.getVersionedAspect(urn, aspectName, version);

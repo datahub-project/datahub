@@ -1,5 +1,5 @@
-<configuration>
-    <property name="LOG_DIR" value="${LOG_DIR:- /tmp/datahub/logs}"/>
+<configuration scan="true" scanPeriod="120 seconds">
+    <property name="LOG_DIR" value="${LOG_DIR:-/tmp/datahub/logs/gms}"/>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -8,20 +8,45 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_DIR}/gms-war.log</file>
-        <append>true</append>
+        <file>${LOG_DIR}/gms.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <FileNamePattern>${LOG_DIR}/gms.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+            <!-- each archived file, size max 10MB -->
+            <maxFileSize>100MB</maxFileSize>
+            <!-- total size of all archive files, if total size > 10GB, it will delete old archived file -->
+            <totalSizeCap>10GB</totalSizeCap>
+            <!-- 30 days to keep -->
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+
         <encoder>
             <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
-        <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
-            <FileNamePattern>${LOG_DIR}/gms-war.%i.log</FileNamePattern>
-            <minIndex>1</minIndex>
-            <maxIndex>3</maxIndex>
-        </rollingPolicy>
-        <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
-            <MaxFileSize>100MB</MaxFileSize>
-        </triggeringPolicy>
     </appender>
+
+    <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/gms.debug.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <FileNamePattern>${LOG_DIR}/gms.debug.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+            <!-- each archived file, size max 10MB -->
+            <maxFileSize>100MB</maxFileSize>
+            <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
+            <totalSizeCap>2GB</totalSizeCap>
+            <!-- 1 days to keep -->
+            <maxHistory>1</maxHistory>
+        </rollingPolicy>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>DEBUG</level>
+        </filter>
+        <encoder>
+            <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Remove this to disable logging debug -->
+    <logger name="com.linkedin" level="debug">
+        <appender-ref ref="DEBUG_FILE"/>
+    </logger>
 
     <logger name="org.apache.kafka.clients" level="info">
         <appender-ref ref="STDOUT" />

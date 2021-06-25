@@ -1,5 +1,5 @@
 <configuration>
-  <property name="WHZ_LOG_DIR" value="${WHZ_LOG_DIR:- /var/tmp/datahub}"/>
+  <property name="LOG_DIR" value="${LOG_DIR:- /tmp/datahub/logs/datahub-frontend}"/>
   <timestamp key="bySecond" datePattern="yyyy-MM-dd'_'HH-mm-ss"/>
   <timestamp key="byDate" datePattern="yyyy-MM-dd"/>
 
@@ -10,22 +10,53 @@
   </appender>
 
   <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>${WHZ_LOG_DIR}/datahub-frontend-${bySecond}.log</file>
-    <append>true</append>
+    <file>${LOG_DIR}/datahub-frontend.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <FileNamePattern>${LOG_DIR}/datahub-frontend.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+      <!-- each archived file, size max 10MB -->
+      <maxFileSize>100MB</maxFileSize>
+      <!-- total size of all archive files, if total size > 10GB, it will delete old archived file -->
+      <totalSizeCap>10GB</totalSizeCap>
+      <!-- 30 days to keep -->
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
     <encoder>
       <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
-    <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
-      <maxIndex>10</maxIndex>
-      <FileNamePattern>${WHZ_LOG_DIR}/${byDate}.log.%i</FileNamePattern>
-    </rollingPolicy>
-    <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
-      <MaxFileSize>20MB</MaxFileSize>
-    </triggeringPolicy>
   </appender>
 
-  <logger name="com.linkedin.datahub" level="DEBUG" />
-  <logger name="play.core.server.AkkaHttpServer" level="INFO" />
+  <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_DIR}/datahub-frontend.debug.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <FileNamePattern>${LOG_DIR}/datahub-frontend.debug.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+      <!-- each archived file, size max 100MB -->
+      <maxFileSize>100MB</maxFileSize>
+      <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
+      <totalSizeCap>2GB</totalSizeCap>
+      <!-- 1 days to keep -->
+      <maxHistory>1</maxHistory>
+    </rollingPolicy>
+    <filter class="ch.qos.logback.classic.filter.LevelFilter">
+      <level>DEBUG</level>
+    </filter>
+    <encoder>
+      <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Change this to disable logging debug -->
+  <logger name="com.linkedin" level="debug">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+  <logger name="controller" level="debug">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+  <logger name="graphql" level="debug">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
+  <logger name="react" level="debug">
+    <appender-ref ref="DEBUG_FILE"/>
+  </logger>
 
   <root level="info">
     <appender-ref ref="STDOUT"/>

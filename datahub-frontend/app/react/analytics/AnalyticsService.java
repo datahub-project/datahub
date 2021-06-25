@@ -32,9 +32,13 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.Cardinality;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class AnalyticsService {
+
+  private final Logger _logger = LoggerFactory.getLogger(AnalyticsService.class.getName());
 
   private final RestHighLevelClient _elasticClient;
 
@@ -60,6 +64,12 @@ public class AnalyticsService {
   public List<NamedLine> getTimeseriesChart(String indexName, DateRange dateRange, DateInterval granularity,
       Optional<String> dimension, // Length 1 for now
       Map<String, List<String>> filters, Optional<String> uniqueOn) {
+
+    _logger.debug(
+        String.format("Invoked getTimeseriesChart with indexName: %s, dateRange: %s, granularity: %s, dimension: %s,",
+            indexName, dateRange, granularity, dimension)
+        + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, Optional.of(dateRange));
 
     AggregationBuilder dateHistogram = AggregationBuilders.dateHistogram(DATE_HISTOGRAM)
@@ -88,6 +98,7 @@ public class AnalyticsService {
             new NamedLine("total", extractPointsFromAggregations(aggregationResult, uniqueOn.isPresent())));
       }
     } catch (Exception e) {
+      _logger.error(String.format("Caught exception while getting time series chart: %s", e.getMessage()));
       return ImmutableList.of();
     }
   }
@@ -106,7 +117,13 @@ public class AnalyticsService {
   public List<NamedBar> getBarChart(String indexName, Optional<DateRange> dateRange, List<String> dimensions,
       // Length 1 or 2
       Map<String, List<String>> filters, Optional<String> uniqueOn) {
+    _logger.debug(
+        String.format("Invoked getBarChart with indexName: %s, dateRange: %s, dimensions: %s,",
+            indexName, dateRange, dimensions)
+            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+
     assert (dimensions.size() == 1 || dimensions.size() == 2);
+
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, dateRange);
 
     AggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0)).missing(NA);
@@ -138,6 +155,7 @@ public class AnalyticsService {
             .collect(Collectors.toList());
       }
     } catch (Exception e) {
+      _logger.error(String.format("Caught exception while getting bar chart: %s", e.getMessage()));
       return ImmutableList.of();
     }
   }
@@ -152,6 +170,12 @@ public class AnalyticsService {
 
   public List<Row> getTopNTableChart(String indexName, Optional<DateRange> dateRange, String groupBy,
       Map<String, List<String>> filters, Optional<String> uniqueOn, int maxRows) {
+
+    _logger.debug(
+        String.format("Invoked getTopNTableChart with indexName: %s, dateRange: %s, groupBy: %s",
+            indexName, dateRange, groupBy)
+            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, dateRange);
 
     TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(groupBy).size(maxRows);
@@ -171,6 +195,7 @@ public class AnalyticsService {
               ImmutableList.of(bucket.getKeyAsString(), String.valueOf(extractCount(bucket, uniqueOn.isPresent())))))
           .collect(Collectors.toList());
     } catch (Exception e) {
+      _logger.error(String.format("Caught exception while getting top n chart: %s", e.getMessage()));
       return ImmutableList.of();
     }
   }
@@ -189,6 +214,7 @@ public class AnalyticsService {
         return (int) aggregationResult.getDocCount();
       }
     } catch (Exception e) {
+      _logger.error(String.format("Caught exception while getting highlights: %s", e.getMessage()));
       return 0;
     }
   }
@@ -208,6 +234,7 @@ public class AnalyticsService {
       // extract results, validated against document model as well
       return searchResponse.getAggregations().<Filter>get(FILTERED);
     } catch (Exception e) {
+      _logger.error(String.format("Search query failed: %s", e.getMessage()));
       throw new ESQueryException("Search query failed:", e);
     }
   }
