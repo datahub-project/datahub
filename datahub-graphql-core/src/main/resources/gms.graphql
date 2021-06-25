@@ -2618,6 +2618,7 @@ type UsageQueryResult {
 type UsageQueryResultAggregations {
     uniqueUserCount: Int
     users: [UserUsageCounts]
+    fields: [FieldUsageCounts]
     totalSqlQueries: Int
 }
 
@@ -2626,6 +2627,7 @@ type UsageAggregationMetrics {
     users: [UserUsageCounts]
     totalSqlQueries: Int
     topSqlQueries: [String]
+    fields: [FieldUsageCounts]
 }
 
 type UsageAggregation {
@@ -2633,6 +2635,11 @@ type UsageAggregation {
     duration: WindowDuration
     resource: String
     metrics: UsageAggregationMetrics
+}
+
+type FieldUsageCounts {
+    fieldName: String
+    count: Int
 }
 
 enum WindowDuration {

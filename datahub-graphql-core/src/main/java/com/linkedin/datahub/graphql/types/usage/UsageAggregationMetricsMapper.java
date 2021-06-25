@@ -21,6 +21,10 @@ public class UsageAggregationMetricsMapper implements
     result.setTotalSqlQueries(usageAggregationMetrics.getTotalSqlQueries());
     result.setUniqueUserCount(usageAggregationMetrics.getUniqueUserCount());
     result.setTopSqlQueries(usageAggregationMetrics.getTopSqlQueries());
+    if (usageAggregationMetrics.hasFields()) {
+      result.setFields(
+          usageAggregationMetrics.getFields().stream().map(FieldUsageCountsMapper::map).collect(Collectors.toList()));
+    }
     if (usageAggregationMetrics.hasUsers()) {
       result.setUsers(usageAggregationMetrics.getUsers()
           .stream()

@@ -17,5 +17,7 @@ record UsageQueryResult {
     totalSqlQueries: optional int
 
     users: optional array[UserUsageCounts]
+
+    fields: optional array[FieldUsageCounts]
   }
 }

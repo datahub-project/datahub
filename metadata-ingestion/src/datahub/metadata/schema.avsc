@@ -4731,6 +4731,33 @@
               "name": "topSqlQueries",
               "default": null,
               "doc": " Frequent SQL queries; mostly makes sense for datasets in SQL databases "
+            },
+            {
+              "type": [
+                "null",
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "record",
+                    "name": "FieldUsageCounts",
+                    "namespace": "com.linkedin.pegasus2avro.usage",
+                    "fields": [
+                      {
+                        "type": "string",
+                        "name": "fieldName"
+                      },
+                      {
+                        "type": "int",
+                        "name": "count"
+                      }
+                    ],
+                    "doc": " Records field-level usage counts for a given resource "
+                  }
+                }
+              ],
+              "name": "fields",
+              "default": null,
+              "doc": " Field-level usage stats "
             }
           ],
           "doc": "Metrics for usage data for a given resource and bucket. Not all fields\nmake sense for all buckets, so every field is optional."

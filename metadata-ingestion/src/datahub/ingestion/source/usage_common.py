@@ -1,11 +1,21 @@
+import collections
+import dataclasses
 import enum
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Callable, Counter, Generic, List, Optional, TypeVar
 
 import pydantic
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
-from datahub.metadata.schema_classes import WindowDurationClass
+from datahub.ingestion.api.workunit import UsageStatsWorkUnit
+from datahub.metadata.schema_classes import (
+    FieldUsageCountsClass,
+    UsageAggregationClass,
+    UsageAggregationMetricsClass,
+    UserUsageCountsClass,
+    WindowDurationClass,
+)
 
 
 @enum.unique
@@ -28,6 +38,69 @@ def get_bucket_duration_delta(bucketing: BucketDuration) -> timedelta:
         return timedelta(hours=1)
     else:  # day
         return timedelta(days=1)
+
+
+ResourceType = TypeVar("ResourceType")
+
+
+@dataclasses.dataclass
+class GenericAggregatedDataset(Generic[ResourceType]):
+    bucket_start_time: datetime
+    resource: ResourceType
+
+    readCount: int = 0
+    queryCount: int = 0
+    queryFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
+    userFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
+    columnFreq: Counter[str] = dataclasses.field(default_factory=collections.Counter)
+
+    def add_read_entry(
+        self, user: str, query: Optional[str], fields: List[str]
+    ) -> None:
+        self.readCount += 1
+        self.userFreq[user] += 1
+        if query:
+            self.queryCount += 1
+            self.queryFreq[query] += 1
+        for column in fields:
+            self.columnFreq[column] += 1
+
+    def make_usage_workunit(
+        self,
+        bucket_duration: BucketDuration,
+        urn_builder: Callable[[ResourceType], str],
+        top_n_queries: Optional[int],
+    ) -> UsageStatsWorkUnit:
+        return UsageStatsWorkUnit(
+            id=f"{self.bucket_start_time.isoformat()}-{self.resource}",
+            usageStats=UsageAggregationClass(
+                bucket=int(self.bucket_start_time.timestamp() * 1000),
+                duration=bucket_duration,
+                resource=urn_builder(self.resource),
+                metrics=UsageAggregationMetricsClass(
+                    uniqueUserCount=len(self.userFreq),
+                    users=[
+                        UserUsageCountsClass(
+                            user=builder.UNKNOWN_USER,
+                            count=count,
+                            userEmail=user_email,
+                        )
+                        for user_email, count in self.userFreq.most_common()
+                    ],
+                    totalSqlQueries=self.queryCount,
+                    topSqlQueries=[
+                        query for query, _ in self.queryFreq.most_common(top_n_queries)
+                    ],
+                    fields=[
+                        FieldUsageCountsClass(
+                            fieldName=column,
+                            count=count,
+                        )
+                        for column, count in self.columnFreq.most_common()
+                    ],
+                ),
+            ),
+        )
 
 
 class BaseUsageConfig(ConfigModel):
