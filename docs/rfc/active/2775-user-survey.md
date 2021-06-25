@@ -1,5 +1,5 @@
 Start Date: 2021-6-17
-RFC PR: (after opening the RFC PR, update this with a link to it and update the file name)
+RFC PR: https://github.com/linkedin/datahub/pull/2775
 Discussion Issue: https://github.com/linkedin/datahub/issues/2685 
 Implementation PR(s): 
 Link to Google Doc: https://docs.google.com/document/d/19XZOM7hGV03ruwhzcFA0wN-58is6Lq5-Go9Kalt_HpU/edit#
