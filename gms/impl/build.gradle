@@ -28,7 +28,6 @@ dependencies {
   compile project(':li-utils')
   compile project(':metadata-models')
 
-  compile project(':metadata-testing:metadata-test-utils')
   compile project(':metadata-utils')
   compile project(':metadata-io')
   compile spec.product.pegasus.restliServer
@@ -43,6 +42,7 @@ dependencies {
 
   compileOnly externalDependency.lombok
 
+  testCompile project(':metadata-testing:metadata-test-utils')
   testCompile externalDependency.parseqTest
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
