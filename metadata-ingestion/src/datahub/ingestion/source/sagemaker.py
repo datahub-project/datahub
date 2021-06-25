@@ -145,13 +145,15 @@ class SagemakerSource(Source):
         mce = MetadataChangeEvent(proposedSnapshot=feature_group_snapshot)
         return MetadataWorkUnit(id=feature_group_name, mce=mce)
 
+    field_type_mappings = {
+        "String": MLFeatureDataType.TEXT,
+        "Integral": MLFeatureDataType.ORDINAL,
+        "Fractional": MLFeatureDataType.CONTINUOUS,
+    }
+
     def get_feature_type(self, aws_type: str, feature_name: str) -> str:
 
-        mapped_type = {
-            "String": MLFeatureDataType.TEXT,
-            "Integral": MLFeatureDataType.ORDINAL,
-            "Fractional": MLFeatureDataType.CONTINUOUS,
-        }.get(aws_type)
+        mapped_type = self.field_type_mappings.get(aws_type)
 
         if mapped_type is None:
             self.report.report_warning(
@@ -283,9 +285,13 @@ class SagemakerSource(Source):
             )
 
             for feature in feature_group_details["FeatureDefinitions"]:
-                yield self.get_feature_wu(feature_group_details, feature)
+                wu = self.get_feature_wu(feature_group_details, feature)
+                self.report.report_workunit(wu)
+                yield wu
 
-            yield self.get_feature_group_wu(feature_group_details)
+            wu = self.get_feature_group_wu(feature_group_details)
+            self.report.report_workunit(wu)
+            yield wu
 
     def get_report(self):
         return self.report

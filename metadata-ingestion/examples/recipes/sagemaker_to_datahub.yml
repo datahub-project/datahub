@@ -1,3 +1,4 @@
+# in this example, AWS creds are detected automatically – see the README for more details
 source:
   type: sagemaker
   config:
