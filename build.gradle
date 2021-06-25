@@ -125,7 +125,6 @@ allprojects {
   configurations.all {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
-    exclude group: "org.neo4j", module: "neo4j-lucene-upgrade"
   }
 }
 
