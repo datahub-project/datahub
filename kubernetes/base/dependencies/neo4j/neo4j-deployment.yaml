@@ -25,6 +25,8 @@ spec:
         io.kompose.network/datahub_network: "true"
         io.kompose.service: neo4j
     spec:
+      securityContext:
+        fsGroup: 2000
       containers:
         - env:
             - name: NEO4J_AUTH
