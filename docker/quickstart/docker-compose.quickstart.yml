@@ -37,7 +37,7 @@ services:
     - ELASTIC_CLIENT_HOST=elasticsearch
     - ELASTIC_CLIENT_PORT=9200
     hostname: datahub-frontend-react
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react:test
     mem_limit: 512m
     ports:
     - 9002:9002
@@ -65,7 +65,7 @@ services:
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     hostname: datahub-gms
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms:test
     mem_limit: 512m
     ports:
     - 8080:8080
