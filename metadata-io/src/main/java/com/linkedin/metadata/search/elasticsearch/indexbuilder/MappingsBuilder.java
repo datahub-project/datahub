@@ -8,14 +8,10 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 @Slf4j
 public class MappingsBuilder {
-
-  private final Logger logger = LoggerFactory.getLogger(MappingsBuilder.class.getName());
 
   private MappingsBuilder() {
   }

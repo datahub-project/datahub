@@ -246,6 +246,8 @@ public class EbeanEntityService extends EntityService {
     if (oldValue != newValue || _alwaysEmitAuditEvent) {
       _logger.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
       produceMetadataAuditEvent(urn, oldValue, newValue);
+    } else {
+      _logger.debug(String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.", aspectName, urn));
     }
 
     return newValue;
@@ -310,6 +312,8 @@ public class EbeanEntityService extends EntityService {
     if (emitMae) {
       _logger.debug(String.format("Producing MetadataAuditEvent for updated aspect %s, urn %s", aspectName, urn));
       produceMetadataAuditEvent(urn, oldValue, newValue);
+    } else {
+      _logger.debug(String.format("Skipped producing MetadataAuditEvent for updated aspect %s, urn %s. emitMAE is false.", aspectName, urn));
     }
 
     return newValue;
