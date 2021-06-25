@@ -55,8 +55,8 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                _logger.debug("Executing search. " +
-                    String.format("entity type %s, query %s, filters: %s, start: %s, count: %s",
+                _logger.debug("Executing search. "
+                    + String.format("entity type %s, query %s, filters: %s, start: %s, count: %s",
                         input.getType(),
                         input.getQuery(),
                         input.getFilters(),

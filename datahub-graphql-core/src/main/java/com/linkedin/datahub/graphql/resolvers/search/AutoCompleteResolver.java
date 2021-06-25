@@ -52,8 +52,8 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
         final int limit = input.getLimit() != null ? input.getLimit() : DEFAULT_LIMIT;
             return CompletableFuture.supplyAsync(() -> {
                 try {
-                    _logger.debug("Executing autocomplete. " +
-                        String.format("entity type %s, field %s, query %s, filters: %s, limit: %s",
+                    _logger.debug("Executing autocomplete. "
+                        + String.format("entity type %s, field %s, query %s, filters: %s, limit: %s",
                         input.getType(),
                         input.getField(),
                         input.getQuery(),
