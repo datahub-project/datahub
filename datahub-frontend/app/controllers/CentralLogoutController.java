@@ -24,8 +24,8 @@ public class CentralLogoutController extends LogoutController {
     _isOidcEnabled = config.hasPath("auth.oidc.enabled") && config.getBoolean("auth.oidc.enabled");
 
     String baseUrl = _authBaseUrl;
-    setDefaultUrl(baseUrl + "/login");
-    setLogoutUrlPattern(baseUrl + "/.*");
+    setDefaultUrl(baseUrl);
+    setLogoutUrlPattern(baseUrl + ".*");
     setLocalLogout(true);
     setCentralLogout(true);
 
@@ -34,6 +34,8 @@ public class CentralLogoutController extends LogoutController {
   public Result executeLogout() throws ExecutionException, InterruptedException {
     Logger.info("logout called");
     if (_isOidcEnabled) {
+      Logger.info("_isOidcEnabled");
+      // Logger.info("logout: " + logout().toCompletableFuture().get().toString());
       return logout().toCompletableFuture().get();
     }
     return status(200);

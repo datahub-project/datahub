@@ -98,7 +98,7 @@ public class AuthModule extends AbstractModule {
 
         // logout
         final LogoutController logoutController = new LogoutController();
-        logoutController.setDefaultUrl("/login");
+        logoutController.setDefaultUrl("/");
         bind(LogoutController.class).toInstance(logoutController);
 
     }

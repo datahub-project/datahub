@@ -45,7 +45,7 @@ GET           /authenticate                                                   re
 POST          /logIn                                                          react.controllers.AuthenticationController.logIn()
 GET           /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
 POST          /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
-GET           /centralLogout                                                  controllers.CentralLogoutController.executeLogout()
+GET           /centralLogout                                                  controllers.CentralLogoutController.logout()
 
 # Data fetching in React
 POST          /api/v2/graphql                                                 react.controllers.GraphQLController.execute()

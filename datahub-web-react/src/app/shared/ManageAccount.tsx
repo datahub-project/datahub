@@ -1,10 +1,9 @@
 import React from 'react';
-import Cookies from 'js-cookie';
 import { Menu, Dropdown } from 'antd';
+import Cookies from 'js-cookie';
 import { CaretDownOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
-import axios from 'axios';
 import { isLoggedInVar } from '../auth/checkAuthStatus';
 import { GlobalCfg } from '../../conf';
 import { EntityType } from '../../types.generated';
@@ -44,18 +43,11 @@ const defaultProps = {
 export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Props) => {
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
+
     const handleLogout = () => {
         analytics.event({ type: EventType.LogOutEvent });
-        axios
-            .get('/centralLogout')
-            .then((response) => {
-                isLoggedInVar(false);
-                Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
-                console.log(response);
-            })
-            .catch((error) => {
-                console.log(error);
-            });
+        isLoggedInVar(false);
+        Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
     };
 
     const menu = (
@@ -74,8 +66,10 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                     </MenuItem>
                 );
             })}
-            <MenuItem danger key="logout" onClick={handleLogout} tabIndex={0}>
-                Log out
+            <MenuItem danger key="logout" tabIndex={0}>
+                <a href="/centralLogout" onClick={handleLogout}>
+                    Central logout
+                </a>
             </MenuItem>
         </Menu>
     );
