@@ -2,12 +2,14 @@ package controllers;
 
 import com.typesafe.config.Config;
 import org.pac4j.play.LogoutController;
-import play.Logger;
 import play.mvc.Result;
 
 import javax.inject.Inject;
 import java.util.concurrent.ExecutionException;
 
+/**
+ * Responsible for handling logout logic with oidc providers
+ */
 public class CentralLogoutController extends LogoutController {
 
   private static final String AUTH_BASE_URL_CONFIG_PATH = "auth.baseUrl";
@@ -31,13 +33,13 @@ public class CentralLogoutController extends LogoutController {
 
   }
 
+  /**
+   * logout() method should not be called if oidc is not enabled
+   */
   public Result executeLogout() throws ExecutionException, InterruptedException {
-    Logger.info("logout called");
     if (_isOidcEnabled) {
-      Logger.info("_isOidcEnabled");
-      // Logger.info("logout: " + logout().toCompletableFuture().get().toString());
       return logout().toCompletableFuture().get();
     }
-    return status(200);
+    return redirect("/");
   }
 }
