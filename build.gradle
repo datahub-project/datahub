@@ -118,10 +118,14 @@ project.ext.externalDependency = [
 ]
 
 allprojects {
-  apply plugin: 'java'
   apply plugin: 'idea'
   apply plugin: 'eclipse'
   apply plugin: 'checkstyle'
+}
+
+subprojects {
+  apply plugin: 'maven'
+  apply plugin: 'java'
 
   configurations.all {
     exclude group: "io.netty", module: "netty"
@@ -133,10 +137,6 @@ allprojects {
       implementation('io.netty:netty-all:4.1.44.Final')
     }
   }
-}
-
-subprojects {
-  apply plugin: 'maven'
 
   plugins.withType(JavaPlugin) {
     dependencies {
