@@ -3,8 +3,9 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import com.linkedin.datahub.graphql.types.MutableType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-
 import java.util.concurrent.CompletableFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
@@ -15,6 +16,8 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
  * @param <T> the generated GraphQL POJO corresponding to the return type.
  */
 public class MutableTypeResolver<I, T> implements DataFetcher<CompletableFuture<T>> {
+
+    private static final Logger _logger = LoggerFactory.getLogger(MutableTypeResolver.class.getName());
 
     private final MutableType<I> _mutableType;
 
@@ -27,8 +30,10 @@ public class MutableTypeResolver<I, T> implements DataFetcher<CompletableFuture<
         final I input = bindArgument(environment.getArgument("input"), _mutableType.inputClass());
         return CompletableFuture.supplyAsync(() -> {
             try {
+                _logger.debug(String.format("Mutating entity. input: %s", input));
                 return _mutableType.update(input, environment.getContext());
             } catch (Exception e) {
+                _logger.error(String.format("Failed to perform update against input %s", input.toString()) + " " + e.getMessage());
                 throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
             }
         });
