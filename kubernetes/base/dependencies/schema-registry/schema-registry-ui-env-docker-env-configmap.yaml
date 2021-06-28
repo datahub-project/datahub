@@ -5,7 +5,7 @@ data:
   ALLOW_TRANSITIVE: "true"
   PROXY: "true"
   READONLY_MODE: "true"
-  SCHEMAREGISTRY_URL: http://schema-registry:8081
+  SCHEMAREGISTRY_URL: http://schema-registry.data-catalogue.svc.cluster.local:8081
 kind: ConfigMap
 metadata:
   creationTimestamp: null
