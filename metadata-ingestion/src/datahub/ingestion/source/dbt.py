@@ -1,12 +1,12 @@
 import json
 import logging
-import time
 from typing import Any, Dict, Iterable, List, Optional
 
 import dateutil.parser
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.dbt_types import (
@@ -260,7 +260,8 @@ def get_upstreams(
 def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
     ucl: List[UpstreamClass] = []
 
-    actor, sys_time = "urn:li:corpuser:dbt_executor", int(time.time()) * 1000
+    actor = "urn:li:corpuser:dbt_executor"
+    sys_time = get_sys_time()
 
     for dep in upstream_urns:
         uc = UpstreamClass(
@@ -329,7 +330,8 @@ def get_schema_metadata(
 
         canonical_schema.append(field)
 
-    actor, sys_time = "urn:li:corpuser:dbt_executor", int(time.time() * 1000)
+    actor = "urn:li:corpuser:dbt_executor"
+    sys_time = get_sys_time()
 
     last_modified = sys_time
 

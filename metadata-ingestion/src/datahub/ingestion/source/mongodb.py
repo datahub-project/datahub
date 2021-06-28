@@ -1,4 +1,3 @@
-import time
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
@@ -12,6 +11,7 @@ from pydantic import PositiveInt
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
@@ -468,7 +468,7 @@ class MongoDBSource(Source):
 
                     # create schema metadata object for collection
                     actor = "urn:li:corpuser:etl"
-                    sys_time = int(time.time() * 1000)
+                    sys_time = get_sys_time()
                     schema_metadata = SchemaMetadata(
                         schemaName=collection_name,
                         platform=f"urn:li:dataPlatform:{platform}",
