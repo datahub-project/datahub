@@ -402,7 +402,7 @@ class MongoDBSource(Source):
         return SchemaFieldDataType(type=TypeClass())
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        platform = "mongodb"
+        platform = "mongo"
 
         database_names: List[str] = self.mongo_client.list_database_names()
 
