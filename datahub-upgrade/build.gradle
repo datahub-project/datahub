@@ -7,10 +7,13 @@ dependencies {
   compile project(':metadata-io')
   compile project(':gms:impl')
   compile project(':gms:factories')
+  compile project(':gms:client')
 
   compile externalDependency.javaxInject
+  compile externalDependency.hadoopClient
   compile externalDependency.lombok
   compile externalDependency.picocli
+  compile externalDependency.parquet
   compile externalDependency.springBeans
   compile externalDependency.springBootAutoconfigure
   compile externalDependency.springCore

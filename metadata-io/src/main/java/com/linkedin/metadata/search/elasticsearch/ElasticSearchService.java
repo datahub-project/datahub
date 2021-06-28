@@ -31,6 +31,10 @@ public class ElasticSearchService implements SearchService {
   }
 
   @Override
+  public void clear() {
+  }
+
+  @Override
   public void upsertDocument(@Nonnull String entityName, @Nonnull String document, @Nonnull String docId) {
     esWriteDAO.upsertDocument(entityName, document, docId);
   }

@@ -1,12 +1,12 @@
 {{- if .Values.datahubUpgrade.enabled -}}
-# Job template for running datahub cleanup
+# Job template for restoring indices by sending MAE corresponding to all entities in the local db
 # Creates a suspended cronJob that you can use to create an adhoc job when ready to run clean up.
 # Run the following command to do so
-# kubectl create job --from=cronjob/<<release-name>>-datahub-cleanup-job-template datahub-cleanup-job
+# kubectl create job --from=cronjob/<<release-name>>-datahub-restore-indices-job-template datahub-restore-indices-job
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
-  name: {{ .Release.Name }}-datahub-cleanup-job-template
+  name: {{ .Release.Name }}-datahub-restore-indices-job-template
   labels:
     app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
     app.kubernetes.io/instance: {{ .Release.Name | quote }}
@@ -41,7 +41,9 @@ spec:
           containers:
             - name: datahub-upgrade-job
               image: "{{ .Values.datahubUpgrade.image.repository }}:{{ .Values.datahubUpgrade.image.tag }}"
-              args: [ "-u", "NoCodeDataMigrationCleanup" ]
+              args:
+                - "-u"
+                - "RestoreIndices"
               env:
                 - name: DATAHUB_GMS_HOST
                   value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
