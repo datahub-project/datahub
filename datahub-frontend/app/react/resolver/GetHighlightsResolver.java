@@ -64,7 +64,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
       String directionChange = percentChange > 0 ? "increase" : "decrease";
 
       bodyText = Double.isInfinite(percentChange) ? ""
-          : String.format("%%%.2f %s from last week", percentChange, directionChange);
+          : String.format("%.2f%% %s from last week", percentChange, directionChange);
     }
 
     highlights.add(Highlight.builder().setTitle(title).setValue(weeklyActiveUsers).setBody(bodyText).build());

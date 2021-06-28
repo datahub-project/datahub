@@ -1,0 +1,12 @@
+namespace com.linkedin.usage
+
+/** The range of data buckets that should be returned */
+enum UsageTimeRange {
+    HOUR
+    DAY
+    WEEK
+    MONTH
+    QUARTER
+    YEAR
+    ALL
+}

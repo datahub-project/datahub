@@ -13,8 +13,14 @@ import {
     EditableSchemaFieldInfo,
     EditableSchemaFieldInfoUpdate,
     EntityType,
+    UsageQueryResult,
 } from '../../../../../types.generated';
-import { diffJson, fieldPathSortAndParse, ExtendedSchemaFields } from '../../../shared/utils';
+import {
+    convertEditableSchemaMetadataForUpdate,
+    diffJson,
+    fieldPathSortAndParse,
+    ExtendedSchemaFields,
+} from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import SchemaTable from './SchemaTable';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
@@ -46,21 +52,9 @@ const SummaryContainer = styled.div`
 `;
 const SummarySubHeader = styled(Typography.Text)``;
 
-export function convertEditableSchemaMetadataForUpdate(
-    editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
-): EditableSchemaMetadataUpdate {
-    return {
-        editableSchemaFieldInfo:
-            editableSchemaMetadata?.editableSchemaFieldInfo.map((editableSchemaFieldInfo) => ({
-                fieldPath: editableSchemaFieldInfo?.fieldPath,
-                description: editableSchemaFieldInfo?.description,
-                globalTags: { tags: convertTagsForUpdate(editableSchemaFieldInfo?.globalTags?.tags || []) },
-            })) || [],
-    };
-}
-
 export type Props = {
     urn: string;
+    usageStats?: UsageQueryResult | null;
     schema?: SchemaMetadata | Schema | null;
     pastSchemaMetadata?: SchemaMetadata | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
@@ -75,9 +69,9 @@ export default function SchemaView({
     pastSchemaMetadata,
     editableSchemaMetadata,
     updateEditableSchema,
+    usageStats,
 }: Props) {
     const totalVersions = pastSchemaMetadata?.aspectVersion || 0;
-
     const [showRaw, setShowRaw] = useState(false);
     const [diffSummary, setDiffSummary] = useState({ added: 0, removed: 0, updated: 0, schemaRawUpdated: false });
     const [showVersions, setShowVersions] = useState(false);
@@ -283,6 +277,7 @@ export default function SchemaView({
                             onUpdateDescription={onUpdateDescription}
                             onUpdateTags={onUpdateTags}
                             editableSchemaMetadata={editableSchemaMetadata}
+                            usageStats={usageStats}
                         />
                     </>
                 )

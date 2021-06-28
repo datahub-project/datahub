@@ -19,6 +19,7 @@ import useIsLineageMode from '../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
+import QueriesTab from './QueriesTab';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -26,9 +27,9 @@ export enum TabType {
     Lineage = 'Lineage',
     Properties = 'Properties',
     Documents = 'Documents',
+    Queries = 'Queries',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Schema, TabType.Lineage, TabType.Properties, TabType.Documents];
 const EMPTY_ARR: never[] = [];
 
 /**
@@ -36,7 +37,9 @@ const EMPTY_ARR: never[] = [];
  */
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
+
     const user = useGetAuthenticatedUser();
     const [updateDataset] = useUpdateDatasetMutation({
         update(cache, { data: newDataset }) {
@@ -45,7 +48,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     dataset() {
                         cache.writeQuery({
                             query: GetDatasetDocument,
-                            data: { dataset: newDataset?.updateDataset },
+                            data: { dataset: { ...newDataset?.updateDataset, usageStats: data?.dataset?.usageStats } },
                         });
                     },
                 },
@@ -70,6 +73,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         schemaMetadata,
         pastSchemaMetadata,
         editableSchemaMetadata,
+        usageStats,
     }: Dataset & { pastSchemaMetadata: SchemaMetadata }) => {
         return [
             {
@@ -80,6 +84,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                         urn={urn}
                         schema={schemaMetadata || schema}
                         pastSchemaMetadata={pastSchemaMetadata}
+                        usageStats={usageStats}
                         editableSchemaMetadata={editableSchemaMetadata}
                         updateEditableSchema={(update) => {
                             analytics.event({
@@ -118,6 +123,11 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 content: <LineageView upstreamLineage={upstreamLineage} downstreamLineage={downstreamLineage} />,
             },
             {
+                name: TabType.Queries,
+                path: TabType.Queries.toLowerCase(),
+                content: <QueriesTab usageStats={usageStats} />,
+            },
+            {
                 name: TabType.Properties,
                 path: TabType.Properties.toLowerCase(),
                 content: <PropertiesView properties={properties || EMPTY_ARR} />,
@@ -142,7 +152,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     />
                 ),
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+        ];
     };
 
     return (

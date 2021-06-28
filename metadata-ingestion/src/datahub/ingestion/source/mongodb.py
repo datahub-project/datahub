@@ -54,6 +54,7 @@ class MongoDBConfig(ConfigModel):
     options: dict = {}
     enableSchemaInference: bool = True
     schemaSamplingSize: Optional[PositiveInt] = 1000
+    useRandomSampling: bool = True
     env: str = DEFAULT_ENV
 
     database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -282,6 +283,7 @@ def construct_schema(
 def construct_schema_pymongo(
     collection: pymongo.collection.Collection,
     delimiter: str,
+    use_random_sampling: bool,
     sample_size: Optional[int] = None,
 ) -> Dict[Tuple[str, ...], SchemaDescription]:
     """
@@ -302,10 +304,15 @@ def construct_schema_pymongo(
     """
 
     if sample_size:
-        # get sample documents in collection
-        documents = collection.aggregate(
-            [{"$sample": {"size": sample_size}}], allowDiskUse=True
-        )
+        if use_random_sampling:
+            # get sample documents in collection
+            documents = collection.aggregate(
+                [{"$sample": {"size": sample_size}}], allowDiskUse=True
+            )
+        else:
+            documents = collection.aggregate(
+                [{"$limit": sample_size}], allowDiskUse=True
+            )
     else:
         # if sample_size is not provided, just take all items in the collection
         documents = collection.find({})
@@ -434,6 +441,7 @@ class MongoDBSource(Source):
                     collection_schema = construct_schema_pymongo(
                         database[collection_name],
                         delimiter=".",
+                        use_random_sampling=self.config.useRandomSampling,
                         sample_size=self.config.schemaSamplingSize,
                     )
 

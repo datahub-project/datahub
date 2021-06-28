@@ -1,5 +1,12 @@
 import * as diff from 'diff';
-import { EditableSchemaFieldInfo, SchemaField, GlobalTags } from '../../../types.generated';
+import {
+    EditableSchemaMetadata,
+    EditableSchemaFieldInfo,
+    EditableSchemaMetadataUpdate,
+    SchemaField,
+    GlobalTags,
+} from '../../../types.generated';
+import { convertTagsForUpdate } from '../../shared/tags/utils/convertTagsForUpdate';
 
 export function urlEncodeUrn(urn: string) {
     return urn && urn.replace(/%/g, '%25').replace(/\//g, '%2F').replace(/\?/g, '%3F').replace(/#/g, '%23');
@@ -23,6 +30,19 @@ export function convertEditableSchemaMeta(
         });
     }
     return updatedFields;
+}
+
+export function convertEditableSchemaMetadataForUpdate(
+    editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
+): EditableSchemaMetadataUpdate {
+    return {
+        editableSchemaFieldInfo:
+            editableSchemaMetadata?.editableSchemaFieldInfo.map((editableSchemaFieldInfo) => ({
+                fieldPath: editableSchemaFieldInfo?.fieldPath,
+                description: editableSchemaFieldInfo?.description,
+                globalTags: { tags: convertTagsForUpdate(editableSchemaFieldInfo?.globalTags?.tags || []) },
+            })) || [],
+    };
 }
 
 export interface ExtendedSchemaFields extends SchemaField {

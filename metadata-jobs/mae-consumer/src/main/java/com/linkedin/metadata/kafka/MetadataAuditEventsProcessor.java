@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;
 import java.io.UnsupportedEncodingException;
@@ -54,13 +55,17 @@ public class MetadataAuditEventsProcessor {
 
   private final GraphService _graphService;
   private final SearchService _searchService;
+  private final UsageService _usageService;
 
   @Autowired
-  public MetadataAuditEventsProcessor(GraphService graphService, SearchService searchService) {
+  public MetadataAuditEventsProcessor(GraphService graphService, SearchService searchService, UsageService usageService) {
     _graphService = graphService;
     _searchService = searchService;
-    _searchService.configure();
+    _usageService = usageService;
+
     _graphService.configure();
+    _searchService.configure();
+    _usageService.configure();
   }
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"

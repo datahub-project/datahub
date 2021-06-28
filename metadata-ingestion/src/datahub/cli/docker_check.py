@@ -12,7 +12,6 @@ REQUIRED_CONTAINERS = [
     "schema-registry",
     "broker",
     "mysql",
-    "neo4j",
     "zookeeper",
     # These two containers are not necessary - only helpful in debugging.
     # "kafka-topics-ui",
@@ -33,6 +32,7 @@ CONTAINERS_TO_CHECK_IF_PRESENT = [
     # We only add this container in some cases, but if it's present, we
     # definitely want to check that it exits properly.
     "mysql-setup",
+    "neo4j",
 ]
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.

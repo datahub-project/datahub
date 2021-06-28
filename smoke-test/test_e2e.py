@@ -10,6 +10,9 @@ FRONTEND_ENDPOINT = "http://localhost:9002"
 KAFKA_BROKER = "localhost:9092"
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
+usage_sample_data = (
+    "../metadata-ingestion/tests/integration/bigquery-usage/bigquery_usages_golden.json"
+)
 bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -30,13 +33,12 @@ def test_healthchecks(wait_for_healthchecks):
     pass
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_ingestion_via_rest(wait_for_healthchecks):
+def ingest_file(filename: str):
     pipeline = Pipeline.create(
         {
             "source": {
                 "type": "file",
-                "config": {"filename": bootstrap_sample_data},
+                "config": {"filename": filename},
             },
             "sink": {
                 "type": "datahub-rest",
@@ -46,6 +48,16 @@ def test_ingestion_via_rest(wait_for_healthchecks):
     )
     pipeline.run()
     pipeline.raise_from_status()
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_ingestion_via_rest(wait_for_healthchecks):
+    ingest_file(bootstrap_sample_data)
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_ingestion_usage_via_rest(wait_for_healthchecks):
+    ingest_file(usage_sample_data)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -74,7 +86,13 @@ def test_ingestion_via_kafka(wait_for_healthchecks):
     time.sleep(kafka_post_ingestion_wait_sec)
 
 
-@pytest.mark.dependency(depends=["test_ingestion_via_rest", "test_ingestion_via_kafka"])
+@pytest.mark.dependency(
+    depends=[
+        "test_ingestion_via_rest",
+        "test_ingestion_via_kafka",
+        "test_ingestion_usage_via_rest",
+    ]
+)
 def test_run_ingestion(wait_for_healthchecks):
     # Dummy test so that future ones can just depend on this one.
     pass
@@ -191,6 +209,39 @@ def test_gms_search_dataset(query, min_expected_results):
     assert len(data["elements"]) >= min_expected_results
     assert data["paging"]["total"] >= min_expected_results
     assert data["elements"][0]["urn"]
+
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_gms_usage_fetch():
+    response = requests.post(
+        f"{GMS_ENDPOINT}/usageStats?action=queryRange",
+        headers=restli_default_headers,
+        json={
+            "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.excess_deaths_derived,PROD)",
+            "duration": "DAY",
+            "rangeFromEnd": "ALL",
+        },
+    )
+    response.raise_for_status()
+
+    data = response.json()["value"]
+
+    assert len(data["buckets"]) == 3
+    assert data["buckets"][0]["metrics"]["topSqlQueries"]
+
+    fields = data["aggregations"].pop("fields")
+    assert len(fields) == 12
+    assert fields[0]["count"] == 7
+
+    users = data["aggregations"].pop("users")
+    assert len(users) == 1
+    assert users[0]["count"] == 7
+
+    assert data["aggregations"] == {
+        # "fields" and "users" already popped out
+        "totalSqlQueries": 7,
+        "uniqueUserCount": 1,
+    }
 
 
 @pytest.fixture(scope="session")

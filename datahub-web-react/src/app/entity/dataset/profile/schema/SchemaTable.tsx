@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Table, Typography } from 'antd';
+import React, { useMemo, useState } from 'react';
+import { Table, Tooltip, Typography } from 'antd';
+import { ColumnsType } from 'antd/es/table';
 import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
+import { geekblue } from '@ant-design/colors';
 import TypeIcon from './TypeIcon';
 import {
     EditableSchemaMetadata,
@@ -11,6 +13,7 @@ import {
     GlobalTagsUpdate,
     EditableSchemaFieldInfo,
     GlossaryTerms,
+    UsageQueryResult,
 } from '../../../../../types.generated';
 import { diffMarkdown, ExtendedSchemaFields } from '../../../shared/utils';
 import TagTermGroup from '../../../../shared/tags/TagTermGroup';
@@ -35,6 +38,18 @@ const TableContainer = styled.div`
             background-color: #b7eb8faa !important;
         }
     }
+`;
+
+const UsageBar = styled.div<{ width: number }>`
+    width: ${(props) => props.width}px;
+    height: 10px;
+    background-color: ${geekblue[3]};
+    border-radius: 2px;
+`;
+
+const UsageBarContainer = styled.div`
+    width: 100%;
+    height: 100%;
 `;
 
 const defaultColumns = [
@@ -92,15 +107,22 @@ export type Props = {
     onUpdateTags: (update: GlobalTagsUpdate, record?: EditableSchemaFieldInfo) => Promise<any>;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     editMode?: boolean;
+    usageStats?: UsageQueryResult | null;
 };
-
+const USAGE_BAR_MAX_WIDTH = 50;
 export default function SchemaTable({
     rows,
     onUpdateDescription,
     onUpdateTags,
     editableSchemaMetadata,
+    usageStats,
     editMode = true,
 }: Props) {
+    const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
+    const maxFieldUsageCount = useMemo(
+        () => Math.max(...(usageStats?.aggregations?.fields?.map((field) => field?.count || 0) || [])),
+        [usageStats],
+    );
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
     const descriptionRender = (description: string, record: ExtendedSchemaFields) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
@@ -137,13 +159,31 @@ export default function SchemaTable({
                 uneditableTags={tags}
                 editableTags={relevantEditableFieldInfo?.globalTags}
                 glossaryTerms={record.glossaryTerms as GlossaryTerms}
-                canRemove={editMode}
+                canRemove
                 canAdd={tagHoveredIndex === `${record.fieldPath}-${rowIndex}`}
                 onOpenModal={() => setTagHoveredIndex(undefined)}
                 updateTags={(update) =>
                     onUpdateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
                 }
             />
+        );
+    };
+
+    const usageStatsRenderer = (fieldPath: string) => {
+        const relevantUsageStats = usageStats?.aggregations?.fields?.find(
+            (fieldStats) => fieldStats?.fieldName === fieldPath,
+        );
+
+        if (!relevantUsageStats) {
+            return null;
+        }
+
+        return (
+            <Tooltip placement="topLeft" title={`${relevantUsageStats.count} queries / month`}>
+                <UsageBarContainer>
+                    <UsageBar width={((relevantUsageStats.count || 0) / maxFieldUsageCount) * USAGE_BAR_MAX_WIDTH} />
+                </UsageBarContainer>
+            </Tooltip>
         );
     };
 
@@ -175,10 +215,24 @@ export default function SchemaTable({
         }),
     };
 
+    const usageColumn = {
+        width: 50,
+        title: 'Usage',
+        dataIndex: 'fieldPath',
+        key: 'usage',
+        render: usageStatsRenderer,
+    };
+
+    let allColumns: ColumnsType<ExtendedSchemaFields> = [...defaultColumns, descriptionColumn, tagAndTermColumn];
+
+    if (hasUsageStats) {
+        allColumns = [...allColumns, usageColumn];
+    }
+
     return (
         <TableContainer>
             <Table
-                columns={[...defaultColumns, descriptionColumn, tagAndTermColumn]}
+                columns={allColumns}
                 dataSource={rows}
                 rowClassName={(record) =>
                     record.isNewRow ? 'table-green-row' : `${record.isDeletedRow ? 'table-red-row' : ''}`

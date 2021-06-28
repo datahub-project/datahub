@@ -71,6 +71,38 @@ the authenticated profile as the DataHub CorpUser identity.
 
 > By default, the login callback endpoint exposed by DataHub will be located at `${AUTH_OIDC_BASE_URL}/callback/oidc`. This must **exactly** match the login redirect URL you've registered with your identity provider in step 1.
 
+In kubernetes, you can add the above env variables in the values.yaml as follows. 
+
+```
+datahub-frontend:
+  ...
+  extraEnvs:
+    - name: AUTH_OIDC_ENABLED
+      value: true
+    - name: AUTH_OIDC_CLIENT_ID
+      value: your-client-id
+    - name: AUTH_OIDC_CLIENT_SECRET
+      value: your-client-secret
+    - name: AUTH_OIDC_DISCOVERY_URI
+      value: your-provider-discovery-url  
+    - name: AUTH_OIDC_BASE_URL
+      value: your-datahub-url      
+```
+
+You can also package OIDC client secrets into a k8s secret by running
+
+```kubectl create secret generic datahub-oidc-secret --from-literal=secret=<<OIDC SECRET>>``` 
+
+Then set the secret env as follows. 
+
+```
+    - name: AUTH_OIDC_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: datahub-oidc-secret
+          key: secret
+```
+
 #### Advanced
 
 You can optionally customize the flow further using advanced configurations. These allow 

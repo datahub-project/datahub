@@ -1,0 +1,23 @@
+namespace com.linkedin.usage
+
+/**
+ * Results of a query for usage data.
+ */
+record UsageQueryResult {
+  /** Raw buckets */
+  buckets: optional array[UsageAggregation]
+
+  /**
+   * Aggregated metrics. All fields are optional here, since they will be populated
+   * only if the underlying buckets contain the data required to generate that aggregation.
+   */
+  aggregations: record UsageQueryResultAggregations {
+    uniqueUserCount: optional int
+
+    totalSqlQueries: optional int
+
+    users: optional array[UserUsageCounts]
+
+    fields: optional array[FieldUsageCounts]
+  }
+}
