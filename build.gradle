@@ -118,6 +118,7 @@ project.ext.externalDependency = [
 ]
 
 allprojects {
+  apply plugin: 'java'
   apply plugin: 'idea'
   apply plugin: 'eclipse'
   apply plugin: 'checkstyle'
@@ -125,6 +126,12 @@ allprojects {
   configurations.all {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
+  }
+
+  dependencies {
+    constraints {
+      implementation('io.netty:netty-all:4.1.44.Final')
+    }
   }
 }
 
