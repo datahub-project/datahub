@@ -1,7 +1,7 @@
 apiVersion: v1
 data:
-  KAFKA_BOOTSTRAP_SERVER: broker:29092
-  KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+  KAFKA_BOOTSTRAP_SERVER: broker.data-catalogue.svc.cluster.local:29092
+  KAFKA_ZOOKEEPER_CONNECT: zookeeper.data-catalogue.svc.cluster.local:2181
 kind: ConfigMap
 metadata:
   creationTimestamp: null

@@ -1,14 +1,14 @@
 apiVersion: v1
 data:
   DATAHUB_APP_VERSION: "1.0"
-  DATAHUB_GMS_HOST: datahub-gms
+  DATAHUB_GMS_HOST: datahub-gms.data-catalogue.svc.cluster.local
   DATAHUB_GMS_PORT: "8080"
   DATAHUB_PLAY_MEM_BUFFER_SIZE: 10MB
   DATAHUB_SECRET: YouKnowNothing
   DATAHUB_TRACKING_TOPIC: DataHubUsageEvent_v1
-  ELASTIC_CLIENT_HOST: elasticsearch
+  ELASTIC_CLIENT_HOST: elasticsearch.data-catalogue.svc.cluster.local
   ELASTIC_CLIENT_PORT: "9200"
-  KAFKA_BOOTSTRAP_SERVER: broker:29092
+  KAFKA_BOOTSTRAP_SERVER: broker.data-catalogue.svc.cluster.local:29092
 kind: ConfigMap
 metadata:
   creationTimestamp: null

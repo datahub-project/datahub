@@ -1,7 +1,7 @@
 apiVersion: v1
 data:
   SCHEMA_REGISTRY_HOST_NAME: schemaregistry
-  SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181
+  SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper.data-catalogue.svc.cluster.local:2181
 kind: ConfigMap
 metadata:
   creationTimestamp: null

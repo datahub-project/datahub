@@ -1,9 +1,9 @@
 apiVersion: v1
 data:
-  KAFKA_REST_BOOTSTRAP_SERVERS: PLAINTEXT://broker:29092
+  KAFKA_REST_BOOTSTRAP_SERVERS: PLAINTEXT://broker.data-catalogue.svc.cluster.local:29092
   KAFKA_REST_HOST_NAME: kafka-rest-proxy
   KAFKA_REST_LISTENERS: http://0.0.0.0:8082/
-  KAFKA_REST_SCHEMA_REGISTRY_URL: http://schema-registry:8081/
+  KAFKA_REST_SCHEMA_REGISTRY_URL: http://schema-registry.data-catalogue.svc.cluster.local:8081/
 kind: ConfigMap
 metadata:
   creationTimestamp: null
