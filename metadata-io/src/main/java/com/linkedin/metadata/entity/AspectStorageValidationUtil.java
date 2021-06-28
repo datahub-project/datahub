@@ -8,6 +8,7 @@ import io.ebean.SqlRow;
 
 
 public class AspectStorageValidationUtil {
+
   private AspectStorageValidationUtil() {
 
   }
