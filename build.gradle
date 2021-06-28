@@ -125,22 +125,18 @@ allprojects {
 
 subprojects {
   apply plugin: 'maven'
-  apply plugin: 'java'
 
   configurations.all {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
   }
 
-  dependencies {
-    constraints {
-      implementation('io.netty:netty-all:4.1.44.Final')
-    }
-  }
-
   plugins.withType(JavaPlugin) {
     dependencies {
       testCompile externalDependency.testng
+      constraints {
+        implementation('io.netty:netty-all:4.1.44.Final')
+      }
     }
 
     tasks.withType(Test) {
