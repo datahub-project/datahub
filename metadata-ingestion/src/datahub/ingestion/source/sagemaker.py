@@ -178,6 +178,7 @@ class SagemakerSource(Source):
         """
 
         # if the feature acts as the record identifier, then we ingest it as an MLPrimaryKey
+        # the RecordIdentifierFeatureName is guaranteed to exist as it's required on creation
         is_record_identifier = (
             feature_group_details["RecordIdentifierFeatureName"]
             == feature["FeatureName"]

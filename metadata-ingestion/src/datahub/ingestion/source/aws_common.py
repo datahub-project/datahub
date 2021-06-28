@@ -26,6 +26,14 @@ def assume_role(
 
 
 class AwsSourceConfig(ConfigModel):
+    """
+    Common AWS credentials config.
+
+    Currently used by:
+        - Glue source
+        - SageMaker source
+    """
+
     env: str = "PROD"
 
     database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
