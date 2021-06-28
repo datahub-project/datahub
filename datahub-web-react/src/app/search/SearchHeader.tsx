@@ -8,6 +8,7 @@ import { ManageAccount } from '../shared/ManageAccount';
 import AnalyticsLink from './AnalyticsLink';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
+import AdhocLink from '../create/AdhocLink';
 
 const HeaderTitle = styled(Typography.Title)`
     && {
@@ -87,6 +88,7 @@ export const SearchHeader = ({
                 entityRegistry={entityRegistry}
             />
             <NavGroup>
+                <AdhocLink />
                 <AnalyticsLink />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
             </NavGroup>

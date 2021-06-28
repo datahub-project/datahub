@@ -16,6 +16,7 @@ import org.pac4j.core.profile.ProfileManager;
 import org.pac4j.oidc.client.OidcClient;
 import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.play.CallbackController;
+import org.pac4j.play.LogoutController;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.http.PlayHttpActionAdapter;
 import org.pac4j.play.store.PlayCookieSessionStore;
@@ -88,11 +89,18 @@ public class AuthModule extends AbstractModule {
                 throw new RuntimeException(String.format("Unrecognized client with name %s provided to callback URL.", client));
             }
         });
+
         // Make OIDC the default SSO client.
         if (_oidcConfigs.isOidcEnabled()) {
             callbackController.setDefaultClient(_oidcConfigs.getClientName());
         }
         bind(CallbackController.class).toInstance(callbackController);
+
+        // logout
+        final LogoutController logoutController = new LogoutController();
+        logoutController.setDefaultUrl("/");
+        bind(LogoutController.class).toInstance(logoutController);
+
     }
 
     @Provides @Singleton
@@ -124,6 +132,7 @@ public class AuthModule extends AbstractModule {
     }
 
     private Result handleOidcCallback(final Result result, final PlayWebContext context, ProfileManager<CommonProfile> profileManager) {
+
         if (profileManager.isAuthenticated() && profileManager.get(true).isPresent()) {
             final CommonProfile profile = profileManager.get(true).get();
             if (!profile.containsAttribute(_oidcConfigs.getUserNameClaim())) {

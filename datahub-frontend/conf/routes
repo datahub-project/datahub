@@ -12,6 +12,7 @@ GET           /config                                                         co
 GET           /deps                                                           controllers.Application.printDeps()
 GET           /login                                                          controllers.Application.login()
 GET           /logout                                                         controllers.Application.logout()
+GET           /centralLogout                                                  controllers.CentralLogoutController.executeLogout()
 
 GET           /api/v1/owner/types                                             controllers.api.v1.Dataset.getDatasetOwnerTypes()
 GET           /api/v1/party/employees                                         controllers.api.v1.User.getAllCompanyUsers()
@@ -57,6 +58,10 @@ GET           /assets/*file                                                   co
 
 # Analytics route
 POST          /track                                                          react.controllers.TrackingController.track()
+
+# Adhoc creation route
+GET          /create                                                          react.controllers.AdhocController.create()
+POST          /create                                                          react.controllers.AdhocController.create()
 
 # Wildcard route accepts any routes and delegates to serveAsset which in turn serves the Ember client
 GET           /*path                                                          controllers.Application.index(path)
