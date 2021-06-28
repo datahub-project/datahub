@@ -574,6 +574,7 @@ Extracts:
 - List of collections in each database and infers schemas for each collection
 
 By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
+Moreover, setting `useRandomSampling: False` will sample the first documents found without random selection, which may be faster for large collections.
 
 Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
 
@@ -593,6 +594,7 @@ source:
     collection_pattern: {}
     enableSchemaInference: True
     schemaSamplingSize: 1000
+    useRandomSampling: True # whether to randomly sample docs for schema or just use the first ones, True by default
     # database_pattern/collection_pattern are similar to schema_pattern/table_pattern from above
 ```
 
