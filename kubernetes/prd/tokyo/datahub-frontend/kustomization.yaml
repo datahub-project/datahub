@@ -1,3 +1,4 @@
 namespace: data-catalogue
 resources:
   - ../../../base/datahub-frontend
+  - ingress.yaml
