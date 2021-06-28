@@ -5,4 +5,3 @@ resources:
   - datahub-mae
   - datahub-mce
   - dependencies
-  - ingress.yaml
