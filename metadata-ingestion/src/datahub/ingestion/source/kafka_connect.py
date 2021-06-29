@@ -11,7 +11,7 @@ import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 
 logger = logging.getLogger(__name__)
 
