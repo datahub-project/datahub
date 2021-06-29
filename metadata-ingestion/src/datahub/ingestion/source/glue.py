@@ -1,5 +1,4 @@
 import json
-import time
 import typing
 from collections import defaultdict
 from dataclasses import dataclass
@@ -279,7 +278,7 @@ class GlueSource(Source):
                     OwnershipClass(
                         owners=[],
                         lastModified=AuditStampClass(
-                            time=int(time.time() * 1000),
+                            time=mce_builder.get_sys_time(),
                             actor="urn:li:corpuser:datahub",
                         ),
                     )
@@ -596,7 +595,7 @@ class GlueSource(Source):
                 platformSchema=MySqlDDL(tableSchema=""),
             )
 
-        sys_time = int(time.time() * 1000)
+        sys_time = mce_builder.get_sys_time()
         dataset_snapshot = DatasetSnapshot(
             urn=f"urn:li:dataset:(urn:li:dataPlatform:glue,{table_name},{self.env})",
             aspects=[],

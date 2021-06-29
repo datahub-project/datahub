@@ -20,6 +20,10 @@ public class UsageQueryResultAggregationMapper implements
     UsageQueryResultAggregations result = new UsageQueryResultAggregations();
     result.setTotalSqlQueries(pdlUsageResultAggregations.getTotalSqlQueries());
     result.setUniqueUserCount(pdlUsageResultAggregations.getUniqueUserCount());
+    if (pdlUsageResultAggregations.hasFields()) {
+      result.setFields(
+          pdlUsageResultAggregations.getFields().stream().map(FieldUsageCountsMapper::map).collect(Collectors.toList()));
+    }
     if (pdlUsageResultAggregations.hasUsers()) {
       result.setUsers(pdlUsageResultAggregations.getUsers()
           .stream()
