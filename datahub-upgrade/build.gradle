@@ -22,6 +22,8 @@ dependencies {
   compile externalDependency.awsJavaSdkSts
   compile externalDependency.awsJavaSdkS3
   compile externalDependency.hadoopClient
+
+  runtime externalDependency.logbackClassic
   runtime externalDependency.mariadbConnector
   runtime externalDependency.mysqlConnector
   runtime externalDependency.postgresql
