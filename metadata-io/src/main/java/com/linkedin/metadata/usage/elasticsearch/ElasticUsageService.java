@@ -191,6 +191,10 @@ public class ElasticUsageService implements UsageService {
 
         final SearchRequest searchRequest = new SearchRequest();
         searchRequest.source(searchSourceBuilder);
+
+        final String indexName = indexConvention.getIndexName(USAGE_STATS_BASE_INDEX_NAME);
+        searchRequest.indices(indexName);
+
         log.debug("Search request is: " + searchRequest.toString());
 
         try {

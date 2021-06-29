@@ -9,12 +9,12 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dbt_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
     resolve_postgres_modified_type,
 )
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
