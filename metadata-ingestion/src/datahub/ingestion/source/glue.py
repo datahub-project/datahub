@@ -46,7 +46,6 @@ from datahub.metadata.schema_classes import (
 
 
 class GlueSourceConfig(AwsSourceConfig):
-
     extract_transforms: Optional[bool] = True
 
     @property
