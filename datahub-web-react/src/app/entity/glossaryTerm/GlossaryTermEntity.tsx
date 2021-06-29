@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { BookFilled, BookOutlined } from '@ant-design/icons';
-import { EntityType, GlossaryTerm } from '../../../types.generated';
+import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import GlossaryTermProfile from './profile/GlossaryTermProfile';
@@ -44,7 +44,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     renderProfile: (urn: string) => JSX.Element = (_) => <GlossaryTermProfile />;
 
-    renderSearch = () => <div />;
+    renderSearch = (result: SearchResult) => {
+        return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm);
+    };
 
     renderPreview = (_: PreviewType, data: GlossaryTerm) => {
         return (
