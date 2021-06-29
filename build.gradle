@@ -121,19 +121,22 @@ allprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
   apply plugin: 'checkstyle'
-
-  configurations.all {
-    exclude group: "io.netty", module: "netty"
-    exclude group: "log4j", module: "log4j"
-  }
 }
 
 subprojects {
   apply plugin: 'maven'
 
+  configurations.all {
+    exclude group: "io.netty", module: "netty"
+    exclude group: "log4j", module: "log4j"
+  }
+
   plugins.withType(JavaPlugin) {
     dependencies {
       testCompile externalDependency.testng
+      constraints {
+        implementation('io.netty:netty-all:4.1.44.Final')
+      }
     }
 
     tasks.withType(Test) {
