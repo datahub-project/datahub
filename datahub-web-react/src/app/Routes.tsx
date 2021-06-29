@@ -12,6 +12,7 @@ import { SearchPage } from './search/SearchPage';
 import { isLoggedInVar } from './auth/checkAuthStatus';
 import { useTrackPageView } from './analytics';
 import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
+import { AdHocPage } from './create/AdHocPage';
 
 const ProtectedRoute = ({
     isLoggedIn,
@@ -58,6 +59,7 @@ export const Routes = (): JSX.Element => {
                     path={PageRoutes.BROWSE_RESULTS}
                     render={() => <BrowseResultsPage />}
                 />
+                <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.ADHOC} render={() => <AdHocPage />} />
                 <ProtectedRoute isLoggedIn={isLoggedIn} path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                 {/* Starting the react app locally opens /assets by default. For a smoother dev experience, we'll redirect to the homepage */}
                 <Route path={PageRoutes.ASSETS} component={() => <Redirect to="/" />} exact />
