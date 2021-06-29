@@ -16,7 +16,7 @@ basicAuditStamp = models.AuditStampClass(
 
 
 @pytest.mark.parametrize(
-    "mce,snapshot",
+    "record,path,snapshot",
     [
         (
             # Simple test.
@@ -41,6 +41,7 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 ),
             ),
+            "/entities?action=ingest",
             {
                 "entity": {
                     "value": {
@@ -91,6 +92,7 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 )
             ),
+            "/entities?action=ingest",
             {
                 "entity": {
                     "value": {
@@ -127,6 +129,7 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 )
             ),
+            "/entities?action=ingest",
             {
                 "entity": {
                     "value": {
@@ -171,6 +174,7 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 )
             ),
+            "/entities?action=ingest",
             {
                 "entity": {
                     "value": {
@@ -193,9 +197,56 @@ basicAuditStamp = models.AuditStampClass(
                 }
             },
         ),
+        (
+            # Usage stats ingestion test.
+            models.UsageAggregationClass(
+                bucket=1623826800000,
+                duration="DAY",
+                resource="urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
+                metrics=models.UsageAggregationMetricsClass(
+                    uniqueUserCount=2,
+                    users=[
+                        models.UserUsageCountsClass(
+                            user="urn:li:corpuser:jdoe",
+                            count=5,
+                        ),
+                        models.UserUsageCountsClass(
+                            user="urn:li:corpuser:unknown",
+                            count=3,
+                            userEmail="foo@example.com",
+                        ),
+                    ],
+                    totalSqlQueries=1,
+                    topSqlQueries=["SELECT * FROM foo"],
+                ),
+            ),
+            "/usageStats?action=batchIngest",
+            {
+                "buckets": [
+                    {
+                        "bucket": 1623826800000,
+                        "duration": "DAY",
+                        "resource": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
+                        "metrics": {
+                            "uniqueUserCount": 2,
+                            "users": [
+                                {"count": 5, "user": "urn:li:corpuser:jdoe"},
+                                {
+                                    "count": 3,
+                                    "user": "urn:li:corpuser:unknown",
+                                    "userEmail": "foo@example.com",
+                                },
+                            ],
+                            "totalSqlQueries": 1,
+                            "topSqlQueries": ["SELECT * FROM foo"],
+                        },
+                    }
+                ]
+            },
+        ),
     ],
 )
-def test_datahub_rest_emitter(requests_mock, mce, snapshot):
+def test_datahub_rest_emitter(requests_mock, record, path, snapshot):
     def match_request_text(request: requests.Request) -> bool:
         requested_snapshot = request.json()
         assert (
@@ -204,10 +255,10 @@ def test_datahub_rest_emitter(requests_mock, mce, snapshot):
         return True
 
     requests_mock.post(
-        f"{MOCK_GMS_ENDPOINT}/entities?action=ingest",
+        f"{MOCK_GMS_ENDPOINT}{path}",
         request_headers={"X-RestLi-Protocol-Version": "2.0.0"},
         additional_matcher=match_request_text,
     )
 
     emitter = DatahubRestEmitter(MOCK_GMS_ENDPOINT)
-    emitter.emit_mce(mce)
+    emitter.emit(record)

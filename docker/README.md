@@ -32,7 +32,7 @@ Dependencies:
 * [Kafka, Zookeeper, and Schema Registry](kafka-setup)
 * [Elasticsearch](elasticsearch-setup)
 * [MySQL](mysql)
-* [Neo4j](neo4j)
+* [(Optional) Neo4j](neo4j)
 
 ### Ingesting demo data.
 

@@ -1,0 +1,227 @@
+[
+{
+    "bucket": 1622073600000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.austin311_derived,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 1,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 0,
+        "topSqlQueries": []
+    }
+},
+{
+    "bucket": 1622073600000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.bigquery_usage_logs.cloudaudit_googleapis_com_data_access,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 9,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 3,
+        "topSqlQueries": [
+            "SELECT * FROM `harshal-playground-306419.bigquery_usage_logs.cloudaudit_googleapis_com_data_access_20210526`"
+        ]
+    }
+},
+{
+    "bucket": 1622073600000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.bigquery_usage_logs.cloudaudit_googleapis_com_activity,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 10,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 1,
+        "topSqlQueries": [
+            "SELECT * FROM `harshal-playground-306419.bigquery_usage_logs.cloudaudit_googleapis_com_activity_20210527` LIMIT 1000"
+        ]
+    }
+},
+{
+    "bucket": 1622073600000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.excess_deaths_derived,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 4,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 4,
+        "topSqlQueries": [
+            "\nSELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`;\n\n",
+            "SELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`"
+        ]
+    }
+},
+{
+    "bucket": 1622073600000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.bq_audit.cloudaudit_googleapis_com_activity,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 4,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 1,
+        "topSqlQueries": [
+            "SELECT * FROM `harshal-playground-306419.bq_audit.cloudaudit_googleapis_com_activity` WHERE DATE(timestamp) = \"2021-05-27\" LIMIT 1000"
+        ]
+    }
+},
+{
+    "bucket": 1622073600000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.bq_audit.cloudaudit_googleapis_com_data_access,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 7,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 1,
+        "topSqlQueries": [
+            "SELECT * FROM `harshal-playground-306419.bq_audit.cloudaudit_googleapis_com_data_access` WHERE DATE(timestamp) = \"2021-05-27\" LIMIT 1000"
+        ]
+    }
+},
+{
+    "bucket": 1622160000000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.bq_audit.cloudaudit_googleapis_com_activity,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 1,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 0,
+        "topSqlQueries": []
+    }
+},
+{
+    "bucket": 1622160000000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.excess_deaths_derived,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 2,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 2,
+        "topSqlQueries": [
+            "SELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`",
+            "# CREATE OR REPLACE TABLE test_schema.excess_deaths_derived AS (SELECT * FROM `bigquery-public-data.covid19_nyt.excess_deaths` LIMIT 10);\n\nSELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`;\n"
+        ]
+    }
+},
+{
+    "bucket": 1622505600000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.excess_deaths_derived,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 1,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 1,
+        "topSqlQueries": [
+            "# CREATE OR REPLACE TABLE test_schema.excess_deaths_derived AS (SELECT * FROM `bigquery-public-data.covid19_nyt.excess_deaths` LIMIT 10);\n\nSELECT * FROM `harshal-playground-306419.test_schema.excess_deaths_derived`;\n"
+        ]
+    }
+},
+{
+    "bucket": 1622505600000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.austin311_derived,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 1,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 1,
+        "topSqlQueries": [
+            "# CREATE OR REPLACE TABLE test_schema.excess_deaths_derived AS (SELECT * FROM `bigquery-public-data.covid19_nyt.excess_deaths` LIMIT 10);\n\nSELECT * FROM `harshal-playground-306419.test_schema.austin311_derived`;\n"
+        ]
+    }
+},
+{
+    "bucket": 1623888000000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.bq_audit.cloudaudit_googleapis_com_activity,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 1,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 0,
+        "topSqlQueries": []
+    }
+},
+{
+    "bucket": 1623888000000,
+    "duration": "DAY",
+    "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.austin311_derived,PROD)",
+    "metrics": {
+        "uniqueUserCount": 1,
+        "users": [
+            {
+                "user": "urn:li:corpuser:unknown",
+                "count": 2,
+                "userEmail": "harshal@acryl.io"
+            }
+        ],
+        "totalSqlQueries": 2,
+        "topSqlQueries": [
+            "select * from `harshal-playground-306419.test_schema.austin311_derived`",
+            "select complaint_description, complaint_type, unique_key, last_update_date from `harshal-playground-306419.test_schema.austin311_derived`"
+        ]
+    }
+}
+]

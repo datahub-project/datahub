@@ -109,5 +109,29 @@ query getDataset($urn: String!) {
         upstreamLineage {
             ...upstreamRelationshipFields
         }
+        usageStats(resource: $urn, range: MONTH) {
+            buckets {
+                bucket
+                duration
+                resource
+                metrics {
+                    uniqueUserCount
+                    totalSqlQueries
+                    topSqlQueries
+                }
+            }
+            aggregations {
+                uniqueUserCount
+                totalSqlQueries
+                users {
+                    user {
+                        urn
+                        username
+                    }
+                    count
+                    userEmail
+                }
+            }
+        }
     }
 }

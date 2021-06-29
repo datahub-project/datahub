@@ -27,11 +27,9 @@ class KafkaSourceTest(unittest.TestCase):
         kafka_source = KafkaSource.create(
             {"connection": {"bootstrap": "localhost:9092"}}, ctx
         )
-        workunits = []
-        for w in kafka_source.get_workunits():
-            workunits.append(w)
+        workunits = list(kafka_source.get_workunits())
 
-        first_mce = workunits[0].get_metadata()["mce"]
+        first_mce = workunits[0].mce
         assert isinstance(first_mce, MetadataChangeEvent)
         mock_kafka.assert_called_once()
         mock_kafka_instance.list_topics.assert_called_once()

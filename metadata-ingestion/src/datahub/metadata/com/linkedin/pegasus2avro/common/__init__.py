@@ -28,6 +28,7 @@ from .....schema_classes import OwnershipTypeClass
 from .....schema_classes import StatusClass
 from .....schema_classes import TagAssociationClass
 from .....schema_classes import VersionTagClass
+from .....schema_classes import WindowDurationClass
 
 
 AccessLevel = AccessLevelClass
@@ -54,4 +55,5 @@ OwnershipType = OwnershipTypeClass
 Status = StatusClass
 TagAssociation = TagAssociationClass
 VersionTag = VersionTagClass
+WindowDuration = WindowDurationClass
 # fmt: on

@@ -139,6 +139,7 @@ const dataset1 = {
             },
         ],
     },
+    usageStats: null,
 };
 
 const dataset2 = {
@@ -187,6 +188,7 @@ const dataset2 = {
             time: 0,
         },
     },
+    usageStats: null,
 };
 
 export const dataset3 = {
@@ -281,6 +283,7 @@ export const dataset3 = {
     schema: null,
     editableSchemaMetadata: null,
     deprecation: null,
+    usageStats: null,
 } as Dataset;
 
 export const dataset4 = {
