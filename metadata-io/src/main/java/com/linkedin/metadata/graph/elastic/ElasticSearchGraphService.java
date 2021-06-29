@@ -1,6 +1,7 @@
 package com.linkedin.metadata.graph.elastic;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -72,8 +73,7 @@ public class ElasticSearchGraphService implements GraphService {
 
   private String toDocId(@Nonnull final Edge edge) {
     String rawDocId =
-        edge.getSource().toString() + DOC_DELIMETER + edge.getRelationshipType() + DOC_DELIMETER + edge.getDestination()
-            .toString();
+        edge.getSource().toString() + DOC_DELIMETER + edge.getRelationshipType() + DOC_DELIMETER + edge.getDestination().toString();
 
     try {
       byte[] bytesOfRawDocID = rawDocId.getBytes("UTF-8");
@@ -93,25 +93,36 @@ public class ElasticSearchGraphService implements GraphService {
   }
 
   @Nonnull
-  public List<String> findRelatedUrns(@Nullable final String sourceType, @Nonnull final Filter sourceEntityFilter,
-      @Nullable final String destinationType, @Nonnull final Filter destinationEntityFilter,
-      @Nonnull final List<String> relationshipTypes, @Nonnull final RelationshipFilter relationshipFilter,
-      final int offset, final int count) {
+  public List<String> findRelatedUrns(
+      @Nullable final String sourceType,
+      @Nonnull final Filter sourceEntityFilter,
+      @Nullable final String destinationType,
+      @Nonnull final Filter destinationEntityFilter,
+      @Nonnull final List<String> relationshipTypes,
+      @Nonnull final RelationshipFilter relationshipFilter,
+      final int offset,
+      final int count) {
 
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
     String destinationNode = relationshipDirection == RelationshipDirection.OUTGOING ? "destination" : "source";
 
-    SearchResponse response =
-        _graphReadDAO.getSearchResponse(sourceType, sourceEntityFilter, destinationType, destinationEntityFilter,
-            relationshipTypes, relationshipFilter, offset, count);
+    SearchResponse response = _graphReadDAO.getSearchResponse(
+        sourceType,
+        sourceEntityFilter,
+        destinationType,
+        destinationEntityFilter,
+        relationshipTypes,
+        relationshipFilter,
+        offset,
+        count
+    );
 
     if (response == null) {
       return ImmutableList.of();
     }
 
     return Arrays.stream(response.getHits().getHits())
-        .map(hit -> ((HashMap<String, String>) hit.getSourceAsMap()
-            .getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null))
+        .map(hit -> ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null))
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
   }
@@ -137,20 +148,43 @@ public class ElasticSearchGraphService implements GraphService {
     RelationshipFilter outgoingFilter = new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
     RelationshipFilter incomingFilter = new RelationshipFilter().setDirection(RelationshipDirection.INCOMING);
 
-    _graphWriteDAO.deleteByQuery(null, urnFilter, null, emptyFilter, relationshipTypes, outgoingFilter);
+    _graphWriteDAO.deleteByQuery(
+        null,
+        urnFilter,
+        null,
+        emptyFilter,
+        relationshipTypes,
+        outgoingFilter
+    );
 
-    _graphWriteDAO.deleteByQuery(null, urnFilter, null, emptyFilter, relationshipTypes, incomingFilter);
+    _graphWriteDAO.deleteByQuery(
+        null,
+        urnFilter,
+        null,
+        emptyFilter,
+        relationshipTypes,
+        incomingFilter
+    );
 
     return;
   }
 
-  public void removeEdgesFromNode(@Nonnull final Urn urn, @Nonnull final List<String> relationshipTypes,
+  public void removeEdgesFromNode(
+      @Nonnull final Urn urn,
+      @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
 
     Filter urnFilter = createUrnFilter(urn);
     Filter emptyFilter = new Filter().setCriteria(new CriterionArray());
 
-    _graphWriteDAO.deleteByQuery(null, urnFilter, null, emptyFilter, relationshipTypes, relationshipFilter);
+    _graphWriteDAO.deleteByQuery(
+        null,
+        urnFilter,
+        null,
+        emptyFilter,
+        relationshipTypes,
+        relationshipFilter
+    );
   }
 
   @Override
@@ -158,8 +192,8 @@ public class ElasticSearchGraphService implements GraphService {
     log.info("Setting up elastic graph index");
     boolean exists = false;
     try {
-      exists = searchClient.indices()
-          .exists(new GetIndexRequest(_indexConvention.getIndexName(INDEX_NAME)), RequestOptions.DEFAULT);
+      exists = searchClient.indices().exists(
+          new GetIndexRequest(_indexConvention.getIndexName(INDEX_NAME)), RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("ERROR: Failed to set up elasticsearch graph index. Could not check if the index exists");
       e.printStackTrace();

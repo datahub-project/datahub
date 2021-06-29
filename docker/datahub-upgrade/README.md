@@ -15,6 +15,10 @@ to metadata_aspect_v2 table. Arguments:
 2. **NoCodeDataMigrationCleanup**: Cleanses graph index, search index, and key-value store of legacy DataHub data (metadata_aspect table) once
 the No Code Data Migration has completed successfully. No arguments. 
 
+3. **RestoreIndices**: Restores indices by fetching the latest version of each aspect and producing MAE
+
+4. **RestoreBackup**: Restores the storage stack from a backup of the local database
+
 ## Environment Variables
 
 To run the `datahub-upgrade` container, some environment variables must be provided in order to tell the upgrade CLI

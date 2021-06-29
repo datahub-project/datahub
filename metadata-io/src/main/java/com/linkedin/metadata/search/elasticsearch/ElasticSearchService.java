@@ -34,6 +34,7 @@ public class ElasticSearchService implements SearchService {
 
   @Override
   public void clear() {
+    esWriteDAO.clear();
   }
 
   @Override

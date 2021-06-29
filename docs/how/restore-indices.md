@@ -17,6 +17,9 @@ Run the following command from root to send MAE for each aspect in the Local DB.
 
 If you need to clear the search and graph indices before restoring, add `-a clean` to the end of the command.
 
+Refer to this [doc](../../docker/datahub-upgrade/README.md#environment-variables) on how to set environment variables
+for your environment.
+
 ## Kubernetes
 
 Run `kubectl get cronjobs` to see if the restoration job template has been deployed. If you see results like below, you

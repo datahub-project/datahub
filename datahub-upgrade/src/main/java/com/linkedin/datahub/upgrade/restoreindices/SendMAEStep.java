@@ -51,7 +51,7 @@ public class SendMAEStep implements UpgradeStep {
 
       context.report().addLine("Sending MAE from local DB...");
       final int rowCount = _server.find(EbeanAspectV2.class).where().eq(EbeanAspectV2.VERSION_COLUMN, 0).findCount();
-      context.report().addLine(String.format("Found %s rows in legacy aspects table", rowCount));
+      context.report().addLine(String.format("Found %s latest aspects in aspects table", rowCount));
 
       int totalRowsMigrated = 0;
       int start = 0;
@@ -59,7 +59,7 @@ public class SendMAEStep implements UpgradeStep {
       while (start < rowCount) {
 
         context.report()
-            .addLine(String.format("Reading rows %s through %s from legacy aspects table.", start, start + count));
+            .addLine(String.format("Reading rows %s through %s from the aspects table.", start, start + count));
         PagedList<EbeanAspectV2> rows = getPagedAspects(start, count);
 
         for (EbeanAspectV2 aspect : rows.getList()) {

@@ -15,7 +15,7 @@ public class GMSDisableWriteModeStep implements UpgradeStep {
 
   @Override
   public String id() {
-    return "GMSEnableWriteModeStep";
+    return "GMSDisableWriteModeStep";
   }
 
   @Override

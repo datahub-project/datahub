@@ -61,13 +61,13 @@ public class RestoreStorageStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
 
-      EbeanAspectBackupIterator iterator = _backupReaders.get(backupReaderName.get()).getBackupIterator(context);
-      if (iterator == null) {
+      Optional<EbeanAspectBackupIterator> iterator = _backupReaders.get(backupReaderName.get()).getBackupIterator(context);
+      if (!iterator.isPresent()) {
         context.report().addLine("Failed to build backup iterator");
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
       EbeanAspectV2 aspect;
-      while ((aspect = iterator.next()) != null) {
+      while ((aspect = iterator.get().next()) != null) {
         numRows++;
 
         // 1. Extract an Entity type from the entity Urn

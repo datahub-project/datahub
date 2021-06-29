@@ -7,6 +7,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.common.steps.ClearGraphServiceStep;
 import com.linkedin.datahub.upgrade.common.steps.ClearSearchServiceStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSDisableWriteModeStep;
+import com.linkedin.datahub.upgrade.common.steps.GMSEnableWriteModeStep;
 import com.linkedin.datahub.upgrade.common.steps.GMSQualificationStep;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
@@ -47,6 +48,7 @@ public class RestoreBackup implements Upgrade {
     steps.add(new ClearGraphServiceStep(graphClient, true));
     steps.add(new ClearAspectV2TableStep(server));
     steps.add(new RestoreStorageStep(entityService, entityRegistry));
+    steps.add(new GMSEnableWriteModeStep(entityClient));
     return steps;
   }
 
