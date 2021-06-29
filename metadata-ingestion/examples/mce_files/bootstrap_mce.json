@@ -1626,7 +1626,7 @@
         "auditHeader": null,
         "proposedSnapshot": {
             "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:mongo",
+                "urn": "urn:li:dataPlatform:mongodb",
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
