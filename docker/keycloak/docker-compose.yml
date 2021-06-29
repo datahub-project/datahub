@@ -1,0 +1,25 @@
+# Docker compose file covering DataHub's default configuration, which is to run all containers on a single host.
+
+# Please see the README.md for instructions as to how to use and customize.
+
+# NOTE: This file will cannot build! No dockerfiles are set. See the README.md in this directory.
+---
+version: '3.8'
+services:
+  zookeeper:
+    image: jboss/keycloak:14.0.0
+    env_file: env/docker.env
+    hostname: keycloak
+    container_name: keycloak
+    ports:
+      - "8088:8080"
+    volumes:
+      - keycloakdata:/opt/jboss/keycloak
+      - ./realm.json:/tmp/realm.json
+
+networks:
+  default:
+    name: datahub_network
+
+volumes:
+  keycloakdata:
