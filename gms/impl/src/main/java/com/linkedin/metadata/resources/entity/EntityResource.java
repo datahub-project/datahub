@@ -216,7 +216,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = "disableWrite")
   @Nonnull
   public Task<Void> disableWrite() {
-    _logger.info("setting entity resource to not be writable");
+    log.info("setting entity resource to not be writable");
     return RestliUtils.toTask(() -> {
       _entityService.disableWrite();
       return null;
