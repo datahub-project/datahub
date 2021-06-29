@@ -2,7 +2,6 @@ import glob
 import logging
 import re
 import sys
-import time
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
@@ -18,6 +17,7 @@ from sql_metadata import get_query_tables
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
@@ -505,7 +505,7 @@ class LookMLSource(Source):  # pragma: no cover
 
         dataset_name = looker_view.view_name
         actor = self.source_config.actor
-        sys_time = int(time.time()) * 1000
+        sys_time = get_sys_time()
 
         dataset_snapshot = DatasetSnapshot(
             urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform_name},{dataset_name},{self.source_config.env})",

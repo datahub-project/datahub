@@ -7606,6 +7606,55 @@ class TagPropertiesClass(DictWrapper):
         self._inner_dict['description'] = value
     
     
+class FieldUsageCountsClass(DictWrapper):
+    """ Records field-level usage counts for a given resource """
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.usage.FieldUsageCounts")
+    def __init__(self,
+        fieldName: str,
+        count: int,
+    ):
+        super().__init__()
+        
+        self.fieldName = fieldName
+        self.count = count
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "FieldUsageCountsClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.fieldName = str()
+        self.count = int()
+    
+    
+    @property
+    def fieldName(self) -> str:
+        # No docs available.
+        return self._inner_dict.get('fieldName')  # type: ignore
+    
+    
+    @fieldName.setter
+    def fieldName(self, value: str) -> None:
+        # No docs available.
+        self._inner_dict['fieldName'] = value
+    
+    
+    @property
+    def count(self) -> int:
+        # No docs available.
+        return self._inner_dict.get('count')  # type: ignore
+    
+    
+    @count.setter
+    def count(self, value: int) -> None:
+        # No docs available.
+        self._inner_dict['count'] = value
+    
+    
 class UsageAggregationClass(DictWrapper):
     """Usage data for a given resource, rolled up into a bucket."""
     
@@ -7695,6 +7744,7 @@ class UsageAggregationMetricsClass(DictWrapper):
         users: Union[None, List["UserUsageCountsClass"]]=None,
         totalSqlQueries: Union[None, int]=None,
         topSqlQueries: Union[None, List[str]]=None,
+        fields: Union[None, List["FieldUsageCountsClass"]]=None,
     ):
         super().__init__()
         
@@ -7702,6 +7752,7 @@ class UsageAggregationMetricsClass(DictWrapper):
         self.users = users
         self.totalSqlQueries = totalSqlQueries
         self.topSqlQueries = topSqlQueries
+        self.fields = fields
     
     @classmethod
     def construct_with_defaults(cls) -> "UsageAggregationMetricsClass":
@@ -7715,6 +7766,7 @@ class UsageAggregationMetricsClass(DictWrapper):
         self.users = self.RECORD_SCHEMA.field_map["users"].default
         self.totalSqlQueries = self.RECORD_SCHEMA.field_map["totalSqlQueries"].default
         self.topSqlQueries = self.RECORD_SCHEMA.field_map["topSqlQueries"].default
+        self.fields = self.RECORD_SCHEMA.field_map["fields"].default
     
     
     @property
@@ -7763,6 +7815,18 @@ class UsageAggregationMetricsClass(DictWrapper):
     def topSqlQueries(self, value: Union[None, List[str]]) -> None:
         """Setter:  Frequent SQL queries; mostly makes sense for datasets in SQL databases """
         self._inner_dict['topSqlQueries'] = value
+    
+    
+    @property
+    def fields(self) -> Union[None, List["FieldUsageCountsClass"]]:
+        """Getter:  Field-level usage stats """
+        return self._inner_dict.get('fields')  # type: ignore
+    
+    
+    @fields.setter
+    def fields(self, value: Union[None, List["FieldUsageCountsClass"]]) -> None:
+        """Setter:  Field-level usage stats """
+        self._inner_dict['fields'] = value
     
     
 class UserUsageCountsClass(DictWrapper):
@@ -7972,6 +8036,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.schema.UnionType': UnionTypeClass,
     'com.linkedin.pegasus2avro.schema.UrnForeignKey': UrnForeignKeyClass,
     'com.linkedin.pegasus2avro.tag.TagProperties': TagPropertiesClass,
+    'com.linkedin.pegasus2avro.usage.FieldUsageCounts': FieldUsageCountsClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregation': UsageAggregationClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregationMetrics': UsageAggregationMetricsClass,
     'com.linkedin.pegasus2avro.usage.UserUsageCounts': UserUsageCountsClass,
@@ -8117,6 +8182,7 @@ __SCHEMA_TYPES = {
     'UnionType': UnionTypeClass,
     'UrnForeignKey': UrnForeignKeyClass,
     'TagProperties': TagPropertiesClass,
+    'FieldUsageCounts': FieldUsageCountsClass,
     'UsageAggregation': UsageAggregationClass,
     'UsageAggregationMetrics': UsageAggregationMetricsClass,
     'UserUsageCounts': UserUsageCountsClass,

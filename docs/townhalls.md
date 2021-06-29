@@ -5,7 +5,7 @@ Currently it's held on the fourth Friday of every month (with some exceptions su
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-## Coming up - May 27th, 2021 @ 9 AM US Pacific
+## Coming up - Jun 25th, 2021 @ 9 AM US Pacific
 
 ## Meeting Invite
 
@@ -16,7 +16,13 @@ You can join with this link https://zoom.datahubproject.io, or [signup](https://
 
 ## Agenda
 
-- Stay tuned!
+- Project Updates by Shirshanka
+   - Release notes
+   - RBAC update
+   - Roadmap for H2 2021
+- Demo: Table Popularity powered by Query Activity by Harshal Sheth
+- Case Study: Business Glossary in production at Saxo Bank by Sheetal Pratik (Saxo Bank), Madhu Podila (ThoughtWorks)
+- Developer Session: Simplified Deployment for DataHub by John Joyce, Gabe Lyons
 
 ## Past Meetings
 

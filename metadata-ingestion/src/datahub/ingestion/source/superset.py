@@ -52,7 +52,7 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
     if sqlalchemy_uri.startswith("mysql"):
         return "mysql"
     if sqlalchemy_uri.startswith("mongodb"):
-        return "mongo"
+        return "mongodb"
     if sqlalchemy_uri.startswith("hive"):
         return "hive"
     return "external"

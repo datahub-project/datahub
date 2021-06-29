@@ -31,7 +31,7 @@ services:
     - DATAHUB_PLAY_MEM_BUFFER_SIZE=10MB
     - JAVA_OPTS=-Xms256m -Xmx256m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf
       -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml
-      -Dlogback.debug=true -Dpidfile.path=/dev/null
+      -Dlogback.debug=false -Dpidfile.path=/dev/null
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - DATAHUB_TRACKING_TOPIC=DataHubUsageEvent_v1
     - ELASTIC_CLIENT_HOST=elasticsearch

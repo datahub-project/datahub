@@ -1,6 +1,6 @@
 module.exports = {
   title: "DataHub",
-  tagline: "A Generalized Metadata Search & Discovery Tool",
+  tagline: "A Metadata Platform for the Modern Data Stack",
   url: "https://datahubproject.io",
   baseUrl: "/",
   onBrokenLinks: "throw",
