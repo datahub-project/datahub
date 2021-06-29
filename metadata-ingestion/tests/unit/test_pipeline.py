@@ -5,8 +5,8 @@ from unittest.mock import patch
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,

@@ -4,8 +4,7 @@ from typing import Iterable, Iterator, Union
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import UsageStatsWorkUnit
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import UsageAggregationClass
 
