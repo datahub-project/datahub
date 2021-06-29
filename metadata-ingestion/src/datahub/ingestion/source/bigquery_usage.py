@@ -200,8 +200,6 @@ class QueryEvent:
             referencedTables = [
                 BigQueryTableRef.from_spec_obj(spec) for spec in rawRefTables
             ]
-        # if job['jobConfiguration']['query']['statementType'] != "SCRIPT" and not referencedTables:
-        #     breakpoint()
 
         queryEvent = QueryEvent(
             timestamp=entry.timestamp,
