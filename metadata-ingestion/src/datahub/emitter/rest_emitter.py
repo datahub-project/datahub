@@ -3,6 +3,7 @@ import json
 import logging
 import shlex
 from collections import OrderedDict
+from json.decoder import JSONDecodeError
 from typing import Any, List, Optional, Union
 
 import requests
@@ -63,6 +64,10 @@ class DatahubRestEmitter:
     _session: requests.Session
 
     def __init__(self, gms_server: str, token: Optional[str] = None):
+        if ":9002" in gms_server:
+            logger.warn(
+                "the rest emitter should connect to GMS (usually port 8080) instead of frontend"
+            )
         self._gms_server = gms_server
         self._token = token
 
@@ -119,10 +124,16 @@ class DatahubRestEmitter:
 
             response.raise_for_status()
         except HTTPError as e:
-            info = response.json()
-            raise OperationalError(
-                "Unable to emit metadata to DataHub GMS", info
-            ) from e
+            try:
+                info = response.json()
+                raise OperationalError(
+                    "Unable to emit metadata to DataHub GMS", info
+                ) from e
+            except JSONDecodeError:
+                # If we can't parse the JSON, just raise the original error.
+                raise OperationalError(
+                    "Unable to emit metadata to DataHub GMS", {"message": str(e)}
+                ) from e
         except RequestException as e:
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}
