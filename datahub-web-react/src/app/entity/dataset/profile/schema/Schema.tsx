@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { Button, Pagination, Typography } from 'antd';
+import { Typography } from 'antd';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 import { Message } from '../../../../shared/Message';
@@ -20,37 +20,17 @@ import {
     diffJson,
     fieldPathSortAndParse,
     ExtendedSchemaFields,
+    getRawSchema,
 } from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import SchemaTable from './SchemaTable';
+import SchemaVersionSummary from './components/SchemaVersionSummary';
+import SchemaHeader from './components/SchemaHeader';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 
 const SchemaContainer = styled.div`
     margin-bottom: 100px;
 `;
-const ViewRawButtonContainer = styled.div<{ padding?: string }>`
-    display: flex;
-    justify-content: flex-end;
-    ${(props) => (props.padding ? 'padding-bottom: 16px;' : '')}
-`;
-
-const ShowVersionButton = styled(Button)`
-    margin-right: 10px;
-`;
-const PaginationContainer = styled(Pagination)`
-    padding-top: 5px;
-    margin-right: 15px;
-`;
-const SummaryContainer = styled.div`
-    margin-top: -32px;
-    margin-bottom: 16px;
-    padding-left: 10px;
-    & ul {
-        padding-inline-start: 30px;
-        margin-top: 5px;
-    }
-`;
-const SummarySubHeader = styled(Typography.Text)``;
 
 export type Props = {
     urn: string;
@@ -74,7 +54,7 @@ export default function SchemaView({
     const totalVersions = pastSchemaMetadata?.aspectVersion || 0;
     const [showRaw, setShowRaw] = useState(false);
     const [diffSummary, setDiffSummary] = useState({ added: 0, removed: 0, updated: 0, schemaRawUpdated: false });
-    const [showVersions, setShowVersions] = useState(false);
+    const [editMode, setEditMode] = useState(true);
     const [currentVersion, setCurrentVersion] = useState(totalVersions);
     const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
     const [schemaRawDiff, setSchemaRawDiff] = useState<string>('');
@@ -82,26 +62,18 @@ export default function SchemaView({
         fetchPolicy: 'no-cache',
     });
 
-    const getRawSchema = (schemaValue) => {
-        try {
-            return JSON.stringify(JSON.parse(schemaValue), null, 2);
-        } catch (e) {
-            return schemaValue;
-        }
-    };
-
     const updateDiff = useCallback(
         (currentSchema?: SchemaMetadata | Schema | null, pastSchema?: SchemaMetadata | null) => {
             const { fields, added, removed, updated } = fieldPathSortAndParse(
                 currentSchema?.fields,
                 pastSchema?.fields,
-                !showVersions,
+                editMode,
             );
             const currentSchemaRaw =
                 currentSchema?.platformSchema?.__typename === 'TableSchema'
                     ? getRawSchema(currentSchema.platformSchema.schema)
                     : '';
-            if (showVersions) {
+            if (!editMode) {
                 const pastSchemaRaw =
                     pastSchema?.platformSchema?.__typename === 'TableSchema'
                         ? getRawSchema(pastSchema.platformSchema.schema)
@@ -113,7 +85,7 @@ export default function SchemaView({
             }
             setRows(fields);
         },
-        [showVersions],
+        [editMode],
     );
 
     useEffect(() => {
@@ -181,20 +153,12 @@ export default function SchemaView({
         return updateSchema(newFieldInfo, record as EditableSchemaFieldInfo);
     };
 
-    const onVersionChange = (version) => {
-        if (version === null) {
-            return;
-        }
-        setCurrentVersion(version);
-        if (version === totalVersions) {
-            updateDiff(schema, pastSchemaMetadata);
-            return;
-        }
+    const fetchVersions = (version1: number, version2: number) => {
         getSchemaVersions({
             variables: {
                 urn,
-                version1: version - totalVersions,
-                version2: version - totalVersions - 1,
+                version1,
+                version2,
             },
         });
     };
@@ -202,35 +166,20 @@ export default function SchemaView({
     return (
         <SchemaContainer>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '30%' }} />}
-            <ViewRawButtonContainer padding={!showVersions ? 'true' : undefined}>
-                {totalVersions > 0 &&
-                    (!showVersions ? (
-                        <ShowVersionButton onClick={() => setShowVersions(true)}>Version History</ShowVersionButton>
-                    ) : (
-                        <>
-                            <ShowVersionButton
-                                onClick={() => {
-                                    setShowVersions(false);
-                                    setCurrentVersion(totalVersions);
-                                }}
-                            >
-                                Back
-                            </ShowVersionButton>
-                            <PaginationContainer
-                                simple
-                                size="default"
-                                defaultCurrent={totalVersions}
-                                defaultPageSize={1}
-                                total={totalVersions}
-                                onChange={onVersionChange}
-                                current={currentVersion}
-                            />
-                        </>
-                    ))}
-                {schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0 && (
-                    <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>
-                )}
-            </ViewRawButtonContainer>
+            <SchemaHeader
+                currentVersion={currentVersion}
+                setCurrentVersion={setCurrentVersion}
+                totalVersions={totalVersions}
+                updateDiff={() => updateDiff(schema, pastSchemaMetadata)}
+                fetchVersions={fetchVersions}
+                editMode={editMode}
+                setEditMode={setEditMode}
+                showRaw={showRaw}
+                setShowRaw={setShowRaw}
+                hasRow={
+                    schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0
+                }
+            />
             {showRaw ? (
                 <Typography.Text data-testid="schema-raw-view">
                     <pre>
@@ -238,42 +187,15 @@ export default function SchemaView({
                     </pre>
                 </Typography.Text>
             ) : (
+                rows &&
                 rows.length > 0 && (
                     <>
-                        {showVersions && (
-                            <SummaryContainer>
-                                <Typography.Title level={5}>Summary</Typography.Title>
-                                <SummarySubHeader>{`Comparing version ${currentVersion} to version ${
-                                    currentVersion - 1
-                                }`}</SummarySubHeader>
-                                <ul>
-                                    {diffSummary.added ? (
-                                        <li>
-                                            <Typography.Text>{`${diffSummary.added} column${
-                                                diffSummary.added > 1 ? 's were' : ' was'
-                                            } added`}</Typography.Text>
-                                        </li>
-                                    ) : null}
-                                    {diffSummary.removed ? (
-                                        <li>
-                                            <Typography.Text>{`${diffSummary.removed} column${
-                                                diffSummary.removed > 1 ? 's were' : ' was'
-                                            } removed`}</Typography.Text>
-                                        </li>
-                                    ) : null}
-                                    {diffSummary.updated ? (
-                                        <li>
-                                            <Typography.Text>{`${diffSummary.updated} description${
-                                                diffSummary.updated > 1 ? 's were' : ' was'
-                                            } updated`}</Typography.Text>
-                                        </li>
-                                    ) : null}
-                                </ul>
-                            </SummaryContainer>
+                        {!editMode && (
+                            <SchemaVersionSummary diffSummary={diffSummary} currentVersion={currentVersion} />
                         )}
                         <SchemaTable
                             rows={rows}
-                            editMode={!showVersions}
+                            editMode={editMode}
                             onUpdateDescription={onUpdateDescription}
                             onUpdateTags={onUpdateTags}
                             editableSchemaMetadata={editableSchemaMetadata}

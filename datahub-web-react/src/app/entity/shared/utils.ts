@@ -8,6 +8,14 @@ import {
 } from '../../../types.generated';
 import { convertTagsForUpdate } from '../../shared/tags/utils/convertTagsForUpdate';
 
+export interface ExtendedSchemaFields extends SchemaField {
+    children?: Array<ExtendedSchemaFields>;
+    pastDescription?: string | null;
+    pastGlobalTags?: GlobalTags | null;
+    isNewRow?: boolean;
+    isDeletedRow?: boolean;
+}
+
 export function urlEncodeUrn(urn: string) {
     return urn && urn.replace(/%/g, '%25').replace(/\//g, '%2F').replace(/\?/g, '%3F').replace(/#/g, '%23');
 }
@@ -43,14 +51,6 @@ export function convertEditableSchemaMetadataForUpdate(
                 globalTags: { tags: convertTagsForUpdate(editableSchemaFieldInfo?.globalTags?.tags || []) },
             })) || [],
     };
-}
-
-export interface ExtendedSchemaFields extends SchemaField {
-    children?: Array<ExtendedSchemaFields>;
-    pastDescription?: string | null;
-    pastGlobalTags?: GlobalTags | null;
-    isNewRow?: boolean;
-    isDeletedRow?: boolean;
 }
 
 export function fieldPathSortAndParse(
@@ -141,4 +141,12 @@ export function diffJson(oldStr: string, newStr: string) {
             diffOne.added ? `+${diffOne.value}` : diffOne.removed ? `-${diffOne.value}` : diffOne.value,
         )
         .join('');
+}
+
+export function getRawSchema(schemaValue) {
+    try {
+        return JSON.stringify(JSON.parse(schemaValue), null, 2);
+    } catch (e) {
+        return schemaValue;
+    }
 }

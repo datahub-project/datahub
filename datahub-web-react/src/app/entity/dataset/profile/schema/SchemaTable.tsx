@@ -4,7 +4,7 @@ import { ColumnsType } from 'antd/es/table';
 import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
 import { geekblue } from '@ant-design/colors';
-import TypeIcon from './TypeIcon';
+import TypeIcon from './components/TypeIcon';
 import {
     EditableSchemaMetadata,
     SchemaFieldDataType,
@@ -17,7 +17,7 @@ import {
 } from '../../../../../types.generated';
 import { diffMarkdown, ExtendedSchemaFields } from '../../../shared/utils';
 import TagTermGroup from '../../../../shared/tags/TagTermGroup';
-import DescriptionField from './SchemaDescriptionField';
+import DescriptionField from './components/SchemaDescriptionField';
 
 const MAX_FIELD_PATH_LENGTH = 100;
 
@@ -28,14 +28,14 @@ const LighterText = styled(Typography.Text)`
 const TableContainer = styled.div`
     & .table-red-row {
         background-color: #ffa39e99;
-        &: hover > td {
-            background-color: #ffa39eaa !important;
+        &: hover > td.ant-table-cell {
+            background-color: #ffa39eaa;
         }
     }
     & .table-green-row {
         background-color: #b7eb8f99;
-        &: hover > td {
-            background-color: #b7eb8faa !important;
+        &: hover > td.ant-table-cell {
+            background-color: #b7eb8faa;
         }
     }
 `;

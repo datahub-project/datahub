@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 
-import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
-import UpdateDescriptionModal from '../../../shared/DescriptionModal';
-import MarkdownViewer from '../../../shared/MarkdownViewer';
+import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
+import UpdateDescriptionModal from '../../../../shared/DescriptionModal';
+import MarkdownViewer from '../../../../shared/MarkdownViewer';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -38,15 +38,15 @@ const DescriptionContainer = styled.div`
     & ins.diff {
         background-color: #b7eb8f99;
         text-decoration: none;
-        &: hover {
-            background-color: #b7eb8faa !important;
+        &:hover {
+            background-color: #b7eb8faa;
         }
     }
     & del.diff {
         background-color: #ffa39e99;
         text-decoration: none;
         &: hover {
-            background-color: #ffa39eaa !important;
+            background-color: #ffa39eaa;
         }
     }
 `;

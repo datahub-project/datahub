@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react';
-import SchemaDescriptionField from '../schema/SchemaDescriptionField';
+import SchemaDescriptionField from '../schema/components/SchemaDescriptionField';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 
 describe('SchemaDescriptionField', () => {
