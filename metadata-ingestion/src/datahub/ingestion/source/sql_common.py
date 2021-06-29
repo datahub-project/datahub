@@ -1,5 +1,4 @@
 import logging
-import warnings
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
@@ -11,7 +10,7 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -40,12 +39,6 @@ class SQLSourceReport(SourceReport):
     tables_scanned: int = 0
     views_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
-
-    def report_table_scanned(self, table_name: str) -> None:
-        warnings.warn(
-            "report_table_scanned is deprecated, please use report_entity_scanned with argument `table`"
-        )
-        self.tables_scanned += 1
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
