@@ -29,8 +29,10 @@ import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.net.URISyntaxException;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 public class BrowsePathUtils {
   private BrowsePathUtils() {
     //not called
@@ -58,6 +60,7 @@ public class BrowsePathUtils {
       case "dataJob":
         return DataJobIndexBuilder.buildBrowsePath(DataJobUrn.createFromUrn(urn));
       default:
+        log.debug(String.format("Failed to generate default browse path for unknown entity type %s", urn.getEntityType()));
         return "";
     }
   }

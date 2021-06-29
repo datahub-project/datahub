@@ -1,5 +1,4 @@
 import logging
-import time
 import warnings
 from abc import abstractmethod
 from dataclasses import dataclass, field
@@ -9,6 +8,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
@@ -194,7 +194,7 @@ def get_schema_metadata(
         canonical_schema.append(field)
 
     actor = "urn:li:corpuser:etl"
-    sys_time = int(time.time() * 1000)
+    sys_time = get_sys_time()
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=f"urn:li:dataPlatform:{platform}",

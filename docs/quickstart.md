@@ -48,7 +48,7 @@ datahub docker nuke
 ```
 
 
-## FAQ
+## Troubleshooting
 
 ### Command not found: datahub
 
@@ -56,4 +56,14 @@ If running the datahub cli produces "command not found" errors inside your termi
 version of Python. Try prefixing your `datahub` commands with `python3 -m`:
 ```
 python3 -m datahub docker quickstart
+```
+
+### Miscellaneous Docker issues
+
+There can be misc issues with Docker, like conflicting containers and dangling volumes, that can often be resolved by 
+pruning your Docker state with the following command. Note that this command removes all unused containers, networks, images (both dangling and unreferenced), 
+and optionally, volumes.
+
+```
+docker system prune
 ```

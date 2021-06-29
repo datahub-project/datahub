@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional
 
@@ -347,7 +346,7 @@ class KafkaConnectSource(Source):
                                         ),
                                         type=models.DatasetLineageTypeClass.TRANSFORMED,
                                         auditStamp=models.AuditStampClass(
-                                            time=int(time.time() * 1000),
+                                            time=builder.get_sys_time(),
                                             actor="urn:li:corpuser:datahub",
                                         ),
                                     )

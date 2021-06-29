@@ -38,6 +38,7 @@ module.exports = {
       "docs/CONTRIBUTING",
       "docs/demo",
       "docs/saas",
+      "releases",
     ],
     "Getting Started": [
       // Serves as user guides.
@@ -119,6 +120,7 @@ module.exports = {
       "datahub-kubernetes/README",
       "docker/datahub-upgrade/README",
       "docs/deploy/aws",
+      "docs/deploy/gcp",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms-graphql-service/README",

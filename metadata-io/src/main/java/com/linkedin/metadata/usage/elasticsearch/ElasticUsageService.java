@@ -14,6 +14,8 @@ import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.common.WindowDuration;
+import com.linkedin.usage.FieldUsageCounts;
+import com.linkedin.usage.FieldUsageCountsArray;
 import com.linkedin.usage.UsageAggregation;
 import com.linkedin.usage.UsageAggregationMetrics;
 import com.linkedin.usage.UserUsageCounts;
@@ -139,6 +141,16 @@ public class ElasticUsageService implements UsageService {
             document.set("metrics.top_sql_queries", sqlQueriesDocument);
         });
 
+        Optional.ofNullable(bucket.getMetrics().getFields()).ifPresent(fields -> {
+            ArrayNode fieldsDocument = JsonNodeFactory.instance.arrayNode();
+            fields.forEach(fieldUsage -> {
+                ObjectNode fieldDocument = JsonNodeFactory.instance.objectNode();
+                fieldDocument.set("field_name", JsonNodeFactory.instance.textNode(fieldUsage.getFieldName()));
+                fieldDocument.set("count", JsonNodeFactory.instance.numberNode(fieldUsage.getCount()));
+                fieldsDocument.add(fieldDocument);
+            });
+            document.set("metrics.fields", fieldsDocument);
+        });
         return document.toString();
     }
 
@@ -167,7 +179,6 @@ public class ElasticUsageService implements UsageService {
         if (endTime != null) {
             finalQuery.must(QueryBuilders.rangeQuery(ES_KEY_BUCKET_END).lte(endTime));
         }
-        // TODO handle "latest N buckets" style queries
 
         final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(finalQuery);
@@ -229,6 +240,18 @@ public class ElasticUsageService implements UsageService {
                 List<String> docQueries = (List<String>) docFields.get("metrics.top_sql_queries");
                 queries.addAll(docQueries);
                 metrics.setTopSqlQueries(queries);
+            }
+
+            if (docFields.containsKey("metrics.fields")) {
+                FieldUsageCountsArray fields = new FieldUsageCountsArray();
+                List<Map<String, Object>> docUsers = (List<Map<String, Object>>) docFields.get("metrics.fields");
+                for (Map<String, Object> map : docUsers) {
+                    FieldUsageCounts fieldUsage = new FieldUsageCounts();
+                    fieldUsage.setFieldName((String) map.get("field_name"));
+                    fieldUsage.setCount((Integer) map.get("count"));
+                    fields.add(fieldUsage);
+                }
+                metrics.setFields(fields);
             }
 
             return agg;

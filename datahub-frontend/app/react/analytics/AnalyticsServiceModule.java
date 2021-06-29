@@ -75,19 +75,15 @@ public class AnalyticsServiceModule extends AbstractModule {
     }
 
     private SSLContext createSSLContext() {
-        if (!_configs.hasPath(ELASTIC_CLIENT_USE_SSL_PATH) || !_configs.getBoolean(ELASTIC_CLIENT_USE_SSL_PATH)) {
-            // SSL Disabled
-            return null;
-        }
 
-        final String sslProtocol = _configs.getString(ELASTIC_CLIENT_SSL_PROTOCOL_PATH);
-        final String sslSecureRandomImplementation = _configs.getString(ELASTIC_CLIENT_SSL_SECURE_RANDOM_IMPL_PATH);
-        final String sslTrustStoreFile = _configs.getString(ELASTIC_CLIENT_SSL_TRUST_STORE_FILE_PATH);
-        final String sslTrustStoreType = _configs.getString(ELASTIC_CLIENT_SSL_TRUST_STORE_TYPE_PATH);
-        final String sslTrustStorePassword = _configs.getString(ELASTIC_CLIENT_SSL_TRUST_STORE_PASSWORD_PATH);
-        final String sslKeyStoreFile = _configs.getString(ELASTIC_CLIENT_SSL_KEY_STORE_FILE_PATH);
-        final String sslKeyStoreType = _configs.getString(ELASTIC_CLIENT_SSL_KEY_STORE_TYPE_PATH);
-        final String sslKeyStorePassword = _configs.getString(ELASTIC_CLIENT_SSL_KEY_STORE_PASSWORD_PATH);
+        final String sslProtocol = _configs.hasPath(ELASTIC_CLIENT_SSL_PROTOCOL_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_PROTOCOL_PATH) : null;
+        final String sslTrustStoreFile = _configs.hasPath(ELASTIC_CLIENT_SSL_TRUST_STORE_FILE_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_TRUST_STORE_FILE_PATH) : null;
+        final String sslTrustStoreType = _configs.hasPath(ELASTIC_CLIENT_SSL_TRUST_STORE_TYPE_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_TRUST_STORE_TYPE_PATH) : null;
+        final String sslTrustStorePassword = _configs.hasPath(ELASTIC_CLIENT_SSL_TRUST_STORE_PASSWORD_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_TRUST_STORE_PASSWORD_PATH): null;
+        final String sslKeyStoreFile = _configs.hasPath(ELASTIC_CLIENT_SSL_KEY_STORE_FILE_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_KEY_STORE_FILE_PATH) : null;
+        final String sslKeyStoreType = _configs.hasPath(ELASTIC_CLIENT_SSL_KEY_STORE_TYPE_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_KEY_STORE_TYPE_PATH) : null;
+        final String sslKeyStorePassword = _configs.hasPath(ELASTIC_CLIENT_SSL_KEY_STORE_PASSWORD_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_KEY_STORE_PASSWORD_PATH) : null;
+        final String sslSecureRandomImplementation = _configs.hasPath(ELASTIC_CLIENT_SSL_SECURE_RANDOM_IMPL_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_SECURE_RANDOM_IMPL_PATH) : null;
 
         final SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
         if (sslProtocol != null) {

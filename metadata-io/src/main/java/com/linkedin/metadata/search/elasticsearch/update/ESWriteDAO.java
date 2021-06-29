@@ -22,6 +22,7 @@ import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 
 @Slf4j
 public class ESWriteDAO {
+
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient searchClient;
   private final BulkProcessor bulkProcessor;
