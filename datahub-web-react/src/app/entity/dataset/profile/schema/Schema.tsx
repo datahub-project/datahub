@@ -16,7 +16,7 @@ import {
 } from '../../../../../types.generated';
 import {
     convertEditableSchemaMetadataForUpdate,
-    fieldPathSortAndParse,
+    sortByFieldAndParse,
     ExtendedSchemaFields,
 } from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
@@ -62,7 +62,7 @@ export default function SchemaView({
     });
 
     const { fields: rows, ...diffSummary } = useMemo(
-        () => fieldPathSortAndParse(schemaDiff.current?.fields, schemaDiff.past?.fields, editMode),
+        () => sortByFieldAndParse(schemaDiff.current?.fields, schemaDiff.past?.fields, editMode),
         [schemaDiff, editMode],
     );
 

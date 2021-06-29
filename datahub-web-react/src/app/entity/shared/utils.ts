@@ -53,7 +53,7 @@ export function convertEditableSchemaMetadataForUpdate(
     };
 }
 
-export function fieldPathSortAndParse(
+export function sortByFieldAndParse(
     inputFields?: Array<SchemaField>,
     pastInputFields?: Array<SchemaField>,
     isEditMode = true,
@@ -122,24 +122,30 @@ export function fieldPathSortAndParse(
 export function diffMarkdown(oldStr: string, newStr: string) {
     const diffArray = diff.diffChars(oldStr || '', newStr || '');
     return diffArray
-        .map((diffOne) =>
-            // eslint-disable-next-line no-nested-ternary
-            diffOne.added
-                ? `<ins class="diff">${diffOne.value}</ins>`
-                : diffOne.removed
-                ? `<del class="diff">${diffOne.value}</del>`
-                : diffOne.value,
-        )
+        .map((diffOne) => {
+            if (diffOne.added) {
+                return `<ins class="diff">${diffOne.value}</ins>`;
+            }
+            if (diffOne.removed) {
+                return `<del class="diff">${diffOne.value}</del>`;
+            }
+            return diffOne.value;
+        })
         .join('');
 }
 
 export function diffJson(oldStr: string, newStr: string) {
     const diffArray = diff.diffJson(oldStr || '', newStr || '');
     return diffArray
-        .map((diffOne) =>
-            // eslint-disable-next-line no-nested-ternary
-            diffOne.added ? `+${diffOne.value}` : diffOne.removed ? `-${diffOne.value}` : diffOne.value,
-        )
+        .map((diffOne) => {
+            if (diffOne.added) {
+                return `+${diffOne.value}`;
+            }
+            if (diffOne.removed) {
+                return `-${diffOne.value}`;
+            }
+            return diffOne.value;
+        })
         .join('');
 }
 
