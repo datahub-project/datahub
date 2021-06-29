@@ -18,7 +18,6 @@ type Props = {
         added: number;
         removed: number;
         updated: number;
-        schemaRawUpdated: boolean;
     };
     currentVersion: number;
 };

@@ -143,10 +143,13 @@ export function diffJson(oldStr: string, newStr: string) {
         .join('');
 }
 
-export function getRawSchema(schemaValue) {
+export function getRawSchema(schemaValue?: string | null): string {
     try {
+        if (!schemaValue) {
+            return schemaValue || '';
+        }
         return JSON.stringify(JSON.parse(schemaValue), null, 2);
     } catch (e) {
-        return schemaValue;
+        return schemaValue || '';
     }
 }

@@ -1,5 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
-import { Typography } from 'antd';
+import React, { useMemo, useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 import { Message } from '../../../../shared/Message';
@@ -17,15 +16,14 @@ import {
 } from '../../../../../types.generated';
 import {
     convertEditableSchemaMetadataForUpdate,
-    diffJson,
     fieldPathSortAndParse,
     ExtendedSchemaFields,
-    getRawSchema,
 } from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import SchemaTable from './SchemaTable';
-import SchemaVersionSummary from './components/SchemaVersionSummary';
 import SchemaHeader from './components/SchemaHeader';
+import SchemaRawView from './components/SchemaRawView';
+import SchemaVersionSummary from './components/SchemaVersionSummary';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 
 const SchemaContainer = styled.div`
@@ -53,50 +51,29 @@ export default function SchemaView({
 }: Props) {
     const totalVersions = pastSchemaMetadata?.aspectVersion || 0;
     const [showRaw, setShowRaw] = useState(false);
-    const [diffSummary, setDiffSummary] = useState({ added: 0, removed: 0, updated: 0, schemaRawUpdated: false });
+    const [schemaDiff, setSchemaDiff] = useState<{
+        current?: SchemaMetadata | Schema | null;
+        past?: SchemaMetadata | null;
+    }>({ current: schema, past: pastSchemaMetadata });
     const [editMode, setEditMode] = useState(true);
     const [currentVersion, setCurrentVersion] = useState(totalVersions);
-    const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
-    const [schemaRawDiff, setSchemaRawDiff] = useState<string>('');
     const [getSchemaVersions, { loading, error, data: schemaVersions }] = useGetDatasetSchemaVersionsLazyQuery({
         fetchPolicy: 'no-cache',
     });
 
-    const updateDiff = useCallback(
-        (currentSchema?: SchemaMetadata | Schema | null, pastSchema?: SchemaMetadata | null) => {
-            const { fields, added, removed, updated } = fieldPathSortAndParse(
-                currentSchema?.fields,
-                pastSchema?.fields,
-                editMode,
-            );
-            const currentSchemaRaw =
-                currentSchema?.platformSchema?.__typename === 'TableSchema'
-                    ? getRawSchema(currentSchema.platformSchema.schema)
-                    : '';
-            if (!editMode) {
-                const pastSchemaRaw =
-                    pastSchema?.platformSchema?.__typename === 'TableSchema'
-                        ? getRawSchema(pastSchema.platformSchema.schema)
-                        : '';
-                setSchemaRawDiff(diffJson(pastSchemaRaw, currentSchemaRaw));
-                setDiffSummary({ added, removed, updated, schemaRawUpdated: currentSchemaRaw === pastSchemaRaw });
-            } else {
-                setSchemaRawDiff(currentSchemaRaw);
-            }
-            setRows(fields);
-        },
-        [editMode],
+    const { fields: rows, ...diffSummary } = useMemo(
+        () => fieldPathSortAndParse(schemaDiff.current?.fields, schemaDiff.past?.fields, editMode),
+        [schemaDiff, editMode],
     );
 
     useEffect(() => {
         if (!loading && !error && schemaVersions) {
-            updateDiff(schemaVersions.dataset?.schemaMetadata, schemaVersions.dataset?.pastSchemaMetadata);
+            setSchemaDiff({
+                current: schemaVersions.dataset?.schemaMetadata,
+                past: schemaVersions.dataset?.pastSchemaMetadata,
+            });
         }
-    }, [schemaVersions, loading, error, updateDiff]);
-
-    useEffect(() => {
-        updateDiff(schema, pastSchemaMetadata);
-    }, [schema, pastSchemaMetadata, updateDiff]);
+    }, [schemaVersions, loading, error]);
 
     const updateSchema = (newFieldInfo: EditableSchemaFieldInfoUpdate, record?: EditableSchemaFieldInfo) => {
         let existingMetadataAsUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
@@ -170,7 +147,7 @@ export default function SchemaView({
                 currentVersion={currentVersion}
                 setCurrentVersion={setCurrentVersion}
                 totalVersions={totalVersions}
-                updateDiff={() => updateDiff(schema, pastSchemaMetadata)}
+                updateDiff={() => setSchemaDiff({ current: schema, past: pastSchemaMetadata })}
                 fetchVersions={fetchVersions}
                 editMode={editMode}
                 setEditMode={setEditMode}
@@ -181,11 +158,7 @@ export default function SchemaView({
                 }
             />
             {showRaw ? (
-                <Typography.Text data-testid="schema-raw-view">
-                    <pre>
-                        <code>{schemaRawDiff}</code>
-                    </pre>
-                </Typography.Text>
+                <SchemaRawView schemaDiff={schemaDiff} editMode={editMode} />
             ) : (
                 rows &&
                 rows.length > 0 && (

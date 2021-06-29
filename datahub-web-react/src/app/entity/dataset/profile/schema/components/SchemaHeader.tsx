@@ -63,7 +63,6 @@ export default function SchemaHeader({
                         <ShowVersionButton
                             onClick={() => {
                                 setEditMode(true);
-                                setCurrentVersion(totalVersions);
                             }}
                         >
                             Back
