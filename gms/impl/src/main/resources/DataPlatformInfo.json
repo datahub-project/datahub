@@ -67,9 +67,9 @@
     "type": "OLAP_DATASTORE",
     "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kustologo.png"
   },
-  "urn:li:dataPlatform:mongo": {
+  "urn:li:dataPlatform:mongodb": {
     "datasetNameDelimiter": ".",
-    "name": "mongo",
+    "name": "mongodb",
     "displayName": "MongoDB",
     "type": "KEY_VALUE_STORE",
     "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mongodblogo.png"
