@@ -1,13 +1,11 @@
 import logging
 from typing import Optional
 
-import pydantic
-
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
 from snowflake.sqlalchemy import custom_types
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import ConfigModel
 
 from .sql_common import (
     SQLAlchemyConfig,
