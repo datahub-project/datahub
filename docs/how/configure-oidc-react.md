@@ -71,6 +71,38 @@ the authenticated profile as the DataHub CorpUser identity.
 
 > By default, the login callback endpoint exposed by DataHub will be located at `${AUTH_OIDC_BASE_URL}/callback/oidc`. This must **exactly** match the login redirect URL you've registered with your identity provider in step 1.
 
+In kubernetes, you can add the above env variables in the values.yaml as follows. 
+
+```
+datahub-frontend:
+  ...
+  extraEnvs:
+    - name: AUTH_OIDC_ENABLED
+      value: true
+    - name: AUTH_OIDC_CLIENT_ID
+      value: your-client-id
+    - name: AUTH_OIDC_CLIENT_SECRET
+      value: your-client-secret
+    - name: AUTH_OIDC_DISCOVERY_URI
+      value: your-provider-discovery-url  
+    - name: AUTH_OIDC_BASE_URL
+      value: your-datahub-url      
+```
+
+You can also package OIDC client secrets into a k8s secret by running
+
+```kubectl create secret generic datahub-oidc-secret --from-literal=secret=<<OIDC SECRET>>``` 
+
+Then set the secret env as follows. 
+
+```
+    - name: AUTH_OIDC_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: datahub-oidc-secret
+          key: secret
+```
+
 #### Advanced
 
 You can optionally customize the flow further using advanced configurations. These allow 
@@ -81,6 +113,7 @@ you to specify the OIDC scopes requested & how the DataHub username is parsed fr
 AUTH_OIDC_USER_NAME_CLAIM=your-custom-claim
 AUTH_OIDC_USER_NAME_CLAIM_REGEX=your-custom-regex
 AUTH_OIDC_SCOPE=your-custom-scope
+AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
 ```
 
 - `AUTH_OIDC_USER_NAME_CLAIM`: The attribute that will contain the username used on the DataHub platform. By default, this is "preferred_username" provided
@@ -90,7 +123,10 @@ the userNameClaim field will contain an email address, and we want to omit the d
 regex to do so. (e.g. `([^@]+)`)
 - `AUTH_OIDC_SCOPE`: a string representing the scopes to be requested from the identity provider, granted by the end user. For more info,
   see [OpenID Connect Scopes](https://auth0.com/docs/scopes/openid-connect-scopes).
-  
+- `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`: a string representing the token authentication method to use with the identity provider. Default value
+is `client_secret_basic`, which uses HTTP Basic authentication. Another option is `client_secret_post`, which includes the client_id and secret_id 
+as form parameters in the HTTP POST request. For more info, see [OAuth 2.0 Client Authentication](https://darutk.medium.com/oauth-2-0-client-authentication-4b5f929305d4)
+
 Once configuration has been updated, `datahub-frontend-react` will need to be restarted to pick up the new environment variables:
 
 ```

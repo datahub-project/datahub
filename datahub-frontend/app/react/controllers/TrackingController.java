@@ -6,8 +6,11 @@ import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import react.auth.Authenticator;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
@@ -17,9 +20,17 @@ import play.mvc.Result;
 import play.mvc.Security;
 import react.graphql.PlayQueryContext;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 
 public class TrackingController extends Controller {
+
+    private final Logger _logger = LoggerFactory.getLogger(TrackingController.class.getName());
+
+    private static final List<String> KAFKA_SSL_PROTOCOLS = Collections.unmodifiableList(
+            Arrays.asList(SecurityProtocol.SSL.name(),SecurityProtocol.SASL_SSL.name()));
 
     private final Boolean _isEnabled;
     private final Config _config;
@@ -31,6 +42,7 @@ public class TrackingController extends Controller {
         _config = config;
         _isEnabled = !config.hasPath("analytics.enabled") || config.getBoolean("analytics.enabled");
         if (_isEnabled) {
+            _logger.debug("Analytics tracking is enabled");
             _producer = createKafkaProducer();
             _topic = config.getString("analytics.tracking.topic");
         } else {
@@ -53,8 +65,9 @@ public class TrackingController extends Controller {
         } catch (Exception e) {
             return badRequest();
         }
+        final String actor = new PlayQueryContext(ctx(), _config).getActor();
         try {
-            final String actor = new PlayQueryContext(ctx(), _config).getActor();
+            _logger.debug(String.format("Emitting product analytics event. actor: %s, event: %s", actor, event));
             final ProducerRecord<String, String> record = new ProducerRecord<>(
                     _topic,
                     actor,
@@ -63,6 +76,7 @@ public class TrackingController extends Controller {
              _producer.flush();
              return ok();
         } catch(Exception e) {
+            _logger.error(String.format("Failed to emit product analytics event. actor: %s, event: %s", actor, event));
             return internalServerError(e.getMessage());
         }
     }
@@ -81,7 +95,7 @@ public class TrackingController extends Controller {
 
         final String securityProtocolConfig = "analytics.kafka.security.protocol";
         if (_config.hasPath(securityProtocolConfig)
-            && _config.getString(securityProtocolConfig).equals(SecurityProtocol.SSL)) {
+                && KAFKA_SSL_PROTOCOLS.contains(_config.getString(securityProtocolConfig))) {
             props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, _config.getString(securityProtocolConfig));
             props.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, _config.getString("analytics.kafka.ssl.key.password"));
 
@@ -95,6 +109,11 @@ public class TrackingController extends Controller {
 
             props.put(SslConfigs.SSL_PROTOCOL_CONFIG, _config.getString("analytics.kafka.ssl.protocol"));
             props.put(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, _config.getString("analytics.kafka.ssl.endpoint.identification.algorithm"));
+
+            if (_config.getString(securityProtocolConfig).equals(SecurityProtocol.SASL_SSL.name())) {
+                props.put(SaslConfigs.SASL_MECHANISM, _config.getString("analytics.kafka.sasl.mechanism"));
+                props.put(SaslConfigs.SASL_JAAS_CONFIG, _config.getString("analytics.kafka.sasl.jaas.config"));
+            }
         }
 
         return new KafkaProducer(props);

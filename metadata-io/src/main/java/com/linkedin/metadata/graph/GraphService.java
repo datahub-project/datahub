@@ -24,8 +24,10 @@ public interface GraphService {
 
   void removeNode(@Nonnull final Urn urn);
 
-  void removeEdgeTypesFromNode(
+  void removeEdgesFromNode(
       @Nonnull final Urn urn,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter);
+
+  void configure();
 }

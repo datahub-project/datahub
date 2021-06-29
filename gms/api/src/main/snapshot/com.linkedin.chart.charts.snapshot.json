@@ -85,15 +85,14 @@
       "type" : "string",
       "doc" : "Title of the chart",
       "Searchable" : {
+        "enableAutocomplete" : true,
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Detailed description about the chart",
-      "Searchable" : {
-        "fieldType" : "TEXT"
-      }
+      "Searchable" : { }
     }, {
       "name" : "lastModified",
       "type" : {
@@ -159,7 +158,13 @@
         "items" : "ChartDataSourceType"
       },
       "doc" : "Data sources for the chart",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "/*/string" : {
+          "entityTypes" : [ "dataset" ],
+          "name" : "Consumes"
+        }
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -238,7 +243,26 @@
     "Aspect" : {
       "name" : "chartQuery"
     }
-  }, "com.linkedin.chart.ChartQueryType", "com.linkedin.chart.ChartType", "com.linkedin.common.AccessLevel", "com.linkedin.common.AuditStamp", {
+  }, "com.linkedin.chart.ChartQueryType", "com.linkedin.chart.ChartType", {
+    "type" : "record",
+    "name" : "EditableChartProperties",
+    "namespace" : "com.linkedin.chart",
+    "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+    "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+    "fields" : [ {
+      "name" : "description",
+      "type" : "string",
+      "doc" : "Edited documentation of the chart ",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedDescription",
+        "fieldType" : "TEXT"
+      }
+    } ],
+    "Aspect" : {
+      "name" : "editableChartProperties"
+    }
+  }, "com.linkedin.common.AccessLevel", "com.linkedin.common.AuditStamp", {
     "type" : "record",
     "name" : "BrowsePaths",
     "namespace" : "com.linkedin.common",
@@ -340,8 +364,7 @@
             "Searchable" : {
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "hasValuesFieldName" : "hasTags",
-              "queryByDefault" : true
+              "hasValuesFieldName" : "hasTags"
             }
           } ]
         }
@@ -367,7 +390,8 @@
       "Searchable" : {
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "hasValuesFieldName" : "hasOwners"
+        "hasValuesFieldName" : "hasOwners",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -517,6 +541,11 @@
       "type" : "com.linkedin.common.GlobalTags",
       "doc" : "List of global tags applied to the chart",
       "optional" : true
+    }, {
+      "name" : "editableProperties",
+      "type" : "com.linkedin.chart.EditableChartProperties",
+      "doc" : "Editable properties",
+      "optional" : true
     } ]
   }, "com.linkedin.dashboard.ChartKey", {
     "type" : "typeref",
@@ -536,8 +565,7 @@
           "addToFilters" : true,
           "boostScore" : 4.0,
           "fieldName" : "tool",
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "chartId",
@@ -547,7 +575,7 @@
       "Aspect" : {
         "name" : "chartKey"
       }
-    }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+    }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.chart.EditableChartProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
   }, "com.linkedin.metadata.key.ChartKey", {
     "type" : "record",
     "name" : "AggregationMetadata",

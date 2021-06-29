@@ -101,6 +101,7 @@ const dataset1 = {
             value: 'My other property value.',
         },
     ],
+    editableProperties: null,
     created: {
         time: 0,
     },
@@ -138,6 +139,7 @@ const dataset1 = {
             },
         ],
     },
+    usageStats: null,
 };
 
 const dataset2 = {
@@ -160,6 +162,7 @@ const dataset2 = {
     description: 'This is some other dataset, so who cares!',
     uri: 'www.google.com',
     properties: [],
+    editableProperties: null,
     created: {
         time: 0,
     },
@@ -185,6 +188,7 @@ const dataset2 = {
             time: 0,
         },
     },
+    usageStats: null,
 };
 
 export const dataset3 = {
@@ -208,6 +212,7 @@ export const dataset3 = {
     description: 'This and here we have yet another Dataset (YAN). Are there more?',
     uri: 'www.google.com',
     properties: [],
+    editableProperties: null,
     created: {
         time: 0,
     },
@@ -278,6 +283,7 @@ export const dataset3 = {
     schema: null,
     editableSchemaMetadata: null,
     deprecation: null,
+    usageStats: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -523,6 +529,7 @@ export const dataFlow1 = {
         externalUrl: null,
         customProperties: [],
     },
+    editableProperties: null,
     ownership: {
         owners: [
             {
@@ -589,6 +596,7 @@ export const dataJob1 = {
         externalUrl: null,
         customProperties: [],
     },
+    editableProperties: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],
@@ -644,6 +652,7 @@ export const dataJob2 = {
         externalUrl: null,
         customProperties: [],
     },
+    editableProperties: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],
@@ -699,6 +708,7 @@ export const dataJob3 = {
         externalUrl: null,
         customProperties: [],
     },
+    editableProperties: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],

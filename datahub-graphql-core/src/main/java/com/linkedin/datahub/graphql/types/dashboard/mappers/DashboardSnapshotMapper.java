@@ -3,11 +3,13 @@ package com.linkedin.datahub.graphql.types.dashboard.mappers;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.datahub.graphql.generated.AccessLevel;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.DashboardEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -48,6 +50,10 @@ public class DashboardSnapshotMapper implements ModelMapper<DashboardSnapshot, D
                 result.setStatus(StatusMapper.map(status));
             } else if (aspect instanceof GlobalTags) {
                 result.setGlobalTags(GlobalTagsMapper.map(GlobalTags.class.cast(aspect)));
+            } else if (aspect instanceof EditableDashboardProperties) {
+                final DashboardEditableProperties dashboardEditableProperties = new DashboardEditableProperties();
+                dashboardEditableProperties.setDescription(((EditableDashboardProperties) aspect).getDescription());
+                result.setEditableProperties(dashboardEditableProperties);
             }
         });
         return result;

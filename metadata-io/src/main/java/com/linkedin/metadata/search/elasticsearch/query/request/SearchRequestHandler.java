@@ -54,12 +54,13 @@ import static com.linkedin.metadata.dao.utils.SearchUtils.getQueryBuilderFromCri
 
 @Slf4j
 public class SearchRequestHandler {
+
+  private static final Map<EntitySpec, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
+
   private final EntitySpec _entitySpec;
   private final Set<String> _facetFields;
   private final Set<String> _defaultQueryFieldNames;
   private final int _maxTermBucketSize = 100;
-
-  private static final Map<EntitySpec, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
   private SearchRequestHandler(@Nonnull EntitySpec entitySpec) {
     _entitySpec = entitySpec;

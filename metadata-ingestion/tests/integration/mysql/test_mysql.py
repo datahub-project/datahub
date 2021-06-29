@@ -26,6 +26,6 @@ def test_mysql_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
         # Verify the output.
         golden = mce_helpers.load_json_file(
-            str(test_resources_dir / "mysql_mce_golden.json")
+            str(test_resources_dir / "mysql_mces_golden.json")
         )
         mce_helpers.assert_mces_equal(output, golden)

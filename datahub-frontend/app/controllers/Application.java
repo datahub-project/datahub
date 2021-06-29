@@ -4,7 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
-import play.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import play.Play;
 import play.libs.Json;
 import play.mvc.BodyParser;
@@ -32,6 +33,7 @@ import java.util.stream.Stream;
 
 public class Application extends Controller {
 
+  private final Logger _logger = LoggerFactory.getLogger(Application.class.getName());
   private final Config _config;
 
   @Inject
@@ -74,7 +76,7 @@ public class Application extends Controller {
     try (BufferedReader reader = new BufferedReader(new FileReader(commitFile))) {
       commit = reader.readLine();
     } catch (IOException ioe) {
-      Logger.error("Error while reading commit file. Error message: " + ioe.getMessage());
+      _logger.error("Error while reading commit file. Error message: " + ioe.getMessage());
     }
 
     //get all the files from /libs directory
@@ -84,7 +86,7 @@ public class Application extends Controller {
       paths.filter(Files::isRegularFile).
           forEach(f -> sb.append(f.getFileName()).append("\n"));
     } catch (IOException ioe) {
-      Logger.error("Error while traversing the directory. Error message: " + ioe.getMessage());
+      _logger.error("Error while traversing the directory. Error message: " + ioe.getMessage());
     }
 
     return ok("commit: " + commit + "\n" + "libraries: " + sb.toString());
@@ -242,7 +244,7 @@ public class Application extends Controller {
     try {
       AuthenticationManager.authenticateUser(username, password);
     } catch (AuthenticationException e) {
-      Logger.warn("Authentication error!", e);
+      _logger.warn("Authentication error!", e);
       return badRequest("Invalid Credential");
     }
 
@@ -255,7 +257,7 @@ public class Application extends Controller {
       String hashedUserName = AuthUtil.generateHash(username, secretKey.getBytes());
       session("auth_token", hashedUserName);
     } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-      Logger.error("Failed to hash username", e);
+      _logger.error("Failed to hash username", e);
     }
 
     // Construct an ObjectNode with the username and uuid token to be sent with the response

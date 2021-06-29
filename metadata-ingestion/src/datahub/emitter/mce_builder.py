@@ -14,6 +14,7 @@ from datahub.metadata.schema_classes import (
 
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
+UNKNOWN_USER = "urn:li:corpuser:unknown"
 
 T = TypeVar("T")
 
@@ -49,6 +50,26 @@ def make_data_job_urn(
 ) -> str:
     return make_data_job_urn_with_flow(
         make_data_flow_urn(orchestrator, flow_id, cluster), job_id
+    )
+
+
+def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
+
+    return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
+
+
+def make_ml_feature_urn(
+    feature_table_name: str,
+    feature_name: str,
+) -> str:
+
+    return f"urn:li:mlFeature:({feature_table_name},{feature_name})"
+
+
+def make_ml_feature_table_urn(platform: str, feature_table_name: str) -> str:
+
+    return (
+        f"urn:li:mlFeatureTable:(urn:li:dataPlatform:{platform},{feature_table_name})"
     )
 
 

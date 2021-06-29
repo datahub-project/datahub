@@ -227,8 +227,7 @@
             "Searchable" : {
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "hasValuesFieldName" : "hasTags",
-              "queryByDefault" : true
+              "hasValuesFieldName" : "hasTags"
             }
           } ]
         }
@@ -254,7 +253,8 @@
       "Searchable" : {
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "hasValuesFieldName" : "hasOwners"
+        "hasValuesFieldName" : "hasOwners",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -393,8 +393,7 @@
           "Searchable" : {
             "boostScore" : 10.0,
             "enableAutocomplete" : true,
-            "fieldType" : "TEXT_PARTIAL",
-            "queryByDefault" : true
+            "fieldType" : "TEXT_PARTIAL"
           }
         }, {
           "name" : "description",
@@ -402,8 +401,7 @@
           "doc" : "Detailed description about the dashboard",
           "Searchable" : {
             "fieldType" : "TEXT",
-            "hasValuesFieldName" : "hasDescription",
-            "queryByDefault" : true
+            "hasValuesFieldName" : "hasDescription"
           }
         }, {
           "name" : "charts",
@@ -464,8 +462,31 @@
       "type" : "com.linkedin.common.GlobalTags",
       "doc" : "List of global tags applied to the dashboard",
       "optional" : true
+    }, {
+      "name" : "editableProperties",
+      "type" : {
+        "type" : "record",
+        "name" : "EditableDashboardProperties",
+        "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+        "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+        "fields" : [ {
+          "name" : "description",
+          "type" : "string",
+          "doc" : "Edited documentation of the dashboard",
+          "optional" : true,
+          "Searchable" : {
+            "fieldName" : "editedDescription",
+            "fieldType" : "TEXT"
+          }
+        } ],
+        "Aspect" : {
+          "name" : "editableDashboardProperties"
+        }
+      },
+      "doc" : "Editable properties",
+      "optional" : true
     } ]
-  }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.dashboard.DashboardKey", {
+  }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.dashboard.DashboardKey", "com.linkedin.dashboard.EditableDashboardProperties", {
     "type" : "typeref",
     "name" : "DashboardAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -483,8 +504,7 @@
           "addToFilters" : true,
           "boostScore" : 4.0,
           "fieldName" : "tool",
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "dashboardId",
@@ -494,7 +514,7 @@
       "Aspect" : {
         "name" : "dashboardKey"
       }
-    }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+    }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.dashboard.EditableDashboardProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
   }, "com.linkedin.metadata.key.DashboardKey", {
     "type" : "record",
     "name" : "AggregationMetadata",

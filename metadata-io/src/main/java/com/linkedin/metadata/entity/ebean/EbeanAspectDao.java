@@ -39,16 +39,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.RollbackException;
 import javax.persistence.Table;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.entity.EntityService.*;
 
-
+@Slf4j
 public class EbeanAspectDao {
 
   public static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
-
   private static final IndefiniteRetention INDEFINITE_RETENTION = new IndefiniteRetention();
 
   private final EbeanServer _server;
@@ -57,8 +55,6 @@ public class EbeanAspectDao {
   private final Clock _clock = Clock.systemUTC();
 
   private int _queryKeysCount = 0; // 0 means no pagination on keys
-
-  private final Logger _logger = LoggerFactory.getLogger("EbeanAspectDao");
 
   /**
    * Constructor for EntityEbeanDao.
@@ -99,8 +95,8 @@ public class EbeanAspectDao {
       return true;
     }
     if (!AspectStorageValidationUtil.checkV2TableExists(_server)) {
-      _logger.error("GMS is on a newer version than your storage layer. Please refer to "
-                    + "https://datahubproject.io/docs/advanced/no-code-upgrade for an easy upgrade guide");
+      log.error("GMS is on a newer version than your storage layer. Please refer to "
+                    + "https://datahubproject.io/docs/advanced/no-code-upgrade to view the upgrade guide.");
       _canWrite = false;
       return false;
     } else {
@@ -177,6 +173,21 @@ public class EbeanAspectDao {
     validateConnection();
     final EbeanAspectV2.PrimaryKey key = new EbeanAspectV2.PrimaryKey(urn, aspectName, 0L);
     return _server.find(EbeanAspectV2.class, key);
+  }
+
+  @Nullable
+  public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+    validateConnection();
+    List<EbeanAspectV2> result = _server.find(EbeanAspectV2.class)
+        .where()
+        .eq("urn", urn).eq("aspect", aspectName)
+        .orderBy()
+        .desc("version")
+        .findList();
+    if (result.size() == 0) {
+      return -1;
+    }
+    return result.get(0).getKey().getVersion();
   }
 
   @Nullable
@@ -381,23 +392,27 @@ public class EbeanAspectDao {
 
   @Nonnull
   public ListResult<String> listLatestAspectMetadata(
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
-    return listAspectMetadata(aspectName, LATEST_ASPECT_VERSION, start, pageSize);
+    return listAspectMetadata(entityName, aspectName, LATEST_ASPECT_VERSION, start, pageSize);
   }
 
   @Nonnull
   public ListResult<String> listAspectMetadata(
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final long version,
       final int start,
       final int pageSize) {
     validateConnection();
 
+    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
     final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.ALL_COLUMNS)
         .where()
+        .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
         .eq(EbeanAspectV2.VERSION_COLUMN, version)
         .setFirstRow(start)

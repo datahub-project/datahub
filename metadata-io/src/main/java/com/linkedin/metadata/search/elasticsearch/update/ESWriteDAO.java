@@ -15,6 +15,7 @@ import org.elasticsearch.common.xcontent.XContentType;
 
 
 public class ESWriteDAO {
+
   private final EntityRegistry entityRegistry;
   private final BulkProcessor bulkProcessor;
   private final IndexConvention indexConvention;

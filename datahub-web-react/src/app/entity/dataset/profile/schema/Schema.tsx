@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { geekblue } from '@ant-design/colors';
 
-import { Button, Table, Typography } from 'antd';
+import { Button, Table, Tooltip, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
+import { ColumnsType } from 'antd/lib/table';
+
 import TypeIcon from './TypeIcon';
 import {
     Schema,
@@ -17,6 +20,7 @@ import {
     EditableSchemaFieldInfoUpdate,
     EntityType,
     GlossaryTerms,
+    UsageQueryResult,
 } from '../../../../../types.generated';
 import TagTermGroup from '../../../../shared/tags/TagTermGroup';
 import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
@@ -25,6 +29,9 @@ import DescriptionField from './SchemaDescriptionField';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 
 const MAX_FIELD_PATH_LENGTH = 100;
+const SchemaContainer = styled.div`
+    margin-bottom: 100px;
+`;
 const ViewRawButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;
@@ -35,8 +42,21 @@ const LighterText = styled(Typography.Text)`
     color: rgba(0, 0, 0, 0.45);
 `;
 
+const UsageBar = styled.div<{ width: number }>`
+    width: ${(props) => props.width}px;
+    height: 10px;
+    background-color: ${geekblue[3]};
+    border-radius: 2px;
+`;
+
+const UsageBarContainer = styled.div`
+    width: 100%;
+    height: 100%;
+`;
+
 export type Props = {
     urn: string;
+    usageStats?: UsageQueryResult | null;
     schema?: Schema | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     updateEditableSchema: (
@@ -50,7 +70,7 @@ interface ExtendedSchemaFields extends SchemaField {
 
 const defaultColumns = [
     {
-        width: 288,
+        width: 100,
         title: 'Type',
         dataIndex: 'type',
         key: 'type',
@@ -63,7 +83,7 @@ const defaultColumns = [
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        width: 192,
+        width: 100,
         render: (fieldPath: string) => {
             if (!fieldPath.includes('.')) {
                 return <Typography.Text strong>{fieldPath}</Typography.Text>;
@@ -84,10 +104,10 @@ const defaultColumns = [
                 }
             }
             return (
-                <>
+                <span>
                     <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
                     {lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
-                </>
+                </span>
             );
         },
     },
@@ -106,11 +126,17 @@ function convertEditableSchemaMetadataForUpdate(
     };
 }
 
-export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema }: Props) {
+const USAGE_BAR_MAX_WIDTH = 50;
+
+export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema, usageStats }: Props) {
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
-    const [descHoveredIndex, setDescHoveredIndex] = useState<string | undefined>(undefined);
     const [showRaw, setShowRaw] = useState(false);
     const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
+    const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
+    const maxFieldUsageCount = useMemo(
+        () => Math.max(...(usageStats?.aggregations?.fields?.map((field) => field?.count || 0) || [])),
+        [usageStats],
+    );
 
     useEffect(() => {
         const fields = [...(schema?.fields || [])] as Array<ExtendedSchemaFields>;
@@ -195,7 +221,7 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         return updateSchema(newFieldInfo, record);
     };
 
-    const descriptionRender = (description: string, record: SchemaField, rowIndex: number | undefined) => {
+    const descriptionRender = (description: string, record: SchemaField) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
             (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
         ) || { fieldPath: record.fieldPath };
@@ -203,7 +229,6 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
             <DescriptionField
                 description={description}
                 updatedDescription={relevantEditableFieldInfo.description}
-                onHover={descHoveredIndex !== undefined && descHoveredIndex === `${record.fieldPath}-${rowIndex}`}
                 onUpdate={(update) => onUpdateDescription(update, relevantEditableFieldInfo)}
             />
         );
@@ -228,24 +253,34 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         );
     };
 
+    const usageStatsRenderer = (fieldPath: string) => {
+        const relevantUsageStats = usageStats?.aggregations?.fields?.find(
+            (fieldStats) => fieldStats?.fieldName === fieldPath,
+        );
+
+        if (!relevantUsageStats) {
+            return null;
+        }
+
+        return (
+            <Tooltip placement="topLeft" title={`${relevantUsageStats.count} queries / month`}>
+                <UsageBarContainer>
+                    <UsageBar width={((relevantUsageStats.count || 0) / maxFieldUsageCount) * USAGE_BAR_MAX_WIDTH} />
+                </UsageBarContainer>
+            </Tooltip>
+        );
+    };
+
     const descriptionColumn = {
         title: 'Description',
         dataIndex: 'description',
         key: 'description',
         render: descriptionRender,
-        width: 700,
-        onCell: (record: SchemaField, rowIndex: number | undefined) => ({
-            onMouseEnter: () => {
-                setDescHoveredIndex(`${record.fieldPath}-${rowIndex}`);
-            },
-            onMouseLeave: () => {
-                setDescHoveredIndex(undefined);
-            },
-        }),
+        width: 300,
     };
 
     const tagAndTermColumn = {
-        width: 400,
+        width: 150,
         title: 'Tags & Terms',
         dataIndex: 'globalTags',
         key: 'tag',
@@ -260,6 +295,20 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         }),
     };
 
+    const usageColumn = {
+        width: 50,
+        title: 'Usage',
+        dataIndex: 'fieldPath',
+        key: 'usage',
+        render: usageStatsRenderer,
+    };
+
+    let allColumns: ColumnsType<SchemaField> = [...defaultColumns, descriptionColumn, tagAndTermColumn];
+
+    if (hasUsageStats) {
+        allColumns = [...allColumns, usageColumn];
+    }
+
     const getRawSchema = (schemaValue) => {
         try {
             return JSON.stringify(JSON.parse(schemaValue), null, 2);
@@ -269,7 +318,7 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
     };
 
     return (
-        <>
+        <SchemaContainer>
             {schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0 && (
                 <ViewRawButtonContainer>
                     <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>
@@ -287,16 +336,14 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
             ) : (
                 rows.length > 0 && (
                     <Table
-                        columns={[...defaultColumns, descriptionColumn, tagAndTermColumn]}
+                        columns={allColumns}
                         dataSource={rows}
                         rowKey="fieldPath"
                         expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
-                        defaultExpandAllRows
-                        expandRowByClick
                         pagination={false}
                     />
                 )
             )}
-        </>
+        </SchemaContainer>
     );
 }

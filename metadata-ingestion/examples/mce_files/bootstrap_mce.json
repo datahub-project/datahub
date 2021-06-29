@@ -208,7 +208,7 @@
                             },
                             "fields": [
                                 {
-                                    "fieldPath": "field_foo",
+                                    "fieldPath": "field_foo_2",
                                     "jsonPath": null,
                                     "nullable": false,
                                     "description": {
@@ -1118,13 +1118,7 @@
                                 "deleted": null
                             },
                             "chartUrl": null,
-                            "inputs": {
-                                "array": [
-                                    {
-                                        "string": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
-                                    }
-                                ]
-                            },
+                            "inputs": ["urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"],
                             "type": null,
                             "access": null,
                             "lastRefreshed": null
@@ -1880,6 +1874,26 @@
                             "displayName": "Druid",
                             "type": "OLAP_DATASTORE",
                             "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/druidlogo.png"
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+                "urn": "urn:li:dataPlatform:looker",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+                            "datasetNameDelimiter": ".",
+                            "name": "looker",
+                            "displayName": "Looker",
+                            "type": "OTHERS",
+                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/lookerlogo.png"
                         }
                     }
                 ]
