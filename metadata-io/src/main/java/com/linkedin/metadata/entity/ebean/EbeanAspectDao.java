@@ -74,10 +74,6 @@ public class EbeanAspectDao {
     _canWrite = canWrite;
   }
 
-  public void disableWrite() {
-    _canWrite = false;
-  }
-
   /**
    * Return the {@link EbeanServer} server instance used for customized queries.
    */
