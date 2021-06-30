@@ -62,7 +62,6 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=str(tmp_path / "looker_mces.json"),
             golden_path=str(test_resources_dir / "expected_output.json"),
-            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )
 
 
@@ -131,5 +130,4 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=str(tmp_path / "looker_mces.json"),
             golden_path=str(test_resources_dir / "expected_output.json"),
-            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )

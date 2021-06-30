@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import unittest.mock
 
 import pytest
 
@@ -17,7 +18,12 @@ def mock_time(monkeypatch):
         return 1615443388.0975091
 
     monkeypatch.setattr(time, "time", fake_time)
-    yield
+
+    with unittest.mock.patch(
+        "datahub.emitter.mce_builder.get_sys_time",
+        return_value=1615443388.0975091,
+    ):
+        yield
 
 
 def pytest_addoption(parser):

@@ -34,5 +34,4 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=str(tmp_path / "dbt_mces.json"),
         golden_path=str(test_resources_dir / "dbt_mces_golden.json"),
-        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
     )

@@ -15,7 +15,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1615443388000,
+                                    "time": 1615443388097,
                                     "actor": "urn:li:corpuser:etl",
                                     "impersonator": null
                                 },
@@ -31,12 +31,12 @@
                         "platform": "urn:li:dataPlatform:looker",
                         "version": 0,
                         "created": {
-                            "time": 1615443388000,
+                            "time": 1615443388097,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1615443388000,
+                            "time": 1615443388097,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
