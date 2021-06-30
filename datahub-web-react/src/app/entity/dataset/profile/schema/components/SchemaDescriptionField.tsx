@@ -44,7 +44,7 @@ const DescriptionContainer = styled.div`
     }
     & del.diff {
         background-color: #ffa39e99;
-        text-decoration: none;
+        text-decoration: line-through;
         &: hover {
             background-color: #ffa39eaa;
         }
