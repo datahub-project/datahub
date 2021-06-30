@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -233,7 +234,7 @@ class SQLAlchemySource(Source):
 
     def loop_tables(
         self,
-        inspector: Any,
+        inspector: Inspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[SqlWorkUnit]:
@@ -248,7 +249,9 @@ class SQLAlchemySource(Source):
 
             columns = inspector.get_columns(table, schema)
             try:
-                table_info: dict = inspector.get_table_comment(table, schema)
+                # SQLALchemy stubs are incomplete and missing this method.
+                # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
+                table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
             except NotImplementedError:
                 description: Optional[str] = None
                 properties: Dict[str, str] = {}
@@ -284,7 +287,7 @@ class SQLAlchemySource(Source):
 
     def loop_views(
         self,
-        inspector: Any,
+        inspector: Inspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[SqlWorkUnit]:
@@ -299,7 +302,9 @@ class SQLAlchemySource(Source):
 
             columns = inspector.get_columns(view, schema)
             try:
-                view_info: dict = inspector.get_table_comment(view, schema)
+                # SQLALchemy stubs are incomplete and missing this method.
+                # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
+                view_info: dict = inspector.get_table_comment(view, schema)  # type: ignore
             except NotImplementedError:
                 description: Optional[str] = None
                 properties: Dict[str, str] = {}
@@ -309,8 +314,11 @@ class SQLAlchemySource(Source):
                 # The "properties" field is a non-standard addition to SQLAlchemy's interface.
                 properties = view_info.get("properties", {})
 
-            view_definition = inspector.get_view_definition(view)
-            if view_definition is None:
+            try:
+                view_definition = inspector.get_view_definition(view, schema)
+                if view_definition is None:
+                    view_definition = ""
+            except NotImplementedError:
                 view_definition = ""
             properties["view_definition"] = view_definition
             properties["is_view"] = "True"
