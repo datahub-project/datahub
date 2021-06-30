@@ -5,6 +5,7 @@ import boto3
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import DEFAULT_ENV
 
 
 def assume_role(
@@ -34,7 +35,7 @@ class AwsSourceConfig(ConfigModel):
         - SageMaker source
     """
 
-    env: str = "PROD"
+    env: str = DEFAULT_ENV
 
     database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
