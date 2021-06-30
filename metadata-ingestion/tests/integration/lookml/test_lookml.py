@@ -37,6 +37,6 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=str(tmp_path / "lookml_mces.json"),
-        golden_path=str(test_resources_dir / "expected_output.json"),
+        output_path=tmp_path / "lookml_mces.json",
+        golden_path=test_resources_dir / "expected_output.json",
     )

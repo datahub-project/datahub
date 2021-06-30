@@ -44,6 +44,6 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=str(tmp_path / "ldap_mces.json"),
-            golden_path=str(test_resources_dir / "ldap_mces_golden.json"),
+            output_path=tmp_path / "ldap_mces.json",
+            golden_path=test_resources_dir / "ldap_mces_golden.json",
         )

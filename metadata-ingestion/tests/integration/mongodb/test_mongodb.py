@@ -40,6 +40,6 @@ def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=str(tmp_path / "mongodb_mces.json"),
-            golden_path=str(test_resources_dir / "mongodb_mces_golden.json"),
+            output_path=tmp_path / "mongodb_mces.json",
+            golden_path=test_resources_dir / "mongodb_mces_golden.json",
         )

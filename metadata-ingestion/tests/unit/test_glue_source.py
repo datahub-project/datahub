@@ -136,6 +136,6 @@ def test_glue_ingest(tmp_path, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=str(tmp_path / "glue_mces.json"),
-        golden_path=str(test_resources_dir / "glue_mces_golden.json"),
+        output_path=tmp_path / "glue_mces.json",
+        golden_path=test_resources_dir / "glue_mces_golden.json",
     )

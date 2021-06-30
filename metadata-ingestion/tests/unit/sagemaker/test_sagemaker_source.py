@@ -68,6 +68,6 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/unit/sagemaker"
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=str(tmp_path / "sagemaker_mces.json"),
-        golden_path=str(test_resources_dir / "sagemaker_mces_golden.json"),
+        output_path=tmp_path / "sagemaker_mces.json",
+        golden_path=test_resources_dir / "sagemaker_mces_golden.json",
     )
