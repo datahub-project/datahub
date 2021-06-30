@@ -16,6 +16,7 @@ dependencies {
   compile externalDependency.springCore
   compile externalDependency.springKafka
 
+  runtime externalDependency.logbackClassic
   runtime externalDependency.mariadbConnector
   runtime externalDependency.mysqlConnector
   runtime externalDependency.postgresql
