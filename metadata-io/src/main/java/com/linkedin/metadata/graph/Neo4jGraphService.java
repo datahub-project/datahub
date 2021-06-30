@@ -99,7 +99,7 @@ public class Neo4jGraphService implements GraphService {
 
     String statementString =
         String.format(matchTemplate, sourceType, srcCriteria, relationshipTypeFilter, edgeCriteria,
-            destinationType, destCriteria, sourceType);
+            destinationType, destCriteria, destinationType);
 
     statementString += " SKIP $offset LIMIT $count";
 
