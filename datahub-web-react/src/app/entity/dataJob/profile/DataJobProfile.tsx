@@ -47,7 +47,7 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
-    const getHeader = (dataJob: DataJob) => <DataJobHeader dataJob={dataJob} />;
+    const getHeader = (dataJob: DataJob) => <DataJobHeader dataJob={dataJob} updateDataJob={updateDataJob} />;
 
     const getTabs = ({ ownership, info }: DataJob) => {
         return [

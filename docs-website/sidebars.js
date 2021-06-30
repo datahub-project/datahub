@@ -38,6 +38,7 @@ module.exports = {
       "docs/CONTRIBUTING",
       "docs/demo",
       "docs/saas",
+      "releases",
     ],
     "Getting Started": [
       // Serves as user guides.
@@ -71,6 +72,7 @@ module.exports = {
       "docs/developers",
       "docs/docker/development",
       "metadata-ingestion/adding-source",
+      "metadata-ingestion/s3-ingestion",
       //"docs/what/graph",
       //"docs/what/search-index",
       //"docs/how/add-new-aspect",
@@ -82,10 +84,10 @@ module.exports = {
       //"docs/demo/graph-onboarding",
       //"docs/how/search-onboarding",
       //"docs/how/search-over-new-field",
-      //"docs/how/configure-oidc-react",
-      //"docs/how/sso/configure-oidc-react-google",
-      //"docs/how/sso/configure-oidc-react-okta",
-      //"datahub-web-react/src/app/analytics/README",
+      "docs/how/configure-oidc-react",
+      "docs/how/sso/configure-oidc-react-google",
+      "docs/how/sso/configure-oidc-react-okta",
+      "datahub-web-react/src/app/analytics/README",
     ],
     Components: [
       "datahub-web-react/README",
@@ -117,6 +119,7 @@ module.exports = {
       "datahub-kubernetes/README",
       "docker/datahub-upgrade/README",
       "docs/deploy/aws",
+      "docs/deploy/gcp",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms-graphql-service/README",

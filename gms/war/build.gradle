@@ -4,6 +4,8 @@ ext.apiProject = project(':gms:api')
 
 dependencies {
   runtime project(':gms:factories')
+  runtime project(':metadata-jobs:mce-consumer')
+  runtime project(':metadata-jobs:mae-consumer')
 
   runtime externalDependency.h2
   runtime externalDependency.logbackClassic

@@ -9,11 +9,13 @@ import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
+import lombok.extern.slf4j.Slf4j;
 
 
 /**
  * Static utility class providing methods for extracting entity metadata from Pegasus models.
  */
+@Slf4j
 public class PegasusUtils {
 
   private PegasusUtils() {
@@ -24,6 +26,7 @@ public class PegasusUtils {
     if (entityAnnotationObj != null) {
       return EntityAnnotation.fromSchemaProperty(entityAnnotationObj, entitySnapshotSchema.getFullName()).getName();
     }
+    log.error(String.format("Failed to extract entity name from provided schema %s", entitySnapshotSchema.getName()));
     throw new IllegalArgumentException(
         String.format("Failed to extract entity name from provided schema %s", entitySnapshotSchema.getName()));
   }
@@ -40,6 +43,7 @@ public class PegasusUtils {
     if (aspectAnnotationObj != null) {
       return AspectAnnotation.fromSchemaProperty(aspectAnnotationObj, aspectSchema.getFullName()).getName();
     }
+    log.error(String.format("Failed to extract aspect name from provided schema %s", aspectSchema.getName()));
     throw new IllegalArgumentException(
         String.format("Failed to extract aspect name from provided schema %s", aspectSchema.getName()));
   }
@@ -48,6 +52,7 @@ public class PegasusUtils {
     try {
       return Class.forName(schema.getFullName()).asSubclass(clazz);
     } catch (ClassNotFoundException e) {
+      log.error("Unable to find class for RecordDataSchema named " + schema.getFullName() + " " + e.getMessage());
       throw new ModelConversionException("Unable to find class for RecordDataSchema named " + schema.getFullName(), e);
     }
   }

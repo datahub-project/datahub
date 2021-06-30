@@ -54,21 +54,27 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 9091
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /actuator/health
-              port: 9091
+              port: http
             initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
             failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
           readinessProbe:
             httpGet:
               path: /actuator/health
-              port: 9091
+              port: http
             initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
             failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           env:
+            - name: MAE_CONSUMER_ENABLED
+              value: "true"
             - name: GMS_HOST
               value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
             - name: GMS_PORT
@@ -94,6 +100,9 @@ spec:
                   name: "{{ .password.secretRef }}"
                   key: "{{ .password.secretKey }}"
             {{- end }}
+            - name: GRAPH_SERVICE_IMPL
+              value: {{ .Values.global.graph_service_impl }}
+            {{- if eq .Values.global.graph_service_impl "neo4j" }}
             - name: NEO4J_HOST
               value: "{{ .Values.global.neo4j.host }}"
             - name: NEO4J_URI
@@ -105,6 +114,7 @@ spec:
                 secretKeyRef:
                   name: "{{ .Values.global.neo4j.password.secretRef }}"
                   key: "{{ .Values.global.neo4j.password.secretKey }}"
+            {{- end }}
             - name: DATAHUB_ANALYTICS_ENABLED
               value: "{{ .Values.global.datahub_analytics_enabled }}"
             {{- if .Values.global.springKafkaConfigurationOverrides }}

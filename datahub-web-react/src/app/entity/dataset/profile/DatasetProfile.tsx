@@ -19,6 +19,7 @@ import useIsLineageMode from '../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
+import QueriesTab from './QueriesTab';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -26,9 +27,9 @@ export enum TabType {
     Lineage = 'Lineage',
     Properties = 'Properties',
     Documents = 'Documents',
+    Queries = 'Queries',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Schema, TabType.Lineage, TabType.Properties, TabType.Documents];
 const EMPTY_ARR: never[] = [];
 
 /**
@@ -36,7 +37,9 @@ const EMPTY_ARR: never[] = [];
  */
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
+
     const user = useGetAuthenticatedUser();
     const [updateDataset] = useUpdateDatasetMutation({
         update(cache, { data: newDataset }) {
@@ -45,7 +48,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     dataset() {
                         cache.writeQuery({
                             query: GetDatasetDocument,
-                            data: { dataset: newDataset?.updateDataset },
+                            data: { dataset: { ...newDataset?.updateDataset, usageStats: data?.dataset?.usageStats } },
                         });
                     },
                 },
@@ -58,17 +61,19 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         return <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />;
     }
 
-    const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} />;
+    const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} updateDataset={updateDataset} />;
 
-    const getTabs = ({
-        ownership,
-        upstreamLineage,
-        downstreamLineage,
-        properties,
-        institutionalMemory,
-        schema,
-        editableSchemaMetadata,
-    }: Dataset) => {
+    const getTabs = (dataset: Dataset) => {
+        const {
+            ownership,
+            upstreamLineage,
+            downstreamLineage,
+            properties,
+            institutionalMemory,
+            schema,
+            editableSchemaMetadata,
+        } = dataset;
+
         return [
             {
                 name: TabType.Schema,
@@ -77,6 +82,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     <SchemaView
                         urn={urn}
                         schema={schema}
+                        usageStats={dataset.usageStats}
                         editableSchemaMetadata={editableSchemaMetadata}
                         updateEditableSchema={(update) => {
                             analytics.event({
@@ -115,6 +121,11 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 content: <LineageView upstreamLineage={upstreamLineage} downstreamLineage={downstreamLineage} />,
             },
             {
+                name: TabType.Queries,
+                path: TabType.Queries.toLowerCase(),
+                content: <QueriesTab dataset={dataset} />,
+            },
+            {
                 name: TabType.Properties,
                 path: TabType.Properties.toLowerCase(),
                 content: <PropertiesView properties={properties || EMPTY_ARR} />,
@@ -139,7 +150,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     />
                 ),
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+        ];
     };
 
     return (

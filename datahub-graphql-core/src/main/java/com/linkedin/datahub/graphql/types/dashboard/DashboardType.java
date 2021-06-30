@@ -27,6 +27,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.configs.DashboardSearchConfig;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -34,6 +35,7 @@ import com.linkedin.metadata.snapshot.DashboardSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 
+import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
@@ -70,7 +72,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
     }
 
     @Override
-    public List<Dashboard> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
+    public List<DataFetcherResult<Dashboard>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
         final List<DashboardUrn> dashboardUrns = urns.stream()
                 .map(this::getDashboardUrn)
                 .collect(Collectors.toList());
@@ -86,8 +88,11 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                 gmsResults.add(dashboardMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsDashboard -> gmsDashboard == null ? null : DashboardSnapshotMapper.map(
-                        gmsDashboard.getValue().getDashboardSnapshot()))
+                    .map(gmsDashboard -> gmsDashboard == null ? null
+                        : DataFetcherResult.<Dashboard>newResult()
+                            .data(DashboardSnapshotMapper.map(gmsDashboard.getValue().getDashboardSnapshot()))
+                            .localContext(SnapshotToAspectMap.extractAspectMap(gmsDashboard.getValue().getDashboardSnapshot()))
+                            .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Dashboards", e);
@@ -130,7 +135,8 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                 start,
                 count);
         final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<Dashboard> dashboards = batchLoad(urns, context);
+        final List<Dashboard> dashboards = batchLoad(urns, context).stream().map(dashboardDataFetcherResult ->  dashboardDataFetcherResult.getData()).collect(
+            Collectors.toList());
         final BrowseResults browseResults = new BrowseResults();
         browseResults.setStart(result.getFrom());
         browseResults.setCount(result.getPageSize());
@@ -169,6 +175,6 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }
 
-        return load(input.getUrn(), context);
+        return load(input.getUrn(), context).getData();
     }
 }

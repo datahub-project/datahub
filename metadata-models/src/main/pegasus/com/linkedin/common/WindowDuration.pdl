@@ -1,0 +1,12 @@
+namespace com.linkedin.common
+
+/**
+  * Enum to define the length of a bucket when doing aggregations
+  */
+enum WindowDuration {
+  YEAR
+  MONTH
+  WEEK
+  DAY
+  HOUR
+}

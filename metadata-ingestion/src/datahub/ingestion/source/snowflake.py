@@ -17,6 +17,8 @@ register_custom_type(custom_types.TIMESTAMP_NTZ, TimeTypeClass)
 
 
 class SnowflakeConfig(BasicSQLAlchemyConfig):
+    # Note: this config model is also used by the snowflake-usage source.
+
     scheme = "snowflake"
 
     database: str  # database is required

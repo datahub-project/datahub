@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: linkedin/datahub-gms
   pullPolicy: Always
-  tag: latest
+  tag: v0.8.4
 
 imagePullSecrets: []
 nameOverride: ""
@@ -38,6 +38,10 @@ securityContext: {}
 
 service:
   type: LoadBalancer #ClusterIP
+  # Annotations to add to the service, this will help in adding 
+  # Internal load balancer or various other annotation support in AWS 
+  annotations: {}
+    # service.beta.kubernetes.io/aws-load-balancer-internal: "true"
 
 ingress:
   enabled: false
@@ -146,6 +150,9 @@ readinessProbe:
 #This section is useful if we are installing this chart separately for testing
 # helm install datahub-gms datahub-gms/
 global:
+  datahub_analytics_enabled: true
+  graph_service_impl: neo4j
+
   elasticsearch:
     host: "elasticsearch"
     port: "9200"

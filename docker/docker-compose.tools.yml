@@ -1,0 +1,38 @@
+# Tools useful for operating & debugging DataHub.
+---
+version: '3.8'
+services:
+  kafka-rest-proxy:
+    image: confluentinc/cp-kafka-rest:5.4.0
+    env_file: kafka-rest-proxy/env/docker.env
+    hostname: kafka-rest-proxy
+    container_name: kafka-rest-proxy
+    ports:
+      - "8082:8082"
+    depends_on:
+      - zookeeper
+      - broker
+      - schema-registry
+
+  kafka-topics-ui:
+    image: landoop/kafka-topics-ui:0.9.4
+    env_file: kafka-topics-ui/env/docker.env
+    hostname: kafka-topics-ui
+    container_name: kafka-topics-ui
+    ports:
+      - "18000:8000"
+    depends_on:
+      - zookeeper
+      - broker
+      - schema-registry
+      - kafka-rest-proxy
+
+  kibana:
+    image: kibana:7.9.3
+    env_file: kibana/env/docker.env
+    container_name: kibana
+    hostname: kibana
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch

@@ -32,9 +32,8 @@ import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 @Slf4j
 public class AutocompleteRequestHandler {
 
-  private final List<String> _defaultAutocompleteFields;
-
   private static final String ANALYZER = "word_delimited";
+  private final List<String> _defaultAutocompleteFields;
 
   private static final Map<EntitySpec, AutocompleteRequestHandler> AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();

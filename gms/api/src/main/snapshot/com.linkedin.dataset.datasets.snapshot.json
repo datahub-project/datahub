@@ -293,8 +293,7 @@
             "Searchable" : {
               "fieldName" : "tags",
               "fieldType" : "URN_PARTIAL",
-              "hasValuesFieldName" : "hasTags",
-              "queryByDefault" : true
+              "hasValuesFieldName" : "hasTags"
             }
           } ]
         }
@@ -409,7 +408,8 @@
       "Searchable" : {
         "fieldName" : "owners",
         "fieldType" : "URN",
-        "hasValuesFieldName" : "hasOwners"
+        "hasValuesFieldName" : "hasOwners",
+        "queryByDefault" : false
       }
     }, {
       "name" : "type",
@@ -599,6 +599,29 @@
         "values" : "string"
       },
       "doc" : "A key-value map of platform-specific properties",
+      "optional" : true
+    }, {
+      "name" : "editableProperties",
+      "type" : {
+        "type" : "record",
+        "name" : "EditableDatasetProperties",
+        "doc" : "EditableDatasetProperties stores editable changes made to dataset properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+        "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+        "fields" : [ {
+          "name" : "description",
+          "type" : "string",
+          "doc" : "Documentation of the dataset",
+          "optional" : true,
+          "Searchable" : {
+            "fieldName" : "editedDescription",
+            "fieldType" : "TEXT"
+          }
+        } ],
+        "Aspect" : {
+          "name" : "editableDatasetProperties"
+        }
+      },
+      "doc" : "Editable properties",
       "optional" : true
     }, {
       "name" : "removed",
@@ -816,8 +839,7 @@
                 "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.",
                 "Searchable" : {
                   "fieldName" : "fieldPaths",
-                  "fieldType" : "TEXT_PARTIAL",
-                  "queryByDefault" : true
+                  "fieldType" : "TEXT_PARTIAL"
                 }
               }, {
                 "name" : "jsonPath",
@@ -837,8 +859,7 @@
                 "Searchable" : {
                   "boostScore" : 0.1,
                   "fieldName" : "fieldDescriptions",
-                  "fieldType" : "TEXT",
-                  "queryByDefault" : true
+                  "fieldType" : "TEXT"
                 }
               }, {
                 "name" : "type",
@@ -962,8 +983,7 @@
                   "/tags/*/tag" : {
                     "boostScore" : 0.5,
                     "fieldName" : "fieldTags",
-                    "fieldType" : "URN_PARTIAL",
-                    "queryByDefault" : true
+                    "fieldType" : "URN_PARTIAL"
                   }
                 }
               }, {
@@ -1064,8 +1084,7 @@
                 "Searchable" : {
                   "boostScore" : 0.1,
                   "fieldName" : "editedFieldDescriptions",
-                  "fieldType" : "TEXT",
-                  "queryByDefault" : true
+                  "fieldType" : "TEXT"
                 }
               }, {
                 "name" : "globalTags",
@@ -1076,8 +1095,7 @@
                   "/tags/*/tag" : {
                     "boostScore" : 0.5,
                     "fieldName" : "editedFieldTags",
-                    "fieldType" : "URN_PARTIAL",
-                    "queryByDefault" : true
+                    "fieldType" : "URN_PARTIAL"
                   }
                 }
               } ]
@@ -1124,7 +1142,8 @@
                 },
                 "Searchable" : {
                   "fieldName" : "upstreams",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "queryByDefault" : false
                 }
               }, {
                 "name" : "type",
@@ -1203,8 +1222,7 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT",
-        "hasValuesFieldName" : "hasDescription",
-        "queryByDefault" : true
+        "hasValuesFieldName" : "hasDescription"
       }
     }, {
       "name" : "uri",
@@ -1270,7 +1288,7 @@
       },
       "doc" : "List of downstream dataset lineage information"
     } ]
-  }, "com.linkedin.dataset.PlatformNativeType", "com.linkedin.dataset.SchemaFieldPath", "com.linkedin.dataset.Upstream", "com.linkedin.dataset.UpstreamLineage", {
+  }, "com.linkedin.dataset.EditableDatasetProperties", "com.linkedin.dataset.PlatformNativeType", "com.linkedin.dataset.SchemaFieldPath", "com.linkedin.dataset.Upstream", "com.linkedin.dataset.UpstreamLineage", {
     "type" : "record",
     "name" : "UpstreamLineageDelta",
     "namespace" : "com.linkedin.dataset",
@@ -1308,8 +1326,7 @@
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
-          "fieldType" : "TEXT_PARTIAL",
-          "queryByDefault" : true
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "origin",
@@ -1317,13 +1334,14 @@
         "doc" : "Fabric type where dataset belongs to or where it was generated.",
         "Searchable" : {
           "addToFilters" : true,
-          "fieldType" : "TEXT_PARTIAL"
+          "fieldType" : "TEXT_PARTIAL",
+          "queryByDefault" : false
         }
       } ],
       "Aspect" : {
         "name" : "datasetKey"
       }
-    }, "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths" ]
+    }, "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.EditableDatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths" ]
   }, "com.linkedin.metadata.key.DatasetKey", {
     "type" : "record",
     "name" : "AggregationMetadata",

@@ -1,0 +1,11 @@
+source:
+  type: "file"
+  config:
+    filename: "./examples/mce_files/bootstrap_mce.json"
+
+sink:
+  type: "datahub-kafka"
+  config:
+    connection:
+      bootstrap: localhost:9092
+      schema_registry_url: http://localhost:8081

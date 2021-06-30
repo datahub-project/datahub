@@ -10,8 +10,9 @@ from click.testing import CliRunner
 import datahub.metadata.schema_classes as models
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.mce_file import iterate_mce_file
-from datahub.metadata.schema_classes import SCHEMA_JSON_STR, MetadataChangeEventClass
+from datahub.ingestion.source.file import iterate_mce_file
+from datahub.metadata.schema_classes import MetadataChangeEventClass
+from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
 
 # The current PytestConfig solution is somewhat ugly and not ideal.
@@ -28,6 +29,8 @@ from tests.test_helpers import mce_helpers
         "tests/unit/serde/test_serde_large.json",
         # Ensure correct representation of chart info's input list.
         "tests/unit/serde/test_serde_chart_snapshot.json",
+        # Check usage stats as well.
+        "tests/unit/serde/test_serde_usage.json",
     ],
 )
 def test_serde_to_json(
@@ -68,14 +71,14 @@ def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
     mces = list(iterate_mce_file(str(json_path)))
 
     # Serialize to Avro.
-    parsed_schema = fastavro.parse_schema(json.loads(SCHEMA_JSON_STR))
+    parsed_schema = fastavro.parse_schema(json.loads(getMetadataChangeEventSchema()))
     fo = io.BytesIO()
     out_records = [mce.to_obj(tuples=True) for mce in mces]
     fastavro.writer(fo, parsed_schema, out_records)
 
     # Deserialized from Avro.
     fo.seek(0)
-    in_records = list(fastavro.reader(fo))
+    in_records = list(fastavro.reader(fo, return_record_name=True))
     in_mces = [
         MetadataChangeEventClass.from_obj(record, tuples=True) for record in in_records
     ]
@@ -93,6 +96,8 @@ def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
         "tests/unit/serde/test_serde_large.json",
         # Check for backwards compatability with specifying all union types.
         "tests/unit/serde/test_serde_backwards_compat.json",
+        # Usage stats.
+        "tests/unit/serde/test_serde_usage.json",
         # Ensure sample MCE files are valid.
         "examples/mce_files/single_mce.json",
         "examples/mce_files/mce_list.json",

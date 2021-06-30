@@ -52,27 +52,63 @@ run the datahub-upgrade job, which will run the above docker container to migrat
 
 ### Step 2: Execute Migration Job
 
-#### Docker Compose Deployments
+#### Docker Compose Deployments - Preserve Data
 
-The easiest option is to execute the `run_upgrade.sh` script located under `docker/datahub-upgrade/nocode`.
+If you do not care about migrating your data, you can refer to the Docker Compose Deployments - Lose All Existing Data
+section below.
+
+To migrate existing data, the easiest option is to execute the `run_upgrade.sh` script located under `docker/datahub-upgrade/nocode`.
 
 ```
 cd docker/datahub-upgrade/nocode
 ./run_upgrade.sh
 ```
 
-In both cases, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
-that your deployment is local. If this is not the case, you'll need to define your own environment variables to tell the
-upgrade system where your DataHub containers reside.
+Using this command, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
+that your deployment is local & that you are running MySQL. If this is not the case, you'll need to define your own environment variables to tell the
+upgrade system where your DataHub containers reside and run 
 
-You can either
+To update the default environment variables, you can either
 
 1. Change `docker/datahub-upgrade/env/docker.env` in place and then run one of the above commands OR
-2. Define a new ".env" file containing your variables and
-   execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
+2. Define a new ".env" file containing your variables and execute `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigration`
 
 To see the required environment variables, see the [datahub-upgrade](../../docker/datahub-upgrade/README.md)
 documentation.
+
+To run the upgrade against a database other than MySQL, you can use the `-a dbType=<db-type>` argument.
+
+Execute 
+```
+./docker/datahub-upgrade.sh -u NoCodeDataMigration -a dbType=POSTGRES
+```
+
+where dbType can be either `MYSQL`, `MARIA`, `POSTGRES`.
+
+#### Docker Compose Deployments - Lose All Existing Data
+
+This path is quickest but will wipe your DataHub's database.
+
+If you want to make sure your current data is migrated, refer to the Docker Compose Deployments - Preserve Data section above.
+If you are ok losing your data and re-ingesting, this approach is simplest.
+
+```
+# make sure you are on the latest
+git checkout master
+git pull origin master
+
+# wipe all your existing data and turn off all processes
+./docker/nuke.sh
+
+# spin up latest datahub
+./docker/quickstart.sh
+
+# re-ingest data, for example, to ingest sample data:
+./docker/ingestion/ingestion.sh
+```
+
+After that, you will be ready to go.
+
 
 ##### How to fix the "listening to port 5005" issue
 
@@ -92,13 +128,19 @@ docker images -a | grep acryldata/datahub-upgrade | awk '{print $3}' | xargs doc
 Upgrade to latest helm charts by running the following after pulling latest master.
 
 ```(shell)
-helm upgrade datahub datahub/ --values datahub/quickstart-values.yaml
+helm upgrade datahub datahub/
 ```
 
-This will upgrade all pods to version 0.8.0, and once all pods are up and ready, datahub-upgrade job will start, running
-the above docker image to migrate to the new stores.
+In the latest helm charts, we added a datahub-upgrade-job, which runs the above mentioned docker container to migrate to
+the new storage layer. Note, the job will fail in the beginning as it waits for GMS and MAE consumer to be deployed with
+the NoCode code. It will rerun until it runs successfully.
+
+Once the storage layer has been migrated, subsequent runs of this job will be a noop.
 
 ### Step 3 (Optional): Cleaning Up
+
+Warning: This step clears all legacy metadata. If something is wrong with the upgraded metadata, there will no easy way to 
+re-run the migration. 
 
 This step involves removing data from previous versions of DataHub. This step should only be performed once you've
 validated that your DataHub deployment is healthy after performing the upgrade. If you're able to search, browse, and
@@ -117,11 +159,11 @@ cd docker/datahub-upgrade/nocode
 ./run_clean.sh
 ```
 
-In both cases, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
+Using this command, the default environment variables will be used (`docker/datahub-upgrade/env/docker.env`). These assume
 that your deployment is local. If this is not the case, you'll need to define your own environment variables to tell the
 upgrade system where your DataHub containers reside.
 
-You can either
+To update the default environment variables, you can either
 
 1. Change `docker/datahub-upgrade/env/docker.env` in place and then run one of the above commands OR
 2. Define a new ".env" file containing your variables and execute
@@ -132,7 +174,28 @@ documentation
 
 #### Helm Deployments
 
-TODO
+Assuming the latest helm chart has been deployed in the previous step, datahub-cleanup-job-template cronJob should have
+been created. You can check by running the following:
+
+```
+kubectl get cronjobs
+```
+
+You should see an output like below:
+
+```
+NAME                                   SCHEDULE     SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+datahub-datahub-cleanup-job-template   * * * * *    True      0        <none>          12m
+```
+
+Note that the cronJob has been suspended. It is intended to be run in an adhoc fashion when ready to clean up. Make sure
+the migration was successful and DataHub is working as expected. Then run the following command to run the clean up job:
+
+```
+kubectl create job --from=cronjob/<<release-name>>-datahub-cleanup-job-template datahub-cleanup-job
+```
+
+Replace release-name with the name of the helm release. If you followed the kubernetes guide, it should be "datahub".
 
 ## Support
 

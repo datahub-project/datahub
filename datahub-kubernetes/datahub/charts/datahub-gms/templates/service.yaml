@@ -4,6 +4,10 @@ metadata:
   name: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
   labels:
     {{- include "datahub-gms.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ .Values.service.type }}
   ports:

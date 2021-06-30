@@ -8,7 +8,7 @@ CREATE TABLE metadata_aspect_v2 (
   createdon                     datetime(6) NOT NULL,
   createdby                     VARCHAR(255) NOT NULL,
   createdfor                    VARCHAR(255),
-  CONSTRAINT pk_metadata_aspect PRIMARY KEY (urn,aspect,version)
+  CONSTRAINT pk_metadata_aspect_v2 PRIMARY KEY (urn,aspect,version)
 );
 
 INSERT INTO metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(

@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
 import com.linkedin.dataset.Dataset;
 import com.linkedin.dataset.DatasetDeprecation;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -72,6 +73,12 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
                             ).collect(Collectors.toList())));
             result.setEditableSchemaMetadata(editableSchemaMetadata);
 
+        }
+
+        if (datasetUpdateInput.getEditableProperties() != null) {
+            final EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties();
+            editableDatasetProperties.setDescription(datasetUpdateInput.getEditableProperties().getDescription());
+            result.setEditableProperties(editableDatasetProperties);
         }
 
         return result;
