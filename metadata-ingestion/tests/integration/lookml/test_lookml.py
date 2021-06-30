@@ -35,8 +35,9 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
     pipeline.run()
     pipeline.raise_from_status()
 
-    output = mce_helpers.load_json_file(str(tmp_path / "lookml_mces.json"))
-    expected = mce_helpers.load_json_file(
-        str(test_resources_dir / "expected_output.json")
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(tmp_path / "lookml_mces.json"),
+        golden_path=str(test_resources_dir / "expected_output.json"),
+        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
     )
-    mce_helpers.assert_mces_equal(output, expected)
