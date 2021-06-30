@@ -45,14 +45,13 @@ export default function SchemaView({
     updateEditableSchema,
     usageStats,
 }: Props) {
-    const totalVersions = previousSchemaMetadata?.aspectVersion || 0;
+    const maxVersion = previousSchemaMetadata?.aspectVersion || 0;
     const [showRaw, setShowRaw] = useState(false);
+    const [editMode, setEditMode] = useState(true);
     const [schemaDiff, setSchemaDiff] = useState<{
         current?: SchemaMetadata | Schema | null;
         previous?: SchemaMetadata | null;
     }>({ current: schema, previous: previousSchemaMetadata });
-    const [editMode, setEditMode] = useState(true);
-    const [currentVersion, setCurrentVersion] = useState(totalVersions);
     const [getSchemaVersions, { loading, error, data: schemaVersions }] = useGetDatasetSchemaVersionsLazyQuery({
         fetchPolicy: 'no-cache',
     });
@@ -138,12 +137,9 @@ export default function SchemaView({
 
     return (
         <SchemaContainer>
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '30%' }} />}
+            {loading && <Message type="loading" content="" style={{ marginTop: '35%' }} />}
             <SchemaHeader
-                currentVersion={currentVersion}
-                setCurrentVersion={setCurrentVersion}
-                totalVersions={totalVersions}
-                updateDiff={() => setSchemaDiff({ current: schema, previous: previousSchemaMetadata })}
+                maxVersion={maxVersion}
                 fetchVersions={fetchVersions}
                 editMode={editMode}
                 setEditMode={setEditMode}
@@ -159,9 +155,7 @@ export default function SchemaView({
                 rows &&
                 rows.length > 0 && (
                     <>
-                        {!editMode && (
-                            <SchemaVersionSummary diffSummary={diffSummary} currentVersion={currentVersion} />
-                        )}
+                        {!editMode && <SchemaVersionSummary diffSummary={diffSummary} />}
                         <SchemaTable
                             rows={rows}
                             editMode={editMode}

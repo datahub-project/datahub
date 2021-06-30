@@ -1,26 +1,19 @@
 import React from 'react';
-import { Button, Pagination } from 'antd';
+import { Button } from 'antd';
 import styled from 'styled-components';
+import CustomPagination from './CustomPagination';
 
-const SchemaHeaderContainer = styled.div<{ padding?: string }>`
+const SchemaHeaderContainer = styled.div<{ edit?: string }>`
     display: flex;
-    justify-content: flex-end;
-    ${(props) => (props.padding ? 'padding-bottom: 16px;' : '')}
+    ${(props) => (props.edit ? 'justify-content: flex-end; padding-bottom: 16px;' : 'justify-content: space-between;')}
 `;
 
 const ShowVersionButton = styled(Button)`
     margin-right: 10px;
 `;
-const PaginationContainer = styled(Pagination)`
-    padding-top: 5px;
-    margin-right: 15px;
-`;
 
 type Props = {
-    currentVersion: number;
-    setCurrentVersion: (currentVersion: number) => void;
-    totalVersions: number;
-    updateDiff: () => void;
+    maxVersion: number;
     fetchVersions: (version1: number, version2: number) => void;
     editMode: boolean;
     setEditMode: (mode: boolean) => void;
@@ -30,10 +23,7 @@ type Props = {
 };
 
 export default function SchemaHeader({
-    currentVersion,
-    setCurrentVersion,
-    totalVersions,
-    updateDiff,
+    maxVersion,
     fetchVersions,
     editMode,
     setEditMode,
@@ -41,44 +31,25 @@ export default function SchemaHeader({
     showRaw,
     setShowRaw,
 }: Props) {
-    const onVersionChange = (version) => {
-        if (version === null) {
+    const onVersionChange = (version1, version2) => {
+        if (version1 === null || version2 === null) {
             return;
         }
-        setCurrentVersion(version);
-        if (version === totalVersions) {
-            updateDiff();
-            return;
-        }
-        fetchVersions(version - totalVersions, version - totalVersions - 1);
+        fetchVersions(version1 - maxVersion, version2 - maxVersion);
     };
 
     return (
-        <SchemaHeaderContainer padding={editMode ? 'true' : undefined}>
-            {totalVersions > 0 &&
-                (editMode ? (
-                    <ShowVersionButton onClick={() => setEditMode(false)}>Version History</ShowVersionButton>
-                ) : (
-                    <>
-                        <ShowVersionButton
-                            onClick={() => {
-                                setEditMode(true);
-                            }}
-                        >
-                            Back
-                        </ShowVersionButton>
-                        <PaginationContainer
-                            simple
-                            size="default"
-                            defaultCurrent={totalVersions}
-                            defaultPageSize={1}
-                            total={totalVersions}
-                            onChange={onVersionChange}
-                            current={currentVersion}
-                        />
-                    </>
-                ))}
-            {hasRow && <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>}
+        <SchemaHeaderContainer edit={editMode ? 'true' : undefined}>
+            {maxVersion > 0 && !editMode && <CustomPagination onChange={onVersionChange} maxVersion={maxVersion} />}
+            <div>
+                {maxVersion > 0 &&
+                    (editMode ? (
+                        <ShowVersionButton onClick={() => setEditMode(false)}>Version History</ShowVersionButton>
+                    ) : (
+                        <ShowVersionButton onClick={() => setEditMode(true)}>Back</ShowVersionButton>
+                    ))}
+                {hasRow && <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>}
+            </div>
         </SchemaHeaderContainer>
     );
 }

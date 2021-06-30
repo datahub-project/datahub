@@ -3,7 +3,6 @@ import { Typography } from 'antd';
 import styled from 'styled-components';
 
 const SummaryContainer = styled.div`
-    margin-top: -32px;
     margin-bottom: 16px;
     padding-left: 10px;
     & ul {
@@ -11,7 +10,6 @@ const SummaryContainer = styled.div`
         margin-top: 5px;
     }
 `;
-const SummarySubHeader = styled(Typography.Text)``;
 
 type Props = {
     diffSummary: {
@@ -19,16 +17,11 @@ type Props = {
         removed: number;
         updated: number;
     };
-    currentVersion: number;
 };
 
-export default function SchemaVersionSummary({ diffSummary, currentVersion }: Props) {
+export default function SchemaVersionSummary({ diffSummary }: Props) {
     return (
         <SummaryContainer>
-            <Typography.Title level={5}>Summary</Typography.Title>
-            <SummarySubHeader>{`Comparing version ${currentVersion} to version ${
-                currentVersion - 1
-            }`}</SummarySubHeader>
             <ul>
                 {diffSummary.added ? (
                     <li>
