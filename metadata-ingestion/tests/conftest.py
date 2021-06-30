@@ -19,11 +19,7 @@ def mock_time(monkeypatch):
 
     monkeypatch.setattr(time, "time", fake_time)
 
-    with unittest.mock.patch(
-        "datahub.emitter.mce_builder.get_sys_time",
-        return_value=1615443388.0975091,
-    ):
-        yield
+    yield
 
 
 def pytest_addoption(parser):

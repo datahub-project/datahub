@@ -40,6 +40,6 @@ def test_mssql_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
             # Verify the output.
             mce_helpers.check_golden_file(
                 pytestconfig,
-                output_path=mce_helpers.load_json_file("mssql_mces.json"),
+                output_path="./mssql_mces.json",
                 golden_path=str(test_resources_dir / "mssql_mces_golden.json"),
             )

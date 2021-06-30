@@ -1,9 +1,11 @@
 import json
 import os
+import pprint
 import shutil
 from typing import List, Optional, Union
 
 import deepdiff
+import pytest
 
 from tests.test_helpers.type_helpers import PytestConfig
 
@@ -30,7 +32,8 @@ def assert_mces_equal(
 ) -> None:
     # This method assumes we're given a list of MCE json objects.
     diff = deepdiff.DeepDiff(golden, output, exclude_regex_paths=ignore_paths)
-    assert not diff, str(diff)
+    if diff:
+        assert not diff, f"MCEs differ\n{pprint.pformat(diff)}"
 
 
 def check_golden_file(
