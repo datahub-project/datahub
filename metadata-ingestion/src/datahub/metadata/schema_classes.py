@@ -2275,6 +2275,9 @@ class AzkabanJobTypeClass(object):
     """Glue type is for running AWS Glue job transforms."""
     GLUE = "GLUE"
     
+    """SageMaker type is for running AWS SageMAker jobs."""
+    SAGEMAKER = "SAGEMAKER"
+    
     
 class DataPlatformInfoClass(DictWrapper):
     """Information about a data platform"""

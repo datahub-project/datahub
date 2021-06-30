@@ -1539,7 +1539,8 @@
                               "HIVE",
                               "PIG",
                               "SQL",
-                              "GLUE"
+                              "GLUE",
+                              "SAGEMAKER"
                             ],
                             "symbolDocs": {
                               "COMMAND": "The command job type is one of the basic built-in types. It runs multiple UNIX commands using java processbuilder.\nUpon execution, Azkaban spawns off a process to run the command.",
@@ -1548,6 +1549,7 @@
                               "HADOOP_SHELL": "In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster\nsecurely, via Hadoop tokens.",
                               "HIVE": "Hive type is for running Hive jobs.",
                               "PIG": "Pig type is for running Pig jobs.",
+                              "SAGEMAKER": "SageMaker type is for running AWS SageMAker jobs.",
                               "SQL": "SQL is for running Presto, mysql queries etc"
                             }
                           }

@@ -1548,6 +1548,7 @@
                                 "HADOOP_SHELL": "In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster\nsecurely, via Hadoop tokens.",
                                 "HIVE": "Hive type is for running Hive jobs.",
                                 "PIG": "Pig type is for running Pig jobs.",
+                                "SAGEMAKER": "SageMaker type is for running AWS SageMAker jobs.",
                                 "SQL": "SQL is for running Presto, mysql queries etc"
                               },
                               "name": "AzkabanJobType",
@@ -1559,7 +1560,8 @@
                                 "HIVE",
                                 "PIG",
                                 "SQL",
-                                "GLUE"
+                                "GLUE",
+                                "SAGEMAKER"
                               ],
                               "doc": "The various types of support azkaban jobs"
                             }

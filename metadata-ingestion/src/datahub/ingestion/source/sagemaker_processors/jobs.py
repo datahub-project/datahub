@@ -1,8 +1,62 @@
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+from datahub.emitter import mce_builder
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
+    DataJobSnapshotClass,
+    MetadataChangeEventClass,
+)
 
 
-def process_auto_ml_job(job):
+@dataclass
+class SageMakerJob:
+    job: MetadataChangeEventClass
+    input_datasets: List[Dict[str, Dict[str, Any]]] = []
+    output_datasets: List[Dict[str, Dict[str, Any]]] = []
+    input_jobs: List[str] = []
+    # we resolve output jobs to input ones after processing
+    output_jobs: List[str] = []
+
+
+def create_common_job_mce(
+    name: str,
+    arn: str,
+    job_type: str,
+    properties: Dict[str, Any],
+) -> MetadataChangeEventClass:
+
+    # SageMaker has no global grouping property for jobs,
+    # so we just file all of them under an umbrella DataFlow
+    job_urn = mce_builder.make_data_job_urn(
+        "sagemaker",
+        "sagemaker",
+        arn,
+    )
+
+    return MetadataChangeEventClass(
+        proposedSnapshot=DataJobSnapshotClass(
+            urn=job_urn,
+            aspects=[
+                DataJobInfoClass(
+                    name=f"{job_type}:{name}",
+                    type="SAGEMAKER",
+                    customProperties={
+                        **{key: str(value) for key, value in properties.items()},
+                        "jobType": job_type,
+                    },
+                ),
+                # TODO: generate DataJobInputOutputClass aspects afterwards
+            ],
+        )
+    )
+
+
+def process_auto_ml_job(
+    job,
+) -> SageMakerJob:
     """
     Process outputs from Boto3 describe_auto_ml_job()
 
@@ -23,24 +77,39 @@ def process_auto_ml_job(job):
         job["InputDataConfig"].get("DataSource", {}).get("S3DataSource")
     )
 
-    if input_data:
-        s3_datatype: str = input_data.get("S3DataType")
-        s3_uri: str = input_data.get("S3Uri")
+    input_datasets = []
 
-    output_data = job["OutputDataConfig"].get("S3OutputPath")
+    if input_data is not None and "S3Uri" in input_data:
+        input_datasets.append(
+            {
+                "dataset_type": "s3",
+                "uri": input_data["S3Uri"],
+                "datatype": input_data.get("S3DataType"),
+            }
+        )
 
-    objective: str = job["AutoMLJobObjective"]["MetricName"]
-    problem: str = job["ProblemType"]
+    output_datasets = []
 
-    job_config: Dict[str, Any] = job["AutoMLJobConfig"]
+    output_s3_path = job.get("OutputDataConfig", {}).get("S3OutputPath")
 
-    failure_reason: Optional[str] = job.get("FailureReason")
+    if output_s3_path is not None:
+        output_datasets.append(
+            {
+                "dataset_type": "s3",
+                "uri": output_s3_path,
+            }
+        )
 
-    deploy_config_endpoint: str = job["ModelDeployConfig"]["EndpointName"]
-    deploy_result_endpoint: str = job["ModelDeployResult"]["EndpointName"]
+    job_mce = create_common_job_mce(name, arn, "AutoML", job)
+
+    return SageMakerJob(
+        job=job_mce, input_datasets=input_datasets, output_datasets=output_datasets
+    )
 
 
-def process_compilation_job(job):
+def process_compilation_job(
+    job,
+) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_compilation_job()
@@ -79,10 +148,14 @@ def process_compilation_job(job):
     target_platform_arch: Optional[str] = target_platform.get("Arch")
     target_platform_accelerator: Optional[str] = target_platform.get("Accelerator")
 
-    return
+    job_mce = create_common_job_mce(name, arn, "Compilation", job)
+
+    return job_mce, []
 
 
-def process_edge_packaging_job(job):
+def process_edge_packaging_job(
+    job,
+) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_edge_packaging_job()
@@ -107,10 +180,14 @@ def process_edge_packaging_job(job):
     model: Optional[str] = job.get("ModelName")
     model_version: Optional[str] = job.get("ModelVersion")
 
-    return
+    job_mce = create_common_job_mce(name, arn, "EdgePackaging", job)
+
+    return job_mce, []
 
 
-def process_hyper_parameter_tuning_job(job):
+def process_hyper_parameter_tuning_job(
+    job,
+) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_hyper_parameter_tuning_job()
@@ -128,10 +205,14 @@ def process_hyper_parameter_tuning_job(job):
     last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
     end_time: Optional[datetime] = job.get("HyperParameterTuningEndTime")
 
-    return
+    job_mce = create_common_job_mce(name, arn, "HyperParameterTuning", job)
+
+    return job_mce, []
 
 
-def process_labeling_job(job):
+def process_labeling_job(
+    job,
+) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_labeling_job()
@@ -170,10 +251,14 @@ def process_labeling_job(job):
     input_config: Dict[str, Any] = job["InputConfig"]
     output_config: Dict[str, str] = job["OutputConfig"]
 
-    return
+    job_mce = create_common_job_mce(name, arn, "Labeling", job)
+
+    return job_mce, []
 
 
-def process_processing_job(job):
+def process_processing_job(
+    job,
+) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_processing_job()
@@ -248,10 +333,15 @@ def process_processing_job(job):
         }
         for output in outputs
     ]
-    return
+
+    job_mce = create_common_job_mce(name, arn, "Processing", job)
+
+    return job_mce, []
 
 
-def process_training_job(job):
+def process_training_job(
+    job,
+) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_training_job()
@@ -327,10 +417,14 @@ def process_training_job(job):
         {"s3_uri": config.get("S3OutputPath")} for config in profiler_rule_configs
     ]
 
-    return
+    job_mce = create_common_job_mce(name, arn, "Training", job)
+
+    return job_mce, []
 
 
-def process_transform_job(job):
+def process_transform_job(
+    job,
+) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_transform_job()
@@ -360,4 +454,6 @@ def process_transform_job(job):
     labeling_arn = job.get("LabelingJobArn")
     auto_ml_arn = job.get("AutoMLJobArn")
 
-    return
+    job_mce = create_common_job_mce(name, arn, "Transform", job)
+
+    return job_mce, []
