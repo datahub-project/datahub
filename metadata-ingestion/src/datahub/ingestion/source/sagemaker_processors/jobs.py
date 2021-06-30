@@ -118,6 +118,16 @@ def process_hyper_parameter_tuning_job(job):
     See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_hyper_parameter_tuning_job
     """
 
+    name: str = job["HyperParameterTuningJobName"]
+    arn: str = job["HyperParameterTuningJobArn"]
+    status: str = job["HyperParameterTuningJobStatus"]
+
+    role: str = job["RoleArn"]
+
+    create_time: Optional[datetime] = job.get("CreationTime")
+    last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
+    end_time: Optional[datetime] = job.get("HyperParameterTuningEndTime")
+
     return
 
 
@@ -295,6 +305,8 @@ def process_training_job(job):
                 "file_system_path": file_system_path,
             }
         )
+
+    output_s3_uri = job.get("OutputDataConfig", {}).get("S3OutputPath")
 
     checkpoint_s3_uri = job.get("CheckpointConfig", {}).get("S3Uri")
 
