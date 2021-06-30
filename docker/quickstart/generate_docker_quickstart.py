@@ -3,7 +3,6 @@ import click
 import yaml
 from collections.abc import Mapping
 from dotenv import dotenv_values
-from shutil import copyfile
 from yaml import Loader
 
 # Generates a merged docker-compose file with env variables inlined.
