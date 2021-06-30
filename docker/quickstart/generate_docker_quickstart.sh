@@ -8,6 +8,8 @@ set -euxo pipefail
 python3 -m venv venv
 source venv/bin/activate
 
+cp $(pwd)/../mysql/init.sql $(pwd)/mysql/init.sql
+
 pip install -r requirements.txt
 python generate_docker_quickstart.py ../docker-compose.yml ../docker-compose.override.yml docker-compose.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose-without-neo4j.yml ../docker-compose-without-neo4j.override.yml docker-compose-without-neo4j.quickstart.yml
