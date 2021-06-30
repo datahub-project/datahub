@@ -6,6 +6,7 @@ import dateutil.parser as dp
 import requests
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -73,8 +74,6 @@ chart_type_from_viz_type = {
     "treemap": ChartTypeClass.AREA,
     "box_plot": ChartTypeClass.BAR,
 }
-
-DEFAULT_ENV = "PROD"
 
 
 class SupersetConfig(ConfigModel):

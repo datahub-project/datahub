@@ -2,13 +2,14 @@ import logging
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from urllib.parse import quote_plus
 
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -35,6 +36,34 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+def make_sqlalchemy_uri(
+    scheme: str,
+    username: Optional[str],
+    password: Optional[str],
+    at: Optional[str],
+    db: Optional[str],
+    uri_opts: Optional[Dict[str, Any]] = None,
+) -> str:
+    url = f"{scheme}://"
+    if username is not None:
+        url += f"{quote_plus(username)}"
+        if password is not None:
+            url += f":{quote_plus(password)}"
+        url += "@"
+    if at is not None:
+        url += f"{at}"
+    if db is not None:
+        url += f"/{db}"
+    if uri_opts is not None:
+        if db is None:
+            url += "/"
+        params = "&".join(
+            f"{key}={quote_plus(value)}" for (key, value) in uri_opts.items() if value
+        )
+        url = f"{url}?{params}"
+    return url
+
+
 @dataclass
 class SQLSourceReport(SourceReport):
     tables_scanned: int = 0
@@ -57,7 +86,7 @@ class SQLSourceReport(SourceReport):
 
 
 class SQLAlchemyConfig(ConfigModel):
-    env: str = "PROD"
+    env: str = DEFAULT_ENV
     options: dict = {}
     # Although the 'table_pattern' enables you to skip everything from certain schemas,
     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
@@ -92,17 +121,15 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     database: Optional[str] = None
     scheme: str
 
-    def get_sql_alchemy_url(self):
-        url = f"{self.scheme}://"
-        if self.username:
-            url += f"{self.username}"
-            if self.password:
-                url += f":{self.password}"
-            url += "@"
-        url += f"{self.host_port}"
-        if self.database:
-            url += f"/{self.database}"
-        return url
+    def get_sql_alchemy_url(self, uri_opts=None):
+        return make_sqlalchemy_uri(
+            self.scheme,
+            self.username,
+            self.password,
+            self.host_port,
+            self.database,
+            uri_opts=uri_opts,
+        )
 
 
 @dataclass

@@ -1,13 +1,17 @@
+import logging
 from typing import Optional
 
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
 from snowflake.sqlalchemy import custom_types
 
+from datahub.configuration.common import ConfigModel
+
 from .sql_common import (
-    BasicSQLAlchemyConfig,
+    SQLAlchemyConfig,
     SQLAlchemySource,
     TimeTypeClass,
+    make_sqlalchemy_uri,
     register_custom_type,
 )
 
@@ -15,26 +19,44 @@ register_custom_type(custom_types.TIMESTAMP_TZ, TimeTypeClass)
 register_custom_type(custom_types.TIMESTAMP_LTZ, TimeTypeClass)
 register_custom_type(custom_types.TIMESTAMP_NTZ, TimeTypeClass)
 
+logger: logging.Logger = logging.getLogger(__name__)
 
-class SnowflakeConfig(BasicSQLAlchemyConfig):
+
+class BaseSnowflakeConfig(ConfigModel):
     # Note: this config model is also used by the snowflake-usage source.
 
     scheme = "snowflake"
 
-    database: str  # database is required
+    username: Optional[str] = None
+    password: Optional[str] = None
+    host_port: str
     warehouse: Optional[str]
     role: Optional[str]
 
+    def get_sql_alchemy_url(self, database=None):
+        return make_sqlalchemy_uri(
+            self.scheme,
+            self.username,
+            self.password,
+            self.host_port,
+            database,
+            uri_opts={
+                # Drop the options if value is None.
+                key: value
+                for (key, value) in {
+                    "warehouse": self.warehouse,
+                    "role": self.role,
+                }.items()
+                if value
+            },
+        )
+
+
+class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
+    database: str
+
     def get_sql_alchemy_url(self):
-        connect_string = super().get_sql_alchemy_url()
-        options = {
-            "warehouse": self.warehouse,
-            "role": self.role,
-        }
-        params = "&".join(f"{key}={value}" for (key, value) in options.items() if value)
-        if params:
-            connect_string = f"{connect_string}?{params}"
-        return connect_string
+        return super().get_sql_alchemy_url(self.database)
 
     def get_identifier(self, schema: str, table: str) -> str:
         regular = super().get_identifier(schema, table)
