@@ -3,6 +3,9 @@ package com.linkedin.datahub.upgrade.nocode;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.common.steps.GMSEnableWriteModeStep;
+import com.linkedin.datahub.upgrade.common.steps.GMSQualificationStep;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import io.ebean.EbeanServer;
@@ -24,11 +27,13 @@ public class NoCodeUpgrade implements Upgrade {
   public NoCodeUpgrade(
       final EbeanServer server,
       final EntityService entityService,
-      final SnapshotEntityRegistry entityRegistry) {
+      final SnapshotEntityRegistry entityRegistry,
+      final EntityClient entityClient) {
     _steps = buildUpgradeSteps(
         server,
         entityService,
-        entityRegistry);
+        entityRegistry,
+        entityClient);
     _cleanupSteps = buildCleanupSteps(server);
   }
 
@@ -54,7 +59,8 @@ public class NoCodeUpgrade implements Upgrade {
   private List<UpgradeStep> buildUpgradeSteps(
       final EbeanServer server,
       final EntityService entityService,
-      final SnapshotEntityRegistry entityRegistry) {
+      final SnapshotEntityRegistry entityRegistry,
+      final EntityClient entityClient) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new RemoveAspectV2TableStep(server));
     steps.add(new GMSQualificationStep());
@@ -62,7 +68,7 @@ public class NoCodeUpgrade implements Upgrade {
     steps.add(new CreateAspectTableStep(server));
     steps.add(new IngestDataPlatformsStep(entityService));
     steps.add(new DataMigrationStep(server, entityService, entityRegistry));
-    steps.add(new GMSEnableWriteModeStep());
+    steps.add(new GMSEnableWriteModeStep(entityClient));
     return steps;
   }
 }

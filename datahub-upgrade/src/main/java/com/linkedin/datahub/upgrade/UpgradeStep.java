@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade;
 
 import java.util.function.Function;
 
+
 /**
  * Represents a single executable step in an {@link Upgrade}.
  */
@@ -31,4 +32,10 @@ public interface UpgradeStep {
     return false;
   }
 
+  /**
+   * Returns whether or not to skip the step based on the UpgradeContext
+   */
+  default boolean skip(UpgradeContext context) {
+    return false;
+  }
 }
