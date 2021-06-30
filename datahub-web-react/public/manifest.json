@@ -1,15 +1,19 @@
 {
-    "short_name": "DataHub",
-    "name": "DataHub",
+    "name": "Acryl DataHub",
+    "short_name": "Acryl DataHub",
     "icons": [
         {
-            "src": "favicon.ico",
-            "sizes": "64x64 32x32 24x24 16x16",
-            "type": "image/x-icon"
+            "src": "/assets/icons/android-chrome-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/assets/icons/android-chrome-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
         }
     ],
-    "start_url": ".",
-    "display": "standalone",
-    "theme_color": "#000000",
-    "background_color": "#ffffff"
+    "theme_color": "#020d10",
+    "background_color": "#020d10",
+    "display": "standalone"
 }

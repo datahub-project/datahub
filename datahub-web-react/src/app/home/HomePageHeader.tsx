@@ -29,6 +29,12 @@ const WelcomeText = styled(Typography.Text)`
     color: ${(props) => props.theme.styles['homepage-background-lower-fade']};
 `;
 
+const HeaderTitle = styled(Typography.Title)`
+    && {
+        color: ${(props) => props.theme.styles['layout-header-color']};
+    }
+`;
+
 const SubHeaderText = styled(Typography.Text)`
     font-size: 20px;
     color: ${(props) => props.theme.styles['homepage-background-lower-fade']};
@@ -43,7 +49,7 @@ const SubHeaderTextNoResults = styled(Typography.Text)`
 const styles = {
     navBar: { padding: '24px' },
     searchContainer: { width: '100%', marginTop: '40px' },
-    logoImage: { width: 140 },
+    logoImage: { width: 140, marginBottom: '20px' },
     searchBox: { width: 540, margin: '40px 0px' },
     subtitle: { marginTop: '28px', color: '#FFFFFF', fontSize: 12 },
     subHeaderLabel: { marginTop: '-16px', color: '#FFFFFF', fontSize: 12 },
@@ -198,6 +204,7 @@ export const HomePageHeader = () => {
             </Row>
             <HeaderContainer>
                 <Image src={themeConfig.assets.logoUrl} preview={false} style={styles.logoImage} />
+                <HeaderTitle level={2}>{themeConfig.content.title}</HeaderTitle>
                 {themeConfig.content.subtitle && (
                     <Typography.Text style={styles.subtitle}>{themeConfig.content.subtitle}</Typography.Text>
                 )}

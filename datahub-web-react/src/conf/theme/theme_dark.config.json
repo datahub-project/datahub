@@ -18,7 +18,7 @@
         "homepage-background-lower-fade": "#333E4C"
     },
     "assets": {
-        "logoUrl": "/assets/logo.png"
+        "logoUrl": "/assets/logos/datahub-logo.png"
     },
     "content": {
         "title": "DataHub",
