@@ -238,26 +238,35 @@ class SQLAlchemySource(Source):
         self.platform = platform
         self.report = SQLSourceReport()
 
+    def get_inspectors(self) -> Iterable[Inspector]:
+        # This method can be overridden in the case that you want to dynamically
+        # run on multiple databases.
+
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+        inspector = inspect(engine)
+        yield inspector
+
     def get_workunits(self) -> Iterable[SqlWorkUnit]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
             sql_config.options["echo"] = True
 
-        url = sql_config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **sql_config.options)
-        inspector = inspect(engine)
-        for schema in inspector.get_schema_names():
-            if not sql_config.schema_pattern.allowed(schema):
-                self.report.report_dropped(schema)
-                continue
+        for inspector in self.get_inspectors():
+            for schema in inspector.get_schema_names():
+                if not sql_config.schema_pattern.allowed(schema):
+                    self.report.report_dropped(
+                        ".".join(sql_config.standardize_schema_table_names(schema, "*"))
+                    )
+                    continue
 
-            if sql_config.include_tables:
-                yield from self.loop_tables(inspector, schema, sql_config)
+                if sql_config.include_tables:
+                    yield from self.loop_tables(inspector, schema, sql_config)
 
-            if sql_config.include_views:
-                yield from self.loop_views(inspector, schema, sql_config)
+                if sql_config.include_views:
+                    yield from self.loop_views(inspector, schema, sql_config)
 
     def loop_tables(
         self,
