@@ -20,6 +20,73 @@ from datahub.metadata.schema_classes import (
     MLPrimaryKeyPropertiesClass,
 )
 
+SAGEMAKER_JOBS = {
+    "auto_ml": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_auto_ml_jobs
+        "list_command": "list_auto_ml_jobs",
+        "list_key": "AutoMLJobSummaries",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_auto_ml_job
+        "describe_command": "describe_auto_ml_job",
+        "describe_name_key": "AutoMLJobName",
+    },
+    "compilation": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_compilation_jobs
+        "list_command": "list_compilation_jobs",
+        "list_key": "CompilationJobSummaries",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_compilation_job
+        "describe_command": "describe_compilation_job",
+        "describe_name_key": "CompilationJobName",
+    },
+    "edge_packaging": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_edge_packaging_jobs
+        "list_command": "list_edge_packaging_jobs",
+        "list_key": "EdgePackagingJobSummaries",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_edge_packaging_job
+        "describe_command": "describe_edge_packaging_job",
+        "describe_name_key": "EdgePackagingJobName",
+    },
+    "hyper_parameter_tuning": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_hyper_parameter_tuning_jobs
+        "list_command": "list_hyper_parameter_tuning_jobs",
+        "list_key": "HyperParameterTuningJobSummaries",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_hyper_parameter_tuning_job
+        "describe_command": "describe_hyper_parameter_tuning_job",
+        "describe_name_key": "HyperParameterTuningJobName",
+    },
+    "labeling": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_labeling_jobs
+        "list_command": "list_labeling_jobs",
+        "list_key": "LabelingJobSummaryList",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_labeling_job
+        "describe_command": "describe_labeling_job",
+        "describe_name_key": "LabelingJobName",
+    },
+    "processing": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_processing_jobs
+        "list_command": "list_processing_jobs",
+        "list_key": "ProcessingJobSummaries",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_processing_job
+        "describe_command": "describe_processing_job",
+        "describe_name_key": "ProcessingJobName",
+    },
+    "training": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_training_jobs
+        "list_command": "list_training_jobs",
+        "list_key": "TrainingJobSummaries",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_training_job
+        "describe_command": "describe_training_job",
+        "describe_name_key": "TrainingJobName",
+    },
+    "transform": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_transform_jobs
+        "list_command": "list_transform_jobs",
+        "list_key": "TransformJobSummaries",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_transform_job
+        "describe_command": "describe_transform_job",
+        "describe_name_key": "TransformJobName",
+    },
+}
+
 
 class SagemakerSourceConfig(AwsSourceConfig):
     @property
@@ -82,6 +149,23 @@ class SagemakerSource(Source):
             models += page["Models"]
 
         return models
+
+    def get_all_jobs(self) -> List[Dict[str, Any]]:
+        """
+        List all jobs in SageMaker.
+        """
+
+        jobs = []
+
+        for job_type, job_spec in SAGEMAKER_JOBS.items():
+
+            paginator = self.sagemaker_client.get_paginator(job_spec["list_command"])
+            for page in paginator.paginate():
+                page_jobs = page[job_spec["list_key"]]
+                page_jobs = [{**job, "type": job_type} for job in page_jobs]
+                jobs += page_jobs
+
+        return jobs
 
     def get_feature_group_details(self, feature_group_name: str) -> Dict[str, Any]:
         """
