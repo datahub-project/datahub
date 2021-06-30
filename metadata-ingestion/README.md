@@ -45,6 +45,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | oracle          | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
 | postgres        | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
 | redshift        | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
+| sagemaker       | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
 | sqlalchemy      | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | snowflake       | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
 | snowflake-usage | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
@@ -343,6 +344,27 @@ source:
     include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
+```
+
+### AWS SageMaker `sagemaker`
+
+Extracts:
+
+- Feature groups (support for models, jobs, and more coming soon!)
+
+```yml
+source:
+  type: sagemaker
+  config:
+    aws_region: # aws_region_name, i.e. "eu-west-1"
+    env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
+
+    # Credentials. If not specified here, these are picked up according to boto3 rules.
+    # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
+    aws_access_key_id: # Optional.
+    aws_secret_access_key: # Optional.
+    aws_session_token: # Optional.
+    aws_role: # Optional (Role chaining supported by using a sorted list).
 ```
 
 ### Snowflake `snowflake`

@@ -343,6 +343,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+                        "customProperties": {},
                         "description": null,
                         "mlFeatures": [
                             "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)",
@@ -421,6 +422,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+                        "customProperties": {},
                         "description": null,
                         "mlFeatures": [
                             "urn:li:mlFeature:(test_feature_table_no_labels,test_BYTES_feature)"
@@ -485,6 +487,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+                        "customProperties": {},
                         "description": null,
                         "mlFeatures": [
                             "urn:li:mlFeature:(test_feature_table_single_feature,test_BYTES_feature)"
