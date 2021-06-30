@@ -69,6 +69,20 @@ class SagemakerSource(Source):
 
         return feature_groups
 
+    def get_all_models(self) -> List[Dict[str, Any]]:
+        """
+        List all models in SageMaker.
+        """
+
+        models = []
+
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_models
+        paginator = self.sagemaker_client.get_paginator("list_models")
+        for page in paginator.paginate():
+            models += page["Models"]
+
+        return models
+
     def get_feature_group_details(self, feature_group_name: str) -> Dict[str, Any]:
         """
         Get details of a feature group (including list of component features).
@@ -93,6 +107,14 @@ class SagemakerSource(Source):
             next_token = feature_group.get("NextToken", "")
 
         return feature_group
+
+    def get_model_details(self, model_name: str) -> Dict[str, Any]:
+        """
+        Get details of a model.
+        """
+
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_model
+        return self.sagemaker_client.describe_model(ModelName=model_name)
 
     def get_feature_group_wu(
         self, feature_group_details: Dict[str, Any]
