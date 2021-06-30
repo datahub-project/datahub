@@ -100,39 +100,40 @@ export function getDiffSummary(
     previousVersionRows?: Array<SchemaField>,
     isEditMode = true,
 ): { fields: Array<ExtendedSchemaFields>; added: number; removed: number; updated: number } {
-    let fields = [...(currentVersionRows || [])] as Array<ExtendedSchemaFields>;
+    let rows = [...(currentVersionRows || [])] as Array<ExtendedSchemaFields>;
+    const previousRows = [...(previousVersionRows || [])] as Array<ExtendedSchemaFields>;
     let added = 0;
     let removed = 0;
     let updated = 0;
 
-    if (!isEditMode && previousVersionRows && previousVersionRows.length > 0) {
-        fields.forEach((field, rowIndex) => {
-            const relevantPastFieldIndex = previousVersionRows.findIndex(
-                (pf) => pf.type === fields[rowIndex].type && pf.fieldPath === fields[rowIndex].fieldPath,
+    if (!isEditMode && previousRows && previousRows.length > 0) {
+        rows.forEach((field, rowIndex) => {
+            const relevantPastFieldIndex = previousRows.findIndex(
+                (pf) => pf.type === rows[rowIndex].type && pf.fieldPath === rows[rowIndex].fieldPath,
             );
             if (relevantPastFieldIndex > -1) {
-                if (previousVersionRows[relevantPastFieldIndex].description !== fields[rowIndex].description) {
-                    fields[rowIndex] = {
-                        ...fields[rowIndex],
-                        previousDescription: previousVersionRows[relevantPastFieldIndex].description,
+                if (previousRows[relevantPastFieldIndex].description !== rows[rowIndex].description) {
+                    rows[rowIndex] = {
+                        ...rows[rowIndex],
+                        previousDescription: previousRows[relevantPastFieldIndex].description,
                     };
                     updated++;
                 }
-                previousVersionRows.splice(relevantPastFieldIndex, 1);
+                previousRows.splice(relevantPastFieldIndex, 1);
             } else {
-                fields[rowIndex] = { ...fields[rowIndex], isNewRow: true };
+                rows[rowIndex] = { ...rows[rowIndex], isNewRow: true };
                 added++;
             }
         });
-        if (previousVersionRows.length > 0) {
-            fields = [...fields, ...previousVersionRows.map((pf) => ({ ...pf, isDeletedRow: true }))];
-            removed = previousVersionRows.length;
+        if (previousRows.length > 0) {
+            rows = [...rows, ...previousRows.map((pf) => ({ ...pf, isDeletedRow: true }))];
+            removed = previousRows.length;
         }
     }
 
-    fields = sortByFieldPathAndGrouping(fields);
+    rows = sortByFieldPathAndGrouping(rows);
 
-    return { fields, added, removed, updated };
+    return { fields: rows, added, removed, updated };
 }
 
 export function diffMarkdown(oldStr: string, newStr: string) {
