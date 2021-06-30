@@ -5465,12 +5465,17 @@ class MLFeatureTablePropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties")
     def __init__(self,
+        customProperties: Optional[Dict[str, str]]=None,
         description: Union[None, str]=None,
         mlFeatures: Union[None, List[str]]=None,
         mlPrimaryKeys: Union[None, List[str]]=None,
     ):
         super().__init__()
         
+        if customProperties is None:
+            self.customProperties = {}
+        else:
+            self.customProperties = customProperties
         self.description = description
         self.mlFeatures = mlFeatures
         self.mlPrimaryKeys = mlPrimaryKeys
@@ -5483,9 +5488,22 @@ class MLFeatureTablePropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
+        self.customProperties = dict()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
         self.mlPrimaryKeys = self.RECORD_SCHEMA.field_map["mlPrimaryKeys"].default
+    
+    
+    @property
+    def customProperties(self) -> Dict[str, str]:
+        """Getter: Custom property bag."""
+        return self._inner_dict.get('customProperties')  # type: ignore
+    
+    
+    @customProperties.setter
+    def customProperties(self, value: Dict[str, str]) -> None:
+        """Setter: Custom property bag."""
+        self._inner_dict['customProperties'] = value
     
     
     @property
