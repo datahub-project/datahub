@@ -10,7 +10,7 @@ import { convertTagsForUpdate } from '../../shared/tags/utils/convertTagsForUpda
 
 export interface ExtendedSchemaFields extends SchemaField {
     children?: Array<ExtendedSchemaFields>;
-    pastDescription?: string | null;
+    previousDescription?: string | null;
     pastGlobalTags?: GlobalTags | null;
     isNewRow?: boolean;
     isDeletedRow?: boolean;
@@ -53,68 +53,84 @@ export function convertEditableSchemaMetadataForUpdate(
     };
 }
 
-export function sortByFieldAndParse(
-    inputFields?: Array<SchemaField>,
-    pastInputFields?: Array<SchemaField>,
+function sortByFieldPath(row1: SchemaField, row2: SchemaField): number {
+    if (row1.fieldPath > row2.fieldPath) {
+        return 1;
+    }
+    if (row2.fieldPath > row1.fieldPath) {
+        return -1;
+    }
+    return 0;
+}
+
+// Sort schema fields by fieldPath and grouping for hierarchy in schema table
+export function sortByFieldPathAndGrouping(schemaRows?: Array<SchemaField>): Array<ExtendedSchemaFields> {
+    const rows = [...(schemaRows || [])] as Array<ExtendedSchemaFields>;
+    if (rows.length > 1) {
+        rows.sort(sortByFieldPath);
+        for (let rowIndex = rows.length; rowIndex--; rowIndex >= 0) {
+            const row = rows[rowIndex];
+            if (row.fieldPath.slice(1, -1).includes('.')) {
+                const fieldPaths = row.fieldPath.split(/\.(?=[^.]+$)/);
+                const parentFieldIndex = rows.findIndex((f) => f.fieldPath === fieldPaths[0]);
+                if (parentFieldIndex > -1) {
+                    if ('children' in rows[parentFieldIndex]) {
+                        rows[parentFieldIndex].children?.unshift(row);
+                    } else {
+                        rows[parentFieldIndex] = { ...rows[parentFieldIndex], children: [row] };
+                    }
+                    rows.splice(rowIndex, 1);
+                } else if (rowIndex > 0 && fieldPaths[0].includes(rows[rowIndex - 1].fieldPath)) {
+                    if ('children' in rows[rowIndex - 1]) {
+                        rows[rowIndex - 1].children?.unshift(row);
+                    } else {
+                        rows[rowIndex - 1] = { ...rows[rowIndex - 1], children: [row] };
+                    }
+                    rows.splice(rowIndex, 1);
+                }
+            }
+        }
+    }
+    return rows;
+}
+
+// Get diff summary between two versions and prepare to visualize description diff changes
+export function getDiffSummary(
+    currentVersionRows?: Array<SchemaField>,
+    previousVersionRows?: Array<SchemaField>,
     isEditMode = true,
 ): { fields: Array<ExtendedSchemaFields>; added: number; removed: number; updated: number } {
-    let fields = [...(inputFields || [])] as Array<ExtendedSchemaFields>;
-    const pastFields = [...(pastInputFields || [])] as Array<ExtendedSchemaFields>;
+    let fields = [...(currentVersionRows || [])] as Array<ExtendedSchemaFields>;
     let added = 0;
     let removed = 0;
     let updated = 0;
 
-    if (!isEditMode && pastFields.length > 0) {
+    if (!isEditMode && previousVersionRows && previousVersionRows.length > 0) {
         fields.forEach((field, rowIndex) => {
-            const relevantPastFieldIndex = pastFields.findIndex(
+            const relevantPastFieldIndex = previousVersionRows.findIndex(
                 (pf) => pf.type === fields[rowIndex].type && pf.fieldPath === fields[rowIndex].fieldPath,
             );
             if (relevantPastFieldIndex > -1) {
-                if (pastFields[relevantPastFieldIndex].description !== fields[rowIndex].description) {
+                if (previousVersionRows[relevantPastFieldIndex].description !== fields[rowIndex].description) {
                     fields[rowIndex] = {
                         ...fields[rowIndex],
-                        pastDescription: pastFields[relevantPastFieldIndex].description,
+                        previousDescription: previousVersionRows[relevantPastFieldIndex].description,
                     };
                     updated++;
                 }
-                pastFields.splice(relevantPastFieldIndex, 1);
+                previousVersionRows.splice(relevantPastFieldIndex, 1);
             } else {
                 fields[rowIndex] = { ...fields[rowIndex], isNewRow: true };
                 added++;
             }
         });
-        if (pastFields.length > 0) {
-            fields = [...fields, ...pastFields.map((pf) => ({ ...pf, isDeletedRow: true }))];
-            removed = pastFields.length;
+        if (previousVersionRows.length > 0) {
+            fields = [...fields, ...previousVersionRows.map((pf) => ({ ...pf, isDeletedRow: true }))];
+            removed = previousVersionRows.length;
         }
     }
 
-    if (fields.length > 1) {
-        // eslint-disable-next-line no-nested-ternary
-        fields.sort((a, b) => (a.fieldPath > b.fieldPath ? 1 : b.fieldPath > a.fieldPath ? -1 : 0));
-        for (let rowIndex = fields.length; rowIndex--; rowIndex >= 0) {
-            const field = fields[rowIndex];
-            if (field.fieldPath.slice(1, -1).includes('.')) {
-                const fieldPaths = field.fieldPath.split(/\.(?=[^.]+$)/);
-                const parentFieldIndex = fields.findIndex((f) => f.fieldPath === fieldPaths[0]);
-                if (parentFieldIndex > -1) {
-                    if ('children' in fields[parentFieldIndex]) {
-                        fields[parentFieldIndex].children?.unshift(field);
-                    } else {
-                        fields[parentFieldIndex] = { ...fields[parentFieldIndex], children: [field] };
-                    }
-                    fields.splice(rowIndex, 1);
-                } else if (rowIndex > 0 && fieldPaths[0].includes(fields[rowIndex - 1].fieldPath)) {
-                    if ('children' in fields[rowIndex - 1]) {
-                        fields[rowIndex - 1].children?.unshift(field);
-                    } else {
-                        fields[rowIndex - 1] = { ...fields[rowIndex - 1], children: [field] };
-                    }
-                    fields.splice(rowIndex, 1);
-                }
-            }
-        }
-    }
+    fields = sortByFieldPathAndGrouping(fields);
 
     return { fields, added, removed, updated };
 }

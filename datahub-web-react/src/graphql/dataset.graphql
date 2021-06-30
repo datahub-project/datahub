@@ -22,7 +22,7 @@ query getDataset($urn: String!) {
         schemaMetadata(version: 0) {
             ...schemaMetadataFields
         }
-        pastSchemaMetadata: schemaMetadata(version: -1) {
+        previousSchemaMetadata: schemaMetadata(version: -1) {
             ...schemaMetadataFields
         }
         editableSchemaMetadata {
@@ -94,7 +94,7 @@ query getDatasetSchemaVersions($urn: String!, $version1: Long, $version2: Long) 
         schemaMetadata(version: $version1) {
             ...schemaMetadataFields
         }
-        pastSchemaMetadata: schemaMetadata(version: $version2) {
+        previousSchemaMetadata: schemaMetadata(version: $version2) {
             ...schemaMetadataFields
         }
         editableSchemaMetadata {

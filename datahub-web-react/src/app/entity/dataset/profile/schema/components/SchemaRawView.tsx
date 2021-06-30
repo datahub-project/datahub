@@ -7,7 +7,7 @@ import { diffJson, getRawSchema } from '../../../../shared/utils';
 type Props = {
     schemaDiff: {
         current?: SchemaMetadata | Schema | null;
-        past?: SchemaMetadata | null;
+        previous?: SchemaMetadata | null;
     };
     editMode: boolean;
 };
@@ -20,8 +20,8 @@ export default function SchemaRawView({ schemaDiff, editMode }: Props) {
     const schemaRawDiff = editMode
         ? currentSchemaRaw
         : diffJson(
-              schemaDiff.past?.platformSchema?.__typename === 'TableSchema'
-                  ? getRawSchema(schemaDiff.past?.platformSchema.schema)
+              schemaDiff.previous?.platformSchema?.__typename === 'TableSchema'
+                  ? getRawSchema(schemaDiff.previous?.platformSchema.schema)
                   : '',
               currentSchemaRaw,
           );

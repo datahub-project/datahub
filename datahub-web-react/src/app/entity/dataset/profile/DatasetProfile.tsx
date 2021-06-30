@@ -71,10 +71,10 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         institutionalMemory,
         schema,
         schemaMetadata,
-        pastSchemaMetadata,
+        previousSchemaMetadata,
         editableSchemaMetadata,
         usageStats,
-    }: Dataset & { pastSchemaMetadata: SchemaMetadata }) => {
+    }: Dataset & { previousSchemaMetadata: SchemaMetadata }) => {
         return [
             {
                 name: TabType.Schema,
@@ -83,7 +83,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     <SchemaView
                         urn={urn}
                         schema={schemaMetadata || schema}
-                        pastSchemaMetadata={pastSchemaMetadata}
+                        previousSchemaMetadata={previousSchemaMetadata}
                         usageStats={usageStats}
                         editableSchemaMetadata={editableSchemaMetadata}
                         updateEditableSchema={(update) => {
@@ -182,7 +182,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                         />
                     }
                     tagCardHeader={data.dataset?.glossaryTerms ? 'Tags & Terms' : 'Tags'}
-                    tabs={getTabs(data.dataset as Dataset & { pastSchemaMetadata: SchemaMetadata })}
+                    tabs={getTabs(data.dataset as Dataset & { previousSchemaMetadata: SchemaMetadata })}
                     header={getHeader(data.dataset as Dataset)}
                     onTabChange={(tab: string) => {
                         analytics.event({

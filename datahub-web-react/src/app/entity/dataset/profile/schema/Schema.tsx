@@ -14,11 +14,7 @@ import {
     EntityType,
     UsageQueryResult,
 } from '../../../../../types.generated';
-import {
-    convertEditableSchemaMetadataForUpdate,
-    sortByFieldAndParse,
-    ExtendedSchemaFields,
-} from '../../../shared/utils';
+import { convertEditableSchemaMetadataForUpdate, getDiffSummary, ExtendedSchemaFields } from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import SchemaTable from './SchemaTable';
 import SchemaHeader from './components/SchemaHeader';
@@ -34,7 +30,7 @@ export type Props = {
     urn: string;
     usageStats?: UsageQueryResult | null;
     schema?: SchemaMetadata | Schema | null;
-    pastSchemaMetadata?: SchemaMetadata | null;
+    previousSchemaMetadata?: SchemaMetadata | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     updateEditableSchema: (
         update: EditableSchemaMetadataUpdate,
@@ -44,17 +40,17 @@ export type Props = {
 export default function SchemaView({
     urn,
     schema,
-    pastSchemaMetadata,
+    previousSchemaMetadata,
     editableSchemaMetadata,
     updateEditableSchema,
     usageStats,
 }: Props) {
-    const totalVersions = pastSchemaMetadata?.aspectVersion || 0;
+    const totalVersions = previousSchemaMetadata?.aspectVersion || 0;
     const [showRaw, setShowRaw] = useState(false);
     const [schemaDiff, setSchemaDiff] = useState<{
         current?: SchemaMetadata | Schema | null;
-        past?: SchemaMetadata | null;
-    }>({ current: schema, past: pastSchemaMetadata });
+        previous?: SchemaMetadata | null;
+    }>({ current: schema, previous: previousSchemaMetadata });
     const [editMode, setEditMode] = useState(true);
     const [currentVersion, setCurrentVersion] = useState(totalVersions);
     const [getSchemaVersions, { loading, error, data: schemaVersions }] = useGetDatasetSchemaVersionsLazyQuery({
@@ -62,7 +58,7 @@ export default function SchemaView({
     });
 
     const { fields: rows, ...diffSummary } = useMemo(
-        () => sortByFieldAndParse(schemaDiff.current?.fields, schemaDiff.past?.fields, editMode),
+        () => getDiffSummary(schemaDiff.current?.fields, schemaDiff.previous?.fields, editMode),
         [schemaDiff, editMode],
     );
 
@@ -70,7 +66,7 @@ export default function SchemaView({
         if (!loading && !error && schemaVersions) {
             setSchemaDiff({
                 current: schemaVersions.dataset?.schemaMetadata,
-                past: schemaVersions.dataset?.pastSchemaMetadata,
+                previous: schemaVersions.dataset?.previousSchemaMetadata,
             });
         }
     }, [schemaVersions, loading, error]);
@@ -147,7 +143,7 @@ export default function SchemaView({
                 currentVersion={currentVersion}
                 setCurrentVersion={setCurrentVersion}
                 totalVersions={totalVersions}
-                updateDiff={() => setSchemaDiff({ current: schema, past: pastSchemaMetadata })}
+                updateDiff={() => setSchemaDiff({ current: schema, previous: previousSchemaMetadata })}
                 fetchVersions={fetchVersions}
                 editMode={editMode}
                 setEditMode={setEditMode}

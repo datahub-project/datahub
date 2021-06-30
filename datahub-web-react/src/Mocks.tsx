@@ -281,7 +281,7 @@ export const dataset3 = {
         ],
     },
     schemaMetadata: null,
-    pastSchemaMetadata: null,
+    previousSchemaMetadata: null,
     editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,

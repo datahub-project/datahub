@@ -133,7 +133,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     schemaMetadata(version: 0) {
         ...schemaMetadataFields
     }
-    pastSchemaMetadata: schemaMetadata(version: -1) {
+    previousSchemaMetadata: schemaMetadata(version: -1) {
         ...schemaMetadataFields
     }
     editableSchemaMetadata {

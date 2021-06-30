@@ -129,10 +129,10 @@ export default function SchemaTable({
             (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
         );
 
-        if (!editMode && record.pastDescription) {
+        if (!editMode && record.previousDescription) {
             return (
                 <DescriptionField
-                    description={diffMarkdown(record.pastDescription, description)}
+                    description={diffMarkdown(record.previousDescription, description)}
                     isEdited={!!relevantEditableFieldInfo?.description}
                     onUpdate={(updatedDescription) => onUpdateDescription(updatedDescription, record)}
                     editable={editMode}
