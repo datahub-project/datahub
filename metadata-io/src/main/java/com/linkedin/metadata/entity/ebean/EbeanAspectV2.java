@@ -22,6 +22,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "metadata_aspect_v2")
 public class EbeanAspectV2 extends Model {

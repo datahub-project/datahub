@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.nocode;
+package com.linkedin.datahub.upgrade.common.steps;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,7 +39,7 @@ public class GMSQualificationStep implements UpgradeStep {
     return sb.toString();
   }
 
-  GMSQualificationStep() { }
+  public GMSQualificationStep() { }
 
   @Override
   public String id() {

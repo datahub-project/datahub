@@ -37,7 +37,8 @@ public class DefaultUpgradeManager implements UpgradeManager {
     final UpgradeContext context = new DefaultUpgradeContext(upgrade, upgradeReport, new ArrayList<>(), args);
     upgradeReport.addLine(String.format("Starting upgrade with id %s...", upgrade.id()));
     UpgradeResult result = executeInternal(context);
-    upgradeReport.addLine(String.format("Upgrade %s completed with result %s. Exiting...", upgrade.id(), result.result()));
+    upgradeReport.addLine(
+        String.format("Upgrade %s completed with result %s. Exiting...", upgrade.id(), result.result()));
     executeCleanupInternal(context, result);
     return result;
   }
@@ -52,30 +53,38 @@ public class DefaultUpgradeManager implements UpgradeManager {
     for (int i = 0; i < steps.size(); i++) {
       final UpgradeStep step = steps.get(i);
 
-      upgradeReport.addLine(String.format(String.format("Executing Step %s/%s: %s...", i + 1, steps.size(), step.id()), upgrade.id()));
+      if (step.skip(context)) {
+        upgradeReport.addLine(
+            String.format(String.format("Skipping Step %s/%s: %s...", i + 1, steps.size(), step.id()), upgrade.id()));
+        continue;
+      }
+
+      upgradeReport.addLine(
+          String.format(String.format("Executing Step %s/%s: %s...", i + 1, steps.size(), step.id()), upgrade.id()));
 
       final UpgradeStepResult stepResult = executeStepInternal(context, step);
       stepResults.add(stepResult);
 
       // Apply Actions
       if (UpgradeStepResult.Action.ABORT.equals(stepResult.action())) {
-        upgradeReport.addLine(String.format("Step with id %s requested an abort of the in-progress update. Aborting the upgrade...", step.id()));
+        upgradeReport.addLine(
+            String.format("Step with id %s requested an abort of the in-progress update. Aborting the upgrade...",
+                step.id()));
         return new DefaultUpgradeResult(UpgradeResult.Result.ABORTED, upgradeReport);
       }
 
       // Handle Results
       if (UpgradeStepResult.Result.FAILED.equals(stepResult.result())) {
         if (step.isOptional()) {
-          upgradeReport.addLine(String.format("Failed Step %s/%s: %s. Step marked as optional. Proceeding with upgrade...", i + 1, steps.size(), step.id()));
+          upgradeReport.addLine(
+              String.format("Failed Step %s/%s: %s. Step marked as optional. Proceeding with upgrade...", i + 1,
+                  steps.size(), step.id()));
           continue;
         }
 
         // Required step failed. Fail the entire upgrade process.
         upgradeReport.addLine(
-            String.format("Failed Step %s/%s: %s. Failed after %s retries.",
-                i + 1,
-                steps.size(),
-                step.id(),
+            String.format("Failed Step %s/%s: %s. Failed after %s retries.", i + 1, steps.size(), step.id(),
                 step.retryCount()));
         upgradeReport.addLine(String.format("Exiting upgrade %s with failure.", upgrade.id()));
         return new DefaultUpgradeResult(UpgradeResult.Result.FAILED, upgradeReport);
@@ -98,26 +107,18 @@ public class DefaultUpgradeManager implements UpgradeManager {
 
         if (result == null) {
           // Failed to even retrieve a result. Create a default failure result.
-          result = new DefaultUpgradeStepResult(
-              step.id(),
-              UpgradeStepResult.Result.FAILED
-          );
+          result = new DefaultUpgradeStepResult(step.id(), UpgradeStepResult.Result.FAILED);
           context.report().addLine(String.format("Retrying %s more times...", maxAttempts - (i + 1)));
         }
 
         if (UpgradeStepResult.Result.SUCCEEDED.equals(result.result())) {
           break;
         }
-
       } catch (Exception e) {
-        context.report().addLine(String.format("Caught exception during attempt %s of Step with id %s: %s",
-            i,
-            step.id(),
-            e.toString()
-        ));
-        result = new DefaultUpgradeStepResult(
-            step.id(),
-            UpgradeStepResult.Result.FAILED);
+        context.report()
+            .addLine(
+                String.format("Caught exception during attempt %s of Step with id %s: %s", i, step.id(), e.toString()));
+        result = new DefaultUpgradeStepResult(step.id(), UpgradeStepResult.Result.FAILED);
         context.report().addLine(String.format("Retrying %s more times...", maxAttempts - (i + 1)));
       }
     }
