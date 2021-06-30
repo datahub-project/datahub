@@ -1,6 +1,8 @@
 import logging
 from typing import Iterable, Optional
 
+import pydantic
+
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
 from snowflake.sqlalchemy import custom_types
@@ -9,7 +11,7 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import text
 from sqlalchemy.sql.elements import quoted_name
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 
 from .sql_common import (
     SQLAlchemyConfig,
