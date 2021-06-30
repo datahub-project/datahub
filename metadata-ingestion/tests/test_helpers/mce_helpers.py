@@ -5,7 +5,6 @@ import shutil
 from typing import List, Optional, Union
 
 import deepdiff
-import pytest
 
 from tests.test_helpers.type_helpers import PytestConfig
 
