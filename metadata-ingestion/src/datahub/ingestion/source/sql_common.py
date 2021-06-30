@@ -206,8 +206,8 @@ def get_schema_metadata(
     for column in columns:
         field = SchemaField(
             fieldPath=column["name"],
-            nativeDataType=repr(column["type"]),
             type=get_column_type(sql_report, dataset_name, column["type"]),
+            nativeDataType=column.get("full_type", repr(column["type"])),
             description=column.get("comment", None),
             nullable=column["nullable"],
             recursive=False,
