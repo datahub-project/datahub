@@ -4,13 +4,13 @@ datahub-gms:
   enabled: true
   image:
     repository: linkedin/datahub-gms
-    tag: "v0.8.1"
+    tag: "v0.8.4"
 
 datahub-frontend:
   enabled: true
   image:
     repository: linkedin/datahub-frontend-react
-    tag: "v0.8.1"
+    tag: "v0.8.4"
   # Set up ingress to expose react front-end
   ingress:
     enabled: false
@@ -19,25 +19,25 @@ elasticsearchSetupJob:
   enabled: true
   image:
     repository: linkedin/datahub-elasticsearch-setup
-    tag: "v0.8.1"
+    tag: "v0.8.4"
 
 kafkaSetupJob:
   enabled: true
   image:
     repository: linkedin/datahub-kafka-setup
-    tag: "v0.8.1"
+    tag: "v0.8.4"
 
 mysqlSetupJob:
   enabled: true
   image:
     repository: acryldata/datahub-mysql-setup
-    tag: "v0.8.1"
+    tag: "v0.8.4"
 
 datahubUpgrade:
   enabled: true
   image:
     repository: acryldata/datahub-upgrade
-    tag: "v0.8.1"
+    tag: "v0.8.4"
 
 datahub-ingestion-cron:
   enabled: false

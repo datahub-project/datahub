@@ -17,23 +17,23 @@ helm install datahub datahub/
 |-----|------|---------|-------------|
 | datahub-frontend.enabled | bool | `true` | Enable Datahub Front-end |
 | datahub-frontend.image.repository | string | `"linkedin/datahub-frontend-react"` | Image repository for datahub-frontend |
-| datahub-frontend.image.tag | string | `"v0.8.3"` | Image tag for datahub-frontend |
+| datahub-frontend.image.tag | string | `"v0.8.4"` | Image tag for datahub-frontend |
 | datahub-gms.enabled | bool | `true` | Enable GMS |
 | datahub-gms.image.repository | string | `"linkedin/datahub-gms"` | Image repository for datahub-gms |
-| datahub-gms.image.tag | string | `"v0.8.3"` | Image tag for datahub-gms |
+| datahub-gms.image.tag | string | `"v0.8.4"` | Image tag for datahub-gms |
 | datahub-mae-consumer.enabled | bool | `true` | Enable MAE Consumer |
 | datahub-mae-consumer.image.repository | string | `"linkedin/datahub-mae-consumer"` | Image repository for datahub-mae-consumer |
-| datahub-mae-consumer.image.tag | string | `"v0.8.3"` | Image tag for datahub-mae-consumer |
+| datahub-mae-consumer.image.tag | string | `"v0.8.4"` | Image tag for datahub-mae-consumer |
 | datahub-mce-consumer.enabled | bool | `true` | Enable MCE Consumer |
 | datahub-mce-consumer.image.repository | string | `"linkedin/datahub-mce-consumer"` | Image repository for datahub-mce-consumer |
-| datahub-mce-consumer.image.tag | string | `"v0.8.3"` | Image tag for datahub-mce-consumer |
+| datahub-mce-consumer.image.tag | string | `"v0.8.4"` | Image tag for datahub-mce-consumer |
 | datahub-ingestion-cron.enabled | bool | `false` | Enable cronjob for periodic ingestion |
 | elasticsearchSetupJob.enabled | bool | `true` | Enable setup job for elasicsearch |
 | elasticsearchSetupJob.image.repository | string | `"linkedin/datahub-elasticsearch-setup"` | Image repository for elasticsearchSetupJob |
-| elasticsearchSetupJob.image.tag | string | `"v0.8.3"` | Image repository for elasticsearchSetupJob |
+| elasticsearchSetupJob.image.tag | string | `"v0.8.4"` | Image repository for elasticsearchSetupJob |
 | kafkaSetupJob.enabled | bool | `true` | Enable setup job for kafka |
 | kafkaSetupJob.image.repository | string | `"linkedin/datahub-kafka-setup"` | Image repository for kafkaSetupJob |
-| kafkaSetupJob.image.tag | string | `"v0.8.3"` | Image repository for kafkaSetupJob |
+| kafkaSetupJob.image.tag | string | `"v0.8.4"` | Image repository for kafkaSetupJob |
 | mysqlSetupJob.enabled | bool | `false` | Enable setup job for mysql |
 | mysqlSetupJob.image.repository | string | `""` | Image repository for mysqlSetupJob |
 | mysqlSetupJob.image.tag | string | `""` | Image repository for mysqlSetupJob |
