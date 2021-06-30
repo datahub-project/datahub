@@ -81,10 +81,6 @@ def modify_docker_config(base_path, docker_yaml_config):
 @click.argument("output-file", type=click.Path())
 def generate(compose_files, output_file) -> None:
 
-    # Copy ../mysql/init.sql into the mysql directory
-    currDir = os.path.dirname(os.path.realpath(__file__))
-    copyfile(currDir + "/../mysql/init.sql", currDir + "/mysql/init.sql")
-
     # Resolve .env files to inlined vars
     modified_files = []
     for compose_file in compose_files:
