@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.GlobalTags;
-
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.dataset.DatasetDeprecation;
@@ -79,6 +80,8 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
               result.setGlobalTags(GlobalTagsMapper.map((GlobalTags) aspect));
             } else if (aspect instanceof EditableSchemaMetadata) {
               result.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map((EditableSchemaMetadata) aspect));
+            } else if(aspect instanceof GlossaryTerms) {
+                result.setGlossaryTerms(GlossaryTermsMapper.map((GlossaryTerms) aspect ));
             }
             result.setTags(new ArrayList<>());
         });
