@@ -249,6 +249,72 @@ def process_training_job(job):
     See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_training_job
     """
 
+    name: str = job["TrainingJobName"]
+    arn: str = job["TrainingJobArn"]
+    status: str = job["TrainingJobStatus"]
+    secondary_status = job["SecondaryStatus"]
+
+    create_time: Optional[datetime] = job.get("CreationTime")
+    last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
+    start_time: Optional[datetime] = job.get("TrainingStartTime")
+    end_time: Optional[datetime] = job.get("TrainingEndTime")
+
+    hyperparameters = job.get("HyperParameters", {})
+
+    input_data_configs = job.get("InputDataConfig", [])
+
+    processed_input_data = []
+
+    for config in input_data_configs:
+
+        channel_name = config.get("ChannelName")
+        data_source = config.get("DataSource", {})
+
+        s3_source = data_source.get("S3DataSource", {})
+        s3_type = s3_source.get("S3Datatype")
+        s3_uri = s3_source.get("S3Uri")
+        s3_distribution_type = s3_source.get("S3DataDistributionType")
+        s3_attribute_names = s3_source.get("AttributeNames")
+
+        file_system_source = data_source.get("FileSystemDataSource", {})
+        file_system_id = file_system_source.get("FileSystemId")
+        file_system_mode = file_system_source.get("FileSystemAccessMode")
+        file_system_type = file_system_source.get("FileSystemType")
+        file_system_path = file_system_source.get("DirectoryPath")
+
+        processed_input_data.append(
+            {
+                "channel_name": channel_name,
+                "s3_type": s3_type,
+                "s3_uri": s3_uri,
+                "s3_distribution_type": s3_distribution_type,
+                "s3_attribute_names": s3_attribute_names,
+                "file_system_id": file_system_id,
+                "file_system_mode": file_system_mode,
+                "file_system_type": file_system_type,
+                "file_system_path": file_system_path,
+            }
+        )
+
+    checkpoint_s3_uri = job.get("CheckpointConfig", {}).get("S3Uri")
+
+    debug_s3_path = job.get("DebugHookConfig", {}).get("S3OutputPath")
+
+    debug_rule_configs = job.get("DebugRuleConfigurations", [])
+
+    processed_debug_configs = [
+        {"s3_uri": config.get("S3OutputPath")} for config in debug_rule_configs
+    ]
+
+    tensorboard_output_path = job.get("TensorBoardOutputConfig", {}).get("S3OutputPath")
+    profiler_output_path = job.get("ProfilerConfig", {}).get("S3OutputPath")
+
+    profiler_rule_configs = job.get("ProfilerRuleConfigurations", [])
+
+    processed_profiler_configs = [
+        {"s3_uri": config.get("S3OutputPath")} for config in profiler_rule_configs
+    ]
+
     return
 
 
@@ -259,5 +325,27 @@ def process_transform_job(job):
 
     See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_transform_job
     """
+
+    name: str = job["TransformJobName"]
+    arn: str = job["TransformJobArn"]
+    status: str = job["TransformJobStatus"]
+
+    create_time: Optional[datetime] = job.get("CreationTime")
+    last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
+    start_time: Optional[datetime] = job.get("TransformStartTime")
+    end_time: Optional[datetime] = job.get("TransformEndTime")
+
+    job_input = job.get("TransformInput", {})
+    input_s3 = job_input.get("DataSource", {}).get("S3DataSource", {})
+    input_s3_type = input_s3.get("S3DataType")
+    input_s3_uri = input_s3.get("S3Uri")
+    input_s3_compression = job_input.get("CompressionType")
+    input_s3_split_type = job_input.get("SplitType")
+
+    job_output = job.get("TransformOutput", {})
+    output_s3_uri = job_output.get("S3OutputPath")
+
+    labeling_arn = job.get("LabelingJobArn")
+    auto_ml_arn = job.get("AutoMLJobArn")
 
     return
