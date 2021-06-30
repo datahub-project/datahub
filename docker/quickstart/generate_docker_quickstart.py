@@ -1,9 +1,9 @@
 import os
-from collections.abc import Mapping
-
 import click
 import yaml
+from collections.abc import Mapping
 from dotenv import dotenv_values
+from shutil import copyfile
 from yaml import Loader
 
 # Generates a merged docker-compose file with env variables inlined.
@@ -80,6 +80,10 @@ def modify_docker_config(base_path, docker_yaml_config):
 )
 @click.argument("output-file", type=click.Path())
 def generate(compose_files, output_file) -> None:
+
+    # Copy ../mysql/init.sql into the mysql directory
+    currDir = os.path.dirname(os.path.realpath(__file__))
+    copyfile(currDir + "/../mysql/init.sql", currDir + "/mysql/init.sql")
 
     # Resolve .env files to inlined vars
     modified_files = []
