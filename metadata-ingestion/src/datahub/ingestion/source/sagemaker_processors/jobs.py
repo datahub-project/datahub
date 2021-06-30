@@ -11,14 +11,43 @@ from datahub.metadata.schema_classes import (
 )
 
 
+def make_s3_urn(s3_uri: str, env: str, suffix: Optional[str] = None) -> str:
+    # TODO: update Glue to use this as well
+
+    if not s3_uri.startswith("s3://"):
+        raise ValueError("S3 URIs should begin with 's3://'")
+    # remove S3 prefix (s3://)
+    s3_name = s3_uri[5:]
+
+    if s3_name.endswith("/"):
+        s3_name = s3_name[:-1]
+
+    if suffix is not None:
+        return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name}_{suffix},{env})"
+
+    return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{env})"
+
+
 @dataclass
 class SageMakerJob:
     job: MetadataChangeEventClass
-    input_datasets: List[Dict[str, Dict[str, Any]]] = []
-    output_datasets: List[Dict[str, Dict[str, Any]]] = []
+    input_datasets: Dict[str, Dict[str, Any]] = {}
+    output_datasets: Dict[str, Dict[str, Any]] = {}
     input_jobs: List[str] = []
+    # TODO
     # we resolve output jobs to input ones after processing
     output_jobs: List[str] = []
+
+
+def make_sagemaker_job_urn(name: str, job_type: str) -> str:
+
+    # SageMaker has no global grouping property for jobs,
+    # so we just file all of them under an umbrella DataFlow
+    return mce_builder.make_data_job_urn(
+        orchestrator="sagemaker",
+        flow_id="sagemaker",
+        job_id=f"{job_type}:{name}",
+    )
 
 
 def create_common_job_mce(
@@ -28,13 +57,7 @@ def create_common_job_mce(
     properties: Dict[str, Any],
 ) -> MetadataChangeEventClass:
 
-    # SageMaker has no global grouping property for jobs,
-    # so we just file all of them under an umbrella DataFlow
-    job_urn = mce_builder.make_data_job_urn(
-        "sagemaker",
-        "sagemaker",
-        arn,
-    )
+    job_urn = make_sagemaker_job_urn(name, job_type)
 
     return MetadataChangeEventClass(
         proposedSnapshot=DataJobSnapshotClass(
@@ -54,9 +77,7 @@ def create_common_job_mce(
     )
 
 
-def process_auto_ml_job(
-    job,
-) -> SageMakerJob:
+def process_auto_ml_job(job, env) -> SageMakerJob:
     """
     Process outputs from Boto3 describe_auto_ml_job()
 
@@ -77,28 +98,24 @@ def process_auto_ml_job(
         job["InputDataConfig"].get("DataSource", {}).get("S3DataSource")
     )
 
-    input_datasets = []
+    input_datasets = {}
 
     if input_data is not None and "S3Uri" in input_data:
-        input_datasets.append(
-            {
-                "dataset_type": "s3",
-                "uri": input_data["S3Uri"],
-                "datatype": input_data.get("S3DataType"),
-            }
-        )
+        input_datasets[make_s3_urn(input_data["S3Uri"], env)] = {
+            "dataset_type": "s3",
+            "uri": input_data["S3Uri"],
+            "datatype": input_data.get("S3DataType"),
+        }
 
-    output_datasets = []
+    output_datasets = {}
 
     output_s3_path = job.get("OutputDataConfig", {}).get("S3OutputPath")
 
     if output_s3_path is not None:
-        output_datasets.append(
-            {
-                "dataset_type": "s3",
-                "uri": output_s3_path,
-            }
-        )
+        output_datasets[make_s3_urn(output_s3_path, env)] = {
+            "dataset_type": "s3",
+            "uri": output_s3_path,
+        }
 
     job_mce = create_common_job_mce(name, arn, "AutoML", job)
 
@@ -107,9 +124,7 @@ def process_auto_ml_job(
     )
 
 
-def process_compilation_job(
-    job,
-) -> SageMakerJob:
+def process_compilation_job(job, env) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_compilation_job()
@@ -128,33 +143,40 @@ def process_compilation_job(
     start_time: Optional[datetime] = job.get("CompilationStartTime")
     end_time: Optional[datetime] = job.get("CompilationEndTime")
 
-    image: Optional[str] = job.get("InferenceImage")
+    input_datasets = {}
 
-    model_artifacts: Optional[str] = job.get("ModelArtifacts", {}).get(
-        "S3ModelArtifacts"
-    )
+    input_data: Optional[Dict[str, Any]] = job.get("InputConfig")
 
-    input_config = job.get("InputConfig", {})
-    input_s3_uri: Optional[str] = input_config.get("S3Uri")
-    input_framework: Optional[str] = input_config.get("Framework")
-    input_framework_version: Optional[str] = input_config.get("FrameworkVersion")
+    if input_data is not None and "S3Uri" in input_data:
+        input_datasets[make_s3_urn(input_data["S3Uri"], env)] = {
+            "dataset_type": "s3",
+            "uri": input_data["S3Uri"],
+            "framework": input_data.get("Framework"),
+            "framework_version": input_data.get("FrameworkVersion"),
+        }
 
-    output_config = job.get("OutputConfig", {})
-    output_s3_uri: Optional[str] = output_config.get("S3OutputLocation")
-    target_device: Optional[str] = output_config.get("TargetDevice")
-    target_platform: Optional[Dict[str, str]] = output_config.get("TargetPlatform", {})
+    output_datasets = {}
 
-    target_platform_os: Optional[str] = target_platform.get("Os")
-    target_platform_arch: Optional[str] = target_platform.get("Arch")
-    target_platform_accelerator: Optional[str] = target_platform.get("Accelerator")
+    output_data: Optional[Dict[str, Any]] = job.get("OutputConfig")
+
+    if output_data is not None and "S3OutputLocation" in output_data:
+        output_datasets[make_s3_urn(output_data["S3OutputLocation"], env)] = {
+            "dataset_type": "s3",
+            "uri": output_data["S3Uri"],
+            "target_device": output_data.get("TargetDevice"),
+            "target_platform": output_data.get("TargetPlatform"),
+        }
 
     job_mce = create_common_job_mce(name, arn, "Compilation", job)
 
-    return job_mce, []
+    return SageMakerJob(
+        job=job_mce, input_datasets=input_datasets, output_datasets=output_datasets
+    )
 
 
 def process_edge_packaging_job(
     job,
+    env,
 ) -> SageMakerJob:
 
     """
@@ -173,16 +195,36 @@ def process_edge_packaging_job(
     create_time: Optional[datetime] = job.get("CreationTime")
     last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
 
+    output_datasets = {}
+
     model_artifact_s3_uri: Optional[str] = job.get("ModelArtifact")
     output_s3_uri: Optional[str] = job.get("OutputConfig", {}).get("S3OutputLocation")
 
+    if model_artifact_s3_uri is not None:
+        output_datasets[make_s3_urn(model_artifact_s3_uri, env)] = {
+            "dataset_type": "s3",
+            "uri": model_artifact_s3_uri,
+        }
+
+    if output_s3_uri is not None:
+        output_datasets[make_s3_urn(output_s3_uri, env)] = {
+            "dataset_type": "s3",
+            "uri": output_s3_uri,
+        }
+
+    # "The name of the SageMaker Neo compilation job that is used to locate model artifacts that are being packaged."
     compilation_job: Optional[str] = job.get("CompilationJobName")
+
     model: Optional[str] = job.get("ModelName")
     model_version: Optional[str] = job.get("ModelVersion")
 
     job_mce = create_common_job_mce(name, arn, "EdgePackaging", job)
 
-    return job_mce, []
+    return SageMakerJob(
+        job=job_mce,
+        output_datasets=output_datasets,
+        output_jobs=[make_sagemaker_job_urn(compilation_job, "compilation")],
+    )
 
 
 def process_hyper_parameter_tuning_job(
