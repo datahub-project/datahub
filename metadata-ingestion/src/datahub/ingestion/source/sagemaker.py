@@ -167,6 +167,14 @@ class SagemakerSource(Source):
 
         return jobs
 
+    def get_job_details(
+        self, job_name: str, describe_command: str, describe_name_key: str
+    ) -> Dict[str, Any]:
+
+        return getattr(self.sagemaker_client, describe_command)(
+            **{describe_name_key: job_name}
+        )
+
     def get_feature_group_details(self, feature_group_name: str) -> Dict[str, Any]:
         """
         Get details of a feature group (including list of component features).
