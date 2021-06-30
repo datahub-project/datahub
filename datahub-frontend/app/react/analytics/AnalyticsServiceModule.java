@@ -1,6 +1,7 @@
 package react.analytics;
 
 import com.google.inject.AbstractModule;
+import java.util.Optional;
 import org.apache.http.ssl.SSLContextBuilder;
 import play.Environment;
 import javax.annotation.Nonnull;
@@ -33,6 +34,7 @@ public class AnalyticsServiceModule extends AbstractModule {
     private static final String ELASTIC_CLIENT_CONNECTION_REQUEST_TIMEOUT_PATH = "analytics.elastic.connectionRequestTimeout";
     private static final String ELASTIC_CLIENT_USERNAME_PATH = "analytics.elastic.username";
     private static final String ELASTIC_CLIENT_PASSWORD_PATH = "analytics.elastic.password";
+    private static final String ELASTIC_INDEX_PREFIX = "analytics.elastic.indexPrefix";
 
     /*
         Required SSL Config Paths
@@ -61,7 +63,8 @@ public class AnalyticsServiceModule extends AbstractModule {
     @Override
     protected void configure() {
         final SSLContext context = createSSLContext();
-        final AnalyticsService backend = new AnalyticsService(ElasticClientFactory.createElasticClient(
+        final AnalyticsService backend = new AnalyticsService(
+            ElasticClientFactory.createElasticClient(
                 _configs.hasPath(ELASTIC_CLIENT_USE_SSL_PATH) && _configs.getBoolean(ELASTIC_CLIENT_USE_SSL_PATH),
                 _configs.getString(ELASTIC_CLIENT_HOST_PATH),
                 _configs.getInt(ELASTIC_CLIENT_PORT_PATH),
@@ -70,7 +73,9 @@ public class AnalyticsServiceModule extends AbstractModule {
                 _configs.hasPath(ELASTIC_CLIENT_USERNAME_PATH) ? _configs.getString(ELASTIC_CLIENT_USERNAME_PATH) : null,
                 _configs.hasPath(ELASTIC_CLIENT_PASSWORD_PATH) ? _configs.getString(ELASTIC_CLIENT_PASSWORD_PATH) : null,
                 context
-        ));
+            ),
+            _configs.hasPath(ELASTIC_INDEX_PREFIX)? Optional.of(_configs.getString(ELASTIC_INDEX_PREFIX)): Optional.empty()
+        );
         bind(AnalyticsService.class).toInstance(backend);
     }
 

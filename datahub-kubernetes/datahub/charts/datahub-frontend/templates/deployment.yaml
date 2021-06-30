@@ -103,8 +103,17 @@ spec:
                   key: "{{ .password.secretKey }}"
             {{- end }}
             {{- end }}
+            {{- if .Values.global.kafka.topics }}
+            - name: DATAHUB_TRACKING_TOPIC
+              value: {{- .Values.global.kafka.topics.datahub_usage_event_name}}
+            {{- else }}
             - name: DATAHUB_TRACKING_TOPIC
               value: "DataHubUsageEvent_v1"
+            {{- end }}
+            {{- with .Values.global.elasticsearch.indexPrefix }}
+            - name: ELASTIC_INDEX_PREFIX
+              value: {{ . }}
+            {{- end }}
             - name: DATAHUB_ANALYTICS_ENABLED
               value: "{{ .Values.global.datahub_analytics_enabled }}"
           {{- with .Values.extraEnvs }}

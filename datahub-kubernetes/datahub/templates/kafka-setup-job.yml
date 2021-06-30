@@ -73,6 +73,8 @@ spec:
               value: {{ .failed_metadata_change_event_name }}
             - name: METADATA_AUDIT_EVENT_NAME
               value: {{ .metadata_audit_event_name }}
+            - name: DATAHUB_USAGE_EVENT_NAME
+              value: {{ .datahub_usage_event_name }}
             {{- end }}
           {{- with .Values.kafkaSetupJob.extraEnvs }}
             {{- toYaml . | nindent 12 }}
