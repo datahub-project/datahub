@@ -1,6 +1,7 @@
 package react.analytics;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import graphql.BarSegment;
 import graphql.DateInterval;
@@ -64,13 +65,12 @@ public class AnalyticsService {
   public List<NamedLine> getTimeseriesChart(String indexName, DateRange dateRange, DateInterval granularity,
       Optional<String> dimension, // Length 1 for now
       Map<String, List<String>> filters, Optional<String> uniqueOn) {
-
     _logger.debug(
         String.format("Invoked getTimeseriesChart with indexName: %s, dateRange: %s, granularity: %s, dimension: %s,",
             indexName, dateRange, granularity, dimension)
         + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
-    AggregationBuilder filteredAgg = getFilteredAggregation(filters, Optional.of(dateRange));
+    AggregationBuilder filteredAgg = getFilteredAggregation(filters, ImmutableMap.of(), Optional.of(dateRange));
 
     AggregationBuilder dateHistogram = AggregationBuilders.dateHistogram(DATE_HISTOGRAM)
         .field("timestamp")
@@ -123,8 +123,7 @@ public class AnalyticsService {
             + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
     assert (dimensions.size() == 1 || dimensions.size() == 2);
-
-    AggregationBuilder filteredAgg = getFilteredAggregation(filters, dateRange);
+    AggregationBuilder filteredAgg = getFilteredAggregation(filters, ImmutableMap.of(), dateRange);
 
     AggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0)).missing(NA);
     if (dimensions.size() == 2) {
@@ -170,13 +169,12 @@ public class AnalyticsService {
 
   public List<Row> getTopNTableChart(String indexName, Optional<DateRange> dateRange, String groupBy,
       Map<String, List<String>> filters, Optional<String> uniqueOn, int maxRows) {
-
     _logger.debug(
         String.format("Invoked getTopNTableChart with indexName: %s, dateRange: %s, groupBy: %s",
             indexName, dateRange, groupBy)
             + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
-    AggregationBuilder filteredAgg = getFilteredAggregation(filters, dateRange);
+    AggregationBuilder filteredAgg = getFilteredAggregation(filters, ImmutableMap.of(), dateRange);
 
     TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(groupBy).size(maxRows);
     if (uniqueOn.isPresent()) {
@@ -201,8 +199,8 @@ public class AnalyticsService {
   }
 
   public int getHighlights(String indexName, Optional<DateRange> dateRange, Map<String, List<String>> filters,
-      Optional<String> uniqueOn) {
-    AggregationBuilder filteredAgg = getFilteredAggregation(filters, dateRange);
+      Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn) {
+    AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
     uniqueOn.ifPresent(s -> filteredAgg.subAggregation(getUniqueQuery(s)));
 
     SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
@@ -239,9 +237,11 @@ public class AnalyticsService {
     }
   }
 
-  private AggregationBuilder getFilteredAggregation(Map<String, List<String>> filters, Optional<DateRange> dateRange) {
+  private AggregationBuilder getFilteredAggregation(Map<String, List<String>> mustFilters,
+      Map<String, List<String>> mustNotFilters, Optional<DateRange> dateRange) {
     BoolQueryBuilder filteredQuery = QueryBuilders.boolQuery();
-    filters.forEach((key, values) -> filteredQuery.must(QueryBuilders.termsQuery(key, values)));
+    mustFilters.forEach((key, values) -> filteredQuery.must(QueryBuilders.termsQuery(key, values)));
+    mustNotFilters.forEach((key, values) -> filteredQuery.mustNot(QueryBuilders.termsQuery(key, values)));
     dateRange.ifPresent(range -> filteredQuery.must(dateRangeQuery(range)));
     return AggregationBuilders.filter(FILTERED, filteredQuery);
   }
