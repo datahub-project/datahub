@@ -51,10 +51,6 @@ spec:
                 - "BACKUP_S3_BUCKET={{ .Values.datahubUpgrade.restoreBackup.s3Bucket }}"
                 - "-a"
                 - "BACKUP_S3_PATH={{ .Values.datahubUpgrade.restoreBackup.s3Path }}"
-              ports:
-                - name: debug
-                  containerPort: 5005
-                  protocol: TCP
               env:
                 - name: DATAHUB_GMS_HOST
                   value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
@@ -98,6 +94,9 @@ spec:
                       name: "{{ .password.secretRef }}"
                       key: "{{ .password.secretKey }}"
                 {{- end }}
+                - name: GRAPH_SERVICE_IMPL
+                  value: {{ .Values.global.graph_service_impl }}
+                {{- if eq .Values.global.graph_service_impl "neo4j" }}
                 - name: NEO4J_HOST
                   value: "{{ .Values.global.neo4j.host }}"
                 - name: NEO4J_URI
@@ -109,11 +108,12 @@ spec:
                     secretKeyRef:
                       name: "{{ .Values.global.neo4j.password.secretRef }}"
                       key: "{{ .Values.global.neo4j.password.secretKey }}"
+                {{- end }}
                 - name: S3_BUCKET
                   value: "{{ .Values.datahubUpgrade.restoreBackup.s3Bucket }}"
                 - name: S3_BACKUP_PATH
                   value: "{{ .Values.datahubUpgrade.restoreBackup.s3BackupPath }}"
-              {{- with .Values.datahubUpgrade.restoreBackup.extraEnvs }}
+              {{- with .Values.datahubUpgrade.extraEnvs }}
                 {{- toYaml . | nindent 16 }}
               {{- end }}
               volumeMounts:
