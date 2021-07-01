@@ -67,12 +67,15 @@ function sortByFieldPath(row1: SchemaField, row2: SchemaField): number {
 export function sortByFieldPathAndGrouping(schemaRows?: Array<SchemaField>): Array<ExtendedSchemaFields> {
     const rows = [...(schemaRows || [])] as Array<ExtendedSchemaFields>;
     if (rows.length > 1) {
-        rows.sort(sortByFieldPath);
+        rows.sort(sortByFieldPath); // sort rows by fieldPath value
+        // repeat rows from bottom to top
         for (let rowIndex = rows.length; rowIndex--; rowIndex >= 0) {
             const row = rows[rowIndex];
+            // check if fieldPath has . that indicates possibly children row or not
             if (row.fieldPath.slice(1, -1).includes('.')) {
                 const fieldPaths = row.fieldPath.split(/\.(?=[^.]+$)/);
                 const parentFieldIndex = rows.findIndex((f) => f.fieldPath === fieldPaths[0]);
+                // add children rows into 'children' field of parent row to make the structure that antd table support
                 if (parentFieldIndex > -1) {
                     if ('children' in rows[parentFieldIndex]) {
                         rows[parentFieldIndex].children?.unshift(row);
@@ -92,48 +95,6 @@ export function sortByFieldPathAndGrouping(schemaRows?: Array<SchemaField>): Arr
         }
     }
     return rows;
-}
-
-// Get diff summary between two versions and prepare to visualize description diff changes
-export function getDiffSummary(
-    currentVersionRows?: Array<SchemaField>,
-    previousVersionRows?: Array<SchemaField>,
-    isEditMode = true,
-): { fields: Array<ExtendedSchemaFields>; added: number; removed: number; updated: number } {
-    let rows = [...(currentVersionRows || [])] as Array<ExtendedSchemaFields>;
-    const previousRows = [...(previousVersionRows || [])] as Array<ExtendedSchemaFields>;
-    let added = 0;
-    let removed = 0;
-    let updated = 0;
-
-    if (!isEditMode && previousRows && previousRows.length > 0) {
-        rows.forEach((field, rowIndex) => {
-            const relevantPastFieldIndex = previousRows.findIndex(
-                (pf) => pf.type === rows[rowIndex].type && pf.fieldPath === rows[rowIndex].fieldPath,
-            );
-            if (relevantPastFieldIndex > -1) {
-                if (previousRows[relevantPastFieldIndex].description !== rows[rowIndex].description) {
-                    rows[rowIndex] = {
-                        ...rows[rowIndex],
-                        previousDescription: previousRows[relevantPastFieldIndex].description,
-                    };
-                    updated++;
-                }
-                previousRows.splice(relevantPastFieldIndex, 1);
-            } else {
-                rows[rowIndex] = { ...rows[rowIndex], isNewRow: true };
-                added++;
-            }
-        });
-        if (previousRows.length > 0) {
-            rows = [...rows, ...previousRows.map((pf) => ({ ...pf, isDeletedRow: true }))];
-            removed = previousRows.length;
-        }
-    }
-
-    rows = sortByFieldPathAndGrouping(rows);
-
-    return { fields: rows, added, removed, updated };
 }
 
 export function diffMarkdown(oldStr: string, newStr: string) {

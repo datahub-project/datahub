@@ -11,12 +11,14 @@ const SummaryContainer = styled.div`
     }
 `;
 
+export interface SchemaDiffSummary {
+    added: number;
+    removed: number;
+    updated: number;
+}
+
 type Props = {
-    diffSummary: {
-        added: number;
-        removed: number;
-        updated: number;
-    };
+    diffSummary: SchemaDiffSummary;
 };
 
 export default function SchemaVersionSummary({ diffSummary }: Props) {

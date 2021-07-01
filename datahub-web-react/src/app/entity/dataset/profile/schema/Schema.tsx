@@ -5,6 +5,7 @@ import { Message } from '../../../../shared/Message';
 import { useGetDatasetSchemaVersionsLazyQuery, UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import {
     Schema,
+    SchemaField,
     SchemaMetadata,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
@@ -14,12 +15,16 @@ import {
     EntityType,
     UsageQueryResult,
 } from '../../../../../types.generated';
-import { convertEditableSchemaMetadataForUpdate, getDiffSummary, ExtendedSchemaFields } from '../../../shared/utils';
+import {
+    convertEditableSchemaMetadataForUpdate,
+    ExtendedSchemaFields,
+    sortByFieldPathAndGrouping,
+} from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import SchemaTable from './SchemaTable';
 import SchemaHeader from './components/SchemaHeader';
 import SchemaRawView from './components/SchemaRawView';
-import SchemaVersionSummary from './components/SchemaVersionSummary';
+import SchemaVersionSummary, { SchemaDiffSummary } from './components/SchemaVersionSummary';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 
 const SchemaContainer = styled.div`
@@ -35,6 +40,45 @@ export type Props = {
     updateEditableSchema: (
         update: EditableSchemaMetadataUpdate,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
+};
+
+// Get diff summary between two versions and prepare to visualize description diff changes
+const getDiffSummary = (
+    currentVersionRows?: Array<SchemaField>,
+    previousVersionRows?: Array<SchemaField>,
+): { rows: Array<ExtendedSchemaFields>; diffSummary: SchemaDiffSummary } => {
+    let rows = [...(currentVersionRows || [])] as Array<ExtendedSchemaFields>;
+    const diffSummary: SchemaDiffSummary = {
+        added: 0,
+        removed: 0,
+        updated: 0,
+    };
+
+    if (previousVersionRows && previousVersionRows.length > 0) {
+        const previousRows = [...previousVersionRows] as Array<ExtendedSchemaFields>;
+        rows.forEach((field, rowIndex) => {
+            const relevantPastFieldIndex = previousRows.findIndex(
+                (pf) => pf.type === rows[rowIndex].type && pf.fieldPath === rows[rowIndex].fieldPath,
+            );
+            if (relevantPastFieldIndex > -1) {
+                if (previousRows[relevantPastFieldIndex].description !== rows[rowIndex].description) {
+                    rows[rowIndex] = {
+                        ...rows[rowIndex],
+                        previousDescription: previousRows[relevantPastFieldIndex].description,
+                    };
+                    diffSummary.updated++; // Increase updated row number in diff summary
+                }
+                previousRows.splice(relevantPastFieldIndex, 1);
+            } else {
+                rows[rowIndex] = { ...rows[rowIndex], isNewRow: true };
+                diffSummary.added++; // Increase added row number in diff summary
+            }
+        });
+        rows = [...rows, ...previousRows.map((pf) => ({ ...pf, isDeletedRow: true }))];
+        diffSummary.removed = previousRows.length; // removed row number in diff summary
+    }
+
+    return { rows, diffSummary };
 };
 
 export default function SchemaView({
@@ -56,10 +100,16 @@ export default function SchemaView({
         fetchPolicy: 'no-cache',
     });
 
-    const { fields: rows, ...diffSummary } = useMemo(
-        () => getDiffSummary(schemaDiff.current?.fields, schemaDiff.previous?.fields, editMode),
-        [schemaDiff, editMode],
-    );
+    const { rows, diffSummary } = useMemo(() => {
+        if (editMode) {
+            return { rows: sortByFieldPathAndGrouping(schemaDiff.current?.fields), diffSummary: null };
+        }
+        const rowsAndDiffSummary = getDiffSummary(schemaDiff.current?.fields, schemaDiff.previous?.fields);
+        return {
+            ...rowsAndDiffSummary,
+            rows: sortByFieldPathAndGrouping(rowsAndDiffSummary.rows),
+        };
+    }, [schemaDiff, editMode]);
 
     useEffect(() => {
         if (!loading && !error && schemaVersions) {
@@ -155,7 +205,7 @@ export default function SchemaView({
                 rows &&
                 rows.length > 0 && (
                     <>
-                        {!editMode && <SchemaVersionSummary diffSummary={diffSummary} />}
+                        {!editMode && diffSummary && <SchemaVersionSummary diffSummary={diffSummary} />}
                         <SchemaTable
                             rows={rows}
                             editMode={editMode}

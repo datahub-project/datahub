@@ -61,7 +61,7 @@ export default function CustomPagination({ onChange, maxVersion }: Props) {
     };
 
     const menu1 = (
-        <Menu onClick={onVersion1Click} mode="inline" selectedKeys={[`${version1}`]}>
+        <Menu onClick={onVersion1Click} selectedKeys={[`${version1}`]}>
             {[...Array(maxVersion)].map((_, i) => (
                 // eslint-disable-next-line react/no-array-index-key
                 <Menu.Item key={i + 1}>
@@ -72,7 +72,7 @@ export default function CustomPagination({ onChange, maxVersion }: Props) {
     );
 
     const menu2 = (
-        <Menu onClick={onVersion2Click} mode="inline" selectedKeys={[`${version2}`]}>
+        <Menu onClick={onVersion2Click} selectedKeys={[`${version2}`]}>
             {[...Array(version1)].map((_, i) => (
                 // eslint-disable-next-line react/no-array-index-key
                 <Menu.Item key={i}>
@@ -87,10 +87,9 @@ export default function CustomPagination({ onChange, maxVersion }: Props) {
             <NavButton
                 size="small"
                 type="text"
-                ghost
                 icon={<LeftOutlined />}
                 onClick={onPrevClick}
-                disabled={version1 === maxVersion}
+                disabled={version1 >= maxVersion}
             />
             <DescriptionText>Comparing</DescriptionText>
             <Dropdown overlay={menu1} trigger={['click']}>
@@ -103,10 +102,9 @@ export default function CustomPagination({ onChange, maxVersion }: Props) {
             <NavButton
                 size="small"
                 type="text"
-                ghost
                 icon={<RightOutlined />}
                 onClick={onNextClick}
-                disabled={version1 === 1}
+                disabled={version1 <= 1}
             />
         </CustomPaginationContainer>
     );
