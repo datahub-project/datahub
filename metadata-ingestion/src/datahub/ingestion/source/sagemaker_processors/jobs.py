@@ -350,10 +350,19 @@ class SageMakerJobProcessor:
 
         job_mce = create_common_job_mce(name, arn, "HyperParameterTuning", job)
 
-        training_jobs = [
-            make_sagemaker_job_urn(job["DefinitionName"], "training")
-            for job in job.get("TrainingJobDefinitions", [])
-        ]
+        training_jobs = []
+
+        for job in job.get("TrainingJobDefinitions", []):
+
+            job_name = ("training", job["DefinitionName"])
+
+            if job_name in self.name_to_arn:
+
+                training_jobs.append(make_sagemaker_job_urn(self.name_to_arn[job_name]))
+            else:
+
+                # TODO: make this a warning
+                raise ValueError("Could not find training job")
 
         return SageMakerJob(
             job=job_mce,
@@ -584,17 +593,46 @@ class SageMakerJobProcessor:
 
         job_input = job.get("TransformInput", {})
         input_s3 = job_input.get("DataSource", {}).get("S3DataSource", {})
-        input_s3_type = input_s3.get("S3DataType")
-        input_s3_uri = input_s3.get("S3Uri")
-        input_s3_compression = job_input.get("CompressionType")
-        input_s3_split_type = job_input.get("SplitType")
 
-        job_output = job.get("TransformOutput", {})
-        output_s3_uri = job_output.get("S3OutputPath")
+        input_s3_uri = input_s3.get("S3Uri")
+
+        input_datasets = {}
+
+        if input_s3_uri is not None:
+
+            input_datasets[make_s3_urn(input_s3_uri, self.env)] = {
+                "dataset_type": "s3",
+                "uri": input_s3_uri,
+                "datatype": input_s3.get("S3DataType"),
+                "compression": job_input.get("CompressionType"),
+                "split": job_input.get("SplitType"),
+            }
+
+        output_datasets = {}
+
+        output_s3_uri = job.get("TransformOutput", {}).get("S3OutputPath")
+
+        if output_s3_uri is not None:
+            input_datasets[make_s3_urn(output_s3_uri, self.env)] = {
+                "dataset_type": "s3",
+                "uri": output_s3_uri,
+            }
 
         labeling_arn = job.get("LabelingJobArn")
         auto_ml_arn = job.get("AutoMLJobArn")
 
+        input_jobs = []
+
+        if labeling_arn is not None:
+            input_jobs.append(make_sagemaker_job_urn(labeling_arn))
+        if auto_ml_arn is not None:
+            input_jobs.append(make_sagemaker_job_urn(auto_ml_arn))
+
         job_mce = create_common_job_mce(name, arn, "Transform", job)
 
-        return job_mce, []
+        return SageMakerJob(
+            job=job_mce,
+            input_datasets=input_datasets,
+            output_datasets=output_datasets,
+            input_jobs=input_jobs,
+        )
