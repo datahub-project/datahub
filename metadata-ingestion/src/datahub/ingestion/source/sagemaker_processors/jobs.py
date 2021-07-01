@@ -458,8 +458,15 @@ class SageMakerJobProcessor:
         # start_time: Optional[datetime] = job.get("ProcessingStartTime")
         # end_time: Optional[datetime] = job.get("ProcessingEndTime")
 
+        input_jobs = []
+
         auto_ml_arn: Optional[str] = job.get("AutoMLJobArn")
         training_arn: Optional[str] = job.get("TrainingJobArn")
+
+        if auto_ml_arn is not None:
+            input_jobs.append(make_sagemaker_job_urn(auto_ml_arn))
+        if training_arn:
+            input_jobs.append(make_sagemaker_job_urn(training_arn))
 
         inputs = job["ProcessingInputs"]
         processed_inputs = []
@@ -517,7 +524,10 @@ class SageMakerJobProcessor:
 
         job_mce = create_common_job_mce(name, arn, "Processing", job)
 
-        return job_mce, []
+        return SageMakerJob(
+            job=job_mce,
+            input_jobs=input_jobs,
+        )
 
     def process_training_job(self, job) -> SageMakerJob:
 
@@ -539,67 +549,69 @@ class SageMakerJobProcessor:
 
         # hyperparameters = job.get("HyperParameters", {})
 
-        input_data_configs = job.get("InputDataConfig", [])
+        input_datasets = {}
 
-        processed_input_data = []
+        input_data_configs = job.get("InputDataConfig", [])
 
         for config in input_data_configs:
 
-            channel_name = config.get("ChannelName")
             data_source = config.get("DataSource", {})
 
             s3_source = data_source.get("S3DataSource", {})
-            s3_type = s3_source.get("S3Datatype")
             s3_uri = s3_source.get("S3Uri")
-            s3_distribution_type = s3_source.get("S3DataDistributionType")
-            s3_attribute_names = s3_source.get("AttributeNames")
 
-            file_system_source = data_source.get("FileSystemDataSource", {})
-            file_system_id = file_system_source.get("FileSystemId")
-            file_system_mode = file_system_source.get("FileSystemAccessMode")
-            file_system_type = file_system_source.get("FileSystemType")
-            file_system_path = file_system_source.get("DirectoryPath")
-
-            processed_input_data.append(
-                {
-                    "channel_name": channel_name,
-                    "s3_type": s3_type,
-                    "s3_uri": s3_uri,
-                    "s3_distribution_type": s3_distribution_type,
-                    "s3_attribute_names": s3_attribute_names,
-                    "file_system_id": file_system_id,
-                    "file_system_mode": file_system_mode,
-                    "file_system_type": file_system_type,
-                    "file_system_path": file_system_path,
+            if s3_uri is not None:
+                input_datasets[make_s3_urn(s3_uri, self.env)] = {
+                    "dataset_type": "s3",
+                    "uri": s3_uri,
+                    "datatype": s3_source.get("S3Datatype"),
+                    "distribution_type": s3_source.get("S3DataDistributionType"),
+                    "attribute_names": s3_source.get("AttributeNames"),
+                    "channel_name": config.get("ChannelName"),
                 }
-            )
 
         output_s3_uri = job.get("OutputDataConfig", {}).get("S3OutputPath")
-
         checkpoint_s3_uri = job.get("CheckpointConfig", {}).get("S3Uri")
-
         debug_s3_path = job.get("DebugHookConfig", {}).get("S3OutputPath")
-
-        debug_rule_configs = job.get("DebugRuleConfigurations", [])
-
-        processed_debug_configs = [
-            {"s3_uri": config.get("S3OutputPath")} for config in debug_rule_configs
-        ]
-
         tensorboard_output_path = job.get("TensorBoardOutputConfig", {}).get(
             "S3OutputPath"
         )
         profiler_output_path = job.get("ProfilerConfig", {}).get("S3OutputPath")
 
-        profiler_rule_configs = job.get("ProfilerRuleConfigurations", [])
-
-        processed_profiler_configs = [
-            {"s3_uri": config.get("S3OutputPath")} for config in profiler_rule_configs
+        debug_rule_configs = job.get("DebugRuleConfigurations", [])
+        processed_debug_configs = [
+            config.get("S3OutputPath") for config in debug_rule_configs
         ]
+        profiler_rule_configs = job.get("ProfilerRuleConfigurations", [])
+        processed_profiler_configs = [
+            config.get("S3OutputPath") for config in profiler_rule_configs
+        ]
+
+        output_datasets = {}
+
+        for output_s3_uri in [
+            output_s3_uri,
+            checkpoint_s3_uri,
+            debug_s3_path,
+            tensorboard_output_path,
+            profiler_output_path,
+            *processed_debug_configs,
+            *processed_profiler_configs,
+        ]:
+
+            if output_s3_uri is not None:
+                output_datasets[make_s3_urn(output_s3_uri, self.env)] = {
+                    "dataset_type": "s3",
+                    "uri": output_s3_uri,
+                }
 
         job_mce = create_common_job_mce(name, arn, "Training", job)
 
-        return job_mce, []
+        return SageMakerJob(
+            job=job_mce,
+            input_datasets=input_datasets,
+            output_datasets=output_datasets,
+        )
 
     def process_transform_job(self, job) -> SageMakerJob:
 
