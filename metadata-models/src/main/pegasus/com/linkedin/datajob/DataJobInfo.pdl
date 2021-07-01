@@ -45,4 +45,9 @@ record DataJobInfo includes CustomProperties, ExternalReference {
     "entityTypes": [ "dataFlow" ]
   }
   flowUrn: optional DataFlowUrn
+
+  /**
+   * Status of the job
+   */
+  status: optional JobStatus
 }

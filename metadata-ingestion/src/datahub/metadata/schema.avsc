@@ -1586,6 +1586,36 @@
                           "name": "flowUrn",
                           "default": null,
                           "doc": "DataFlow urn that this job is part of"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "enum",
+                              "symbolDocs": {
+                                "COMPLETED": "Jobs with successful completion.",
+                                "FAILED": "Jobs that have failed.",
+                                "IN_PROGRESS": "Jobs currently running.",
+                                "STARTING": "Jobs being initialized.",
+                                "STOPPED": "Jobs that have stopped.",
+                                "STOPPING": "Jobs being stopped."
+                              },
+                              "name": "JobStatus",
+                              "namespace": "com.linkedin.pegasus2avro.datajob",
+                              "symbols": [
+                                "STARTING",
+                                "IN_PROGRESS",
+                                "STOPPING",
+                                "STOPPED",
+                                "COMPLETED",
+                                "FAILED"
+                              ],
+                              "doc": "Job statuses"
+                            }
+                          ],
+                          "name": "status",
+                          "default": null,
+                          "doc": "Status of the job"
                         }
                       ],
                       "doc": "Information about a Data processing job"

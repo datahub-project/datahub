@@ -1922,6 +1922,7 @@ class DataJobInfoClass(DictWrapper):
         externalUrl: Union[None, str]=None,
         description: Union[None, str]=None,
         flowUrn: Union[None, str]=None,
+        status: Union[None, Union[str, "JobStatusClass"]]=None,
     ):
         super().__init__()
         
@@ -1934,6 +1935,7 @@ class DataJobInfoClass(DictWrapper):
         self.description = description
         self.type = type
         self.flowUrn = flowUrn
+        self.status = status
     
     @classmethod
     def construct_with_defaults(cls) -> "DataJobInfoClass":
@@ -1949,6 +1951,7 @@ class DataJobInfoClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.type = AzkabanJobTypeClass.COMMAND
         self.flowUrn = self.RECORD_SCHEMA.field_map["flowUrn"].default
+        self.status = self.RECORD_SCHEMA.field_map["status"].default
     
     
     @property
@@ -2021,6 +2024,18 @@ class DataJobInfoClass(DictWrapper):
     def flowUrn(self, value: Union[None, str]) -> None:
         """Setter: DataFlow urn that this job is part of"""
         self._inner_dict['flowUrn'] = value
+    
+    
+    @property
+    def status(self) -> Union[None, Union[str, "JobStatusClass"]]:
+        """Getter: Status of the job"""
+        return self._inner_dict.get('status')  # type: ignore
+    
+    
+    @status.setter
+    def status(self, value: Union[None, Union[str, "JobStatusClass"]]) -> None:
+        """Setter: Status of the job"""
+        self._inner_dict['status'] = value
     
     
 class DataJobInputOutputClass(DictWrapper):
@@ -2245,6 +2260,29 @@ class EditableDataJobPropertiesClass(DictWrapper):
     def description(self, value: Union[None, str]) -> None:
         """Setter: Edited documentation of the data job """
         self._inner_dict['description'] = value
+    
+    
+class JobStatusClass(object):
+    """Job statuses"""
+    
+    
+    """Jobs being initialized."""
+    STARTING = "STARTING"
+    
+    """Jobs currently running."""
+    IN_PROGRESS = "IN_PROGRESS"
+    
+    """Jobs being stopped."""
+    STOPPING = "STOPPING"
+    
+    """Jobs that have stopped."""
+    STOPPED = "STOPPED"
+    
+    """Jobs with successful completion."""
+    COMPLETED = "COMPLETED"
+    
+    """Jobs that have failed."""
+    FAILED = "FAILED"
     
     
 class AzkabanJobTypeClass(object):
@@ -7955,6 +7993,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.datajob.DataJobInputOutput': DataJobInputOutputClass,
     'com.linkedin.pegasus2avro.datajob.EditableDataFlowProperties': EditableDataFlowPropertiesClass,
     'com.linkedin.pegasus2avro.datajob.EditableDataJobProperties': EditableDataJobPropertiesClass,
+    'com.linkedin.pegasus2avro.datajob.JobStatus': JobStatusClass,
     'com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType': AzkabanJobTypeClass,
     'com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo': DataPlatformInfoClass,
     'com.linkedin.pegasus2avro.dataplatform.PlatformType': PlatformTypeClass,
@@ -8101,6 +8140,7 @@ __SCHEMA_TYPES = {
     'DataJobInputOutput': DataJobInputOutputClass,
     'EditableDataFlowProperties': EditableDataFlowPropertiesClass,
     'EditableDataJobProperties': EditableDataJobPropertiesClass,
+    'JobStatus': JobStatusClass,
     'AzkabanJobType': AzkabanJobTypeClass,
     'DataPlatformInfo': DataPlatformInfoClass,
     'PlatformType': PlatformTypeClass,
