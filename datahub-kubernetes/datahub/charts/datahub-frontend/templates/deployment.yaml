@@ -105,7 +105,7 @@ spec:
             {{- end }}
             {{- if .Values.global.kafka.topics }}
             - name: DATAHUB_TRACKING_TOPIC
-              value: {{- .Values.global.kafka.topics.datahub_usage_event_name}}
+              value: {{ .Values.global.kafka.topics.datahub_usage_event_name}}
             {{- else }}
             - name: DATAHUB_TRACKING_TOPIC
               value: "DataHubUsageEvent_v1"
