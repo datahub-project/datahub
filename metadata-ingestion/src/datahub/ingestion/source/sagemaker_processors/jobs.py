@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from datahub.emitter import mce_builder
+from datahub.ingestion.api.source import SourceReport
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
@@ -20,6 +21,14 @@ SAGEMAKER_JOB_TYPES = {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_auto_ml_job
         "describe_command": "describe_auto_ml_job",
         "describe_name_key": "AutoMLJobName",
+        "describe_status_key": "AutoMLJobStatus",
+        "status_map": {
+            "Completed": "COMPLETED",
+            "InProgress": "IN_PROGRESS",
+            "Failed": "FAILED",
+            "Stopped": "STOPPED",
+            "Stopping": "STOPPING",
+        },
     },
     "compilation": {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_compilation_jobs
@@ -30,6 +39,15 @@ SAGEMAKER_JOB_TYPES = {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_compilation_job
         "describe_command": "describe_compilation_job",
         "describe_name_key": "CompilationJobName",
+        "describe_status_key": "CompilationJobStatus",
+        "status_map": {
+            "INPROGRESS": "IN_PROGRESS",
+            "COMPLETED": "COMPLETED",
+            "FAILED": "FAILED",
+            "STARTING": "STARTING",
+            "STOPPING": "STOPPING",
+            "STOPPED": "STOPPED",
+        },
     },
     "edge_packaging": {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_edge_packaging_jobs
@@ -40,6 +58,15 @@ SAGEMAKER_JOB_TYPES = {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_edge_packaging_job
         "describe_command": "describe_edge_packaging_job",
         "describe_name_key": "EdgePackagingJobName",
+        "describe_status_key": "EdgePackagingJobStatus",
+        "status_map": {
+            "INPROGRESS": "IN_PROGRESS",
+            "COMPLETED": "COMPLETED",
+            "FAILED": "FAILED",
+            "STARTING": "STARTING",
+            "STOPPING": "STOPPING",
+            "STOPPED": "STOPPED",
+        },
     },
     "hyper_parameter_tuning": {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_hyper_parameter_tuning_jobs
@@ -50,6 +77,14 @@ SAGEMAKER_JOB_TYPES = {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_hyper_parameter_tuning_job
         "describe_command": "describe_hyper_parameter_tuning_job",
         "describe_name_key": "HyperParameterTuningJobName",
+        "describe_status_key": "HyperParameterTuningJobStatus",
+        "status_map": {
+            "InProgress": "IN_PROGRESS",
+            "Completed": "COMPLETED",
+            "Failed": "FAILED",
+            "Stopping": "STOPPING",
+            "Stopped": "STOPPED",
+        },
     },
     "labeling": {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_labeling_jobs
@@ -60,6 +95,15 @@ SAGEMAKER_JOB_TYPES = {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_labeling_job
         "describe_command": "describe_labeling_job",
         "describe_name_key": "LabelingJobName",
+        "describe_status_key": "LabelingJobStatus",
+        "status_map": {
+            "Initializing": "STARTING",
+            "InProgress": "IN_PROGRESS",
+            "Completed": "COMPLETED",
+            "Failed": "FAILED",
+            "Stopping": "STOPPING",
+            "Stopped": "STOPPED",
+        },
     },
     "processing": {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_processing_jobs
@@ -70,6 +114,14 @@ SAGEMAKER_JOB_TYPES = {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_processing_job
         "describe_command": "describe_processing_job",
         "describe_name_key": "ProcessingJobName",
+        "describe_status_key": "ProcessingJobStatus",
+        "status_map": {
+            "InProgress": "IN_PROGRESS",
+            "Completed": "COMPLETED",
+            "Failed": "FAILED",
+            "Stopping": "STOPPING",
+            "Stopped": "STOPPED",
+        },
     },
     "training": {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_training_jobs
@@ -80,6 +132,14 @@ SAGEMAKER_JOB_TYPES = {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_training_job
         "describe_command": "describe_training_job",
         "describe_name_key": "TrainingJobName",
+        "describe_status_key": "TrainingJobStatus",
+        "status_map": {
+            "InProgress": "IN_PROGRESS",
+            "Completed": "COMPLETED",
+            "Failed": "FAILED",
+            "Stopping": "STOPPING",
+            "Stopped": "STOPPED",
+        },
     },
     "transform": {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_transform_jobs
@@ -90,6 +150,14 @@ SAGEMAKER_JOB_TYPES = {
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_transform_job
         "describe_command": "describe_transform_job",
         "describe_name_key": "TransformJobName",
+        "describe_status_key": "TransformJobStatus",
+        "status_map": {
+            "InProgress": "IN_PROGRESS",
+            "Completed": "COMPLETED",
+            "Failed": "FAILED",
+            "Stopping": "STOPPING",
+            "Stopped": "STOPPED",
+        },
     },
 }
 
@@ -165,6 +233,7 @@ class SageMakerJobProcessor:
     arn_to_name: Dict[str, Tuple[str, str]]
     name_to_arn: Dict[Tuple[str, str], str]
     env: str
+    report: SourceReport
 
     def process_auto_ml_job(self, job) -> SageMakerJob:
         """
@@ -316,8 +385,10 @@ class SageMakerJobProcessor:
                 output_jobs.append(make_sagemaker_job_urn(self.name_to_arn[job_name]))
             else:
 
-                # TODO: make this a warning
-                raise ValueError("Could not find compilation job")
+                self.report.report_warning(
+                    name,
+                    f"Unable to find ARN for compilation job {compilation_job_name} produced by edge packaging job {arn}",
+                )
 
         # TODO: see if we can link models here
         # model: Optional[str] = job.get("ModelName")
@@ -363,8 +434,10 @@ class SageMakerJobProcessor:
                 training_jobs.append(make_sagemaker_job_urn(self.name_to_arn[job_name]))
             else:
 
-                # TODO: make this a warning
-                raise ValueError("Could not find training job")
+                self.report.report_warning(
+                    name,
+                    f"Unable to find ARN for training job {job['DefinitionName']} produced by hyperparameter tuning job {arn}",
+                )
 
         return SageMakerJob(
             job=job_mce,
