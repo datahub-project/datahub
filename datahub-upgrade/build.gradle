@@ -10,7 +10,11 @@ dependencies {
   compile project(':gms:client')
 
   compile externalDependency.javaxInject
-  compile externalDependency.hadoopClient
+  compile(externalDependency.hadoopClient) {
+    exclude group: 'net.minidev', module: 'json-smart'
+    exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
+    exclude group: "org.apache.htrace", module: "htrace-core4"
+  }
   compile externalDependency.lombok
   compile externalDependency.picocli
   compile externalDependency.parquet
