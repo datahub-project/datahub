@@ -336,7 +336,16 @@ class SQLAlchemySource(Source):
                 self.report.report_dropped(dataset_name)
                 continue
 
-            columns = inspector.get_columns(view, schema)
+            try:
+                columns = inspector.get_columns(view, schema)
+            except KeyError:
+                # For certain types of views, we are unable to fetch the list of columns.
+                schema_metadata = None
+            else:
+                schema_metadata = get_schema_metadata(
+                    self.report, dataset_name, self.platform, columns
+                )
+
             try:
                 # SQLALchemy stubs are incomplete and missing this method.
                 # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
@@ -374,10 +383,9 @@ class SQLAlchemySource(Source):
                     # uri=dataset_name,
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
-            schema_metadata = get_schema_metadata(
-                self.report, dataset_name, self.platform, columns
-            )
-            dataset_snapshot.aspects.append(schema_metadata)
+
+            if schema_metadata:
+                dataset_snapshot.aspects.append(schema_metadata)
 
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             wu = SqlWorkUnit(id=dataset_name, mce=mce)
