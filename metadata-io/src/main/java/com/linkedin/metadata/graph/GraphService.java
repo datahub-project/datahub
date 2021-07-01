@@ -30,4 +30,6 @@ public interface GraphService {
       @Nonnull final RelationshipFilter relationshipFilter);
 
   void configure();
+
+  void clear();
 }

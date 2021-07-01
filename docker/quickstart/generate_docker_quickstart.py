@@ -1,8 +1,7 @@
 import os
-from collections.abc import Mapping
-
 import click
 import yaml
+from collections.abc import Mapping
 from dotenv import dotenv_values
 from yaml import Loader
 

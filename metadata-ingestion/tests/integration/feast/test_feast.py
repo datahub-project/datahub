@@ -44,8 +44,8 @@ def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
         pipeline.raise_from_status()
 
         # Verify the output.
-        output = mce_helpers.load_json_file(str(tmp_path / "feast_mces.json"))
-        golden = mce_helpers.load_json_file(
-            str(test_resources_dir / "feast_mces_golden.json")
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "feast_mces.json",
+            golden_path=test_resources_dir / "feast_mces_golden.json",
         )
-        mce_helpers.assert_mces_equal(output, golden)

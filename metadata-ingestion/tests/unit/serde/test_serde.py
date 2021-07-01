@@ -4,7 +4,6 @@ import pathlib
 
 import fastavro
 import pytest
-from _pytest.config import Config as PytestConfig
 from click.testing import CliRunner
 
 import datahub.metadata.schema_classes as models
@@ -14,12 +13,7 @@ from datahub.ingestion.source.file import iterate_mce_file
 from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
-
-# The current PytestConfig solution is somewhat ugly and not ideal.
-# However, it is currently the best solution available, as the type itself is not
-# exported: https://docs.pytest.org/en/stable/reference.html#config.
-# As pytest's type support improves, this will likely change.
-# TODO: revisit pytestconfig as https://github.com/pytest-dev/pytest/issues/7469 progresses.
+from tests.test_helpers.type_helpers import PytestConfig
 
 
 @pytest.mark.parametrize(

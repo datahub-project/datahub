@@ -1,7 +1,6 @@
 from typing import Optional
-from urllib.parse import quote_plus
 
-from .sql_common import SQLAlchemyConfig, SQLAlchemySource
+from .sql_common import SQLAlchemyConfig, SQLAlchemySource, make_sqlalchemy_uri
 
 
 class AthenaConfig(SQLAlchemyConfig):
@@ -14,20 +13,17 @@ class AthenaConfig(SQLAlchemyConfig):
     work_group: str
 
     def get_sql_alchemy_url(self):
-        url = f"{self.scheme}://"
-        if self.username:
-            url += f"{quote_plus(self.username)}"
-            if self.password:
-                url += f":{quote_plus(self.password)}"
-        else:
-            url += ":"
-        url += f"@athena.{self.aws_region}.amazonaws.com:443/"
-        if self.database:
-            url += f"{self.database}"
-        url += f"?s3_staging_dir={quote_plus(self.s3_staging_dir)}"
-        url += f"&work_group={self.work_group}"
-
-        return url
+        return make_sqlalchemy_uri(
+            self.scheme,
+            self.username or "",
+            self.password,
+            f"athena.{self.aws_region}.amazonaws.com:443",
+            self.database,
+            uri_opts={
+                "s3_staging_dir": self.s3_staging_dir,
+                "work_group": self.work_group,
+            },
+        )
 
 
 class AthenaSource(SQLAlchemySource):

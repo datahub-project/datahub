@@ -35,6 +35,9 @@ import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.GetIndexRequest;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.reindex.DeleteByQueryRequest;
+
 
 @Slf4j
 @RequiredArgsConstructor
@@ -217,5 +220,16 @@ public class ElasticSearchGraphService implements GraphService {
     }
 
     return;
+  }
+
+  @Override
+  public void clear() {
+    DeleteByQueryRequest deleteRequest =
+        new DeleteByQueryRequest(_indexConvention.getIndexName(INDEX_NAME)).setQuery(QueryBuilders.matchAllQuery());
+    try {
+      searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);
+    } catch (Exception e) {
+      log.error("Failed to clear graph service: {}", e.toString());
+    }
   }
 }
