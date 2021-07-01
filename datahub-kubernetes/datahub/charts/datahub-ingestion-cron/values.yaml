@@ -4,7 +4,7 @@
 
 image:
   repository: linkedin/datahub-ingestion
-  tag: v0.8.4
+  tag: v0.8.5
   pullPolicy: Always
 
 imagePullSecrets: []
