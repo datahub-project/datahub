@@ -319,8 +319,9 @@ class SageMakerJobProcessor:
                 # TODO: make this a warning
                 raise ValueError("Could not find compilation job")
 
-        model: Optional[str] = job.get("ModelName")
-        model_version: Optional[str] = job.get("ModelVersion")
+        # TODO: see if we can link models here
+        # model: Optional[str] = job.get("ModelName")
+        # model_version: Optional[str] = job.get("ModelVersion")
 
         job_mce = create_common_job_mce(name, arn, "EdgePackaging", job)
 
@@ -387,9 +388,11 @@ class SageMakerJobProcessor:
         # create_time: Optional[datetime] = job.get("CreationTime")
         # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
 
-        attribute: str = job["LabelAttributeName"]
+        # attribute: str = job["LabelAttributeName"]
 
-        tags: List[Dict[str, str]] = job["Tags"]
+        # tags: List[Dict[str, str]] = job["Tags"]
+
+        input_datasets = {}
 
         input_s3_uri: Optional[str] = (
             job.get("InputConfig", {})
@@ -397,17 +400,44 @@ class SageMakerJobProcessor:
             .get("S3DataSource", {})
             .get("ManifestS3Uri")
         )
+        if input_s3_uri is not None:
+            input_datasets[make_s3_urn(input_s3_uri, self.env)] = {
+                "dataset_type": "s3",
+                "uri": input_s3_uri,
+            }
         category_config_s3_uri: Optional[str] = job.get("LabelCategoryConfigS3Uri")
-        output_config_s3_uri: Optional[str] = job.get("OutputConfig", {}).get(
-            "S3OutputPath"
-        )
+        if category_config_s3_uri is not None:
+            input_datasets[make_s3_urn(category_config_s3_uri, self.env)] = {
+                "dataset_type": "s3",
+                "uri": category_config_s3_uri,
+            }
+
+        output_datasets = {}
+
         output_s3_uri: Optional[str] = job.get("LabelingJobOutput", {}).get(
             "OutputDatasetS3Uri"
         )
+        if output_s3_uri is not None:
+            output_datasets[make_s3_urn(output_s3_uri, self.env)] = {
+                "dataset_type": "s3",
+                "uri": output_s3_uri,
+            }
+        output_config_s3_uri: Optional[str] = job.get("OutputConfig", {}).get(
+            "S3OutputPath"
+        )
+        if output_config_s3_uri is not None:
+            output_datasets[make_s3_urn(output_config_s3_uri, self.env)] = {
+                "dataset_type": "s3",
+                "uri": output_config_s3_uri,
+            }
 
         job_mce = create_common_job_mce(name, arn, "Labeling", job)
 
-        return job_mce, []
+        return SageMakerJob(
+            job=job_mce,
+            input_datasets=input_datasets,
+            output_datasets=output_datasets,
+        )
 
     def process_processing_job(self, job) -> SageMakerJob:
 
