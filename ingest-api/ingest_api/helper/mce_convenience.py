@@ -1,14 +1,18 @@
 """Convenience functions for creating MCEs"""
-
-from dataclasses import fields
 import time
+import datetime
+import json
+import logging
+from pathlib import Path
 from typing import List, Optional, Type, TypeVar, Union, Dict
 
 from datahub.ingestion.api import RecordEnvelope
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
-import json
-from pathlib import Path
 from datahub.metadata.schema_classes import *
+
+
+
+log = logging.getLogger(__name__)
 
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
@@ -17,7 +21,6 @@ T = TypeVar("T")
 
 def get_sys_time() -> int:
     return int(time.time() * 1000)
-
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
     return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},{env})"
@@ -31,30 +34,11 @@ def make_platform(platform:str) -> str:
 def make_user_urn(username: str) -> str:
     return f"urn:li:corpuser:{username}"
 
-
 def make_tag_urn(tag: str) -> str:
     return f"urn:li:tag:{tag}"
 
-
-def make_data_flow_urn(
-    orchestrator: str, flow_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
-) -> str:
-    return f"urn:li:dataFlow:({orchestrator},{flow_id},{cluster})"
-
-
-def make_data_job_urn_with_flow(flow_urn: str, job_id: str) -> str:
-    return f"urn:li:dataJob:({flow_urn},{job_id})"
-
-
-def make_data_job_urn(
-    orchestrator: str, flow_id: str, job_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
-) -> str:
-    return make_data_job_urn_with_flow(
-        make_data_flow_urn(orchestrator, flow_id, cluster), job_id
-    )
-
 def make_institutionalmemory_mce(
-    datset_urn: str,
+    dataset_urn: str,
     input_url: List[str],
     input_description: List[str],
     actor: str 
@@ -66,7 +50,7 @@ def make_institutionalmemory_mce(
     actor = make_user_urn(actor)
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
-        urn=datset_urn,
+        urn=dataset_urn,
         aspects=[
                 InstitutionalMemoryClass(
                     elements=[
@@ -103,25 +87,6 @@ def make_browsepath_mce(
             ],    
     ))
     return mce
-
-# def make_properties_mce(
-#     dataset_urn: str,
-#     path:List[str],        
-# ) -> MetadataChangeEventClass:
-#     """
-#     Creates browsepath for dataset. By default, if not specified, Datahub assigns it to /prod/platform/datasetname    
-#     """
-#     sys_time = get_sys_time()
-#     mce = MetadataChangeEventClass(
-#         proposedSnapshot=DatasetSnapshotClass(
-#         urn=dataset_urn,
-#         aspects=[
-#                 DatasetPropertiesClass(
-#                     paths = path            
-#                 )                
-#             ],    
-#     ))
-#     return mce
 
 def make_lineage_mce(
     upstream_urns: List[str],
@@ -187,10 +152,19 @@ def make_schema_mce(
     actor : str,
     fields: List[Dict[str, str]],
     primaryKeys : List[str] = None,  
-    foreignKeysSpecs: List[str] = None,  
+    foreignKeysSpecs: List[str] = None,
+    system_time: int = None  
 ) -> MetadataChangeEventClass:
-    sys_time = get_sys_time()
-    
+    if system_time:
+        try:
+            datetime.datetime.fromtimestamp(system_time/1000)
+            sys_time = system_time
+        except ValueError as e:
+            log.error("specified_time is out of range")
+            sys_time = get_sys_time()
+    else:
+        sys_time = get_sys_time()
+
     for item in fields:
         item["field_type"] = {"bool":  BooleanTypeClass(), 
                         "fixed": FixedTypeClass(), 
@@ -265,13 +239,11 @@ def generate_json_output(mces: List[MetadataChangeEventClass], file_loc:str)->No
     """    
     path = Path(file_loc)
     mce_objs = [item.to_obj() for item in mces]
-    # work_unit = MetadataWorkUnit(f"myfile:0", mce)
-    # envelope = RecordEnvelope(work_unit.mce, {"workunit_id": work_unit.id,})
-    # record = envelope.record
+    
     with open(path, 'w') as f:
         json.dump(mce_objs, f, indent=4)
 
-def delete_mce(
+def make_delete_mce(
     dataset_name:str,
     ) -> MetadataChangeEventClass:
     return MetadataChangeEventClass(
@@ -285,7 +257,7 @@ def delete_mce(
         )
     ) 
 
-def recover_mce(
+def make_recover_mce(
     dataset_name:str,
     ) -> MetadataChangeEventClass:
     return MetadataChangeEventClass(
@@ -298,11 +270,3 @@ def recover_mce(
             ]
         )
     ) 
-
-def query_db(dataset_name:str) -> bool:
-    '''
-    the idea is to have the api query mysql to see if it is really created.
-    feed the dataset name, find the count of rows with the urn == name. 
-    return true if have rows>0
-    '''
-    pass

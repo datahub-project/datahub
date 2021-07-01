@@ -4,15 +4,13 @@ from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from logging.handlers import TimedRotatingFileHandler
 
-from helper.models import FieldParam, create_dataset_params, dataset_status_params, determine_type
-from helper.mce_convenience import delete_mce, make_schema_mce, make_dataset_urn, \
-                    make_user_urn, make_dataset_description_mce, recover_mce, \
+from ingest_api.helper.models import FieldParam, create_dataset_params, dataset_status_params, determine_type
+from ingest_api.helper.mce_convenience import make_delete_mce, make_schema_mce, make_dataset_urn, \
+                    make_user_urn, make_dataset_description_mce, make_recover_mce, \
                     make_browsepath_mce, make_ownership_mce, make_platform, get_sys_time 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
-#todo - to refactor the classes here into additional modules when it gets unwieldy
-#env file, ie for pointing to the GMS rest endpoint.
-#can run from command line without using container, by using python main.py. however, the ports need changing.
+#when DEBUG = true, im not running ingest_api from container, but from localhost python interpreter, hence need to change the endpoint used.
 DEBUG = False
 datahub_url = "http://localhost:9002"
 api_emitting_port = 80 if not DEBUG else 8001
@@ -120,7 +118,7 @@ async def delete_item(item: dataset_status_params) -> None:
     ## how to check that this dataset exist? - curl to GMS? 
     rootLogger.info("remove_dataset_request_received {}".format(item))
     datasetName = make_dataset_urn(item.platform, item.dataset_name)
-    mce = delete_mce(dataset_name = datasetName)
+    mce = make_delete_mce(dataset_name = datasetName)
     try:
         emitter = DatahubRestEmitter(rest_endpoint)
         emitter.emit_mce(mce)
@@ -139,7 +137,7 @@ async def recover_item(item: dataset_status_params) -> None:
     ## how to check that this dataset exist? - curl to GMS? 
     rootLogger.info("recover_dataset_request_received {}".format(item))
     datasetName = make_dataset_urn(item.platform, item.dataset_name)
-    mce = recover_mce(dataset_name = datasetName)
+    mce = make_recover_mce(dataset_name = datasetName)
     try:
         emitter = DatahubRestEmitter(rest_endpoint)
         emitter.emit_mce(mce)
