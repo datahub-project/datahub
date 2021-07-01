@@ -28,10 +28,14 @@ def test_hive_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
             result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
             assert result.exit_code == 0
 
-            output = mce_helpers.load_json_file("hive_mces.json")
-
         # Verify the output.
-        golden = mce_helpers.load_json_file(
-            str(test_resources_dir / "hive_mces_golden.json")
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "hive_mces.json",
+            golden_path=test_resources_dir / "hive_mces_golden.json",
+            ignore_paths=[
+                # example: root[1]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][0]['com.linkedin.pegasus2avro.dataset.DatasetProperties']['customProperties']['CreateTime:']
+                # example: root[2]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][0]['com.linkedin.pegasus2avro.dataset.DatasetProperties']['customProperties']['Table Parameters: transient_lastDdlTime']
+                r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.dataset\.DatasetProperties'\]\['customProperties'\]\['.*Time.*'\]"
+            ],
         )
-        mce_helpers.assert_mces_equal(output, golden)
