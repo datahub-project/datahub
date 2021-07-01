@@ -175,13 +175,14 @@ class SageMakerJobProcessor:
 
         name: str = job["AutoMLJobName"]
         arn: str = job["AutoMLJobArn"]
-        status: str = job["AutoMLJobStatus"]
+        # TODO: figure out what to do with these attributes
+        # status: str = job["AutoMLJobStatus"]
 
-        role: str = job["RoleArn"]
+        # role: str = job["RoleArn"]
 
-        create_time: Optional[datetime] = job.get("CreationTime")
-        last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        end_time: Optional[datetime] = job.get("Endtime")
+        # create_time: Optional[datetime] = job.get("CreationTime")
+        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
+        # end_time: Optional[datetime] = job.get("Endtime")
 
         input_data: Optional[Dict[str, str]] = (
             job["InputDataConfig"].get("DataSource", {}).get("S3DataSource")
@@ -222,14 +223,14 @@ class SageMakerJobProcessor:
 
         name: str = job["CompilationJobName"]
         arn: str = job["CompilationJobArn"]
-        status: str = job["CompilationJobStatus"]
+        # status: str = job["CompilationJobStatus"]
 
-        role: str = job["RoleArn"]
+        # role: str = job["RoleArn"]
 
-        create_time: Optional[datetime] = job.get("CreationTime")
-        last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        start_time: Optional[datetime] = job.get("CompilationStartTime")
-        end_time: Optional[datetime] = job.get("CompilationEndTime")
+        # create_time: Optional[datetime] = job.get("CreationTime")
+        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
+        # start_time: Optional[datetime] = job.get("CompilationStartTime")
+        # end_time: Optional[datetime] = job.get("CompilationEndTime")
 
         input_datasets = {}
 
@@ -274,13 +275,13 @@ class SageMakerJobProcessor:
 
         name: str = job["EdgePackagingJobName"]
         arn: str = job["EdgePackagingJobArn"]
-        status: str = job["EdgePackagingJobStatus"]
-        status_message: str = job["EdgePackagingJobStatusMessage"]
+        # status: str = job["EdgePackagingJobStatus"]
+        # status_message: str = job["EdgePackagingJobStatusMessage"]
 
-        role: str = job["RoleArn"]
+        # role: str = job["RoleArn"]
 
-        create_time: Optional[datetime] = job.get("CreationTime")
-        last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
+        # create_time: Optional[datetime] = job.get("CreationTime")
+        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
 
         output_datasets = {}
 
@@ -340,13 +341,13 @@ class SageMakerJobProcessor:
 
         name: str = job["HyperParameterTuningJobName"]
         arn: str = job["HyperParameterTuningJobArn"]
-        status: str = job["HyperParameterTuningJobStatus"]
+        # status: str = job["HyperParameterTuningJobStatus"]
 
-        role: str = job["RoleArn"]
+        # role: str = job["RoleArn"]
 
-        create_time: Optional[datetime] = job.get("CreationTime")
-        last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        end_time: Optional[datetime] = job.get("HyperParameterTuningEndTime")
+        # create_time: Optional[datetime] = job.get("CreationTime")
+        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
+        # end_time: Optional[datetime] = job.get("HyperParameterTuningEndTime")
 
         job_mce = create_common_job_mce(name, arn, "HyperParameterTuning", job)
 
@@ -379,12 +380,12 @@ class SageMakerJobProcessor:
 
         name: str = job["LabelingJobName"]
         arn: str = job["LabelingJobArn"]
-        status: str = job["LabelingJobStatus"]
+        # status: str = job["LabelingJobStatus"]
 
-        role: str = job["RoleArn"]
+        # role: str = job["RoleArn"]
 
-        create_time: Optional[datetime] = job.get("CreationTime")
-        last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
+        # create_time: Optional[datetime] = job.get("CreationTime")
+        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
 
         attribute: str = job["LabelAttributeName"]
 
@@ -404,10 +405,6 @@ class SageMakerJobProcessor:
             "OutputDatasetS3Uri"
         )
 
-        task_config: Dict[str, Any] = job["HumanTaskConfig"]
-        input_config: Dict[str, Any] = job["InputConfig"]
-        output_config: Dict[str, str] = job["OutputConfig"]
-
         job_mce = create_common_job_mce(name, arn, "Labeling", job)
 
         return job_mce, []
@@ -422,14 +419,14 @@ class SageMakerJobProcessor:
 
         name: str = job["ProcessingJobName"]
         arn: str = job["ProcessingJobArn"]
-        status: str = job["ProcessingJobStatus"]
+        # status: str = job["ProcessingJobStatus"]
 
-        role: str = job["RoleArn"]
+        # role: str = job["RoleArn"]
 
-        create_time: Optional[datetime] = job.get("CreationTime")
-        last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        start_time: Optional[datetime] = job.get("ProcessingStartTime")
-        end_time: Optional[datetime] = job.get("ProcessingEndTime")
+        # create_time: Optional[datetime] = job.get("CreationTime")
+        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
+        # start_time: Optional[datetime] = job.get("ProcessingStartTime")
+        # end_time: Optional[datetime] = job.get("ProcessingEndTime")
 
         auto_ml_arn: Optional[str] = job.get("AutoMLJobArn")
         training_arn: Optional[str] = job.get("TrainingJobArn")
@@ -502,15 +499,15 @@ class SageMakerJobProcessor:
 
         name: str = job["TrainingJobName"]
         arn: str = job["TrainingJobArn"]
-        status: str = job["TrainingJobStatus"]
-        secondary_status = job["SecondaryStatus"]
+        # status: str = job["TrainingJobStatus"]
+        # secondary_status = job["SecondaryStatus"]
 
-        create_time: Optional[datetime] = job.get("CreationTime")
-        last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        start_time: Optional[datetime] = job.get("TrainingStartTime")
-        end_time: Optional[datetime] = job.get("TrainingEndTime")
+        # create_time: Optional[datetime] = job.get("CreationTime")
+        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
+        # start_time: Optional[datetime] = job.get("TrainingStartTime")
+        # end_time: Optional[datetime] = job.get("TrainingEndTime")
 
-        hyperparameters = job.get("HyperParameters", {})
+        # hyperparameters = job.get("HyperParameters", {})
 
         input_data_configs = job.get("InputDataConfig", [])
 
@@ -584,12 +581,12 @@ class SageMakerJobProcessor:
 
         name: str = job["TransformJobName"]
         arn: str = job["TransformJobArn"]
-        status: str = job["TransformJobStatus"]
+        # status: str = job["TransformJobStatus"]
 
-        create_time: Optional[datetime] = job.get("CreationTime")
-        last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        start_time: Optional[datetime] = job.get("TransformStartTime")
-        end_time: Optional[datetime] = job.get("TransformEndTime")
+        # create_time: Optional[datetime] = job.get("CreationTime")
+        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
+        # start_time: Optional[datetime] = job.get("TransformStartTime")
+        # end_time: Optional[datetime] = job.get("TransformEndTime")
 
         job_input = job.get("TransformInput", {})
         input_s3 = job_input.get("DataSource", {}).get("S3DataSource", {})
