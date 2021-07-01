@@ -75,8 +75,8 @@ def test_bq_usage_source(pytestconfig, tmp_path):
         pipeline.run()
         pipeline.raise_from_status()
 
-    output = mce_helpers.load_json_file(str(tmp_path / "bigquery_usages.json"))
-    golden = mce_helpers.load_json_file(
-        str(test_resources_dir / "bigquery_usages_golden.json")
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "bigquery_usages.json",
+        golden_path=test_resources_dir / "bigquery_usages_golden.json",
     )
-    mce_helpers.assert_mces_equal(output, golden)

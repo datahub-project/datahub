@@ -17,7 +17,7 @@ from sql_metadata import Parser as SQLParser
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -57,7 +57,7 @@ class LookMLSourceConfig(ConfigModel):  # pragma: no cover
     actor: str = "urn:li:corpuser:etl"
     model_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    env: str = "PROD"
+    env: str = DEFAULT_ENV
     parse_table_names_from_sql: bool = False
 
 

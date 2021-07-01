@@ -13,7 +13,7 @@ from sqlalchemy.engine import Engine
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import UsageStatsWorkUnit
-from datahub.ingestion.source.snowflake import SnowflakeConfig
+from datahub.ingestion.source.snowflake import BaseSnowflakeConfig
 from datahub.ingestion.source.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
@@ -86,8 +86,9 @@ class SnowflakeJoinedAccessEvent:
     role_name: str
 
 
-class SnowflakeUsageConfig(SnowflakeConfig, BaseUsageConfig):
-    database: str = "snowflake"
+class SnowflakeUsageConfig(BaseSnowflakeConfig, BaseUsageConfig):
+    env: str = builder.DEFAULT_ENV
+    options: dict = {}
 
     @pydantic.validator("role", always=True)
     def role_accountadmin(cls, v):
@@ -99,6 +100,9 @@ class SnowflakeUsageConfig(SnowflakeConfig, BaseUsageConfig):
                 v,
             )
         return v
+
+    def get_sql_alchemy_url(self):
+        return super().get_sql_alchemy_url(database="snowflake")
 
 
 @dataclasses.dataclass

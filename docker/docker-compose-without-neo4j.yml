@@ -116,7 +116,7 @@ services:
         context: ../
         dockerfile: docker/datahub-gms/Dockerfile
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
-    env_file: gms/env/docker-without-neo4j.env
+    env_file: datahub-gms/env/docker-without-neo4j.env
     hostname: datahub-gms
     container_name: datahub-gms
     ports:

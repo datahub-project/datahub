@@ -23,7 +23,7 @@ class KafkaConnectSourceConfig(ConfigModel):
     username: Optional[str] = None
     password: Optional[str] = None
     cluster_name: Optional[str] = "connect-cluster"
-    env: str = "PROD"
+    env: str = builder.DEFAULT_ENV
     connector_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
 
 

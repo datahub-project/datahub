@@ -4,21 +4,25 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.util.function.Function;
+import lombok.RequiredArgsConstructor;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 
 
 // Do we need SQL-tech specific migration paths?
+@RequiredArgsConstructor
 public class DeleteLegacySearchIndicesStep implements UpgradeStep {
 
-  private final String deletePattern = "*document*";
+  private final String deletePattern;
 
   private final RestHighLevelClient _searchClient;
 
-  public DeleteLegacySearchIndicesStep(final RestHighLevelClient searchClient) {
+  public DeleteLegacySearchIndicesStep(final RestHighLevelClient searchClient, final IndexConvention indexConvention) {
     _searchClient = searchClient;
+    deletePattern = indexConvention.getPrefix().map(p -> p + "_").orElse("") + "*document*";
   }
 
   @Override

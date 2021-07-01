@@ -381,7 +381,13 @@ source:
     username: user
     password: pass
     host_port: account_name
-    database: db_name
+    database_pattern:
+      allow:
+        - ^regex$
+        - ^another_regex$
+      deny:
+        - ^SNOWFLAKE$
+        - ^SNOWFLAKE_SAMPLE_DATA$
     warehouse: "COMPUTE_WH" # optional
     role: "sysadmin" # optional
     include_views: True # whether to include views, defaults to True

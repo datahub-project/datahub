@@ -197,6 +197,30 @@ public abstract class EntityService {
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntity(entry.getValue())));
   }
 
+  /**
+   * Produce metadata audit event and push.
+   *
+   * @param urn Urn to push
+   * @param oldAspectValue Value of aspect before the update.
+   * @param newAspectValue Value of aspect after the update
+   */
+  public void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldAspectValue,
+      @Nonnull final RecordTemplate newAspectValue) {
+
+    final Snapshot newSnapshot = buildSnapshot(urn, newAspectValue);
+    Snapshot oldSnapshot = null;
+    if (oldAspectValue != null) {
+      oldSnapshot = buildSnapshot(urn, oldAspectValue);
+    }
+
+    _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot);
+
+    // 4.1 Produce aspect specific MAE after a successful update
+    if (_emitAspectSpecificAuditEvent) {
+      _producer.produceAspectSpecificMetadataAuditEvent(urn, oldAspectValue, newAspectValue);
+    }
+  }
+
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {
     log.debug(String.format("Invoked getLatestAspect with urn %s, aspect %s", urn, aspectName));
     return getAspect(urn, aspectName, LATEST_ASPECT_VERSION);
@@ -246,25 +270,6 @@ public abstract class EntityService {
       final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());
       ingestAspect(urn, aspectName, aspect, auditStamp);
     });
-  }
-
-  protected void produceMetadataAuditEvent(
-      @Nonnull final Urn urn,
-      @Nullable final RecordTemplate oldValue,
-      @Nonnull final RecordTemplate newValue) {
-
-    final Snapshot newSnapshot = buildSnapshot(urn, newValue);
-    Snapshot oldSnapshot = null;
-    if (oldValue != null) {
-      oldSnapshot = buildSnapshot(urn, oldValue);
-    }
-
-    _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot);
-
-    // 4.1 Produce aspect specific MAE after a successful update
-    if (_emitAspectSpecificAuditEvent) {
-      _producer.produceAspectSpecificMetadataAuditEvent(urn, oldValue, newValue);
-    }
   }
 
   private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
@@ -357,5 +362,5 @@ public abstract class EntityService {
     return _entityToValidAspects.get(entityName);
   }
 
-  public abstract void setWritable();
+  public abstract void setWritable(boolean canWrite);
 }

@@ -9,7 +9,7 @@ import datahub.ingestion.extractor.schema_util as schema_util
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.emitter.mce_builder import get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class KafkaSourceConfig(ConfigModel):
-    env: str = "PROD"
+    env: str = DEFAULT_ENV
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])

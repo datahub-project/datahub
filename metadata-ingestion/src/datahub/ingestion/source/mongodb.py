@@ -11,7 +11,7 @@ from pydantic import PositiveInt
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -40,8 +40,6 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass
 # https://docs.mongodb.com/manual/reference/config-database/ and
 # https://stackoverflow.com/a/48273736/5004662.
 DENY_DATABASE_LIST = set(["admin", "config", "local"])
-
-DEFAULT_ENV = "PROD"
 
 
 class MongoDBConfig(ConfigModel):
