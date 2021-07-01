@@ -24,7 +24,7 @@ Note that in order to complete this step you should be logged into a Google acco
 c. Fill out the details in the App Information & Domain sections. Make sure the 'Application Home Page' provided matches where DataHub is deployed
 at your organization. 
 
-![google-setup-1](./img/google-setup-1.png)
+![google-setup-1](img/google-setup-1.png)
 
 Once you've completed this, **Save & Continue**. 
 
@@ -63,7 +63,7 @@ f. You will now receive a pair of values, a client id and a client secret. Bookm
 
 At this point, you should be looking at a screen like the following:
 
-![google-setup-2](./img/google-setup-2.png)
+![google-setup-2](img/google-setup-2.png)
 
 Success!
 
