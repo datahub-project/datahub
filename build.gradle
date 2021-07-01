@@ -62,7 +62,7 @@ project.ext.externalDependency = [
     'guice': 'com.google.inject:guice:4.2.2',
     'guava': 'com.google.guava:guava:27.0.1-jre',
     'h2': 'com.h2database:h2:1.4.196',
-    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.1.0',
+    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.1.1',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
