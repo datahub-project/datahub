@@ -340,6 +340,9 @@ class SQLAlchemySource(Source):
                 columns = inspector.get_columns(view, schema)
             except KeyError:
                 # For certain types of views, we are unable to fetch the list of columns.
+                self.report.report_warning(
+                    dataset_name, "unable to get schema for this view"
+                )
                 schema_metadata = None
             else:
                 schema_metadata = get_schema_metadata(
