@@ -86,6 +86,10 @@ spec:
                       name: "{{ .password.secretRef }}"
                       key: "{{ .password.secretKey }}"
                 {{- end }}
+                {{- with .Values.global.elasticsearch.indexPrefix }}
+                - name: INDEX_PREFIX
+                  value: {{ . }}
+                {{- end }}
                 - name: GRAPH_SERVICE_IMPL
                   value: {{ .Values.global.graph_service_impl }}
                 {{- if eq .Values.global.graph_service_impl "neo4j" }}
