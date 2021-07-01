@@ -28,6 +28,17 @@ def make_s3_urn(s3_uri: str, env: str, suffix: Optional[str] = None) -> str:
     return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{env})"
 
 
+def make_sagemaker_job_urn(arn) -> str:
+
+    # SageMaker has no global grouping property for jobs,
+    # so we just file all of them under an umbrella DataFlow
+    return mce_builder.make_data_job_urn(
+        orchestrator="sagemaker",
+        flow_id="sagemaker",
+        job_id=arn,
+    )
+
+
 @dataclass
 class SageMakerJob:
     job: MetadataChangeEventClass
@@ -39,17 +50,6 @@ class SageMakerJob:
     output_jobs: List[str] = []
 
 
-def make_sagemaker_job_urn(name: str, job_type: str) -> str:
-
-    # SageMaker has no global grouping property for jobs,
-    # so we just file all of them under an umbrella DataFlow
-    return mce_builder.make_data_job_urn(
-        orchestrator="sagemaker",
-        flow_id="sagemaker",
-        job_id=f"{job_type}:{name}",
-    )
-
-
 def create_common_job_mce(
     name: str,
     arn: str,
@@ -57,7 +57,7 @@ def create_common_job_mce(
     properties: Dict[str, Any],
 ) -> MetadataChangeEventClass:
 
-    job_urn = make_sagemaker_job_urn(name, job_type)
+    job_urn = make_sagemaker_job_urn(arn)
 
     return MetadataChangeEventClass(
         proposedSnapshot=DataJobSnapshotClass(
@@ -215,6 +215,10 @@ def process_edge_packaging_job(
     # "The name of the SageMaker Neo compilation job that is used to locate model artifacts that are being packaged."
     compilation_job: Optional[str] = job.get("CompilationJobName")
 
+    # output_jobs = []
+    # if compilation_job is not None:
+    #     output_jobs.append(make_sagemaker_job_urn(compilation_job, "compilation"))
+
     model: Optional[str] = job.get("ModelName")
     model_version: Optional[str] = job.get("ModelVersion")
 
@@ -223,12 +227,12 @@ def process_edge_packaging_job(
     return SageMakerJob(
         job=job_mce,
         output_datasets=output_datasets,
-        output_jobs=[make_sagemaker_job_urn(compilation_job, "compilation")],
     )
 
 
 def process_hyper_parameter_tuning_job(
     job,
+    env,
 ) -> SageMakerJob:
 
     """
@@ -249,12 +253,18 @@ def process_hyper_parameter_tuning_job(
 
     job_mce = create_common_job_mce(name, arn, "HyperParameterTuning", job)
 
-    return job_mce, []
+    training_jobs = [
+        make_sagemaker_job_urn(job["DefinitionName"], "training")
+        for job in job.get("TrainingJobDefinitions", [])
+    ]
+
+    return SageMakerJob(
+        job=job_mce,
+        output_jobs=training_jobs,
+    )
 
 
-def process_labeling_job(
-    job,
-) -> SageMakerJob:
+def process_labeling_job(job, env) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_labeling_job()
@@ -298,9 +308,7 @@ def process_labeling_job(
     return job_mce, []
 
 
-def process_processing_job(
-    job,
-) -> SageMakerJob:
+def process_processing_job(job, env) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_processing_job()
@@ -381,9 +389,7 @@ def process_processing_job(
     return job_mce, []
 
 
-def process_training_job(
-    job,
-) -> SageMakerJob:
+def process_training_job(job, env) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_training_job()
@@ -464,9 +470,7 @@ def process_training_job(
     return job_mce, []
 
 
-def process_transform_job(
-    job,
-) -> SageMakerJob:
+def process_transform_job(job, env) -> SageMakerJob:
 
     """
     Process outputs from Boto3 describe_transform_job()
