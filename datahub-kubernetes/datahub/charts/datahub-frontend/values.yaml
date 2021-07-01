@@ -6,7 +6,7 @@ replicaCount: 1
 
 image:
   repository: linkedin/datahub-frontend-react
-  tag: "v0.8.4"
+  tag: "v0.8.5"
   pullPolicy: Always
 
 imagePullSecrets: []

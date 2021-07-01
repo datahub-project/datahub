@@ -4,13 +4,13 @@ datahub-gms:
   enabled: true
   image:
     repository: linkedin/datahub-gms
-    tag: "v0.8.4"
+    tag: "v0.8.5"
 
 datahub-frontend:
   enabled: true
   image:
     repository: linkedin/datahub-frontend-react
-    tag: "v0.8.4"
+    tag: "v0.8.5"
   # Set up ingress to expose react front-end
   ingress:
     enabled: false
@@ -19,43 +19,43 @@ datahub-mae-consumer:
   enabled: true
   image:
     repository: linkedin/datahub-mae-consumer
-    tag: "v0.8.4"
+    tag: "v0.8.5"
 
 datahub-mce-consumer:
   enabled: true
   image:
     repository: linkedin/datahub-mce-consumer
-    tag: "v0.8.4"
+    tag: "v0.8.5"
 
 datahub-ingestion-cron:
   enabled: false
   image:
     repository: linkedin/datahub-ingestion
-    tag: "v0.8.4"
+    tag: "v0.8.5"
 
 elasticsearchSetupJob:
   enabled: true
   image:
     repository: linkedin/datahub-elasticsearch-setup
-    tag: "v0.8.4"
+    tag: "v0.8.5"
 
 kafkaSetupJob:
   enabled: true
   image:
     repository: linkedin/datahub-kafka-setup
-    tag: "v0.8.4"
+    tag: "v0.8.5"
 
 mysqlSetupJob:
   enabled: true
   image:
     repository: acryldata/datahub-mysql-setup
-    tag: "v0.8.4"
+    tag: "v0.8.5"
 
 datahubUpgrade:
   enabled: true
   image:
     repository: acryldata/datahub-upgrade
-    tag: "v0.8.4"
+    tag: "v0.8.5"
   noCodeDataMigration:
     sqlDbType: "MYSQL"
 
