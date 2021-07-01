@@ -2284,6 +2284,9 @@ class JobStatusClass(object):
     """Jobs that have failed."""
     FAILED = "FAILED"
     
+    """Jobs with unknown status (either unmappable or unavailable)"""
+    UNKNOWN = "UNKNOWN"
+    
     
 class AzkabanJobTypeClass(object):
     """The various types of support azkaban jobs"""

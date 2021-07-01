@@ -8,6 +8,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobSnapshotClass,
+    JobStatusClass,
     MetadataChangeEventClass,
 )
 
@@ -23,11 +24,11 @@ SAGEMAKER_JOB_TYPES = {
         "describe_name_key": "AutoMLJobName",
         "describe_status_key": "AutoMLJobStatus",
         "status_map": {
-            "Completed": "COMPLETED",
-            "InProgress": "IN_PROGRESS",
-            "Failed": "FAILED",
-            "Stopped": "STOPPED",
-            "Stopping": "STOPPING",
+            "Completed": JobStatusClass.COMPLETED,
+            "InProgress": JobStatusClass.IN_PROGRESS,
+            "Failed": JobStatusClass.FAILED,
+            "Stopped": JobStatusClass.STOPPED,
+            "Stopping": JobStatusClass.STOPPING,
         },
     },
     "compilation": {
@@ -41,12 +42,12 @@ SAGEMAKER_JOB_TYPES = {
         "describe_name_key": "CompilationJobName",
         "describe_status_key": "CompilationJobStatus",
         "status_map": {
-            "INPROGRESS": "IN_PROGRESS",
-            "COMPLETED": "COMPLETED",
-            "FAILED": "FAILED",
-            "STARTING": "STARTING",
-            "STOPPING": "STOPPING",
-            "STOPPED": "STOPPED",
+            "INPROGRESS": JobStatusClass.IN_PROGRESS,
+            "COMPLETED": JobStatusClass.COMPLETED,
+            "FAILED": JobStatusClass.FAILED,
+            "STARTING": JobStatusClass.STARTING,
+            "STOPPING": JobStatusClass.STOPPING,
+            "STOPPED": JobStatusClass.STOPPED,
         },
     },
     "edge_packaging": {
@@ -60,12 +61,12 @@ SAGEMAKER_JOB_TYPES = {
         "describe_name_key": "EdgePackagingJobName",
         "describe_status_key": "EdgePackagingJobStatus",
         "status_map": {
-            "INPROGRESS": "IN_PROGRESS",
-            "COMPLETED": "COMPLETED",
-            "FAILED": "FAILED",
-            "STARTING": "STARTING",
-            "STOPPING": "STOPPING",
-            "STOPPED": "STOPPED",
+            "INPROGRESS": JobStatusClass.IN_PROGRESS,
+            "COMPLETED": JobStatusClass.COMPLETED,
+            "FAILED": JobStatusClass.FAILED,
+            "STARTING": JobStatusClass.STARTING,
+            "STOPPING": JobStatusClass.STOPPING,
+            "STOPPED": JobStatusClass.STOPPED,
         },
     },
     "hyper_parameter_tuning": {
@@ -79,11 +80,11 @@ SAGEMAKER_JOB_TYPES = {
         "describe_name_key": "HyperParameterTuningJobName",
         "describe_status_key": "HyperParameterTuningJobStatus",
         "status_map": {
-            "InProgress": "IN_PROGRESS",
-            "Completed": "COMPLETED",
-            "Failed": "FAILED",
-            "Stopping": "STOPPING",
-            "Stopped": "STOPPED",
+            "InProgress": JobStatusClass.IN_PROGRESS,
+            "Completed": JobStatusClass.COMPLETED,
+            "Failed": JobStatusClass.FAILED,
+            "Stopping": JobStatusClass.STOPPING,
+            "Stopped": JobStatusClass.STOPPED,
         },
     },
     "labeling": {
@@ -97,12 +98,12 @@ SAGEMAKER_JOB_TYPES = {
         "describe_name_key": "LabelingJobName",
         "describe_status_key": "LabelingJobStatus",
         "status_map": {
-            "Initializing": "STARTING",
-            "InProgress": "IN_PROGRESS",
-            "Completed": "COMPLETED",
-            "Failed": "FAILED",
-            "Stopping": "STOPPING",
-            "Stopped": "STOPPED",
+            "Initializing": JobStatusClass.STARTING,
+            "InProgress": JobStatusClass.IN_PROGRESS,
+            "Completed": JobStatusClass.COMPLETED,
+            "Failed": JobStatusClass.FAILED,
+            "Stopping": JobStatusClass.STOPPING,
+            "Stopped": JobStatusClass.STOPPED,
         },
     },
     "processing": {
@@ -116,11 +117,11 @@ SAGEMAKER_JOB_TYPES = {
         "describe_name_key": "ProcessingJobName",
         "describe_status_key": "ProcessingJobStatus",
         "status_map": {
-            "InProgress": "IN_PROGRESS",
-            "Completed": "COMPLETED",
-            "Failed": "FAILED",
-            "Stopping": "STOPPING",
-            "Stopped": "STOPPED",
+            "InProgress": JobStatusClass.IN_PROGRESS,
+            "Completed": JobStatusClass.COMPLETED,
+            "Failed": JobStatusClass.FAILED,
+            "Stopping": JobStatusClass.STOPPING,
+            "Stopped": JobStatusClass.STOPPED,
         },
     },
     "training": {
@@ -134,11 +135,11 @@ SAGEMAKER_JOB_TYPES = {
         "describe_name_key": "TrainingJobName",
         "describe_status_key": "TrainingJobStatus",
         "status_map": {
-            "InProgress": "IN_PROGRESS",
-            "Completed": "COMPLETED",
-            "Failed": "FAILED",
-            "Stopping": "STOPPING",
-            "Stopped": "STOPPED",
+            "InProgress": JobStatusClass.IN_PROGRESS,
+            "Completed": JobStatusClass.COMPLETED,
+            "Failed": JobStatusClass.FAILED,
+            "Stopping": JobStatusClass.STOPPING,
+            "Stopped": JobStatusClass.STOPPED,
         },
     },
     "transform": {
@@ -152,11 +153,11 @@ SAGEMAKER_JOB_TYPES = {
         "describe_name_key": "TransformJobName",
         "describe_status_key": "TransformJobStatus",
         "status_map": {
-            "InProgress": "IN_PROGRESS",
-            "Completed": "COMPLETED",
-            "Failed": "FAILED",
-            "Stopping": "STOPPING",
-            "Stopped": "STOPPED",
+            "InProgress": JobStatusClass.IN_PROGRESS,
+            "Completed": JobStatusClass.COMPLETED,
+            "Failed": JobStatusClass.FAILED,
+            "Stopping": JobStatusClass.STOPPING,
+            "Stopped": JobStatusClass.STOPPED,
         },
     },
 }
@@ -201,39 +202,54 @@ class SageMakerJob:
     output_jobs: List[str] = []
 
 
-def create_common_job_mce(
-    name: str,
-    arn: str,
-    job_type: str,
-    properties: Dict[str, Any],
-) -> MetadataChangeEventClass:
-
-    job_urn = make_sagemaker_job_urn(arn)
-
-    return MetadataChangeEventClass(
-        proposedSnapshot=DataJobSnapshotClass(
-            urn=job_urn,
-            aspects=[
-                DataJobInfoClass(
-                    name=f"{job_type}:{name}",
-                    type="SAGEMAKER",
-                    customProperties={
-                        **{key: str(value) for key, value in properties.items()},
-                        "jobType": job_type,
-                    },
-                ),
-                # TODO: generate DataJobInputOutputClass aspects afterwards
-            ],
-        )
-    )
-
-
 @dataclass
 class SageMakerJobProcessor:
     arn_to_name: Dict[str, Tuple[str, str]]
     name_to_arn: Dict[Tuple[str, str], str]
     env: str
     report: SourceReport
+
+    def create_common_job_mce(
+        self,
+        name: str,
+        arn: str,
+        job_type: str,
+        sagemaker_status: str,
+        properties: Dict[str, Any],
+    ) -> MetadataChangeEventClass:
+
+        status_map: Dict[str, JobStatusClass] = SAGEMAKER_JOB_TYPES[job_type][
+            "status_map"
+        ]
+        mapped_status = status_map.get(sagemaker_status)
+
+        if mapped_status is None:
+            mapped_status = JobStatusClass.UNKNOWN
+
+            self.report.report_warning(
+                name,
+                f"Unknown status for {name} ({arn}): {sagemaker_status}",
+            )
+
+        job_urn = make_sagemaker_job_urn(arn)
+
+        return MetadataChangeEventClass(
+            proposedSnapshot=DataJobSnapshotClass(
+                urn=job_urn,
+                aspects=[
+                    DataJobInfoClass(
+                        name=f"{job_type}:{name}",
+                        type="SAGEMAKER",
+                        status=mapped_status,
+                        customProperties={
+                            **{key: str(value) for key, value in properties.items()},
+                            "jobType": job_type,
+                        },
+                    ),
+                    # TODO: generate DataJobInputOutputClass aspects afterwards
+                ],
+            )
+        )
 
     def process_auto_ml_job(self, job) -> SageMakerJob:
         """
@@ -276,7 +292,7 @@ class SageMakerJobProcessor:
                 "uri": output_s3_path,
             }
 
-        job_mce = create_common_job_mce(name, arn, "AutoML", job)
+        job_mce = self.create_common_job_mce(name, arn, "AutoML", job)
 
         return SageMakerJob(
             job=job_mce, input_datasets=input_datasets, output_datasets=output_datasets
@@ -325,7 +341,7 @@ class SageMakerJobProcessor:
                 "target_platform": output_data.get("TargetPlatform"),
             }
 
-        job_mce = create_common_job_mce(name, arn, "Compilation", job)
+        job_mce = self.create_common_job_mce(name, arn, "Compilation", job)
 
         return SageMakerJob(
             job=job_mce, input_datasets=input_datasets, output_datasets=output_datasets
@@ -394,7 +410,7 @@ class SageMakerJobProcessor:
         # model: Optional[str] = job.get("ModelName")
         # model_version: Optional[str] = job.get("ModelVersion")
 
-        job_mce = create_common_job_mce(name, arn, "EdgePackaging", job)
+        job_mce = self.create_common_job_mce(name, arn, "EdgePackaging", job)
 
         return SageMakerJob(
             job=job_mce, output_datasets=output_datasets, output_jobs=output_jobs
@@ -421,7 +437,7 @@ class SageMakerJobProcessor:
         # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
         # end_time: Optional[datetime] = job.get("HyperParameterTuningEndTime")
 
-        job_mce = create_common_job_mce(name, arn, "HyperParameterTuning", job)
+        job_mce = self.create_common_job_mce(name, arn, "HyperParameterTuning", job)
 
         training_jobs = []
 
@@ -504,7 +520,7 @@ class SageMakerJobProcessor:
                 "uri": output_config_s3_uri,
             }
 
-        job_mce = create_common_job_mce(name, arn, "Labeling", job)
+        job_mce = self.create_common_job_mce(name, arn, "Labeling", job)
 
         return SageMakerJob(
             job=job_mce,
@@ -595,7 +611,7 @@ class SageMakerJobProcessor:
             for output in outputs
         ]
 
-        job_mce = create_common_job_mce(name, arn, "Processing", job)
+        job_mce = self.create_common_job_mce(name, arn, "Processing", job)
 
         return SageMakerJob(
             job=job_mce,
@@ -678,7 +694,7 @@ class SageMakerJobProcessor:
                     "uri": output_s3_uri,
                 }
 
-        job_mce = create_common_job_mce(name, arn, "Training", job)
+        job_mce = self.create_common_job_mce(name, arn, "Training", job)
 
         return SageMakerJob(
             job=job_mce,
@@ -740,7 +756,7 @@ class SageMakerJobProcessor:
         if auto_ml_arn is not None:
             input_jobs.append(make_sagemaker_job_urn(auto_ml_arn))
 
-        job_mce = create_common_job_mce(name, arn, "Transform", job)
+        job_mce = self.create_common_job_mce(name, arn, "Transform", job)
 
         return SageMakerJob(
             job=job_mce,

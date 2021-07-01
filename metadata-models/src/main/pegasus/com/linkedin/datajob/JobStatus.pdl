@@ -34,4 +34,9 @@ enum JobStatus {
    * Jobs that have failed.
    */
   FAILED
+
+  /**
+   * Jobs with unknown status (either unmappable or unavailable)
+   */  
+  UNKNOWN
 }

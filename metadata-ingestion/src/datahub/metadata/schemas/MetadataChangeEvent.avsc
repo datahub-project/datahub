@@ -1588,7 +1588,8 @@
                               "STOPPING",
                               "STOPPED",
                               "COMPLETED",
-                              "FAILED"
+                              "FAILED",
+                              "UNKNOWN"
                             ],
                             "symbolDocs": {
                               "COMPLETED": "Jobs with successful completion.",
@@ -1596,7 +1597,8 @@
                               "IN_PROGRESS": "Jobs currently running.",
                               "STARTING": "Jobs being initialized.",
                               "STOPPED": "Jobs that have stopped.",
-                              "STOPPING": "Jobs being stopped."
+                              "STOPPING": "Jobs being stopped.",
+                              "UNKNOWN": "Jobs with unknown status (either unmappable or unavailable)"
                             }
                           }
                         ],
