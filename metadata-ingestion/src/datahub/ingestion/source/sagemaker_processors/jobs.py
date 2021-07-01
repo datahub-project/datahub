@@ -10,6 +10,89 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
 )
 
+SAGEMAKER_JOB_TYPES = {
+    "auto_ml": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_auto_ml_jobs
+        "list_command": "list_auto_ml_jobs",
+        "list_key": "AutoMLJobSummaries",
+        "list_name_key": "LabelingJobName",
+        "list_arn_key": "LabelingJobArn",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_auto_ml_job
+        "describe_command": "describe_auto_ml_job",
+        "describe_name_key": "AutoMLJobName",
+    },
+    "compilation": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_compilation_jobs
+        "list_command": "list_compilation_jobs",
+        "list_key": "CompilationJobSummaries",
+        "list_name_key": "CompilationJobName",
+        "list_arn_key": "CompilationJobArn",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_compilation_job
+        "describe_command": "describe_compilation_job",
+        "describe_name_key": "CompilationJobName",
+    },
+    "edge_packaging": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_edge_packaging_jobs
+        "list_command": "list_edge_packaging_jobs",
+        "list_key": "EdgePackagingJobSummaries",
+        "list_name_key": "EdgePackagingJobArn",
+        "list_arn_key": "EdgePackagingJobName",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_edge_packaging_job
+        "describe_command": "describe_edge_packaging_job",
+        "describe_name_key": "EdgePackagingJobName",
+    },
+    "hyper_parameter_tuning": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_hyper_parameter_tuning_jobs
+        "list_command": "list_hyper_parameter_tuning_jobs",
+        "list_key": "HyperParameterTuningJobSummaries",
+        "list_name_key": "HyperParameterTuningJobName",
+        "list_arn_key": "HyperParameterTuningJobArn",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_hyper_parameter_tuning_job
+        "describe_command": "describe_hyper_parameter_tuning_job",
+        "describe_name_key": "HyperParameterTuningJobName",
+    },
+    "labeling": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_labeling_jobs
+        "list_command": "list_labeling_jobs",
+        "list_key": "LabelingJobSummaryList",
+        "list_name_key": "LabelingJobName",
+        "list_arn_key": "LabelingJobArn",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_labeling_job
+        "describe_command": "describe_labeling_job",
+        "describe_name_key": "LabelingJobName",
+    },
+    "processing": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_processing_jobs
+        "list_command": "list_processing_jobs",
+        "list_key": "ProcessingJobSummaries",
+        "list_name_key": "ProcessingJobName",
+        "list_arn_key": "ProcessingJobArn",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_processing_job
+        "describe_command": "describe_processing_job",
+        "describe_name_key": "ProcessingJobName",
+    },
+    "training": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_training_jobs
+        "list_command": "list_training_jobs",
+        "list_key": "TrainingJobSummaries",
+        "list_name_key": "TrainingJobName",
+        "list_arn_key": "TrainingJobArn",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_training_job
+        "describe_command": "describe_training_job",
+        "describe_name_key": "TrainingJobName",
+    },
+    "transform": {
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_transform_jobs
+        "list_command": "list_transform_jobs",
+        "list_key": "TransformJobSummaries",
+        "list_name_key": "TransformJobName",
+        "list_arn_key": "TransformJobArn",
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_transform_job
+        "describe_command": "describe_transform_job",
+        "describe_name_key": "TransformJobName",
+    },
+}
+
 
 def make_s3_urn(s3_uri: str, env: str, suffix: Optional[str] = None) -> str:
     # TODO: update Glue to use this as well
@@ -79,8 +162,8 @@ def create_common_job_mce(
 
 @dataclass
 class SageMakerJobProcessor:
-    arn_to_name: Dict[str, str]
-    name_to_arn: Dict[str, str]
+    arn_to_name: Dict[str, Tuple[str, str]]
+    name_to_arn: Dict[Tuple[str, str], str]
     env: str
 
     def process_auto_ml_job(self, job) -> SageMakerJob:
@@ -107,7 +190,7 @@ class SageMakerJobProcessor:
         input_datasets = {}
 
         if input_data is not None and "S3Uri" in input_data:
-            input_datasets[make_s3_urn(input_data["S3Uri"], env)] = {
+            input_datasets[make_s3_urn(input_data["S3Uri"], self.env)] = {
                 "dataset_type": "s3",
                 "uri": input_data["S3Uri"],
                 "datatype": input_data.get("S3DataType"),
@@ -118,7 +201,7 @@ class SageMakerJobProcessor:
         output_s3_path = job.get("OutputDataConfig", {}).get("S3OutputPath")
 
         if output_s3_path is not None:
-            output_datasets[make_s3_urn(output_s3_path, env)] = {
+            output_datasets[make_s3_urn(output_s3_path, self.env)] = {
                 "dataset_type": "s3",
                 "uri": output_s3_path,
             }
@@ -153,7 +236,7 @@ class SageMakerJobProcessor:
         input_data: Optional[Dict[str, Any]] = job.get("InputConfig")
 
         if input_data is not None and "S3Uri" in input_data:
-            input_datasets[make_s3_urn(input_data["S3Uri"], env)] = {
+            input_datasets[make_s3_urn(input_data["S3Uri"], self.env)] = {
                 "dataset_type": "s3",
                 "uri": input_data["S3Uri"],
                 "framework": input_data.get("Framework"),
@@ -165,7 +248,7 @@ class SageMakerJobProcessor:
         output_data: Optional[Dict[str, Any]] = job.get("OutputConfig")
 
         if output_data is not None and "S3OutputLocation" in output_data:
-            output_datasets[make_s3_urn(output_data["S3OutputLocation"], env)] = {
+            output_datasets[make_s3_urn(output_data["S3OutputLocation"], self.env)] = {
                 "dataset_type": "s3",
                 "uri": output_data["S3Uri"],
                 "target_device": output_data.get("TargetDevice"),
@@ -207,23 +290,33 @@ class SageMakerJobProcessor:
         )
 
         if model_artifact_s3_uri is not None:
-            output_datasets[make_s3_urn(model_artifact_s3_uri, env)] = {
+            output_datasets[make_s3_urn(model_artifact_s3_uri, self.env)] = {
                 "dataset_type": "s3",
                 "uri": model_artifact_s3_uri,
             }
 
         if output_s3_uri is not None:
-            output_datasets[make_s3_urn(output_s3_uri, env)] = {
+            output_datasets[make_s3_urn(output_s3_uri, self.env)] = {
                 "dataset_type": "s3",
                 "uri": output_s3_uri,
             }
 
         # "The name of the SageMaker Neo compilation job that is used to locate model artifacts that are being packaged."
-        compilation_job: Optional[str] = job.get("CompilationJobName")
+        compilation_job_name: Optional[str] = job.get("CompilationJobName")
 
-        # output_jobs = []
-        # if compilation_job is not None:
-        #     output_jobs.append(make_sagemaker_job_urn(compilation_job, "compilation"))
+        output_jobs = []
+        if compilation_job_name is not None:
+
+            # globally unique job name
+            job_name = ("compilation", compilation_job_name)
+
+            if job_name in self.name_to_arn:
+
+                output_jobs.append(make_sagemaker_job_urn(self.name_to_arn[job_name]))
+            else:
+
+                # TODO: make this a warning
+                raise ValueError("Could not find compilation job")
 
         model: Optional[str] = job.get("ModelName")
         model_version: Optional[str] = job.get("ModelVersion")
@@ -231,8 +324,7 @@ class SageMakerJobProcessor:
         job_mce = create_common_job_mce(name, arn, "EdgePackaging", job)
 
         return SageMakerJob(
-            job=job_mce,
-            output_datasets=output_datasets,
+            job=job_mce, output_datasets=output_datasets, output_jobs=output_jobs
         )
 
     def process_hyper_parameter_tuning_job(

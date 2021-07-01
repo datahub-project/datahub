@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws_common import AwsSourceConfig
+from datahub.ingestion.source.sagemaker_processors import SAGEMAKER_JOB_TYPES
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     MLFeatureSnapshot,
@@ -19,89 +20,6 @@ from datahub.metadata.schema_classes import (
     MLFeatureTablePropertiesClass,
     MLPrimaryKeyPropertiesClass,
 )
-
-SAGEMAKER_JOBS = {
-    "auto_ml": {
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_auto_ml_jobs
-        "list_command": "list_auto_ml_jobs",
-        "list_key": "AutoMLJobSummaries",
-        "list_name_key": "LabelingJobName",
-        "list_arn_key": "LabelingJobArn",
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_auto_ml_job
-        "describe_command": "describe_auto_ml_job",
-        "describe_name_key": "AutoMLJobName",
-    },
-    "compilation": {
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_compilation_jobs
-        "list_command": "list_compilation_jobs",
-        "list_key": "CompilationJobSummaries",
-        "list_name_key": "CompilationJobName",
-        "list_arn_key": "CompilationJobArn",
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_compilation_job
-        "describe_command": "describe_compilation_job",
-        "describe_name_key": "CompilationJobName",
-    },
-    "edge_packaging": {
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_edge_packaging_jobs
-        "list_command": "list_edge_packaging_jobs",
-        "list_key": "EdgePackagingJobSummaries",
-        "list_name_key": "EdgePackagingJobArn",
-        "list_arn_key": "EdgePackagingJobName",
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_edge_packaging_job
-        "describe_command": "describe_edge_packaging_job",
-        "describe_name_key": "EdgePackagingJobName",
-    },
-    "hyper_parameter_tuning": {
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_hyper_parameter_tuning_jobs
-        "list_command": "list_hyper_parameter_tuning_jobs",
-        "list_key": "HyperParameterTuningJobSummaries",
-        "list_name_key": "HyperParameterTuningJobName",
-        "list_arn_key": "HyperParameterTuningJobArn",
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_hyper_parameter_tuning_job
-        "describe_command": "describe_hyper_parameter_tuning_job",
-        "describe_name_key": "HyperParameterTuningJobName",
-    },
-    "labeling": {
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_labeling_jobs
-        "list_command": "list_labeling_jobs",
-        "list_key": "LabelingJobSummaryList",
-        "list_name_key": "LabelingJobName",
-        "list_arn_key": "LabelingJobArn",
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_labeling_job
-        "describe_command": "describe_labeling_job",
-        "describe_name_key": "LabelingJobName",
-    },
-    "processing": {
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_processing_jobs
-        "list_command": "list_processing_jobs",
-        "list_key": "ProcessingJobSummaries",
-        "list_name_key": "ProcessingJobName",
-        "list_arn_key": "ProcessingJobArn",
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_processing_job
-        "describe_command": "describe_processing_job",
-        "describe_name_key": "ProcessingJobName",
-    },
-    "training": {
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_training_jobs
-        "list_command": "list_training_jobs",
-        "list_key": "TrainingJobSummaries",
-        "list_name_key": "TrainingJobName",
-        "list_arn_key": "TrainingJobArn",
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_training_job
-        "describe_command": "describe_training_job",
-        "describe_name_key": "TrainingJobName",
-    },
-    "transform": {
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_transform_jobs
-        "list_command": "list_transform_jobs",
-        "list_key": "TransformJobSummaries",
-        "list_name_key": "TransformJobName",
-        "list_arn_key": "TransformJobArn",
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_transform_job
-        "describe_command": "describe_transform_job",
-        "describe_name_key": "TransformJobName",
-    },
-}
 
 
 class SagemakerSourceConfig(AwsSourceConfig):
@@ -176,17 +94,17 @@ class SagemakerSource(Source):
         jobs = []
 
         # dictionaries for translating between type-specific job names and ARNs
-        arn_to_name = {}
-        name_to_arn = {}
+        arn_to_name: Dict[str, Tuple[str, str]] = {}
+        name_to_arn: Dict[Tuple[str, str], str] = {}
 
-        for job_type, job_spec in SAGEMAKER_JOBS.items():
+        for job_type, job_spec in SAGEMAKER_JOB_TYPES.items():
 
             paginator = self.sagemaker_client.get_paginator(job_spec["list_command"])
             for page in paginator.paginate():
                 page_jobs = page[job_spec["list_key"]]
 
                 for job in page_jobs:
-                    job_name = f'{job_type}:{job[job_spec["list_name_key"]]}'
+                    job_name = (job_type, job_spec)
                     job_arn = job[job_spec["list_name_arn"]]
 
                     arn_to_name[job_arn] = job_name
