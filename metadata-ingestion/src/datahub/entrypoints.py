@@ -47,7 +47,6 @@ def datahub(debug: bool) -> None:
         logging.getLogger("datahub").setLevel(logging.INFO)
     # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     # print(loggers)
-    # breakpoint()
 
 
 @datahub.command()

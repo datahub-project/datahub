@@ -113,7 +113,12 @@
       } ],
       "returns" : "com.linkedin.metadata.query.SearchResult"
     }, {
-      "name" : "setWritable"
+      "name" : "setWritable",
+      "parameters" : [ {
+        "name" : "value",
+        "type" : "boolean",
+        "default" : "true"
+      } ]
     } ],
     "entity" : {
       "path" : "/entities/{entitiesId}"

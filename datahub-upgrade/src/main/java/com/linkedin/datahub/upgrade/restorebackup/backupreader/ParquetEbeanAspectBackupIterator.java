@@ -12,10 +12,10 @@ import org.apache.parquet.hadoop.ParquetReader;
 
 /**
  * Iterator to retrieve EbeanAspectV2 objects from the ParquetReader
- * Converts the avro GeneralRecord object into EbeanAspectV2
+ * Converts the avro GenericRecord object into EbeanAspectV2
  */
 @RequiredArgsConstructor
-public class ParquetIterator implements BackupIterator {
+public class ParquetEbeanAspectBackupIterator implements EbeanAspectBackupIterator {
   private final ParquetReader<GenericRecord> _parquetReader;
 
   @Override
@@ -38,9 +38,6 @@ public class ParquetIterator implements BackupIterator {
   }
 
   private EbeanAspectV2 convertRecord(GenericRecord record) {
-    if (record == null) {
-      return null;
-    }
     EbeanAspectV2.PrimaryKey key =
         new EbeanAspectV2.PrimaryKey(record.get("urn").toString(), record.get("aspect").toString(),
             (Long) record.get("version"));

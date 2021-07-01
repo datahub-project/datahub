@@ -1,17 +1,18 @@
 import logging
-import warnings
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from urllib.parse import quote_plus
 
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -35,17 +36,39 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+def make_sqlalchemy_uri(
+    scheme: str,
+    username: Optional[str],
+    password: Optional[str],
+    at: Optional[str],
+    db: Optional[str],
+    uri_opts: Optional[Dict[str, Any]] = None,
+) -> str:
+    url = f"{scheme}://"
+    if username is not None:
+        url += f"{quote_plus(username)}"
+        if password is not None:
+            url += f":{quote_plus(password)}"
+        url += "@"
+    if at is not None:
+        url += f"{at}"
+    if db is not None:
+        url += f"/{db}"
+    if uri_opts is not None:
+        if db is None:
+            url += "/"
+        params = "&".join(
+            f"{key}={quote_plus(value)}" for (key, value) in uri_opts.items() if value
+        )
+        url = f"{url}?{params}"
+    return url
+
+
 @dataclass
 class SQLSourceReport(SourceReport):
     tables_scanned: int = 0
     views_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
-
-    def report_table_scanned(self, table_name: str) -> None:
-        warnings.warn(
-            "report_table_scanned is deprecated, please use report_entity_scanned with argument `table`"
-        )
-        self.tables_scanned += 1
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
@@ -63,7 +86,7 @@ class SQLSourceReport(SourceReport):
 
 
 class SQLAlchemyConfig(ConfigModel):
-    env: str = "PROD"
+    env: str = DEFAULT_ENV
     options: dict = {}
     # Although the 'table_pattern' enables you to skip everything from certain schemas,
     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
@@ -98,17 +121,15 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     database: Optional[str] = None
     scheme: str
 
-    def get_sql_alchemy_url(self):
-        url = f"{self.scheme}://"
-        if self.username:
-            url += f"{self.username}"
-            if self.password:
-                url += f":{self.password}"
-            url += "@"
-        url += f"{self.host_port}"
-        if self.database:
-            url += f"/{self.database}"
-        return url
+    def get_sql_alchemy_url(self, uri_opts=None):
+        return make_sqlalchemy_uri(
+            self.scheme,
+            self.username,
+            self.password,
+            self.host_port,
+            self.database,
+            uri_opts=uri_opts,
+        )
 
 
 @dataclass
@@ -217,30 +238,39 @@ class SQLAlchemySource(Source):
         self.platform = platform
         self.report = SQLSourceReport()
 
+    def get_inspectors(self) -> Iterable[Inspector]:
+        # This method can be overridden in the case that you want to dynamically
+        # run on multiple databases.
+
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+        inspector = inspect(engine)
+        yield inspector
+
     def get_workunits(self) -> Iterable[SqlWorkUnit]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
             sql_config.options["echo"] = True
 
-        url = sql_config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **sql_config.options)
-        inspector = inspect(engine)
-        for schema in inspector.get_schema_names():
-            if not sql_config.schema_pattern.allowed(schema):
-                self.report.report_dropped(schema)
-                continue
+        for inspector in self.get_inspectors():
+            for schema in inspector.get_schema_names():
+                if not sql_config.schema_pattern.allowed(schema):
+                    self.report.report_dropped(
+                        ".".join(sql_config.standardize_schema_table_names(schema, "*"))
+                    )
+                    continue
 
-            if sql_config.include_tables:
-                yield from self.loop_tables(inspector, schema, sql_config)
+                if sql_config.include_tables:
+                    yield from self.loop_tables(inspector, schema, sql_config)
 
-            if sql_config.include_views:
-                yield from self.loop_views(inspector, schema, sql_config)
+                if sql_config.include_views:
+                    yield from self.loop_views(inspector, schema, sql_config)
 
     def loop_tables(
         self,
-        inspector: Any,
+        inspector: Inspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[SqlWorkUnit]:
@@ -255,7 +285,9 @@ class SQLAlchemySource(Source):
 
             columns = inspector.get_columns(table, schema)
             try:
-                table_info: dict = inspector.get_table_comment(table, schema)
+                # SQLALchemy stubs are incomplete and missing this method.
+                # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
+                table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
             except NotImplementedError:
                 description: Optional[str] = None
                 properties: Dict[str, str] = {}
@@ -291,7 +323,7 @@ class SQLAlchemySource(Source):
 
     def loop_views(
         self,
-        inspector: Any,
+        inspector: Inspector,
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[SqlWorkUnit]:
@@ -306,7 +338,9 @@ class SQLAlchemySource(Source):
 
             columns = inspector.get_columns(view, schema)
             try:
-                view_info: dict = inspector.get_table_comment(view, schema)
+                # SQLALchemy stubs are incomplete and missing this method.
+                # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
+                view_info: dict = inspector.get_table_comment(view, schema)  # type: ignore
             except NotImplementedError:
                 description: Optional[str] = None
                 properties: Dict[str, str] = {}
@@ -316,8 +350,11 @@ class SQLAlchemySource(Source):
                 # The "properties" field is a non-standard addition to SQLAlchemy's interface.
                 properties = view_info.get("properties", {})
 
-            view_definition = inspector.get_view_definition(view)
-            if view_definition is None:
+            try:
+                view_definition = inspector.get_view_definition(view, schema)
+                if view_definition is None:
+                    view_definition = ""
+            except NotImplementedError:
                 view_definition = ""
             properties["view_definition"] = view_definition
             properties["is_view"] = "True"

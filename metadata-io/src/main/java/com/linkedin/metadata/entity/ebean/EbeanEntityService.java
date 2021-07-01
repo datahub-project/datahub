@@ -331,14 +331,8 @@ public class EbeanEntityService extends EntityService {
     RecordTemplate newValue;
   }
 
-  @Nonnull
-  public void setWritable() {
+  public void setWritable(boolean canWrite) {
     log.debug("Enabling writes");
-    _entityDao.setWritable();
-  }
-
-  @Nonnull
-  public void disableWrite() {
-    _entityDao.disableWrite();
+    _entityDao.setWritable(canWrite);
   }
 }

@@ -14,16 +14,23 @@ import org.apache.commons.lang3.StringUtils;
 public class IndexConventionImpl implements IndexConvention {
   private final Map<String, String> indexNameMapping = new HashMap<>();
   private final Optional<String> _prefix;
+  private final String _getAllIndicesPattern;
 
   private final static String VERSION = "v2";
   private final static String SUFFIX = "index";
 
   public IndexConventionImpl(@Nullable String prefix) {
     _prefix = StringUtils.isEmpty(prefix) ? Optional.empty() : Optional.of(prefix);
+    _getAllIndicesPattern = _prefix.map(p -> p + "_").orElse("") + "*" + SUFFIX + "_" + VERSION;
   }
 
   private String createIndexName(String baseName) {
     return (_prefix.map(prefix -> prefix + "_").orElse("") + baseName).toLowerCase();
+  }
+
+  @Override
+  public Optional<String> getPrefix() {
+    return _prefix;
   }
 
   @Nonnull
@@ -42,5 +49,11 @@ public class IndexConventionImpl implements IndexConvention {
   @Override
   public String getIndexName(String baseIndexName) {
     return indexNameMapping.computeIfAbsent(baseIndexName, this::createIndexName);
+  }
+
+  @Nonnull
+  @Override
+  public String getAllIndicesPattern() {
+    return _getAllIndicesPattern;
   }
 }

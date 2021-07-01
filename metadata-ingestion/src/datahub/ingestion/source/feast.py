@@ -9,9 +9,10 @@ import docker
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     MLFeatureSnapshot,
@@ -44,8 +45,6 @@ _field_type_mapping: Dict[str, str] = {
     "BOOL_LIST": MLFeatureDataType.SEQUENCE,
     "UNIX_TIMESTAMP_LIST": MLFeatureDataType.SEQUENCE,
 }
-
-DEFAULT_ENV = "PROD"
 
 # image to use for initial feast extraction
 HOSTED_FEAST_IMAGE = "acryldata/datahub-ingestion-feast-wrapper"

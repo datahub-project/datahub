@@ -8,8 +8,8 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.datahub.upgrade.restorebackup.backupreader.BackupIterator;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.BackupReader;
+import com.linkedin.datahub.upgrade.restorebackup.backupreader.EbeanAspectBackupIterator;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.LocalParquetReader;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.S3BackupReader;
 import com.linkedin.metadata.entity.EntityService;
@@ -62,11 +62,7 @@ public class RestoreStorageStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
 
-      BackupIterator iterator = _backupReaders.get(backupReaderName.get()).getBackupIterator(context);
-      if (iterator == null) {
-        context.report().addLine("Failed to build backup iterator");
-        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
-      }
+      EbeanAspectBackupIterator iterator = _backupReaders.get(backupReaderName.get()).getBackupIterator(context);
       EbeanAspectV2 aspect;
       while ((aspect = iterator.next()) != null) {
         numRows++;

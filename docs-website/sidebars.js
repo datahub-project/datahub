@@ -32,7 +32,7 @@ module.exports = {
   overviewSidebar: {
     DataHub: [
       "README",
-      "docs/faq",
+      // "docs/faq", // hide from sidebar: out of date
       "docs/features",
       "docs/roadmap",
       "docs/CONTRIBUTING",
@@ -87,6 +87,7 @@ module.exports = {
       "docs/how/configure-oidc-react",
       "docs/how/sso/configure-oidc-react-google",
       "docs/how/sso/configure-oidc-react-okta",
+      "docs/how/restore-indices",
       "datahub-web-react/src/app/analytics/README",
     ],
     Components: [

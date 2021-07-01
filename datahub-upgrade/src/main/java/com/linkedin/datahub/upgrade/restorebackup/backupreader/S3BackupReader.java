@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.io.FileUtils;
@@ -41,27 +42,26 @@ public class S3BackupReader implements BackupReader {
     return "S3_PARQUET";
   }
 
+  @Nonnull
   @Override
-  public BackupIterator getBackupIterator(UpgradeContext context) {
+  public EbeanAspectBackupIterator getBackupIterator(UpgradeContext context) {
     Optional<String> bucket = context.parsedArgs().get("BACKUP_S3_BUCKET");
     Optional<String> path = context.parsedArgs().get("BACKUP_S3_PATH");
     if (!bucket.isPresent() || !path.isPresent()) {
-      context.report().addLine("BACKUP_S3_BUCKET and BACKUP_S3_PATH must be set to run RestoreBackup through S3");
-      return null;
+      throw new IllegalArgumentException(
+          "BACKUP_S3_BUCKET and BACKUP_S3_PATH must be set to run RestoreBackup through S3");
     }
     Optional<String> localFilePath = getFileKey(bucket.get(), path.get()).flatMap(key -> saveFile(bucket.get(), key));
     if (!localFilePath.isPresent()) {
-      context.report()
-          .addLine(String.format("Backup file on path %s in bucket %s is not found", path.get(), bucket.get()));
-      return null;
+      throw new RuntimeException(
+          String.format("Backup file on path %s in bucket %s is not found", path.get(), bucket.get()));
     }
     try {
       ParquetReader<GenericRecord> reader =
           AvroParquetReader.<GenericRecord>builder(new Path(localFilePath.get())).build();
-      return new ParquetIterator(reader);
+      return new ParquetEbeanAspectBackupIterator(reader);
     } catch (IOException e) {
-      context.report().addLine("Failed to build ParquetReader");
-      return null;
+      throw new RuntimeException("Failed to build ParquetReader");
     }
   }
 

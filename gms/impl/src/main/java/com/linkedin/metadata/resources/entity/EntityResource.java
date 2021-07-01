@@ -66,6 +66,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
+  private static final String PARAM_VALUE = "value";
 
   private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
   private final Clock _clock = Clock.systemUTC();
@@ -202,10 +203,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
    */
   @Action(name = "setWritable")
   @Nonnull
-  public Task<Void> setWriteable() {
+  public Task<Void> setWriteable(@ActionParam(PARAM_VALUE) @Optional("true") @Nonnull Boolean value) {
     log.info("setting entity resource to be writable");
     return RestliUtils.toTask(() -> {
-      _entityService.setWritable();
+      _entityService.setWritable(value);
       return null;
     });
   }

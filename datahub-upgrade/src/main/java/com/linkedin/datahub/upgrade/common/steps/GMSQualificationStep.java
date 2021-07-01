@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.commonsteps;
+package com.linkedin.datahub.upgrade.common.steps;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

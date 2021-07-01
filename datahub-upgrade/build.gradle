@@ -7,6 +7,7 @@ dependencies {
   compile project(':metadata-io')
   compile project(':gms:impl')
   compile project(':gms:factories')
+  compile project(':gms:client')
 
   compile externalDependency.javaxInject
   compile externalDependency.hadoopClient
@@ -21,7 +22,6 @@ dependencies {
   compile externalDependency.awsJavaSdkCore
   compile externalDependency.awsJavaSdkSts
   compile externalDependency.awsJavaSdkS3
-  compile externalDependency.hadoopClient
 
   runtime externalDependency.logbackClassic
   runtime externalDependency.mariadbConnector

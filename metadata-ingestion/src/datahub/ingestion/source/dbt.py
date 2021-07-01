@@ -6,15 +6,15 @@ import dateutil.parser
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dbt_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
     resolve_postgres_modified_type,
 )
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -44,7 +44,7 @@ class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
     sources_path: Optional[str]
-    env: str = "PROD"
+    env: str = DEFAULT_ENV
     target_platform: str
     load_schemas: bool
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()

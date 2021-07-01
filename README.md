@@ -48,7 +48,6 @@ HOSTED_DOCS_ONLY-->
 [Features](https://datahubproject.io/docs/features) |
 [Roadmap](https://datahubproject.io/docs/roadmap) |
 [Adoption](#adoption) |
-[FAQ](https://datahubproject.io/docs/faq) |
 [Demo](https://datahubproject.io/docs/demo) |
 [Town Hall](https://datahubproject.io/docs/townhalls)
 
@@ -96,10 +95,6 @@ We have documentation available at [https://datahubproject.io/docs/](https://dat
 ## Releases
 
 See [Releases](https://github.com/linkedin/datahub/releases) page for more details. We follow the [SemVer Specification](https://semver.org) when versioning the releases and adopt the [Keep a Changelog convention](https://keepachangelog.com/) for the changelog format.
-
-## FAQs
-
-Frequently Asked Questions about DataHub can be found [here](docs/faq.md).
 
 ## Features & Roadmap
 

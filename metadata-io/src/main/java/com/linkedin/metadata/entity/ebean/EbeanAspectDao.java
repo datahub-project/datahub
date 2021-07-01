@@ -70,12 +70,8 @@ public class EbeanAspectDao {
     _server = server;
   }
 
-  public void setWritable() {
-    _canWrite = true;
-  }
-
-  public void disableWrite() {
-    _canWrite = false;
+  public void setWritable(boolean canWrite) {
+    _canWrite = canWrite;
   }
 
   /**

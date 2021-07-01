@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.restorebackup.backupreader;
 
 import com.linkedin.datahub.upgrade.UpgradeContext;
+import javax.annotation.Nonnull;
 
 
 /**
@@ -10,5 +11,6 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 public interface BackupReader {
   String getName();
 
-  BackupIterator getBackupIterator(UpgradeContext context);
+  @Nonnull
+  EbeanAspectBackupIterator getBackupIterator(UpgradeContext context);
 }

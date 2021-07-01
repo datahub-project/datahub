@@ -1,6 +1,7 @@
 namespace com.linkedin.ml.metadata
 
 import com.linkedin.common.Urn
+import com.linkedin.common.CustomProperties
 
 /**
  * Properties associated with a MLFeatureTable
@@ -8,7 +9,7 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "mlFeatureTableProperties"
 }
-record MLFeatureTableProperties {
+record MLFeatureTableProperties includes CustomProperties {
 
   /**
    * Documentation of the MLFeatureTable

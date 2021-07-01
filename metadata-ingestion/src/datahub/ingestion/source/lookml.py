@@ -13,14 +13,14 @@ if sys.version_info >= (3, 7):
     import lkml
 else:
     raise ModuleNotFoundError("The lookml plugin requires Python 3.7 or newer.")
-from sql_metadata import get_query_tables
+from sql_metadata import Parser as SQLParser
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -57,7 +57,7 @@ class LookMLSourceConfig(ConfigModel):  # pragma: no cover
     actor: str = "urn:li:corpuser:etl"
     model_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    env: str = "PROD"
+    env: str = DEFAULT_ENV
     parse_table_names_from_sql: bool = False
 
 
@@ -197,20 +197,9 @@ class LookerView:  # pragma: no cover
 
     @classmethod
     def _get_sql_table_names(cls, sql: str) -> List[str]:
-        sql_tables: List[str] = get_query_tables(sql)
+        sql_table_names: List[str] = SQLParser(sql).tables
 
-        # Remove temporary tables from WITH statements
-        sql_table_names = [
-            t
-            for t in sql_tables
-            if not re.search(
-                fr"WITH(.*,)?\s+{t}(\s*\([\w\s,]+\))?\s+AS\s+\(",
-                sql,
-                re.IGNORECASE | re.DOTALL,
-            )
-        ]
-
-        # Remove quotes from tables
+        # Remove quotes from table names
         sql_table_names = [t.replace('"', "") for t in sql_table_names]
 
         return sql_table_names
@@ -383,7 +372,12 @@ class LookMLSource(Source):  # pragma: no cover
     def _construct_datalineage_urn(self, sql_table_name: str, connection: str) -> str:
         platform = self._get_platform_based_on_connection(connection)
 
-        if "." in platform:
+        # Check if table name matches cascading derived tables pattern (same platform)
+        if re.fullmatch(r"\w+\.SQL_TABLE_NAME", sql_table_name):
+            platform_name = self.source_config.platform_name
+            sql_table_name = sql_table_name.lower().split(".")[0]
+        # Check if table database is in platform name (upstream platform)
+        elif "." in platform:
             platform_name, database_name = platform.lower().split(".", maxsplit=1)
             sql_table_name = f"{database_name}.{sql_table_name}".lower()
         else:

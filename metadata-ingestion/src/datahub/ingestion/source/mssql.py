@@ -31,8 +31,8 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             import pyodbc  # noqa: F401
 
             self.scheme = "mssql+pyodbc"
-        uri = super().get_sql_alchemy_url()
 
+        uri = super().get_sql_alchemy_url(uri_opts=None)
         if self.use_odbc:
             uri = f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
         return uri

@@ -362,7 +362,5 @@ public abstract class EntityService {
     return _entityToValidAspects.get(entityName);
   }
 
-  public abstract void setWritable();
-
-  public abstract void disableWrite();
+  public abstract void setWritable(boolean canWrite);
 }
