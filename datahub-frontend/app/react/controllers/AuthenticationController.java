@@ -3,7 +3,6 @@ package react.controllers;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.CorpuserUrn;
-import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.core.client.Client;
@@ -101,7 +100,9 @@ public class AuthenticationController extends Controller {
         final String password = json.findPath(PASSWORD).textValue();
 
         if (StringUtils.isBlank(username)) {
-            throw new ValidationException("username must not be empty");
+            JsonNode invalidCredsJson = Json.newObject()
+                .put("message", "User name must not be empty.");
+            return badRequest(invalidCredsJson);
         }
 
         ctx().session().clear();
@@ -110,7 +111,9 @@ public class AuthenticationController extends Controller {
             AuthenticationManager.authenticateUser(username, password);
         } catch (NamingException e) {
             _logger.error("Authentication error", e);
-            return badRequest("Invalid Credential");
+            JsonNode invalidCredsJson = Json.newObject()
+                .put("message", "Invalid Credentials");
+            return badRequest(invalidCredsJson);
         }
 
         final String actorUrn = new CorpuserUrn(username).toString();

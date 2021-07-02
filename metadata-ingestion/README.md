@@ -346,6 +346,26 @@ source:
     # options is same as above
 ```
 
+<details>
+  <summary>Extra options when running Redshift behind a proxy</summary>
+
+This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
+See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+
+```yml
+source:
+  type: redshift
+  config:
+    # username, password, database, etc are all the same as above
+    host_port: my-proxy-hostname:5439
+    options:
+      connect_args:
+        sslmode: "prefer" # or "require" or "verify-ca"
+        sslrootcert: ~ # needed to unpin the AWS Redshift certificate
+```
+
+</details>
+
 ### AWS SageMaker `sagemaker`
 
 Extracts:
