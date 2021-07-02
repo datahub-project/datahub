@@ -37,7 +37,7 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.5.1",
+    "avro-gen3==0.5.2",
     "avro-python3>=1.8.2",
     "python-dateutil",
 }

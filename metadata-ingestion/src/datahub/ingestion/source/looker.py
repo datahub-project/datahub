@@ -17,22 +17,17 @@ from looker_sdk.sdk.api31.models import (
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    AuditStamp,
-    ChangeAuditStamps,
-    Status,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps, Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
     DashboardSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
@@ -303,30 +298,19 @@ class LookerDashboardSource(Source):
     def _make_chart_mce(
         self, dashboard_element: LookerDashboardElement
     ) -> MetadataChangeEvent:
-        actor = self.source_config.actor
-        sys_time = get_sys_time()
         chart_urn = f"urn:li:chart:({self.source_config.platform_name},{dashboard_element.get_urn_element_id()})"
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
         )
 
-        last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=sys_time, actor=actor),
-            lastModified=AuditStamp(time=sys_time, actor=actor),
-        )
-
         chart_type = self._get_chart_type(dashboard_element)
 
         chart_info = ChartInfoClass(
             type=chart_type,
-            description=dashboard_element.description
-            if dashboard_element.description is not None
-            else "",
-            title=dashboard_element.title
-            if dashboard_element.title is not None
-            else "",
-            lastModified=last_modified,
+            description=dashboard_element.description or "",
+            title=dashboard_element.title or "",
+            lastModified=ChangeAuditStamps(),
             chartUrl=dashboard_element.url(self.source_config.base_url),
             inputs=dashboard_element.get_view_urns(self.source_config.platform_name),
         )
@@ -338,7 +322,6 @@ class LookerDashboardSource(Source):
         self, looker_dashboard: LookerDashboard
     ) -> List[MetadataChangeEvent]:
         actor = self.source_config.actor
-        sys_time = get_sys_time()
 
         chart_mces = [
             self._make_chart_mce(element)
@@ -351,18 +334,11 @@ class LookerDashboardSource(Source):
             aspects=[],
         )
 
-        last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=sys_time, actor=actor),
-            lastModified=AuditStamp(time=sys_time, actor=actor),
-        )
-
         dashboard_info = DashboardInfoClass(
-            description=looker_dashboard.description
-            if looker_dashboard.description is not None
-            else "",
+            description=looker_dashboard.description or "",
             title=looker_dashboard.title,
             charts=[mce.proposedSnapshot.urn for mce in chart_mces],
-            lastModified=last_modified,
+            lastModified=ChangeAuditStamps(),
             dashboardUrl=looker_dashboard.url(self.source_config.base_url),
         )
 
@@ -371,9 +347,6 @@ class LookerDashboardSource(Source):
         dashboard_snapshot.aspects.append(
             OwnershipClass(
                 owners=owners,
-                lastModified=AuditStampClass(
-                    time=sys_time, actor=self.source_config.actor
-                ),
             )
         )
         dashboard_snapshot.aspects.append(Status(removed=looker_dashboard.is_deleted))

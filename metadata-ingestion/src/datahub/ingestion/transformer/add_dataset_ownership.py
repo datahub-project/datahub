@@ -57,10 +57,6 @@ class AddDatasetOwnership(Transformer):
                 mce,
                 OwnershipClass(
                     owners=[],
-                    lastModified=AuditStampClass(
-                        time=builder.get_sys_time(),
-                        actor=self.config.default_actor,
-                    ),
                 ),
             )
             ownership.owners.extend(owners_to_add)

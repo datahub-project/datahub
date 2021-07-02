@@ -33,7 +33,7 @@ def test_simple_dataset_ownership_tranformation(mock_time):
                         ),
                     ],
                     lastModified=models.AuditStampClass(
-                        time=builder.get_sys_time(), actor="urn:li:corpuser:datahub"
+                        time=1625266033123, actor="urn:li:corpuser:datahub"
                     ),
                 )
             ],
