@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Tuple
 
 import datahub.emitter.mce_builder as builder
@@ -46,7 +47,14 @@ class ModelProcessor:
                 "sagemaker",
                 model_details["ModelName"],
             ),
-            aspects=[MLModelPropertiesClass()],
+            aspects=[
+                MLModelPropertiesClass(
+                    date=int(
+                        model_details.get("CreationTime", datetime.now()).timestamp()
+                        * 1000
+                    )
+                )
+            ],
         )
 
         # make the MCE and workunit

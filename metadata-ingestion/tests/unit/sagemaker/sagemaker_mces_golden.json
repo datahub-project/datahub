@@ -292,7 +292,7 @@
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
               "description": null,
-              "date": null,
+              "date": 1420099200000,
               "version": null,
               "type": null,
               "hyperParameters": null,
@@ -314,7 +314,7 @@
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
               "description": null,
-              "date": null,
+              "date": 1420099200000,
               "version": null,
               "type": null,
               "hyperParameters": null,

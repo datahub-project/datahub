@@ -73,7 +73,7 @@ class SagemakerSource(Source):
         yield from model_processor.get_workunits()
 
     def get_report(self):
-        return self.report
+        return self.reporte
 
     def close(self):
         pass
