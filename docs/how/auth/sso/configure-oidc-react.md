@@ -130,7 +130,7 @@ as form parameters in the HTTP POST request. For more info, see [OAuth 2.0 Clien
 Once configuration has been updated, `datahub-frontend-react` will need to be restarted to pick up the new environment variables:
 
 ```
-docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.react.yml restart datahub-frontend-react
+docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml  up datahub-frontend-react
 ```
 
 >Note that by default, enabling OIDC will *not* disable the dummy JAAS authentication path, which can be reached at the `/login`
