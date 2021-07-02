@@ -120,14 +120,17 @@ describe_auto_ml_job_response = {
             "DataSource": {
                 "S3DataSource": {
                     "S3DataType": "ManifestFile",  # 'ManifestFile'|'S3Prefix'
-                    "S3Uri": "string",
+                    "S3Uri": "s3://auto-ml-job-input-bucket/file.txt",
                 }
             },
             "CompressionType": "None",  #  'None'|'Gzip'
-            "TargetAttributeName": "string",
+            "TargetAttributeName": "some-name",
         },
     ],
-    "OutputDataConfig": {"KmsKeyId": "string", "S3OutputPath": "string"},
+    "OutputDataConfig": {
+        "KmsKeyId": "some-key-id",
+        "S3OutputPath": "s3://auto-ml-job-output-bucket/file.txt",
+    },
     "RoleArn": "string",
     "AutoMLJobObjective": {
         "MetricName": "Accuracy",  # 'Accuracy'|'MSE'|'F1'|'F1macro'|'AUC'
@@ -274,17 +277,19 @@ describe_compilation_job_response = {
     "CreationTime": datetime(2015, 1, 1),
     "LastModifiedTime": datetime(2015, 1, 1),
     "FailureReason": "string",
-    "ModelArtifacts": {"S3ModelArtifacts": "string"},
+    "ModelArtifacts": {
+        "S3ModelArtifacts": "s3://compilation-job-bucket/model-artifacts.tar.gz"
+    },
     "ModelDigests": {"ArtifactDigest": "string"},
     "RoleArn": "string",
     "InputConfig": {
-        "S3Uri": "string",
+        "S3Uri": "s3://compilation-job-bucket/input-config.tar.gz",
         "DataInputConfig": "string",
         "Framework": "TENSORFLOW",  # 'TENSORFLOW'|'KERAS'|'MXNET'|'ONNX'|'PYTORCH'|'XGBOOST'|'TFLITE'|'DARKNET'|'SKLEARN'
         "FrameworkVersion": "string",
     },
     "OutputConfig": {
-        "S3OutputLocation": "string",
+        "S3OutputLocation": "s3://compilation-job-bucket/output-config.tar.gz",
         "TargetDevice": "lambda",
         "TargetPlatform": {
             "Os": "ANDROID",  # 'ANDROID'|'LINUX'
@@ -325,12 +330,12 @@ list_edge_packaging_jobs_response = {
 describe_edge_packaging_job_response = {
     "EdgePackagingJobArn": edge_packaging_job_name,
     "EdgePackagingJobName": edge_packaging_job_arn,
-    "CompilationJobName": "string",
+    "CompilationJobName": compilation_job_name,
     "ModelName": "string",
     "ModelVersion": "string",
     "RoleArn": "string",
     "OutputConfig": {
-        "S3OutputLocation": "string",
+        "S3OutputLocation": "s3://edge-packaging-bucket/output-config.tar.gz",
         "KmsKeyId": "string",
         "PresetDeploymentType": "GreengrassV2Component",
         "PresetDeploymentConfig": "string",
@@ -340,7 +345,7 @@ describe_edge_packaging_job_response = {
     "EdgePackagingJobStatusMessage": "string",
     "CreationTime": datetime(2015, 1, 1),
     "LastModifiedTime": datetime(2015, 1, 1),
-    "ModelArtifact": "string",
+    "ModelArtifact": "s3://edge-packaging-bucket/model-artifact.tar.gz",
     "ModelSignature": "string",
     "PresetDeploymentOutput": {
         "Type": "GreengrassV2Component",
@@ -425,7 +430,10 @@ describe_hyper_parameter_tuning_job_response = {
     },
     "TrainingJobDefinition": {
         "DefinitionName": "string",
-        "TuningObjective": {"Type": "Maximize" | "Minimize", "MetricName": "string"},
+        "TuningObjective": {
+            "Type": "Maximize",  # "Maximize" | "Minimize"
+            "MetricName": "string",
+        },
         "HyperParameterRanges": {
             "IntegerParameterRanges": [
                 {
@@ -468,7 +476,7 @@ describe_hyper_parameter_tuning_job_response = {
                 "DataSource": {
                     "S3DataSource": {
                         "S3DataType": "ManifestFile",  # 'ManifestFile'|'S3Prefix'|'AugmentedManifestFile'
-                        "S3Uri": "string",
+                        "S3Uri": "s3://hyper-parameter-tuning-job/data-source.tar.gz",
                         "S3DataDistributionType": "FullyReplicated",  # 'FullyReplicated'|'ShardedByS3Key'
                         "AttributeNames": [
                             "string",
@@ -496,7 +504,10 @@ describe_hyper_parameter_tuning_job_response = {
                 "string",
             ],
         },
-        "OutputDataConfig": {"KmsKeyId": "string", "S3OutputPath": "string"},
+        "OutputDataConfig": {
+            "KmsKeyId": "string",
+            "S3OutputPath": "s3://hyper-parameter-tuning-job/data-output.tar.gz",
+        },
         "ResourceConfig": {
             "InstanceType": "ml.m4.xlarge",
             "InstanceCount": 123,
@@ -507,7 +518,10 @@ describe_hyper_parameter_tuning_job_response = {
         "EnableNetworkIsolation": True,  # True|False
         "EnableInterContainerTrafficEncryption": True,  # True|False
         "EnableManagedSpotTraining": True,  # True|False
-        "CheckpointConfig": {"S3Uri": "string", "LocalPath": "string"},
+        "CheckpointConfig": {
+            "S3Uri": "s3://hyper-parameter-tuning-job/checkpoint-config.tar.gz",
+            "LocalPath": "string",
+        },
         "RetryStrategy": {"MaximumRetryAttempts": 123},
     },
     "TrainingJobDefinitions": [
@@ -559,7 +573,7 @@ describe_hyper_parameter_tuning_job_response = {
                     "DataSource": {
                         "S3DataSource": {
                             "S3DataType": "ManifestFile",  # 'ManifestFile'|'S3Prefix'|'AugmentedManifestFile'
-                            "S3Uri": "string",
+                            "S3Uri": "s3://hyper-parameter-tuning-job/data-source.tar.gz",
                             "S3DataDistributionType": "FullyReplicated",  # 'FullyReplicated'|'ShardedByS3Key'
                             "AttributeNames": [
                                 "string",
@@ -587,7 +601,10 @@ describe_hyper_parameter_tuning_job_response = {
                     "string",
                 ],
             },
-            "OutputDataConfig": {"KmsKeyId": "string", "S3OutputPath": "string"},
+            "OutputDataConfig": {
+                "KmsKeyId": "string",
+                "S3OutputPath": "s3://hyper-parameter-tuning-job/data-output.tar.gz",
+            },
             "ResourceConfig": {
                 "InstanceType": "ml.m4.xlarge",
                 "InstanceCount": 123,
@@ -601,7 +618,10 @@ describe_hyper_parameter_tuning_job_response = {
             "EnableNetworkIsolation": True,  # True|False
             "EnableInterContainerTrafficEncryption": True,  # True|False
             "EnableManagedSpotTraining": True,  # True|False
-            "CheckpointConfig": {"S3Uri": "string", "LocalPath": "string"},
+            "CheckpointConfig": {
+                "S3Uri": "s3://hyper-parameter-tuning-job/checkpoint-config.tar.gz",
+                "LocalPath": "string",
+            },
             "RetryStrategy": {"MaximumRetryAttempts": 123},
         },
     ],
@@ -722,7 +742,7 @@ describe_labeling_job_response = {
     "LabelAttributeName": "string",
     "InputConfig": {
         "DataSource": {
-            "S3DataSource": {"ManifestS3Uri": "string"},
+            "S3DataSource": {"ManifestS3Uri": "s3://labeling-job/data-source.tar.gz"},
             "SnsDataSource": {"SnsTopicArn": "string"},
         },
         "DataAttributes": {
@@ -733,12 +753,12 @@ describe_labeling_job_response = {
         },
     },
     "OutputConfig": {
-        "S3OutputPath": "string",
+        "S3OutputPath": "s3://labeling-job/output-config.tar.gz",
         "KmsKeyId": "string",
         "SnsTopicArn": "string",
     },
     "RoleArn": "string",
-    "LabelCategoryConfigS3Uri": "string",
+    "LabelCategoryConfigS3Uri": "s3://labeling-job/category-config.tar.gz",
     "StoppingConditions": {
         "MaxHumanLabeledObjectCount": 123,
         "MaxPercentageOfInputDatasetLabeled": 123,
