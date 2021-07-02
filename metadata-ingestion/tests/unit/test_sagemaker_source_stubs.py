@@ -955,3 +955,105 @@ describe_transform_job_response = {
         "TrialComponentDisplayName": "string",
     },
 }
+
+describe_model_response_1 = {
+    "ModelName": "string",
+    "PrimaryContainer": {
+        "ContainerHostname": "string",
+        "Image": "string",
+        "ImageConfig": {
+            "RepositoryAccessMode": "Platform",  # 'Platform'|'Vpc'
+            "RepositoryAuthConfig": {"RepositoryCredentialsProviderArn": "string"},
+        },
+        "Mode": "SingleModel",  # 'SingleModel'|'MultiModel'
+        "ModelDataUrl": "string",
+        "Environment": {"string": "string"},
+        "ModelPackageName": "string",
+        "MultiModelConfig": {
+            "ModelCacheSetting": "Enabled",  # 'Enabled'|'Disabled'
+        },
+    },
+    "Containers": [
+        {
+            "ContainerHostname": "string",
+            "Image": "string",
+            "ImageConfig": {
+                "RepositoryAccessMode": "Platform",  # 'Platform'|'Vpc'
+                "RepositoryAuthConfig": {"RepositoryCredentialsProviderArn": "string"},
+            },
+            "Mode": "SingleModel",  # 'SingleModel'|'MultiModel'
+            "ModelDataUrl": "string",
+            "Environment": {"string": "string"},
+            "ModelPackageName": "string",
+            "MultiModelConfig": {
+                "ModelCacheSetting": "Enabled",  # 'Enabled'|'Disabled'
+            },
+        },
+    ],
+    "InferenceExecutionConfig": {
+        "Mode": "Serial",  # 'Serial'|'Direct'
+    },
+    "ExecutionRoleArn": "string",
+    "VpcConfig": {
+        "SecurityGroupIds": [
+            "string",
+        ],
+        "Subnets": [
+            "string",
+        ],
+    },
+    "CreationTime": datetime(2015, 1, 1),
+    "ModelArn": "string",
+    "EnableNetworkIsolation": True,  # True | False
+}
+
+describe_model_response_2 = {
+    "ModelName": "string",
+    "PrimaryContainer": {
+        "ContainerHostname": "string",
+        "Image": "string",
+        "ImageConfig": {
+            "RepositoryAccessMode": "Platform",  # 'Platform'|'Vpc'
+            "RepositoryAuthConfig": {"RepositoryCredentialsProviderArn": "string"},
+        },
+        "Mode": "MultiModel",  # 'SingleModel'|'MultiModel'
+        "ModelDataUrl": "string",
+        "Environment": {"string": "string"},
+        "ModelPackageName": "string",
+        "MultiModelConfig": {
+            "ModelCacheSetting": "Disabled",  # 'Enabled'|'Disabled'
+        },
+    },
+    "Containers": [
+        {
+            "ContainerHostname": "string",
+            "Image": "string",
+            "ImageConfig": {
+                "RepositoryAccessMode": "Vpc",  # 'Platform'|'Vpc'
+                "RepositoryAuthConfig": {"RepositoryCredentialsProviderArn": "string"},
+            },
+            "Mode": "SingleModel",  # 'SingleModel'|'MultiModel'
+            "ModelDataUrl": "string",
+            "Environment": {"string": "string"},
+            "ModelPackageName": "string",
+            "MultiModelConfig": {
+                "ModelCacheSetting": "Disabled",  # 'Enabled'|'Disabled'
+            },
+        },
+    ],
+    "InferenceExecutionConfig": {
+        "Mode": "Serial",  # 'Serial'|'Direct'
+    },
+    "ExecutionRoleArn": "string",
+    "VpcConfig": {
+        "SecurityGroupIds": [
+            "string",
+        ],
+        "Subnets": [
+            "string",
+        ],
+    },
+    "CreationTime": datetime(2015, 1, 1),
+    "ModelArn": "string",
+    "EnableNetworkIsolation": False,  # True | False
+}
