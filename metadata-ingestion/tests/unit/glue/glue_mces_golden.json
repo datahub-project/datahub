@@ -20,8 +20,8 @@
                 }
               ],
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               }
             }
@@ -62,13 +62,13 @@
               "platform": "urn:li:dataPlatform:glue",
               "version": 0,
               "created": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "deleted": null,
@@ -217,8 +217,8 @@
                 }
               ],
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               }
             }
@@ -258,13 +258,13 @@
               "platform": "urn:li:dataPlatform:glue",
               "version": 0,
               "created": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "deleted": null,
@@ -325,8 +325,8 @@
                 }
               ],
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               }
             }
@@ -366,13 +366,13 @@
               "platform": "urn:li:dataPlatform:glue",
               "version": 0,
               "created": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "deleted": null,
@@ -736,16 +736,6 @@
             }
           },
           {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
-            }
-          },
-          {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "customProperties": {
                 "connection_type": "s3",
@@ -925,16 +915,6 @@
           {
             "com.linkedin.pegasus2avro.common.Status": {
               "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
             }
           },
           {
