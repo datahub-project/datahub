@@ -350,10 +350,10 @@ class JobProcessor:
                         name=f"{job_type}:{name}",
                         type="SAGEMAKER",
                         status=mapped_status,
-                        # customProperties={
-                        #     **{key: str(value) for key, value in job.items()},
-                        #     "jobType": job_type,
-                        # },
+                        customProperties={
+                            **{key: str(value) for key, value in job.items()},
+                            "jobType": job_type,
+                        },
                     ),
                     # TODO: generate DataJobInputOutputClass aspects afterwards
                 ],
