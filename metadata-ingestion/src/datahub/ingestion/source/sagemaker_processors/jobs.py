@@ -258,6 +258,8 @@ class SageMakerJobProcessor:
         See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_auto_ml_job
         """
 
+        JOB_TYPE = "auto_ml"
+
         name: str = job["AutoMLJobName"]
         arn: str = job["AutoMLJobArn"]
         # TODO: figure out what to do with these attributes
@@ -292,7 +294,13 @@ class SageMakerJobProcessor:
                 "uri": output_s3_path,
             }
 
-        job_mce = self.create_common_job_mce(name, arn, "AutoML", job)
+        job_mce = self.create_common_job_mce(
+            name,
+            arn,
+            JOB_TYPE,
+            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
+            job,
+        )
 
         return SageMakerJob(
             job=job_mce, input_datasets=input_datasets, output_datasets=output_datasets
@@ -305,6 +313,8 @@ class SageMakerJobProcessor:
 
         See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_compilation_job
         """
+
+        JOB_TYPE = "compilation"
 
         name: str = job["CompilationJobName"]
         arn: str = job["CompilationJobArn"]
@@ -341,7 +351,13 @@ class SageMakerJobProcessor:
                 "target_platform": output_data.get("TargetPlatform"),
             }
 
-        job_mce = self.create_common_job_mce(name, arn, "Compilation", job)
+        job_mce = self.create_common_job_mce(
+            name,
+            arn,
+            JOB_TYPE,
+            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
+            job,
+        )
 
         return SageMakerJob(
             job=job_mce, input_datasets=input_datasets, output_datasets=output_datasets
@@ -357,6 +373,8 @@ class SageMakerJobProcessor:
 
         See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_edge_packaging_job
         """
+
+        JOB_TYPE = "edge_packaging"
 
         name: str = job["EdgePackagingJobName"]
         arn: str = job["EdgePackagingJobArn"]
@@ -410,7 +428,13 @@ class SageMakerJobProcessor:
         # model: Optional[str] = job.get("ModelName")
         # model_version: Optional[str] = job.get("ModelVersion")
 
-        job_mce = self.create_common_job_mce(name, arn, "EdgePackaging", job)
+        job_mce = self.create_common_job_mce(
+            name,
+            arn,
+            JOB_TYPE,
+            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
+            job,
+        )
 
         return SageMakerJob(
             job=job_mce, output_datasets=output_datasets, output_jobs=output_jobs
@@ -427,6 +451,8 @@ class SageMakerJobProcessor:
         See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_hyper_parameter_tuning_job
         """
 
+        JOB_TYPE = "hyper_parameter_tuning"
+
         name: str = job["HyperParameterTuningJobName"]
         arn: str = job["HyperParameterTuningJobArn"]
         # status: str = job["HyperParameterTuningJobStatus"]
@@ -436,8 +462,6 @@ class SageMakerJobProcessor:
         # create_time: Optional[datetime] = job.get("CreationTime")
         # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
         # end_time: Optional[datetime] = job.get("HyperParameterTuningEndTime")
-
-        job_mce = self.create_common_job_mce(name, arn, "HyperParameterTuning", job)
 
         training_jobs = []
 
@@ -455,6 +479,14 @@ class SageMakerJobProcessor:
                     f"Unable to find ARN for training job {job['DefinitionName']} produced by hyperparameter tuning job {arn}",
                 )
 
+        job_mce = self.create_common_job_mce(
+            name,
+            arn,
+            JOB_TYPE,
+            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
+            job,
+        )
+
         return SageMakerJob(
             job=job_mce,
             output_jobs=training_jobs,
@@ -467,6 +499,8 @@ class SageMakerJobProcessor:
 
         See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_labeling_job
         """
+
+        JOB_TYPE = "labeling"
 
         name: str = job["LabelingJobName"]
         arn: str = job["LabelingJobArn"]
@@ -520,7 +554,13 @@ class SageMakerJobProcessor:
                 "uri": output_config_s3_uri,
             }
 
-        job_mce = self.create_common_job_mce(name, arn, "Labeling", job)
+        job_mce = self.create_common_job_mce(
+            name,
+            arn,
+            JOB_TYPE,
+            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
+            job,
+        )
 
         return SageMakerJob(
             job=job_mce,
@@ -535,6 +575,8 @@ class SageMakerJobProcessor:
 
         See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_processing_job
         """
+
+        JOB_TYPE = "processing"
 
         name: str = job["ProcessingJobName"]
         arn: str = job["ProcessingJobArn"]
@@ -595,18 +637,39 @@ class SageMakerJobProcessor:
         outputs: List[Dict[str, Any]] = job.get("ProcessingOutputConfig", {}).get(
             "Outputs", []
         )
-        processed_outputs = [
-            {
-                "output_name": output["OutputName"],
-                "output_s3_uri": output.get("S3Output", {}).get("S3Uri"),
-                "output_feature_store": output.get("FeatureStoreOutput", {}).get(
-                    "FeatureGroupName"
-                ),
-            }
-            for output in outputs
-        ]
 
-        job_mce = self.create_common_job_mce(name, arn, "Processing", job)
+        output_datasets = {}
+
+        for output in outputs:
+            output_name = output["OutputName"]
+
+            output_s3_uri = output.get("S3Output", {}).get("S3Uri")
+            if output_s3_uri is not None:
+                output_datasets[make_s3_urn(output_s3_uri, self.env)] = {
+                    "dataset_type": "s3",
+                    "uri": output_s3_uri,
+                    "name": output_name,
+                }
+
+            output_feature_group = output.get("FeatureStoreOutput", {}).get(
+                "FeatureGroupName"
+            )
+            if output_feature_group is not None:
+                output_datasets[
+                    mce_builder.make_ml_feature_table_urn(
+                        "sagemaker", output_feature_group
+                    )
+                ] = {
+                    "dataset_type": "sagemaker_feature_group",
+                }
+
+        job_mce = self.create_common_job_mce(
+            name,
+            arn,
+            JOB_TYPE,
+            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
+            job,
+        )
 
         return SageMakerJob(
             job=job_mce,
@@ -621,6 +684,8 @@ class SageMakerJobProcessor:
 
         See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_training_job
         """
+
+        JOB_TYPE = "training"
 
         name: str = job["TrainingJobName"]
         arn: str = job["TrainingJobArn"]
@@ -690,7 +755,13 @@ class SageMakerJobProcessor:
                     "uri": output_s3_uri,
                 }
 
-        job_mce = self.create_common_job_mce(name, arn, "Training", job)
+        job_mce = self.create_common_job_mce(
+            name,
+            arn,
+            JOB_TYPE,
+            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
+            job,
+        )
 
         return SageMakerJob(
             job=job_mce,
@@ -705,6 +776,8 @@ class SageMakerJobProcessor:
 
         See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_transform_job
         """
+
+        JOB_TYPE = "transform"
 
         name: str = job["TransformJobName"]
         arn: str = job["TransformJobArn"]
@@ -737,7 +810,7 @@ class SageMakerJobProcessor:
         output_s3_uri = job.get("TransformOutput", {}).get("S3OutputPath")
 
         if output_s3_uri is not None:
-            input_datasets[make_s3_urn(output_s3_uri, self.env)] = {
+            output_datasets[make_s3_urn(output_s3_uri, self.env)] = {
                 "dataset_type": "s3",
                 "uri": output_s3_uri,
             }
@@ -752,7 +825,13 @@ class SageMakerJobProcessor:
         if auto_ml_arn is not None:
             input_jobs.append(make_sagemaker_job_urn(auto_ml_arn))
 
-        job_mce = self.create_common_job_mce(name, arn, "Transform", job)
+        job_mce = self.create_common_job_mce(
+            name,
+            arn,
+            JOB_TYPE,
+            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
+            job,
+        )
 
         return SageMakerJob(
             job=job_mce,
