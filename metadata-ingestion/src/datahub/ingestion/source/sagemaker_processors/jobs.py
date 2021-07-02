@@ -12,36 +12,52 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
 )
 
+
+@dataclass
+class SageMakerJobType:
+    list_command: str
+    list_key: str
+    list_name_key: str
+    list_arn_key: str
+    describe_command: str
+    describe_name_key: str
+    describe_arn_key: str
+    describe_status_key: str
+    status_map: Dict[str, str]
+
+
 SAGEMAKER_JOB_TYPES = {
-    "auto_ml": {
+    "auto_ml": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_auto_ml_jobs
-        "list_command": "list_auto_ml_jobs",
-        "list_key": "AutoMLJobSummaries",
-        "list_name_key": "LabelingJobName",
-        "list_arn_key": "LabelingJobArn",
+        list_command="list_auto_ml_jobs",
+        list_key="AutoMLJobSummaries",
+        list_name_key="AutoMLJobName",
+        list_arn_key="AutoMLJobArn",
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_auto_ml_job
-        "describe_command": "describe_auto_ml_job",
-        "describe_name_key": "AutoMLJobName",
-        "describe_status_key": "AutoMLJobStatus",
-        "status_map": {
+        describe_command="describe_auto_ml_job",
+        describe_name_key="AutoMLJobName",
+        describe_arn_key="AutoMLJobArn",
+        describe_status_key="AutoMLJobStatus",
+        status_map={
             "Completed": JobStatusClass.COMPLETED,
             "InProgress": JobStatusClass.IN_PROGRESS,
             "Failed": JobStatusClass.FAILED,
             "Stopped": JobStatusClass.STOPPED,
             "Stopping": JobStatusClass.STOPPING,
         },
-    },
-    "compilation": {
+    ),
+    "compilation": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_compilation_jobs
-        "list_command": "list_compilation_jobs",
-        "list_key": "CompilationJobSummaries",
-        "list_name_key": "CompilationJobName",
-        "list_arn_key": "CompilationJobArn",
+        list_command="list_compilation_jobs",
+        list_key="CompilationJobSummaries",
+        list_name_key="CompilationJobName",
+        list_arn_key="CompilationJobArn",
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_compilation_job
-        "describe_command": "describe_compilation_job",
-        "describe_name_key": "CompilationJobName",
-        "describe_status_key": "CompilationJobStatus",
-        "status_map": {
+        describe_command="describe_compilation_job",
+        describe_name_key="CompilationJobName",
+        describe_arn_key="CompilationJobArn",
+        describe_status_key="CompilationJobStatus",
+        status_map={
             "INPROGRESS": JobStatusClass.IN_PROGRESS,
             "COMPLETED": JobStatusClass.COMPLETED,
             "FAILED": JobStatusClass.FAILED,
@@ -49,18 +65,19 @@ SAGEMAKER_JOB_TYPES = {
             "STOPPING": JobStatusClass.STOPPING,
             "STOPPED": JobStatusClass.STOPPED,
         },
-    },
-    "edge_packaging": {
+    ),
+    "edge_packaging": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_edge_packaging_jobs
-        "list_command": "list_edge_packaging_jobs",
-        "list_key": "EdgePackagingJobSummaries",
-        "list_name_key": "EdgePackagingJobArn",
-        "list_arn_key": "EdgePackagingJobName",
+        list_command="list_edge_packaging_jobs",
+        list_key="EdgePackagingJobSummaries",
+        list_name_key="EdgePackagingJobName",
+        list_arn_key="EdgePackagingJobArn",
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_edge_packaging_job
-        "describe_command": "describe_edge_packaging_job",
-        "describe_name_key": "EdgePackagingJobName",
-        "describe_status_key": "EdgePackagingJobStatus",
-        "status_map": {
+        describe_command="describe_edge_packaging_job",
+        describe_name_key="EdgePackagingJobName",
+        describe_arn_key="EdgePackagingJobArn",
+        describe_status_key="EdgePackagingJobStatus",
+        status_map={
             "INPROGRESS": JobStatusClass.IN_PROGRESS,
             "COMPLETED": JobStatusClass.COMPLETED,
             "FAILED": JobStatusClass.FAILED,
@@ -68,36 +85,38 @@ SAGEMAKER_JOB_TYPES = {
             "STOPPING": JobStatusClass.STOPPING,
             "STOPPED": JobStatusClass.STOPPED,
         },
-    },
-    "hyper_parameter_tuning": {
+    ),
+    "hyper_parameter_tuning": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_hyper_parameter_tuning_jobs
-        "list_command": "list_hyper_parameter_tuning_jobs",
-        "list_key": "HyperParameterTuningJobSummaries",
-        "list_name_key": "HyperParameterTuningJobName",
-        "list_arn_key": "HyperParameterTuningJobArn",
+        list_command="list_hyper_parameter_tuning_jobs",
+        list_key="HyperParameterTuningJobSummaries",
+        list_name_key="HyperParameterTuningJobName",
+        list_arn_key="HyperParameterTuningJobArn",
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_hyper_parameter_tuning_job
-        "describe_command": "describe_hyper_parameter_tuning_job",
-        "describe_name_key": "HyperParameterTuningJobName",
-        "describe_status_key": "HyperParameterTuningJobStatus",
-        "status_map": {
+        describe_command="describe_hyper_parameter_tuning_job",
+        describe_name_key="HyperParameterTuningJobName",
+        describe_arn_key="HyperParameterTuningJobArn",
+        describe_status_key="HyperParameterTuningJobStatus",
+        status_map={
             "InProgress": JobStatusClass.IN_PROGRESS,
             "Completed": JobStatusClass.COMPLETED,
             "Failed": JobStatusClass.FAILED,
             "Stopping": JobStatusClass.STOPPING,
             "Stopped": JobStatusClass.STOPPED,
         },
-    },
-    "labeling": {
+    ),
+    "labeling": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_labeling_jobs
-        "list_command": "list_labeling_jobs",
-        "list_key": "LabelingJobSummaryList",
-        "list_name_key": "LabelingJobName",
-        "list_arn_key": "LabelingJobArn",
+        list_command="list_labeling_jobs",
+        list_key="LabelingJobSummaryList",
+        list_name_key="LabelingJobName",
+        list_arn_key="LabelingJobArn",
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_labeling_job
-        "describe_command": "describe_labeling_job",
-        "describe_name_key": "LabelingJobName",
-        "describe_status_key": "LabelingJobStatus",
-        "status_map": {
+        describe_command="describe_labeling_job",
+        describe_name_key="LabelingJobName",
+        describe_arn_key="LabelingJobArn",
+        describe_status_key="LabelingJobStatus",
+        status_map={
             "Initializing": JobStatusClass.STARTING,
             "InProgress": JobStatusClass.IN_PROGRESS,
             "Completed": JobStatusClass.COMPLETED,
@@ -105,61 +124,64 @@ SAGEMAKER_JOB_TYPES = {
             "Stopping": JobStatusClass.STOPPING,
             "Stopped": JobStatusClass.STOPPED,
         },
-    },
-    "processing": {
+    ),
+    "processing": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_processing_jobs
-        "list_command": "list_processing_jobs",
-        "list_key": "ProcessingJobSummaries",
-        "list_name_key": "ProcessingJobName",
-        "list_arn_key": "ProcessingJobArn",
+        list_command="list_processing_jobs",
+        list_key="ProcessingJobSummaries",
+        list_name_key="ProcessingJobName",
+        list_arn_key="ProcessingJobArn",
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_processing_job
-        "describe_command": "describe_processing_job",
-        "describe_name_key": "ProcessingJobName",
-        "describe_status_key": "ProcessingJobStatus",
-        "status_map": {
+        describe_command="describe_processing_job",
+        describe_name_key="ProcessingJobName",
+        describe_arn_key="ProcessingJobArn",
+        describe_status_key="ProcessingJobStatus",
+        status_map={
             "InProgress": JobStatusClass.IN_PROGRESS,
             "Completed": JobStatusClass.COMPLETED,
             "Failed": JobStatusClass.FAILED,
             "Stopping": JobStatusClass.STOPPING,
             "Stopped": JobStatusClass.STOPPED,
         },
-    },
-    "training": {
+    ),
+    "training": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_training_jobs
-        "list_command": "list_training_jobs",
-        "list_key": "TrainingJobSummaries",
-        "list_name_key": "TrainingJobName",
-        "list_arn_key": "TrainingJobArn",
+        list_command="list_training_jobs",
+        list_key="TrainingJobSummaries",
+        list_name_key="TrainingJobName",
+        list_arn_key="TrainingJobArn",
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_training_job
-        "describe_command": "describe_training_job",
-        "describe_name_key": "TrainingJobName",
-        "describe_status_key": "TrainingJobStatus",
-        "status_map": {
+        describe_command="describe_training_job",
+        describe_name_key="TrainingJobName",
+        describe_arn_key="TrainingJobArn",
+        describe_status_key="TrainingJobStatus",
+        status_map={
             "InProgress": JobStatusClass.IN_PROGRESS,
             "Completed": JobStatusClass.COMPLETED,
             "Failed": JobStatusClass.FAILED,
             "Stopping": JobStatusClass.STOPPING,
             "Stopped": JobStatusClass.STOPPED,
         },
-    },
-    "transform": {
+    ),
+    "transform": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_transform_jobs
-        "list_command": "list_transform_jobs",
-        "list_key": "TransformJobSummaries",
-        "list_name_key": "TransformJobName",
-        "list_arn_key": "TransformJobArn",
+        list_command="list_transform_jobs",
+        list_key="TransformJobSummaries",
+        list_name_key="TransformJobName",
+        list_arn_key="TransformJobArn",
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_transform_job
-        "describe_command": "describe_transform_job",
-        "describe_name_key": "TransformJobName",
-        "describe_status_key": "TransformJobStatus",
-        "status_map": {
+        describe_command="describe_transform_job",
+        describe_name_key="TransformJobName",
+        describe_arn_key="TransformJobArn",
+        describe_status_key="TransformJobStatus",
+        status_map={
             "InProgress": JobStatusClass.IN_PROGRESS,
             "Completed": JobStatusClass.COMPLETED,
             "Failed": JobStatusClass.FAILED,
             "Stopping": JobStatusClass.STOPPING,
             "Stopped": JobStatusClass.STOPPED,
         },
-    },
+    ),
 }
 
 
@@ -211,17 +233,18 @@ class SageMakerJobProcessor:
 
     def create_common_job_mce(
         self,
-        name: str,
-        arn: str,
+        job: Dict[str, Any],
         job_type: str,
-        sagemaker_status: str,
-        properties: Dict[str, Any],
     ) -> MetadataChangeEventClass:
 
-        status_map: Dict[str, JobStatusClass] = SAGEMAKER_JOB_TYPES[job_type][
-            "status_map"
-        ]
-        mapped_status = status_map.get(sagemaker_status)
+        job_type_info = SAGEMAKER_JOB_TYPES[job_type]
+
+        name = job[job_type_info.describe_name_key]
+        arn = job[job_type_info.describe_arn_key]
+
+        sagemaker_status = job[job_type_info.describe_status_key]
+
+        mapped_status = job_type_info.status_map.get(sagemaker_status)
 
         if mapped_status is None:
             mapped_status = JobStatusClass.UNKNOWN
@@ -242,7 +265,7 @@ class SageMakerJobProcessor:
                         type="SAGEMAKER",
                         status=mapped_status,
                         customProperties={
-                            **{key: str(value) for key, value in properties.items()},
+                            **{key: str(value) for key, value in job.items()},
                             "jobType": job_type,
                         },
                     ),
@@ -260,8 +283,6 @@ class SageMakerJobProcessor:
 
         JOB_TYPE = "auto_ml"
 
-        name: str = job["AutoMLJobName"]
-        arn: str = job["AutoMLJobArn"]
         # TODO: figure out what to do with these attributes
         # status: str = job["AutoMLJobStatus"]
 
@@ -295,11 +316,8 @@ class SageMakerJobProcessor:
             }
 
         job_mce = self.create_common_job_mce(
-            name,
-            arn,
-            JOB_TYPE,
-            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
             job,
+            JOB_TYPE,
         )
 
         return SageMakerJob(
@@ -315,9 +333,6 @@ class SageMakerJobProcessor:
         """
 
         JOB_TYPE = "compilation"
-
-        name: str = job["CompilationJobName"]
-        arn: str = job["CompilationJobArn"]
         # status: str = job["CompilationJobStatus"]
 
         # role: str = job["RoleArn"]
@@ -352,11 +367,8 @@ class SageMakerJobProcessor:
             }
 
         job_mce = self.create_common_job_mce(
-            name,
-            arn,
-            JOB_TYPE,
-            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
             job,
+            JOB_TYPE,
         )
 
         return SageMakerJob(
@@ -429,11 +441,8 @@ class SageMakerJobProcessor:
         # model_version: Optional[str] = job.get("ModelVersion")
 
         job_mce = self.create_common_job_mce(
-            name,
-            arn,
-            JOB_TYPE,
-            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
             job,
+            JOB_TYPE,
         )
 
         return SageMakerJob(
@@ -480,11 +489,8 @@ class SageMakerJobProcessor:
                 )
 
         job_mce = self.create_common_job_mce(
-            name,
-            arn,
-            JOB_TYPE,
-            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
             job,
+            JOB_TYPE,
         )
 
         return SageMakerJob(
@@ -501,9 +507,6 @@ class SageMakerJobProcessor:
         """
 
         JOB_TYPE = "labeling"
-
-        name: str = job["LabelingJobName"]
-        arn: str = job["LabelingJobArn"]
         # status: str = job["LabelingJobStatus"]
 
         # role: str = job["RoleArn"]
@@ -555,11 +558,8 @@ class SageMakerJobProcessor:
             }
 
         job_mce = self.create_common_job_mce(
-            name,
-            arn,
-            JOB_TYPE,
-            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
             job,
+            JOB_TYPE,
         )
 
         return SageMakerJob(
@@ -577,9 +577,6 @@ class SageMakerJobProcessor:
         """
 
         JOB_TYPE = "processing"
-
-        name: str = job["ProcessingJobName"]
-        arn: str = job["ProcessingJobArn"]
         # status: str = job["ProcessingJobStatus"]
 
         # role: str = job["RoleArn"]
@@ -664,11 +661,8 @@ class SageMakerJobProcessor:
                 }
 
         job_mce = self.create_common_job_mce(
-            name,
-            arn,
-            JOB_TYPE,
-            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
             job,
+            JOB_TYPE,
         )
 
         return SageMakerJob(
@@ -686,9 +680,6 @@ class SageMakerJobProcessor:
         """
 
         JOB_TYPE = "training"
-
-        name: str = job["TrainingJobName"]
-        arn: str = job["TrainingJobArn"]
         # status: str = job["TrainingJobStatus"]
         # secondary_status = job["SecondaryStatus"]
 
@@ -756,11 +747,8 @@ class SageMakerJobProcessor:
                 }
 
         job_mce = self.create_common_job_mce(
-            name,
-            arn,
-            JOB_TYPE,
-            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
             job,
+            JOB_TYPE,
         )
 
         return SageMakerJob(
@@ -778,9 +766,6 @@ class SageMakerJobProcessor:
         """
 
         JOB_TYPE = "transform"
-
-        name: str = job["TransformJobName"]
-        arn: str = job["TransformJobArn"]
         # status: str = job["TransformJobStatus"]
 
         # create_time: Optional[datetime] = job.get("CreationTime")
@@ -826,11 +811,8 @@ class SageMakerJobProcessor:
             input_jobs.append(make_sagemaker_job_urn(auto_ml_arn))
 
         job_mce = self.create_common_job_mce(
-            name,
-            arn,
-            JOB_TYPE,
-            job[SAGEMAKER_JOB_TYPES[JOB_TYPE]["describe_status_key"]],
             job,
+            JOB_TYPE,
         )
 
         return SageMakerJob(
