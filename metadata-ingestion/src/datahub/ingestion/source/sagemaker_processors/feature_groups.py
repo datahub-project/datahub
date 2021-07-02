@@ -244,3 +244,22 @@ class FeatureGroupProcessor:
             id=f'{feature_group_details["FeatureGroupName"]}-{feature["FeatureName"]}',
             mce=mce,
         )
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+
+        feature_groups = self.get_all_feature_groups()
+
+        for feature_group in feature_groups:
+
+            feature_group_details = self.get_feature_group_details(
+                feature_group["FeatureGroupName"]
+            )
+
+            for feature in feature_group_details["FeatureDefinitions"]:
+                wu = self.get_feature_wu(feature_group_details, feature)
+                self.report.report_workunit(wu)
+                yield wu
+
+            wu = self.get_feature_group_wu(feature_group_details)
+            self.report.report_workunit(wu)
+            yield wu

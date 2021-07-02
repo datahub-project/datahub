@@ -77,25 +77,7 @@ class SagemakerSource(Source):
         feature_group_processor = FeatureGroupProcessor(
             sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
         )
-
-        feature_groups = feature_group_processor.get_all_feature_groups()
-
-        for feature_group in feature_groups:
-
-            feature_group_details = feature_group_processor.get_feature_group_details(
-                feature_group["FeatureGroupName"]
-            )
-
-            for feature in feature_group_details["FeatureDefinitions"]:
-                wu = feature_group_processor.get_feature_wu(
-                    feature_group_details, feature
-                )
-                self.report.report_workunit(wu)
-                yield wu
-
-            wu = feature_group_processor.get_feature_group_wu(feature_group_details)
-            self.report.report_workunit(wu)
-            yield wu
+        yield from feature_group_processor.get_workunits()
 
     def get_report(self):
         return self.report
