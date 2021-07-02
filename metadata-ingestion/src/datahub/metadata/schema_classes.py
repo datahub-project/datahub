@@ -198,7 +198,7 @@ class ChartInfoClass(DictWrapper):
         super().__init__()
         
         if customProperties is None:
-            self.customProperties = {}
+            self.customProperties = dict()
         else:
             self.customProperties = customProperties
         self.externalUrl = externalUrl
@@ -453,11 +453,11 @@ class EditableChartPropertiesClass(DictWrapper):
         super().__init__()
         
         if created is None:
-            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
         else:
             self.created = created
         if lastModified is None:
-            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         else:
             self.lastModified = lastModified
         self.deleted = deleted
@@ -471,8 +471,8 @@ class EditableChartPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = _json_converter.from_json_object(EditableChartPropertiesClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableChartPropertiesClass.RECORD_SCHEMA.field_map["created"].type)
-        self.lastModified = _json_converter.from_json_object(EditableChartPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableChartPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].type)
+        self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
     
@@ -650,11 +650,11 @@ class ChangeAuditStampsClass(DictWrapper):
         super().__init__()
         
         if created is None:
-            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
         else:
             self.created = created
         if lastModified is None:
-            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         else:
             self.lastModified = lastModified
         self.deleted = deleted
@@ -667,8 +667,8 @@ class ChangeAuditStampsClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = _json_converter.from_json_object(ChangeAuditStampsClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=ChangeAuditStampsClass.RECORD_SCHEMA.field_map["created"].type)
-        self.lastModified = _json_converter.from_json_object(ChangeAuditStampsClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=ChangeAuditStampsClass.RECORD_SCHEMA.field_map["lastModified"].type)
+        self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
     
     
@@ -1287,7 +1287,7 @@ class OwnershipClass(DictWrapper):
         
         self.owners = owners
         if lastModified is None:
-            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         else:
             self.lastModified = lastModified
     
@@ -1300,7 +1300,7 @@ class OwnershipClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.owners = list()
-        self.lastModified = _json_converter.from_json_object(OwnershipClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=OwnershipClass.RECORD_SCHEMA.field_map["lastModified"].type)
+        self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
     
     
     @property
@@ -1438,7 +1438,7 @@ class StatusClass(DictWrapper):
         super().__init__()
         
         if removed is None:
-            self.removed = False
+            self.removed = self.RECORD_SCHEMA.field_map["removed"].default
         else:
             self.removed = removed
     
@@ -1607,14 +1607,14 @@ class DashboardInfoClass(DictWrapper):
         super().__init__()
         
         if customProperties is None:
-            self.customProperties = {}
+            self.customProperties = dict()
         else:
             self.customProperties = customProperties
         self.externalUrl = externalUrl
         self.title = title
         self.description = description
         if charts is None:
-            self.charts = []
+            self.charts = list()
         else:
             self.charts = charts
         self.lastModified = lastModified
@@ -1763,11 +1763,11 @@ class EditableDashboardPropertiesClass(DictWrapper):
         super().__init__()
         
         if created is None:
-            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
         else:
             self.created = created
         if lastModified is None:
-            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         else:
             self.lastModified = lastModified
         self.deleted = deleted
@@ -1781,8 +1781,8 @@ class EditableDashboardPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = _json_converter.from_json_object(EditableDashboardPropertiesClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableDashboardPropertiesClass.RECORD_SCHEMA.field_map["created"].type)
-        self.lastModified = _json_converter.from_json_object(EditableDashboardPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableDashboardPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].type)
+        self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
     
@@ -1849,7 +1849,7 @@ class DataFlowInfoClass(DictWrapper):
         super().__init__()
         
         if customProperties is None:
-            self.customProperties = {}
+            self.customProperties = dict()
         else:
             self.customProperties = customProperties
         self.externalUrl = externalUrl
@@ -1947,7 +1947,7 @@ class DataJobInfoClass(DictWrapper):
         super().__init__()
         
         if customProperties is None:
-            self.customProperties = {}
+            self.customProperties = dict()
         else:
             self.customProperties = customProperties
         self.externalUrl = externalUrl
@@ -2122,11 +2122,11 @@ class EditableDataFlowPropertiesClass(DictWrapper):
         super().__init__()
         
         if created is None:
-            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
         else:
             self.created = created
         if lastModified is None:
-            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         else:
             self.lastModified = lastModified
         self.deleted = deleted
@@ -2140,8 +2140,8 @@ class EditableDataFlowPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = _json_converter.from_json_object(EditableDataFlowPropertiesClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableDataFlowPropertiesClass.RECORD_SCHEMA.field_map["created"].type)
-        self.lastModified = _json_converter.from_json_object(EditableDataFlowPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableDataFlowPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].type)
+        self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
     
@@ -2208,11 +2208,11 @@ class EditableDataJobPropertiesClass(DictWrapper):
         super().__init__()
         
         if created is None:
-            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
         else:
             self.created = created
         if lastModified is None:
-            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         else:
             self.lastModified = lastModified
         self.deleted = deleted
@@ -2226,8 +2226,8 @@ class EditableDataJobPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = _json_converter.from_json_object(EditableDataJobPropertiesClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableDataJobPropertiesClass.RECORD_SCHEMA.field_map["created"].type)
-        self.lastModified = _json_converter.from_json_object(EditableDataJobPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableDataJobPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].type)
+        self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
     
@@ -2670,14 +2670,14 @@ class DatasetPropertiesClass(DictWrapper):
         super().__init__()
         
         if customProperties is None:
-            self.customProperties = {}
+            self.customProperties = dict()
         else:
             self.customProperties = customProperties
         self.externalUrl = externalUrl
         self.description = description
         self.uri = uri
         if tags is None:
-            self.tags = []
+            self.tags = list()
         else:
             self.tags = tags
     
@@ -2804,11 +2804,11 @@ class EditableDatasetPropertiesClass(DictWrapper):
         super().__init__()
         
         if created is None:
-            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
         else:
             self.created = created
         if lastModified is None:
-            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         else:
             self.lastModified = lastModified
         self.deleted = deleted
@@ -2822,8 +2822,8 @@ class EditableDatasetPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = _json_converter.from_json_object(EditableDatasetPropertiesClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableDatasetPropertiesClass.RECORD_SCHEMA.field_map["created"].type)
-        self.lastModified = _json_converter.from_json_object(EditableDatasetPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableDatasetPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].type)
+        self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
     
@@ -2881,13 +2881,16 @@ class UpstreamClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.Upstream")
     def __init__(self,
-        auditStamp: "AuditStampClass",
         dataset: str,
         type: Union[str, "DatasetLineageTypeClass"],
+        auditStamp: Optional["AuditStampClass"]=None,
     ):
         super().__init__()
         
-        self.auditStamp = auditStamp
+        if auditStamp is None:
+            self.auditStamp = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["auditStamp"].default, writers_schema=self.RECORD_SCHEMA.field_map["auditStamp"].type)
+        else:
+            self.auditStamp = auditStamp
         self.dataset = dataset
         self.type = type
     
@@ -2899,7 +2902,7 @@ class UpstreamClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.auditStamp = AuditStampClass.construct_with_defaults()
+        self.auditStamp = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["auditStamp"].default, writers_schema=self.RECORD_SCHEMA.field_map["auditStamp"].type)
         self.dataset = str()
         self.type = DatasetLineageTypeClass.COPY
     
@@ -3045,7 +3048,7 @@ class GlossaryTermInfoClass(DictWrapper):
         self.sourceRef = sourceRef
         self.sourceUrl = sourceUrl
         if customProperties is None:
-            self.customProperties = {}
+            self.customProperties = dict()
         else:
             self.customProperties = customProperties
     
@@ -3230,15 +3233,15 @@ class CorpUserEditableInfoClass(DictWrapper):
         
         self.aboutMe = aboutMe
         if teams is None:
-            self.teams = []
+            self.teams = list()
         else:
             self.teams = teams
         if skills is None:
-            self.skills = []
+            self.skills = list()
         else:
             self.skills = skills
         if pictureLink is None:
-            self.pictureLink = 'https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png'
+            self.pictureLink = self.RECORD_SCHEMA.field_map["pictureLink"].default
         else:
             self.pictureLink = pictureLink
     
@@ -5514,7 +5517,7 @@ class MLFeatureTablePropertiesClass(DictWrapper):
         super().__init__()
         
         if customProperties is None:
-            self.customProperties = {}
+            self.customProperties = dict()
         else:
             self.customProperties = customProperties
         self.description = description
@@ -5724,7 +5727,7 @@ class MLModelPropertiesClass(DictWrapper):
         self.hyperParameters = hyperParameters
         self.mlFeatures = mlFeatures
         if tags is None:
-            self.tags = []
+            self.tags = list()
         else:
             self.tags = tags
     
@@ -6529,11 +6532,11 @@ class EditableSchemaMetadataClass(DictWrapper):
         super().__init__()
         
         if created is None:
-            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
         else:
             self.created = created
         if lastModified is None:
-            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         else:
             self.lastModified = lastModified
         self.deleted = deleted
@@ -6547,8 +6550,8 @@ class EditableSchemaMetadataClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = _json_converter.from_json_object(EditableSchemaMetadataClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableSchemaMetadataClass.RECORD_SCHEMA.field_map["created"].type)
-        self.lastModified = _json_converter.from_json_object(EditableSchemaMetadataClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableSchemaMetadataClass.RECORD_SCHEMA.field_map["lastModified"].type)
+        self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.editableSchemaFieldInfo = list()
     
@@ -7106,14 +7109,14 @@ class SchemaFieldClass(DictWrapper):
         self.fieldPath = fieldPath
         self.jsonPath = jsonPath
         if nullable is None:
-            self.nullable = False
+            self.nullable = self.RECORD_SCHEMA.field_map["nullable"].default
         else:
             self.nullable = nullable
         self.description = description
         self.type = type
         self.nativeDataType = nativeDataType
         if recursive is None:
-            self.recursive = False
+            self.recursive = self.RECORD_SCHEMA.field_map["recursive"].default
         else:
             self.recursive = recursive
         self.globalTags = globalTags
@@ -7305,11 +7308,11 @@ class SchemaMetadataClass(DictWrapper):
         self.platform = platform
         self.version = version
         if created is None:
-            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
         else:
             self.created = created
         if lastModified is None:
-            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+            self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         else:
             self.lastModified = lastModified
         self.deleted = deleted
@@ -7332,8 +7335,8 @@ class SchemaMetadataClass(DictWrapper):
         self.schemaName = str()
         self.platform = str()
         self.version = int()
-        self.created = _json_converter.from_json_object(SchemaMetadataClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=SchemaMetadataClass.RECORD_SCHEMA.field_map["created"].type)
-        self.lastModified = _json_converter.from_json_object(SchemaMetadataClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=SchemaMetadataClass.RECORD_SCHEMA.field_map["lastModified"].type)
+        self.created = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["created"].default, writers_schema=self.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(self.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=self.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.dataset = self.RECORD_SCHEMA.field_map["dataset"].default
         self.cluster = self.RECORD_SCHEMA.field_map["cluster"].default

@@ -13,7 +13,10 @@ record Upstream {
    * WARNING: this field is deprecated and may be removed in a future release.
    */
   @deprecated = "we no longer associate a timestamp per upstream edge"
-  auditStamp: AuditStamp
+  auditStamp: AuditStamp = {
+    "time": 0,
+    "actor": "urn:li:corpuser:unknown"
+  }
 
   /**
    * The upstream dataset the lineage points to

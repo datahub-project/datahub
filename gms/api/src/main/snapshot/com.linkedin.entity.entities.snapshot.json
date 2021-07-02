@@ -1624,7 +1624,12 @@
     "fields" : [ {
       "name" : "auditStamp",
       "type" : "com.linkedin.common.AuditStamp",
-      "doc" : "Audit stamp containing who reported the lineage and when.\nWARNING: this field is deprecated and may be removed in a future release."
+      "doc" : "Audit stamp containing who reported the lineage and when.\nWARNING: this field is deprecated and may be removed in a future release.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      },
+      "deprecated" : "we no longer associate a timestamp per upstream edge"
     }, {
       "name" : "dataset",
       "type" : "com.linkedin.common.DatasetUrn",
