@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.source import SourceReport
@@ -226,10 +226,10 @@ class SageMakerJob:
     job_mce: MetadataChangeEventClass
     input_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     output_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    input_jobs: List[str] = field(default_factory=list)
+    input_jobs: Set[str] = field(default_factory=set)
     # TODO
     # we resolve output jobs to input ones after processing
-    output_jobs: List[str] = field(default_factory=list)
+    output_jobs: Set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -485,7 +485,7 @@ class JobProcessor:
         # "The name of the SageMaker Neo compilation job that is used to locate model artifacts that are being packaged."
         compilation_job_name: Optional[str] = job.get("CompilationJobName")
 
-        output_jobs = []
+        output_jobs = set()
         if compilation_job_name is not None:
 
             # globally unique job name
@@ -493,7 +493,7 @@ class JobProcessor:
 
             if job_name in self.name_to_arn:
 
-                output_jobs.append(make_sagemaker_job_urn(self.name_to_arn[job_name]))
+                output_jobs.add(make_sagemaker_job_urn(self.name_to_arn[job_name]))
             else:
 
                 self.report.report_warning(
@@ -530,7 +530,7 @@ class JobProcessor:
         name: str = job["HyperParameterTuningJobName"]
         arn: str = job["HyperParameterTuningJobArn"]
 
-        training_jobs = []
+        training_jobs = set()
 
         for training_job in job.get("TrainingJobDefinitions", []):
 
@@ -538,7 +538,7 @@ class JobProcessor:
 
             if job_name in self.name_to_arn:
 
-                training_jobs.append(make_sagemaker_job_urn(self.name_to_arn[job_name]))
+                training_jobs.add(make_sagemaker_job_urn(self.name_to_arn[job_name]))
             else:
 
                 self.report.report_warning(
@@ -626,15 +626,15 @@ class JobProcessor:
 
         JOB_TYPE = "processing"
 
-        input_jobs = []
+        input_jobs = set()
 
         auto_ml_arn: Optional[str] = job.get("AutoMLJobArn")
         training_arn: Optional[str] = job.get("TrainingJobArn")
 
         if auto_ml_arn is not None:
-            input_jobs.append(make_sagemaker_job_urn(auto_ml_arn))
+            input_jobs.add(make_sagemaker_job_urn(auto_ml_arn))
         if training_arn:
-            input_jobs.append(make_sagemaker_job_urn(training_arn))
+            input_jobs.add(make_sagemaker_job_urn(training_arn))
 
         input_datasets = {}
 
@@ -828,12 +828,12 @@ class JobProcessor:
         labeling_arn = job.get("LabelingJobArn")
         auto_ml_arn = job.get("AutoMLJobArn")
 
-        input_jobs = []
+        input_jobs = set()
 
         if labeling_arn is not None:
-            input_jobs.append(make_sagemaker_job_urn(labeling_arn))
+            input_jobs.add(make_sagemaker_job_urn(labeling_arn))
         if auto_ml_arn is not None:
-            input_jobs.append(make_sagemaker_job_urn(auto_ml_arn))
+            input_jobs.add(make_sagemaker_job_urn(auto_ml_arn))
 
         job_mce = self.create_common_job_mce(
             job,
