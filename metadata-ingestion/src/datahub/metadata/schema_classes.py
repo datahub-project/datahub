@@ -445,15 +445,21 @@ class EditableChartPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.chart.EditableChartProperties")
     def __init__(self,
-        created: "AuditStampClass",
-        lastModified: "AuditStampClass",
+        created: Optional["AuditStampClass"]=None,
+        lastModified: Optional["AuditStampClass"]=None,
         deleted: Union[None, "AuditStampClass"]=None,
         description: Union[None, str]=None,
     ):
         super().__init__()
         
-        self.created = created
-        self.lastModified = lastModified
+        if created is None:
+            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.created = created
+        if lastModified is None:
+            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.lastModified = lastModified
         self.deleted = deleted
         self.description = description
     
@@ -465,33 +471,33 @@ class EditableChartPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = AuditStampClass.construct_with_defaults()
-        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.created = _json_converter.from_json_object(EditableChartPropertiesClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableChartPropertiesClass.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(EditableChartPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableChartPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
     
     
     @property
     def created(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
     def created(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         self._inner_dict['created'] = value
     
     
     @property
     def lastModified(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
     def lastModified(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         self._inner_dict['lastModified'] = value
     
     
@@ -637,14 +643,20 @@ class ChangeAuditStampsClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.ChangeAuditStamps")
     def __init__(self,
-        created: "AuditStampClass",
-        lastModified: "AuditStampClass",
+        created: Optional["AuditStampClass"]=None,
+        lastModified: Optional["AuditStampClass"]=None,
         deleted: Union[None, "AuditStampClass"]=None,
     ):
         super().__init__()
         
-        self.created = created
-        self.lastModified = lastModified
+        if created is None:
+            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.created = created
+        if lastModified is None:
+            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.lastModified = lastModified
         self.deleted = deleted
     
     @classmethod
@@ -655,32 +667,32 @@ class ChangeAuditStampsClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = AuditStampClass.construct_with_defaults()
-        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.created = _json_converter.from_json_object(ChangeAuditStampsClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=ChangeAuditStampsClass.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(ChangeAuditStampsClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=ChangeAuditStampsClass.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
     
     
     @property
     def created(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
     def created(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         self._inner_dict['created'] = value
     
     
     @property
     def lastModified(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
     def lastModified(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         self._inner_dict['lastModified'] = value
     
     
@@ -1269,12 +1281,15 @@ class OwnershipClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.Ownership")
     def __init__(self,
         owners: List["OwnerClass"],
-        lastModified: "AuditStampClass",
+        lastModified: Optional["AuditStampClass"]=None,
     ):
         super().__init__()
         
         self.owners = owners
-        self.lastModified = lastModified
+        if lastModified is None:
+            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.lastModified = lastModified
     
     @classmethod
     def construct_with_defaults(cls) -> "OwnershipClass":
@@ -1285,7 +1300,7 @@ class OwnershipClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.owners = list()
-        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.lastModified = _json_converter.from_json_object(OwnershipClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=OwnershipClass.RECORD_SCHEMA.field_map["lastModified"].type)
     
     
     @property
@@ -1302,13 +1317,13 @@ class OwnershipClass(DictWrapper):
     
     @property
     def lastModified(self) -> "AuditStampClass":
-        """Getter: Audit stamp containing who last modified the record and when."""
+        """Getter: Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data."""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
     def lastModified(self, value: "AuditStampClass") -> None:
-        """Setter: Audit stamp containing who last modified the record and when."""
+        """Setter: Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data."""
         self._inner_dict['lastModified'] = value
     
     
@@ -1740,15 +1755,21 @@ class EditableDashboardPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dashboard.EditableDashboardProperties")
     def __init__(self,
-        created: "AuditStampClass",
-        lastModified: "AuditStampClass",
+        created: Optional["AuditStampClass"]=None,
+        lastModified: Optional["AuditStampClass"]=None,
         deleted: Union[None, "AuditStampClass"]=None,
         description: Union[None, str]=None,
     ):
         super().__init__()
         
-        self.created = created
-        self.lastModified = lastModified
+        if created is None:
+            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.created = created
+        if lastModified is None:
+            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.lastModified = lastModified
         self.deleted = deleted
         self.description = description
     
@@ -1760,33 +1781,33 @@ class EditableDashboardPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = AuditStampClass.construct_with_defaults()
-        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.created = _json_converter.from_json_object(EditableDashboardPropertiesClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableDashboardPropertiesClass.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(EditableDashboardPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableDashboardPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
     
     
     @property
     def created(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
     def created(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         self._inner_dict['created'] = value
     
     
     @property
     def lastModified(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
     def lastModified(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         self._inner_dict['lastModified'] = value
     
     
@@ -2093,15 +2114,21 @@ class EditableDataFlowPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.datajob.EditableDataFlowProperties")
     def __init__(self,
-        created: "AuditStampClass",
-        lastModified: "AuditStampClass",
+        created: Optional["AuditStampClass"]=None,
+        lastModified: Optional["AuditStampClass"]=None,
         deleted: Union[None, "AuditStampClass"]=None,
         description: Union[None, str]=None,
     ):
         super().__init__()
         
-        self.created = created
-        self.lastModified = lastModified
+        if created is None:
+            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.created = created
+        if lastModified is None:
+            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.lastModified = lastModified
         self.deleted = deleted
         self.description = description
     
@@ -2113,33 +2140,33 @@ class EditableDataFlowPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = AuditStampClass.construct_with_defaults()
-        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.created = _json_converter.from_json_object(EditableDataFlowPropertiesClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableDataFlowPropertiesClass.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(EditableDataFlowPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableDataFlowPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
     
     
     @property
     def created(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
     def created(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         self._inner_dict['created'] = value
     
     
     @property
     def lastModified(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
     def lastModified(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         self._inner_dict['lastModified'] = value
     
     
@@ -2173,15 +2200,21 @@ class EditableDataJobPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.datajob.EditableDataJobProperties")
     def __init__(self,
-        created: "AuditStampClass",
-        lastModified: "AuditStampClass",
+        created: Optional["AuditStampClass"]=None,
+        lastModified: Optional["AuditStampClass"]=None,
         deleted: Union[None, "AuditStampClass"]=None,
         description: Union[None, str]=None,
     ):
         super().__init__()
         
-        self.created = created
-        self.lastModified = lastModified
+        if created is None:
+            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.created = created
+        if lastModified is None:
+            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.lastModified = lastModified
         self.deleted = deleted
         self.description = description
     
@@ -2193,33 +2226,33 @@ class EditableDataJobPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = AuditStampClass.construct_with_defaults()
-        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.created = _json_converter.from_json_object(EditableDataJobPropertiesClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableDataJobPropertiesClass.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(EditableDataJobPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableDataJobPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
     
     
     @property
     def created(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
     def created(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         self._inner_dict['created'] = value
     
     
     @property
     def lastModified(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
     def lastModified(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         self._inner_dict['lastModified'] = value
     
     
@@ -2763,15 +2796,21 @@ class EditableDatasetPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.EditableDatasetProperties")
     def __init__(self,
-        created: "AuditStampClass",
-        lastModified: "AuditStampClass",
+        created: Optional["AuditStampClass"]=None,
+        lastModified: Optional["AuditStampClass"]=None,
         deleted: Union[None, "AuditStampClass"]=None,
         description: Union[None, str]=None,
     ):
         super().__init__()
         
-        self.created = created
-        self.lastModified = lastModified
+        if created is None:
+            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.created = created
+        if lastModified is None:
+            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.lastModified = lastModified
         self.deleted = deleted
         self.description = description
     
@@ -2783,33 +2822,33 @@ class EditableDatasetPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = AuditStampClass.construct_with_defaults()
-        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.created = _json_converter.from_json_object(EditableDatasetPropertiesClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableDatasetPropertiesClass.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(EditableDatasetPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableDatasetPropertiesClass.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
     
     
     @property
     def created(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
     def created(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         self._inner_dict['created'] = value
     
     
     @property
     def lastModified(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
     def lastModified(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         self._inner_dict['lastModified'] = value
     
     
@@ -2867,13 +2906,15 @@ class UpstreamClass(DictWrapper):
     
     @property
     def auditStamp(self) -> "AuditStampClass":
-        """Getter: Audit stamp containing who reported the lineage and when"""
+        """Getter: Audit stamp containing who reported the lineage and when.
+    WARNING: this field is deprecated and may be removed in a future release."""
         return self._inner_dict.get('auditStamp')  # type: ignore
     
     
     @auditStamp.setter
     def auditStamp(self, value: "AuditStampClass") -> None:
-        """Setter: Audit stamp containing who reported the lineage and when"""
+        """Setter: Audit stamp containing who reported the lineage and when.
+    WARNING: this field is deprecated and may be removed in a future release."""
         self._inner_dict['auditStamp'] = value
     
     
@@ -6480,15 +6521,21 @@ class EditableSchemaMetadataClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.schema.EditableSchemaMetadata")
     def __init__(self,
-        created: "AuditStampClass",
-        lastModified: "AuditStampClass",
         editableSchemaFieldInfo: List["EditableSchemaFieldInfoClass"],
+        created: Optional["AuditStampClass"]=None,
+        lastModified: Optional["AuditStampClass"]=None,
         deleted: Union[None, "AuditStampClass"]=None,
     ):
         super().__init__()
         
-        self.created = created
-        self.lastModified = lastModified
+        if created is None:
+            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.created = created
+        if lastModified is None:
+            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.lastModified = lastModified
         self.deleted = deleted
         self.editableSchemaFieldInfo = editableSchemaFieldInfo
     
@@ -6500,33 +6547,33 @@ class EditableSchemaMetadataClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.created = AuditStampClass.construct_with_defaults()
-        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.created = _json_converter.from_json_object(EditableSchemaMetadataClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=EditableSchemaMetadataClass.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(EditableSchemaMetadataClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=EditableSchemaMetadataClass.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.editableSchemaFieldInfo = list()
     
     
     @property
     def created(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
     def created(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         self._inner_dict['created'] = value
     
     
     @property
     def lastModified(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
     def lastModified(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         self._inner_dict['lastModified'] = value
     
     
@@ -7241,11 +7288,11 @@ class SchemaMetadataClass(DictWrapper):
         schemaName: str,
         platform: str,
         version: int,
-        created: "AuditStampClass",
-        lastModified: "AuditStampClass",
         hash: str,
         platformSchema: Union["EspressoSchemaClass", "OracleDDLClass", "MySqlDDLClass", "PrestoDDLClass", "KafkaSchemaClass", "BinaryJsonSchemaClass", "OrcSchemaClass", "SchemalessClass", "KeyValueSchemaClass", "OtherSchemaClass"],
         fields: List["SchemaFieldClass"],
+        created: Optional["AuditStampClass"]=None,
+        lastModified: Optional["AuditStampClass"]=None,
         deleted: Union[None, "AuditStampClass"]=None,
         dataset: Union[None, str]=None,
         cluster: Union[None, str]=None,
@@ -7257,8 +7304,14 @@ class SchemaMetadataClass(DictWrapper):
         self.schemaName = schemaName
         self.platform = platform
         self.version = version
-        self.created = created
-        self.lastModified = lastModified
+        if created is None:
+            self.created = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.created = created
+        if lastModified is None:
+            self.lastModified = {'actor': 'urn:li:corpuser:unknown', 'impersonator': None, 'time': 0}
+        else:
+            self.lastModified = lastModified
         self.deleted = deleted
         self.dataset = dataset
         self.cluster = cluster
@@ -7279,8 +7332,8 @@ class SchemaMetadataClass(DictWrapper):
         self.schemaName = str()
         self.platform = str()
         self.version = int()
-        self.created = AuditStampClass.construct_with_defaults()
-        self.lastModified = AuditStampClass.construct_with_defaults()
+        self.created = _json_converter.from_json_object(SchemaMetadataClass.RECORD_SCHEMA.field_map["created"].default, writers_schema=SchemaMetadataClass.RECORD_SCHEMA.field_map["created"].type)
+        self.lastModified = _json_converter.from_json_object(SchemaMetadataClass.RECORD_SCHEMA.field_map["lastModified"].default, writers_schema=SchemaMetadataClass.RECORD_SCHEMA.field_map["lastModified"].type)
         self.deleted = self.RECORD_SCHEMA.field_map["deleted"].default
         self.dataset = self.RECORD_SCHEMA.field_map["dataset"].default
         self.cluster = self.RECORD_SCHEMA.field_map["cluster"].default
@@ -7329,25 +7382,25 @@ class SchemaMetadataClass(DictWrapper):
     
     @property
     def created(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Getter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('created')  # type: ignore
     
     
     @created.setter
     def created(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource"""
+        """Setter: An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."""
         self._inner_dict['created'] = value
     
     
     @property
     def lastModified(self) -> "AuditStampClass":
-        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Getter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         return self._inner_dict.get('lastModified')  # type: ignore
     
     
     @lastModified.setter
     def lastModified(self, value: "AuditStampClass") -> None:
-        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"""
+        """Setter: An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."""
         self._inner_dict['lastModified'] = value
     
     
