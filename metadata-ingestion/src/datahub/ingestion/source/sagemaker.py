@@ -7,7 +7,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws_common import AwsSourceConfig
-from datahub.ingestion.source.sagemaker_processors import SAGEMAKER_JOB_TYPES
+from datahub.ingestion.source.sagemaker_processors.jobs import SAGEMAKER_JOB_TYPES
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     MLFeatureSnapshot,
