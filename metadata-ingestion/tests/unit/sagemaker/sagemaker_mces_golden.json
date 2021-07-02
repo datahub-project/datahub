@@ -282,5 +282,49 @@
       }
     },
     "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
+              "description": null,
+              "date": null,
+              "version": null,
+              "type": null,
+              "hyperParameters": null,
+              "mlFeatures": null,
+              "tags": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
+              "description": null,
+              "date": null,
+              "version": null,
+              "type": null,
+              "hyperParameters": null,
+              "mlFeatures": null,
+              "tags": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
   }
 ]

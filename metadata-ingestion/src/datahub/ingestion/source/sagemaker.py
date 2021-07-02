@@ -10,19 +10,7 @@ from datahub.ingestion.source.aws_common import AwsSourceConfig
 from datahub.ingestion.source.sagemaker_processors.feature_groups import (
     FeatureGroupProcessor,
 )
-from datahub.ingestion.source.sagemaker_processors.jobs import SAGEMAKER_JOB_TYPES
-from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    MLFeatureSnapshot,
-    MLFeatureTableSnapshot,
-    MLPrimaryKeySnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import (
-    MLFeaturePropertiesClass,
-    MLFeatureTablePropertiesClass,
-    MLPrimaryKeyPropertiesClass,
-)
+from datahub.ingestion.source.sagemaker_processors.models import ModelProcessor
 
 
 class SagemakerSourceConfig(AwsSourceConfig):
@@ -78,6 +66,11 @@ class SagemakerSource(Source):
             sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
         )
         yield from feature_group_processor.get_workunits()
+
+        model_processor = ModelProcessor(
+            sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
+        )
+        yield from model_processor.get_workunits()
 
     def get_report(self):
         return self.report
