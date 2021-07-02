@@ -23,7 +23,6 @@ list_feature_groups_response = {
     ],
     "NextToken": "",
 }
-
 describe_feature_group_response_1 = {
     "FeatureGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-2",
     "FeatureGroupName": "test-2",
@@ -53,7 +52,6 @@ describe_feature_group_response_1 = {
     "Description": "Yet another test feature group",
     "NextToken": "",
 }
-
 describe_feature_group_response_2 = {
     "FeatureGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-1",
     "FeatureGroupName": "test-1",
@@ -71,7 +69,6 @@ describe_feature_group_response_2 = {
     "Description": "First test feature group",
     "NextToken": "",
 }
-
 describe_feature_group_response_3 = {
     "FeatureGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test",
     "FeatureGroupName": "test",
@@ -96,11 +93,13 @@ describe_feature_group_response_3 = {
     "NextToken": "",
 }
 
+auto_ml_job_name = "an-auto-ml-job"
+auto_ml_job_arn = "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job"
 list_auto_ml_jobs_response = {
     "AutoMLJobSummaries": [
         {
-            "AutoMLJobName": "an-auto-ml-job",
-            "AutoMLJobArn": "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job",
+            "AutoMLJobName": auto_ml_job_name,
+            "AutoMLJobArn": auto_ml_job_arn,
             "AutoMLJobStatus": "Completed",
             "AutoMLJobSecondaryStatus": "Starting",
             "CreationTime": datetime(2015, 1, 1),
@@ -113,10 +112,9 @@ list_auto_ml_jobs_response = {
         },
     ],
 }
-
 describe_auto_ml_job_response = {
-    "AutoMLJobName": "an-auto-ml-job",
-    "AutoMLJobArn": "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job",
+    "AutoMLJobName": auto_ml_job_name,
+    "AutoMLJobArn": auto_ml_job_arn,
     "InputDataConfig": [
         {
             "DataSource": {
@@ -243,11 +241,15 @@ describe_auto_ml_job_response = {
     "ModelDeployResult": {"EndpointName": "string"},
 }
 
+compilation_job_name = "a-compilation-job"
+compilation_job_arn = (
+    "arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job"
+)
 list_compilation_jobs_response = {
     "CompilationJobSummaries": [
         {
-            "CompilationJobName": "a-compilation-job",
-            "CompilationJobArn": "arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job",
+            "CompilationJobName": compilation_job_name,
+            "CompilationJobArn": compilation_job_arn,
             "CreationTime": datetime(2015, 1, 1),
             "CompilationStartTime": datetime(2015, 1, 1),
             "CompilationEndTime": datetime(2015, 1, 1),
@@ -261,10 +263,9 @@ list_compilation_jobs_response = {
     ],
     "NextToken": "string",
 }
-
 describe_compilation_job_response = {
-    "CompilationJobName": "a-compilation-job",
-    "CompilationJobArn": "arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job",
+    "CompilationJobName": compilation_job_name,
+    "CompilationJobArn": compilation_job_arn,
     "CompilationJobStatus": "INPROGRESS",  # 'INPROGRESS'|'COMPLETED'|'FAILED'|'STARTING'|'STOPPING'|'STOPPED'
     "CompilationStartTime": datetime(2015, 1, 1),
     "CompilationEndTime": datetime(2015, 1, 1),
@@ -303,11 +304,15 @@ describe_compilation_job_response = {
     },
 }
 
+edge_packaging_job_name = "an-edge-packaging-job"
+edge_packaging_job_arn = (
+    "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job"
+)
 list_edge_packaging_jobs_response = {
     "EdgePackagingJobSummaries": [
         {
-            "EdgePackagingJobArn": "an-edge-packaging-job",
-            "EdgePackagingJobName": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
+            "EdgePackagingJobArn": edge_packaging_job_name,
+            "EdgePackagingJobName": edge_packaging_job_arn,
             "EdgePackagingJobStatus": "STARTING",
             "CompilationJobName": "string",
             "ModelName": "string",
@@ -317,10 +322,9 @@ list_edge_packaging_jobs_response = {
         },
     ],
 }
-
 describe_edge_packaging_job_response = {
-    "EdgePackagingJobArn": "an-edge-packaging-job",
-    "EdgePackagingJobName": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
+    "EdgePackagingJobArn": edge_packaging_job_name,
+    "EdgePackagingJobName": edge_packaging_job_arn,
     "CompilationJobName": "string",
     "ModelName": "string",
     "ModelVersion": "string",
@@ -346,11 +350,13 @@ describe_edge_packaging_job_response = {
     },
 }
 
+hyper_parameter_tuning_job_name = "a-hyper-parameter-tuning-job"
+hyper_parameter_tuning_job_arn = "arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job"
 list_hyper_parameter_tuning_jobs_response = {
     "HyperParameterTuningJobSummaries": [
         {
-            "HyperParameterTuningJobName": "a-hyper-parameter-tuning-job",
-            "HyperParameterTuningJobArn": "arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job",
+            "HyperParameterTuningJobName": hyper_parameter_tuning_job_name,
+            "HyperParameterTuningJobArn": hyper_parameter_tuning_job_arn,
             "HyperParameterTuningJobStatus": "Completed",
             "Strategy": "Bayesian",
             "CreationTime": datetime(2015, 1, 1),
@@ -375,10 +381,9 @@ list_hyper_parameter_tuning_jobs_response = {
         },
     ],
 }
-
 describe_hyper_parameter_tuning_job_response = {
-    "HyperParameterTuningJobName": "a-hyper-parameter-tuning-job",
-    "HyperParameterTuningJobArn": "arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job",
+    "HyperParameterTuningJobName": hyper_parameter_tuning_job_name,
+    "HyperParameterTuningJobArn": hyper_parameter_tuning_job_arn,
     "HyperParameterTuningJobConfig": {
         "Strategy": "Bayesian",  # 'Bayesian'|'Random'
         "HyperParameterTuningJobObjective": {
@@ -657,11 +662,15 @@ describe_hyper_parameter_tuning_job_response = {
     "FailureReason": "string",
 }
 
+labeling_job_name = "a-labeling-job"
+labeling_job_arn = (
+    "arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job"
+)
 list_labeling_jobs_response = {
     "LabelingJobSummaryList": [
         {
-            "LabelingJobName": "a-labeling-job",
-            "LabelingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job",
+            "LabelingJobName": labeling_job_name,
+            "LabelingJobArn": labeling_job_arn,
             "CreationTime": datetime(2015, 1, 1),
             "LastModifiedTime": datetime(2015, 1, 1),
             "LabelingJobStatus": "Initializing",
@@ -695,7 +704,6 @@ list_labeling_jobs_response = {
         },
     ],
 }
-
 describe_labeling_job_response = {
     "LabelingJobStatus": "Initializing",  # 'Initializing'|'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
     "LabelCounters": {
@@ -709,8 +717,8 @@ describe_labeling_job_response = {
     "CreationTime": datetime(2015, 1, 1),
     "LastModifiedTime": datetime(2015, 1, 1),
     "JobReferenceCode": "string",
-    "LabelingJobName": "a-labeling-job",
-    "LabelingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job",
+    "LabelingJobName": labeling_job_name,
+    "LabelingJobArn": labeling_job_arn,
     "LabelAttributeName": "string",
     "InputConfig": {
         "DataSource": {
@@ -767,11 +775,15 @@ describe_labeling_job_response = {
     },
 }
 
+processing_job_name = "a-processing-job"
+processing_job_arn = (
+    "arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job"
+)
 list_processing_jobs_response = {
     "ProcessingJobSummaries": [
         {
-            "ProcessingJobName": "a-processing-job",
-            "ProcessingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job",
+            "ProcessingJobName": processing_job_name,
+            "ProcessingJobArn": processing_job_arn,
             "CreationTime": datetime(2015, 1, 1),
             "ProcessingEndTime": datetime(2015, 1, 1),
             "LastModifiedTime": datetime(2015, 1, 1),
@@ -781,8 +793,9 @@ list_processing_jobs_response = {
         },
     ],
 }
-
 describe_processing_job_response = {
+    "ProcessingJobName": processing_job_name,
+    "ProcessingJobArn": processing_job_arn,
     "ProcessingInputs": [
         {
             "InputName": "string",
@@ -838,7 +851,6 @@ describe_processing_job_response = {
         ],
         "KmsKeyId": "string",
     },
-    "ProcessingJobName": "a-processing-job",
     "ProcessingResources": {
         "ClusterConfig": {
             "InstanceCount": 123,
@@ -876,7 +888,6 @@ describe_processing_job_response = {
         "TrialName": "string",
         "TrialComponentDisplayName": "string",
     },
-    "ProcessingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job",
     "ProcessingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
     "ExitMessage": "string",
     "FailureReason": "string",
@@ -889,11 +900,15 @@ describe_processing_job_response = {
     "TrainingJobArn": "string",
 }
 
+training_job_name = "a-training-job"
+training_job_arn = (
+    "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job"
+)
 list_training_jobs_response = {
     "TrainingJobSummaries": [
         {
-            "TrainingJobName": "a-training-job",
-            "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job",
+            "TrainingJobName": training_job_name,
+            "TrainingJobArn": training_job_arn,
             "CreationTime": datetime(2015, 1, 1),
             "TrainingEndTime": datetime(2015, 1, 1),
             "LastModifiedTime": datetime(2015, 1, 1),
@@ -902,10 +917,9 @@ list_training_jobs_response = {
     ],
     "NextToken": "string",
 }
-
 describe_training_job_response = {
-    "TrainingJobName": "a-training-job",
-    "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job",
+    "TrainingJobName": training_job_name,
+    "TrainingJobArn": training_job_arn,
     "TuningJobArn": "string",
     "LabelingJobArn": "string",
     "AutoMLJobArn": "string",
@@ -1051,11 +1065,15 @@ describe_training_job_response = {
     "Environment": {"string": "string"},
 }
 
+transform_job_name = "a-transform-job"
+transform_job_arn = (
+    "arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job"
+)
 list_transform_jobs_response = {
     "TransformJobSummaries": [
         {
-            "TransformJobName": "a-transform-job",
-            "TransformJobArn": "arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job",
+            "TransformJobName": transform_job_name,
+            "TransformJobArn": transform_job_arn,
             "CreationTime": datetime(2015, 1, 1),
             "TransformEndTime": datetime(2015, 1, 1),
             "LastModifiedTime": datetime(2015, 1, 1),
@@ -1064,10 +1082,9 @@ list_transform_jobs_response = {
         },
     ],
 }
-
 describe_transform_job_response = {
-    "TransformJobName": "a-transform-job",
-    "TransformJobArn": "arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job",
+    "TransformJobName": transform_job_name,
+    "TransformJobArn": transform_job_arn,
     "TransformJobStatus": "InProgress",
     # 'InProgress' |'Completed'|'Failed'|'Stopping'|'Stopped'
     "FailureReason": "string",
@@ -1119,6 +1136,49 @@ describe_transform_job_response = {
     },
 }
 
+job_stubs = {
+    "auto_ml": {
+        "list": list_auto_ml_jobs_response,
+        "describe": describe_auto_ml_job_response,
+        "describe_name": training_job_name,
+    },
+    "compiliation": {
+        "list": list_compilation_jobs_response,
+        "describe": describe_compilation_job_response,
+        "describe_name": compilation_job_name,
+    },
+    "edge_packaging": {
+        "list": list_edge_packaging_jobs_response,
+        "describe": describe_edge_packaging_job_response,
+        "describe_name": edge_packaging_job_name,
+    },
+    "hyper_parameter_tuning": {
+        "list": list_hyper_parameter_tuning_jobs_response,
+        "describe": describe_hyper_parameter_tuning_job_response,
+        "describe_name": hyper_parameter_tuning_job_name,
+    },
+    "labeling": {
+        "list": list_labeling_jobs_response,
+        "describe": describe_labeling_job_response,
+        "describe_name": labeling_job_name,
+    },
+    "processing": {
+        "list": list_processing_jobs_response,
+        "describe": describe_processing_job_response,
+        "describe_name": processing_job_name,
+    },
+    "training": {
+        "list": list_training_jobs_response,
+        "describe": describe_training_job_response,
+        "describe_name": training_job_name,
+    },
+    "transform": {
+        "list": list_transform_jobs_response,
+        "describe": describe_transform_job_response,
+        "describe_name": transform_job_name,
+    },
+}
+
 list_models_response = {
     "Models": [
         {
@@ -1133,7 +1193,6 @@ list_models_response = {
         },
     ],
 }
-
 describe_model_response_1 = {
     "ModelName": "the-first-model",
     "PrimaryContainer": {
@@ -1184,7 +1243,6 @@ describe_model_response_1 = {
     "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
     "EnableNetworkIsolation": True,  # True | False
 }
-
 describe_model_response_2 = {
     "ModelName": "the-second-model",
     "PrimaryContainer": {

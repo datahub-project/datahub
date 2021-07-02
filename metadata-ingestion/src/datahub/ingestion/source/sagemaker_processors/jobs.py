@@ -580,31 +580,17 @@ class SageMakerJobProcessor:
                     "name": input_name,
                 }
 
-            # TODO: ingest Athena and Redshift
+            # TODO: ingest Athena and Redshift data sources
+            # We don't do this at the moment because we need to parse the QueryString SQL
+            # in order to get the tables used (otherwise we just have databases)
+
             # input_athena = input_config.get("DatasetDefinition", {}).get(
             #     "AthenaDatasetDefinition", {}
             # )
-            # input_athena_catalog = input_athena.get("Catalog")
-            # input_athena_database = input_athena.get("Database")
-            # input_athena_querystring = input_athena.get("QueryString")
-            # input_athena_workgroup = input_athena.get("WorkGroup")
-            # input_athena_s3_uri = input_athena.get("OutputS3Uri")
-            # input_athena_kms = input_athena.get("KmsKeyId")
-            # input_athena_format = input_athena.get("OutputFormat")
-            # input_athena_compression = input_athena.get("OutputCompression")
 
             # input_redshift = input_config.get("DatasetDefinition", {}).get(
             #     "RedshiftDatasetDefinition", {}
             # )
-            # input_redshift_cluster = input_redshift.get("ClusterId")
-            # input_redshift_database = input_redshift.get("Database")
-            # input_redshift_user = input_redshift.get("DbUser")
-            # input_redshift_querystring = input_redshift.get("QueryString")
-            # input_redshift_cluster_arn = input_redshift.get("ClusterRoleArn")
-            # input_redshift_s3_uri = input_redshift.get("OutputS3Uri")
-            # input_redshift_kms = input_redshift.get("KmsKeyId")
-            # input_redshift_format = input_redshift.get("OutputFormat")
-            # input_redshift_compression = input_redshift.get("OutputCompression")
 
         outputs: List[Dict[str, Any]] = job.get("ProcessingOutputConfig", {}).get(
             "Outputs", []
