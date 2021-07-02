@@ -438,7 +438,7 @@
             "name" : "AzkabanJobType",
             "namespace" : "com.linkedin.datajob.azkaban",
             "doc" : "The various types of support azkaban jobs",
-            "symbols" : [ "COMMAND", "HADOOP_JAVA", "HADOOP_SHELL", "HIVE", "PIG", "SQL", "GLUE" ],
+            "symbols" : [ "COMMAND", "HADOOP_JAVA", "HADOOP_SHELL", "HIVE", "PIG", "SQL", "GLUE", "SAGEMAKER" ],
             "symbolDocs" : {
               "COMMAND" : "The command job type is one of the basic built-in types. It runs multiple UNIX commands using java processbuilder.\nUpon execution, Azkaban spawns off a process to run the command.",
               "GLUE" : "Glue type is for running AWS Glue job transforms.",
@@ -446,6 +446,7 @@
               "HADOOP_SHELL" : "In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster\nsecurely, via Hadoop tokens.",
               "HIVE" : "Hive type is for running Hive jobs.",
               "PIG" : "Pig type is for running Pig jobs.",
+              "SAGEMAKER" : "SageMaker type is for running AWS SageMAker jobs.",
               "SQL" : "SQL is for running Presto, mysql queries etc"
             }
           } ],
@@ -459,6 +460,25 @@
             "entityTypes" : [ "dataFlow" ],
             "name" : "IsPartOf"
           }
+        }, {
+          "name" : "status",
+          "type" : {
+            "type" : "enum",
+            "name" : "JobStatus",
+            "doc" : "Job statuses",
+            "symbols" : [ "STARTING", "IN_PROGRESS", "STOPPING", "STOPPED", "COMPLETED", "FAILED", "UNKNOWN" ],
+            "symbolDocs" : {
+              "COMPLETED" : "Jobs with successful completion.",
+              "FAILED" : "Jobs that have failed.",
+              "IN_PROGRESS" : "Jobs currently running.",
+              "STARTING" : "Jobs being initialized.",
+              "STOPPED" : "Jobs that have stopped.",
+              "STOPPING" : "Jobs being stopped.",
+              "UNKNOWN" : "Jobs with unknown status (either unmappable or unavailable)"
+            }
+          },
+          "doc" : "Status of the job",
+          "optional" : true
         } ],
         "Aspect" : {
           "name" : "dataJobInfo"
@@ -574,7 +594,7 @@
       "doc" : "Editable properties",
       "optional" : true
     } ]
-  }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.datajob.azkaban.AzkabanJobType", {
+  }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.datajob.JobStatus", "com.linkedin.datajob.azkaban.AzkabanJobType", {
     "type" : "typeref",
     "name" : "DataJobAspect",
     "namespace" : "com.linkedin.metadata.aspect",

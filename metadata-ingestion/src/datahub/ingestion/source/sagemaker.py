@@ -1,8 +1,6 @@
 from dataclasses import dataclass
-from dataclasses import field as dataclass_field
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Iterable
 
-import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -10,6 +8,7 @@ from datahub.ingestion.source.aws_common import AwsSourceConfig
 from datahub.ingestion.source.sagemaker_processors.feature_groups import (
     FeatureGroupProcessor,
 )
+from datahub.ingestion.source.sagemaker_processors.jobs import JobProcessor
 from datahub.ingestion.source.sagemaker_processors.models import ModelProcessor
 
 
@@ -71,6 +70,11 @@ class SagemakerSource(Source):
             sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
         )
         yield from model_processor.get_workunits()
+
+        job_processor = JobProcessor(
+            sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
+        )
+        yield from job_processor.get_workunits()
 
     def get_report(self):
         return self.reporte

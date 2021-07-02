@@ -133,6 +133,20 @@
       "name" : "cost"
     }
   }, "com.linkedin.common.CostType", "com.linkedin.common.CostValue", {
+    "type" : "record",
+    "name" : "CustomProperties",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Misc. properties about an entity.",
+    "fields" : [ {
+      "name" : "customProperties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "Custom property bag.",
+      "default" : { }
+    } ]
+  }, {
     "type" : "typeref",
     "name" : "DataPlatformUrn",
     "namespace" : "com.linkedin.common",
@@ -1133,7 +1147,7 @@
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where ML Model belongs to or where it was generated."
       } ]
-    }, "com.linkedin.common.ChangeAuditStamps" ],
+    }, "com.linkedin.common.ChangeAuditStamps", "com.linkedin.common.CustomProperties" ],
     "fields" : [ {
       "name" : "id",
       "type" : "long",

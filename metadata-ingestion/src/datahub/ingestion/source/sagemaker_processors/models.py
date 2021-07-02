@@ -1,12 +1,10 @@
 from dataclasses import dataclass
-from dataclasses import field as dataclass_field
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List
 
 import datahub.emitter.mce_builder as builder
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import MLModelSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import MLModelPropertiesClass
@@ -42,7 +40,7 @@ class ModelProcessor:
 
     def get_model_wu(self, model_details: Dict[str, Any]) -> MetadataWorkUnit:
 
-        feature_snapshot = MLModelSnapshot(
+        model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
                 "sagemaker",
                 model_details["ModelName"],
@@ -52,13 +50,13 @@ class ModelProcessor:
                     date=int(
                         model_details.get("CreationTime", datetime.now()).timestamp()
                         * 1000
-                    )
+                    ),
                 )
             ],
         )
 
         # make the MCE and workunit
-        mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
+        mce = MetadataChangeEvent(proposedSnapshot=model_snapshot)
 
         return MetadataWorkUnit(
             id=f'{model_details["ModelName"]}',

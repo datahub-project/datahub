@@ -123,7 +123,7 @@ describe_auto_ml_job_response = {
                     "S3Uri": "s3://auto-ml-job-input-bucket/file.txt",
                 }
             },
-            "CompressionType": "None",  #  'None'|'Gzip'
+            "CompressionType": "None",  # 'None'|'Gzip'
             "TargetAttributeName": "some-name",
         },
     ],
@@ -968,7 +968,7 @@ describe_training_job_response = {
                 "S3DataSource": {
                     "S3DataType": "ManifestFile",  # 'ManifestFile'|'S3Prefix'|'AugmentedManifestFile'
                     "S3Uri": "s3://training-job/input-dataset.tar.gz",
-                    "S3DataDistributionType": "FullyReplicated",  #'FullyReplicated'|'ShardedByS3Key'
+                    "S3DataDistributionType": "FullyReplicated",  # 'FullyReplicated'|'ShardedByS3Key'
                     "AttributeNames": [
                         "string",
                     ],

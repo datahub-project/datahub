@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-from dataclasses import field as dataclass_field
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List
 
 import datahub.emitter.mce_builder as builder
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (

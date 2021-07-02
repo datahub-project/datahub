@@ -1,10 +1,8 @@
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.source import SourceReport
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobSnapshotClass,
@@ -227,10 +225,10 @@ class SageMakerJob:
 @dataclass
 class JobProcessor:
     sagemaker_client: Any
-    arn_to_name: Dict[str, Tuple[str, str]]
-    name_to_arn: Dict[Tuple[str, str], str]
     env: str
     report: SourceReport
+    arn_to_name: Dict[str, Tuple[str, str]] = field(default_factory=dict)
+    name_to_arn: Dict[Tuple[str, str], str] = field(default_factory=dict)
 
     def get_all_jobs(
         self,
