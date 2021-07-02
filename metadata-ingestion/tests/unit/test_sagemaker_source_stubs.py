@@ -1262,7 +1262,7 @@ describe_model_response_1 = {
     "InferenceExecutionConfig": {
         "Mode": "Serial",  # 'Serial'|'Direct'
     },
-    "ExecutionRoleArn": "string",
+    "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
     "VpcConfig": {
         "SecurityGroupIds": [
             "string",
@@ -1312,7 +1312,7 @@ describe_model_response_2 = {
     "InferenceExecutionConfig": {
         "Mode": "Serial",  # 'Serial'|'Direct'
     },
-    "ExecutionRoleArn": "string",
+    "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
     "VpcConfig": {
         "SecurityGroupIds": [
             "string",
