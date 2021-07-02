@@ -63,6 +63,13 @@ spec:
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
             failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           env:
+            {{- with .Values.adminPasswordSecret }}
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .name }}"
+                  key: "{{ .key }}"
+            {{- end }}
             - name: DATAHUB_GMS_HOST
               value: {{ printf "%s-%s" .Release.Name "datahub-gms" }}
             - name: DATAHUB_GMS_PORT
