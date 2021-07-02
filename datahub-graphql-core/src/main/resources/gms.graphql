@@ -84,6 +84,10 @@ enum EntityType {
     """
     MLMODEL
     """
+    The MLFeature Entity
+    """
+    MLFEATURE
+    """
     The DATA_FLOW Entity
     """
     DATA_FLOW
@@ -132,6 +136,11 @@ type Query {
     Fetch a MLModel by primary key
     """
     mlModel(urn: String!): MLModel
+
+    """
+    Fetch a MLFeature by primary key
+    """
+    mlFeature(urn: String!): MLFeature
 
     """
     Fetch a DataFlow by primary key
@@ -479,6 +488,26 @@ enum FabricType {
     Designates corporation fabrics
     """
     CORP
+}
+
+enum MLFeatureDataType {
+    USELESS
+    NOMINAL
+    ORDINAL
+    BINARY
+    COUNT
+    TIME
+    INTERVAL
+    IMAGE
+    VIDEO
+    AUDIO
+    TEXT
+    MAP
+    SEQUENCE
+    SET
+    CONTINUOUS
+    BYTE
+    UNKNOWN
 }
 
 type DatasetDeprecation {
@@ -2108,6 +2137,59 @@ type MLModel implements Entity {
     deprecation: Deprecation
 }
 
+type MLFeature implements Entity {
+
+    """
+    The unique mlfeature URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    MLFeature native name
+    """
+    name: String!
+
+    """
+    MLFeature native name
+    """
+    featureNamespace: String!
+
+    """
+    Tags used for searching mlfeature
+    """
+    tags: [String!]!
+
+    """
+    Ownership metadata of the mlfeature
+    """
+    ownership: Ownership
+
+    """
+    ModelProperties metadata of the mlfeature
+    """
+    featureProperties: MLFeatureProperties
+
+    """
+    References to internal resources related to the mlfeature
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Status metadata of the mlfeature
+    """
+    status: Status
+
+    """
+    Deprecation
+    """
+    deprecation: Deprecation
+}
+
 type MLModelProperties {
 
     description: String
@@ -2121,6 +2203,19 @@ type MLModelProperties {
     hyperParameters: HyperParameterMap
 
     mlFeatures: [String!]
+
+    tags: [String!]
+}
+
+type MLFeatureProperties {
+
+    description: String
+
+    dataType: MLFeatureDataType
+
+    version: String
+
+    sources: [String!]
 
     tags: [String!]
 }

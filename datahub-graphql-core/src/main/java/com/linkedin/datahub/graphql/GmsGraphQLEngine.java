@@ -50,6 +50,7 @@ import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import com.linkedin.datahub.graphql.types.lineage.DownstreamLineageType;
 import com.linkedin.datahub.graphql.types.lineage.UpstreamLineageType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
@@ -103,6 +104,7 @@ public class GmsGraphQLEngine {
     );
     public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getEntitiesClient());
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getEntitiesClient());
+    public static final MLFeatureType ML_FEATURE_TYPE = new MLFeatureType(GmsClientFactory.getEntitiesClient());
     public static final DataFlowType DATA_FLOW_TYPE = new DataFlowType(GmsClientFactory.getEntitiesClient());
     public static final DataJobType DATA_JOB_TYPE = new DataJobType(GmsClientFactory.getEntitiesClient());
     public static final DataFlowDataJobsRelationshipsType DATAFLOW_DATAJOBS_TYPE = new DataFlowDataJobsRelationshipsType(
@@ -124,6 +126,7 @@ public class GmsGraphQLEngine {
             DASHBOARD_TYPE,
             TAG_TYPE,
             ML_MODEL_TYPE,
+            ML_FEATURE_TYPE,
             DATA_FLOW_TYPE,
             DATA_JOB_TYPE,
             GLOSSARY_TERM_TYPE
