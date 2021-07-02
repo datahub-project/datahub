@@ -770,7 +770,10 @@ describe_labeling_job_response = {
     },
     "HumanTaskConfig": {
         "WorkteamArn": "string",
-        "UiConfig": {"UiTemplateS3Uri": "string", "HumanTaskUiArn": "string"},
+        "UiConfig": {
+            "UiTemplateS3Uri": "s3://labeling-job/ui-config.tar.gz",
+            "HumanTaskUiArn": "string",
+        },
         "PreHumanTaskLambdaArn": "string",
         "TaskKeywords": [
             "string",
@@ -790,7 +793,7 @@ describe_labeling_job_response = {
         {"Key": "string", "Value": "string"},
     ],
     "LabelingJobOutput": {
-        "OutputDatasetS3Uri": "string",
+        "OutputDatasetS3Uri": "s3://labeling-job/output-dataset.tar.gz",
         "FinalActiveLearningModelArn": "string",
     },
 }
@@ -821,7 +824,7 @@ describe_processing_job_response = {
             "InputName": "string",
             "AppManaged": True,  # True|False
             "S3Input": {
-                "S3Uri": "string",
+                "S3Uri": "s3://processing-job/input-data.tar.gz",
                 "LocalPath": "string",
                 "S3DataType": "ManifestFile",  # 'ManifestFile'|'S3Prefix'
                 "S3InputMode": "Pipe",  # 'Pipe'|'File'
@@ -830,22 +833,22 @@ describe_processing_job_response = {
             },
             "DatasetDefinition": {
                 "AthenaDatasetDefinition": {
-                    "Catalog": "string",
-                    "Database": "string",
-                    "QueryString": "string",
-                    "WorkGroup": "string",
-                    "OutputS3Uri": "string",
+                    "Catalog": "athena-catalog",
+                    "Database": "athena-database",
+                    "QueryString": "athena-query-string",
+                    "WorkGroup": "athena-work-group",
+                    "OutputS3Uri": "s3://processing-job/athena-output.tar.gz",
                     "KmsKeyId": "string",
                     "OutputFormat": "PARQUET",  # 'PARQUET'|'ORC'|'AVRO'|'JSON'|'TEXTFILE'
                     "OutputCompression": "GZIP",  # 'GZIP'|'SNAPPY'|'ZLIB'
                 },
                 "RedshiftDatasetDefinition": {
-                    "ClusterId": "string",
-                    "Database": "string",
-                    "DbUser": "string",
-                    "QueryString": "string",
-                    "ClusterRoleArn": "string",
-                    "OutputS3Uri": "string",
+                    "ClusterId": "redshift-cluster",
+                    "Database": "redshift-database",
+                    "DbUser": "redshift-db-user",
+                    "QueryString": "redshift-query-string",
+                    "ClusterRoleArn": "athena-work-group",
+                    "OutputS3Uri": "s3://processing-job/redshift-output.tar.gz",
                     "KmsKeyId": "string",
                     "OutputFormat": "PARQUET",  # 'PARQUET'|'CSV'
                     "OutputCompression": "None",  # 'None'|'GZIP'|'BZIP2'|'ZSTD'|'SNAPPY'
@@ -861,7 +864,7 @@ describe_processing_job_response = {
             {
                 "OutputName": "string",
                 "S3Output": {
-                    "S3Uri": "string",
+                    "S3Uri": "s3://processing-job/processing-output.tar.gz",
                     "LocalPath": "string",
                     "S3UploadMode": "Continuous",  # 'Continuous'|'EndOfJob'
                 },
@@ -943,7 +946,7 @@ describe_training_job_response = {
     "TuningJobArn": "string",
     "LabelingJobArn": "string",
     "AutoMLJobArn": "string",
-    "ModelArtifacts": {"S3ModelArtifacts": "string"},
+    "ModelArtifacts": {"S3ModelArtifacts": "s3://training-job/model-artifact.tar.gz"},
     "TrainingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
     "SecondaryStatus": "Starting",  # 'Starting'|'LaunchingMLInstances'|'PreparingTrainingStack'|'Downloading'|'DownloadingTrainingImage'|'Training'|'Uploading'|'Stopping'|'Stopped'|'MaxRuntimeExceeded'|'Completed'|'Failed'|'Interrupted'|'MaxWaitTimeExceeded'|'Updating'|'Restarting'
     "FailureReason": "string",
@@ -964,7 +967,7 @@ describe_training_job_response = {
             "DataSource": {
                 "S3DataSource": {
                     "S3DataType": "ManifestFile",  # 'ManifestFile'|'S3Prefix'|'AugmentedManifestFile'
-                    "S3Uri": "string",
+                    "S3Uri": "s3://training-job/input-dataset.tar.gz",
                     "S3DataDistributionType": "FullyReplicated",  #'FullyReplicated'|'ShardedByS3Key'
                     "AttributeNames": [
                         "string",
@@ -984,7 +987,10 @@ describe_training_job_response = {
             "ShuffleConfig": {"Seed": 123},
         },
     ],
-    "OutputDataConfig": {"KmsKeyId": "string", "S3OutputPath": "string"},
+    "OutputDataConfig": {
+        "KmsKeyId": "string",
+        "S3OutputPath": "s3://training-job/output-data.tar.gz",
+    },
     "ResourceConfig": {
         "InstanceType": "ml.m4.xlarge",
         "InstanceCount": 123,
@@ -1018,12 +1024,15 @@ describe_training_job_response = {
     "EnableNetworkIsolation": True,  # True|False
     "EnableInterContainerTrafficEncryption": True,  # True|False
     "EnableManagedSpotTraining": True,  # True|False
-    "CheckpointConfig": {"S3Uri": "string", "LocalPath": "string"},
+    "CheckpointConfig": {
+        "S3Uri": "s3://training-job/checkpoint-config.tar.gz",
+        "LocalPath": "string",
+    },
     "TrainingTimeInSeconds": 123,
     "BillableTimeInSeconds": 123,
     "DebugHookConfig": {
         "LocalPath": "string",
-        "S3OutputPath": "string",
+        "S3OutputPath": "s3://training-job/debug-hook-config.tar.gz",
         "HookParameters": {"string": "string"},
         "CollectionConfigurations": [
             {"CollectionName": "string", "CollectionParameters": {"string": "string"}},
@@ -1038,14 +1047,17 @@ describe_training_job_response = {
         {
             "RuleConfigurationName": "string",
             "LocalPath": "string",
-            "S3OutputPath": "string",
+            "S3OutputPath": "s3://training-job/debug-rule-config.tar.gz",
             "RuleEvaluatorImage": "string",
             "InstanceType": "ml.t3.medium",
             "VolumeSizeInGB": 123,
             "RuleParameters": {"string": "string"},
         },
     ],
-    "TensorBoardOutputConfig": {"LocalPath": "string", "S3OutputPath": "string"},
+    "TensorBoardOutputConfig": {
+        "LocalPath": "string",
+        "S3OutputPath": "s3://training-job/tensorboard-output-config.tar.gz",
+    },
     "DebugRuleEvaluationStatuses": [
         {
             "RuleConfigurationName": "string",
@@ -1056,7 +1068,7 @@ describe_training_job_response = {
         },
     ],
     "ProfilerConfig": {
-        "S3OutputPath": "string",
+        "S3OutputPath": "s3://training-job/profiler-config.tar.gz",
         "ProfilingIntervalInMilliseconds": 123,
         "ProfilingParameters": {"string": "string"},
     },
@@ -1064,7 +1076,7 @@ describe_training_job_response = {
         {
             "RuleConfigurationName": "string",
             "LocalPath": "string",
-            "S3OutputPath": "string",
+            "S3OutputPath": "s3://training-job/profiler-rule-config.tar.gz",
             "RuleEvaluatorImage": "string",
             "InstanceType": "ml.t3.medium",
             "VolumeSizeInGB": 123,
@@ -1121,7 +1133,7 @@ describe_transform_job_response = {
         "DataSource": {
             "S3DataSource": {
                 "S3DataType": "ManifestFile",  # "ManifestFile" | "S3Prefix" | "AugmentedManifestFile"
-                "S3Uri": "string",
+                "S3Uri": "s3://transform-job/input-data-source.tar.gz",
             }
         },
         "ContentType": "string",
@@ -1129,7 +1141,7 @@ describe_transform_job_response = {
         "SplitType": "None",  # "None" | "Line" | "RecordIO" | "TFRecord"
     },
     "TransformOutput": {
-        "S3OutputPath": "string",
+        "S3OutputPath": "s3://transform-job/output.tar.gz",
         "Accept": "string",
         "AssembleWith": "None",  # "None" | "Line"
         "KmsKeyId": "string",
@@ -1142,8 +1154,8 @@ describe_transform_job_response = {
     "CreationTime": datetime(2015, 1, 1),
     "TransformStartTime": datetime(2015, 1, 1),
     "TransformEndTime": datetime(2015, 1, 1),
-    "LabelingJobArn": "string",
-    "AutoMLJobArn": "string",
+    "LabelingJobArn": labeling_job_arn,
+    "AutoMLJobArn": auto_ml_job_arn,
     "DataProcessing": {
         "InputFilter": "string",
         "OutputFilter": "string",
