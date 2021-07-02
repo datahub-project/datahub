@@ -30,6 +30,7 @@ dependencies {
   play project(":datahub-dao")
   play project(":datahub-graphql-core")
 
+  play externalDependency.jettyJaas
   play externalDependency.graphqlJava
   play externalDependency.antlr4Runtime
   play externalDependency.antlr4

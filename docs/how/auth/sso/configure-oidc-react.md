@@ -8,8 +8,8 @@ to be a secure environment and as such authentication is validated & enforced on
 
 ## Provider-Specific Guides
 
-1. [Configuring OIDC using Google](./sso/configure-oidc-react-google.md)
-2. [Configuring OIDC using Okta](./sso/configure-oidc-react-okta.md)
+1. [Configuring OIDC using Google](configure-oidc-react-google.md)
+2. [Configuring OIDC using Okta](configure-oidc-react-okta.md)
 
 ## Configuring OIDC in React 
 
@@ -47,7 +47,7 @@ this endpoint *will* exist as per the OIDC specification. For more info see http
 
 The second step to enabling OIDC involves configuring `datahub-frontend` to enable OIDC authentication with your Identity Provider.
 
-To do so, you must update the `datahub-frontend` [docker.env](../../docker/datahub-frontend/env/docker.env) file with the
+To do so, you must update the `datahub-frontend` [docker.env](../../../../docker/datahub-frontend/env/docker.env) file with the
 values received from your identity provider:
 
 ```
