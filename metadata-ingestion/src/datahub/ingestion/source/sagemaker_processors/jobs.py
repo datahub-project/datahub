@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobSnapshotClass,
@@ -22,6 +23,7 @@ class SageMakerJobType:
     describe_arn_key: str
     describe_status_key: str
     status_map: Dict[str, str]
+    processor: str
 
 
 SAGEMAKER_JOB_TYPES = {
@@ -43,6 +45,7 @@ SAGEMAKER_JOB_TYPES = {
             "Stopped": JobStatusClass.STOPPED,
             "Stopping": JobStatusClass.STOPPING,
         },
+        processor="process_auto_ml_job",
     ),
     "compilation": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_compilation_jobs
@@ -63,6 +66,7 @@ SAGEMAKER_JOB_TYPES = {
             "STOPPING": JobStatusClass.STOPPING,
             "STOPPED": JobStatusClass.STOPPED,
         },
+        processor="process_compilation_job",
     ),
     "edge_packaging": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_edge_packaging_jobs
@@ -83,6 +87,7 @@ SAGEMAKER_JOB_TYPES = {
             "STOPPING": JobStatusClass.STOPPING,
             "STOPPED": JobStatusClass.STOPPED,
         },
+        processor="process_edge_packaging_job",
     ),
     "hyper_parameter_tuning": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_hyper_parameter_tuning_jobs
@@ -102,6 +107,7 @@ SAGEMAKER_JOB_TYPES = {
             "Stopping": JobStatusClass.STOPPING,
             "Stopped": JobStatusClass.STOPPED,
         },
+        processor="process_hyper_parameter_tuning_job",
     ),
     "labeling": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_labeling_jobs
@@ -122,6 +128,7 @@ SAGEMAKER_JOB_TYPES = {
             "Stopping": JobStatusClass.STOPPING,
             "Stopped": JobStatusClass.STOPPED,
         },
+        processor="process_labeling_job",
     ),
     "processing": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_processing_jobs
@@ -141,6 +148,7 @@ SAGEMAKER_JOB_TYPES = {
             "Stopping": JobStatusClass.STOPPING,
             "Stopped": JobStatusClass.STOPPED,
         },
+        processor="process_processing_job",
     ),
     "training": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_training_jobs
@@ -160,6 +168,7 @@ SAGEMAKER_JOB_TYPES = {
             "Stopping": JobStatusClass.STOPPING,
             "Stopped": JobStatusClass.STOPPED,
         },
+        processor="process_training_job",
     ),
     "transform": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_transform_jobs
@@ -179,6 +188,7 @@ SAGEMAKER_JOB_TYPES = {
             "Stopping": JobStatusClass.STOPPING,
             "Stopped": JobStatusClass.STOPPED,
         },
+        processor="process_transform_job",
     ),
 }
 
@@ -213,7 +223,7 @@ def make_sagemaker_job_urn(arn) -> str:
 
 @dataclass
 class SageMakerJob:
-    job: MetadataChangeEventClass
+    job_mce: MetadataChangeEventClass
     input_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     output_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     input_jobs: List[str] = field(default_factory=list)
@@ -232,7 +242,7 @@ class JobProcessor:
 
     def get_all_jobs(
         self,
-    ) -> Tuple[List[Dict[str, Any]], Dict[str, str], Dict[str, str]]:
+    ) -> List[Dict[str, Any]]:
         """
         List all jobs in SageMaker.
         """
@@ -240,27 +250,30 @@ class JobProcessor:
         jobs = []
 
         # dictionaries for translating between type-specific job names and ARNs
-        arn_to_name: Dict[str, Tuple[str, str]] = {}
-        name_to_arn: Dict[Tuple[str, str], str] = {}
+        self.arn_to_name: Dict[str, Tuple[str, str]] = {}
+        self.name_to_arn: Dict[Tuple[str, str], str] = {}
 
-        for job_type, job_spec in SAGEMAKER_JOB_TYPES.items():
+        # iterate through keys in sorted order for consistency
+        for job_type in sorted(SAGEMAKER_JOB_TYPES):
 
-            paginator = self.sagemaker_client.get_paginator(job_spec["list_command"])
+            job_spec = SAGEMAKER_JOB_TYPES[job_type]
+
+            paginator = self.sagemaker_client.get_paginator(job_spec.list_command)
             for page in paginator.paginate():
-                page_jobs = page[job_spec["list_key"]]
+                page_jobs = page[job_spec.list_key]
 
                 for job in page_jobs:
-                    job_name = (job_type, job_spec)
-                    job_arn = job[job_spec["list_name_arn"]]
+                    job_name = (job_type, job[job_spec.list_name_key])
+                    job_arn = job[job_spec.list_arn_key]
 
-                    arn_to_name[job_arn] = job_name
-                    name_to_arn[job_name] = job_arn
+                    self.arn_to_name[job_arn] = job_name
+                    self.name_to_arn[job_name] = job_arn
 
                 page_jobs = [{**job, "type": job_type} for job in page_jobs]
 
                 jobs += page_jobs
 
-        return jobs, arn_to_name, name_to_arn
+        return jobs
 
     def get_job_details(
         self, job_name: str, describe_command: str, describe_name_key: str
@@ -269,6 +282,40 @@ class JobProcessor:
         return getattr(self.sagemaker_client, describe_command)(
             **{describe_name_key: job_name}
         )
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+
+        jobs = self.get_all_jobs()
+
+        for job in jobs:
+
+            job_type = SAGEMAKER_JOB_TYPES[job["type"]]
+            job_name = job[job_type.list_name_key]
+
+            job_details = self.get_job_details(
+                job_name,
+                job_type.describe_command,
+                job_type.describe_name_key,
+            )
+
+            processed_job = getattr(self, job_type.processor)(job_details)
+
+            job_mce = processed_job.job_mce
+            job_wu = MetadataWorkUnit(
+                id=f'{job["type"]}-{job_name}',
+                mce=job_mce,
+            )
+            self.report.report_workunit(job_wu)
+            yield job_wu
+
+            # for feature in feature_group_details["FeatureDefinitions"]:
+            #     wu = self.get_feature_wu(feature_group_details, feature)
+            #     self.report.report_workunit(wu)
+            #     yield wu
+
+            # wu = self.get_feature_group_wu(feature_group_details)
+            # self.report.report_workunit(wu)
+            # yield wu
 
     def create_common_job_mce(
         self,
@@ -322,15 +369,6 @@ class JobProcessor:
 
         JOB_TYPE = "auto_ml"
 
-        # TODO: figure out what to do with these attributes
-        # status: str = job["AutoMLJobStatus"]
-
-        # role: str = job["RoleArn"]
-
-        # create_time: Optional[datetime] = job.get("CreationTime")
-        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        # end_time: Optional[datetime] = job.get("Endtime")
-
         input_data: Optional[Dict[str, str]] = (
             job["InputDataConfig"].get("DataSource", {}).get("S3DataSource")
         )
@@ -360,7 +398,9 @@ class JobProcessor:
         )
 
         return SageMakerJob(
-            job=job_mce, input_datasets=input_datasets, output_datasets=output_datasets
+            job_mce=job_mce,
+            input_datasets=input_datasets,
+            output_datasets=output_datasets,
         )
 
     def process_compilation_job(self, job) -> SageMakerJob:
@@ -372,14 +412,6 @@ class JobProcessor:
         """
 
         JOB_TYPE = "compilation"
-        # status: str = job["CompilationJobStatus"]
-
-        # role: str = job["RoleArn"]
-
-        # create_time: Optional[datetime] = job.get("CreationTime")
-        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        # start_time: Optional[datetime] = job.get("CompilationStartTime")
-        # end_time: Optional[datetime] = job.get("CompilationEndTime")
 
         input_datasets = {}
 
@@ -411,7 +443,9 @@ class JobProcessor:
         )
 
         return SageMakerJob(
-            job=job_mce, input_datasets=input_datasets, output_datasets=output_datasets
+            job_mce=job_mce,
+            input_datasets=input_datasets,
+            output_datasets=output_datasets,
         )
 
     def process_edge_packaging_job(
@@ -429,13 +463,6 @@ class JobProcessor:
 
         name: str = job["EdgePackagingJobName"]
         arn: str = job["EdgePackagingJobArn"]
-        # status: str = job["EdgePackagingJobStatus"]
-        # status_message: str = job["EdgePackagingJobStatusMessage"]
-
-        # role: str = job["RoleArn"]
-
-        # create_time: Optional[datetime] = job.get("CreationTime")
-        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
 
         output_datasets = {}
 
@@ -485,7 +512,7 @@ class JobProcessor:
         )
 
         return SageMakerJob(
-            job=job_mce, output_datasets=output_datasets, output_jobs=output_jobs
+            job_mce=job_mce, output_datasets=output_datasets, output_jobs=output_jobs
         )
 
     def process_hyper_parameter_tuning_job(
@@ -503,13 +530,6 @@ class JobProcessor:
 
         name: str = job["HyperParameterTuningJobName"]
         arn: str = job["HyperParameterTuningJobArn"]
-        # status: str = job["HyperParameterTuningJobStatus"]
-
-        # role: str = job["RoleArn"]
-
-        # create_time: Optional[datetime] = job.get("CreationTime")
-        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        # end_time: Optional[datetime] = job.get("HyperParameterTuningEndTime")
 
         training_jobs = []
 
@@ -533,7 +553,7 @@ class JobProcessor:
         )
 
         return SageMakerJob(
-            job=job_mce,
+            job_mce=job_mce,
             output_jobs=training_jobs,
         )
 
@@ -546,16 +566,6 @@ class JobProcessor:
         """
 
         JOB_TYPE = "labeling"
-        # status: str = job["LabelingJobStatus"]
-
-        # role: str = job["RoleArn"]
-
-        # create_time: Optional[datetime] = job.get("CreationTime")
-        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-
-        # attribute: str = job["LabelAttributeName"]
-
-        # tags: List[Dict[str, str]] = job["Tags"]
 
         input_datasets = {}
 
@@ -602,7 +612,7 @@ class JobProcessor:
         )
 
         return SageMakerJob(
-            job=job_mce,
+            job_mce=job_mce,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
         )
@@ -616,14 +626,6 @@ class JobProcessor:
         """
 
         JOB_TYPE = "processing"
-        # status: str = job["ProcessingJobStatus"]
-
-        # role: str = job["RoleArn"]
-
-        # create_time: Optional[datetime] = job.get("CreationTime")
-        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        # start_time: Optional[datetime] = job.get("ProcessingStartTime")
-        # end_time: Optional[datetime] = job.get("ProcessingEndTime")
 
         input_jobs = []
 
@@ -705,7 +707,7 @@ class JobProcessor:
         )
 
         return SageMakerJob(
-            job=job_mce,
+            job_mce=job_mce,
             input_datasets=input_datasets,
             input_jobs=input_jobs,
         )
@@ -719,15 +721,6 @@ class JobProcessor:
         """
 
         JOB_TYPE = "training"
-        # status: str = job["TrainingJobStatus"]
-        # secondary_status = job["SecondaryStatus"]
-
-        # create_time: Optional[datetime] = job.get("CreationTime")
-        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        # start_time: Optional[datetime] = job.get("TrainingStartTime")
-        # end_time: Optional[datetime] = job.get("TrainingEndTime")
-
-        # hyperparameters = job.get("HyperParameters", {})
 
         input_datasets = {}
 
@@ -791,7 +784,7 @@ class JobProcessor:
         )
 
         return SageMakerJob(
-            job=job_mce,
+            job_mce=job_mce,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
         )
@@ -805,12 +798,6 @@ class JobProcessor:
         """
 
         JOB_TYPE = "transform"
-        # status: str = job["TransformJobStatus"]
-
-        # create_time: Optional[datetime] = job.get("CreationTime")
-        # last_modified_time: Optional[datetime] = job.get("LastModifiedTime")
-        # start_time: Optional[datetime] = job.get("TransformStartTime")
-        # end_time: Optional[datetime] = job.get("TransformEndTime")
 
         job_input = job.get("TransformInput", {})
         input_s3 = job_input.get("DataSource", {}).get("S3DataSource", {})
@@ -855,7 +842,7 @@ class JobProcessor:
         )
 
         return SageMakerJob(
-            job=job_mce,
+            job_mce=job_mce,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
             input_jobs=input_jobs,

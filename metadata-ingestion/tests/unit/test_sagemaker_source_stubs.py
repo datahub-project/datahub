@@ -264,7 +264,6 @@ list_compilation_jobs_response = {
             "CompilationJobStatus": "INPROGRESS",
         },
     ],
-    "NextToken": "string",
 }
 describe_compilation_job_response = {
     "CompilationJobName": compilation_job_name,
@@ -938,7 +937,6 @@ list_training_jobs_response = {
             "TrainingJobStatus": "InProgress",
         },
     ],
-    "NextToken": "string",
 }
 describe_training_job_response = {
     "TrainingJobName": training_job_name,
@@ -1172,7 +1170,7 @@ job_stubs = {
     "auto_ml": {
         "list": list_auto_ml_jobs_response,
         "describe": describe_auto_ml_job_response,
-        "describe_name": training_job_name,
+        "describe_name": auto_ml_job_name,
     },
     "compilation": {
         "list": list_compilation_jobs_response,

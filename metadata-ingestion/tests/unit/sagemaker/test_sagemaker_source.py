@@ -89,6 +89,11 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
                 job["list"],
                 {},
             )
+
+        for job_type, job in job_stubs.items():
+
+            job_info = SAGEMAKER_JOB_TYPES[job_type]
+
             sagemaker_stubber.add_response(
                 job_info.describe_command,
                 job["describe"],
