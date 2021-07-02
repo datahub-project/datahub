@@ -956,8 +956,24 @@ describe_transform_job_response = {
     },
 }
 
+list_models_response = {
+    "Models": [
+        {
+            "ModelName": "the-first-model",
+            "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
+            "CreationTime": datetime(2015, 1, 1),
+        },
+        {
+            "ModelName": "the-second-model",
+            "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
+            "CreationTime": datetime(2015, 1, 1),
+        },
+    ],
+}
+
+
 describe_model_response_1 = {
-    "ModelName": "string",
+    "ModelName": "the-first-model",
     "PrimaryContainer": {
         "ContainerHostname": "string",
         "Image": "string",
@@ -1003,12 +1019,12 @@ describe_model_response_1 = {
         ],
     },
     "CreationTime": datetime(2015, 1, 1),
-    "ModelArn": "string",
+    "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
     "EnableNetworkIsolation": True,  # True | False
 }
 
 describe_model_response_2 = {
-    "ModelName": "string",
+    "ModelName": "the-second-model",
     "PrimaryContainer": {
         "ContainerHostname": "string",
         "Image": "string",
@@ -1054,6 +1070,6 @@ describe_model_response_2 = {
         ],
     },
     "CreationTime": datetime(2015, 1, 1),
-    "ModelArn": "string",
+    "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
     "EnableNetworkIsolation": False,  # True | False
 }
