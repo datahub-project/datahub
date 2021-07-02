@@ -44,11 +44,11 @@ task lintFix(type: Exec, dependsOn: installDev) {
 task testQuick(type: Exec, dependsOn: installDev) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   commandLine 'bash', '-x', '-c',
-    'source ${venv_name}/bin/activate && pytest -m "not slow" -vv --cov-fail-under 0'
+    "source ${venv_name}/bin/activate && pytest -m 'not slow' -vv --cov-fail-under 0"
 }
 task testFull(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
-    'source ${venv_name}/bin/activate && pytest -vv'
+    "source ${venv_name}/bin/activate && pytest -vv"
 }
 
 build.dependsOn install
