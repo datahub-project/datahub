@@ -350,10 +350,10 @@ class JobProcessor:
                         name=f"{job_type}:{name}",
                         type="SAGEMAKER",
                         status=mapped_status,
-                        customProperties={
-                            **{key: str(value) for key, value in job.items()},
-                            "jobType": job_type,
-                        },
+                        # customProperties={
+                        #     **{key: str(value) for key, value in job.items()},
+                        #     "jobType": job_type,
+                        # },
                     ),
                     # TODO: generate DataJobInputOutputClass aspects afterwards
                 ],
@@ -369,18 +369,17 @@ class JobProcessor:
 
         JOB_TYPE = "auto_ml"
 
-        input_data: Optional[Dict[str, str]] = (
-            job["InputDataConfig"].get("DataSource", {}).get("S3DataSource")
-        )
-
         input_datasets = {}
 
-        if input_data is not None and "S3Uri" in input_data:
-            input_datasets[make_s3_urn(input_data["S3Uri"], self.env)] = {
-                "dataset_type": "s3",
-                "uri": input_data["S3Uri"],
-                "datatype": input_data.get("S3DataType"),
-            }
+        for input_config in job.get("InputDataConfig", []):
+            input_data = input_config.get("DataSource", {}).get("S3DataSource")
+
+            if input_data is not None and "S3Uri" in input_data:
+                input_datasets[make_s3_urn(input_data["S3Uri"], self.env)] = {
+                    "dataset_type": "s3",
+                    "uri": input_data["S3Uri"],
+                    "datatype": input_data.get("S3DataType"),
+                }
 
         output_datasets = {}
 
@@ -432,7 +431,7 @@ class JobProcessor:
         if output_data is not None and "S3OutputLocation" in output_data:
             output_datasets[make_s3_urn(output_data["S3OutputLocation"], self.env)] = {
                 "dataset_type": "s3",
-                "uri": output_data["S3Uri"],
+                "uri": output_data["S3OutputLocation"],
                 "target_device": output_data.get("TargetDevice"),
                 "target_platform": output_data.get("TargetPlatform"),
             }
@@ -533,9 +532,9 @@ class JobProcessor:
 
         training_jobs = []
 
-        for job in job.get("TrainingJobDefinitions", []):
+        for training_job in job.get("TrainingJobDefinitions", []):
 
-            job_name = ("training", job["DefinitionName"])
+            job_name = ("training", training_job["DefinitionName"])
 
             if job_name in self.name_to_arn:
 
@@ -544,7 +543,7 @@ class JobProcessor:
 
                 self.report.report_warning(
                     name,
-                    f"Unable to find ARN for training job {job['DefinitionName']} produced by hyperparameter tuning job {arn}",
+                    f"Unable to find ARN for training job {training_job['DefinitionName']} produced by hyperparameter tuning job {arn}",
                 )
 
         job_mce = self.create_common_job_mce(

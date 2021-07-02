@@ -315,8 +315,8 @@ edge_packaging_job_arn = (
 list_edge_packaging_jobs_response = {
     "EdgePackagingJobSummaries": [
         {
-            "EdgePackagingJobArn": edge_packaging_job_name,
-            "EdgePackagingJobName": edge_packaging_job_arn,
+            "EdgePackagingJobName": edge_packaging_job_name,
+            "EdgePackagingJobArn": edge_packaging_job_arn,
             "EdgePackagingJobStatus": "STARTING",
             "CompilationJobName": "string",
             "ModelName": "string",
