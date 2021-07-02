@@ -315,7 +315,7 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
 
     return (
         <>
-            {lastModified && (
+            {lastModifiedAt && (
                 <UpdatedText>
                     Last updated <b>{new Date(lastModifiedAt).toLocaleDateString('en-US')}</b>
                 </UpdatedText>

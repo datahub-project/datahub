@@ -5,7 +5,6 @@ from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
     OwnerClass,
