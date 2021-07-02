@@ -40,6 +40,9 @@ class ModelProcessor:
 
     def get_model_wu(self, model_details: Dict[str, Any]) -> MetadataWorkUnit:
 
+        # params to remove since we extract them
+        redundant_fields = {"ModelName", "CreationTime"}
+
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
                 "sagemaker",
@@ -51,6 +54,11 @@ class ModelProcessor:
                         model_details.get("CreationTime", datetime.now()).timestamp()
                         * 1000
                     ),
+                    customProperties={
+                        key: str(value)
+                        for key, value in model_details.items()
+                        if key not in redundant_fields
+                    },
                 )
             ],
         )
