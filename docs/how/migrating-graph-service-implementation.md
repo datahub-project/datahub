@@ -1,7 +1,7 @@
 # Migrate Graph Service Implementation to Elasticsearch
 
-We currently support either elasticsearch or neo4j as backend implementations for the graph service. We recommend
-elasticsearch for those looking for a lighter deployment or do not want to manage a neo4j database.
+We currently support either Elasticsearch or Neo4j as backend implementations for the graph service. We recommend
+Elasticsearch for those looking for a lighter deployment or do not want to manage a Neo4j database.
 If you started using Neo4j as your graph service backend, here is how you can migrate to Elasticsearch.
 
 ## Docker-compose
@@ -10,12 +10,12 @@ If you are running your instance through docker locally, you will want to spin u
 elasticsearch as the backend manually:
 
 ```aidl
-  docker-compose \
-    -f quickstart/docker-compose-without-neo4j.quickstart.yml \
-    pull && \
-  docker-compose -p datahub \
-    -f quickstart/docker-compose-without-neo4j.quickstart.yml \
-    up
+docker-compose \
+  -f quickstart/docker-compose-without-neo4j.quickstart.yml \
+  pull && \
+docker-compose -p datahub \
+  -f quickstart/docker-compose-without-neo4j.quickstart.yml \
+  up
 ```
 
 Next, run the following command from root to rebuild your graph index.
