@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -216,20 +216,61 @@ def make_sagemaker_job_urn(arn) -> str:
 @dataclass
 class SageMakerJob:
     job: MetadataChangeEventClass
-    input_datasets: Dict[str, Dict[str, Any]] = {}
-    output_datasets: Dict[str, Dict[str, Any]] = {}
-    input_jobs: List[str] = []
+    input_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    output_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    input_jobs: List[str] = field(default_factory=list)
     # TODO
     # we resolve output jobs to input ones after processing
-    output_jobs: List[str] = []
+    output_jobs: List[str] = field(default_factory=list)
 
 
 @dataclass
-class SageMakerJobProcessor:
+class JobProcessor:
+    sagemaker_client: Any
     arn_to_name: Dict[str, Tuple[str, str]]
     name_to_arn: Dict[Tuple[str, str], str]
     env: str
     report: SourceReport
+
+    def get_all_jobs(
+        self,
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, str], Dict[str, str]]:
+        """
+        List all jobs in SageMaker.
+        """
+
+        jobs = []
+
+        # dictionaries for translating between type-specific job names and ARNs
+        arn_to_name: Dict[str, Tuple[str, str]] = {}
+        name_to_arn: Dict[Tuple[str, str], str] = {}
+
+        for job_type, job_spec in SAGEMAKER_JOB_TYPES.items():
+
+            paginator = self.sagemaker_client.get_paginator(job_spec["list_command"])
+            for page in paginator.paginate():
+                page_jobs = page[job_spec["list_key"]]
+
+                for job in page_jobs:
+                    job_name = (job_type, job_spec)
+                    job_arn = job[job_spec["list_name_arn"]]
+
+                    arn_to_name[job_arn] = job_name
+                    name_to_arn[job_name] = job_arn
+
+                page_jobs = [{**job, "type": job_type} for job in page_jobs]
+
+                jobs += page_jobs
+
+        return jobs, arn_to_name, name_to_arn
+
+    def get_job_details(
+        self, job_name: str, describe_command: str, describe_name_key: str
+    ) -> Dict[str, Any]:
+
+        return getattr(self.sagemaker_client, describe_command)(
+            **{describe_name_key: job_name}
+        )
 
     def create_common_job_mce(
         self,

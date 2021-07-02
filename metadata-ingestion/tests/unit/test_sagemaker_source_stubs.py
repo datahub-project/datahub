@@ -131,7 +131,7 @@ describe_auto_ml_job_response = {
         "KmsKeyId": "some-key-id",
         "S3OutputPath": "s3://auto-ml-job-output-bucket/file.txt",
     },
-    "RoleArn": "string",
+    "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
     "AutoMLJobObjective": {
         "MetricName": "Accuracy",  # 'Accuracy'|'MSE'|'F1'|'F1macro'|'AUC'
     },
@@ -281,7 +281,7 @@ describe_compilation_job_response = {
         "S3ModelArtifacts": "s3://compilation-job-bucket/model-artifacts.tar.gz"
     },
     "ModelDigests": {"ArtifactDigest": "string"},
-    "RoleArn": "string",
+    "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
     "InputConfig": {
         "S3Uri": "s3://compilation-job-bucket/input-config.tar.gz",
         "DataInputConfig": "string",
@@ -333,7 +333,7 @@ describe_edge_packaging_job_response = {
     "CompilationJobName": compilation_job_name,
     "ModelName": "string",
     "ModelVersion": "string",
-    "RoleArn": "string",
+    "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
     "OutputConfig": {
         "S3OutputLocation": "s3://edge-packaging-bucket/output-config.tar.gz",
         "KmsKeyId": "string",
@@ -349,7 +349,7 @@ describe_edge_packaging_job_response = {
     "ModelSignature": "string",
     "PresetDeploymentOutput": {
         "Type": "GreengrassV2Component",
-        "Artifact": "string",
+        "Artifact": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/some-artifact",
         "Status": "COMPLETED",  # 'COMPLETED'|'FAILED'
         "StatusMessage": "string",
     },
@@ -426,7 +426,7 @@ describe_hyper_parameter_tuning_job_response = {
             ],
         },
         "TrainingJobEarlyStoppingType": "Off",  # 'Off'|'Auto'
-        "TuningJobCompletionCriteria": {"TargetObjectiveMetricValue": ...},
+        "TuningJobCompletionCriteria": {"TargetObjectiveMetricValue": 1.0},
     },
     "TrainingJobDefinition": {
         "DefinitionName": "string",
@@ -469,7 +469,7 @@ describe_hyper_parameter_tuning_job_response = {
                 {"Name": "string", "Regex": "string"},
             ],
         },
-        "RoleArn": "string",
+        "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
         "InputDataConfig": [
             {
                 "ChannelName": "string",
@@ -483,7 +483,7 @@ describe_hyper_parameter_tuning_job_response = {
                         ],
                     },
                     "FileSystemDataSource": {
-                        "FileSystemId": "string",
+                        "FileSystemId": "abcdefgihjklmnopqrstuvwxyz",
                         "FileSystemAccessMode": "rw",  # 'rw'|'ro'
                         "FileSystemType": "EFS",  # 'EFS'|'FSxLustre'
                         "DirectoryPath": "string",
@@ -566,7 +566,7 @@ describe_hyper_parameter_tuning_job_response = {
                     {"Name": "string", "Regex": "string"},
                 ],
             },
-            "RoleArn": "string",
+            "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
             "InputDataConfig": [
                 {
                     "ChannelName": "string",
@@ -580,7 +580,7 @@ describe_hyper_parameter_tuning_job_response = {
                             ],
                         },
                         "FileSystemDataSource": {
-                            "FileSystemId": "string",
+                            "FileSystemId": "abcdefgihjklmnopqrstuvwxyz",
                             "FileSystemAccessMode": "rw",  # 'rw'|'ro'
                             "FileSystemType": "EFS",  # 'EFS'|'FSxLustre'
                             "DirectoryPath": "string",
@@ -706,8 +706,8 @@ list_labeling_jobs_response = {
             "AnnotationConsolidationLambdaArn": "string",
             "FailureReason": "string",
             "LabelingJobOutput": {
-                "OutputDatasetS3Uri": "string",
-                "FinalActiveLearningModelArn": "string",
+                "OutputDatasetS3Uri": "s3://labeling-job/output-dataset.tar.gz",
+                "FinalActiveLearningModelArn": "arn:aws:sagemaker:us-west-2:123412341234:labeling-job/final-active-learning-model",
             },
             "InputConfig": {
                 "DataSource": {
@@ -757,7 +757,7 @@ describe_labeling_job_response = {
         "KmsKeyId": "string",
         "SnsTopicArn": "string",
     },
-    "RoleArn": "string",
+    "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
     "LabelCategoryConfigS3Uri": "s3://labeling-job/category-config.tar.gz",
     "StoppingConditions": {
         "MaxHumanLabeledObjectCount": 123,
@@ -765,7 +765,7 @@ describe_labeling_job_response = {
     },
     "LabelingJobAlgorithmsConfig": {
         "LabelingJobAlgorithmSpecificationArn": "string",
-        "InitialActiveLearningModelArn": "string",
+        "InitialActiveLearningModelArn": "arn:aws:sagemaker:us-west-2:123412341234:labeling-job/initial-active-learning-model",
         "LabelingJobResourceConfig": {"VolumeKmsKeyId": "string"},
     },
     "HumanTaskConfig": {
@@ -794,7 +794,7 @@ describe_labeling_job_response = {
     ],
     "LabelingJobOutput": {
         "OutputDatasetS3Uri": "s3://labeling-job/output-dataset.tar.gz",
-        "FinalActiveLearningModelArn": "string",
+        "FinalActiveLearningModelArn": "arn:aws:sagemaker:us-west-2:123412341234:labeling-job/final-active-learning-model",
     },
 }
 
@@ -847,7 +847,7 @@ describe_processing_job_response = {
                     "Database": "redshift-database",
                     "DbUser": "redshift-db-user",
                     "QueryString": "redshift-query-string",
-                    "ClusterRoleArn": "athena-work-group",
+                    "ClusterRoleArn": "arn:aws:sagemaker:us-west-2:123412341234:processing-job/redshift-cluster",
                     "OutputS3Uri": "s3://processing-job/redshift-output.tar.gz",
                     "KmsKeyId": "string",
                     "OutputFormat": "PARQUET",  # 'PARQUET'|'CSV'
@@ -905,7 +905,7 @@ describe_processing_job_response = {
             ],
         },
     },
-    "RoleArn": "string",
+    "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
     "ExperimentConfig": {
         "ExperimentName": "string",
         "TrialName": "string",
@@ -960,7 +960,7 @@ describe_training_job_response = {
         ],
         "EnableSageMakerMetricsTimeSeries": True,  # True|False
     },
-    "RoleArn": "string",
+    "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
     "InputDataConfig": [
         {
             "ChannelName": "string",
@@ -974,7 +974,7 @@ describe_training_job_response = {
                     ],
                 },
                 "FileSystemDataSource": {
-                    "FileSystemId": "string",
+                    "FileSystemId": "abcdefgihjklmnopqrstuvwxyz",
                     "FileSystemAccessMode": "rw",  # 'rw'|'ro'
                     "FileSystemType": "EFS",  # 'EFS'|'FSxLustre',
                     "DirectoryPath": "string",
@@ -1174,7 +1174,7 @@ job_stubs = {
         "describe": describe_auto_ml_job_response,
         "describe_name": training_job_name,
     },
-    "compiliation": {
+    "compilation": {
         "list": list_compilation_jobs_response,
         "describe": describe_compilation_job_response,
         "describe_name": compilation_job_name,

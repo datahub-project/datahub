@@ -60,23 +60,14 @@ class GlueSourceConfig(AwsSourceConfig):
 
 @dataclass
 class GlueSourceReport(SourceReport):
-    feature_groups_scanned = 0
-    features_scanned = 0
-    models_scanned = 0
-    jobs_scanned = 0
+    tables_scanned = 0
+    filtered: List[str] = dataclass_field(default_factory=list)
 
-    # TODO: report these
-    def report_feature_group_scanned(self) -> None:
-        self.feature_groups_scanned += 1
+    def report_table_scanned(self) -> None:
+        self.tables_scanned += 1
 
-    def report_feature_scanned(self) -> None:
-        self.features_scanned += 1
-
-    def report_model_scanned(self) -> None:
-        self.models_scanned += 1
-
-    def report_job_scanned(self) -> None:
-        self.jobs_scanned += 1
+    def report_table_dropped(self, table: str) -> None:
+        self.filtered.append(table)
 
 
 class GlueSource(Source):
