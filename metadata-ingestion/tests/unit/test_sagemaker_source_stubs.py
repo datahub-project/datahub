@@ -97,8 +97,8 @@ describe_feature_group_response_3 = {
 }
 
 describe_auto_ml_job_response = {
-    "AutoMLJobName": "string",
-    "AutoMLJobArn": "string",
+    "AutoMLJobName": "an-auto-ml-job",
+    "AutoMLJobArn": "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job",
     "InputDataConfig": [
         {
             "DataSource": {
@@ -226,8 +226,8 @@ describe_auto_ml_job_response = {
 }
 
 describe_compilation_job_response = {
-    "CompilationJobName": "string",
-    "CompilationJobArn": "string",
+    "CompilationJobName": "a-compilation-job",
+    "CompilationJobArn": "arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job",
     "CompilationJobStatus": "INPROGRESS",  # 'INPROGRESS'|'COMPLETED'|'FAILED'|'STARTING'|'STOPPING'|'STOPPED'
     "CompilationStartTime": datetime(2015, 1, 1),
     "CompilationEndTime": datetime(2015, 1, 1),
@@ -267,8 +267,8 @@ describe_compilation_job_response = {
 }
 
 describe_edge_packaging_job_response = {
-    "EdgePackagingJobArn": "string",
-    "EdgePackagingJobName": "string",
+    "EdgePackagingJobArn": "an-edge-packaging-job",
+    "EdgePackagingJobName": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
     "CompilationJobName": "string",
     "ModelName": "string",
     "ModelVersion": "string",
@@ -294,10 +294,9 @@ describe_edge_packaging_job_response = {
     },
 }
 
-
 describe_hyper_parameter_tuning_job_response = {
-    "HyperParameterTuningJobName": "string",
-    "HyperParameterTuningJobArn": "string",
+    "HyperParameterTuningJobName": "a-hyper-parameter-tuning-job",
+    "HyperParameterTuningJobArn": "arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job",
     "HyperParameterTuningJobConfig": {
         "Strategy": "Bayesian",  # 'Bayesian'|'Random'
         "HyperParameterTuningJobObjective": {
@@ -589,8 +588,8 @@ describe_labeling_job_response = {
     "CreationTime": datetime(2015, 1, 1),
     "LastModifiedTime": datetime(2015, 1, 1),
     "JobReferenceCode": "string",
-    "LabelingJobName": "string",
-    "LabelingJobArn": "string",
+    "LabelingJobName": "a-labeling-job",
+    "LabelingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job",
     "LabelAttributeName": "string",
     "InputConfig": {
         "DataSource": {
@@ -703,7 +702,7 @@ describe_processing_job_response = {
         ],
         "KmsKeyId": "string",
     },
-    "ProcessingJobName": "string",
+    "ProcessingJobName": "a-processing-job",
     "ProcessingResources": {
         "ClusterConfig": {
             "InstanceCount": 123,
@@ -741,7 +740,7 @@ describe_processing_job_response = {
         "TrialName": "string",
         "TrialComponentDisplayName": "string",
     },
-    "ProcessingJobArn": "string",
+    "ProcessingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job",
     "ProcessingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
     "ExitMessage": "string",
     "FailureReason": "string",
@@ -755,8 +754,8 @@ describe_processing_job_response = {
 }
 
 describe_training_job_response = {
-    "TrainingJobName": "string",
-    "TrainingJobArn": "string",
+    "TrainingJobName": "a-training-job",
+    "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job",
     "TuningJobArn": "string",
     "LabelingJobArn": "string",
     "AutoMLJobArn": "string",
@@ -903,8 +902,8 @@ describe_training_job_response = {
 }
 
 describe_transform_job_response = {
-    "TransformJobName": "string",
-    "TransformJobArn": "string",
+    "TransformJobName": "a-transform-job",
+    "TransformJobArn": "arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job",
     "TransformJobStatus": "InProgress",
     # 'InProgress' |'Completed'|'Failed'|'Stopping'|'Stopped'
     "FailureReason": "string",
