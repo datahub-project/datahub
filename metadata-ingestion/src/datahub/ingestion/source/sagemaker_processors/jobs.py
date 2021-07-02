@@ -4,8 +4,10 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
+    DataJobInputOutputClass,
     DataJobSnapshotClass,
     JobStatusClass,
     MetadataChangeEventClass,
@@ -223,7 +225,7 @@ def make_sagemaker_job_urn(arn) -> str:
 
 @dataclass
 class SageMakerJob:
-    job_mce: MetadataChangeEventClass
+    job_snapshot: DataJobSnapshotClass
     input_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     output_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     input_jobs: Set[str] = field(default_factory=set)
@@ -287,6 +289,9 @@ class JobProcessor:
 
         jobs = self.get_all_jobs()
 
+        processed_jobs = {}
+
+        # first pass: process jobs and collect datasets used
         for job in jobs:
 
             job_type = SAGEMAKER_JOB_TYPES[job["type"]]
@@ -299,10 +304,32 @@ class JobProcessor:
             )
 
             processed_job = getattr(self, job_type.processor)(job_details)
+            processed_jobs[processed_job.job_snapshot.urn] = processed_job
 
-            job_mce = processed_job.job_mce
+        # second pass: move output jobs to inputs
+        for job_urn in sorted(processed_jobs):
+            processed_job = processed_jobs[job_urn]
+
+            for output_job_urn in processed_job.output_jobs:
+                processed_jobs[output_job_urn].input_jobs.add(output_job_urn)
+
+        # third pass: construct and yield MCEs
+        for job_urn in sorted(processed_jobs):
+
+            processed_job = processed_jobs[job_urn]
+            job_snapshot = processed_job.job_snapshot
+
+            job_snapshot.aspects.append(
+                DataJobInputOutputClass(
+                    inputDatasets=list(processed_job.input_datasets),
+                    outputDatasets=list(processed_job.output_datasets),
+                    inputDatajobs=list(processed_job.input_jobs),
+                )
+            )
+
+            job_mce = MetadataChangeEvent(proposedSnapshot=job_snapshot)
             job_wu = MetadataWorkUnit(
-                id=f'{job["type"]}-{job_name}',
+                id=job_urn,
                 mce=job_mce,
             )
             self.report.report_workunit(job_wu)
@@ -317,11 +344,11 @@ class JobProcessor:
             # self.report.report_workunit(wu)
             # yield wu
 
-    def create_common_job_mce(
+    def create_common_job_snapshot(
         self,
         job: Dict[str, Any],
         job_type: str,
-    ) -> MetadataChangeEventClass:
+    ) -> DataJobSnapshotClass:
 
         job_type_info = SAGEMAKER_JOB_TYPES[job_type]
 
@@ -342,22 +369,20 @@ class JobProcessor:
 
         job_urn = make_sagemaker_job_urn(arn)
 
-        return MetadataChangeEventClass(
-            proposedSnapshot=DataJobSnapshotClass(
-                urn=job_urn,
-                aspects=[
-                    DataJobInfoClass(
-                        name=f"{job_type}:{name}",
-                        type="SAGEMAKER",
-                        status=mapped_status,
-                        customProperties={
-                            **{key: str(value) for key, value in job.items()},
-                            "jobType": job_type,
-                        },
-                    ),
-                    # TODO: generate DataJobInputOutputClass aspects afterwards
-                ],
-            )
+        return DataJobSnapshotClass(
+            urn=job_urn,
+            aspects=[
+                DataJobInfoClass(
+                    name=f"{job_type}:{name}",
+                    type="SAGEMAKER",
+                    status=mapped_status,
+                    customProperties={
+                        **{key: str(value) for key, value in job.items()},
+                        "jobType": job_type,
+                    },
+                ),
+                # TODO: generate DataJobInputOutputClass aspects afterwards
+            ],
         )
 
     def process_auto_ml_job(self, job) -> SageMakerJob:
@@ -391,13 +416,13 @@ class JobProcessor:
                 "uri": output_s3_path,
             }
 
-        job_mce = self.create_common_job_mce(
+        job_snapshot = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
-            job_mce=job_mce,
+            job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
         )
@@ -436,13 +461,13 @@ class JobProcessor:
                 "target_platform": output_data.get("TargetPlatform"),
             }
 
-        job_mce = self.create_common_job_mce(
+        job_snapshot = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
-            job_mce=job_mce,
+            job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
         )
@@ -505,13 +530,15 @@ class JobProcessor:
         # model: Optional[str] = job.get("ModelName")
         # model_version: Optional[str] = job.get("ModelVersion")
 
-        job_mce = self.create_common_job_mce(
+        job_snapshot = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
-            job_mce=job_mce, output_datasets=output_datasets, output_jobs=output_jobs
+            job_snapshot=job_snapshot,
+            output_datasets=output_datasets,
+            output_jobs=output_jobs,
         )
 
     def process_hyper_parameter_tuning_job(
@@ -546,13 +573,13 @@ class JobProcessor:
                     f"Unable to find ARN for training job {training_job['DefinitionName']} produced by hyperparameter tuning job {arn}",
                 )
 
-        job_mce = self.create_common_job_mce(
+        job_snapshot = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
-            job_mce=job_mce,
+            job_snapshot=job_snapshot,
             output_jobs=training_jobs,
         )
 
@@ -605,13 +632,13 @@ class JobProcessor:
                 "uri": output_config_s3_uri,
             }
 
-        job_mce = self.create_common_job_mce(
+        job_snapshot = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
-            job_mce=job_mce,
+            job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
         )
@@ -700,13 +727,13 @@ class JobProcessor:
                     "dataset_type": "sagemaker_feature_group",
                 }
 
-        job_mce = self.create_common_job_mce(
+        job_snapshot = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
-            job_mce=job_mce,
+            job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             input_jobs=input_jobs,
         )
@@ -777,13 +804,13 @@ class JobProcessor:
                     "uri": output_s3_uri,
                 }
 
-        job_mce = self.create_common_job_mce(
+        job_snapshot = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
-            job_mce=job_mce,
+            job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
         )
@@ -835,13 +862,13 @@ class JobProcessor:
         if auto_ml_arn is not None:
             input_jobs.add(make_sagemaker_job_urn(auto_ml_arn))
 
-        job_mce = self.create_common_job_mce(
+        job_snapshot = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
-            job_mce=job_mce,
+            job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
             input_jobs=input_jobs,

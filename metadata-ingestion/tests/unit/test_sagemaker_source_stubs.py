@@ -797,131 +797,6 @@ describe_labeling_job_response = {
     },
 }
 
-processing_job_name = "a-processing-job"
-processing_job_arn = (
-    "arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job"
-)
-list_processing_jobs_response = {
-    "ProcessingJobSummaries": [
-        {
-            "ProcessingJobName": processing_job_name,
-            "ProcessingJobArn": processing_job_arn,
-            "CreationTime": datetime(2015, 1, 1),
-            "ProcessingEndTime": datetime(2015, 1, 1),
-            "LastModifiedTime": datetime(2015, 1, 1),
-            "ProcessingJobStatus": "InProgress",
-            "FailureReason": "string",
-            "ExitMessage": "string",
-        },
-    ],
-}
-describe_processing_job_response = {
-    "ProcessingJobName": processing_job_name,
-    "ProcessingJobArn": processing_job_arn,
-    "ProcessingInputs": [
-        {
-            "InputName": "string",
-            "AppManaged": True,  # True|False
-            "S3Input": {
-                "S3Uri": "s3://processing-job/input-data.tar.gz",
-                "LocalPath": "string",
-                "S3DataType": "ManifestFile",  # 'ManifestFile'|'S3Prefix'
-                "S3InputMode": "Pipe",  # 'Pipe'|'File'
-                "S3DataDistributionType": "FullyReplicated",  # 'FullyReplicated'|'ShardedByS3Key'
-                "S3CompressionType": "None",  # 'None'|'Gzip'
-            },
-            "DatasetDefinition": {
-                "AthenaDatasetDefinition": {
-                    "Catalog": "athena-catalog",
-                    "Database": "athena-database",
-                    "QueryString": "athena-query-string",
-                    "WorkGroup": "athena-work-group",
-                    "OutputS3Uri": "s3://processing-job/athena-output.tar.gz",
-                    "KmsKeyId": "string",
-                    "OutputFormat": "PARQUET",  # 'PARQUET'|'ORC'|'AVRO'|'JSON'|'TEXTFILE'
-                    "OutputCompression": "GZIP",  # 'GZIP'|'SNAPPY'|'ZLIB'
-                },
-                "RedshiftDatasetDefinition": {
-                    "ClusterId": "redshift-cluster",
-                    "Database": "redshift-database",
-                    "DbUser": "redshift-db-user",
-                    "QueryString": "redshift-query-string",
-                    "ClusterRoleArn": "arn:aws:sagemaker:us-west-2:123412341234:processing-job/redshift-cluster",
-                    "OutputS3Uri": "s3://processing-job/redshift-output.tar.gz",
-                    "KmsKeyId": "string",
-                    "OutputFormat": "PARQUET",  # 'PARQUET'|'CSV'
-                    "OutputCompression": "None",  # 'None'|'GZIP'|'BZIP2'|'ZSTD'|'SNAPPY'
-                },
-                "LocalPath": "string",
-                "DataDistributionType": "FullyReplicated",  # 'FullyReplicated'|'ShardedByS3Key'
-                "InputMode": "Pipe",  # 'Pipe'|'File'
-            },
-        },
-    ],
-    "ProcessingOutputConfig": {
-        "Outputs": [
-            {
-                "OutputName": "string",
-                "S3Output": {
-                    "S3Uri": "s3://processing-job/processing-output.tar.gz",
-                    "LocalPath": "string",
-                    "S3UploadMode": "Continuous",  # 'Continuous'|'EndOfJob'
-                },
-                "FeatureStoreOutput": {"FeatureGroupName": "string"},
-                "AppManaged": True,  # True|False
-            },
-        ],
-        "KmsKeyId": "string",
-    },
-    "ProcessingResources": {
-        "ClusterConfig": {
-            "InstanceCount": 123,
-            "InstanceType": "ml.t3.medium",
-            "VolumeSizeInGB": 123,
-            "VolumeKmsKeyId": "string",
-        }
-    },
-    "StoppingCondition": {"MaxRuntimeInSeconds": 123},
-    "AppSpecification": {
-        "ImageUri": "string",
-        "ContainerEntrypoint": [
-            "string",
-        ],
-        "ContainerArguments": [
-            "string",
-        ],
-    },
-    "Environment": {"string": "string"},
-    "NetworkConfig": {
-        "EnableInterContainerTrafficEncryption": True,  # True|False
-        "EnableNetworkIsolation": True,  # True|False
-        "VpcConfig": {
-            "SecurityGroupIds": [
-                "string",
-            ],
-            "Subnets": [
-                "string",
-            ],
-        },
-    },
-    "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-    "ExperimentConfig": {
-        "ExperimentName": "string",
-        "TrialName": "string",
-        "TrialComponentDisplayName": "string",
-    },
-    "ProcessingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
-    "ExitMessage": "string",
-    "FailureReason": "string",
-    "ProcessingEndTime": datetime(2015, 1, 1),
-    "ProcessingStartTime": datetime(2015, 1, 1),
-    "LastModifiedTime": datetime(2015, 1, 1),
-    "CreationTime": datetime(2015, 1, 1),
-    "MonitoringScheduleArn": "string",
-    "AutoMLJobArn": "string",
-    "TrainingJobArn": "string",
-}
-
 training_job_name = "a-training-job"
 training_job_arn = (
     "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job"
@@ -1093,6 +968,131 @@ describe_training_job_response = {
     "ProfilingStatus": "Enabled",  # 'Enabled'|'Disabled'
     "RetryStrategy": {"MaximumRetryAttempts": 123},
     "Environment": {"string": "string"},
+}
+
+processing_job_name = "a-processing-job"
+processing_job_arn = (
+    "arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job"
+)
+list_processing_jobs_response = {
+    "ProcessingJobSummaries": [
+        {
+            "ProcessingJobName": processing_job_name,
+            "ProcessingJobArn": processing_job_arn,
+            "CreationTime": datetime(2015, 1, 1),
+            "ProcessingEndTime": datetime(2015, 1, 1),
+            "LastModifiedTime": datetime(2015, 1, 1),
+            "ProcessingJobStatus": "InProgress",
+            "FailureReason": "string",
+            "ExitMessage": "string",
+        },
+    ],
+}
+describe_processing_job_response = {
+    "ProcessingJobName": processing_job_name,
+    "ProcessingJobArn": processing_job_arn,
+    "ProcessingInputs": [
+        {
+            "InputName": "string",
+            "AppManaged": True,  # True|False
+            "S3Input": {
+                "S3Uri": "s3://processing-job/input-data.tar.gz",
+                "LocalPath": "string",
+                "S3DataType": "ManifestFile",  # 'ManifestFile'|'S3Prefix'
+                "S3InputMode": "Pipe",  # 'Pipe'|'File'
+                "S3DataDistributionType": "FullyReplicated",  # 'FullyReplicated'|'ShardedByS3Key'
+                "S3CompressionType": "None",  # 'None'|'Gzip'
+            },
+            "DatasetDefinition": {
+                "AthenaDatasetDefinition": {
+                    "Catalog": "athena-catalog",
+                    "Database": "athena-database",
+                    "QueryString": "athena-query-string",
+                    "WorkGroup": "athena-work-group",
+                    "OutputS3Uri": "s3://processing-job/athena-output.tar.gz",
+                    "KmsKeyId": "string",
+                    "OutputFormat": "PARQUET",  # 'PARQUET'|'ORC'|'AVRO'|'JSON'|'TEXTFILE'
+                    "OutputCompression": "GZIP",  # 'GZIP'|'SNAPPY'|'ZLIB'
+                },
+                "RedshiftDatasetDefinition": {
+                    "ClusterId": "redshift-cluster",
+                    "Database": "redshift-database",
+                    "DbUser": "redshift-db-user",
+                    "QueryString": "redshift-query-string",
+                    "ClusterRoleArn": "arn:aws:sagemaker:us-west-2:123412341234:processing-job/redshift-cluster",
+                    "OutputS3Uri": "s3://processing-job/redshift-output.tar.gz",
+                    "KmsKeyId": "string",
+                    "OutputFormat": "PARQUET",  # 'PARQUET'|'CSV'
+                    "OutputCompression": "None",  # 'None'|'GZIP'|'BZIP2'|'ZSTD'|'SNAPPY'
+                },
+                "LocalPath": "string",
+                "DataDistributionType": "FullyReplicated",  # 'FullyReplicated'|'ShardedByS3Key'
+                "InputMode": "Pipe",  # 'Pipe'|'File'
+            },
+        },
+    ],
+    "ProcessingOutputConfig": {
+        "Outputs": [
+            {
+                "OutputName": "string",
+                "S3Output": {
+                    "S3Uri": "s3://processing-job/processing-output.tar.gz",
+                    "LocalPath": "string",
+                    "S3UploadMode": "Continuous",  # 'Continuous'|'EndOfJob'
+                },
+                "FeatureStoreOutput": {"FeatureGroupName": "string"},
+                "AppManaged": True,  # True|False
+            },
+        ],
+        "KmsKeyId": "string",
+    },
+    "ProcessingResources": {
+        "ClusterConfig": {
+            "InstanceCount": 123,
+            "InstanceType": "ml.t3.medium",
+            "VolumeSizeInGB": 123,
+            "VolumeKmsKeyId": "string",
+        }
+    },
+    "StoppingCondition": {"MaxRuntimeInSeconds": 123},
+    "AppSpecification": {
+        "ImageUri": "string",
+        "ContainerEntrypoint": [
+            "string",
+        ],
+        "ContainerArguments": [
+            "string",
+        ],
+    },
+    "Environment": {"string": "string"},
+    "NetworkConfig": {
+        "EnableInterContainerTrafficEncryption": True,  # True|False
+        "EnableNetworkIsolation": True,  # True|False
+        "VpcConfig": {
+            "SecurityGroupIds": [
+                "string",
+            ],
+            "Subnets": [
+                "string",
+            ],
+        },
+    },
+    "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
+    "ExperimentConfig": {
+        "ExperimentName": "string",
+        "TrialName": "string",
+        "TrialComponentDisplayName": "string",
+    },
+    "ProcessingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
+    "ExitMessage": "string",
+    "FailureReason": "string",
+    "ProcessingEndTime": datetime(2015, 1, 1),
+    "ProcessingStartTime": datetime(2015, 1, 1),
+    "LastModifiedTime": datetime(2015, 1, 1),
+    "CreationTime": datetime(2015, 1, 1),
+    "MonitoringScheduleArn": "string",
+    "AutoMLJobArn": auto_ml_job_arn,
+    "TrainingJobArn": training_job_arn,
 }
 
 transform_job_name = "a-transform-job"

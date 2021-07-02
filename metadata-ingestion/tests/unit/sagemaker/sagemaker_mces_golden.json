@@ -349,6 +349,57 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),an-edge-packaging-job)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+              "customProperties": {
+                "EdgePackagingJobArn": "an-edge-packaging-job",
+                "EdgePackagingJobName": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
+                "CompilationJobName": "a-compilation-job",
+                "ModelName": "string",
+                "ModelVersion": "string",
+                "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
+                "OutputConfig": "{'S3OutputLocation': 's3://edge-packaging-bucket/output-config.tar.gz', 'KmsKeyId': 'string', 'PresetDeploymentType': 'GreengrassV2Component', 'PresetDeploymentConfig': 'string'}",
+                "ResourceKey": "string",
+                "EdgePackagingJobStatus": "STARTING",
+                "EdgePackagingJobStatusMessage": "string",
+                "CreationTime": "2015-01-01 00:00:00",
+                "LastModifiedTime": "2015-01-01 00:00:00",
+                "ModelArtifact": "s3://edge-packaging-bucket/model-artifact.tar.gz",
+                "ModelSignature": "string",
+                "PresetDeploymentOutput": "{'Type': 'GreengrassV2Component', 'Artifact': 'arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/some-artifact', 'Status': 'COMPLETED', 'StatusMessage': 'string'}",
+                "jobType": "edge_packaging"
+              },
+              "externalUrl": null,
+              "name": "edge_packaging:arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
+              "description": null,
+              "type": {
+                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
+              },
+              "flowUrn": null,
+              "status": "STARTING"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar.gz,PROD)"
+              ],
+              "inputDatajobs": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
         "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
         "aspects": [
           {
@@ -385,6 +436,17 @@
               },
               "flowUrn": null,
               "status": "COMPLETED"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file.txt,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket/file.txt,PROD)"
+              ],
+              "inputDatajobs": []
             }
           }
         ]
@@ -428,46 +490,18 @@
               "flowUrn": null,
               "status": "IN_PROGRESS"
             }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),an-edge-packaging-job)",
-        "aspects": [
+          },
           {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "customProperties": {
-                "EdgePackagingJobArn": "an-edge-packaging-job",
-                "EdgePackagingJobName": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
-                "CompilationJobName": "a-compilation-job",
-                "ModelName": "string",
-                "ModelVersion": "string",
-                "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-                "OutputConfig": "{'S3OutputLocation': 's3://edge-packaging-bucket/output-config.tar.gz', 'KmsKeyId': 'string', 'PresetDeploymentType': 'GreengrassV2Component', 'PresetDeploymentConfig': 'string'}",
-                "ResourceKey": "string",
-                "EdgePackagingJobStatus": "STARTING",
-                "EdgePackagingJobStatusMessage": "string",
-                "CreationTime": "2015-01-01 00:00:00",
-                "LastModifiedTime": "2015-01-01 00:00:00",
-                "ModelArtifact": "s3://edge-packaging-bucket/model-artifact.tar.gz",
-                "ModelSignature": "string",
-                "PresetDeploymentOutput": "{'Type': 'GreengrassV2Component', 'Artifact': 'arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/some-artifact', 'Status': 'COMPLETED', 'StatusMessage': 'string'}",
-                "jobType": "edge_packaging"
-              },
-              "externalUrl": null,
-              "name": "edge_packaging:arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
-              "description": null,
-              "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
-              },
-              "flowUrn": null,
-              "status": "STARTING"
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/input-config.tar.gz,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar.gz,PROD)"
+              ],
+              "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)"
+              ]
             }
           }
         ]
@@ -509,6 +543,13 @@
               },
               "flowUrn": null,
               "status": "COMPLETED"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [],
+              "outputDatasets": [],
+              "inputDatajobs": []
             }
           }
         ]
@@ -554,6 +595,19 @@
               "flowUrn": null,
               "status": "STARTING"
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar.gz,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar.gz,PROD)"
+              ],
+              "inputDatajobs": []
+            }
           }
         ]
       }
@@ -588,8 +642,8 @@
                 "LastModifiedTime": "2015-01-01 00:00:00",
                 "CreationTime": "2015-01-01 00:00:00",
                 "MonitoringScheduleArn": "string",
-                "AutoMLJobArn": "string",
-                "TrainingJobArn": "string",
+                "AutoMLJobArn": "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job",
+                "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job",
                 "jobType": "processing"
               },
               "externalUrl": null,
@@ -600,6 +654,18 @@
               },
               "flowUrn": null,
               "status": "IN_PROGRESS"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job/input-data.tar.gz,PROD)"
+              ],
+              "outputDatasets": [],
+              "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+              ]
             }
           }
         ]
@@ -667,6 +733,23 @@
               "flowUrn": null,
               "status": "IN_PROGRESS"
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar.gz,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/checkpoint-config.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-hook-config.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-rule-config.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar.gz,PROD)"
+              ],
+              "inputDatajobs": []
+            }
           }
         ]
       }
@@ -712,6 +795,20 @@
               },
               "flowUrn": null,
               "status": "IN_PROGRESS"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/input-data-source.tar.gz,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/output.tar.gz,PROD)"
+              ],
+              "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)"
+              ]
             }
           }
         ]
