@@ -3199,6 +3199,15 @@
                       "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                       "fields": [
                         {
+                          "type": {
+                            "type": "map",
+                            "values": "string"
+                          },
+                          "name": "customProperties",
+                          "default": {},
+                          "doc": "Custom property bag."
+                        },
+                        {
                           "Searchable": {
                             "fieldType": "TEXT",
                             "hasValuesFieldName": "hasDescription"

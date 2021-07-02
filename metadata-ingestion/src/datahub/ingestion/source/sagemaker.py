@@ -71,10 +71,10 @@ class SagemakerSource(Source):
         )
         yield from model_processor.get_workunits()
 
-        job_processor = JobProcessor(
-            sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
-        )
-        yield from job_processor.get_workunits()
+        # job_processor = JobProcessor(
+        #     sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
+        # )
+        # yield from job_processor.get_workunits()
 
     def get_report(self):
         return self.reporte

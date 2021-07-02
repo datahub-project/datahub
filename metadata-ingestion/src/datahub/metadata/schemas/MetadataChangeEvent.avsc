@@ -3150,6 +3150,15 @@
                     "doc": "Properties associated with a ML Model",
                     "fields": [
                       {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "Custom property bag.",
+                        "default": {}
+                      },
+                      {
                         "name": "description",
                         "type": [
                           "null",

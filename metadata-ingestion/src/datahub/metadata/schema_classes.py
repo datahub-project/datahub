@@ -5710,6 +5710,7 @@ class MLModelPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLModelProperties")
     def __init__(self,
+        customProperties: Optional[Dict[str, str]]=None,
         description: Union[None, str]=None,
         date: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
@@ -5720,6 +5721,10 @@ class MLModelPropertiesClass(DictWrapper):
     ):
         super().__init__()
         
+        if customProperties is None:
+            self.customProperties = {}
+        else:
+            self.customProperties = customProperties
         self.description = description
         self.date = date
         self.version = version
@@ -5739,6 +5744,7 @@ class MLModelPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
+        self.customProperties = dict()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.date = self.RECORD_SCHEMA.field_map["date"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
@@ -5746,6 +5752,18 @@ class MLModelPropertiesClass(DictWrapper):
         self.hyperParameters = self.RECORD_SCHEMA.field_map["hyperParameters"].default
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
         self.tags = list()
+    
+    
+    @property
+    def customProperties(self) -> Dict[str, str]:
+        """Getter: Custom property bag."""
+        return self._inner_dict.get('customProperties')  # type: ignore
+    
+    
+    @customProperties.setter
+    def customProperties(self, value: Dict[str, str]) -> None:
+        """Setter: Custom property bag."""
+        self._inner_dict['customProperties'] = value
     
     
     @property

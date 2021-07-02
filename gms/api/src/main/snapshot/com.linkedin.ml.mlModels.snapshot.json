@@ -524,6 +524,7 @@
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
       "doc" : "Properties associated with a ML Model",
+      "include" : [ "com.linkedin.common.CustomProperties" ],
       "fields" : [ {
         "name" : "description",
         "type" : "string",
@@ -1147,7 +1148,7 @@
         "type" : "com.linkedin.common.FabricType",
         "doc" : "Fabric type where ML Model belongs to or where it was generated."
       } ]
-    }, "com.linkedin.common.ChangeAuditStamps", "com.linkedin.common.CustomProperties" ],
+    }, "com.linkedin.common.ChangeAuditStamps" ],
     "fields" : [ {
       "name" : "id",
       "type" : "long",

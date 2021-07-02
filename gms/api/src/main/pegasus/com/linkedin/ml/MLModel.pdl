@@ -8,7 +8,6 @@ import com.linkedin.common.InstitutionalMemory
 import com.linkedin.common.Status
 import com.linkedin.common.Cost
 import com.linkedin.common.Deprecation
-import com.linkedin.common.CustomProperties
 import com.linkedin.ml.metadata.MLModelProperties
 import com.linkedin.ml.metadata.IntendedUse
 import com.linkedin.ml.metadata.MLModelFactors
@@ -25,7 +24,7 @@ import com.linkedin.ml.metadata.SourceCode
 /**
  * MlModel spec. for a model store. A collection of MlModel metadata schema that can evolve over time.
  */
-record MLModel includes MLModelKey, ChangeAuditStamps, CustomProperties {
+record MLModel includes MLModelKey, ChangeAuditStamps {
 
   /**
    * Model unique identifier. System assigned value when a new model is created.
