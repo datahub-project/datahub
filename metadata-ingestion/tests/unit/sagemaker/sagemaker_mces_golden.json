@@ -599,12 +599,12 @@
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar.gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar.gz,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar.gz,PROD)"
               ],
               "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar.gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar.gz,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar.gz,PROD)"
               ],
               "inputDatajobs": []
             }
@@ -663,8 +663,8 @@
               ],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)",
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)"
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
               ]
             }
           }
@@ -740,13 +740,13 @@
                 "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar.gz,PROD)"
               ],
               "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar.gz,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/checkpoint-config.tar.gz,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-hook-config.tar.gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar.gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar.gz,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-rule-config.tar.gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar.gz,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar.gz,PROD)"
               ],
               "inputDatajobs": []
             }

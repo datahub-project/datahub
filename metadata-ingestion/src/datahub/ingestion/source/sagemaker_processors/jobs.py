@@ -262,8 +262,8 @@ class JobProcessor:
             allowed_jobs = sorted(
                 [
                     job_type
-                    for job_type, allowed in self.job_type_filter.items()
-                    if allowed and job_type in SAGEMAKER_JOB_TYPES
+                    for job_type in SAGEMAKER_JOB_TYPES.keys()
+                    if self.job_type_filter.get(job_type, True) == True
                 ]
             )
 
@@ -348,15 +348,6 @@ class JobProcessor:
             )
             self.report.report_workunit(job_wu)
             yield job_wu
-
-            # for feature in feature_group_details["FeatureDefinitions"]:
-            #     wu = self.get_feature_wu(feature_group_details, feature)
-            #     self.report.report_workunit(wu)
-            #     yield wu
-
-            # wu = self.get_feature_group_wu(feature_group_details)
-            # self.report.report_workunit(wu)
-            # yield wu
 
     def create_common_job_snapshot(
         self,
