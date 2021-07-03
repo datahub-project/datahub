@@ -213,7 +213,7 @@ def make_s3_urn(s3_uri: str, env: str, suffix: Optional[str] = None) -> str:
     return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{env})"
 
 
-def make_sagemaker_job_urn(arn) -> str:
+def make_sagemaker_job_urn(arn: str) -> str:
 
     # SageMaker has no global grouping property for jobs,
     # so we just file all of them under an umbrella DataFlow
@@ -257,14 +257,14 @@ class JobProcessor:
         self.arn_to_name: Dict[str, Tuple[str, str]] = {}
         self.name_to_arn: Dict[Tuple[str, str], str] = {}
 
-        if self.job_type_filter == True:
+        if self.job_type_filter is True:
             allowed_jobs = sorted(SAGEMAKER_JOB_TYPES.keys())
         elif isinstance(self.job_type_filter, dict):
             allowed_jobs = sorted(
                 [
                     job_type
                     for job_type in SAGEMAKER_JOB_TYPES.keys()
-                    if self.job_type_filter.get(job_type, True) == True
+                    if self.job_type_filter.get(job_type, True) is True
                 ]
             )
 
@@ -417,7 +417,7 @@ class JobProcessor:
             ],
         )
 
-    def process_auto_ml_job(self, job) -> SageMakerJob:
+    def process_auto_ml_job(self, job: Dict[str, Any]) -> SageMakerJob:
         """
         Process outputs from Boto3 describe_auto_ml_job()
 
@@ -459,7 +459,7 @@ class JobProcessor:
             output_datasets=output_datasets,
         )
 
-    def process_compilation_job(self, job) -> SageMakerJob:
+    def process_compilation_job(self, job: Dict[str, Any]) -> SageMakerJob:
 
         """
         Process outputs from Boto3 describe_compilation_job()
@@ -506,7 +506,7 @@ class JobProcessor:
 
     def process_edge_packaging_job(
         self,
-        job,
+        job: Dict[str, Any],
     ) -> SageMakerJob:
 
         """
@@ -575,7 +575,7 @@ class JobProcessor:
 
     def process_hyper_parameter_tuning_job(
         self,
-        job,
+        job: Dict[str, Any],
     ) -> SageMakerJob:
 
         """
@@ -615,7 +615,7 @@ class JobProcessor:
             output_jobs=training_jobs,
         )
 
-    def process_labeling_job(self, job) -> SageMakerJob:
+    def process_labeling_job(self, job: Dict[str, Any]) -> SageMakerJob:
 
         """
         Process outputs from Boto3 describe_labeling_job()
@@ -675,7 +675,7 @@ class JobProcessor:
             output_datasets=output_datasets,
         )
 
-    def process_processing_job(self, job) -> SageMakerJob:
+    def process_processing_job(self, job: Dict[str, Any]) -> SageMakerJob:
 
         """
         Process outputs from Boto3 describe_processing_job()
@@ -770,7 +770,7 @@ class JobProcessor:
             input_jobs=input_jobs,
         )
 
-    def process_training_job(self, job) -> SageMakerJob:
+    def process_training_job(self, job: Dict[str, Any]) -> SageMakerJob:
 
         """
         Process outputs from Boto3 describe_training_job()
@@ -847,7 +847,7 @@ class JobProcessor:
             output_datasets=output_datasets,
         )
 
-    def process_transform_job(self, job) -> SageMakerJob:
+    def process_transform_job(self, job: Dict[str, Any]) -> SageMakerJob:
 
         """
         Process outputs from Boto3 describe_transform_job()

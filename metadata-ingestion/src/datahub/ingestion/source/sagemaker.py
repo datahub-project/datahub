@@ -80,7 +80,7 @@ class SagemakerSource(Source):
             )
             yield from model_processor.get_workunits()
 
-        if self.source_config.extract_jobs != False:
+        if self.source_config.extract_jobs is not False:
 
             job_processor = JobProcessor(
                 sagemaker_client=self.sagemaker_client,
@@ -91,7 +91,7 @@ class SagemakerSource(Source):
             yield from job_processor.get_workunits()
 
     def get_report(self):
-        return self.reporte
+        return self.report
 
     def close(self):
         pass
