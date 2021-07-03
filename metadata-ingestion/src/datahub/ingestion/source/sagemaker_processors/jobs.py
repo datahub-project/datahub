@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
@@ -318,6 +319,8 @@ class JobProcessor:
             processed_job = getattr(self, job_type.processor)(job_details)
             processed_jobs[processed_job.job_snapshot.urn] = processed_job
 
+        all_datasets = {}
+
         # second pass:
         #   - move output jobs to inputs
         #   - aggregate i/o datasets
@@ -327,6 +330,24 @@ class JobProcessor:
             for output_job_urn in processed_job.output_jobs:
                 processed_jobs[output_job_urn].input_jobs.add(output_job_urn)
 
+            all_datasets.update(processed_job.input_datasets)
+            all_datasets.update(processed_job.output_datasets)
+
+        # yield datasets
+        for dataset_urn, dataset in all_datasets.items():
+
+            dataset_snapshot = DatasetSnapshot(
+                urn=dataset_urn,
+                aspects=[],
+            )
+            dataset_mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+            dataset_wu = MetadataWorkUnit(
+                id=dataset_urn,
+                mce=dataset_mce,
+            )
+            self.report.report_workunit(dataset_wu)
+            yield dataset_wu
+
         # third pass: construct and yield MCEs
         for job_urn in sorted(processed_jobs):
 
@@ -335,8 +356,8 @@ class JobProcessor:
 
             job_snapshot.aspects.append(
                 DataJobInputOutputClass(
-                    inputDatasets=sorted(list(processed_job.input_datasets)),
-                    outputDatasets=sorted(list(processed_job.output_datasets)),
+                    inputDatasets=sorted(list(processed_job.input_datasets.keys())),
+                    outputDatasets=sorted(list(processed_job.output_datasets.keys())),
                     inputDatajobs=sorted(list(processed_job.input_jobs)),
                 )
             )
