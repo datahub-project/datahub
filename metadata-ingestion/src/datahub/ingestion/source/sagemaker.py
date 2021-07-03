@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Dict, Iterable, Optional, Union
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -13,6 +13,11 @@ from datahub.ingestion.source.sagemaker_processors.models import ModelProcessor
 
 
 class SagemakerSourceConfig(AwsSourceConfig):
+
+    extract_feature_groups: Optional[bool] = True
+    extract_models: Optional[bool] = True
+    extract_jobs: Optional[Union[Dict[str, str], bool]] = True
+
     @property
     def sagemaker_client(self):
         return self.get_client("sagemaker")
@@ -61,20 +66,29 @@ class SagemakerSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-        feature_group_processor = FeatureGroupProcessor(
-            sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
-        )
-        yield from feature_group_processor.get_workunits()
+        if self.source_config.extract_feature_groups:
 
-        model_processor = ModelProcessor(
-            sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
-        )
-        yield from model_processor.get_workunits()
+            feature_group_processor = FeatureGroupProcessor(
+                sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
+            )
+            yield from feature_group_processor.get_workunits()
 
-        job_processor = JobProcessor(
-            sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
-        )
-        yield from job_processor.get_workunits()
+        if self.source_config.extract_models:
+
+            model_processor = ModelProcessor(
+                sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
+            )
+            yield from model_processor.get_workunits()
+
+        if self.source_config.extract_jobs != False:
+
+            job_processor = JobProcessor(
+                sagemaker_client=self.sagemaker_client,
+                env=self.env,
+                report=self.report,
+                job_type_filter=self.source_config.extract_jobs,
+            )
+            yield from job_processor.get_workunits()
 
     def get_report(self):
         return self.reporte

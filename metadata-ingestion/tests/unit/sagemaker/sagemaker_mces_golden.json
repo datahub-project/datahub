@@ -663,8 +663,8 @@
               ],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)",
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,prod),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)"
               ]
             }
           }

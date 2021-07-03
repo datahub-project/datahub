@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.source import SourceReport
@@ -239,6 +239,7 @@ class JobProcessor:
     sagemaker_client: Any
     env: str
     report: SourceReport
+    job_type_filter: Union[Dict[str, str], bool, None]
     arn_to_name: Dict[str, Tuple[str, str]] = field(default_factory=dict)
     name_to_arn: Dict[Tuple[str, str], str] = field(default_factory=dict)
 
@@ -255,8 +256,19 @@ class JobProcessor:
         self.arn_to_name: Dict[str, Tuple[str, str]] = {}
         self.name_to_arn: Dict[Tuple[str, str], str] = {}
 
+        if self.job_type_filter == True:
+            allowed_jobs = sorted(SAGEMAKER_JOB_TYPES.keys())
+        elif isinstance(self.job_type_filter, dict):
+            allowed_jobs = sorted(
+                [
+                    job_type
+                    for job_type, allowed in self.job_type_filter.items()
+                    if allowed and job_type in SAGEMAKER_JOB_TYPES
+                ]
+            )
+
         # iterate through keys in sorted order for consistency
-        for job_type in sorted(SAGEMAKER_JOB_TYPES):
+        for job_type in sorted(allowed_jobs):
 
             job_spec = SAGEMAKER_JOB_TYPES[job_type]
 
@@ -306,7 +318,9 @@ class JobProcessor:
             processed_job = getattr(self, job_type.processor)(job_details)
             processed_jobs[processed_job.job_snapshot.urn] = processed_job
 
-        # second pass: move output jobs to inputs
+        # second pass:
+        #   - move output jobs to inputs
+        #   - aggregate i/o datasets
         for job_urn in sorted(processed_jobs):
             processed_job = processed_jobs[job_urn]
 
@@ -321,9 +335,9 @@ class JobProcessor:
 
             job_snapshot.aspects.append(
                 DataJobInputOutputClass(
-                    inputDatasets=list(processed_job.input_datasets),
-                    outputDatasets=list(processed_job.output_datasets),
-                    inputDatajobs=list(processed_job.input_jobs),
+                    inputDatasets=sorted(list(processed_job.input_datasets)),
+                    outputDatasets=sorted(list(processed_job.output_datasets)),
+                    inputDatajobs=sorted(list(processed_job.input_jobs)),
                 )
             )
 
