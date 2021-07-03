@@ -109,6 +109,7 @@ module.exports = {
       "docs/advanced/high-cardinality",
       "docs/how/scsi-onboarding-guide",
       "docs/advanced/no-code-upgrade",
+      "docs/how/migrating-graph-service-implementation",
       // WIP "docs/advanced/backfilling",
       // WIP "docs/advanced/derived-aspects",
       // WIP "docs/advanced/entity-hierarchy",
