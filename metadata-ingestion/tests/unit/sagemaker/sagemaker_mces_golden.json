@@ -350,7 +350,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://edge-packaging-bucket/model-artifact.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -360,7 +373,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://edge-packaging-bucket/output-config.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -370,7 +396,21 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file.txt,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://auto-ml-job-input-bucket/file.txt",
+                "datatype": "ManifestFile"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -380,7 +420,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket/file.txt,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://auto-ml-job-output-bucket/file.txt"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -390,7 +443,22 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/input-config.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://compilation-job-bucket/input-config.tar.gz",
+                "framework": "TENSORFLOW",
+                "framework_version": "string"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -400,7 +468,22 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://compilation-job-bucket/output-config.tar.gz",
+                "target_device": "lambda",
+                "target_platform": "{'Os': 'ANDROID', 'Arch': 'X86_64', 'Accelerator': 'INTEL_GRAPHICS'}"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -410,7 +493,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://labeling-job/data-source.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -420,7 +516,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://labeling-job/category-config.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -430,7 +539,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://labeling-job/output-dataset.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -440,7 +562,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://labeling-job/output-config.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -450,7 +585,25 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job/input-data.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://processing-job/input-data.tar.gz",
+                "datatype": "ManifestFile",
+                "mode": "Pipe",
+                "distribution_type": "FullyReplicated",
+                "compression": "None",
+                "name": "string"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -460,7 +613,24 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://training-job/input-dataset.tar.gz",
+                "datatype": "None",
+                "distribution_type": "FullyReplicated",
+                "attribute_names": "['string']",
+                "channel_name": "string"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -470,7 +640,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://training-job/output-data.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -480,7 +663,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/checkpoint-config.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://training-job/checkpoint-config.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -490,7 +686,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-hook-config.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://training-job/debug-hook-config.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -500,7 +709,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://training-job/tensorboard-output-config.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -510,7 +732,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://training-job/profiler-config.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -520,7 +755,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-rule-config.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://training-job/debug-rule-config.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -530,7 +778,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://training-job/profiler-rule-config.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -540,7 +801,23 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/input-data-source.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://transform-job/input-data-source.tar.gz",
+                "datatype": "ManifestFile",
+                "compression": "None",
+                "split": "None"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -550,7 +827,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/output.tar.gz,PROD)",
-        "aspects": []
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://transform-job/output.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
       }
     },
     "proposedDelta": null

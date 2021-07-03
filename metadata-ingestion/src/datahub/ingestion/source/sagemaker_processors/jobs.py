@@ -10,8 +10,8 @@ from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataJobSnapshotClass,
+    DatasetPropertiesClass,
     JobStatusClass,
-    MetadataChangeEventClass,
 )
 
 
@@ -339,6 +339,12 @@ class JobProcessor:
             dataset_snapshot = DatasetSnapshot(
                 urn=dataset_urn,
                 aspects=[],
+            )
+            dataset_snapshot.aspects.append(
+                DatasetPropertiesClass(
+                    customProperties={k: str(v) for k, v in dataset.items()},
+                    tags=[],
+                )
             )
             dataset_mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             dataset_wu = MetadataWorkUnit(
