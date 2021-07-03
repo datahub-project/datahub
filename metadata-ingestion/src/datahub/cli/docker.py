@@ -333,7 +333,7 @@ def nuke() -> None:
 
         click.echo("Removing containers in the datahub project")
         for container in client.containers.list(
-            filters={"label": "com.docker.compose.project=datahub"}
+            all=True, filters={"label": "com.docker.compose.project=datahub"}
         ):
             container.remove(v=True, force=True)
 
