@@ -196,7 +196,7 @@ class SupersetSource(Source):
 
         modified_actor = f"urn:li:corpuser:{(dashboard_data.get('changed_by') or {}).get('username', 'unknown')}"
         modified_ts = int(
-            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp()
+            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
         )
         title = dashboard_data.get("dashboard_title", "")
         # note: the API does not currently supply created_by usernames due to a bug, but we are required to
@@ -263,7 +263,9 @@ class SupersetSource(Source):
         )
 
         modified_actor = f"urn:li:corpuser:{(chart_data.get('changed_by') or {}).get('username', 'unknown')}"
-        modified_ts = int(dp.parse(chart_data.get("changed_on_utc", "now")).timestamp())
+        modified_ts = int(
+            dp.parse(chart_data.get("changed_on_utc", "now")).timestamp() * 1000
+        )
         title = chart_data.get("slice_name", "")
 
         # note: the API does not currently supply created_by usernames due to a bug, but we are required to
