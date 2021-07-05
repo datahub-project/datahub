@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Card, Layout, Typography } from 'antd';
 import styled from 'styled-components';
 import { Content } from 'antd/lib/layout/layout';
-import { JSONSchema7 } from '@optum/json-schema-editor/dist/JsonSchemaEditor.types';
 import { SearchablePage } from '../search/SearchablePage';
 import { JsonForm } from './Components/JsonForm';
 import { CsvForm } from './Components/CsvForm';
@@ -23,20 +22,8 @@ export const AdHocPage = () => {
         console.log(key, type);
         setState((prevState) => ({ key: prevState.key, titleKey: key }));
     };
-    const jsonSchema: JSONSchema7 = {
-        $id: 'https://example.com/person.schema.json',
-        title: 'Person',
-        type: 'object',
-        properties: {
-            age: {
-                description: 'default',
-                type: 'integer',
-                minimum: 50,
-            },
-        },
-    };
     const contentList = {
-        jsonForm: <JsonForm schema={jsonSchema} />,
+        jsonForm: <JsonForm />,
         csvForm: <CsvForm />,
     };
     const tabList = [
