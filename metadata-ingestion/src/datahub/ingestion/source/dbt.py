@@ -1,18 +1,20 @@
 import json
 import logging
-import time
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
+
+import dateutil.parser
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dbt_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
     resolve_postgres_modified_type,
 )
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -41,7 +43,8 @@ logger = logging.getLogger(__name__)
 class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
-    env: str = "PROD"
+    sources_path: Optional[str]
+    env: str = DEFAULT_ENV
     target_platform: str
     load_schemas: bool
     node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -69,6 +72,7 @@ class DBTNode:
     columns: List[DBTColumn]
     upstream_urns: List[str]
     datahub_urn: str
+    max_loaded_at: Optional[str]
 
     def __repr__(self):
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
@@ -93,13 +97,17 @@ def get_columns(catalog_node: dict) -> List[DBTColumn]:
 
 
 def extract_dbt_entities(
-    nodes: Dict[str, dict],
-    catalog: Dict[str, dict],
+    nodes: Dict[str, Dict[str, Any]],
+    catalog: Dict[str, Dict[str, Any]],
+    sources_results: List[Dict[str, Any]],
     load_catalog: bool,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
+
+    sources_by_id = {x["unique_id"]: x for x in sources_results}
+
     dbt_entities = []
     for key, node in nodes.items():
         dbtNode = DBTNode()
@@ -112,7 +120,8 @@ def extract_dbt_entities(
         dbtNode.schema = node["schema"]
         dbtNode.dbt_file_path = node["original_file_path"]
         dbtNode.node_type = node["resource_type"]
-        if "identifier" in node and load_catalog is False:
+        dbtNode.max_loaded_at = sources_by_id.get(key, {}).get("max_loaded_at")
+        if "identifier" in node and not load_catalog:
             dbtNode.name = node["identifier"]
         else:
             dbtNode.name = node["name"]
@@ -158,34 +167,46 @@ def extract_dbt_entities(
 def loadManifestAndCatalog(
     manifest_path: str,
     catalog_path: str,
+    sources_path: Optional[str],
     load_catalog: bool,
     target_platform: str,
     environment: str,
     node_type_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
     with open(manifest_path, "r") as manifest:
-        with open(catalog_path, "r") as catalog:
-            dbt_manifest_json = json.load(manifest)
-            dbt_catalog_json = json.load(catalog)
+        dbt_manifest_json = json.load(manifest)
 
-            manifest_nodes = dbt_manifest_json["nodes"]
-            manifest_sources = dbt_manifest_json["sources"]
+    with open(catalog_path, "r") as catalog:
+        dbt_catalog_json = json.load(catalog)
 
-            all_manifest_entities = {**manifest_nodes, **manifest_sources}
+    if sources_path is not None:
+        with open(sources_path, "r") as sources:
+            dbt_sources_json = json.load(sources)
+            sources_results = dbt_sources_json["results"]
+    else:
+        sources_results = {}
 
-            catalog_nodes = dbt_catalog_json["nodes"]
-            catalog_sources = dbt_catalog_json["sources"]
+    manifest_nodes = dbt_manifest_json["nodes"]
+    manifest_sources = dbt_manifest_json["sources"]
 
-            all_catalog_entities = {**catalog_nodes, **catalog_sources}
+    all_manifest_entities = {**manifest_nodes, **manifest_sources}
 
-            return extract_dbt_entities(
-                all_manifest_entities,
-                all_catalog_entities,
-                load_catalog,
-                target_platform,
-                environment,
-                node_type_pattern,
-            )
+    catalog_nodes = dbt_catalog_json["nodes"]
+    catalog_sources = dbt_catalog_json["sources"]
+
+    all_catalog_entities = {**catalog_nodes, **catalog_sources}
+
+    nodes = extract_dbt_entities(
+        all_manifest_entities,
+        all_catalog_entities,
+        sources_results,
+        load_catalog,
+        target_platform,
+        environment,
+        node_type_pattern,
+    )
+
+    return nodes
 
 
 def get_urn_from_dbtNode(
@@ -239,7 +260,8 @@ def get_upstreams(
 def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
     ucl: List[UpstreamClass] = []
 
-    actor, sys_time = "urn:li:corpuser:dbt_executor", int(time.time()) * 1000
+    actor = "urn:li:corpuser:dbt_executor"
+    sys_time = get_sys_time()
 
     for dep in upstream_urns:
         uc = UpstreamClass(
@@ -308,7 +330,16 @@ def get_schema_metadata(
 
         canonical_schema.append(field)
 
-    actor, sys_time = "urn:li:corpuser:dbt_executor", int(time.time()) * 1000
+    actor = "urn:li:corpuser:dbt_executor"
+    sys_time = get_sys_time()
+
+    last_modified = sys_time
+
+    if node.max_loaded_at is not None:
+        last_modified = int(
+            dateutil.parser.parse(node.max_loaded_at).timestamp() * 1000
+        )
+
     return SchemaMetadata(
         schemaName=node.dbt_name,
         platform=f"urn:li:dataPlatform:{platform}",
@@ -316,7 +347,7 @@ def get_schema_metadata(
         hash="",
         platformSchema=MySqlDDL(tableSchema=""),
         created=AuditStamp(time=sys_time, actor=actor),
-        lastModified=AuditStamp(time=sys_time, actor=actor),
+        lastModified=AuditStamp(time=last_modified, actor=actor),
         fields=canonical_schema,
     )
 
@@ -340,6 +371,7 @@ class DBTSource(Source):
         nodes = loadManifestAndCatalog(
             self.config.manifest_path,
             self.config.catalog_path,
+            self.config.sources_path,
             self.config.load_schemas,
             self.config.target_platform,
             self.config.env,

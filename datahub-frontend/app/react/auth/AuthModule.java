@@ -144,7 +144,7 @@ public class AuthModule extends AbstractModule {
                 context.getJavaSession().put(ACTOR, actorUrn);
                 return result.withCookies(createActorCookie(actorUrn, _configs.hasPath(SESSION_TTL_CONFIG_PATH)
                         ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
-                        : DEFAULT_SESSION_TTL_DAYS));
+                        : DEFAULT_SESSION_TTL_HOURS));
             } else {
                 throw new RuntimeException(
                         String.format("Failed to extract DataHub username from username claim %s using regex %s",

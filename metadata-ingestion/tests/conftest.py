@@ -17,4 +17,13 @@ def mock_time(monkeypatch):
         return 1615443388.0975091
 
     monkeypatch.setattr(time, "time", fake_time)
+
     yield
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--update-golden-files",
+        action="store_true",
+        default=False,
+    )

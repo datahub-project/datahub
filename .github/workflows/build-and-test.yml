@@ -49,6 +49,18 @@ jobs:
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
           channel: github-activities
 
+  metadata-ingestion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.8"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Run metadata-ingestion tests
+        run: ./gradlew :metadata-ingestion:testFull -x :metadata-ingestion:codegen
+
   smoke-test:
     runs-on: ubuntu-latest
     steps:

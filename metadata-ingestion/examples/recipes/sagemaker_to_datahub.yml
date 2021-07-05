@@ -1,0 +1,10 @@
+# in this example, AWS creds are detected automatically – see the README for more details
+source:
+  type: sagemaker
+  config:
+    aws_region: "us-west-2"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

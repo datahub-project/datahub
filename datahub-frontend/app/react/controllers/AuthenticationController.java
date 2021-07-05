@@ -3,7 +3,6 @@ package react.controllers;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.CorpuserUrn;
-import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.typesafe.config.Config;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.core.client.Client;
@@ -11,7 +10,8 @@ import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.core.exception.HttpAction;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.http.PlayHttpActionAdapter;
-import play.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Http;
@@ -32,6 +32,7 @@ import static react.auth.AuthUtils.*;
 
 public class AuthenticationController extends Controller {
 
+    private final Logger _logger = LoggerFactory.getLogger(AuthenticationController.class.getName());
     private final Config _configs;
     private final OidcConfigs _oidcConfigs;
     private final JAASConfigs _jaasConfigs;
@@ -78,7 +79,7 @@ public class AuthenticationController extends Controller {
         session().put(ACTOR, DEFAULT_ACTOR_URN.toString());
         return redirect("/").withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
                 ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
-                : DEFAULT_SESSION_TTL_DAYS));
+                : DEFAULT_SESSION_TTL_HOURS));
     }
 
     /**
@@ -99,7 +100,9 @@ public class AuthenticationController extends Controller {
         final String password = json.findPath(PASSWORD).textValue();
 
         if (StringUtils.isBlank(username)) {
-            throw new ValidationException("username must not be empty");
+            JsonNode invalidCredsJson = Json.newObject()
+                .put("message", "User name must not be empty.");
+            return badRequest(invalidCredsJson);
         }
 
         ctx().session().clear();
@@ -107,8 +110,10 @@ public class AuthenticationController extends Controller {
         try {
             AuthenticationManager.authenticateUser(username, password);
         } catch (NamingException e) {
-            Logger.warn("Authentication error", e);
-            return badRequest("Invalid Credential");
+            _logger.error("Authentication error", e);
+            JsonNode invalidCredsJson = Json.newObject()
+                .put("message", "Invalid Credentials");
+            return badRequest(invalidCredsJson);
         }
 
         final String actorUrn = new CorpuserUrn(username).toString();

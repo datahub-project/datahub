@@ -1,7 +1,6 @@
 import click
 
 from datahub import __package_name__
-from datahub.cli.docker import docker_check_impl
 from datahub.cli.json_file import check_mce_file
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
@@ -21,13 +20,6 @@ def mce_file(json_file: str) -> None:
 
     report = check_mce_file(json_file)
     click.echo(report)
-
-
-@check.command()
-def local_docker() -> None:
-    """Check that the local Docker containers are healthy. (deprecated)"""
-    click.secho("DeprecationWarning: use `datahub docker check` instead", fg="yellow")
-    docker_check_impl()
 
 
 @check.command()

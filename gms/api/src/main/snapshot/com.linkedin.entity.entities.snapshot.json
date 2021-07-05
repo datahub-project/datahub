@@ -3397,6 +3397,7 @@
                   "name" : "MLFeatureTableProperties",
                   "namespace" : "com.linkedin.ml.metadata",
                   "doc" : "Properties associated with a MLFeatureTable",
+                  "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
                     "name" : "description",
                     "type" : "string",
@@ -4032,7 +4033,12 @@
         } ],
         "returns" : "com.linkedin.metadata.query.SearchResult"
       }, {
-        "name" : "setWritable"
+        "name" : "setWritable",
+        "parameters" : [ {
+          "name" : "value",
+          "type" : "boolean",
+          "default" : "true"
+        } ]
       } ],
       "entity" : {
         "path" : "/entities/{entitiesId}"

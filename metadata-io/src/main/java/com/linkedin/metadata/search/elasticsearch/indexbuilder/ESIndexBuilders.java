@@ -16,7 +16,7 @@ public class ESIndexBuilders {
   public void buildAll() {
     for (EntitySpec entitySpec : entityRegistry.getEntitySpecs()) {
       try {
-        new IndexBuilder(searchClient, entitySpec, indexConvention.getIndexName(entitySpec)).buildIndex();
+        new EntityIndexBuilder(searchClient, entitySpec, indexConvention.getIndexName(entitySpec)).buildIndex();
       } catch (IOException e) {
         e.printStackTrace();
       }

@@ -32,7 +32,7 @@ services:
     ports:
       - 6789:6789
     # wait for Feast to start, then insert test data
-    command: ./wait-for-it.sh testfeast:6565 -- python3 make_tests.py
+    command: ./wait-for-it.sh testfeast:6565 -t 120 -- python3 make_tests.py
 
   db:
     image: postgres:12-alpine

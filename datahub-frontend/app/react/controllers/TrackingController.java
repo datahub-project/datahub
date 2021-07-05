@@ -9,6 +9,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import react.auth.Authenticator;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
@@ -25,6 +27,8 @@ import java.util.Properties;
 
 public class TrackingController extends Controller {
 
+    private final Logger _logger = LoggerFactory.getLogger(TrackingController.class.getName());
+
     private static final List<String> KAFKA_SSL_PROTOCOLS = Collections.unmodifiableList(
             Arrays.asList(SecurityProtocol.SSL.name(),SecurityProtocol.SASL_SSL.name()));
 
@@ -38,6 +42,7 @@ public class TrackingController extends Controller {
         _config = config;
         _isEnabled = !config.hasPath("analytics.enabled") || config.getBoolean("analytics.enabled");
         if (_isEnabled) {
+            _logger.debug("Analytics tracking is enabled");
             _producer = createKafkaProducer();
             _topic = config.getString("analytics.tracking.topic");
         } else {
@@ -60,8 +65,9 @@ public class TrackingController extends Controller {
         } catch (Exception e) {
             return badRequest();
         }
+        final String actor = new PlayQueryContext(ctx(), _config).getActor();
         try {
-            final String actor = new PlayQueryContext(ctx(), _config).getActor();
+            _logger.debug(String.format("Emitting product analytics event. actor: %s, event: %s", actor, event));
             final ProducerRecord<String, String> record = new ProducerRecord<>(
                     _topic,
                     actor,
@@ -70,6 +76,7 @@ public class TrackingController extends Controller {
              _producer.flush();
              return ok();
         } catch(Exception e) {
+            _logger.error(String.format("Failed to emit product analytics event. actor: %s, event: %s", actor, event));
             return internalServerError(e.getMessage());
         }
     }

@@ -19,7 +19,6 @@ The folks over at [Acryl Data](https://www.acryl.io/) maintain a PyPI package fo
 ```shell
 # Requires Python 3.6+
 python3 -m pip install --upgrade pip wheel setuptools
-python3 -m pip uninstall datahub acryl-datahub || true  # sanity check - ok if it fails
 python3 -m pip install --upgrade acryl-datahub
 datahub version
 # If you see "command not found", try running this instead: python3 -m datahub version
@@ -428,6 +427,47 @@ source:
     # options is same as above
 ```
 
+<details>
+  <summary>Extra options when running Redshift behind a proxy</summary>
+
+This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
+See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+
+```yml
+source:
+  type: redshift
+  config:
+    # username, password, database, etc are all the same as above
+    host_port: my-proxy-hostname:5439
+    options:
+      connect_args:
+        sslmode: "prefer" # or "require" or "verify-ca"
+        sslrootcert: ~ # needed to unpin the AWS Redshift certificate
+```
+
+</details>
+
+### AWS SageMaker `sagemaker`
+
+Extracts:
+
+- Feature groups (support for models, jobs, and more coming soon!)
+
+```yml
+source:
+  type: sagemaker
+  config:
+    aws_region: # aws_region_name, i.e. "eu-west-1"
+    env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
+
+    # Credentials. If not specified here, these are picked up according to boto3 rules.
+    # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
+    aws_access_key_id: # Optional.
+    aws_secret_access_key: # Optional.
+    aws_session_token: # Optional.
+    aws_role: # Optional (Role chaining supported by using a sorted list).
+```
+
 ### Snowflake `snowflake`
 
 Extracts:
@@ -442,13 +482,25 @@ source:
     username: user
     password: pass
     host_port: account_name
-    database: db_name
+    database_pattern:
+      allow:
+        - ^regex$
+        - ^another_regex$
+      deny:
+        - ^SNOWFLAKE$
+        - ^SNOWFLAKE_SAMPLE_DATA$
     warehouse: "COMPUTE_WH" # optional
     role: "sysadmin" # optional
     include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
+
+:::tip
+
+You can also get fine-grained usage statistics for Snowflake using the `snowflake-usage` source.
+
+:::
 
 ### Superset `superset`
 
@@ -501,7 +553,9 @@ source:
 
 Extracts:
 
-- List of feature tables (modeled as `MLFeatureTable`s), features (`MLFeature`s), and entities (`MLPrimaryKey`s)
+- List of feature tables (modeled as [`MLFeatureTable`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureTableProperties.pdl)s),
+  features ([`MLFeature`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureProperties.pdl)s),
+  and entities ([`MLPrimaryKey`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLPrimaryKeyProperties.pdl)s)
 - Column types associated with each feature and entity
 
 Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then
@@ -534,6 +588,12 @@ source:
       include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
+
+:::tip
+
+You can also get fine-grained usage statistics for BigQuery using the `bigquery-usage` source.
+
+:::
 
 ### AWS Athena `athena`
 
@@ -645,6 +705,7 @@ Extracts:
 - List of collections in each database and infers schemas for each collection
 
 By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
+Moreover, setting `useRandomSampling: False` will sample the first documents found without random selection, which may be faster for large collections.
 
 Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
 
@@ -664,6 +725,7 @@ source:
     collection_pattern: {}
     enableSchemaInference: True
     schemaSamplingSize: 1000
+    useRandomSampling: True # whether to randomly sample docs for schema or just use the first ones, True by default
     # database_pattern/collection_pattern are similar to schema_pattern/table_pattern from above
 ```
 
@@ -704,15 +766,15 @@ Extracts:
 source:
   type: "lookml"
   config:
-    base_folder: /path/to/model/files # Where the *.model.lkml and *.view.lkml files are stored.
-    connection_to_platform_map: # mapping between connection names in the model files to platform names.
-      my_snowflake_conn: snowflake
-    platform_name: looker_views # Optional, default is "looker_views"
-    actor: "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
+    base_folder: /path/to/model/files # where the *.model.lkml and *.view.lkml files are stored
+    connection_to_platform_map: # mappings between connection names in the model files to platform names
+      connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
+    platform_name: "looker" # optional, default is "looker"
+    actor: "urn:li:corpuser:etl" # optional, default is "urn:li:corpuser:etl"
     model_pattern: {}
     view_pattern: {}
-    env: "PROD" # Optional, default is "PROD"
-    parse_table_names_from_sql: False # See note below.
+    env: "PROD" # optional, default is "PROD"
+    parse_table_names_from_sql: False # see note below
 ```
 
 Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
@@ -764,6 +826,10 @@ Pull metadata from dbt artifacts files:
 - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
   - This file contains schema data.
   - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
+- [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
+  - This file contains metadata for sources with freshness checks.
+  - We transfer dbt's freshness checks to DataHub's last-modified fields.
+  - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
 - target_platform:
   - The data platform you are enriching with dbt metadata.
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
@@ -778,6 +844,7 @@ source:
   config:
     manifest_path: "./path/dbt/manifest_file.json"
     catalog_path: "./path/dbt/catalog_file.json"
+    sources_path: "./path/dbt/sources_file.json" # (optional, used for freshness checks)
     target_platform: "postgres" # optional, eg "postgres", "snowflake", etc.
     load_schemas: True or False
     node_type_pattern: # optional
@@ -788,6 +855,75 @@ source:
 ```
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
+
+### Google BigQuery Usage Stats `bigquery-usage`
+
+- Fetch a list of queries issued
+- Fetch a list of tables and columns accessed
+- Aggregate these statistics into buckets, by day or hour granularity
+
+Note: the client must have one of the following OAuth scopes:
+
+- https://www.googleapis.com/auth/logging.read
+- https://www.googleapis.com/auth/logging.admin
+- https://www.googleapis.com/auth/cloud-platform.read-only
+- https://www.googleapis.com/auth/cloud-platform
+
+```yml
+source:
+  type: bigquery-usage
+  config:
+    project_id: project # optional - can autodetect from environment
+    options:
+      # See https://googleapis.dev/python/logging/latest/client.html for details.
+      credentials: ~ # optional - see docs
+    env: PROD
+
+    bucket_duration: "DAY"
+    start_time: ~ # defaults to the last full day in UTC (or hour)
+    end_time: ~ # defaults to the last full day in UTC (or hour)
+
+    top_n_queries: 10 # number of queries to save for each table
+```
+
+:::note
+
+This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` source.
+
+:::
+
+### Snowflake Usage Stats `snowflake-usage`
+
+- Fetch a list of queries issued
+- Fetch a list of tables and columns accessed (excludes views)
+- Aggregate these statistics into buckets, by day or hour granularity
+
+Note: the user/role must have access to the account usage table. The "accountadmin" role has this by default, and other roles can be [granted this permission](https://docs.snowflake.com/en/sql-reference/account-usage.html#enabling-account-usage-for-other-roles).
+
+Note: the underlying access history views that we use are only available in Snowflake's enterprise edition or higher.
+
+```yml
+source:
+  type: snowflake-usage
+  config:
+    username: user
+    password: pass
+    host_port: account_name
+    role: ACCOUNTADMIN
+    env: PROD
+
+    bucket_duration: "DAY"
+    start_time: ~ # defaults to the last full day in UTC (or hour)
+    end_time: ~ # defaults to the last full day in UTC (or hour)
+
+    top_n_queries: 10 # number of queries to save for each table
+```
+
+:::note
+
+This source only does usage statistics. To get the tables, views, and schemas in your Snowflake warehouse, ingest using the `snowflake` source.
+
+:::
 
 ### Kafka Connect `kafka-connect`
 

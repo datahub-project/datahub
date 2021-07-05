@@ -2,7 +2,6 @@ import datetime
 import json
 import logging
 import os
-import time
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import Any, Iterable, List, MutableMapping, Optional, Sequence
@@ -18,9 +17,10 @@ from looker_sdk.sdk.api31.models import (
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -52,7 +52,7 @@ class LookerDashboardSourceConfig(ConfigModel):
     actor: str = "urn:li:corpuser:etl"
     dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    env: str = "PROD"
+    env: str = DEFAULT_ENV
 
 
 @dataclass
@@ -304,7 +304,7 @@ class LookerDashboardSource(Source):
         self, dashboard_element: LookerDashboardElement
     ) -> MetadataChangeEvent:
         actor = self.source_config.actor
-        sys_time = int(time.time()) * 1000
+        sys_time = get_sys_time()
         chart_urn = f"urn:li:chart:({self.source_config.platform_name},{dashboard_element.get_urn_element_id()})"
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
@@ -338,7 +338,7 @@ class LookerDashboardSource(Source):
         self, looker_dashboard: LookerDashboard
     ) -> List[MetadataChangeEvent]:
         actor = self.source_config.actor
-        sys_time = int(time.time()) * 1000
+        sys_time = get_sys_time()
 
         chart_mces = [
             self._make_chart_mce(element)
