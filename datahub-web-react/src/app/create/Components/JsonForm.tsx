@@ -3,8 +3,8 @@ import JsonSchemaEditor from '@optum/json-schema-editor';
 import { JSONSchema7 } from '@optum/json-schema-editor/dist/JsonSchemaEditor.types';
 import { Button, Divider, Form, message, Space } from 'antd';
 import Dragger from 'antd/lib/upload/Dragger';
-import adhocConfig from '../../../conf/Adhoc';
 import { v4 as uuidv4 } from 'uuid';
+import adhocConfig from '../../../conf/Adhoc';
 import { CommonFields } from './CommonFields';
 
 export const JsonForm = () => {
