@@ -132,10 +132,10 @@ def test_glue_ingest(tmp_path, pytestconfig):
             with open(str(tmp_path / "glue_mces.json"), "w") as f:
                 json.dump(mce_objects, f, indent=2)
 
-    output = mce_helpers.load_json_file(str(tmp_path / "glue_mces.json"))
-
+    # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
-    golden = mce_helpers.load_json_file(
-        str(test_resources_dir / "glue_mces_golden.json")
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "glue_mces.json",
+        golden_path=test_resources_dir / "glue_mces_golden.json",
     )
-    mce_helpers.assert_mces_equal(output, golden)

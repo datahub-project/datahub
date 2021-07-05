@@ -2,8 +2,10 @@ package com.linkedin.datahub.upgrade;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
-import java.util.List;
 import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
+import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
+import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
+import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
@@ -34,10 +36,20 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("noCodeCleanup")
   private NoCodeCleanupUpgrade noCodeCleanup;
 
+  @Inject
+  @Named("restoreIndices")
+  private RestoreIndices restoreIndices;
+
+  @Inject
+  @Named("restoreBackup")
+  private RestoreBackup restoreBackup;
+
   @Override
   public void run(String... cmdLineArgs) {
     _upgradeManager.register(noCodeUpgrade);
     _upgradeManager.register(noCodeCleanup);
+    _upgradeManager.register(restoreIndices);
+    _upgradeManager.register(restoreBackup);
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);

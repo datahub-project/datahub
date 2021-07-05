@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.PegasusUtils.*;
 
@@ -57,6 +58,7 @@ import static com.linkedin.metadata.PegasusUtils.*;
  * TODO: Consider whether we can abstract away virtual versioning semantics to subclasses of this class.
  * TODO: Extract out a nested 'AspectService'.
  */
+@Slf4j
 public abstract class EntityService {
 
   /**
@@ -69,6 +71,7 @@ public abstract class EntityService {
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
   private Boolean _emitAspectSpecificAuditEvent = false;
+
 
   protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
     _producer = producer;
@@ -186,6 +189,7 @@ public abstract class EntityService {
    * @return a map of {@link Urn} to {@link Entity} object
    */
   public Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull Set<String> aspectNames) {
+    log.debug(String.format("Invoked getEntities with urns %s, aspects %s", urns, aspectNames));
     if (urns.isEmpty()) {
       return Collections.emptyMap();
     }
@@ -193,17 +197,44 @@ public abstract class EntityService {
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntity(entry.getValue())));
   }
 
+  /**
+   * Produce metadata audit event and push.
+   *
+   * @param urn Urn to push
+   * @param oldAspectValue Value of aspect before the update.
+   * @param newAspectValue Value of aspect after the update
+   */
+  public void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldAspectValue,
+      @Nonnull final RecordTemplate newAspectValue) {
+
+    final Snapshot newSnapshot = buildSnapshot(urn, newAspectValue);
+    Snapshot oldSnapshot = null;
+    if (oldAspectValue != null) {
+      oldSnapshot = buildSnapshot(urn, oldAspectValue);
+    }
+
+    _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot);
+
+    // 4.1 Produce aspect specific MAE after a successful update
+    if (_emitAspectSpecificAuditEvent) {
+      _producer.produceAspectSpecificMetadataAuditEvent(urn, oldAspectValue, newAspectValue);
+    }
+  }
+
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {
+    log.debug(String.format("Invoked getLatestAspect with urn %s, aspect %s", urn, aspectName));
     return getAspect(urn, aspectName, LATEST_ASPECT_VERSION);
   }
 
   public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp) {
+    log.debug(String.format("Invoked ingestEntities with entities %s, audit stamp %s", entities, auditStamp));
     for (final Entity entity : entities) {
       ingestEntity(entity, auditStamp);
     }
   }
 
   public  void ingestEntity(@Nonnull final Entity entity, @Nonnull final AuditStamp auditStamp) {
+    log.debug(String.format("Invoked ingestEntity with entity %s, audit stamp %s", entity, auditStamp));
     ingestSnapshotUnion(entity.getValue(), auditStamp);
   }
 
@@ -239,25 +270,6 @@ public abstract class EntityService {
       final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());
       ingestAspect(urn, aspectName, aspect, auditStamp);
     });
-  }
-
-  protected void produceMetadataAuditEvent(
-      @Nonnull final Urn urn,
-      @Nullable final RecordTemplate oldValue,
-      @Nonnull final RecordTemplate newValue) {
-
-    final Snapshot newSnapshot = buildSnapshot(urn, newValue);
-    Snapshot oldSnapshot = null;
-    if (oldValue != null) {
-      oldSnapshot = buildSnapshot(urn, oldValue);
-    }
-
-    _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot);
-
-    // 4.1 Produce aspect specific MAE after a successful update
-    if (_emitAspectSpecificAuditEvent) {
-      _producer.produceAspectSpecificMetadataAuditEvent(urn, oldValue, newValue);
-    }
   }
 
   private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
@@ -315,6 +327,7 @@ public abstract class EntityService {
     try {
       return Urn.createFromString(urnStr);
     } catch (URISyntaxException e) {
+      log.error(String.format("Failed to convert urn string %s into Urn object", urnStr));
       throw new ModelConversionException(String.format("Failed to convert urn string %s into Urn object ", urnStr), e);
     }
   }
@@ -349,5 +362,5 @@ public abstract class EntityService {
     return _entityToValidAspects.get(entityName);
   }
 
-  public abstract void setWritable();
+  public abstract void setWritable(boolean canWrite);
 }

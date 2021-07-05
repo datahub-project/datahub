@@ -30,6 +30,12 @@ the application directly from command line after a successful [build](#build):
 ./gradlew :gms:war:run
 ```
 
+To run with debug logs printed to console, use
+
+```
+./gradlew :gms:war:run -Dlogback.debug=true
+```
+
 ## API Documentation
 
 You can access basic documentation on the API endpoints by opening the `/restli/docs` endpoint in the browser.

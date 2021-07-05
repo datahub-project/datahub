@@ -12,7 +12,7 @@ create table if not exists metadata_aspect_v2 (
   createdon                     datetime(6) not null,
   createdby                     varchar(255) not null,
   createdfor                    varchar(255),
-  constraint pk_metadata_aspect primary key (urn,aspect,version)
+  constraint pk_metadata_aspect_v2 primary key (urn,aspect,version)
 );
 
 -- create default records for datahub user if not exists

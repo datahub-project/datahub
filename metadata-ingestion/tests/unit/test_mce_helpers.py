@@ -149,14 +149,18 @@ basic_3 = json.loads(
 
 
 def test_basic_diff_same() -> None:
-    mce_helpers.assert_mces_equal(basic_1, basic_2)
+    mce_helpers.assert_mces_equal(basic_1, basic_2, mce_helpers.IGNORE_PATH_TIMESTAMPS)
 
 
 def test_basic_diff_only_owner_change() -> None:
     with pytest.raises(AssertionError):
-        mce_helpers.assert_mces_equal(basic_2, basic_3)
+        mce_helpers.assert_mces_equal(
+            basic_2, basic_3, mce_helpers.IGNORE_PATH_TIMESTAMPS
+        )
 
 
 def test_basic_diff_owner_change() -> None:
     with pytest.raises(AssertionError):
-        mce_helpers.assert_mces_equal(basic_1, basic_3)
+        mce_helpers.assert_mces_equal(
+            basic_1, basic_3, mce_helpers.IGNORE_PATH_TIMESTAMPS
+        )
