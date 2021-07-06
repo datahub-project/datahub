@@ -504,7 +504,7 @@ source:
     options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
       credentials_path: "/path/to/keyfile.json" # optional
-      include_views: True # whether to include views, defaults to True
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
 
