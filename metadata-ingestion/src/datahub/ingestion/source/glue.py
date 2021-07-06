@@ -143,15 +143,11 @@ class GlueSource(Source):
                 # if data object is S3 bucket
                 if node_args.get("connection_type") == "s3":
 
-                    # remove S3 prefix (s3://)
-                    s3_name = node_args["connection_options"]["path"][5:]
-
-                    if s3_name.endswith("/"):
-                        s3_name = s3_name[:-1]
+                    s3_uri = node_args["connection_options"]["path"]
 
                     extension = node_args.get("format")
 
-                    yield s3_name, extension
+                    yield s3_uri, extension
 
     def process_dataflow_node(
         self,
@@ -180,20 +176,18 @@ class GlueSource(Source):
             # if data object is S3 bucket
             elif node_args.get("connection_type") == "s3":
 
-                # remove S3 prefix (s3://)
-                s3_name = node_args["connection_options"]["path"][5:]
-
-                if s3_name.endswith("/"):
-                    s3_name = s3_name[:-1]
+                s3_uri = node_args["connection_options"]["path"]
 
                 # append S3 format if different ones exist
-                if len(s3_formats[s3_name]) > 1:
-                    node_urn = f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name}_{node_args.get('format')},{self.env})"
+                if len(s3_formats[s3_uri]) > 1:
+                    node_urn = mce_builder.make_s3_urn(
+                        s3_uri,
+                        self.env,
+                        suffix=node_args.get("format"),
+                    )
 
                 else:
-                    node_urn = (
-                        f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{self.env})"
-                    )
+                    node_urn = mce_builder.make_s3_urn(s3_uri, self.env)
 
                 dataset_snapshot = DatasetSnapshot(
                     urn=node_urn,
@@ -245,7 +239,7 @@ class GlueSource(Source):
         self,
         dataflow_graph: Dict[str, Any],
         flow_urn: str,
-        s3_names: typing.DefaultDict[str, Set[Union[str, None]]],
+        s3_formats: typing.DefaultDict[str, Set[Union[str, None]]],
     ) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[MetadataChangeEvent]]:
         """
         Prepare a job's DAG for ingestion.
@@ -255,6 +249,8 @@ class GlueSource(Source):
                 Job DAG returned from get_dataflow_graph()
             flow_urn:
                 URN of the flow (i.e. the AWS Glue job itself).
+            s3_formats:
+                Map from s3 URIs to formats used (for deduplication purposes)
         """
 
         new_dataset_ids: List[str] = []
@@ -266,7 +262,7 @@ class GlueSource(Source):
         for node in dataflow_graph["DagNodes"]:
 
             nodes[node["Id"]] = self.process_dataflow_node(
-                node, flow_urn, new_dataset_ids, new_dataset_mces, s3_names
+                node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
             )
 
         # traverse edges to fill in node properties
