@@ -211,16 +211,20 @@ SAGEMAKER_JOB_TYPES = {
 }
 
 
+def make_sagemaker_flow_urn(arn: str, env: str) -> str:
+
+    return mce_builder.make_data_flow_urn(
+        orchestrator="sagemaker", flow_id=arn, cluster=env
+    )
+
+
 def make_sagemaker_job_urn(arn: str, env: str) -> str:
 
+    flow_urn = make_sagemaker_flow_urn(arn, env)
+
     # SageMaker has no global grouping property for jobs,
-    # so we just file all of them under an umbrella DataFlow
-    return mce_builder.make_data_job_urn(
-        orchestrator="sagemaker",
-        flow_id="sagemaker",
-        job_id=arn,
-        cluster=env,
-    )
+    # so we create a flow for every single job
+    return mce_builder.make_data_job_urn_with_flow(flow_urn=flow_urn, job_id=arn)
 
 
 @dataclass
@@ -232,6 +236,8 @@ class SageMakerJob:
     """
 
     job_snapshot: DataJobSnapshotClass
+    job_name: str
+    job_arn: str
     input_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     output_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     input_jobs: Set[str] = field(default_factory=set)
@@ -341,16 +347,9 @@ class JobProcessor:
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-        # yield umbrella flow (since SageMaker has no grouping functionality for jobs)
-        flow_urn = mce_builder.make_data_flow_urn("sagemaker", "sagemaker", self.env)
-
-        flow_wu = self.get_dataflow_wu(flow_urn)
-        self.report.report_workunit(flow_wu)
-        yield flow_wu
-
         jobs = self.get_all_jobs()
 
-        processed_jobs = {}
+        processed_jobs: Dict[str, SageMakerJob] = {}
 
         # first pass: process jobs and collect datasets used
         for job in jobs:
@@ -405,6 +404,26 @@ class JobProcessor:
             processed_job = processed_jobs[job_urn]
             job_snapshot = processed_job.job_snapshot
 
+            flow_urn = make_sagemaker_flow_urn(processed_job.job_arn, self.env)
+
+            # create flow for each job
+            flow_mce = MetadataChangeEvent(
+                proposedSnapshot=DataFlowSnapshotClass(
+                    urn=flow_urn,
+                    aspects=[
+                        DataFlowInfoClass(
+                            name=processed_job.job_name,
+                        ),
+                    ],
+                )
+            )
+            flow_wu = MetadataWorkUnit(
+                id=flow_urn,
+                mce=flow_mce,
+            )
+            self.report.report_workunit(flow_wu)
+            yield flow_wu
+
             job_snapshot.aspects.append(
                 DataJobInputOutputClass(
                     inputDatasets=sorted(list(processed_job.input_datasets.keys())),
@@ -426,7 +445,7 @@ class JobProcessor:
         self,
         job: Dict[str, Any],
         job_type: str,
-    ) -> DataJobSnapshotClass:
+    ) -> Tuple[DataJobSnapshotClass, str, str]:
         """
         General function for generating a job snapshot.
         """
@@ -449,12 +468,12 @@ class JobProcessor:
             )
 
         job_urn = make_sagemaker_job_urn(arn, self.env)
-
-        return DataJobSnapshotClass(
+        snapshot_job_name = f"{job_type}:{name}"
+        job_snapshot = DataJobSnapshotClass(
             urn=job_urn,
             aspects=[
                 DataJobInfoClass(
-                    name=f"{job_type}:{name}",
+                    name=snapshot_job_name,
                     type="SAGEMAKER",
                     status=mapped_status,
                     customProperties={
@@ -464,6 +483,8 @@ class JobProcessor:
                 ),
             ],
         )
+
+        return job_snapshot, snapshot_job_name, arn
 
     def process_auto_ml_job(self, job: Dict[str, Any]) -> SageMakerJob:
         """
@@ -498,12 +519,14 @@ class JobProcessor:
                 "uri": output_s3_path,
             }
 
-        job_snapshot = self.create_common_job_snapshot(
+        job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
+            job_name=job_name,
+            job_arn=job_arn,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
@@ -545,12 +568,14 @@ class JobProcessor:
                 "target_platform": output_data.get("TargetPlatform"),
             }
 
-        job_snapshot = self.create_common_job_snapshot(
+        job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
+            job_name=job_name,
+            job_arn=job_arn,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
@@ -600,12 +625,12 @@ class JobProcessor:
         if compilation_job_name is not None:
 
             # globally unique job name
-            job_name = ("compilation", compilation_job_name)
+            full_job_name = ("compilation", compilation_job_name)
 
-            if job_name in self.name_to_arn:
+            if full_job_name in self.name_to_arn:
 
                 output_jobs.add(
-                    make_sagemaker_job_urn(self.name_to_arn[job_name], self.env)
+                    make_sagemaker_job_urn(self.name_to_arn[full_job_name], self.env)
                 )
             else:
 
@@ -618,12 +643,14 @@ class JobProcessor:
         # model: Optional[str] = job.get("ModelName")
         # model_version: Optional[str] = job.get("ModelVersion")
 
-        job_snapshot = self.create_common_job_snapshot(
+        job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
+            job_name=job_name,
+            job_arn=job_arn,
             job_snapshot=job_snapshot,
             output_datasets=output_datasets,
             output_jobs=output_jobs,
@@ -649,12 +676,12 @@ class JobProcessor:
 
         for training_job in job.get("TrainingJobDefinitions", []):
 
-            job_name = ("training", training_job["DefinitionName"])
+            full_job_name = ("training", training_job["DefinitionName"])
 
-            if job_name in self.name_to_arn:
+            if full_job_name in self.name_to_arn:
 
                 training_jobs.add(
-                    make_sagemaker_job_urn(self.name_to_arn[job_name], self.env)
+                    make_sagemaker_job_urn(self.name_to_arn[full_job_name], self.env)
                 )
             else:
 
@@ -663,12 +690,14 @@ class JobProcessor:
                     f"Unable to find ARN for training job {training_job['DefinitionName']} produced by hyperparameter tuning job {arn}",
                 )
 
-        job_snapshot = self.create_common_job_snapshot(
+        job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
+            job_name=job_name,
+            job_arn=job_arn,
             job_snapshot=job_snapshot,
             output_jobs=training_jobs,
         )
@@ -724,12 +753,14 @@ class JobProcessor:
                 "uri": output_config_s3_uri,
             }
 
-        job_snapshot = self.create_common_job_snapshot(
+        job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
+            job_name=job_name,
+            job_arn=job_arn,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
@@ -819,12 +850,14 @@ class JobProcessor:
                     "dataset_type": "sagemaker_feature_group",
                 }
 
-        job_snapshot = self.create_common_job_snapshot(
+        job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
+            job_name=job_name,
+            job_arn=job_arn,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             input_jobs=input_jobs,
@@ -897,12 +930,14 @@ class JobProcessor:
                     "uri": output_s3_uri,
                 }
 
-        job_snapshot = self.create_common_job_snapshot(
+        job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
+            job_name=job_name,
+            job_arn=job_arn,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
@@ -955,12 +990,14 @@ class JobProcessor:
         if auto_ml_arn is not None:
             input_jobs.add(make_sagemaker_job_urn(auto_ml_arn, self.env))
 
-        job_snapshot = self.create_common_job_snapshot(
+        job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
         )
 
         return SageMakerJob(
+            job_name=job_name,
+            job_arn=job_arn,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
