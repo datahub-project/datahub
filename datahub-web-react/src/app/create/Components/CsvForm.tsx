@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { CSVReader } from 'react-papaparse';
-import { Form, Input, Space, Select, Button, message, Divider } from 'antd';
+import { Form, Input, Space, Select, Button, message, Divider, InputNumber } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import adhocConfig from '../../../conf/Adhoc';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
@@ -9,6 +9,8 @@ import { CommonFields } from './CommonFields';
 
 export const CsvForm = () => {
     const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
+    const [hasHeader, setHasHeader] = useState('no');
+
     const user = useGetAuthenticatedUser();
     const printSuccessMsg = (status) => {
         message.success(`Status:${status} - Request submitted successfully`, 3).then();
@@ -39,32 +41,40 @@ export const CsvForm = () => {
             });
     };
     const onReset = () => {
-        // todo: remove csv file also
         form.resetFields();
+    };
+    const onHeaderChange = (value) => {
+        setHasHeader(value);
     };
     const handleOnFileLoad = (data, fileInfo) => {
         console.log('data:', data);
         console.log('fileInfo:', fileInfo);
+        let headerLine = form.getFieldValue('headerLine');
+        console.log('form values', form.getFieldValue('headerLine'));
         // set state for file type
         setFileType({ dataset_type: fileInfo.type });
         // get the first row as headers
-        if (data.length > 0) {
+        if (data.length > 0 && headerLine <= data.length) {
             // map to array of objects
-            const res = data[0].data.map((item) => {
+            const res = data[--headerLine].data.map((item) => {
                 return { field_name: item, field_description: '' };
             });
-            form.setFieldsValue({ fields: res });
+            form.setFieldsValue({ fields: res, hasHeader: 'yes' });
+            setHasHeader('yes');
+        } else {
+            message.error('Empty file or invalid header line', 3).then();
         }
     };
     const handleOnRemoveFile = () => {
-        form.setFieldsValue({ fields: [{ field_description: '' }] });
+        form.resetFields();
+        setHasHeader('no');
     };
     return (
         <>
             <Form
                 {...layout}
                 form={form}
-                initialValues={{ fields: [{ field_description: '' }] }}
+                initialValues={{ fields: [{ field_description: '' }], hasHeader: 'no', headerLine: 1 }}
                 name="dynamic_form_item"
                 onFinish={onFinish}
             >
@@ -75,6 +85,25 @@ export const CsvForm = () => {
                     Dataset Info
                 </Divider>
                 <CommonFields />
+                <Form.Item
+                    name="hasHeader"
+                    label="File Header"
+                    rules={[
+                        {
+                            required: true,
+                        },
+                    ]}
+                >
+                    <Select placeholder="Does the file contains header" onChange={onHeaderChange}>
+                        <Option value="yes">Yes</Option>
+                        <Option value="no">No</Option>
+                    </Select>
+                </Form.Item>
+                {hasHeader === 'yes' && (
+                    <Form.Item label="Header Line" name="headerLine">
+                        <InputNumber min={1} max={10} />
+                    </Form.Item>
+                )}
                 <Form.Item label="Dataset Fields" name="fields">
                     <Form.List {...layout} name="fields">
                         {(fields, { add, remove }) => (
