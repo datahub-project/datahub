@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 from urllib.parse import quote_plus
 
+import pydantic
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes as types
@@ -116,7 +117,7 @@ class SQLAlchemyConfig(ConfigModel):
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     username: Optional[str] = None
-    password: Optional[str] = None
+    password: Optional[pydantic.SecretStr] = None
     host_port: str
     database: Optional[str] = None
     scheme: str
@@ -125,7 +126,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
         return make_sqlalchemy_uri(
             self.scheme,
             self.username,
-            self.password,
+            self.password.get_secret_value() if self.password else None,
             self.host_port,
             self.database,
             uri_opts=uri_opts,
