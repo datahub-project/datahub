@@ -83,8 +83,8 @@ public class DatasetSnapshotMapper implements ModelMapper<DatasetSnapshot, Datas
               result.setGlobalTags(GlobalTagsMapper.map((GlobalTags) aspect));
             } else if (aspect instanceof EditableSchemaMetadata) {
               result.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map((EditableSchemaMetadata) aspect));
-            } else if(aspect instanceof GlossaryTerms) {
-                result.setGlossaryTerms(GlossaryTermsMapper.map((GlossaryTerms) aspect ));
+            } else if (aspect instanceof GlossaryTerms) {
+              result.setGlossaryTerms(GlossaryTermsMapper.map((GlossaryTerms) aspect));
             } else if (aspect instanceof EditableDatasetProperties) {
                 final EditableDatasetProperties editableDatasetProperties = (EditableDatasetProperties) aspect;
                 final DatasetEditableProperties editableProperties = new DatasetEditableProperties();
