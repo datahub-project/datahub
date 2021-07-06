@@ -8,6 +8,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
+    DataFlowInfoClass,
+    DataFlowSnapshotClass,
     DataJobInputOutputClass,
     DataJobSnapshotClass,
     DatasetPropertiesClass,
@@ -196,7 +198,7 @@ SAGEMAKER_JOB_TYPES = {
 }
 
 
-def make_sagemaker_job_urn(arn: str) -> str:
+def make_sagemaker_job_urn(arn: str, env: str) -> str:
 
     # SageMaker has no global grouping property for jobs,
     # so we just file all of them under an umbrella DataFlow
@@ -204,6 +206,7 @@ def make_sagemaker_job_urn(arn: str) -> str:
         orchestrator="sagemaker",
         flow_id="sagemaker",
         job_id=arn,
+        cluster=env,
     )
 
 
@@ -280,7 +283,39 @@ class JobProcessor:
             **{describe_name_key: job_name}
         )
 
+    def get_dataflow_wu(self, flow_urn: str) -> MetadataWorkUnit:
+        """
+        Generate a DataFlow workunit for a Glue job.
+
+        Parameters
+        ----------
+            flow_urn:
+                URN for the flow
+            job:
+                Job object from get_all_jobs()
+        """
+        mce = MetadataChangeEvent(
+            proposedSnapshot=DataFlowSnapshotClass(
+                urn=flow_urn,
+                aspects=[
+                    DataFlowInfoClass(
+                        name="sagemaker",
+                        description="Umbrella flow for all SageMaker jobs",
+                    ),
+                ],
+            )
+        )
+
+        return MetadataWorkUnit(id="sagemaker-umbrella-flow", mce=mce)
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+
+        # yield umbrella flow (since SageMaker has no grouping functionality for jobs)
+        flow_urn = mce_builder.make_data_flow_urn("sagemaker", "sagemaker", self.env)
+
+        flow_wu = self.get_dataflow_wu(flow_urn)
+        self.report.report_workunit(flow_wu)
+        yield flow_wu
 
         jobs = self.get_all_jobs()
 
@@ -383,7 +418,7 @@ class JobProcessor:
                 f"Unknown status for {name} ({arn}): {sagemaker_status}",
             )
 
-        job_urn = make_sagemaker_job_urn(arn)
+        job_urn = make_sagemaker_job_urn(arn, self.env)
 
         return DataJobSnapshotClass(
             urn=job_urn,
@@ -539,7 +574,9 @@ class JobProcessor:
 
             if job_name in self.name_to_arn:
 
-                output_jobs.add(make_sagemaker_job_urn(self.name_to_arn[job_name]))
+                output_jobs.add(
+                    make_sagemaker_job_urn(self.name_to_arn[job_name], self.env)
+                )
             else:
 
                 self.report.report_warning(
@@ -586,7 +623,9 @@ class JobProcessor:
 
             if job_name in self.name_to_arn:
 
-                training_jobs.add(make_sagemaker_job_urn(self.name_to_arn[job_name]))
+                training_jobs.add(
+                    make_sagemaker_job_urn(self.name_to_arn[job_name], self.env)
+                )
             else:
 
                 self.report.report_warning(
@@ -682,9 +721,9 @@ class JobProcessor:
         training_arn: Optional[str] = job.get("TrainingJobArn")
 
         if auto_ml_arn is not None:
-            input_jobs.add(make_sagemaker_job_urn(auto_ml_arn))
+            input_jobs.add(make_sagemaker_job_urn(auto_ml_arn, self.env))
         if training_arn:
-            input_jobs.add(make_sagemaker_job_urn(training_arn))
+            input_jobs.add(make_sagemaker_job_urn(training_arn, self.env))
 
         input_datasets = {}
 
@@ -881,9 +920,9 @@ class JobProcessor:
         input_jobs = set()
 
         if labeling_arn is not None:
-            input_jobs.add(make_sagemaker_job_urn(labeling_arn))
+            input_jobs.add(make_sagemaker_job_urn(labeling_arn, self.env))
         if auto_ml_arn is not None:
-            input_jobs.add(make_sagemaker_job_urn(auto_ml_arn))
+            input_jobs.add(make_sagemaker_job_urn(auto_ml_arn, self.env))
 
         job_snapshot = self.create_common_job_snapshot(
             job,
