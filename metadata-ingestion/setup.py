@@ -79,6 +79,7 @@ plugins: Dict[str, Set[str]] = {
         # and column comments, and also releases HTTP and HTTPS transport schemes.
         "acryl-pyhive[hive]>=0.6.7"
     },
+    "kudu": {"impyla>=0.16.3"},
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
     "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
@@ -144,6 +145,7 @@ base_dev_requirements = {
             "looker",
             "glue",
             "hive",
+            "kudu",
             "oracle",
             "datahub-kafka",
             "datahub-rest",
@@ -183,6 +185,7 @@ entry_points = {
         "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.glue:GlueSource",
         "hive = datahub.ingestion.source.hive:HiveSource",
+        "kudu = datahub.ingestion.source.kudu:KuduSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
