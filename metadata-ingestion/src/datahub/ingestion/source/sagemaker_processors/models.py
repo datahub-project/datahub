@@ -45,8 +45,7 @@ class ModelProcessor:
 
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
-                "sagemaker",
-                model_details["ModelName"],
+                "sagemaker", model_details["ModelName"], self.env
             ),
             aspects=[
                 MLModelPropertiesClass(

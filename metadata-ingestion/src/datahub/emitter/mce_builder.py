@@ -73,9 +73,9 @@ def make_ml_feature_table_urn(platform: str, feature_table_name: str) -> str:
     )
 
 
-def make_ml_model_urn(platform: str, model_name: str) -> str:
+def make_ml_model_urn(platform: str, model_name: str, env: str) -> str:
 
-    return f"urn:li:mlModel:(urn:li:dataPlatform:{platform},{model_name})"
+    return f"urn:li:mlModel:(urn:li:dataPlatform:{platform},{model_name},{env})"
 
 
 def make_s3_urn(s3_uri: str, env: str, suffix: Optional[str] = None) -> str:

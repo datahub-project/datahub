@@ -287,7 +287,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
-        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model)",
+        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
@@ -318,7 +318,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
-        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model)",
+        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
