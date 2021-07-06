@@ -1,16 +1,14 @@
-from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Union
+from typing import Iterable
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws_common import AwsSourceConfig
-from datahub.ingestion.source.sagemaker_processors.feature_groups import (
-    FeatureGroupProcessor,
-)
 from datahub.ingestion.source.sagemaker_processors.common import (
     SagemakerSourceConfig,
     SagemakerSourceReport,
+)
+from datahub.ingestion.source.sagemaker_processors.feature_groups import (
+    FeatureGroupProcessor,
 )
 from datahub.ingestion.source.sagemaker_processors.jobs import JobProcessor
 from datahub.ingestion.source.sagemaker_processors.models import ModelProcessor

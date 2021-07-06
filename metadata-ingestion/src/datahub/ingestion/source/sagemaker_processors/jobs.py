@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from datahub.emitter import mce_builder
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
@@ -12,9 +12,6 @@ from datahub.metadata.schema_classes import (
     DataJobSnapshotClass,
     DatasetPropertiesClass,
     JobStatusClass,
-)
-from datahub.ingestion.source.sagemaker_processors.common import (
-    SagemakerSourceReport,
 )
 
 

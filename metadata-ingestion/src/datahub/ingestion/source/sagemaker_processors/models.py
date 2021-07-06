@@ -3,14 +3,11 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List
 
 import datahub.emitter.mce_builder as builder
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import MLModelSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import MLModelPropertiesClass
-from datahub.ingestion.source.sagemaker_processors.common import (
-    SagemakerSourceReport,
-)
 
 
 @dataclass
