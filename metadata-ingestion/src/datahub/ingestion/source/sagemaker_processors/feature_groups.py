@@ -16,13 +16,16 @@ from datahub.metadata.schema_classes import (
     MLFeatureTablePropertiesClass,
     MLPrimaryKeyPropertiesClass,
 )
+from datahub.ingestion.source.sagemaker_processors.common import (
+    SagemakerSourceReport,
+)
 
 
 @dataclass
 class FeatureGroupProcessor:
     sagemaker_client: Any
     env: str
-    report: SourceReport
+    report: SagemakerSourceReport
 
     def get_all_feature_groups(self) -> List[Dict[str, Any]]:
         """
@@ -255,10 +258,11 @@ class FeatureGroupProcessor:
             )
 
             for feature in feature_group_details["FeatureDefinitions"]:
+                self.report.report_feature_scanned()
                 wu = self.get_feature_wu(feature_group_details, feature)
                 self.report.report_workunit(wu)
                 yield wu
-
+            self.report.report_feature_group_scanned()
             wu = self.get_feature_group_wu(feature_group_details)
             self.report.report_workunit(wu)
             yield wu

@@ -13,6 +13,9 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     JobStatusClass,
 )
+from datahub.ingestion.source.sagemaker_processors.common import (
+    SagemakerSourceReport,
+)
 
 
 @dataclass
@@ -239,7 +242,7 @@ class SageMakerJob:
 class JobProcessor:
     sagemaker_client: Any
     env: str
-    report: SourceReport
+    report: SagemakerSourceReport
     job_type_filter: Union[Dict[str, str], bool, None]
     arn_to_name: Dict[str, Tuple[str, str]] = field(default_factory=dict)
     name_to_arn: Dict[Tuple[str, str], str] = field(default_factory=dict)
@@ -351,6 +354,7 @@ class JobProcessor:
                 id=dataset_urn,
                 mce=dataset_mce,
             )
+            self.report.report_dataset_scanned()
             self.report.report_workunit(dataset_wu)
             yield dataset_wu
 
@@ -373,6 +377,7 @@ class JobProcessor:
                 id=job_urn,
                 mce=job_mce,
             )
+            self.report.report_job_scanned()
             self.report.report_workunit(job_wu)
             yield job_wu
 

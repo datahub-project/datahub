@@ -8,13 +8,16 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import MLModelSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import MLModelPropertiesClass
+from datahub.ingestion.source.sagemaker_processors.common import (
+    SagemakerSourceReport,
+)
 
 
 @dataclass
 class ModelProcessor:
     sagemaker_client: Any
     env: str
-    report: SourceReport
+    report: SagemakerSourceReport
 
     def get_all_models(self) -> List[Dict[str, Any]]:
         """
@@ -79,6 +82,7 @@ class ModelProcessor:
 
             model_details = self.get_model_details(model["ModelName"])
 
+            self.report.report_model_scanned()
             wu = self.get_model_wu(model_details)
             self.report.report_workunit(wu)
             yield wu
