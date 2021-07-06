@@ -7,9 +7,9 @@ from datahub.ingestion.source.sagemaker_processors.common import SagemakerSource
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    DataJobInfoClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
+    DataJobInfoClass,
     DataJobInputOutputClass,
     DataJobSnapshotClass,
     DatasetPropertiesClass,
@@ -19,18 +19,31 @@ from datahub.metadata.schema_classes import (
 
 @dataclass
 class SageMakerJobType:
+    # boto3 command to get list of jobs
     list_command: str
+    # field in job listing response containing actual list
     list_key: str
+    # field in job listing response element corresponding to job name
     list_name_key: str
+    # field in job listing response element corresponding to job ARN
     list_arn_key: str
+
+    # boto3 command to get job details
     describe_command: str
+    # field in job description response corresponding to job name
     describe_name_key: str
+    # field in job description response corresponding to job ARN
     describe_arn_key: str
+    # field in job description response corresponding to job status
     describe_status_key: str
+    # job-specific mapping from boto3 status strings to DataHub-native enum
     status_map: Dict[str, str]
+
+    # name of function for processing job for ingestion
     processor: str
 
 
+# map from SageMaker job code to metadata on API access commands, fields, and processors
 SAGEMAKER_JOB_TYPES = {
     "auto_ml": SageMakerJobType(
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_auto_ml_jobs
@@ -212,6 +225,12 @@ def make_sagemaker_job_urn(arn: str, env: str) -> str:
 
 @dataclass
 class SageMakerJob:
+    """
+    Intermediate job representation for storing result of initial ingestion from raw API response.
+
+    Produced by first-pass ingestion and basis for subsequent extraction.
+    """
+
     job_snapshot: DataJobSnapshotClass
     input_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     output_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -222,10 +241,18 @@ class SageMakerJob:
 
 @dataclass
 class JobProcessor:
+    """
+    Job ingestion module, called by top-level SageMaker ingestion handler.
+    """
+
+    # boto3 SageMaker client
     sagemaker_client: Any
     env: str
     report: SagemakerSourceReport
+    # config filter for specific job types to ingest (see metadata-ingestion README)
     job_type_filter: Union[Dict[str, str], bool, None]
+
+    # translators between ARNs and job names (represented as tuples of (job_type, job_name))
     arn_to_name: Dict[str, Tuple[str, str]] = field(default_factory=dict)
     name_to_arn: Dict[Tuple[str, str], str] = field(default_factory=dict)
 
@@ -275,9 +302,13 @@ class JobProcessor:
 
         return jobs
 
-    def get_job_details(
-        self, job_name: str, describe_command: str, describe_name_key: str
-    ) -> Dict[str, Any]:
+    def get_job_details(self, job_name: str, job_type: str) -> Dict[str, Any]:
+        """
+        Get boto3 describe_<job> response
+        """
+
+        describe_command = SAGEMAKER_JOB_TYPES[job_type].describe_command
+        describe_name_key = SAGEMAKER_JOB_TYPES[job_type].describe_name_key
 
         return getattr(self.sagemaker_client, describe_command)(
             **{describe_name_key: job_name}
@@ -327,11 +358,7 @@ class JobProcessor:
             job_type = SAGEMAKER_JOB_TYPES[job["type"]]
             job_name = job[job_type.list_name_key]
 
-            job_details = self.get_job_details(
-                job_name,
-                job_type.describe_command,
-                job_type.describe_name_key,
-            )
+            job_details = self.get_job_details(job_name, job["type"])
 
             processed_job = getattr(self, job_type.processor)(job_details)
             processed_jobs[processed_job.job_snapshot.urn] = processed_job
@@ -400,6 +427,9 @@ class JobProcessor:
         job: Dict[str, Any],
         job_type: str,
     ) -> DataJobSnapshotClass:
+        """
+        General function for generating a job snapshot.
+        """
 
         job_type_info = SAGEMAKER_JOB_TYPES[job_type]
 
@@ -563,7 +593,7 @@ class JobProcessor:
                 "uri": output_s3_uri,
             }
 
-        # "The name of the SageMaker Neo compilation job that is used to locate model artifacts that are being packaged."
+        # from docs: "The name of the SageMaker Neo compilation job that is used to locate model artifacts that are being packaged."
         compilation_job_name: Optional[str] = job.get("CompilationJobName")
 
         output_jobs = set()
@@ -584,7 +614,7 @@ class JobProcessor:
                     f"Unable to find ARN for compilation job {compilation_job_name} produced by edge packaging job {arn}",
                 )
 
-        # TODO: see if we can link models here
+        # TODO: see if we can link models here (will require adding some aspect to either jobs or models)
         # model: Optional[str] = job.get("ModelName")
         # model_version: Optional[str] = job.get("ModelVersion")
 
@@ -850,6 +880,7 @@ class JobProcessor:
 
         output_datasets = {}
 
+        # process all output datasets at once
         for output_s3_uri in [
             output_s3_uri,
             checkpoint_s3_uri,
