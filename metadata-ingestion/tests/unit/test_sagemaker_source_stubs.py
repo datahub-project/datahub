@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 list_feature_groups_response = {
     "FeatureGroupSummaries": [
@@ -102,9 +102,9 @@ list_auto_ml_jobs_response = {
             "AutoMLJobArn": auto_ml_job_arn,
             "AutoMLJobStatus": "Completed",
             "AutoMLJobSecondaryStatus": "Starting",
-            "CreationTime": datetime(2015, 1, 1),
-            "EndTime": datetime(2015, 1, 1),
-            "LastModifiedTime": datetime(2015, 1, 1),
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "EndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "FailureReason": "string",
             "PartialFailureReasons": [
                 {"PartialFailureMessage": "string"},
@@ -155,9 +155,9 @@ describe_auto_ml_job_response = {
             },
         },
     },
-    "CreationTime": datetime(2015, 1, 1),
-    "EndTime": datetime(2015, 1, 1),
-    "LastModifiedTime": datetime(2015, 1, 1),
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "EndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "FailureReason": "string",
     "PartialFailureReasons": [
         {"PartialFailureMessage": "string"},
@@ -193,9 +193,9 @@ describe_auto_ml_job_response = {
                 "Environment": {"string": "string"},
             },
         ],
-        "CreationTime": datetime(2015, 1, 1),
-        "EndTime": datetime(2015, 1, 1),
-        "LastModifiedTime": datetime(2015, 1, 1),
+        "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        "EndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         "FailureReason": "string",
         "CandidateProperties": {
             "CandidateArtifactLocations": {"Explainability": "string"}
@@ -253,14 +253,14 @@ list_compilation_jobs_response = {
         {
             "CompilationJobName": compilation_job_name,
             "CompilationJobArn": compilation_job_arn,
-            "CreationTime": datetime(2015, 1, 1),
-            "CompilationStartTime": datetime(2015, 1, 1),
-            "CompilationEndTime": datetime(2015, 1, 1),
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CompilationStartTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CompilationEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "CompilationTargetDevice": "lambda",
             "CompilationTargetPlatformOs": "ANDROID",
             "CompilationTargetPlatformArch": "X86_64",
             "CompilationTargetPlatformAccelerator": "INTEL_GRAPHICS",
-            "LastModifiedTime": datetime(2015, 1, 1),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "CompilationJobStatus": "INPROGRESS",
         },
     ],
@@ -269,12 +269,12 @@ describe_compilation_job_response = {
     "CompilationJobName": compilation_job_name,
     "CompilationJobArn": compilation_job_arn,
     "CompilationJobStatus": "INPROGRESS",  # 'INPROGRESS'|'COMPLETED'|'FAILED'|'STARTING'|'STOPPING'|'STOPPED'
-    "CompilationStartTime": datetime(2015, 1, 1),
-    "CompilationEndTime": datetime(2015, 1, 1),
+    "CompilationStartTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "CompilationEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "StoppingCondition": {"MaxRuntimeInSeconds": 123, "MaxWaitTimeInSeconds": 123},
     "InferenceImage": "string",
-    "CreationTime": datetime(2015, 1, 1),
-    "LastModifiedTime": datetime(2015, 1, 1),
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "FailureReason": "string",
     "ModelArtifacts": {
         "S3ModelArtifacts": "s3://compilation-job-bucket/model-artifacts.tar.gz"
@@ -321,8 +321,8 @@ list_edge_packaging_jobs_response = {
             "CompilationJobName": "string",
             "ModelName": "string",
             "ModelVersion": "string",
-            "CreationTime": datetime(2015, 1, 1),
-            "LastModifiedTime": datetime(2015, 1, 1),
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         },
     ],
 }
@@ -342,8 +342,8 @@ describe_edge_packaging_job_response = {
     "ResourceKey": "string",
     "EdgePackagingJobStatus": "STARTING",  # 'STARTING'|'INPROGRESS'|'COMPLETED'|'FAILED'|'STOPPING'|'STOPPED'
     "EdgePackagingJobStatusMessage": "string",
-    "CreationTime": datetime(2015, 1, 1),
-    "LastModifiedTime": datetime(2015, 1, 1),
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "ModelArtifact": "s3://edge-packaging-bucket/model-artifact.tar.gz",
     "ModelSignature": "string",
     "PresetDeploymentOutput": {
@@ -363,9 +363,9 @@ list_hyper_parameter_tuning_jobs_response = {
             "HyperParameterTuningJobArn": hyper_parameter_tuning_job_arn,
             "HyperParameterTuningJobStatus": "Completed",
             "Strategy": "Bayesian",
-            "CreationTime": datetime(2015, 1, 1),
-            "HyperParameterTuningEndTime": datetime(2015, 1, 1),
-            "LastModifiedTime": datetime(2015, 1, 1),
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "HyperParameterTuningEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "TrainingJobStatusCounters": {
                 "Completed": 123,
                 "InProgress": 123,
@@ -625,9 +625,9 @@ describe_hyper_parameter_tuning_job_response = {
         },
     ],
     "HyperParameterTuningJobStatus": "Completed",  # 'Completed'|'InProgress'|'Failed'|'Stopped'|'Stopping'
-    "CreationTime": datetime(2015, 1, 1),
-    "HyperParameterTuningEndTime": datetime(2015, 1, 1),
-    "LastModifiedTime": datetime(2015, 1, 1),
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "HyperParameterTuningEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "TrainingJobStatusCounters": {
         "Completed": 123,
         "InProgress": 123,
@@ -641,9 +641,9 @@ describe_hyper_parameter_tuning_job_response = {
         "TrainingJobName": "string",
         "TrainingJobArn": "string",
         "TuningJobName": "string",
-        "CreationTime": datetime(2015, 1, 1),
-        "TrainingStartTime": datetime(2015, 1, 1),
-        "TrainingEndTime": datetime(2015, 1, 1),
+        "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        "TrainingStartTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        "TrainingEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         "TrainingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
         "TunedHyperParameters": {"string": "string"},
         "FailureReason": "string",
@@ -659,9 +659,9 @@ describe_hyper_parameter_tuning_job_response = {
         "TrainingJobName": "string",
         "TrainingJobArn": "string",
         "TuningJobName": "string",
-        "CreationTime": datetime(2015, 1, 1),
-        "TrainingStartTime": datetime(2015, 1, 1),
-        "TrainingEndTime": datetime(2015, 1, 1),
+        "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        "TrainingStartTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        "TrainingEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         "TrainingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
         "TunedHyperParameters": {"string": "string"},
         "FailureReason": "string",
@@ -690,8 +690,8 @@ list_labeling_jobs_response = {
         {
             "LabelingJobName": labeling_job_name,
             "LabelingJobArn": labeling_job_arn,
-            "CreationTime": datetime(2015, 1, 1),
-            "LastModifiedTime": datetime(2015, 1, 1),
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "LabelingJobStatus": "Initializing",
             "LabelCounters": {
                 "TotalLabeled": 123,
@@ -733,8 +733,8 @@ describe_labeling_job_response = {
         "Unlabeled": 123,
     },
     "FailureReason": "string",
-    "CreationTime": datetime(2015, 1, 1),
-    "LastModifiedTime": datetime(2015, 1, 1),
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "JobReferenceCode": "string",
     "LabelingJobName": labeling_job_name,
     "LabelingJobArn": labeling_job_arn,
@@ -806,9 +806,9 @@ list_training_jobs_response = {
         {
             "TrainingJobName": training_job_name,
             "TrainingJobArn": training_job_arn,
-            "CreationTime": datetime(2015, 1, 1),
-            "TrainingEndTime": datetime(2015, 1, 1),
-            "LastModifiedTime": datetime(2015, 1, 1),
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "TrainingEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "TrainingJobStatus": "InProgress",
         },
     ],
@@ -879,20 +879,24 @@ describe_training_job_response = {
         ],
     },
     "StoppingCondition": {"MaxRuntimeInSeconds": 123, "MaxWaitTimeInSeconds": 123},
-    "CreationTime": datetime(2015, 1, 1),
-    "TrainingStartTime": datetime(2015, 1, 1),
-    "TrainingEndTime": datetime(2015, 1, 1),
-    "LastModifiedTime": datetime(2015, 1, 1),
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "TrainingStartTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "TrainingEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "SecondaryStatusTransitions": [
         {
             "Status": "Starting",  # 'Starting'|'LaunchingMLInstances'|'PreparingTrainingStack'|'Downloading'|'DownloadingTrainingImage'|'Training'|'Uploading'|'Stopping'|'Stopped'|'MaxRuntimeExceeded'|'Completed'|'Failed'|'Interrupted'|'MaxWaitTimeExceeded'|'Updating'|'Restarting'
-            "StartTime": datetime(2015, 1, 1),
-            "EndTime": datetime(2015, 1, 1),
+            "StartTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "EndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "StatusMessage": "string",
         },
     ],
     "FinalMetricDataList": [
-        {"MetricName": "string", "Value": 1.0, "Timestamp": datetime(2015, 1, 1)},
+        {
+            "MetricName": "string",
+            "Value": 1.0,
+            "Timestamp": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
     ],
     "EnableNetworkIsolation": True,  # True|False
     "EnableInterContainerTrafficEncryption": True,  # True|False
@@ -937,7 +941,7 @@ describe_training_job_response = {
             "RuleEvaluationJobArn": "string",
             "RuleEvaluationStatus": "InProgress",  # 'InProgress'|'NoIssuesFound'|'IssuesFound'|'Error'|'Stopping'|'Stopped'
             "StatusDetails": "string",
-            "LastModifiedTime": datetime(2015, 1, 1),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         },
     ],
     "ProfilerConfig": {
@@ -962,7 +966,7 @@ describe_training_job_response = {
             "RuleEvaluationJobArn": "string",
             "RuleEvaluationStatus": "InProgress",  # 'InProgress'|'NoIssuesFound'|'IssuesFound'|'Error'|'Stopping'|'Stopped'
             "StatusDetails": "string",
-            "LastModifiedTime": datetime(2015, 1, 1),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         },
     ],
     "ProfilingStatus": "Enabled",  # 'Enabled'|'Disabled'
@@ -979,9 +983,9 @@ list_processing_jobs_response = {
         {
             "ProcessingJobName": processing_job_name,
             "ProcessingJobArn": processing_job_arn,
-            "CreationTime": datetime(2015, 1, 1),
-            "ProcessingEndTime": datetime(2015, 1, 1),
-            "LastModifiedTime": datetime(2015, 1, 1),
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "ProcessingEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "ProcessingJobStatus": "InProgress",
             "FailureReason": "string",
             "ExitMessage": "string",
@@ -1086,10 +1090,10 @@ describe_processing_job_response = {
     "ProcessingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
     "ExitMessage": "string",
     "FailureReason": "string",
-    "ProcessingEndTime": datetime(2015, 1, 1),
-    "ProcessingStartTime": datetime(2015, 1, 1),
-    "LastModifiedTime": datetime(2015, 1, 1),
-    "CreationTime": datetime(2015, 1, 1),
+    "ProcessingEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "ProcessingStartTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "MonitoringScheduleArn": "string",
     "AutoMLJobArn": auto_ml_job_arn,
     "TrainingJobArn": training_job_arn,
@@ -1104,9 +1108,9 @@ list_transform_jobs_response = {
         {
             "TransformJobName": transform_job_name,
             "TransformJobArn": transform_job_arn,
-            "CreationTime": datetime(2015, 1, 1),
-            "TransformEndTime": datetime(2015, 1, 1),
-            "LastModifiedTime": datetime(2015, 1, 1),
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "TransformEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "TransformJobStatus": "InProgress",
             "FailureReason": "string",
         },
@@ -1149,9 +1153,9 @@ describe_transform_job_response = {
         "InstanceCount": 123,
         "VolumeKmsKeyId": "string",
     },
-    "CreationTime": datetime(2015, 1, 1),
-    "TransformStartTime": datetime(2015, 1, 1),
-    "TransformEndTime": datetime(2015, 1, 1),
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "TransformStartTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "TransformEndTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "LabelingJobArn": labeling_job_arn,
     "AutoMLJobArn": auto_ml_job_arn,
     "DataProcessing": {
@@ -1214,12 +1218,12 @@ list_models_response = {
         {
             "ModelName": "the-first-model",
             "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
-            "CreationTime": datetime(2015, 1, 1),
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         },
         {
             "ModelName": "the-second-model",
             "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
-            "CreationTime": datetime(2015, 1, 1),
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         },
     ],
 }
@@ -1269,7 +1273,7 @@ describe_model_response_1 = {
             "string",
         ],
     },
-    "CreationTime": datetime(2015, 1, 1),
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
     "EnableNetworkIsolation": True,  # True | False
 }
@@ -1319,7 +1323,7 @@ describe_model_response_2 = {
             "string",
         ],
     },
-    "CreationTime": datetime(2015, 1, 1),
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
     "EnableNetworkIsolation": False,  # True | False
 }
