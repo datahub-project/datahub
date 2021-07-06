@@ -73,6 +73,8 @@ class ModelProcessor:
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
         models = self.get_all_models()
+        # sort models for consistency
+        models = sorted(models, key=lambda x: x["ModelArn"])
 
         for model in models:
 
