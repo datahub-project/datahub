@@ -84,9 +84,17 @@ enum EntityType {
     """
     MLMODEL
     """
+    The MLFEATURETable Entity
+    """
+    MLFEATURE_TABLE
+    """
     The MLFeature Entity
     """
     MLFEATURE
+    """
+    The MLPRIMARYKEY Entity
+    """
+    MLPRIMARY_KEY
     """
     The DATA_FLOW Entity
     """
@@ -141,6 +149,16 @@ type Query {
     Fetch a MLFeature by primary key
     """
     mlFeature(urn: String!): MLFeature
+
+    """
+    Fetch a MLFeatureTable by primary key
+    """
+    mlFeatureTable(urn: String!): MLFeatureTable
+
+    """
+    Fetch a MLPrimaryKey by primary key
+    """
+    mlPrimaryKey(urn: String!): MLPrimaryKey
 
     """
     Fetch a DataFlow by primary key
@@ -1178,6 +1196,10 @@ type GlobalTags {
     tags: [TagAssociation!]
 }
 
+type VersionTag {
+    versionTag: String
+}
+
 type GlossaryTerms {
     terms: [GlossaryTermAssociation!]
 }
@@ -2137,10 +2159,10 @@ type MLModel implements Entity {
     deprecation: Deprecation
 }
 
-type MLFeature implements Entity {
+type MLFeature implements EntityWithRelationships & Entity {
 
     """
-    The unique mlfeature URN
+    The unique MLFeature URN
     """
     urn: String!
 
@@ -2150,37 +2172,37 @@ type MLFeature implements Entity {
     type: EntityType!
 
     """
-    MLFeature native name
+    MLFeature name
     """
     name: String!
 
     """
-    MLFeature native name
+    MLFeature description
     """
-    featureNamespace: String!
+    description: String
 
     """
-    Tags used for searching mlfeature
+    MLFeature data type
     """
-    tags: [String!]!
+    dataType: MLFeatureDataType
 
     """
-    Ownership metadata of the mlfeature
+    Ownership metadata of the MLFeature
     """
     ownership: Ownership
 
     """
-    ModelProperties metadata of the mlfeature
+    ModelProperties metadata of the MLFeature
     """
     featureProperties: MLFeatureProperties
 
     """
-    References to internal resources related to the mlfeature
+    References to internal resources related to the MLFeature
     """
     institutionalMemory: InstitutionalMemory
 
     """
-    Status metadata of the mlfeature
+    Status metadata of the MLFeature
     """
     status: Status
 
@@ -2188,6 +2210,16 @@ type MLFeature implements Entity {
     Deprecation
     """
     deprecation: Deprecation
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
 }
 
 type MLModelProperties {
@@ -2213,11 +2245,150 @@ type MLFeatureProperties {
 
     dataType: MLFeatureDataType
 
-    version: String
+    version: VersionTag
 
     sources: [String!]
+}
 
-    tags: [String!]
+type MLPrimaryKey implements EntityWithRelationships & Entity {
+
+    """
+    The unique MLPrimaryKey URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    MLPrimaryKey name
+    """
+    name: String!
+
+    """
+    MLPrimaryKey description
+    """
+    description: String
+
+    """
+    MLPrimaryKey data type
+    """
+    dataType: MLFeatureDataType
+
+    """
+    MLPrimaryKeyProperties
+    """
+    primaryKeyProperties: MLPrimaryKeyProperties
+
+    """
+    Ownership metadata of the MLPrimaryKey
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the MLPrimaryKey
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Status metadata of the MLPrimaryKey
+    """
+    status: Status
+
+    """
+    Deprecation
+    """
+    deprecation: Deprecation
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
+}
+
+type MLPrimaryKeyProperties {
+
+    description: String
+
+    dataType: MLFeatureDataType
+
+    version: VersionTag
+
+    sources: [String!]
+}
+
+type MLFeatureTable implements EntityWithRelationships & Entity {
+
+    """
+    The unique MLFeatureTable URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    MLFeatureTable name
+    """
+    name: String!
+
+    """
+    MLFeatureTable description
+    """
+    description: String
+
+    """
+    Ownership metadata of the MLFeatureTable
+    """
+    ownership: Ownership
+
+    """
+    ModelProperties metadata of the MLFeature
+    """
+    featureTableProperties: MLFeatureTableProperties
+
+    """
+    References to internal resources related to the MLFeature
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Status metadata of the MLFeatureTable
+    """
+    status: Status
+
+    """
+    Deprecation
+    """
+    deprecation: Deprecation
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
+}
+
+type MLFeatureTableProperties {
+
+    description: String
+
+    mlFeatures: [MLFeature]
+
+    mlPrimaryKeys: [MLPrimaryKey]
 }
 
 type HyperParameterMap {

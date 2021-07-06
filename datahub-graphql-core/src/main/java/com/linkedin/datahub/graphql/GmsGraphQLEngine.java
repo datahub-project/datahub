@@ -50,7 +50,9 @@ import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import com.linkedin.datahub.graphql.types.lineage.DownstreamLineageType;
 import com.linkedin.datahub.graphql.types.lineage.UpstreamLineageType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
@@ -105,6 +107,8 @@ public class GmsGraphQLEngine {
     public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getEntitiesClient());
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getEntitiesClient());
     public static final MLFeatureType ML_FEATURE_TYPE = new MLFeatureType(GmsClientFactory.getEntitiesClient());
+    public static final MLFeatureTableType ML_FEATURE_TABLE_TYPE = new MLFeatureTableType(GmsClientFactory.getEntitiesClient());
+    public static final MLPrimaryKeyType ML_PRIMARY_KEY_TYPE = new MLPrimaryKeyType(GmsClientFactory.getEntitiesClient());
     public static final DataFlowType DATA_FLOW_TYPE = new DataFlowType(GmsClientFactory.getEntitiesClient());
     public static final DataJobType DATA_JOB_TYPE = new DataJobType(GmsClientFactory.getEntitiesClient());
     public static final DataFlowDataJobsRelationshipsType DATAFLOW_DATAJOBS_TYPE = new DataFlowDataJobsRelationshipsType(
@@ -127,6 +131,8 @@ public class GmsGraphQLEngine {
             TAG_TYPE,
             ML_MODEL_TYPE,
             ML_FEATURE_TYPE,
+            ML_FEATURE_TABLE_TYPE,
+            ML_PRIMARY_KEY_TYPE,
             DATA_FLOW_TYPE,
             DATA_JOB_TYPE,
             GLOSSARY_TERM_TYPE
@@ -276,6 +282,18 @@ public class GmsGraphQLEngine {
             .dataFetcher("glossaryTerm", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(
                             GLOSSARY_TERM_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("mlFeatureTable", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            ML_FEATURE_TABLE_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("mlFeature", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            ML_FEATURE_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("mlPrimaryKey", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            ML_PRIMARY_KEY_TYPE,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }

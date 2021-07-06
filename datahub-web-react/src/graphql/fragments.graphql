@@ -307,3 +307,36 @@ fragment dashboardFields on Dashboard {
         ...globalTagsFields
     }
 }
+
+fragment nonRecursiveMLFeatureTable on MLFeatureTable {
+    urn
+    type
+    name
+    description
+    featureTableProperties {
+        description
+        mlFeatures {
+            urn
+        }
+        mlPrimaryKeys {
+            urn
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    institutionalMemory {
+        elements {
+            url
+            author {
+                urn
+                username
+            }
+            description
+            created {
+                actor
+                time
+            }
+        }
+    }
+}

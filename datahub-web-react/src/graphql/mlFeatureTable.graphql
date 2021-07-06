@@ -1,0 +1,11 @@
+query getMLFeatureTable($urn: String!) {
+    mlFeatureTable(urn: $urn) {
+        ...nonRecursiveMLFeatureTable
+        # downstreamLineage {
+        #     ...downstreamRelationshipFields
+        # }
+        # upstreamLineage {
+        #     ...upstreamRelationshipFields
+        # }
+    }
+}

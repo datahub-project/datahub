@@ -25,6 +25,7 @@ import { PageRoutes } from './conf/Global';
 import { isLoggedInVar } from './app/auth/checkAuthStatus';
 import { GlobalCfg } from './conf';
 import { GlossaryTermEntity } from './app/entity/glossaryTerm/GlossaryTermEntity';
+import { MLFeatureTableEntity } from './app/entity/mlFeatureTable/MLFeatureTableEntity';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
 const MOCK_MODE = false;
@@ -95,6 +96,7 @@ const App: React.VFC = () => {
         register.register(new DataFlowEntity());
         register.register(new DataJobEntity());
         register.register(new GlossaryTermEntity());
+        register.register(new MLFeatureTableEntity());
         return register;
     }, []);
 

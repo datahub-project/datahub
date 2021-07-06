@@ -24,6 +24,7 @@ const BodyContainer = styled.div`
 
 export const HomePageBody = () => {
     const entityRegistry = useEntityRegistry();
+    console.log(entityRegistry.getBrowseEntityTypes());
     return (
         <BodyContainer>
             <Title>

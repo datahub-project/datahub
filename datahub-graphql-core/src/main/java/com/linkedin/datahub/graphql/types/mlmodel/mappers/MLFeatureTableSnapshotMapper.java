@@ -1,21 +1,20 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
 import com.linkedin.common.Deprecation;
-import com.linkedin.common.Ownership;
 import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.MLFeature;
-import com.linkedin.datahub.graphql.generated.MLFeatureDataType;
-import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.metadata.dao.utils.ModelUtils;
-import com.linkedin.metadata.snapshot.MLFeatureSnapshot;
-import com.linkedin.ml.metadata.MLFeatureProperties;
+import com.linkedin.metadata.snapshot.MLFeatureTableSnapshot;
+import com.linkedin.ml.metadata.MLFeatureTableProperties;
 
 import javax.annotation.Nonnull;
 
@@ -24,29 +23,28 @@ import javax.annotation.Nonnull;
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
  *
  */
-public class MLFeatureSnapshotMapper implements ModelMapper<MLFeatureSnapshot, MLFeature> {
+public class MLFeatureTableSnapshotMapper implements ModelMapper<MLFeatureTableSnapshot, MLFeatureTable> {
 
-    public static final MLFeatureSnapshotMapper INSTANCE = new MLFeatureSnapshotMapper();
+    public static final MLFeatureTableSnapshotMapper INSTANCE = new MLFeatureTableSnapshotMapper();
 
-    public static MLFeature map(@Nonnull final MLFeatureSnapshot mlFeature) {
-        return INSTANCE.apply(mlFeature);
+    public static MLFeatureTable map(@Nonnull final MLFeatureTableSnapshot mlFeatureTable) {
+        return INSTANCE.apply(mlFeatureTable);
     }
 
     @Override
-    public MLFeature apply(@Nonnull final MLFeatureSnapshot mlFeature) {
-        final MLFeature result = new MLFeature();
-        result.setUrn(mlFeature.getUrn().toString());
-        result.setType(EntityType.MLFEATURE);
-        result.setName(mlFeature.getUrn().getMlFeatureNameEntity());
-        ModelUtils.getAspectsFromSnapshot(mlFeature).forEach(aspect -> {
+    public MLFeatureTable apply(@Nonnull final MLFeatureTableSnapshot mlFeatureTable) {
+        final MLFeatureTable result = new MLFeatureTable();
+        result.setUrn(mlFeatureTable.getUrn().toString());
+        result.setType(EntityType.MLFEATURE_TABLE);
+        result.setName(mlFeatureTable.getUrn().getNamespace());
+        ModelUtils.getAspectsFromSnapshot(mlFeatureTable).forEach(aspect -> {
             if (aspect instanceof Ownership) {
                 Ownership ownership = Ownership.class.cast(aspect);
                 result.setOwnership(OwnershipMapper.map(ownership));
-            } else if (aspect instanceof MLFeatureProperties) {
-                MLFeatureProperties featureProperties = MLFeatureProperties.class.cast(aspect);
-                result.setFeatureProperties(MLFeaturePropertiesMapper.map(featureProperties));
-                result.setDescription(featureProperties.getDescription());
-                result.setDataType(MLFeatureDataType.valueOf(featureProperties.getDataType().toString()));
+            } else if (aspect instanceof MLFeatureTableProperties) {
+                MLFeatureTableProperties featureTableProperties = MLFeatureTableProperties.class.cast(aspect);
+                result.setFeatureTableProperties(MLFeatureTablePropertiesMapper.map(featureTableProperties));
+                result.setDescription(featureTableProperties.getDescription());
             } else if (aspect instanceof InstitutionalMemory) {
                 InstitutionalMemory institutionalMemory = InstitutionalMemory.class.cast(aspect);
                 result.setInstitutionalMemory(InstitutionalMemoryMapper.map(institutionalMemory));
