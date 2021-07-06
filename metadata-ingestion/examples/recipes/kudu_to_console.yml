@@ -1,0 +1,28 @@
+---
+source:
+  type: kudu
+  config:
+    host: localhost:21050
+#   table_pattern:
+#        allow:
+#            - "schema1.table1"
+#            - "schema1.table2"
+#        deny:
+#            - "^.*\.sys_.*" # deny all tables that start with sys_    
+    # options: 
+    #   connect_args:      
+    #     auth: KERBEROS
+    #     thrift_transport_protocol: https
+    #     kerberos_service_name: impala
+sink:
+  type: "console"
+
+# sink:
+#   type: "file"
+#   config:
+#     filename: './example_output_mces.json'
+
+# sink:
+#   type: "datahub-rest"
+#   config:
+#     server: "http://localhost:8080"
