@@ -25,13 +25,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
     NullTypeClass,
     NumberTypeClass,
+    RecordTypeClass,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
     TimeTypeClass,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass, RecordTypeClass
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 logger: logging.Logger = logging.getLogger(__name__)
 
