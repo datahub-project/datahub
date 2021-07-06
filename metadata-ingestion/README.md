@@ -157,7 +157,7 @@ source:
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
 
-For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka_to_console.yml).
+For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka.yml).
 
 ### MySQL Metadata `mysql`
 
@@ -895,10 +895,12 @@ sink:
   config:
     connection:
       bootstrap: "localhost:9092"
-      producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
+      producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serializingproducer
       schema_registry_url: "http://localhost:8081"
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
+
+For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka.yml).
 
 ### Console `console`
 
