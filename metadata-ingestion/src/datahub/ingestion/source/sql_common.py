@@ -179,6 +179,9 @@ class _CustomSQLAlchemyDummyType(types.TypeDecorator):
 
 
 def make_sqlalchemy_type(name: str) -> Type[types.TypeEngine]:
+    # This usage of type() dynamically constructs a class.
+    # See https://stackoverflow.com/a/15247202/5004662 and
+    # https://docs.python.org/3/library/functions.html#type.
     sqlalchemy_type: Type[types.TypeEngine] = type(
         name,
         (_CustomSQLAlchemyDummyType,),
