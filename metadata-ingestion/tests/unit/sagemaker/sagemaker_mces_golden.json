@@ -369,52 +369,6 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar.gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://edge-packaging-bucket/model-artifact.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar.gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://edge-packaging-bucket/output-config.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file.txt,PROD)",
         "aspects": [
           {
@@ -496,6 +450,52 @@
                 "uri": "s3://compilation-job-bucket/output-config.tar.gz",
                 "target_device": "lambda",
                 "target_platform": "{'Os': 'ANDROID', 'Arch': 'X86_64', 'Accelerator': 'INTEL_GRAPHICS'}"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar.gz,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://edge-packaging-bucket/model-artifact.tar.gz"
+              },
+              "externalUrl": null,
+              "description": null,
+              "uri": null,
+              "tags": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar.gz,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "dataset_type": "s3",
+                "uri": "s3://edge-packaging-bucket/output-config.tar.gz"
               },
               "externalUrl": null,
               "description": null,
@@ -869,57 +869,6 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,PROD),an-edge-packaging-job)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "customProperties": {
-                "EdgePackagingJobArn": "an-edge-packaging-job",
-                "EdgePackagingJobName": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
-                "CompilationJobName": "a-compilation-job",
-                "ModelName": "string",
-                "ModelVersion": "string",
-                "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-                "OutputConfig": "{'S3OutputLocation': 's3://edge-packaging-bucket/output-config.tar.gz', 'KmsKeyId': 'string', 'PresetDeploymentType': 'GreengrassV2Component', 'PresetDeploymentConfig': 'string'}",
-                "ResourceKey": "string",
-                "EdgePackagingJobStatus": "STARTING",
-                "EdgePackagingJobStatusMessage": "string",
-                "CreationTime": "2015-01-01 00:00:00",
-                "LastModifiedTime": "2015-01-01 00:00:00",
-                "ModelArtifact": "s3://edge-packaging-bucket/model-artifact.tar.gz",
-                "ModelSignature": "string",
-                "PresetDeploymentOutput": "{'Type': 'GreengrassV2Component', 'Artifact': 'arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/some-artifact', 'Status': 'COMPLETED', 'StatusMessage': 'string'}",
-                "jobType": "edge_packaging"
-              },
-              "externalUrl": null,
-              "name": "edge_packaging:arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
-              "description": null,
-              "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
-              },
-              "flowUrn": null,
-              "status": "STARTING"
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [],
-              "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar.gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar.gz,PROD)"
-              ],
-              "inputDatajobs": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
         "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
         "aspects": [
           {
@@ -1022,6 +971,57 @@
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)"
               ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,sagemaker,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+              "customProperties": {
+                "EdgePackagingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
+                "EdgePackagingJobName": "an-edge-packaging-job",
+                "CompilationJobName": "a-compilation-job",
+                "ModelName": "string",
+                "ModelVersion": "string",
+                "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
+                "OutputConfig": "{'S3OutputLocation': 's3://edge-packaging-bucket/output-config.tar.gz', 'KmsKeyId': 'string', 'PresetDeploymentType': 'GreengrassV2Component', 'PresetDeploymentConfig': 'string'}",
+                "ResourceKey": "string",
+                "EdgePackagingJobStatus": "STARTING",
+                "EdgePackagingJobStatusMessage": "string",
+                "CreationTime": "2015-01-01 00:00:00",
+                "LastModifiedTime": "2015-01-01 00:00:00",
+                "ModelArtifact": "s3://edge-packaging-bucket/model-artifact.tar.gz",
+                "ModelSignature": "string",
+                "PresetDeploymentOutput": "{'Type': 'GreengrassV2Component', 'Artifact': 'arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/some-artifact', 'Status': 'COMPLETED', 'StatusMessage': 'string'}",
+                "jobType": "edge_packaging"
+              },
+              "externalUrl": null,
+              "name": "edge_packaging:an-edge-packaging-job",
+              "description": null,
+              "type": {
+                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
+              },
+              "flowUrn": null,
+              "status": "STARTING"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar.gz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar.gz,PROD)"
+              ],
+              "inputDatajobs": []
             }
           }
         ]

@@ -327,8 +327,8 @@ list_edge_packaging_jobs_response = {
     ],
 }
 describe_edge_packaging_job_response = {
-    "EdgePackagingJobArn": edge_packaging_job_name,
-    "EdgePackagingJobName": edge_packaging_job_arn,
+    "EdgePackagingJobArn": edge_packaging_job_arn,
+    "EdgePackagingJobName": edge_packaging_job_name,
     "CompilationJobName": compilation_job_name,
     "ModelName": "string",
     "ModelVersion": "string",
