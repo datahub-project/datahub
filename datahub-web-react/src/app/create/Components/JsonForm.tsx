@@ -4,21 +4,9 @@ import { JSONSchema7 } from '@optum/json-schema-editor/dist/JsonSchemaEditor.typ
 import { Button, Divider, Form, message, Space } from 'antd';
 import Dragger from 'antd/lib/upload/Dragger';
 import { v4 as uuidv4 } from 'uuid';
-import adhocConfig from '../../../conf/Adhoc';
 import { CommonFields } from './CommonFields';
 
 export const JsonForm = () => {
-    const jsonSchema: JSONSchema7 = {
-        $id: 'https://example.com/person.schema.json',
-        title: 'String',
-        type: 'object',
-        properties: {
-            string: {
-                description: 'string',
-                type: 'string',
-            },
-        },
-    };
     const [state, setState] = useState({ schema: {} });
     const [key, setKey] = useState(uuidv4());
     const [form] = Form.useForm();
@@ -27,41 +15,48 @@ export const JsonForm = () => {
             span: 6,
         },
         wrapperCol: {
-            span: 14,
+            span: 16,
         },
     };
     const printIt = (data) => {
-        console.log('my data ', data);
+        console.log(JSON.parse(data));
     };
     const onFinish = (values) => {
         console.log(values);
     };
     const onReset = () => {
-        // todo: remove csv file also
         form.resetFields();
+        setState({ schema: {} });
+        setKey(uuidv4());
     };
+    const flatten = (obj, prefix = '', res = {}) =>
+        Object.entries(obj).reduce((r, [key1, val]) => {
+            const k = `${prefix}${key1}`;
+            if (typeof val === 'object') {
+                flatten(val, `${k}.`, r);
+            } else {
+                res[k] = val;
+            }
+            return r;
+        }, res);
     const props = {
         name: 'file',
         maxCount: 1,
         multiple: false,
-        action: adhocConfig,
+        action: 'http://localhost:9002/jsonSchema',
         accept: 'application/json',
         onChange(info) {
             const { status } = info.file;
-            if (status !== 'uploading') {
-                console.log(info.file, info.fileList);
-            }
             if (status === 'done') {
-                message.success(`${info.file.name} file uploaded successfully.`).then();
-            } else if (status === 'error') {
-                message.error(`${info.file.name} file upload failed.`).then();
-                console.log('error');
-                setState({ schema: jsonSchema });
+                console.log('info:', info.file.response);
+                const newSchema: JSONSchema7 = info.file.response;
+                console.log(flatten(info.file.response));
+                setState({ schema: newSchema });
                 setKey(uuidv4());
+                message.success(`${info.file.name} - inferred schema from json file successfully.`).then();
+            } else if (status === 'error') {
+                message.error(`${info.file.name} - unable to infer schema from json file.`).then();
             }
-        },
-        onDrop(e) {
-            console.log('Dropped files', e.dataTransfer.files);
         },
     };
     // need to set unique key to trigger update the component
@@ -76,7 +71,7 @@ export const JsonForm = () => {
                     onFinish={onFinish}
                 >
                     <Dragger {...props}>
-                        <p className="ant-upload-text">Click here to parse your json file</p>
+                        <p className="ant-upload-text">Click here to infer schema from json file</p>
                     </Dragger>
                     <Divider dashed orientation="left">
                         Dataset Info

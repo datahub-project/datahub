@@ -21,6 +21,8 @@ dependencies {
   play project(":datahub-dao")
   play project(":datahub-graphql-core")
 
+  play externalDependency.jsonSchemaInferrer
+  play externalDependency.commonsValidator
   play externalDependency.graphqlJava
   play externalDependency.antlr4Runtime
   play externalDependency.antlr4

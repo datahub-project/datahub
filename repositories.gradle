@@ -12,6 +12,9 @@ repositories {
     maven {
         url "https://linkedin.jfrog.io/artifactory/open-source/" // GMA, pegasus
     }
+    maven {
+        url 'https://jitpack.io'
+    }
 }
 
 try {
