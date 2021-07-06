@@ -7,7 +7,7 @@ title: "Deploying with Kubernetes"
 ## Introduction
 [This directory](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes) provides 
 the Kubernetes [Helm](https://helm.sh/) charts for deploying [Datahub](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/datahub) and it's [dependencies](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/prerequisites) 
-(Elasticsearch, Neo4j, MySQL, and Kafka) on a Kubernetes cluster.  
+(Elasticsearch, optionally Neo4j, MySQL, and Kafka) on a Kubernetes cluster.
 
 ## Setup
 1. Set up a kubernetes cluster

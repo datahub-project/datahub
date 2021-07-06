@@ -26,9 +26,15 @@ else
     ELASTICSEARCH_PROTOCOL=http
 fi
 
-dockerize \
-  -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') \
-  -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT -wait-http-header "$ELASTICSEARCH_AUTH_HEADER" \
-  -wait $NEO4J_HOST \
-  -timeout 240s \
-  java $JAVA_OPTS $JMX_OPTS -jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar
+WAIT_FOR_NEO4J=""
+
+if [[ $GRAPH_SERVICE_IMPL != elasticsearch ]]; then
+  WAIT_FOR_NEO4J=" -wait $NEO4J_HOST "
+fi
+
+    dockerize \
+      -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') \
+      -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT -wait-http-header "$ELASTICSEARCH_AUTH_HEADER" \
+      $WAIT_FOR_NEO4J \
+      -timeout 240s \
+      java $JAVA_OPTS $JMX_OPTS -jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar
