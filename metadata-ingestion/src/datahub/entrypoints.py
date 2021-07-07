@@ -71,7 +71,7 @@ def ingest(config: str) -> None:
     pipeline_config = load_config_file(config_file)
 
     try:
-        logger.info(f"Using config: {pipeline_config}")
+        logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(pipeline_config)
     except ValidationError as e:
         click.echo(e, err=True)
