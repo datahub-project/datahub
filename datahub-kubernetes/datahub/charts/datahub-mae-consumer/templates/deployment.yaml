@@ -139,6 +139,8 @@ spec:
             {{- with .Values.global.kafka.topics }}
             - name: KAFKA_TOPIC_NAME
               value: {{ .metadata_audit_event_name }}
+            - name: DATAHUB_USAGE_EVENT_NAME
+              value: {{ .datahub_usage_event_name }}
             {{- end }}
           {{- with .Values.extraEnvs }}
             {{- toYaml . | nindent 12 }}
