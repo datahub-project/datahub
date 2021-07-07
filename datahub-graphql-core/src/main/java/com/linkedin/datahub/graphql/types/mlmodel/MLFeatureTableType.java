@@ -2,17 +2,22 @@ package com.linkedin.datahub.graphql.types.mlmodel;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLFeatureTableSnapshotMapper;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import graphql.execution.DataFetcherResult;
 
@@ -24,7 +29,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable> {
+import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
+
+public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>, BrowsableEntityType<MLFeatureTable> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
     private final EntityClient _mlFeatureTableClient;
@@ -90,5 +97,39 @@ public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable> 
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final AutoCompleteResult result = _mlFeatureTableClient.autoComplete("mlFeatureTable", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
+    }
+
+    @Override
+    public BrowseResults browse(@Nonnull List<String> path,
+                                @Nullable List<FacetFilterInput> filters,
+                                int start,
+                                int count,
+                                @Nonnull final QueryContext context) throws Exception {
+        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
+        final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
+        final BrowseResult result = _mlFeatureTableClient.browse(
+                "mlFeatureTable",
+                pathStr,
+                facetFilters,
+                start,
+                count);
+        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
+        final List<MLFeatureTable> mlFeatureTables = batchLoad(urns, context)
+                .stream().map(mlFeatureTableDataFetcherResult -> mlFeatureTableDataFetcherResult.getData()).collect(Collectors.toList());
+        final BrowseResults browseResults = new BrowseResults();
+        browseResults.setStart(result.getFrom());
+        browseResults.setCount(result.getPageSize());
+        browseResults.setTotal(result.getNumEntities());
+        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
+        browseResults.setEntities(mlFeatureTables.stream()
+                .map(entity -> (com.linkedin.datahub.graphql.generated.Entity) entity)
+                .collect(Collectors.toList()));
+        return browseResults;
+    }
+
+    @Override
+    public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
+        final StringArray result = _mlFeatureTableClient.getBrowsePaths(MLModelUtils.getUrn(urn));
+        return BrowsePathsMapper.map(result);
     }
 }
