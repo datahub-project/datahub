@@ -152,12 +152,14 @@ source:
   config:
     connection:
       bootstrap: "broker:9092"
-      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serde-consumer
+      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.DeserializingConsumer
       schema_registry_url: http://localhost:8081
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
 
-For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka_to_console.yml).
+The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.
+
+For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka.yml).
 
 ### MySQL Metadata `mysql`
 
@@ -504,7 +506,7 @@ source:
     options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
       credentials_path: "/path/to/keyfile.json" # optional
-      include_views: True # whether to include views, defaults to True
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
 
@@ -895,10 +897,14 @@ sink:
   config:
     connection:
       bootstrap: "localhost:9092"
-      producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
+      producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer
       schema_registry_url: "http://localhost:8081"
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
+
+The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
+
+For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka.yml).
 
 ### Console `console`
 
