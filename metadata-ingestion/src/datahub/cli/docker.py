@@ -68,7 +68,21 @@ def check() -> None:
     docker_check_impl()
 
 
-def check_neo4j_volume_exists():
+def should_use_neo4j_for_graph_service(graph_service_override):
+    if graph_service_override is not None:
+        if graph_service_override == "elasticsearch":
+            click.echo("Starting with elasticsearch due to graph-service-impl param\n")
+            return False
+        if graph_service_override == "neo4j":
+            click.echo("Starting with neo4j due to graph-service-impl param\n")
+            return True
+        else:
+            click.secho(
+                graph_service_override
+                + " is not a valid graph service option. Choose either `neo4j` or "
+                "`elasticsearch`\n",
+                fg="red",
+            )
     with get_client_with_error() as (client, error):
         if error:
             click.secho(
@@ -120,11 +134,19 @@ def check_neo4j_volume_exists():
     default=False,
     help="If true, the docker-compose logs will be printed to console if something fails",
 )
+@click.option(
+    "--graph-service-impl",
+    type=str,
+    is_flag=False,
+    default=None,
+    help="If set, forces docker-compose to use that graph service implementation",
+)
 def quickstart(
     version: str,
     build_locally: bool,
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
+    graph_service_impl: str,
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
 
@@ -151,7 +173,7 @@ def quickstart(
             # Download the quickstart docker-compose file from GitHub.
             quickstart_download_response = requests.get(
                 GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-                if check_neo4j_volume_exists()
+                if should_use_neo4j_for_graph_service(graph_service_impl)
                 else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
             )
             quickstart_download_response.raise_for_status()
@@ -311,7 +333,7 @@ def nuke() -> None:
 
         click.echo("Removing containers in the datahub project")
         for container in client.containers.list(
-            filters={"label": "com.docker.compose.project=datahub"}
+            all=True, filters={"label": "com.docker.compose.project=datahub"}
         ):
             container.remove(v=True, force=True)
 

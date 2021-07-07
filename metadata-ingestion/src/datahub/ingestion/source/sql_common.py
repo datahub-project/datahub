@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 from urllib.parse import quote_plus
 
+import pydantic
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes as types
@@ -25,6 +26,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
     NullTypeClass,
     NumberTypeClass,
+    RecordTypeClass,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
@@ -116,7 +118,7 @@ class SQLAlchemyConfig(ConfigModel):
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     username: Optional[str] = None
-    password: Optional[str] = None
+    password: Optional[pydantic.SecretStr] = None
     host_port: str
     database: Optional[str] = None
     scheme: str
@@ -125,7 +127,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
         return make_sqlalchemy_uri(
             self.scheme,
             self.username,
-            self.password,
+            self.password.get_secret_value() if self.password else None,
             self.host_port,
             self.database,
             uri_opts=uri_opts,
@@ -153,6 +155,7 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     types.DateTime: TimeTypeClass,
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
+    types.JSON: RecordTypeClass,
     # When SQLAlchemy is unable to map a type into its internally hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
@@ -170,6 +173,24 @@ def register_custom_type(
         _field_type_mapping[tp] = output
     else:
         _known_unknown_field_types.add(tp)
+
+
+class _CustomSQLAlchemyDummyType(types.TypeDecorator):
+    impl = types.LargeBinary
+
+
+def make_sqlalchemy_type(name: str) -> Type[types.TypeEngine]:
+    # This usage of type() dynamically constructs a class.
+    # See https://stackoverflow.com/a/15247202/5004662 and
+    # https://docs.python.org/3/library/functions.html#type.
+    sqlalchemy_type: Type[types.TypeEngine] = type(
+        name,
+        (_CustomSQLAlchemyDummyType,),
+        {
+            "__repr__": lambda self: f"{name}()",
+        },
+    )
+    return sqlalchemy_type
 
 
 def get_column_type(
@@ -257,9 +278,7 @@ class SQLAlchemySource(Source):
         for inspector in self.get_inspectors():
             for schema in inspector.get_schema_names():
                 if not sql_config.schema_pattern.allowed(schema):
-                    self.report.report_dropped(
-                        ".".join(sql_config.standardize_schema_table_names(schema, "*"))
-                    )
+                    self.report.report_dropped(f"{schema}.*")
                     continue
 
                 if sql_config.include_tables:
@@ -336,7 +355,19 @@ class SQLAlchemySource(Source):
                 self.report.report_dropped(dataset_name)
                 continue
 
-            columns = inspector.get_columns(view, schema)
+            try:
+                columns = inspector.get_columns(view, schema)
+            except KeyError:
+                # For certain types of views, we are unable to fetch the list of columns.
+                self.report.report_warning(
+                    dataset_name, "unable to get schema for this view"
+                )
+                schema_metadata = None
+            else:
+                schema_metadata = get_schema_metadata(
+                    self.report, dataset_name, self.platform, columns
+                )
+
             try:
                 # SQLALchemy stubs are incomplete and missing this method.
                 # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
@@ -354,6 +385,10 @@ class SQLAlchemySource(Source):
                 view_definition = inspector.get_view_definition(view, schema)
                 if view_definition is None:
                     view_definition = ""
+                else:
+                    # Some dialects return a TextClause instead of a raw string,
+                    # so we need to convert them to a string.
+                    view_definition = str(view_definition)
             except NotImplementedError:
                 view_definition = ""
             properties["view_definition"] = view_definition
@@ -370,10 +405,9 @@ class SQLAlchemySource(Source):
                     # uri=dataset_name,
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
-            schema_metadata = get_schema_metadata(
-                self.report, dataset_name, self.platform, columns
-            )
-            dataset_snapshot.aspects.append(schema_metadata)
+
+            if schema_metadata:
+                dataset_snapshot.aspects.append(schema_metadata)
 
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             wu = SqlWorkUnit(id=dataset_name, mce=mce)
