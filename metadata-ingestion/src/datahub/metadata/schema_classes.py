@@ -1917,7 +1917,7 @@ class DataJobInfoClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.datajob.DataJobInfo")
     def __init__(self,
         name: str,
-        type: Union[str, "AzkabanJobTypeClass"],
+        type: Union[Union[str, "AzkabanJobTypeClass"], str],
         customProperties: Optional[Dict[str, str]]=None,
         externalUrl: Union[None, str]=None,
         description: Union[None, str]=None,
@@ -2003,13 +2003,13 @@ class DataJobInfoClass(DictWrapper):
     
     
     @property
-    def type(self) -> Union[str, "AzkabanJobTypeClass"]:
+    def type(self) -> Union[Union[str, "AzkabanJobTypeClass"], str]:
         """Getter: Datajob type"""
         return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
-    def type(self, value: Union[str, "AzkabanJobTypeClass"]) -> None:
+    def type(self, value: Union[Union[str, "AzkabanJobTypeClass"], str]) -> None:
         """Setter: Datajob type"""
         self._inner_dict['type'] = value
     
@@ -2315,9 +2315,6 @@ class AzkabanJobTypeClass(object):
     
     """Glue type is for running AWS Glue job transforms."""
     GLUE = "GLUE"
-    
-    """SageMaker type is for running AWS SageMAker jobs."""
-    SAGEMAKER = "SAGEMAKER"
     
     
 class DataPlatformInfoClass(DictWrapper):

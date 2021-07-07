@@ -523,7 +523,7 @@
               "name": "test-job-2:Filter-Transform0",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
               "flowUrn": null,
               "status": null
@@ -561,7 +561,7 @@
               "name": "test-job-2:ApplyMapping-Transform1",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
               "flowUrn": null,
               "status": null
@@ -599,7 +599,7 @@
               "name": "test-job-2:ApplyMapping-Transform2",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
               "flowUrn": null,
               "status": null
@@ -638,7 +638,7 @@
               "name": "test-job-2:Join-Transform3",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
               "flowUrn": null,
               "status": null
@@ -676,7 +676,7 @@
               "name": "test-job-2:ApplyMapping-Transform4",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
               "flowUrn": null,
               "status": null
@@ -712,7 +712,7 @@
               "name": "test-job-2:ApplyMapping-Transform5",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
               "flowUrn": null,
               "status": null
@@ -790,7 +790,7 @@
               "name": "test-job-2:SplitFields-Transform0",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
               "flowUrn": null,
               "status": null
@@ -828,7 +828,7 @@
               "name": "test-job-2:ApplyMapping-Transform1",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
               "flowUrn": null,
               "status": null
@@ -866,7 +866,7 @@
               "name": "test-job-2:FillMissingValues-Transform2",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
               "flowUrn": null,
               "status": null
@@ -904,7 +904,7 @@
               "name": "test-job-2:SelectFields-Transform3",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
               "flowUrn": null,
               "status": null

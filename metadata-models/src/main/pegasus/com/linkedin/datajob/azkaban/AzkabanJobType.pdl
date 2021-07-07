@@ -42,9 +42,4 @@ enum AzkabanJobType {
    * Glue type is for running AWS Glue job transforms.
    */
   GLUE
-
-  /**
-   * SageMaker type is for running AWS SageMAker jobs.
-   */
-  SAGEMAKER
 }

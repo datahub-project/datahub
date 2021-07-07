@@ -7,6 +7,7 @@ from datahub.ingestion.source.sagemaker_processors.common import SagemakerSource
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     DataJobInfoClass,
@@ -238,6 +239,7 @@ class SageMakerJob:
     job_snapshot: DataJobSnapshotClass
     job_name: str
     job_arn: str
+    job_type: str
     input_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     output_datasets: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     input_jobs: Set[str] = field(default_factory=set)
@@ -320,31 +322,6 @@ class JobProcessor:
             **{describe_name_key: job_name}
         )
 
-    def get_dataflow_wu(self, flow_urn: str) -> MetadataWorkUnit:
-        """
-        Generate a DataFlow workunit for a Glue job.
-
-        Parameters
-        ----------
-            flow_urn:
-                URN for the flow
-            job:
-                Job object from get_all_jobs()
-        """
-        mce = MetadataChangeEvent(
-            proposedSnapshot=DataFlowSnapshotClass(
-                urn=flow_urn,
-                aspects=[
-                    DataFlowInfoClass(
-                        name="sagemaker",
-                        description="Umbrella flow for all SageMaker jobs",
-                    ),
-                ],
-            )
-        )
-
-        return MetadataWorkUnit(id="sagemaker-umbrella-flow", mce=mce)
-
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
         jobs = self.get_all_jobs()
@@ -414,6 +391,9 @@ class JobProcessor:
                         DataFlowInfoClass(
                             name=processed_job.job_name,
                         ),
+                        BrowsePathsClass(
+                            paths=[f"{processed_job.job_type}/{processed_job.job_name}"]
+                        ),
                     ],
                 )
             )
@@ -468,12 +448,11 @@ class JobProcessor:
             )
 
         job_urn = make_sagemaker_job_urn(arn, self.env)
-        snapshot_job_name = f"{job_type}:{name}"
         job_snapshot = DataJobSnapshotClass(
             urn=job_urn,
             aspects=[
                 DataJobInfoClass(
-                    name=snapshot_job_name,
+                    name=name,
                     type="SAGEMAKER",
                     status=mapped_status,
                     customProperties={
@@ -484,7 +463,7 @@ class JobProcessor:
             ],
         )
 
-        return job_snapshot, snapshot_job_name, arn
+        return job_snapshot, name, arn
 
     def process_auto_ml_job(self, job: Dict[str, Any]) -> SageMakerJob:
         """
@@ -527,6 +506,7 @@ class JobProcessor:
         return SageMakerJob(
             job_name=job_name,
             job_arn=job_arn,
+            job_type=JOB_TYPE,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
@@ -576,6 +556,7 @@ class JobProcessor:
         return SageMakerJob(
             job_name=job_name,
             job_arn=job_arn,
+            job_type=JOB_TYPE,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
@@ -651,6 +632,7 @@ class JobProcessor:
         return SageMakerJob(
             job_name=job_name,
             job_arn=job_arn,
+            job_type=JOB_TYPE,
             job_snapshot=job_snapshot,
             output_datasets=output_datasets,
             output_jobs=output_jobs,
@@ -698,6 +680,7 @@ class JobProcessor:
         return SageMakerJob(
             job_name=job_name,
             job_arn=job_arn,
+            job_type=JOB_TYPE,
             job_snapshot=job_snapshot,
             output_jobs=training_jobs,
         )
@@ -761,6 +744,7 @@ class JobProcessor:
         return SageMakerJob(
             job_name=job_name,
             job_arn=job_arn,
+            job_type=JOB_TYPE,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
@@ -858,6 +842,7 @@ class JobProcessor:
         return SageMakerJob(
             job_name=job_name,
             job_arn=job_arn,
+            job_type=JOB_TYPE,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             input_jobs=input_jobs,
@@ -938,6 +923,7 @@ class JobProcessor:
         return SageMakerJob(
             job_name=job_name,
             job_arn=job_arn,
+            job_type=JOB_TYPE,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,
@@ -998,6 +984,7 @@ class JobProcessor:
         return SageMakerJob(
             job_name=job_name,
             job_arn=job_arn,
+            job_type=JOB_TYPE,
             job_snapshot=job_snapshot,
             input_datasets=input_datasets,
             output_datasets=output_datasets,

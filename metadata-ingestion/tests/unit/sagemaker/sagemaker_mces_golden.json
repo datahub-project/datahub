@@ -855,9 +855,16 @@
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
               "customProperties": {},
               "externalUrl": null,
-              "name": "auto_ml:an-auto-ml-job",
+              "name": "an-auto-ml-job",
               "description": null,
               "project": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "auto_ml/an-auto-ml-job"
+              ]
             }
           }
         ]
@@ -898,10 +905,10 @@
                 "jobType": "auto_ml"
               },
               "externalUrl": null,
-              "name": "auto_ml:an-auto-ml-job",
+              "name": "an-auto-ml-job",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
+                "string": "SAGEMAKER"
               },
               "flowUrn": null,
               "status": "COMPLETED"
@@ -933,9 +940,16 @@
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
               "customProperties": {},
               "externalUrl": null,
-              "name": "compilation:a-compilation-job",
+              "name": "a-compilation-job",
               "description": null,
               "project": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "compilation/a-compilation-job"
+              ]
             }
           }
         ]
@@ -971,10 +985,10 @@
                 "jobType": "compilation"
               },
               "externalUrl": null,
-              "name": "compilation:a-compilation-job",
+              "name": "a-compilation-job",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
+                "string": "SAGEMAKER"
               },
               "flowUrn": null,
               "status": "IN_PROGRESS"
@@ -1008,9 +1022,16 @@
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
               "customProperties": {},
               "externalUrl": null,
-              "name": "edge_packaging:an-edge-packaging-job",
+              "name": "an-edge-packaging-job",
               "description": null,
               "project": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "edge_packaging/an-edge-packaging-job"
+              ]
             }
           }
         ]
@@ -1045,10 +1066,10 @@
                 "jobType": "edge_packaging"
               },
               "externalUrl": null,
-              "name": "edge_packaging:an-edge-packaging-job",
+              "name": "an-edge-packaging-job",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
+                "string": "SAGEMAKER"
               },
               "flowUrn": null,
               "status": "STARTING"
@@ -1079,9 +1100,16 @@
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
               "customProperties": {},
               "externalUrl": null,
-              "name": "hyper_parameter_tuning:a-hyper-parameter-tuning-job",
+              "name": "a-hyper-parameter-tuning-job",
               "description": null,
               "project": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "hyper_parameter_tuning/a-hyper-parameter-tuning-job"
+              ]
             }
           }
         ]
@@ -1116,10 +1144,10 @@
                 "jobType": "hyper_parameter_tuning"
               },
               "externalUrl": null,
-              "name": "hyper_parameter_tuning:a-hyper-parameter-tuning-job",
+              "name": "a-hyper-parameter-tuning-job",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
+                "string": "SAGEMAKER"
               },
               "flowUrn": null,
               "status": "COMPLETED"
@@ -1147,9 +1175,16 @@
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
               "customProperties": {},
               "externalUrl": null,
-              "name": "labeling:a-labeling-job",
+              "name": "a-labeling-job",
               "description": null,
               "project": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "labeling/a-labeling-job"
+              ]
             }
           }
         ]
@@ -1187,10 +1222,10 @@
                 "jobType": "labeling"
               },
               "externalUrl": null,
-              "name": "labeling:a-labeling-job",
+              "name": "a-labeling-job",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
+                "string": "SAGEMAKER"
               },
               "flowUrn": null,
               "status": "STARTING"
@@ -1224,9 +1259,16 @@
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
               "customProperties": {},
               "externalUrl": null,
-              "name": "processing:a-processing-job",
+              "name": "a-processing-job",
               "description": null,
               "project": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "processing/a-processing-job"
+              ]
             }
           }
         ]
@@ -1267,10 +1309,10 @@
                 "jobType": "processing"
               },
               "externalUrl": null,
-              "name": "processing:a-processing-job",
+              "name": "a-processing-job",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
+                "string": "SAGEMAKER"
               },
               "flowUrn": null,
               "status": "IN_PROGRESS"
@@ -1303,9 +1345,16 @@
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
               "customProperties": {},
               "externalUrl": null,
-              "name": "training:a-training-job",
+              "name": "a-training-job",
               "description": null,
               "project": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "training/a-training-job"
+              ]
             }
           }
         ]
@@ -1365,10 +1414,10 @@
                 "jobType": "training"
               },
               "externalUrl": null,
-              "name": "training:a-training-job",
+              "name": "a-training-job",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
+                "string": "SAGEMAKER"
               },
               "flowUrn": null,
               "status": "IN_PROGRESS"
@@ -1406,9 +1455,16 @@
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
               "customProperties": {},
               "externalUrl": null,
-              "name": "transform:a-transform-job",
+              "name": "a-transform-job",
               "description": null,
               "project": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "transform/a-transform-job"
+              ]
             }
           }
         ]
@@ -1448,10 +1504,10 @@
                 "jobType": "transform"
               },
               "externalUrl": null,
-              "name": "transform:a-transform-job",
+              "name": "a-transform-job",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "SAGEMAKER"
+                "string": "SAGEMAKER"
               },
               "flowUrn": null,
               "status": "IN_PROGRESS"
