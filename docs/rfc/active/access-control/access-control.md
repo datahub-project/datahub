@@ -109,6 +109,8 @@ a. policies that are tied to arbitrary attributes of a target resource object. (
 
 b. ability to manage access policies via React UI
 
+c. domain-partitioned access controls (asigning domains to all DH assets + then allowing policies including domain-based predicates) 
+
 ### What success looks like
 
 Based on the requirements gathered from talking with folks in the community, we decided to rally around the following goal. It should be possible to 
@@ -135,7 +137,7 @@ This section will outline the technical solution proposed to address the stated 
 #### API-based Role Management
 
 We aim to provide a rich API for defining access control policies. A default admin policy will be the `datahub` account.
-New users will be automatically assigned to a configurable "default" policy. 
+New users will be automatically assigned to a configurable "default" policy.
 
 ### Out of Scope
 
@@ -161,12 +163,12 @@ predicates in the future.
 
 We propose the introduction of the following concepts into the DataHub platform. 
 
-2. **Actor**: A user or system actor recognized by DataHub. Defined by a unique **principal** name & an optional set of *group* names. In practice, an authenticated actor will be identified via a CorpUser urn. (`urn:li:corpuser:johndoe`)
+1. **Actor**: A user or system actor recognized by DataHub. Defined by a unique **principal** name & an optional set of *group* names. In practice, an authenticated actor will be identified via a CorpUser urn. (`urn:li:corpuser:johndoe`)
     1. **Principal**:  A unique username associated with an actor. (Captured via a CorpUser urn)
     2. **Groups**: A set of groups that a user belongs to. (Captured via CorpGroup urns)
-3. **Resource**: Any resource that can be access controlled on the DataHub platform. Examples include Entities, Relationships, Roles, etc. Resources can include
+2. **Resource**: Any resource that can be access controlled on the DataHub platform. Examples include Entities, Relationships, Roles, etc. Resources can include
    - Type: the unique type of the resource on DataHub's platform.
-4. **Policy**: A fine-grained access control rule comprised of target actors, resource type, a resource reference, and an action (specific to a resource type, eg. Read, Read / write)
+3. **Policy**: A fine-grained access control rule comprised of target actors, resource type, a resource reference, and an action (specific to a resource type, eg. Read, Read / write)
     - Actors: Who the policy applies to (users + groups)
     - Action: CREATE, READ, UPDATE, DELETE
     - Match Criteria: resource type, reference filter
@@ -397,4 +399,3 @@ In the process of writing this ERD, I researched the following systems to learn 
 - Airflow
 - Apache Atlas
 - Apache Ranger
-
