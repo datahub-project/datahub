@@ -131,7 +131,7 @@ def extract_dbt_entities(
         materialization = None
         upstream_urns = []
 
-        if "materialized" in node["config"].keys():
+        if "materialized" in node.get("config", {}).keys():
             # It's a model
             materialization = node["config"]["materialized"]
             upstream_urns = get_upstreams(
