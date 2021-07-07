@@ -162,6 +162,8 @@ spec:
               value: {{ .metadata_change_event_name }}
             - name: KAFKA_FMCE_TOPIC_NAME
               value: {{ .failed_metadata_change_event_name }}
+            - name: DATAHUB_USAGE_EVENT_NAME
+              value: {{ .datahub_usage_event_name }}
             {{- end }}
           {{- with .Values.extraEnvs }}
             {{- toYaml . | nindent 12 }}

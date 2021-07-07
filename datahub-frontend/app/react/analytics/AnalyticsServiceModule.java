@@ -15,6 +15,8 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
+import utils.ConfigUtil;
+
 
 /**
  * Guice module responsible for configuring & creating an instance of {@link AnalyticsService}.
@@ -65,30 +67,30 @@ public class AnalyticsServiceModule extends AbstractModule {
         final SSLContext context = createSSLContext();
         final AnalyticsService backend = new AnalyticsService(
             ElasticClientFactory.createElasticClient(
-                _configs.hasPath(ELASTIC_CLIENT_USE_SSL_PATH) && _configs.getBoolean(ELASTIC_CLIENT_USE_SSL_PATH),
+                ConfigUtil.getBoolean(_configs, ELASTIC_CLIENT_USE_SSL_PATH),
                 _configs.getString(ELASTIC_CLIENT_HOST_PATH),
                 _configs.getInt(ELASTIC_CLIENT_PORT_PATH),
-                _configs.hasPath(ELASTIC_CLIENT_THREAD_COUNT_PATH) ? _configs.getInt(ELASTIC_CLIENT_THREAD_COUNT_PATH) : DEFAULT_THREAD_COUNT,
-                _configs.hasPath(ELASTIC_CLIENT_CONNECTION_REQUEST_TIMEOUT_PATH) ? _configs.getInt(ELASTIC_CLIENT_CONNECTION_REQUEST_TIMEOUT_PATH) : DEFAULT_CONNECTION_TIMEOUT,
-                _configs.hasPath(ELASTIC_CLIENT_USERNAME_PATH) ? _configs.getString(ELASTIC_CLIENT_USERNAME_PATH) : null,
-                _configs.hasPath(ELASTIC_CLIENT_PASSWORD_PATH) ? _configs.getString(ELASTIC_CLIENT_PASSWORD_PATH) : null,
+                ConfigUtil.getInt(_configs, ELASTIC_CLIENT_THREAD_COUNT_PATH, DEFAULT_THREAD_COUNT),
+                ConfigUtil.getInt(_configs, ELASTIC_CLIENT_CONNECTION_REQUEST_TIMEOUT_PATH, DEFAULT_CONNECTION_TIMEOUT),
+                ConfigUtil.getString(_configs, ELASTIC_CLIENT_USERNAME_PATH, null),
+                ConfigUtil.getString(_configs, ELASTIC_CLIENT_PASSWORD_PATH, null),
                 context
             ),
-            _configs.hasPath(ELASTIC_INDEX_PREFIX)? Optional.of(_configs.getString(ELASTIC_INDEX_PREFIX)): Optional.empty()
+            Optional.ofNullable(ConfigUtil.getString(_configs, ELASTIC_INDEX_PREFIX, null))
         );
         bind(AnalyticsService.class).toInstance(backend);
     }
 
     private SSLContext createSSLContext() {
 
-        final String sslProtocol = _configs.hasPath(ELASTIC_CLIENT_SSL_PROTOCOL_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_PROTOCOL_PATH) : null;
-        final String sslTrustStoreFile = _configs.hasPath(ELASTIC_CLIENT_SSL_TRUST_STORE_FILE_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_TRUST_STORE_FILE_PATH) : null;
-        final String sslTrustStoreType = _configs.hasPath(ELASTIC_CLIENT_SSL_TRUST_STORE_TYPE_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_TRUST_STORE_TYPE_PATH) : null;
-        final String sslTrustStorePassword = _configs.hasPath(ELASTIC_CLIENT_SSL_TRUST_STORE_PASSWORD_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_TRUST_STORE_PASSWORD_PATH): null;
-        final String sslKeyStoreFile = _configs.hasPath(ELASTIC_CLIENT_SSL_KEY_STORE_FILE_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_KEY_STORE_FILE_PATH) : null;
-        final String sslKeyStoreType = _configs.hasPath(ELASTIC_CLIENT_SSL_KEY_STORE_TYPE_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_KEY_STORE_TYPE_PATH) : null;
-        final String sslKeyStorePassword = _configs.hasPath(ELASTIC_CLIENT_SSL_KEY_STORE_PASSWORD_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_KEY_STORE_PASSWORD_PATH) : null;
-        final String sslSecureRandomImplementation = _configs.hasPath(ELASTIC_CLIENT_SSL_SECURE_RANDOM_IMPL_PATH) ? _configs.getString(ELASTIC_CLIENT_SSL_SECURE_RANDOM_IMPL_PATH) : null;
+        final String sslProtocol = ConfigUtil.getString(_configs, ELASTIC_CLIENT_SSL_PROTOCOL_PATH, null);
+        final String sslTrustStoreFile = ConfigUtil.getString(_configs, ELASTIC_CLIENT_SSL_TRUST_STORE_FILE_PATH, null);
+        final String sslTrustStoreType = ConfigUtil.getString(_configs, ELASTIC_CLIENT_SSL_TRUST_STORE_TYPE_PATH, null);
+        final String sslTrustStorePassword = ConfigUtil.getString(_configs, ELASTIC_CLIENT_SSL_TRUST_STORE_PASSWORD_PATH, null);
+        final String sslKeyStoreFile = ConfigUtil.getString(_configs, ELASTIC_CLIENT_SSL_KEY_STORE_FILE_PATH, null);
+        final String sslKeyStoreType = ConfigUtil.getString(_configs, ELASTIC_CLIENT_SSL_KEY_STORE_TYPE_PATH, null);
+        final String sslKeyStorePassword = ConfigUtil.getString(_configs, ELASTIC_CLIENT_SSL_KEY_STORE_PASSWORD_PATH, null);
+        final String sslSecureRandomImplementation = ConfigUtil.getString(_configs, ELASTIC_CLIENT_SSL_SECURE_RANDOM_IMPL_PATH, null);
 
         final SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
         if (sslProtocol != null) {

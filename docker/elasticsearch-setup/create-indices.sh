@@ -19,9 +19,9 @@ fi
 
 function create_datahub_usage_event_datastream() {
   if [[ -z "$INDEX_PREFIX" ]]; then
-    PREFIX = ''
+    PREFIX=''
   else
-    PREFIX = "${INDEX_PREFIX}_"
+    PREFIX="${INDEX_PREFIX}_"
   fi
 
   if [ $(curl -o /dev/null -s -w "%{http_code}" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_ilm/policy/${PREFIX}datahub_usage_event_policy") -eq 404 ]
@@ -44,9 +44,9 @@ function create_datahub_usage_event_datastream() {
 
 function create_datahub_usage_event_aws_elasticsearch() {
   if [[ -z "$INDEX_PREFIX" ]]; then
-    PREFIX = ''
+    PREFIX=''
   else
-    PREFIX = "${INDEX_PREFIX}_"
+    PREFIX="${INDEX_PREFIX}_"
   fi
 
   if [ $(curl -o /dev/null -s -w "%{http_code}" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST_URL:$ELASTICSEARCH_PORT/_opendistro/_ism/policies/${PREFIX}datahub_usage_event_policy") -eq 404 ]
