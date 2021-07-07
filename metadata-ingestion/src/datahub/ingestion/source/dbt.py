@@ -154,19 +154,20 @@ def extract_dbt_entities(
                 ]  # get materialization from catalog? required?
                 dbtNode.upstream_urns = []
 
-        if (
-            dbtNode.materialization != "ephemeral" and load_catalog
-        ):  # we don't want columns if platform isn't 'dbt'
-            logger.debug("Loading schema info")
-            catalog_node = all_catalog_entities.get(dbtNode.dbt_name)
+        if hasattr(dbtNode, "materialization"):
+            if (
+                dbtNode.materialization != "ephemeral" and load_catalog
+            ):  # we don't want columns if platform isn't 'dbt'
+                logger.debug("Loading schema info")
+                catalog_node = all_catalog_entities.get(dbtNode.dbt_name)
 
-            if catalog_node is None:
-                report.report_warning(
-                    key,
-                    f"Entity {dbtNode.dbt_name} is in manifest but missing from catalog",
-                )
-            else:
-                dbtNode.columns = get_columns(catalog_node)
+                if catalog_node is None:
+                    report.report_warning(
+                        key,
+                        f"Entity {dbtNode.dbt_name} is in manifest but missing from catalog",
+                    )
+                else:
+                    dbtNode.columns = get_columns(catalog_node)
 
         else:
             dbtNode.columns = []
