@@ -25,7 +25,7 @@ const ExploreForEntity = styled.span`
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
-    max-width: 650px;
+    max-width: 800px;
 `;
 
 const AutoCompleteContainer = styled.div`
