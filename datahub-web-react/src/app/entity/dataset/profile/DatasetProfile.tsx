@@ -38,11 +38,7 @@ const EMPTY_ARR: never[] = [];
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
-    const { loading, error, data } = useGetDatasetQuery({
-        variables: { urn },
-        fetchPolicy: 'cache-and-network',
-        nextFetchPolicy: 'cache-first',
-    });
+    const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
 
     const user = useGetAuthenticatedUser();
     const [updateDataset] = useUpdateDatasetMutation({
