@@ -255,12 +255,19 @@ def get_urn_from_dbtNode(
     return f"urn:li:dataset:(urn:li:dataPlatform:{target_platform},{db_fqn},{env})"
 
 
-def get_custom_properties(node: DBTNode) -> Dict[str, Optional[str]]:
-    return {
-        "dbt_node_type": node.node_type,
-        "materialization": node.materialization,
-        "dbt_file_path": node.dbt_file_path,
-    }
+def get_custom_properties(node: DBTNode) -> Dict[str, str]:
+
+    custom_properties = {}
+
+    node_attributes = ["node_type", "materialization", "dbt_file_path"]
+
+    for attribute in node_attributes:
+        node_attribute_value = getattr(node, attribute)
+
+        if node_attribute_value is not None:
+            custom_properties[attribute] = node_attribute_value
+
+    return custom_properties
 
 
 def get_upstreams(
@@ -420,15 +427,10 @@ class DBTSource(Source):
                 urn=node.datahub_urn,
                 aspects=[],
             )
-            custom_properties = get_custom_properties(node)
 
             dbt_properties = DatasetPropertiesClass(
                 description=node.dbt_name,
-                customProperties={
-                    key: value
-                    for key, value in custom_properties.items()
-                    if value is not None
-                },
+                customProperties=get_custom_properties(node),
                 tags=[],
             )
             dataset_snapshot.aspects.append(dbt_properties)
