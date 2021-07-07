@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 public class MLFeatureType implements SearchableEntityType<MLFeature> {
 
-    private static final Set<String> FACET_FIELDS = ImmutableSet.of();
+    private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
     private final EntityClient _mlFeatureClient;
 
     public MLFeatureType(final EntityClient mlFeatureClient) {

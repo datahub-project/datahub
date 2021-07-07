@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
 public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
 
-    private static final Set<String> FACET_FIELDS = ImmutableSet.of();
+    private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
     private final EntityClient _mlPrimaryKeyClient;
 
     public MLPrimaryKeyType(final EntityClient mlPrimaryKey) {

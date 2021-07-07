@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
 public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable> {
 
-    private static final Set<String> FACET_FIELDS = ImmutableSet.of();
+    private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
     private final EntityClient _mlFeatureTableClient;
 
     public MLFeatureTableType(final EntityClient mlFeatureTableClient) {
