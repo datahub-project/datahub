@@ -58,8 +58,7 @@ const features = [
         and subsequently{" "}
         <Link to={"https://github.com/linkedin/datahub"}>open-sourced</Link>{" "}
         under the Apache 2.0 License. It now has a thriving community with over
-        75 contributors, and many organizations are trying out or already using
-        DataHub internally.
+        a hundred contributors, and is widely used at many companies.
       </>
     ),
   },
@@ -262,9 +261,10 @@ function Home() {
               <p className={clsx("hero__subtitle", styles.centerTextMobile)}>
                 {/* DataHub helps you understand your data where it lives. */}
                 {/* DataHub is a stream-first metadata platform that powers multiple vertical applications: powerful search &amp; discovery, data ops &amp; data quality, compliance, data management, and access control. */}
-                Data ecosystems are diverse &#8212; too diverse. DataHub is a
-                data discovery application built on an extensible metadata
-                platform that helps you tame this complexity.
+                Data ecosystems are diverse &#8212; too diverse. DataHub&#39;s
+                extensible metadata platform enables data discovery, data
+                observability and federated governance that helps you tame this
+                complexity.
               </p>
               <div className={styles.buttons}>
                 <Link
@@ -478,8 +478,8 @@ function Home() {
               </h2>
               <p className={styles.larger_on_desktop}>
                 DataHub is the one-stop shop for documentation, schemas,
-                ownership, lineage, and pipelines. Usage and data quality
-                information coming soon.
+                ownership, lineage, pipelines and usage information. Data
+                quality and data preview information coming soon.
               </p>
             </div>
             <div className="col col--6">

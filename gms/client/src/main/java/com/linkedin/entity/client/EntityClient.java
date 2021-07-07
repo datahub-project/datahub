@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.restli.client.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.DynamicRecordMetadata;
 import com.linkedin.data.template.FieldDef;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
@@ -78,7 +78,7 @@ public class EntityClient {
     }
 
     @Nonnull
-    public RecordTemplate get(@Nonnull final Urn urn) throws RemoteInvocationException {
+    public Entity get(@Nonnull final Urn urn) throws RemoteInvocationException {
         final GetRequest<Entity> getRequest = ENTITIES_REQUEST_BUILDERS.get()
                 .id(urn.toString())
                 .build();
@@ -259,5 +259,11 @@ public class EntityClient {
             .actionGetBrowsePaths()
             .urnParam(urn);
         return sendClientRequest(requestBuilder.build()).getEntity();
+    }
+
+    public void setWritable(boolean canWrite) throws RemoteInvocationException {
+        EntitiesDoSetWritableRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionSetWritable().valueParam(canWrite);
+        sendClientRequest(requestBuilder.build());
     }
 }

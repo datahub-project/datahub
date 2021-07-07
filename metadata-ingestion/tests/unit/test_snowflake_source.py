@@ -15,5 +15,5 @@ def test_snowflake_uri():
 
     assert (
         config.get_sql_alchemy_url()
-        == "snowflake://user:password@acctname/demo?warehouse=COMPUTE_WH&role=sysadmin"
+        == "snowflake://user:password@acctname/?warehouse=COMPUTE_WH&role=sysadmin"
     )

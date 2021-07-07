@@ -57,6 +57,11 @@ sql_common = {
     "sqlalchemy==1.3.24",
 }
 
+aws_common = {
+    # AWS Python SDK
+    "boto3"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -70,18 +75,19 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
+    "bigquery-usage": {"google-cloud-logging", "cachetools"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
-    "glue": {"boto3"},
+    "glue": aws_common,
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.7"
+        "acryl-pyhive[hive]>=0.6.10"
     },
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
-    "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
+    "lookml": {"lkml>=1.1.0", "sql-metadata==2.2.1"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -89,7 +95,9 @@ plugins: Dict[str, Set[str]] = {
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    "sagemaker": aws_common,
     "snowflake": sql_common | {"snowflake-sqlalchemy"},
+    "snowflake-usage": sql_common | {"snowflake-sqlalchemy"},
     "superset": {"requests"},
 }
 
@@ -110,6 +118,7 @@ mypy_stubs = {
     "types-PyMySQL",
     "types-PyYAML",
     "types-freezegun",
+    "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
 }
@@ -130,12 +139,14 @@ base_dev_requirements = {
     "deepdiff",
     "requests-mock",
     "freezegun",
+    "jsonpickle",
     "build",
     "twine",
     *list(
         dependency
         for plugin in [
             "bigquery",
+            "bigquery-usage",
             "mysql",
             "mssql",
             "mongodb",
@@ -145,6 +156,7 @@ base_dev_requirements = {
             "glue",
             "hive",
             "oracle",
+            "sagemaker",
             "datahub-kafka",
             "datahub-rest",
             # airflow is added below
@@ -174,14 +186,16 @@ dev_requirements_airflow_2 = {
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
-        "file = datahub.ingestion.source.mce_file:MetadataFileSource",
+        "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.athena:AthenaSource",
         "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
+        "bigquery-usage = datahub.ingestion.source.bigquery_usage:BigQueryUsageSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.druid:DruidSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.glue:GlueSource",
+        "sagemaker = datahub.ingestion.source.sagemaker:SagemakerSource",
         "hive = datahub.ingestion.source.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
@@ -195,6 +209,7 @@ entry_points = {
         "postgres = datahub.ingestion.source.postgres:PostgresSource",
         "redshift = datahub.ingestion.source.redshift:RedshiftSource",
         "snowflake = datahub.ingestion.source.snowflake:SnowflakeSource",
+        "snowflake-usage = datahub.ingestion.source.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
     ],
     "datahub.ingestion.sink.plugins": [

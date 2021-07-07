@@ -1,9 +1,10 @@
 source:
   type: glue
   config:
-    aws_region: "us-east-1"
+    aws_region: "us-west-2"
+    extract_transforms: true
 
 sink:
   type: "datahub-rest"
   config:
-    server: 'http://localhost:8080'
+    server: "http://localhost:8080"

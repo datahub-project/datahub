@@ -32,12 +32,13 @@ module.exports = {
   overviewSidebar: {
     DataHub: [
       "README",
-      "docs/faq",
+      // "docs/faq", // hide from sidebar: out of date
       "docs/features",
       "docs/roadmap",
       "docs/CONTRIBUTING",
       "docs/demo",
       "docs/saas",
+      "releases",
     ],
     "Getting Started": [
       // Serves as user guides.
@@ -83,9 +84,11 @@ module.exports = {
       //"docs/demo/graph-onboarding",
       //"docs/how/search-onboarding",
       //"docs/how/search-over-new-field",
-      "docs/how/configure-oidc-react",
-      "docs/how/sso/configure-oidc-react-google",
-      "docs/how/sso/configure-oidc-react-okta",
+      "docs/how/auth/jaas",
+      "docs/how/auth/sso/configure-oidc-react",
+      "docs/how/auth/sso/configure-oidc-react-google",
+      "docs/how/auth/sso/configure-oidc-react-okta",
+      "docs/how/restore-indices",
       "datahub-web-react/src/app/analytics/README",
     ],
     Components: [
@@ -118,6 +121,7 @@ module.exports = {
       "datahub-kubernetes/README",
       "docker/datahub-upgrade/README",
       "docs/deploy/aws",
+      "docs/deploy/gcp",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms-graphql-service/README",

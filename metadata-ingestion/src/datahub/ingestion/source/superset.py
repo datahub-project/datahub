@@ -6,9 +6,10 @@ import dateutil.parser as dp
 import requests
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -52,7 +53,7 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
     if sqlalchemy_uri.startswith("mysql"):
         return "mysql"
     if sqlalchemy_uri.startswith("mongodb"):
-        return "mongo"
+        return "mongodb"
     if sqlalchemy_uri.startswith("hive"):
         return "hive"
     return "external"
@@ -73,8 +74,6 @@ chart_type_from_viz_type = {
     "treemap": ChartTypeClass.AREA,
     "box_plot": ChartTypeClass.BAR,
 }
-
-DEFAULT_ENV = "PROD"
 
 
 class SupersetConfig(ConfigModel):

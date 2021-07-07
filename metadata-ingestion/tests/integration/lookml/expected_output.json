@@ -3,7 +3,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker, my_view, PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,my_view,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -15,7 +15,7 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 1615443388000,
+                                    "time": 1615443388097,
                                     "actor": "urn:li:corpuser:etl",
                                     "impersonator": null
                                 },
@@ -28,15 +28,15 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "my_view",
-                        "platform": "looker",
+                        "platform": "urn:li:dataPlatform:looker",
                         "version": 0,
                         "created": {
-                            "time": 1615443388000,
+                            "time": 1615443388097,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },
                         "lastModified": {
-                            "time": 1615443388000,
+                            "time": 1615443388097,
                             "actor": "urn:li:corpuser:etl",
                             "impersonator": null
                         },

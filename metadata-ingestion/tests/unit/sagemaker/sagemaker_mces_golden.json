@@ -1,0 +1,286 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test-2,some-feature-1)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "TEXT",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+        "urn": "urn:li:mlPrimaryKey:(test-2,some-feature-2)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+              "description": null,
+              "dataType": "ORDINAL",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test-2,some-feature-3)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "CONTINUOUS",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test-2)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+              "customProperties": {
+                "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-2",
+                "creation_time": "2021-06-24 09:48:37.035000",
+                "status": "Created"
+              },
+              "description": "Yet another test feature group",
+              "mlFeatures": [
+                "urn:li:mlFeature:(test-2,some-feature-1)",
+                "urn:li:mlFeature:(test-2,some-feature-3)"
+              ],
+              "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(test-2,some-feature-2)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test-1,name)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "TEXT",
+              "version": null,
+              "sources": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+        "urn": "urn:li:mlPrimaryKey:(test-1,id)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+              "description": null,
+              "dataType": "ORDINAL",
+              "version": null,
+              "sources": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test-1,height)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "CONTINUOUS",
+              "version": null,
+              "sources": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test-1,time)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "TEXT",
+              "version": null,
+              "sources": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test-1)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+              "customProperties": {
+                "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-1",
+                "creation_time": "2021-06-23 13:58:10.264000",
+                "status": "Created"
+              },
+              "description": "First test feature group",
+              "mlFeatures": [
+                "urn:li:mlFeature:(test-1,name)",
+                "urn:li:mlFeature:(test-1,height)",
+                "urn:li:mlFeature:(test-1,time)"
+              ],
+              "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(test-1,id)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+        "urn": "urn:li:mlPrimaryKey:(test,feature_1)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+              "description": null,
+              "dataType": "TEXT",
+              "version": null,
+              "sources": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test,feature_2)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "ORDINAL",
+              "version": null,
+              "sources": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test,feature_3)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "CONTINUOUS",
+              "version": null,
+              "sources": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+              "customProperties": {
+                "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test",
+                "creation_time": "2021-06-14 11:03:00.803000",
+                "status": "Created"
+              },
+              "description": null,
+              "mlFeatures": [
+                "urn:li:mlFeature:(test,feature_2)",
+                "urn:li:mlFeature:(test,feature_3)"
+              ],
+              "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(test,feature_1)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
+]

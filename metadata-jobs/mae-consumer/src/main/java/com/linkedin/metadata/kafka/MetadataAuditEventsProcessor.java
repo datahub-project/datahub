@@ -1,9 +1,11 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.common.urn.Urn;
+
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.search.SearchServiceFactory;
+import com.linkedin.gms.factory.usage.UsageServiceFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
@@ -19,6 +21,7 @@ import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.Topics;
 import java.io.UnsupportedEncodingException;
@@ -47,18 +50,23 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 @Slf4j
 @Component
 @Conditional(MetadataAuditEventsProcessorCondition.class)
-@Import({GraphServiceFactory.class, SearchServiceFactory.class})
+@Import({GraphServiceFactory.class, SearchServiceFactory.class, UsageServiceFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {
 
   private final GraphService _graphService;
   private final SearchService _searchService;
+  private final UsageService _usageService;
 
   @Autowired
-  public MetadataAuditEventsProcessor(GraphService graphService, SearchService searchService) {
+  public MetadataAuditEventsProcessor(GraphService graphService, SearchService searchService, UsageService usageService) {
     _graphService = graphService;
     _searchService = searchService;
+    _usageService = usageService;
+
+    _graphService.configure();
     _searchService.configure();
+    _usageService.configure();
   }
 
   @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"
@@ -76,8 +84,8 @@ public class MetadataAuditEventsProcessor {
 
         final EntitySpec entitySpec =
             SnapshotEntityRegistry.getInstance().getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
-        updateElasticsearch(snapshot, entitySpec);
-        updateNeo4j(snapshot, entitySpec);
+        updateSearchService(snapshot, entitySpec);
+        updateGraphService(snapshot, entitySpec);
       }
     } catch (Exception e) {
       log.error("Error deserializing message: {}", e.toString());
@@ -90,7 +98,7 @@ public class MetadataAuditEventsProcessor {
    *
    * @param snapshot Snapshot
    */
-  private void updateNeo4j(final RecordTemplate snapshot, final EntitySpec entitySpec) {
+  private void updateGraphService(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     final Set<String> relationshipTypesBeingAdded = new HashSet<>();
     final List<Edge> edgesToAdd = new ArrayList<>();
     final String sourceUrnStr = snapshot.data().get("urn").toString();
@@ -122,7 +130,7 @@ public class MetadataAuditEventsProcessor {
     }
     if (edgesToAdd.size() > 0) {
       new Thread(() -> {
-        _graphService.removeEdgeTypesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
+        _graphService.removeEdgesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
             createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
         edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
       }).start();
@@ -134,7 +142,7 @@ public class MetadataAuditEventsProcessor {
    *
    * @param snapshot Snapshot
    */
-  private void updateElasticsearch(final RecordTemplate snapshot, final EntitySpec entitySpec) {
+  private void updateSearchService(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     String urn = snapshot.data().get("urn").toString();
     Optional<String> searchDocument;
     try {

@@ -36,9 +36,10 @@ Current chart version is `0.2.0`
 | global.sql.datasource.username | string | `"datahub"` |  |
 | global.sql.datasource.password.secretRef | string | `"mysql-secrets"` |  |
 | global.sql.datasource.password.secretKey | string | `"mysql-password"` |  |
+| global.graph_service_impl | string | `neo4j` | One of `neo4j` or `elasticsearch`. Determines which backend to use for the GMS graph service. Elastic is recommended for a simplified deployment. Neo4j will be the default for now to maintain backwards compatibility.
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"linkedin/datahub-gms"` |  |
-| image.tag | string | `"v0.8.3"` |  |
+| image.tag | string | `"v0.8.5"` |  |
 | imagePullSecrets | list | `[]` |  |
 | ingress.annotations | object | `{}` |  |
 | ingress.enabled | bool | `false` |  |
