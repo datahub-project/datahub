@@ -212,16 +212,16 @@ SAGEMAKER_JOB_TYPES = {
 }
 
 
-def make_sagemaker_flow_urn(arn: str, env: str) -> str:
+def make_sagemaker_flow_urn(job_type: str, job_name: str, env: str) -> str:
 
     return mce_builder.make_data_flow_urn(
-        orchestrator="sagemaker", flow_id=arn, cluster=env
+        orchestrator="sagemaker", flow_id=f"{job_type}:{job_name}", cluster=env
     )
 
 
-def make_sagemaker_job_urn(arn: str, env: str) -> str:
+def make_sagemaker_job_urn(job_type: str, job_name: str, arn: str, env: str) -> str:
 
-    flow_urn = make_sagemaker_flow_urn(arn, env)
+    flow_urn = make_sagemaker_flow_urn(job_type, job_name, env)
 
     # SageMaker has no global grouping property for jobs,
     # so we create a flow for every single job
@@ -381,7 +381,9 @@ class JobProcessor:
             processed_job = processed_jobs[job_urn]
             job_snapshot = processed_job.job_snapshot
 
-            flow_urn = make_sagemaker_flow_urn(processed_job.job_arn, self.env)
+            flow_urn = make_sagemaker_flow_urn(
+                processed_job.job_type, processed_job.job_name, self.env
+            )
 
             # create flow for each job
             flow_mce = MetadataChangeEvent(
@@ -390,9 +392,6 @@ class JobProcessor:
                     aspects=[
                         DataFlowInfoClass(
                             name=processed_job.job_name,
-                        ),
-                        BrowsePathsClass(
-                            paths=[f"{processed_job.job_type}/{processed_job.job_name}"]
                         ),
                     ],
                 )
@@ -447,7 +446,7 @@ class JobProcessor:
                 f"Unknown status for {name} ({arn}): {sagemaker_status}",
             )
 
-        job_urn = make_sagemaker_job_urn(arn, self.env)
+        job_urn = make_sagemaker_job_urn(job_type, name, arn, self.env)
         job_snapshot = DataJobSnapshotClass(
             urn=job_urn,
             aspects=[
@@ -460,6 +459,7 @@ class JobProcessor:
                         "jobType": job_type,
                     },
                 ),
+                BrowsePathsClass(paths=[f"{job_type}/{name}"]),
             ],
         )
 
@@ -611,7 +611,12 @@ class JobProcessor:
             if full_job_name in self.name_to_arn:
 
                 output_jobs.add(
-                    make_sagemaker_job_urn(self.name_to_arn[full_job_name], self.env)
+                    make_sagemaker_job_urn(
+                        "compilation",
+                        compilation_job_name,
+                        self.name_to_arn[full_job_name],
+                        self.env,
+                    )
                 )
             else:
 
@@ -663,7 +668,12 @@ class JobProcessor:
             if full_job_name in self.name_to_arn:
 
                 training_jobs.add(
-                    make_sagemaker_job_urn(self.name_to_arn[full_job_name], self.env)
+                    make_sagemaker_job_urn(
+                        "training",
+                        training_job["DefinitionName"],
+                        self.name_to_arn[full_job_name],
+                        self.env,
+                    )
                 )
             else:
 
@@ -766,9 +776,25 @@ class JobProcessor:
         training_arn: Optional[str] = job.get("TrainingJobArn")
 
         if auto_ml_arn is not None:
-            input_jobs.add(make_sagemaker_job_urn(auto_ml_arn, self.env))
-        if training_arn:
-            input_jobs.add(make_sagemaker_job_urn(training_arn, self.env))
+            auto_ml_type, auto_ml_name = self.arn_to_name.get(auto_ml_arn, (None, None))
+
+            if auto_ml_type is not None and auto_ml_name is not None:
+                input_jobs.add(
+                    make_sagemaker_job_urn(
+                        auto_ml_type, auto_ml_name, auto_ml_arn, self.env
+                    )
+                )
+
+        if training_arn is not None:
+            training_type, training_name = self.arn_to_name.get(
+                training_arn, (None, None)
+            )
+            if training_type is not None and training_name is not None:
+                input_jobs.add(
+                    make_sagemaker_job_urn(
+                        training_type, training_name, training_arn, self.env
+                    )
+                )
 
         input_datasets = {}
 
@@ -972,9 +998,26 @@ class JobProcessor:
         input_jobs = set()
 
         if labeling_arn is not None:
-            input_jobs.add(make_sagemaker_job_urn(labeling_arn, self.env))
+            labeling_type, labeling_name = self.arn_to_name.get(
+                labeling_arn, (None, None)
+            )
+
+            if labeling_type is not None and labeling_name is not None:
+                input_jobs.add(
+                    make_sagemaker_job_urn(
+                        labeling_type, labeling_name, labeling_arn, self.env
+                    )
+                )
+
         if auto_ml_arn is not None:
-            input_jobs.add(make_sagemaker_job_urn(auto_ml_arn, self.env))
+            auto_ml_type, auto_ml_name = self.arn_to_name.get(auto_ml_arn, (None, None))
+
+            if auto_ml_type is not None and auto_ml_name is not None:
+                input_jobs.add(
+                    make_sagemaker_job_urn(
+                        auto_ml_type, auto_ml_name, auto_ml_arn, self.env
+                    )
+                )
 
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,

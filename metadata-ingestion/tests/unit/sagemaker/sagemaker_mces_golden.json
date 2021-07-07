@@ -849,7 +849,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job,PROD)",
+        "urn": "urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
@@ -858,13 +858,6 @@
               "name": "an-auto-ml-job",
               "description": null,
               "project": null
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "auto_ml/an-auto-ml-job"
-              ]
             }
           }
         ]
@@ -876,7 +869,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -915,6 +908,13 @@
             }
           },
           {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "auto_ml/an-auto-ml-job"
+              ]
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file.txt,PROD)"
@@ -934,7 +934,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job,PROD)",
+        "urn": "urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
@@ -943,13 +943,6 @@
               "name": "a-compilation-job",
               "description": null,
               "project": null
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "compilation/a-compilation-job"
-              ]
             }
           }
         ]
@@ -961,7 +954,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -995,6 +988,13 @@
             }
           },
           {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "compilation/a-compilation-job"
+              ]
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/input-config.tar.gz,PROD)"
@@ -1003,7 +1003,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar.gz,PROD)"
               ],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)"
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)"
               ]
             }
           }
@@ -1016,7 +1016,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job,PROD)",
+        "urn": "urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
@@ -1025,13 +1025,6 @@
               "name": "an-edge-packaging-job",
               "description": null,
               "project": null
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "edge_packaging/an-edge-packaging-job"
-              ]
             }
           }
         ]
@@ -1043,7 +1036,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1076,6 +1069,13 @@
             }
           },
           {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "edge_packaging/an-edge-packaging-job"
+              ]
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [],
               "outputDatasets": [
@@ -1094,7 +1094,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job,PROD)",
+        "urn": "urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
@@ -1103,13 +1103,6 @@
               "name": "a-hyper-parameter-tuning-job",
               "description": null,
               "project": null
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "hyper_parameter_tuning/a-hyper-parameter-tuning-job"
-              ]
             }
           }
         ]
@@ -1121,7 +1114,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1154,6 +1147,13 @@
             }
           },
           {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "hyper_parameter_tuning/a-hyper-parameter-tuning-job"
+              ]
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [],
               "outputDatasets": [],
@@ -1169,7 +1169,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job,PROD)",
+        "urn": "urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
@@ -1178,13 +1178,6 @@
               "name": "a-labeling-job",
               "description": null,
               "project": null
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "labeling/a-labeling-job"
-              ]
             }
           }
         ]
@@ -1196,7 +1189,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1232,6 +1225,13 @@
             }
           },
           {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "labeling/a-labeling-job"
+              ]
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar.gz,PROD)",
@@ -1253,7 +1253,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job,PROD)",
+        "urn": "urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
@@ -1262,13 +1262,6 @@
               "name": "a-processing-job",
               "description": null,
               "project": null
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "processing/a-processing-job"
-              ]
             }
           }
         ]
@@ -1280,7 +1273,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1319,14 +1312,21 @@
             }
           },
           {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "processing/a-processing-job"
+              ]
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job/input-data.tar.gz,PROD)"
               ],
               "outputDatasets": [],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
               ]
             }
           }
@@ -1339,7 +1339,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job,PROD)",
+        "urn": "urn:li:dataFlow:(sagemaker,training:a-training-job,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
@@ -1348,13 +1348,6 @@
               "name": "a-training-job",
               "description": null,
               "project": null
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "training/a-training-job"
-              ]
             }
           }
         ]
@@ -1366,7 +1359,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1424,6 +1417,13 @@
             }
           },
           {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "training/a-training-job"
+              ]
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar.gz,PROD)"
@@ -1449,7 +1449,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job,PROD)",
+        "urn": "urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
@@ -1458,13 +1458,6 @@
               "name": "a-transform-job",
               "description": null,
               "project": null
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "transform/a-transform-job"
-              ]
             }
           }
         ]
@@ -1476,7 +1469,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
@@ -1514,6 +1507,13 @@
             }
           },
           {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "transform/a-transform-job"
+              ]
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/input-data-source.tar.gz,PROD)"
@@ -1522,8 +1522,8 @@
                 "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/output.tar.gz,PROD)"
               ],
               "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)"
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)"
               ]
             }
           }
