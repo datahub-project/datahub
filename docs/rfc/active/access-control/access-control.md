@@ -27,13 +27,13 @@ Sheetal Pratik (Saxo Bank)
 **Asks**
 
 - Model metadata "domains" (ie. resource scopes, namespaces) using DataHub
-- Define roles that are scoped to a particular domain 
+- Define access policies that are scoped to a particular domain 
 - Ability to define policies against DataHub resources at the following granularities: 
     - individual resource (primary key based)
     - resource type (eg. all 'datasets')
     - action (eg. VIEW, UPDATE)
     which can be associated with requests against DataHub backend via mapping from resolved Actor information (principal / username, groups, etc). 
-    Resources can include entities, their aspects, roles, policies, etc. 
+    Resources can include entities, their aspects, access policies, etc. 
 - Ability to compose & reuse groups of access policies.  
 - Support for integrating with Active Directory (users, groups, and mappings to access policies)
 
@@ -48,14 +48,14 @@ Alasdair McBride (G-Research)
     - resource group 
       which can be associated with requests against DataHub backend via mapping from resolved Actor information (principal / username, groups, etc).
       Resources can include entities, their aspects, roles, policies, etc.
-- Leverage DataHub backend APIs to discover metadata assets programmatically using service principals. 
+- Support for service principals 
 - Support for integrating with Active Directory (users, groups, and mappings to access policies)
 
 
 As you may have noticed, the concepts of "domain" and "group" described in each set of requirements are quite similar. From here
 on out, we will refer to a bucket of related entities that should be managed together as a metadata "domain".
 
-### Consolidated User Stories
+### User Stories
 
 |As a...          |I want to..                                                                                         |Because..                                                                                                                                       |
 |-----------------|----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -72,63 +72,55 @@ on out, we will refer to a bucket of related entities that should be managed tog
 
 #### Must Haves
 
-a. a central notion of Actor identity in the DataHub backend (GMS).
+a. a central notion of "authenticated user" in the DataHub backend (GMS).
 
-b. pluggable authentication responsible for resolving DataHub Actors 
+b. pluggable authentication responsible for resolving DataHub users 
     
 - in scope: file-based username password plugin (for built-in roles), continue to support OIDC 
 - in the future: saml, ldap / ad, api key, native authentication plugins
 
-c. ability to define logical access control policies based on a combination of
+c. ability to define fine-grained access control policies based on a combination of
 
+- actors: the users + groups the policy should be applied to (with ability to specify "all users" or "all groups")
 - resource type: the type of resource being accessed on the DataHub platform (eg. dataset entity, dataset aspect, roles, privileges etc) (exact match or ALL)
 - resource identifier: the primary key identifier for a resource (eg. dataset urn) (support for pattern matching)
-- action (bound to resource type. eg. read + write) 
+- action (bound to resource type. eg. read + write)
+- [in the future] domains
 
 with support for optional conjunctions of filtering on resource type, & identifier (eg. resource type = "entity:dataset:ownership", resource identifier = "urn:li:dataset:1", action = "UPDATE") 
 and including with support for the following resource types:
 
 - metadata entities: datasets, charts, dashboards, etc. 
 - metadata aspects: dataset ownership, chart info, etc. 
-- access control objects: roles, policies, etc.
+- access control objects: access policies, etc.
 
-d. ability to define named roles that can be associated with fine-grained access control policies
-
-e. ability to configure mapping rules from DataHub Actors to named roles
+d. ability to resolve DataHub users to a set of access policies 
     
-- where Actor = (principal name, group names, freeform string properties) 
+- where User metadata includes principal name, group names, freeform string properties
 
-g. ability to manage roles, role mappings, policies dynamically via Rest API
+e. ability to manage access policies programmatically via Rest API
 
-h. ability to enforce fine-grained access control policies (ref.b) (Authorizer implementation)
-- Inputs: resolved roles, role-policy mappings, resource type, resource key
+f. ability to enforce fine-grained access control policies (ref.b) (Authorizer implementation)
+- Inputs: resolved access policies, resource type, resource key
 
 #### Nice to Haves
 
-a. policies that are tied to arbitrary attributes of a target resource object.
+a. policies that are tied to arbitrary attributes of a target resource object. (full ABAC)
 
-b. ability to manage roles, role mappings, policies via React UI
+b. ability to manage access policies via React UI
 
 ### What success looks like
 
 Based on the requirements gathered from talking with folks in the community, we decided to rally around the following goal. It should be possible to 
 
-1. Define a new access control policy 
+1. Define a named access control policy 
     - Resource Granularity: individual, asset type 
     - Action Granularity: VIEW, UPDATE
     against an individual or group of DataHub resources (entities, aspects, roles, policies)
-2. Define a named role, which maps to the access control policy
-3. Define a configurable mapping from an authenticated Actor (DataHub user, groups) to one or more roles
+2. Define mapping conditions from an authenticated user (DataHub user, groups) to one or more access policies
 
-Within 15 minutes or less. (dynamic)
+Within 15 minutes or less.
 
-Notice that we've omitted inclusion of
-
-- introducing a new resource type
-- introducing a new action type 
-
-in the same amount of time. These should, however, be possible to change in code given sufficient development time. (static)
-  
 
 ## Implementation
 
@@ -137,26 +129,27 @@ This section will outline the technical solution proposed to address the stated 
 ### In Scope
 
 - Pluggable **Authentication** at GMS layer.
-- **Access Management** at GMS layer. (Roles, Policies, Role Mappings)
+- **Access Management** at GMS layer.
 - **Authorization** at GMS layer.
 
 #### API-based Role Management
 
-We aim to provide a rich API for defining privileges, roles, & role mappings. The default admin will be the `datahub` account.
+We aim to provide a rich API for defining access control policies. A default admin policy will be the `datahub` account.
+New users will be automatically assigned to a configurable "default" policy. 
 
 ### Out of Scope
 
 #### UI-based Role Management
 
-Eventually, we aim to provide an in-app experience for defining policies, roles, and mappings between roles and users / groups. This, however, is not in scope of the first milestone deliverable.
+Eventually, we aim to provide an in-app experience for defining access policies. This, however, is not in scope of the first milestone deliverable.
 
 #### Support for Dynamic Local Username / Password Authentication
 
-Initially, we aim to support limited local username / password authentication driven by a configuration file provided to GMS. We will not support persisting users, hashed passwords, groups to a native store inside of DataHub (yet).
+Initially, we aim to support limited local username / password authentication driven by a configuration file provided to GMS. We will not support persisting sessions, hashed passwords, groups to a native store inside DataHub (yet).
 
 #### Support for LDAP & AD Username / Password Authentication
 
-Though the APIs we are building *will* be amenable to supporting both Active Directory and LDAP authentication (discussed more below) we will not include implementation of these plugins as part of the scope of the initial RBAC impl, as we will use this as an opportunity to focus on getting the foundational aspects of access management right. 
+Though the APIs we are building *will* be amenable to supporting both Active Directory and LDAP authentication (discussed more below) we will not include implementation of these plugins as part of the scope of the initial impl, as we will use this as an opportunity to focus on getting the foundational aspects of access management right. 
 
 #### Modeling Domains in DataHub
 
@@ -168,15 +161,15 @@ predicates in the future.
 
 We propose the introduction of the following concepts into the DataHub platform. 
 
-2. **Actor**: A user or system actor recognized by DataHub. Defined by a unique **principal** name. Can be associated with **Roles**.
-    1. **Principal**:  A unique identifier associated with an actor. This is effectively a username.
-    2. **Group**: A group that a user may belong to. Can be associated with **Roles**.
-3. **Resource**: Any resource that can be access controlled on the DataHub platform. Examples include Entities, Relationships, Roles, etc.
-4. **Policy**: A fine-grained access control rule comprised of a resource type, a resource reference, and an action (specific to a resource type, eg. Read, Read / write)
-    - Action (CREATE, READ, UPDATE, DELETE)
-    - Match Criteria (resource type, reference filter)
-5. **Role**: A named group of privileges. Eg. Admin, User 
-6. **Role Mapping**: A mapping from a resolved Actor to one or more role(s), which dictate what they can do on the platform.
+2. **Actor**: A user or system actor recognized by DataHub. Defined by a unique **principal** name & an optional set of *group* names. In practice, an authenticated actor will be identified via a CorpUser urn. (`urn:li:corpuser:johndoe`)
+    1. **Principal**:  A unique username associated with an actor. (Captured via a CorpUser urn)
+    2. **Groups**: A set of groups that a user belongs to. (Captured via CorpGroup urns)
+3. **Resource**: Any resource that can be access controlled on the DataHub platform. Examples include Entities, Relationships, Roles, etc. Resources can include
+   - Type: the unique type of the resource on DataHub's platform.
+4. **Policy**: A fine-grained access control rule comprised of target actors, resource type, a resource reference, and an action (specific to a resource type, eg. Read, Read / write)
+    - Actors: Who the policy applies to (users + groups)
+    - Action: CREATE, READ, UPDATE, DELETE
+    - Match Criteria: resource type, reference filter
 
 ### Components
 
@@ -187,7 +180,7 @@ GMS will be augmented to include
 1. a set of Auth-related primary store tables. (SQL) 
 2. a set of Auth-related Rest APIs.
 3. an Authentication Filter executed on each request to GMS.
-4. an Authorizer component leveraged within endpoint impls. 
+4. an Authorizer component executed within endpoints to authorize particular actions. 
 
 **Auth Tables & Endpoints**
 
@@ -199,74 +192,51 @@ POST /gms/policy
 
 {  
     name: "manage_datasets_msd",
-    actions: ["VIEW, UPDATE"]
+    users: ["urn:li:corpuser:johndoe", "urn:li:corpuser:test"],
+    groups: ["urn:li:corpGroup:eng_all"],
+    actions: ["VIEW_AND_UPDATE"],
     resource: {
-        type: "ENTITY_ASPECT",
-        urn: "urn:li:dataset:*"
-        params: {
+        type: "ENTITY",
+        attributes: {
             entity: "dataset",
-            aspect: "ownership"
+            urn: ["*"],
         }
-    }
+    },
+    // optional, defaults to "true"
+    allow: "true"
 }
 ```
 
 In the above example, we are creating an access policy that permits reads & writes against the
-"ownership" aspect of the "dataset" entity. Notice the use of a resource type, a resource reference (urn) that
-supports wildcard (& regex) matching, and a set of parameters used for additional filtering. 
+"ownership" aspect of the "dataset" entity. There are a few important pieces to note:
 
-2.  *Roles*: Create, Read, Update Roles.
+1. Name - All policies are named
+2. Users / Groups - The users and groups the policy should apply to. Can be wildcard for all. 
+3. Action - The action to be permitted or denied. We will initially ship with ("VIEW", "VIEW_AND_UPDATE")
+4. Resource - The resource filters. The resource that the action is being requested against. Examples can be specific metadata assets, 
+policies, operator stats and more.
+5. Allow - A flag determining whether to allow the action on a match of user / group, action, and resource filters. 
 
-- Accepts a name and list of Privileges,
+Notice the use of a resource type along with resource-type-specific attributes. These
+attributes will serve as matching criteria for resource specifications passed into an Authorizer component at runtime. 
+Also note that policy attribute fields will support wildcard matching. 
 
-```
-// Create a role.
-POST /gms/role
+The attributes section of the policies provides a mechanism for extension in the future. For example, adding a "domain" qualification
+to a resource, and defining policies that leverage the domain attribute would be simply a matter of adding to the resource attributes. 
 
-{  
-     name: "admin_msd",
-     privileges: ["manage_datasets_msd", ....] 
-}
-```
+An additional "allow" flag will be supported to determine whether the action against the specified resource should be allowed or denied. 
+This will default to "true", meaning that the action should be permitted given that the actor, action, and resource types match the policy. 
 
-3. *RoleMappings*: Create, Read, Update the mapping rules from Actor to Role.
+At authorization time, users will be resolved to policies by matching the user + groups specified in the policy against the authenticated user.
+Moreover, resource specs will be constructed by the code invoking the authorization component and matched against the resource
+filters defined within the policies. 
 
-Role mappings help answer the question: "what roles are assigned to a user or group?". This is turn allows us to understand the privileges that the Actor making a request should have, ie. what actions we should permit them to perform.
+2. *Tokens*:
 
-```
-// Create a role mapping.
-POST /gms/roleMapping
-
-{  
-    roles: ["admin_msd"],
-    rules: [ // How to map Actor to the roles. 
-        {
-            "authenticator": "ldap", 
-            "field": {
-                "name": "groups", 
-                "pattern": "cn=users,dc=example,dc=com" // match any in "groups" array 
-            }
-        },
-        {
-            "field": {
-                "name": "principal", 
-                "pattern": "johndoe"
-            }
-        }
-    ] 
-}
-```
-
-In the example above, actors who are in the group "cn=users,dc=example,dc=com" **AND** who authenticated via the "ldap" Authenticator, **OR** are named "johndoe" would be mapped to the role "admin_msd".
-
-You can create more than one mapping for a particular role, of course.
-
-At execution time, you are correct to think that each rule would need to be executed against the Actor object in order to resolve roles. We will require some caching here to make this more performant. Open to suggestions about how to handle this.
-
-4. *Tokens*:
+Tokens are used for **authentication** to GMS. They can be retrieved given authentication via another means, such as username / password auth. 
 
 - `/generateTokenForActor`: Generates a signed, Oauth-compliant GMS access token+refresh token pair based on **provided principal, group, metadata**. Caller must be authorized to use this functionality.
-- `/generateToken`: Generates a signed, Oauth-compliant GMS access token + refresh token pair **based on the currently authenticated actor**.
+- `/generateToken`: Generates a signed, OAuth-compliant GMS access token + refresh token pair **based on the currently authenticated actor**.
 
 **Auth Filter**
 
@@ -278,30 +248,14 @@ Responsibility 1: Authentication
 
 Inside the filter will live a configurable chain of "Authenticators" that will be executed in sequence with the goal of resolving a standardized "Actor" object model, which will contain the following fields:
 
-1. `principal` (required): a unique identifier used on DataHub
-2. `groups` (optional): a list of groups associated with the user
-3. `metadata` (optional): freeform map of metadata properties that can be used when performing role mapping.
+1. `principal` (required): a unique identifier used on DataHub, represented as a CorpUser urn
+2. `groups` (optional): a list of groups associated with the user, represented as a set of CorpGroup urns
 
-Upon resolution of an "Actor" object, the authentication stage will be considered complete, and we will move into the "role resolution" phase.
+Upon resolution of an "Actor" object, the authentication stage will be considered complete.
 
-Responsibility 2: Role Resolution
+Responsibility 2: Saving to Thread Context
 
-After resolving an Actor, the filter will perform Role Resolution, wherein the Actor is enriched with a set of resolved roles (list of strings). 
-
-Specifically, we will introduce a `RoleMapper` object that includes the following capabilities: 
-
-1. Maintain an in-memory cache of all stored Role Mappings
-    - Refreshes on role mapping updates + on a configurable interval 
-2. Evaluates role mappings rules against a resolved Actor object
-3. Maintain an in-memory cache of resolved Actor roles 
-
-This will be used within an **Authorizer** to authorize a particular action request.
-
-TBD: Whether role resolution will occur within or outside individual Authenticators. 
-
-Responsibility 3: Saving to Thread Context
-
-After resolving roles, the state of the "Actor" object will be updated to include those roles, and the Actor object will be written to the local ThreadContext, from which it will be retrieved to perform Authorization.
+After resolving the authenticated user, the state of the Actor object will be written to the local ThreadContext, from which it will be retrieved to perform Authorization.
 
 **Authorizer**
 
@@ -309,19 +263,24 @@ The authorizer is a component that will be called by endpoints + services intern
 
 It will accept the following arguments:
 
-1. The resource type being acted on
-2. The resource ref being acted on 
-3. The action being attempted
+1. The resource spec: 
+    - resource type
+    - resource attributes 
+2. The action being attempted on the resource
+3. The actor attempting the action
 
 and perform the following steps:
 
-1. Extract the current Actor from the local context
-2. Query the "policies" table for the policies associated with the user's roles, filtered by the resource type being accessed 
-3. Evaluate the fetched policies against the inputs 
+1. Resolve the Actor to a set of relevant access policies
+2. Evaluate the fetched policies against the inputs 
 3. If the Actor is authorized to perform the action, allow the action.
 4. If the Actor is not authorized to perform the action, deny the action.
 
-![authenticator-chain](./authenticator-chain.png)
+![authorizer](./authorizer.png)
+
+The authorizer will additionally be designed to support multiple authorizer filters in a single authorizer chain. 
+This permits the addition of custom authorization logic in the future, for example for resolving "virtual policies" based on
+edges in the metadata graph (discussed further below)
 
 #### DataHub Frontend (datahub-frontend)
 
@@ -375,21 +334,59 @@ In contrast, GMS will have to know about the finer details of each, for example 
 
 ### Milestones
 
-**Milestone 1: Basic Auth in GMS**
+**Milestone 1**
 
 - The first version of all components described above are implemented. Basic authenticators implemented 
         a. gms issued oauth tokens
-        b. file-based username / password combinations (local native)
+        b. file-based username / password combinations
+- Support Entity-level policy granularity (no aspect level, yet)
+- Support enforcement of write-side policies. (VIEW_AND_UPDATE actions)
+- Support "default" access control policy with limited customization capability (allow VIEW on all resources as the default access control policy)
+- Configurable ownership-based authorizer 
 
-**Milestone 2: Domain Oriented Auth** 
+**Milestone 2**
 
-- Add support for associating each resource stored within DataHub with a particuilar domain. Permit domain-based predicates in policies. 
+- Support enforcement of read-side policies. (VIEW actions)
+- Add support for associating each resource stored within DataHub with a particular domain. Permit domain-based predicates in policies. 
+- Add UI for managing access policies 
 
-**Milestone 3: 3rd Party Authenticators**
+**Milestone 3**
 
-a. OpenLDAP impl
-b. Active Directory impl
-c. SAML impl
+a. OpenLDAP authenticator impl
+b. Active Directory authenticator impl
+c. SAML authenticator impl
+
+## Bonus 1: Modeling - To Graph or Not
+
+### Risks with modeling on the Graph
+
+- No strong read-after-write consistency based on non-primary keys 
+    - Don't think this will be common given that the name is the primary key and likely what folks will query by. 
+- Philosophy: Are "policies" really *metadata*? Do they belong on the metadata graph?
+    - Should policies be retrievable on the "/entities" endpoint 
+    - Should there be a separate, internal DataHub system graph? Stored in separate mysql table?
+- Query pattern: Is the query pattern drastically different than for other entities? Policies will often be "read all" and cached.
+- If we need to migrate away from the graph, we'd need to do a data migration from aspects table to another table.
+
+### Benefits of modeling on the Graph
+
+- Can reuse existing APIs for searching, fetching, searching, creating etc.
+- Less boilerplate code. No hardcoded tables. We will still want a specific REST api for managing policies, however. 
+
+## Bonus 2: The Ownership Question
+
+The ownership question: How can we support the requirement that "owners should be allowed to edit the resources they own". We can do so using pluggable Authorizers.
+
+Possible solution: Pluggable Authorizer chain. 
+
+![authorizer_chain](./authorizer_chain.png)
+
+We plan to implement an "Ownership Authorizer" that is responsible for resolving an entity to their
+ownership information and generating a "virtual policy" that allows asset owners to make changes to the 
+entities they own. 
+
+An alternate solution is to permit an additional flag inside a policy that marks it as applying to "owners"
+of the target resource. The challenge here is that not all resource types are guaranteed to have owners in the first place. 
 
 ## References
 
@@ -401,4 +398,3 @@ In the process of writing this ERD, I researched the following systems to learn 
 - Apache Atlas
 - Apache Ranger
 
-Much of the inspiration comes from Elasticsearch, which employs a very similar architecture. More information can be found by reading their x-pack auth docs located [here](https://github.com/elastic/elasticsearch/tree/13b8715a5624a67760886209cb03e5fd01d6fac4/x-pack/docs/en/security/authentication).
