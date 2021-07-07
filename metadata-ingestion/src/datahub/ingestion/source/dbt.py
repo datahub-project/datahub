@@ -141,6 +141,22 @@ def extract_dbt_entities(
                 target_platform,
                 environment,
             )
+        else:
+            # It's a source
+            catalog_node = all_catalog_entities.get(key)
+
+            if catalog_node is None:
+                report.report_warning(
+                    key,
+                    f"Entity {name} is in manifest but missing from catalog",
+                )
+
+            else:
+
+                dbtNode.materialization = all_catalog_entities[key]["metadata"][
+                    "type"
+                ]  # get materialization from catalog? required?
+                upstream_urns = []
 
         dbtNode = DBTNode(
             dbt_name=key,

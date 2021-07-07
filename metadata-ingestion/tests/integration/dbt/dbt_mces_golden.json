@@ -446,7 +446,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "model",
-                            "materialization": "table",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/transform/payments_by_customer_by_month.sql"
                         },
                         "externalUrl": null,
@@ -560,6 +560,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
                         },
                         "externalUrl": null,
@@ -678,6 +679,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
                         },
                         "externalUrl": null,
@@ -856,6 +858,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
                         },
                         "externalUrl": null,
@@ -959,6 +962,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
                         },
                         "externalUrl": null,
@@ -1077,6 +1081,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
                         },
                         "externalUrl": null,
@@ -1180,6 +1185,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
                         },
                         "externalUrl": null,
@@ -1388,6 +1394,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
                         },
                         "externalUrl": null,
@@ -1536,6 +1543,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
                         },
                         "externalUrl": null,
@@ -1684,6 +1692,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
                         },
                         "externalUrl": null,
@@ -1832,6 +1841,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
                         },
                         "externalUrl": null,
@@ -1980,6 +1990,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
+                            "materialization": "BASE TABLE",
                             "dbt_file_path": "models/base.yml"
                         },
                         "externalUrl": null,
