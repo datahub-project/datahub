@@ -26,6 +26,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
     NullTypeClass,
     NumberTypeClass,
+    RecordTypeClass,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
@@ -154,6 +155,7 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     types.DateTime: TimeTypeClass,
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
+    types.JSON: RecordTypeClass,
     # When SQLAlchemy is unable to map a type into its internally hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
@@ -171,6 +173,24 @@ def register_custom_type(
         _field_type_mapping[tp] = output
     else:
         _known_unknown_field_types.add(tp)
+
+
+class _CustomSQLAlchemyDummyType(types.TypeDecorator):
+    impl = types.LargeBinary
+
+
+def make_sqlalchemy_type(name: str) -> Type[types.TypeEngine]:
+    # This usage of type() dynamically constructs a class.
+    # See https://stackoverflow.com/a/15247202/5004662 and
+    # https://docs.python.org/3/library/functions.html#type.
+    sqlalchemy_type: Type[types.TypeEngine] = type(
+        name,
+        (_CustomSQLAlchemyDummyType,),
+        {
+            "__repr__": lambda self: f"{name}()",
+        },
+    )
+    return sqlalchemy_type
 
 
 def get_column_type(
@@ -258,9 +278,7 @@ class SQLAlchemySource(Source):
         for inspector in self.get_inspectors():
             for schema in inspector.get_schema_names():
                 if not sql_config.schema_pattern.allowed(schema):
-                    self.report.report_dropped(
-                        ".".join(sql_config.standardize_schema_table_names(schema, "*"))
-                    )
+                    self.report.report_dropped(f"{schema}.*")
                     continue
 
                 if sql_config.include_tables:
