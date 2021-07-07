@@ -2,9 +2,7 @@
 source:
   type: "file"
   config:
-    # filename: "./examples/mce_files/single_mce.json"
-    filename: "./tests/unit/sagemaker/sagemaker_mces_golden.json"
-    # filename: "./tests/unit/glue/glue_mces_golden.json"
+    filename: "./examples/mce_files/single_mce.json"
 
 sink:
   type: "datahub-rest"
