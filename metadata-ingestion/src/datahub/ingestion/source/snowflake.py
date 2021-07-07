@@ -14,6 +14,7 @@ from sqlalchemy.sql.elements import quoted_name
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 
 from .sql_common import (
+    RecordTypeClass,
     SQLAlchemyConfig,
     SQLAlchemySource,
     TimeTypeClass,
@@ -24,7 +25,7 @@ from .sql_common import (
 register_custom_type(custom_types.TIMESTAMP_TZ, TimeTypeClass)
 register_custom_type(custom_types.TIMESTAMP_LTZ, TimeTypeClass)
 register_custom_type(custom_types.TIMESTAMP_NTZ, TimeTypeClass)
-register_custom_type(custom_types.VARIANT)
+register_custom_type(custom_types.VARIANT, RecordTypeClass)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
