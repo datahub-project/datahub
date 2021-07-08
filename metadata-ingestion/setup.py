@@ -40,6 +40,7 @@ framework_common = {
     "avro-gen3==0.5.3",
     "avro-python3>=1.8.2",
     "python-dateutil",
+    "stackprinter",
 }
 
 kafka_common = {
