@@ -76,7 +76,9 @@ class DBTNode:
 
     node_type: str  # source, model
     max_loaded_at: Optional[str]
-    materialization: Optional[str]  # table, view, ephemeral
+    materialization: Optional[str]  # table, view, ephemeral, incremental
+    # see https://docs.getdbt.com/reference/artifacts/manifest-json
+    catalog_type: Optional[str]
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_urns: List[str] = field(default_factory=list)
@@ -141,22 +143,20 @@ def extract_dbt_entities(
                 target_platform,
                 environment,
             )
+
+        # It's a source
+        catalog_node = all_catalog_entities.get(key)
+        catalog_type = None
+
+        if catalog_node is None:
+            report.report_warning(
+                key,
+                f"Entity {name} is in manifest but missing from catalog",
+            )
+
         else:
-            # It's a source
-            catalog_node = all_catalog_entities.get(key)
 
-            if catalog_node is None:
-                report.report_warning(
-                    key,
-                    f"Entity {name} is in manifest but missing from catalog",
-                )
-
-            else:
-
-                materialization = all_catalog_entities[key]["metadata"][
-                    "type"
-                ]  # get materialization from catalog? required?
-                upstream_urns = []
+            catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
         dbtNode = DBTNode(
             dbt_name=key,
@@ -168,6 +168,7 @@ def extract_dbt_entities(
             name=name,
             upstream_urns=upstream_urns,
             materialization=materialization,
+            catalog_type=catalog_type,
             columns=[],
             datahub_urn=get_urn_from_dbtNode(
                 node["database"],
@@ -260,7 +261,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 
     custom_properties = {}
 
-    node_attributes = ["node_type", "materialization", "dbt_file_path"]
+    node_attributes = ["node_type", "materialization", "dbt_file_path", "catalog_type"]
 
     for attribute in node_attributes:
         node_attribute_value = getattr(node, attribute)

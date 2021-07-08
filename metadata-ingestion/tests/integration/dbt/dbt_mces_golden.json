@@ -96,7 +96,8 @@
                         "customProperties": {
                             "node_type": "model",
                             "materialization": "table",
-                            "dbt_file_path": "models/billing/monthly_billing_with_cust.sql"
+                            "dbt_file_path": "models/billing/monthly_billing_with_cust.sql",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "model.sample_dbt.monthly_billing_with_cust",
@@ -234,7 +235,8 @@
                         "customProperties": {
                             "node_type": "model",
                             "materialization": "view",
-                            "dbt_file_path": "models/base/payments_base.sql"
+                            "dbt_file_path": "models/base/payments_base.sql",
+                            "catalog_type": "VIEW"
                         },
                         "externalUrl": null,
                         "description": "model.sample_dbt.payments_base",
@@ -447,7 +449,8 @@
                         "customProperties": {
                             "node_type": "model",
                             "materialization": "table",
-                            "dbt_file_path": "models/transform/payments_by_customer_by_month.sql"
+                            "dbt_file_path": "models/transform/payments_by_customer_by_month.sql",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "model.sample_dbt.payments_by_customer_by_month",
@@ -560,8 +563,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.actor",
@@ -679,8 +682,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.address",
@@ -858,8 +861,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.category",
@@ -962,8 +965,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.city",
@@ -1081,8 +1084,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.country",
@@ -1185,8 +1188,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.customer",
@@ -1394,8 +1397,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.payment_p2020_01",
@@ -1543,8 +1546,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.payment_p2020_02",
@@ -1692,8 +1695,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.payment_p2020_03",
@@ -1841,8 +1844,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.payment_p2020_04",
@@ -1990,8 +1993,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.payment_p2020_05",
@@ -2139,8 +2142,8 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "node_type": "source",
-                            "materialization": "BASE TABLE",
-                            "dbt_file_path": "models/base.yml"
+                            "dbt_file_path": "models/base.yml",
+                            "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
                         "description": "source.sample_dbt.pagila.payment_p2020_06",
