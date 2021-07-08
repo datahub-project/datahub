@@ -700,7 +700,7 @@ source:
 
 Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
 views depends on. As these SQL's can be complicated, and the package doesn't official support all the SQL dialects that
-Looker support, the result might not be correct. This parsing is disables by default, but can be enabled by setting
+Looker supports, the result might not be correct. This parsing is disabled by default, but can be enabled by setting
 `parse_table_names_from_sql: True`.
 
 ### Looker dashboards `looker`
