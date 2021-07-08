@@ -6,7 +6,7 @@ import dateutil.parser
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -282,13 +282,9 @@ def get_upstreams(
 def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
     ucl: List[UpstreamClass] = []
 
-    actor = "urn:li:corpuser:dbt_executor"
-    sys_time = get_sys_time()
-
     for dep in upstream_urns:
         uc = UpstreamClass(
             dataset=dep,
-            auditStamp=AuditStamp(actor=actor, time=sys_time),
             type=DatasetLineageTypeClass.TRANSFORMED,
         )
         ucl.append(uc)
@@ -352,14 +348,12 @@ def get_schema_metadata(
 
         canonical_schema.append(field)
 
-    actor = "urn:li:corpuser:dbt_executor"
-    sys_time = get_sys_time()
-
-    last_modified = sys_time
-
+    last_modified = None
     if node.max_loaded_at is not None:
-        last_modified = int(
-            dateutil.parser.parse(node.max_loaded_at).timestamp() * 1000
+        actor = "urn:li:corpuser:dbt_executor"
+        last_modified = AuditStamp(
+            time=int(dateutil.parser.parse(node.max_loaded_at).timestamp() * 1000),
+            actor=actor,
         )
 
     return SchemaMetadata(
@@ -368,8 +362,7 @@ def get_schema_metadata(
         version=0,
         hash="",
         platformSchema=MySqlDDL(tableSchema=""),
-        created=AuditStamp(time=sys_time, actor=actor),
-        lastModified=AuditStamp(time=last_modified, actor=actor),
+        lastModified=last_modified,
         fields=canonical_schema,
     )
 
