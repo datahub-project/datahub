@@ -153,7 +153,7 @@ def extract_dbt_entities(
 
             else:
 
-                dbtNode.materialization = all_catalog_entities[key]["metadata"][
+                materialization = all_catalog_entities[key]["metadata"][
                     "type"
                 ]  # get materialization from catalog? required?
                 upstream_urns = []
