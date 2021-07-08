@@ -12,6 +12,7 @@ GET           /config                                                         co
 GET           /deps                                                           controllers.Application.printDeps()
 GET           /login                                                          controllers.Application.login()
 GET           /logout                                                         controllers.Application.logout()
+GET           /centralLogout                                                  controllers.CentralLogoutController.executeLogout()
 
 GET           /api/v1/owner/types                                             controllers.api.v1.Dataset.getDatasetOwnerTypes()
 GET           /api/v1/party/employees                                         controllers.api.v1.User.getAllCompanyUsers()
@@ -45,8 +46,6 @@ GET           /authenticate                                                   re
 POST          /logIn                                                          react.controllers.AuthenticationController.logIn()
 GET           /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
 POST          /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
-GET           /logOut                                                         @org.pac4j.play.LogoutController.logout()
-GET           /centralLogout                                                  controllers.CentralLogoutController.logout()
 
 # Data fetching in React
 POST          /api/v2/graphql                                                 react.controllers.GraphQLController.execute()

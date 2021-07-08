@@ -13,6 +13,7 @@
         "@apollo/client": "^3.3.19",
         "@craco/craco": "^6.1.1",
         "@data-ui/xy-chart": "^0.0.84",
+        "@optum/json-schema-editor": "^2.1.0",
         "@react-hook/window-size": "^3.0.7",
         "@storybook/react": "^6.2.9",
         "@testing-library/jest-dom": "^5.11.6",
