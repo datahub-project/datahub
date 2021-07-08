@@ -7,7 +7,7 @@ from logging.handlers import TimedRotatingFileHandler
 from ingest_api.helper.models import FieldParam, create_dataset_params, dataset_status_params, determine_type
 from ingest_api.helper.mce_convenience import make_delete_mce, make_schema_mce, make_dataset_urn, \
                     make_user_urn, make_dataset_description_mce, make_recover_mce, \
-                    make_browsepath_mce, make_ownership_mce, make_platform, get_sys_time 
+                    make_browsepath_mce, make_ownership_mce, make_platform, get_sys_time, generate_json_output 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 #when DEBUG = true, im not running ingest_api from container, but from localhost python interpreter, hence need to change the endpoint used.
@@ -58,6 +58,7 @@ async def hello_world() -> None:
 async def create_item(item: create_dataset_params) -> None:
     """
     This endpoint is meant for manually defined or parsed file datasets.
+    #todo - to revisit to see if refactoring is needed when make_json is up.
     """
     rootLogger.info("make_dataset_request_received {}".format(item))
     item.dataset_type = determine_type(item.dataset_type)
@@ -68,9 +69,11 @@ async def create_item(item: create_dataset_params) -> None:
     browsePath = "/{}/{}".format(item.dataset_type, item.dataset_name) 
     #not sure what happens when multiple different datasets all lead to the same browsepath, probably disaster.    
     requestor = make_user_urn(item.dataset_owner)    
-    
+    headerRowNum = "n/a" if item.dict().get("hasHeader", "n/a")=="no" else str(item.dict().get("headerLine", "n/a"))
     properties = {"dataset_origin": item.dict().get("dataset_origin", ""), 
-                    "dataset_location": item.dict().get("dataset_location", "")}
+                    "dataset_location": item.dict().get("dataset_location", ""),
+                    "has_header": item.dict().get("hasHeader", "n/a"),
+                    "header_row_number": headerRowNum}
     
     all_mce=[]
     dataset_description = item.dataset_description if item.dataset_description else ""
@@ -94,13 +97,12 @@ async def create_item(item: create_dataset_params) -> None:
                                     platformName = platformName,
                                     actor = requestor,
                                     fields = field_params,
-                                    ))
-    
+                                    ))    
     try:
         emitter = DatahubRestEmitter(rest_endpoint)
 
         for mce in all_mce:
-            emitter.emit_mce(mce)   
+            emitter.emit_mce(mce)            
         emitter._session.close()
     except Exception as e:
         rootLogger.debug(e)

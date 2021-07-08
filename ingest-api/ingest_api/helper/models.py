@@ -12,9 +12,11 @@ class create_dataset_params(BaseModel):
     dataset_type: Union[str, Dict[str,str]] 
     fields: List[FieldParam] 
     dataset_owner: str = "no_owner"
-    dataset_description: str = None     
-    dataset_location: str = None
-    dataset_origin: str = None
+    dataset_description: str = ""     
+    dataset_location: str = ""
+    dataset_origin: str = ""
+    hasHeader: str = "n/a"
+    headerLine: int = 1
 
     class Config:
         schema_extra = {
@@ -25,6 +27,8 @@ class create_dataset_params(BaseModel):
                 "dataset_owner": "12345",
                 "dataset_location": "the file can be found here @...",
                 "dataset_origin": "this dataset found came from... ie internet",
+                "hasHeader": "no",
+                "headerLine": 1,
                 "dataset_fields": [{
                     "field_name": "columnA",
                     "field_type": "string",

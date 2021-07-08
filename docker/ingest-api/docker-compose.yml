@@ -9,7 +9,7 @@ services:
     ports:
       - "8001:80"
     volumes:
-      - apidata:/app/
+      - apidata:/app/ingest-api/ingest_api/log
 
 networks:
   default:
