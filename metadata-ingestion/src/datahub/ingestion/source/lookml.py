@@ -314,22 +314,25 @@ class LookerView:  # pragma: no cover
                     include, connection
                 )
                 if maybe_looker_viewfile is not None:
-                    for view in looker_viewfile.views:
-                        maybe_looker_view = LookerView.from_looker_dict(
-                            view,
-                            connection,
-                            looker_viewfile,
-                            looker_viewfile_loader,
-                            parse_table_names_from_sql,
-                        )
-                        if maybe_looker_view is None:
-                            continue
+                    for raw_view in looker_viewfile.views:
+                        raw_view_name = raw_view["name"]
+                        # Make sure to skip loading view we are currently trying to resolve
+                        if raw_view_name != view_name:
+                            maybe_looker_view = LookerView.from_looker_dict(
+                                raw_view,
+                                connection,
+                                looker_viewfile,
+                                looker_viewfile_loader,
+                                parse_table_names_from_sql,
+                            )
+                            if maybe_looker_view is None:
+                                continue
 
-                        if (
-                            maybe_looker_view is not None
-                            and maybe_looker_view.view_name in extends
-                        ):
-                            extends_to_looker_view.append(maybe_looker_view)
+                            if (
+                                maybe_looker_view is not None
+                                and maybe_looker_view.view_name in extends
+                            ):
+                                extends_to_looker_view.append(maybe_looker_view)
 
             if len(extends_to_looker_view) != 1:
                 logger.warning(
@@ -508,7 +511,7 @@ class LookMLSource(Source):  # pragma: no cover
         model_files = sorted(
             f
             for f in glob.glob(
-                f"{self.source_config.base_folder}/**/*.model.lkml", recursive=True
+                f"{self.source_config.base_folder}/**.model.lkml", recursive=True
             )
         )
         for file_path in model_files:
