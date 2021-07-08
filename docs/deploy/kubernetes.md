@@ -2,12 +2,14 @@
 title: "Deploying with Kubernetes"
 ---
 
-# Deploying Datahub with Kubernetes
+# Deploying DataHub with Kubernetes
 
 ## Introduction
-[This directory](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes) provides 
-the Kubernetes [Helm](https://helm.sh/) charts for deploying [Datahub](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/datahub) and it's [dependencies](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/prerequisites) 
+Helm charts for deploying DataHub on a kubernetes cluster is located in this [repository](https://github.com/acryldata/datahub-helm). provides 
+We provide charts for deploying [Datahub](https://github.com/acryldata/datahub-helm/tree/master/charts/datahub) and it's [dependencies](https://github.com/acryldata/datahub-helm/tree/master/charts/prerequisites) 
 (Elasticsearch, optionally Neo4j, MySQL, and Kafka) on a Kubernetes cluster.
+
+This doc is a guide to deploy an instance of DataHub on a kubernetes cluster using the above charts from scratch. 
 
 ## Setup
 1. Set up a kubernetes cluster
@@ -23,11 +25,11 @@ the Kubernetes [Helm](https://helm.sh/) charts for deploying [Datahub](https://g
    
 ## Components
 Datahub consists of 4 main components: [GMS](https://datahubproject.io/docs/gms), 
-[MAE Consumer](https://datahubproject.io/docs/metadata-jobs/mae-consumer-job), 
-[MCE Consumer](https://datahubproject.io/docs/metadata-jobs/mce-consumer-job), and 
+[MAE Consumer](https://datahubproject.io/docs/metadata-jobs/mae-consumer-job) (optional), 
+[MCE Consumer](https://datahubproject.io/docs/metadata-jobs/mce-consumer-job) (optional), and 
 [Frontend](https://datahubproject.io/docs/datahub-frontend). Kubernetes deployment 
 for each of the components are defined as subcharts under the main 
-[Datahub](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/datahub) 
+[Datahub](https://github.com/acryldata/datahub-helm/tree/master/charts/datahub) 
 helm chart.
 
 The main components are powered by 4 external dependencies:
@@ -37,7 +39,7 @@ The main components are powered by 4 external dependencies:
 - Graph Index (Supports either Neo4j or Elasticsearch)
 
 The dependencies must be deployed before deploying Datahub. We created a separate 
-[chart](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/prerequisites) 
+[chart](https://github.com/acryldata/datahub-helm/tree/master/charts/prerequisites) 
 for deploying the dependencies with example configuration. They could also be deployed 
 separately on-prem or leveraged as managed services. To remove your dependency on Neo4j,
 set enabled to false in the `datahub-kubernetes/prerequisites/values.yaml` file.
@@ -54,20 +56,23 @@ kubectl create secret generic neo4j-secrets --from-literal=neo4j-password=datahu
 
 The above commands sets the passwords to "datahub" as an example. Change to any password of choice. 
 
-Second, deploy the dependencies by running the following
+Add datahub helm repo by running the following
 
 ```(shell)
-(cd prerequisites && helm dep update)
-helm install prerequisites prerequisites/
+helm repo add datahub https://helm.datahubproject.io/
 ```
 
-Note, after changing the configurations in the values.yaml file, you can run 
+Then, deploy the dependencies by running the following
 
 ```(shell)
-helm upgrade prerequisites prerequisites/
+helm install prerequisites datahub/datahub-prerequisites
 ```
 
-To just redeploy the dependencies impacted by the change. 
+Note, the above uses the default configuration defined [here](https://github.com/acryldata/datahub-helm/blob/master/charts/prerequisites/values.yaml). You can change any of the configuration and deploy by running the following command. 
+
+```(shell)
+helm install prerequisites datahub/datahub-prerequisites --values <<path-to-values-file>>
+```
 
 Run `kubectl get pods` to check whether all the pods for the dependencies are running. 
 You should get a result similar to below.
@@ -87,11 +92,11 @@ prerequisites-zookeeper-0                          1/1     Running     0        
 deploy Datahub by running the following
 
 ```(shell)
-helm install datahub datahub/
+helm install datahub datahub/datahub
 ```
 
-Values in [values.yaml](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/datahub/values.yaml) 
-have been preset to point to the dependencies deployed using the [prerequisites](https://github.com/linkedin/datahub/tree/master/datahub-kubernetes/prerequisites) 
+Values in [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml) 
+have been preset to point to the dependencies deployed using the [prerequisites](https://github.com/acryldata/datahub-helm/tree/master/charts/prerequisites) 
 chart with release name "prerequisites". If you deployed the helm chart using a different release name, update the quickstart-values.yaml file accordingly before installing. 
 
 Run `kubectl get pods` to check whether all the datahub pods are running. You should get a result similar to below.
