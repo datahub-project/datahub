@@ -12,6 +12,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
     MLFeaturePropertiesClass,
     MLFeatureTablePropertiesClass,
     MLPrimaryKeyPropertiesClass,
@@ -79,7 +80,9 @@ class FeatureGroupProcessor:
 
         feature_group_snapshot = MLFeatureTableSnapshot(
             urn=builder.make_ml_feature_table_urn("sagemaker", feature_group_name),
-            aspects=[],
+            aspects=[
+                BrowsePathsClass(paths=[f"sagemaker/{feature_group_name}"]),
+            ],
         )
 
         feature_group_snapshot.aspects.append(
