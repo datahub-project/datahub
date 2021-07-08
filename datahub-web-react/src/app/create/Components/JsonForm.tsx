@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import JsonSchemaEditor from '@optum/json-schema-editor';
+import { JsonPointer } from 'json-ptr';
 import { JSONSchema7 } from '@optum/json-schema-editor/dist/JsonSchemaEditor.types';
 import { Button, Divider, Form, message, Space } from 'antd';
 import Dragger from 'antd/lib/upload/Dragger';
@@ -7,6 +8,39 @@ import { v4 as uuidv4 } from 'uuid';
 import { CommonFields } from './CommonFields';
 
 export const JsonForm = () => {
+    const exampleSchema =
+        '{\n' +
+        '    "$schema": "http://json-schema.org/draft-07/schema#",\n' +
+        '    "type": "object",\n' +
+        '    "properties": {\n' +
+        '        "fruits": {\n' +
+        '            "title": "fruits",\n' +
+        '            "type": "array",\n' +
+        '            "items": {\n' +
+        '                "type": "string"\n' +
+        '            }\n' +
+        '        },\n' +
+        '        "vegetables": {\n' +
+        '            "title": "vegetables",\n' +
+        '            "type": "array",\n' +
+        '            "items": {\n' +
+        '                "type": "object",\n' +
+        '                "properties": {\n' +
+        '                    "veggieName": {\n' +
+        '                        "title": "veggieName",\n' +
+        '                        "type": "string"\n' +
+        '                    },\n' +
+        '                    "veggieLike": {\n' +
+        '                        "title": "veggieLike",\n' +
+        '                        "type": "boolean"\n' +
+        '                    }\n' +
+        '                },\n' +
+        '                "additionalProperties": true\n' +
+        '            }\n' +
+        '        }\n' +
+        '    },\n' +
+        '    "additionalProperties": true\n' +
+        '}';
     const [state, setState] = useState({ schema: {} });
     const [key, setKey] = useState(uuidv4());
     const [form] = Form.useForm();
@@ -20,6 +54,19 @@ export const JsonForm = () => {
     };
     const printIt = (data) => {
         console.log(JSON.parse(data));
+        const test = JsonPointer.get(JSON.parse(exampleSchema), '');
+        JsonPointer.visit(JSON.parse(exampleSchema), (p, v) => {
+            const paths = JsonPointer.decode(p);
+            console.log('paths', paths);
+            if (paths.length > 0) {
+                const parent = new JsonPointer(p.slice(0, p.length - 1));
+                console.log('parent', parent);
+            }
+            console.log('v:', v);
+            console.log('----');
+        });
+        console.log('example:', JSON.parse(exampleSchema));
+        console.log('test:', test);
     };
     const onFinish = (values) => {
         console.log(values);
