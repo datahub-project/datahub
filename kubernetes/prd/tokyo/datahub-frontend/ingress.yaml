@@ -23,3 +23,13 @@ spec:
           - backend:
               serviceName: datahub-frontend-react
               servicePort: 9002
+    - host: "kibana.smartnews.net"
+      http:
+        paths:
+          - path: /*
+            backend:
+              serviceName: ssl-redirect
+              servicePort: use-annotation
+          - backend:
+              serviceName: kibana
+              servicePort: 5601                            
