@@ -30,7 +30,7 @@ const octokit = new MyOctokit({
       }
     },
     onAbuseLimit: () => {
-      console.warn('GitHub API hit abuse limit');
+      console.warn("GitHub API hit abuse limit");
     },
   },
 });
