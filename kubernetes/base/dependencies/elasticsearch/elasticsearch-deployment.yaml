@@ -43,12 +43,12 @@ spec:
                   key: xpack.security.enabled
                   name: elasticsearch-env-docker-env
           image: elasticsearch:7.9.3
-          livenessProbe:
-            exec:
-              command:
-                - curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1
-            failureThreshold: 4
-            initialDelaySeconds: 120
+#          livenessProbe:
+#            exec:
+#              command:
+#                - curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1
+#            failureThreshold: 4
+#            initialDelaySeconds: 120
           name: elasticsearch
           ports:
             - containerPort: 9200
