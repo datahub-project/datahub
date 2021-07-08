@@ -967,7 +967,7 @@
           "SQL" : "SQL is for running Presto, mysql queries etc"
         }
       }, "string" ],
-      "doc" : "Datajob type"
+      "doc" : "Datajob type\n**NOTE**: AzkabanJobType is deprecated. Please use strings instead."
     }, {
       "name" : "flowUrn",
       "type" : "com.linkedin.common.DataFlowUrn",

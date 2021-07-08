@@ -1566,7 +1566,7 @@
                             "string"
                           ],
                           "name": "type",
-                          "doc": "Datajob type"
+                          "doc": "Datajob type\n**NOTE**: AzkabanJobType is deprecated. Please use strings instead."
                         },
                         {
                           "Relationship": {

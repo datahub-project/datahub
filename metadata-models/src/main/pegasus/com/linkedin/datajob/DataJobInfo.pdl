@@ -34,6 +34,7 @@ record DataJobInfo includes CustomProperties, ExternalReference {
 
   /**
    * Datajob type
+   * **NOTE**: AzkabanJobType is deprecated. Please use strings instead.
    */
   type: union[AzkabanJobType, string]
 

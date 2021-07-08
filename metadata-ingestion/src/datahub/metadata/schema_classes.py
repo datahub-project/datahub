@@ -2004,13 +2004,15 @@ class DataJobInfoClass(DictWrapper):
     
     @property
     def type(self) -> Union[Union[str, "AzkabanJobTypeClass"], str]:
-        """Getter: Datajob type"""
+        """Getter: Datajob type
+    **NOTE**: AzkabanJobType is deprecated. Please use strings instead."""
         return self._inner_dict.get('type')  # type: ignore
     
     
     @type.setter
     def type(self, value: Union[Union[str, "AzkabanJobTypeClass"], str]) -> None:
-        """Setter: Datajob type"""
+        """Setter: Datajob type
+    **NOTE**: AzkabanJobType is deprecated. Please use strings instead."""
         self._inner_dict['type'] = value
     
     
