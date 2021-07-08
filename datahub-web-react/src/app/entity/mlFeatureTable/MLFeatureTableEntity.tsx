@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ShareAltOutlined } from '@ant-design/icons';
+import { BorderlessTableOutlined } from '@ant-design/icons';
 import { MlFeatureTable, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { MLFeatureTableProfile } from './profile/MLFeatureTableProfile';
@@ -13,15 +13,15 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     icon = (fontSize: number, styleType: IconStyleType) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <ShareAltOutlined style={{ fontSize }} />;
+            return <BorderlessTableOutlined style={{ fontSize }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ShareAltOutlined style={{ fontSize, color: '#d6246c' }} />;
+            return <BorderlessTableOutlined style={{ fontSize, color: '#9633b9' }} />;
         }
 
         return (
-            <ShareAltOutlined
+            <BorderlessTableOutlined
                 style={{
                     fontSize,
                     color: '#BFBFBF',

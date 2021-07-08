@@ -24,8 +24,8 @@ const defaultColumns = [
         key: 'dataType',
         width: 100,
         align: 'left' as AlignType,
-        render: (dataType: MlFeatureDataType) => {
-            return <TypeIcon type={dataType} />;
+        render: (dataType: MlFeatureDataType, record: MlFeature | MlPrimaryKey) => {
+            return <TypeIcon dataType={dataType} entityType={record.type} />;
         },
     },
     {
@@ -61,7 +61,7 @@ export default function SchemaView({ featureTableProperties }: Props) {
                 <Table
                     columns={defaultColumns}
                     dataSource={rows}
-                    rowKey="fieldPath"
+                    rowKey={(record) => `${record.dataType}-${record.name}`}
                     expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
                     pagination={false}
                 />

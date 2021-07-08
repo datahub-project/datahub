@@ -1,10 +1,10 @@
-import { UnorderedListOutlined, QuestionCircleOutlined, FieldTimeOutlined } from '@ant-design/icons';
+import { UnorderedListOutlined, QuestionCircleOutlined, FieldTimeOutlined, KeyOutlined } from '@ant-design/icons';
 import { Tooltip, Typography } from 'antd';
 import React, { FC } from 'react';
 import { VscFileBinary } from 'react-icons/vsc';
 import styled from 'styled-components';
 import { capitalizeFirstLetter } from '../../../../shared/capitalizeFirstLetter';
-import { MlFeatureDataType } from '../../../../../types.generated';
+import { EntityType, MlFeatureDataType } from '../../../../../types.generated';
 
 const TypeIconContainer = styled.div`
     display: flex;
@@ -24,6 +24,11 @@ const TypeSubtitle = styled(Typography.Text)<{ hasicon?: string }>`
 
 const IconSpan = styled.span`
     font-size: 18px;
+`;
+
+const Container = styled.div`
+    display: flex;
+    flex-direction: row;
 `;
 
 const DATA_TYPE_ICON_MAP: Record<MlFeatureDataType, { icon: FC<{ style: any }> | null; size: number; text: string }> = {
@@ -55,11 +60,12 @@ const DATA_TYPE_ICON_MAP: Record<MlFeatureDataType, { icon: FC<{ style: any }> |
 };
 
 type Props = {
-    type?: MlFeatureDataType;
+    dataType?: MlFeatureDataType;
+    entityType?: EntityType;
 };
 
-export default function TypeIcon({ type }: Props) {
-    const { icon: Icon, size, text } = DATA_TYPE_ICON_MAP[type || MlFeatureDataType.Unknown];
+export default function TypeIcon({ dataType, entityType }: Props) {
+    const { icon: Icon, size, text } = DATA_TYPE_ICON_MAP[dataType || MlFeatureDataType.Unknown];
 
     // eslint-disable-next-line react/prop-types
     const NativeDataTypeTooltip = ({ children }) => (
@@ -69,13 +75,16 @@ export default function TypeIcon({ type }: Props) {
     );
 
     return (
-        <NativeDataTypeTooltip>
-            <TypeIconContainer data-testid={`icon-${type}`}>
-                {Icon && <Icon style={{ fontSize: size }} />}
-                <TypeSubtitle type="secondary" hasicon={Icon ? 'yes' : undefined}>
-                    {text}
-                </TypeSubtitle>
-            </TypeIconContainer>
-        </NativeDataTypeTooltip>
+        <Container>
+            {entityType === EntityType.MlprimaryKey && <KeyOutlined />}
+            <NativeDataTypeTooltip>
+                <TypeIconContainer>
+                    {Icon && <Icon style={{ fontSize: size }} />}
+                    <TypeSubtitle type="secondary" hasicon={Icon ? 'yes' : undefined}>
+                        {text}
+                    </TypeSubtitle>
+                </TypeIconContainer>
+            </NativeDataTypeTooltip>
+        </Container>
     );
 }
