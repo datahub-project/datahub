@@ -3,6 +3,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws_common import make_s3_urn
 from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -480,9 +481,7 @@ class JobProcessor:
             input_data = input_config.get("DataSource", {}).get("S3DataSource")
 
             if input_data is not None and "S3Uri" in input_data:
-                input_datasets[
-                    mce_builder.make_s3_urn(input_data["S3Uri"], self.env)
-                ] = {
+                input_datasets[make_s3_urn(input_data["S3Uri"], self.env)] = {
                     "dataset_type": "s3",
                     "uri": input_data["S3Uri"],
                     "datatype": input_data.get("S3DataType"),
@@ -493,7 +492,7 @@ class JobProcessor:
         output_s3_path = job.get("OutputDataConfig", {}).get("S3OutputPath")
 
         if output_s3_path is not None:
-            output_datasets[mce_builder.make_s3_urn(output_s3_path, self.env)] = {
+            output_datasets[make_s3_urn(output_s3_path, self.env)] = {
                 "dataset_type": "s3",
                 "uri": output_s3_path,
             }
@@ -527,7 +526,7 @@ class JobProcessor:
         input_data: Optional[Dict[str, Any]] = job.get("InputConfig")
 
         if input_data is not None and "S3Uri" in input_data:
-            input_datasets[mce_builder.make_s3_urn(input_data["S3Uri"], self.env)] = {
+            input_datasets[make_s3_urn(input_data["S3Uri"], self.env)] = {
                 "dataset_type": "s3",
                 "uri": input_data["S3Uri"],
                 "framework": input_data.get("Framework"),
@@ -539,9 +538,7 @@ class JobProcessor:
         output_data: Optional[Dict[str, Any]] = job.get("OutputConfig")
 
         if output_data is not None and "S3OutputLocation" in output_data:
-            output_datasets[
-                mce_builder.make_s3_urn(output_data["S3OutputLocation"], self.env)
-            ] = {
+            output_datasets[make_s3_urn(output_data["S3OutputLocation"], self.env)] = {
                 "dataset_type": "s3",
                 "uri": output_data["S3OutputLocation"],
                 "target_device": output_data.get("TargetDevice"),
@@ -586,15 +583,13 @@ class JobProcessor:
         )
 
         if model_artifact_s3_uri is not None:
-            output_datasets[
-                mce_builder.make_s3_urn(model_artifact_s3_uri, self.env)
-            ] = {
+            output_datasets[make_s3_urn(model_artifact_s3_uri, self.env)] = {
                 "dataset_type": "s3",
                 "uri": model_artifact_s3_uri,
             }
 
         if output_s3_uri is not None:
-            output_datasets[mce_builder.make_s3_urn(output_s3_uri, self.env)] = {
+            output_datasets[make_s3_urn(output_s3_uri, self.env)] = {
                 "dataset_type": "s3",
                 "uri": output_s3_uri,
             }
@@ -714,15 +709,13 @@ class JobProcessor:
             .get("ManifestS3Uri")
         )
         if input_s3_uri is not None:
-            input_datasets[mce_builder.make_s3_urn(input_s3_uri, self.env)] = {
+            input_datasets[make_s3_urn(input_s3_uri, self.env)] = {
                 "dataset_type": "s3",
                 "uri": input_s3_uri,
             }
         category_config_s3_uri: Optional[str] = job.get("LabelCategoryConfigS3Uri")
         if category_config_s3_uri is not None:
-            input_datasets[
-                mce_builder.make_s3_urn(category_config_s3_uri, self.env)
-            ] = {
+            input_datasets[make_s3_urn(category_config_s3_uri, self.env)] = {
                 "dataset_type": "s3",
                 "uri": category_config_s3_uri,
             }
@@ -733,7 +726,7 @@ class JobProcessor:
             "OutputDatasetS3Uri"
         )
         if output_s3_uri is not None:
-            output_datasets[mce_builder.make_s3_urn(output_s3_uri, self.env)] = {
+            output_datasets[make_s3_urn(output_s3_uri, self.env)] = {
                 "dataset_type": "s3",
                 "uri": output_s3_uri,
             }
@@ -741,7 +734,7 @@ class JobProcessor:
             "S3OutputPath"
         )
         if output_config_s3_uri is not None:
-            output_datasets[mce_builder.make_s3_urn(output_config_s3_uri, self.env)] = {
+            output_datasets[make_s3_urn(output_config_s3_uri, self.env)] = {
                 "dataset_type": "s3",
                 "uri": output_config_s3_uri,
             }
@@ -809,7 +802,7 @@ class JobProcessor:
 
             if input_s3_uri is not None:
 
-                input_datasets[mce_builder.make_s3_urn(input_s3_uri, self.env)] = {
+                input_datasets[make_s3_urn(input_s3_uri, self.env)] = {
                     "dataset_type": "s3",
                     "uri": input_s3_uri,
                     "datatype": input_s3.get("S3DataType"),
@@ -842,7 +835,7 @@ class JobProcessor:
 
             output_s3_uri = output.get("S3Output", {}).get("S3Uri")
             if output_s3_uri is not None:
-                output_datasets[mce_builder.make_s3_urn(output_s3_uri, self.env)] = {
+                output_datasets[make_s3_urn(output_s3_uri, self.env)] = {
                     "dataset_type": "s3",
                     "uri": output_s3_uri,
                     "name": output_name,
@@ -896,7 +889,7 @@ class JobProcessor:
             s3_uri = s3_source.get("S3Uri")
 
             if s3_uri is not None:
-                input_datasets[mce_builder.make_s3_urn(s3_uri, self.env)] = {
+                input_datasets[make_s3_urn(s3_uri, self.env)] = {
                     "dataset_type": "s3",
                     "uri": s3_uri,
                     "datatype": s3_source.get("S3Datatype"),
@@ -936,7 +929,7 @@ class JobProcessor:
         ]:
 
             if output_s3_uri is not None:
-                output_datasets[mce_builder.make_s3_urn(output_s3_uri, self.env)] = {
+                output_datasets[make_s3_urn(output_s3_uri, self.env)] = {
                     "dataset_type": "s3",
                     "uri": output_s3_uri,
                 }
@@ -974,7 +967,7 @@ class JobProcessor:
 
         if input_s3_uri is not None:
 
-            input_datasets[mce_builder.make_s3_urn(input_s3_uri, self.env)] = {
+            input_datasets[make_s3_urn(input_s3_uri, self.env)] = {
                 "dataset_type": "s3",
                 "uri": input_s3_uri,
                 "datatype": input_s3.get("S3DataType"),
@@ -987,7 +980,7 @@ class JobProcessor:
         output_s3_uri = job.get("TransformOutput", {}).get("S3OutputPath")
 
         if output_s3_uri is not None:
-            output_datasets[mce_builder.make_s3_urn(output_s3_uri, self.env)] = {
+            output_datasets[make_s3_urn(output_s3_uri, self.env)] = {
                 "dataset_type": "s3",
                 "uri": output_s3_uri,
             }

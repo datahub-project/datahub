@@ -10,7 +10,7 @@ from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws_common import AwsSourceConfig, make_s3_urn
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -180,14 +180,14 @@ class GlueSource(Source):
 
                 # append S3 format if different ones exist
                 if len(s3_formats[s3_uri]) > 1:
-                    node_urn = mce_builder.make_s3_urn(
+                    node_urn = make_s3_urn(
                         s3_uri,
                         self.env,
                         suffix=node_args.get("format"),
                     )
 
                 else:
-                    node_urn = mce_builder.make_s3_urn(s3_uri, self.env)
+                    node_urn = make_s3_urn(s3_uri, self.env)
 
                 dataset_snapshot = DatasetSnapshot(
                     urn=node_urn,
