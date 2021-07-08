@@ -25,7 +25,7 @@ const NUMBER_OWNERS_REQUIRED = 2;
 interface Props {
     owners: Array<Owner>;
     lastModifiedAt: number;
-    updateOwnership: (update: OwnershipUpdate) => void;
+    updateOwnership?: (update: OwnershipUpdate) => void;
 }
 
 /**
@@ -113,14 +113,16 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
     };
 
     const onDelete = (urn: string, role: OwnershipType) => {
-        const updatedOwners = owners
-            .filter((owner) => !(owner.owner.urn === urn && owner.type === role))
-            .map((owner) => ({
-                owner: owner.owner.urn,
-                type: owner.type,
-            }));
+        if (updateOwnership) {
+            const updatedOwners = owners
+                .filter((owner) => !(owner.owner.urn === urn && owner.type === role))
+                .map((owner) => ({
+                    owner: owner.owner.urn,
+                    type: owner.type,
+                }));
 
-        updateOwnership({ owners: updatedOwners });
+            updateOwnership({ owners: updatedOwners });
+        }
     };
 
     const onChangeOwnerQuery = async (query: string) => {
@@ -140,20 +142,22 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
     };
 
     const onSave = async (record: any) => {
-        const row = await form.validateFields();
-        const updatedOwners = stagedOwners.map((owner, index) => {
-            if (record.key === index) {
+        if (updateOwnership) {
+            const row = await form.validateFields();
+            const updatedOwners = stagedOwners.map((owner, index) => {
+                if (record.key === index) {
+                    return {
+                        owner: `urn:li:${row.type === EntityType.CorpGroup ? 'corpGroup' : 'corpuser'}:${row.ldap}`,
+                        type: row.role,
+                    };
+                }
                 return {
-                    owner: `urn:li:${row.type === EntityType.CorpGroup ? 'corpGroup' : 'corpuser'}:${row.ldap}`,
-                    type: row.role,
+                    owner: owner.owner.urn,
+                    type: owner.type,
                 };
-            }
-            return {
-                owner: owner.owner.urn,
-                type: owner.type,
-            };
-        });
-        updateOwnership({ owners: updatedOwners });
+            });
+            updateOwnership({ owners: updatedOwners });
+        }
         setEditingIndex(-1);
     };
 

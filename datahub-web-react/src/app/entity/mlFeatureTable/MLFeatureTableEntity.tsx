@@ -38,9 +38,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getAutoCompleteFieldName = () => 'name';
 
-    getPathName = () => 'mlFeatureTable';
+    getPathName = () => 'featureTables';
 
-    getCollectionName = () => 'MLFeatureTable';
+    getCollectionName = () => 'Feature tables';
 
     renderProfile = (urn: string) => <MLFeatureTableProfile urn={urn} />;
 
