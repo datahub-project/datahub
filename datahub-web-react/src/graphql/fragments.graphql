@@ -320,7 +320,21 @@ fragment nonRecursiveMLFeature on MLFeature {
         version {
             versionTag
         }
-        sources
+        sources {
+            urn
+            name
+            type
+            origin
+            description
+            uri
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            platformNativeType
+        }
     }
     ownership {
         ...ownershipFields
@@ -356,7 +370,21 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
         version {
             versionTag
         }
-        sources
+        sources {
+            urn
+            name
+            type
+            origin
+            description
+            uri
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            platformNativeType
+        }
     }
     ownership {
         ...ownershipFields

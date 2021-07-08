@@ -1,9 +1,8 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
-
-import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.MLFeatureDataType;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
+import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import lombok.NonNull;
 
@@ -30,7 +29,11 @@ public class MLFeaturePropertiesMapper implements ModelMapper<com.linkedin.ml.me
             result.setSources(mlFeatureProperties
                 .getSources()
                 .stream()
-                .map(Urn::toString)
+                .map(urn -> {
+                    final Dataset dataset = new Dataset();
+                    dataset.setUrn(urn.toString());
+                    return dataset;
+                })
                 .collect(Collectors.toList()));
         }
 

@@ -3,6 +3,7 @@ import { useGetChartLazyQuery } from '../../../graphql/chart.generated';
 import { useGetDashboardLazyQuery } from '../../../graphql/dashboard.generated';
 import { useGetDatasetLazyQuery } from '../../../graphql/dataset.generated';
 import { useGetDataJobLazyQuery } from '../../../graphql/dataJob.generated';
+import { useGetMlFeatureTableLazyQuery } from '../../../graphql/mlFeatureTable.generated';
 import { EntityType } from '../../../types.generated';
 import { EntityAndType } from '../types';
 
@@ -12,6 +13,7 @@ export default function useLazyGetEntityQuery() {
     const [getAsyncChart, { data: asyncChartData }] = useGetChartLazyQuery();
     const [getAsyncDashboard, { data: asyncDashboardData }] = useGetDashboardLazyQuery();
     const [getAsyncDataJob, { data: asyncDataJobData }] = useGetDataJobLazyQuery();
+    const [getAsyncMLFeatureTable, { data: asyncMLFeatureTable }] = useGetMlFeatureTableLazyQuery();
 
     const getAsyncEntity = useCallback(
         (urn: string, type: EntityType) => {
@@ -31,8 +33,19 @@ export default function useLazyGetEntityQuery() {
                 setFetchedEntityType(type);
                 getAsyncDataJob({ variables: { urn } });
             }
+            if (type === EntityType.MlfeatureTable) {
+                setFetchedEntityType(type);
+                getAsyncMLFeatureTable({ variables: { urn } });
+            }
         },
-        [setFetchedEntityType, getAsyncChart, getAsyncDataset, getAsyncDashboard, getAsyncDataJob],
+        [
+            setFetchedEntityType,
+            getAsyncChart,
+            getAsyncDataset,
+            getAsyncDashboard,
+            getAsyncDataJob,
+            getAsyncMLFeatureTable,
+        ],
     );
 
     const returnEntityAndType: EntityAndType | undefined = useMemo(() => {
@@ -74,11 +87,27 @@ export default function useLazyGetEntityQuery() {
                     } as EntityAndType;
                 }
                 break;
+            case EntityType.MlfeatureTable:
+                returnData = asyncMLFeatureTable?.mlFeatureTable;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.MlfeatureTable,
+                    } as EntityAndType;
+                }
+                break;
             default:
                 break;
         }
         return undefined;
-    }, [asyncDatasetData, asyncChartData, asyncDashboardData, asyncDataJobData, fetchedEntityType]);
+    }, [
+        asyncDatasetData,
+        asyncChartData,
+        asyncDashboardData,
+        asyncDataJobData,
+        fetchedEntityType,
+        asyncMLFeatureTable,
+    ]);
 
     return { getAsyncEntity, asyncData: returnEntityAndType };
 }

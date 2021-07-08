@@ -34,7 +34,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     isBrowseEnabled = () => true;
 
-    isLineageEnabled = () => false;
+    isLineageEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'name';
 

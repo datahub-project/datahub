@@ -21,7 +21,9 @@ import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.MLFeatureTableProperties;
 import com.linkedin.datahub.graphql.generated.MLFeature;
+import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
+import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
@@ -589,6 +591,24 @@ public class GmsGraphQLEngine {
                                                 ML_PRIMARY_KEY_TYPE,
                                                 (env) -> ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys().stream()
                                                 .map(MLPrimaryKey::getUrn)
+                                                .collect(Collectors.toList())))
+                        )
+                )
+                .type("MLFeatureProperties", typeWiring -> typeWiring
+                        .dataFetcher("sources", new AuthenticatedResolver<>(
+                                new LoadableTypeBatchResolver<>(
+                                        DATASET_TYPE,
+                                        (env) -> ((MLFeatureProperties) env.getSource()).getSources().stream()
+                                                .map(Dataset::getUrn)
+                                                .collect(Collectors.toList())))
+                        )
+                )
+                .type("MLPrimaryKeyProperties", typeWiring -> typeWiring
+                        .dataFetcher("sources", new AuthenticatedResolver<>(
+                                new LoadableTypeBatchResolver<>(
+                                        DATASET_TYPE,
+                                        (env) -> ((MLPrimaryKeyProperties) env.getSource()).getSources().stream()
+                                                .map(Dataset::getUrn)
                                                 .collect(Collectors.toList())))
                         )
                 );

@@ -2247,7 +2247,7 @@ type MLFeatureProperties {
 
     version: VersionTag
 
-    sources: [String!]
+    sources: [Dataset]
 }
 
 type MLPrimaryKey implements EntityWithRelationships & Entity {
@@ -2321,7 +2321,7 @@ type MLPrimaryKeyProperties {
 
     version: VersionTag
 
-    sources: [String!]
+    sources: [Dataset]
 }
 
 type MLFeatureTable implements EntityWithRelationships & Entity {

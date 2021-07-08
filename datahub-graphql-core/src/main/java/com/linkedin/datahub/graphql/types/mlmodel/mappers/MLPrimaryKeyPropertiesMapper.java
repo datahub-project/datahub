@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
-
-import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.MLFeatureDataType;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -26,13 +25,15 @@ public class MLPrimaryKeyPropertiesMapper implements ModelMapper<com.linkedin.ml
         if (mlPrimaryKeyProperties.getVersion() != null) {
             result.setVersion(VersionTagMapper.map(mlPrimaryKeyProperties.getVersion()));
         }
-        if (mlPrimaryKeyProperties.getSources() != null) {
-            result.setSources(mlPrimaryKeyProperties
-                .getSources()
-                .stream()
-                .map(Urn::toString)
-                .collect(Collectors.toList()));
-        }
+        result.setSources(mlPrimaryKeyProperties
+            .getSources()
+            .stream()
+            .map(urn -> {
+                final Dataset dataset = new Dataset();
+                dataset.setUrn(urn.toString());
+                return dataset;
+            })
+            .collect(Collectors.toList()));
 
         return result;
     }
