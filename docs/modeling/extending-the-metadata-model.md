@@ -1,10 +1,8 @@
 ---
-title: Extending the metadata model
-sidebar_label: Extending the metadata model
 slug: /metadata-modeling/extending-the-metadata-model
 ---
 
-# How do I extend the Metadata model? 
+# Extending the Metadata Model
 
 You can extend the metadata model by either creating a new Entity or extending an existing one. Unsure if you need to
 create a new entity or add an aspect to an existing entity? Read [metadata-model](./metadata-model.md) to understand
@@ -15,9 +13,9 @@ Dashboard Entity. If you want to extend an existing Entity, you can skip directl
 
 At a high level, an entity is made up of
 
-1) a union of Aspects, or bundles of related metadata,
-2) a Key Aspect, which uniquely identifies an instance of an entity,
-3) A snapshot, which pairs a group of aspects with a serialized key, or urn.
+1. a union of Aspects, or bundles of related metadata,
+2. a Key Aspect, which uniquely identifies an instance of an entity,
+3. A snapshot, which pairs a group of aspects with a serialized key, or urn.
 
 ## Defining an Entity
 
@@ -62,7 +60,9 @@ record DashboardKey {
 
 The Urn representation of the Key shown above would be:
 
-```urn:li:dashboard:(<tool>,<id>)```
+```
+urn:li:dashboard:(<tool>,<id>)
+```
 
 Because they are aspects, keys need to be annotated with an @Aspect annotation, This instructs DataHub that this struct can be a part of.
 
