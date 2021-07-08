@@ -1607,10 +1607,11 @@
                                 "GLUE"
                               ],
                               "doc": "The various types of support azkaban jobs"
-                            }
+                            },
+                            "string"
                           ],
                           "name": "type",
-                          "doc": "Datajob type"
+                          "doc": "Datajob type\n**NOTE**: AzkabanJobType is deprecated. Please use strings instead."
                         },
                         {
                           "Relationship": {
@@ -1629,6 +1630,38 @@
                           "name": "flowUrn",
                           "default": null,
                           "doc": "DataFlow urn that this job is part of"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "enum",
+                              "symbolDocs": {
+                                "COMPLETED": "Jobs with successful completion.",
+                                "FAILED": "Jobs that have failed.",
+                                "IN_PROGRESS": "Jobs currently running.",
+                                "STARTING": "Jobs being initialized.",
+                                "STOPPED": "Jobs that have stopped.",
+                                "STOPPING": "Jobs being stopped.",
+                                "UNKNOWN": "Jobs with unknown status (either unmappable or unavailable)"
+                              },
+                              "name": "JobStatus",
+                              "namespace": "com.linkedin.pegasus2avro.datajob",
+                              "symbols": [
+                                "STARTING",
+                                "IN_PROGRESS",
+                                "STOPPING",
+                                "STOPPED",
+                                "COMPLETED",
+                                "FAILED",
+                                "UNKNOWN"
+                              ],
+                              "doc": "Job statuses"
+                            }
+                          ],
+                          "name": "status",
+                          "default": null,
+                          "doc": "Status of the job"
                         }
                       ],
                       "doc": "Information about a Data processing job"
@@ -3256,6 +3289,15 @@
                       "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                       "fields": [
                         {
+                          "type": {
+                            "type": "map",
+                            "values": "string"
+                          },
+                          "name": "customProperties",
+                          "default": {},
+                          "doc": "Custom property bag."
+                        },
+                        {
                           "Searchable": {
                             "fieldType": "TEXT",
                             "hasValuesFieldName": "hasDescription"
@@ -4355,7 +4397,8 @@
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                     "com.linkedin.pegasus2avro.common.Status",
-                    "com.linkedin.pegasus2avro.common.Deprecation"
+                    "com.linkedin.pegasus2avro.common.Deprecation",
+                    "com.linkedin.pegasus2avro.common.BrowsePaths"
                   ]
                 },
                 "name": "aspects",

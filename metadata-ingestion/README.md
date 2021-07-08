@@ -387,6 +387,18 @@ source:
     aws_secret_access_key: # Optional.
     aws_session_token: # Optional.
     aws_role: # Optional (Role chaining supported by using a sorted list).
+
+    extract_feature_groups: True # if feature groups should be ingested, default True
+    extract_models: True # if models should be ingested, default True
+    extract_jobs: # if jobs should be ingested, default True for all
+      auto_ml: True
+      compilation: True
+      edge_packaging: True
+      hyper_parameter_tuning: True
+      labeling: True
+      processing: True
+      training: True
+      transform: True
 ```
 
 ### Snowflake `snowflake`

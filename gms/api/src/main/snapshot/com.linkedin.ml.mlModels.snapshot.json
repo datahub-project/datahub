@@ -141,6 +141,20 @@
       "name" : "cost"
     }
   }, "com.linkedin.common.CostType", "com.linkedin.common.CostValue", {
+    "type" : "record",
+    "name" : "CustomProperties",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Misc. properties about an entity.",
+    "fields" : [ {
+      "name" : "customProperties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "Custom property bag.",
+      "default" : { }
+    } ]
+  }, {
     "type" : "typeref",
     "name" : "DataPlatformUrn",
     "namespace" : "com.linkedin.common",
@@ -522,6 +536,7 @@
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
       "doc" : "Properties associated with a ML Model",
+      "include" : [ "com.linkedin.common.CustomProperties" ],
       "fields" : [ {
         "name" : "description",
         "type" : "string",
