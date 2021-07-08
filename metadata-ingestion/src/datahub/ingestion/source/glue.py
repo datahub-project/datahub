@@ -11,7 +11,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws_common import AwsSourceConfig
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -30,7 +30,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     DataJobInfoClass,
@@ -201,15 +200,6 @@ class GlueSource(Source):
                 )
 
                 dataset_snapshot.aspects.append(Status(removed=False))
-                dataset_snapshot.aspects.append(
-                    OwnershipClass(
-                        owners=[],
-                        lastModified=AuditStampClass(
-                            time=mce_builder.get_sys_time(),
-                            actor="urn:li:corpuser:datahub",
-                        ),
-                    )
-                )
                 dataset_snapshot.aspects.append(
                     DatasetPropertiesClass(
                         customProperties={k: str(v) for k, v in node_args.items()},
@@ -462,7 +452,7 @@ class GlueSource(Source):
                     yield dataset_wu
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
-        def get_owner(time: int) -> OwnershipClass:
+        def get_owner() -> OwnershipClass:
             owner = table.get("Owner")
             if owner:
                 owners = [
@@ -475,10 +465,6 @@ class GlueSource(Source):
                 owners = []
             return OwnershipClass(
                 owners=owners,
-                lastModified=AuditStampClass(
-                    time=time,
-                    actor="urn:li:corpuser:datahub",
-                ),
             )
 
         def get_dataset_properties() -> DatasetPropertiesClass:
@@ -516,20 +502,17 @@ class GlueSource(Source):
                 version=0,
                 fields=fields,
                 platform="urn:li:dataPlatform:glue",
-                created=AuditStamp(time=sys_time, actor="urn:li:corpuser:etl"),
-                lastModified=AuditStamp(time=sys_time, actor="urn:li:corpuser:etl"),
                 hash="",
                 platformSchema=MySqlDDL(tableSchema=""),
             )
 
-        sys_time = mce_builder.get_sys_time()
         dataset_snapshot = DatasetSnapshot(
             urn=f"urn:li:dataset:(urn:li:dataPlatform:glue,{table_name},{self.env})",
             aspects=[],
         )
 
         dataset_snapshot.aspects.append(Status(removed=False))
-        dataset_snapshot.aspects.append(get_owner(sys_time))
+        dataset_snapshot.aspects.append(get_owner())
         dataset_snapshot.aspects.append(get_dataset_properties())
         dataset_snapshot.aspects.append(get_schema_metadata(self))
 

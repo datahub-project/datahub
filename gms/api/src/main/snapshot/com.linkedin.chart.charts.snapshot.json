@@ -133,11 +133,19 @@
               "optional" : true
             } ]
           },
-          "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+          "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data.",
+          "default" : {
+            "actor" : "urn:li:corpuser:unknown",
+            "time" : 0
+          }
         }, {
           "name" : "lastModified",
           "type" : "AuditStamp",
-          "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+          "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data.",
+          "default" : {
+            "actor" : "urn:li:corpuser:unknown",
+            "time" : 0
+          }
         }, {
           "name" : "deleted",
           "type" : "AuditStamp",
@@ -459,7 +467,11 @@
     }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
-      "doc" : "Audit stamp containing who last modified the record and when."
+      "doc" : "Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      }
     } ],
     "Aspect" : {
       "name" : "ownership"

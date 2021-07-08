@@ -9,11 +9,11 @@ import datahub.ingestion.extractor.schema_util as schema_util
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -87,8 +87,6 @@ class KafkaSource(Source):
         logger.debug(f"topic = {topic}")
         platform = "kafka"
         dataset_name = topic
-        actor = "urn:li:corpuser:etl"
-        sys_time = get_sys_time()
 
         dataset_snapshot = DatasetSnapshot(
             urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.source_config.env})",
@@ -124,8 +122,6 @@ class KafkaSource(Source):
                 platform=f"urn:li:dataPlatform:{platform}",
                 platformSchema=KafkaSchema(documentSchema=schema.schema_str),
                 fields=fields,
-                created=AuditStamp(time=sys_time, actor=actor),
-                lastModified=AuditStamp(time=sys_time, actor=actor),
             )
             dataset_snapshot.aspects.append(schema_metadata)
 

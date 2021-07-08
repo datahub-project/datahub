@@ -10,11 +10,10 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -235,16 +234,12 @@ def get_schema_metadata(
         )
         canonical_schema.append(field)
 
-    actor = "urn:li:corpuser:etl"
-    sys_time = get_sys_time()
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=f"urn:li:dataPlatform:{platform}",
         version=0,
         hash="",
         platformSchema=MySqlDDL(tableSchema=""),
-        created=AuditStamp(time=sys_time, actor=actor),
-        lastModified=AuditStamp(time=sys_time, actor=actor),
         fields=canonical_schema,
     )
     return schema_metadata

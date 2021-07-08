@@ -17,11 +17,11 @@ from sql_metadata import Parser as SQLParser
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import DEFAULT_ENV, get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
@@ -394,16 +394,13 @@ class LookMLSource(Source):  # pragma: no cover
                 f"Could not find a platform for looker view with connection: {connection}"
             )
 
-    def _get_upsteam_lineage(
-        self, looker_view: LookerView, actor: str, sys_time: int
-    ) -> UpstreamLineage:
+    def _get_upsteam_lineage(self, looker_view: LookerView) -> UpstreamLineage:
         upstreams = []
         for sql_table_name in looker_view.sql_table_names:
             upstream = UpstreamClass(
                 dataset=self._construct_datalineage_urn(
                     sql_table_name, looker_view.connection
                 ),
-                auditStamp=AuditStamp(actor=actor, time=sys_time),
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstreams.append(upstream)
@@ -473,19 +470,14 @@ class LookMLSource(Source):  # pragma: no cover
                 primary_keys.append(schema_field.fieldPath)
         return fields, primary_keys
 
-    def _get_schema(
-        self, looker_view: LookerView, actor: str, sys_time: int
-    ) -> SchemaMetadataClass:
+    def _get_schema(self, looker_view: LookerView) -> SchemaMetadataClass:
         fields, primary_keys = self._get_fields_and_primary_keys(looker_view)
-        stamp = AuditStamp(time=sys_time, actor=actor)
         schema_metadata = SchemaMetadata(
             schemaName=looker_view.view_name,
             platform=f"urn:li:dataPlatform:{self.source_config.platform_name}",
             version=0,
             fields=fields,
             primaryKeys=primary_keys,
-            created=stamp,
-            lastModified=stamp,
             hash="",
             platformSchema=OtherSchema(rawSchema="looker-view"),
         )
@@ -496,20 +488,15 @@ class LookMLSource(Source):  # pragma: no cover
         Creates MetadataChangeEvent for the dataset, creating upstream lineage links
         """
         logger.debug(f"looker_view = {looker_view.view_name}")
-
         dataset_name = looker_view.view_name
-        actor = self.source_config.actor
-        sys_time = get_sys_time()
 
         dataset_snapshot = DatasetSnapshot(
             urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform_name},{dataset_name},{self.source_config.env})",
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))
-        dataset_snapshot.aspects.append(
-            self._get_upsteam_lineage(looker_view, actor, sys_time)
-        )
-        dataset_snapshot.aspects.append(self._get_schema(looker_view, actor, sys_time))
+        dataset_snapshot.aspects.append(self._get_upsteam_lineage(looker_view))
+        dataset_snapshot.aspects.append(self._get_schema(looker_view))
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
 
