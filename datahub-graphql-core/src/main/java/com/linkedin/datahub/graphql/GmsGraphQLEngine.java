@@ -1,20 +1,7 @@
 package com.linkedin.datahub.graphql;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.datahub.graphql.generated.Aspect;
-import com.linkedin.datahub.graphql.generated.Chart;
-import com.linkedin.datahub.graphql.generated.ChartInfo;
-import com.linkedin.datahub.graphql.generated.DashboardInfo;
-import com.linkedin.datahub.graphql.generated.DataJob;
-import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
-import com.linkedin.datahub.graphql.generated.Dataset;
-import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.EntityRelationship;
-import com.linkedin.datahub.graphql.generated.RelatedDataset;
-import com.linkedin.datahub.graphql.generated.SearchResult;
-import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
-import com.linkedin.datahub.graphql.generated.UsageQueryResult;
-import com.linkedin.datahub.graphql.generated.UserUsageCounts;
+import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
@@ -34,10 +21,6 @@ import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
-import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.generated.CorpUserInfo;
-import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
-import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
@@ -213,6 +196,7 @@ public class GmsGraphQLEngine {
         configureTypeExtensions(builder);
         configureTagAssociationResolver(builder);
         configureDataJobResolvers(builder);
+        configureMLFeatureTableResolvers(builder);
     }
 
     public static GraphQLEngine.Builder builder() {
@@ -565,6 +549,29 @@ public class GmsGraphQLEngine {
                                 .collect(Collectors.toList())))
                 )
             );
+    }
+
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.MLFeatureTable} type.
+     */
+    private static void configureMLFeatureTableResolvers(final RuntimeWiring.Builder builder) {
+        builder
+                .type("MLFeatureTableProperties", typeWiring -> typeWiring
+                        .dataFetcher("mlFeatures", new AuthenticatedResolver<>(
+                                        new LoadableTypeBatchResolver<>(
+                                                ML_FEATURE_TYPE,
+                                                (env) -> ((MLFeatureTableProperties) env.getSource()).getMlFeatures().stream()
+                                                .map(MLFeature::getUrn)
+                                                .collect(Collectors.toList())))
+                        )
+                        .dataFetcher("mlPrimaryKeys", new AuthenticatedResolver<>(
+                                        new LoadableTypeBatchResolver<>(
+                                                ML_PRIMARY_KEY_TYPE,
+                                                (env) -> ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys().stream()
+                                                .map(MLPrimaryKey::getUrn)
+                                                .collect(Collectors.toList())))
+                        )
+                );
     }
 
 

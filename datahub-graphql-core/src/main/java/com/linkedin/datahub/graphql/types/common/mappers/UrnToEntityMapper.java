@@ -10,6 +10,9 @@ import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Tag;
+import com.linkedin.datahub.graphql.generated.MLFeature;
+import com.linkedin.datahub.graphql.generated.MLFeatureTable;
+import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 
@@ -55,6 +58,18 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
     if (input.getEntityType().equals("corpGroup")) {
       partialEntity = new CorpUser();
       ((CorpGroup) partialEntity).setUrn(input.toString());
+    }
+    if (input.getEntityType().equals("mlFeature")) {
+      partialEntity = new MLFeature();
+      ((MLFeature) partialEntity).setUrn(input.toString());
+    }
+    if (input.getEntityType().equals("mlFeatureTable")) {
+      partialEntity = new MLFeatureTable();
+      ((MLFeatureTable) partialEntity).setUrn(input.toString());
+    }
+    if (input.getEntityType().equals("mlPrimaryKey")) {
+      partialEntity = new MLPrimaryKey();
+      ((MLPrimaryKey) partialEntity).setUrn(input.toString());
     }
     return partialEntity;
   }

@@ -308,6 +308,78 @@ fragment dashboardFields on Dashboard {
     }
 }
 
+fragment nonRecursiveMLFeature on MLFeature {
+    urn
+    type
+    name
+    description
+    dataType
+    featureProperties {
+        description
+        dataType
+        version {
+            versionTag
+        }
+        sources
+    }
+    ownership {
+        ...ownershipFields
+    }
+    institutionalMemory {
+        elements {
+            url
+            author {
+                urn
+                username
+            }
+            description
+            created {
+                actor
+                time
+            }
+        }
+    }
+    status {
+        removed
+    }
+}
+
+fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
+    urn
+    type
+    name
+    description
+    dataType
+    primaryKeyProperties {
+        description
+        dataType
+        version {
+            versionTag
+        }
+        sources
+    }
+    ownership {
+        ...ownershipFields
+    }
+    institutionalMemory {
+        elements {
+            url
+            author {
+                urn
+                username
+            }
+            description
+            created {
+                actor
+                time
+            }
+        }
+    }
+    status {
+        removed
+    }
+}
+
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     urn
     type
@@ -316,10 +388,10 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     featureTableProperties {
         description
         mlFeatures {
-            urn
+            ...nonRecursiveMLFeature
         }
         mlPrimaryKeys {
-            urn
+            ...nonRecursiveMLPrimaryKey
         }
     }
     ownership {
@@ -338,5 +410,8 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
                 time
             }
         }
+    }
+    status {
+        removed
     }
 }
