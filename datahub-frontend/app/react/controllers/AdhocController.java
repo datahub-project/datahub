@@ -25,7 +25,7 @@ public class AdhocController extends Controller {
             .setSpecVersion(SpecVersion.DRAFT_07)
             // Requires commons-validator
             .addFormatInferrers(FormatInferrers.email(), FormatInferrers.dateTime(), FormatInferrers.ip())
-            .setAdditionalPropertiesPolicy(AdditionalPropertiesPolicies.noOp())
+            .setAdditionalPropertiesPolicy(AdditionalPropertiesPolicies.allowed())
             .setRequiredPolicy(RequiredPolicies.noOp())
             .setTitleDescriptionGenerator(TitleDescriptionGenerators.useFieldNamesAsTitles())
             .addEnumExtractors(EnumExtractors.validEnum(java.time.Month.class),
