@@ -521,7 +521,7 @@ class LookMLSource(Source):  # pragma: no cover
         model_files = sorted(
             f
             for f in glob.glob(
-                f"{self.source_config.base_folder}/**/*.model.lkml", recursive=True
+                f"{self.source_config.base_folder}/**.model.lkml", recursive=True
             )
         )
         for file_path in model_files:
