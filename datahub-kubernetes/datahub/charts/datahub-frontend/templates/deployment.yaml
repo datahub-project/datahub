@@ -26,13 +26,19 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       volumes:
+        {{- with .Values.global.credentialsAndCertsSecrets }}
+        - name: datahub-certs-dir
+          secret:
+            defaultMode: 0444
+            secretName: {{ .name }}
+        {{- end }}
+        {{- if .Values.exporters.jmx.enabled }}
+        - name: config-jmx-exporter
+          configMap:
+            name: {{ include "datahub-gms.fullname" . }}-config-jmx-exporter
+        {{- end }}
       {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- if .Values.exporters.jmx.enabled }}
-      - name: config-jmx-exporter
-        configMap:
-          name: {{ include "datahub-frontend.fullname" . }}-config-jmx-exporter
       {{- end }}
       initContainers:
       {{- with .Values.extraInitContainers }}
@@ -82,8 +88,26 @@ spec:
               value: "{{ .Values.global.datahub.appVersion }}"
             - name: DATAHUB_PLAY_MEM_BUFFER_SIZE
               value: "{{ .Values.datahub.play.mem.buffer.size }}"
+            - name: DATAHUB_ANALYTICS_ENABLED
+              value: "{{ .Values.global.datahub_analytics_enabled }}"
+            {{- if .Values.global.datahub_analytics_enabled }}
             - name: KAFKA_BOOTSTRAP_SERVER
               value: "{{ .Values.global.kafka.bootstrap.server }}"
+            {{- if .Values.global.springKafkaConfigurationOverrides }}
+            {{- range $configName, $configValue := .Values.global.springKafkaConfigurationOverrides }}
+            - name: KAFKA_PROPERTIES_{{ $configName | replace "." "_" | upper }}
+              value: {{ $configValue }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.global.credentialsAndCertsSecrets }}
+            {{- range $envVarName, $envVarValue := .Values.global.credentialsAndCertsSecrets.secureEnv }}
+            - name: KAFKA_PROPERTIES_{{ $envVarName | replace "." "_" | upper }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.global.credentialsAndCertsSecrets.name }}
+                  key: {{ $envVarValue }}
+            {{- end }}
+            {{- end }}
             - name: ELASTIC_CLIENT_HOST
               value: "{{ .Values.global.elasticsearch.host }}"
             - name: ELASTIC_CLIENT_PORT
@@ -101,14 +125,22 @@ spec:
                   name: "{{ .password.secretRef }}"
                   key: "{{ .password.secretKey }}"
             {{- end }}
+            {{- if .Values.global.kafka.topics }}
+            - name: DATAHUB_TRACKING_TOPIC
+              value: {{ .Values.global.kafka.topics.datahub_usage_event_name}}
+            {{- else }}
             - name: DATAHUB_TRACKING_TOPIC
               value: "DataHubUsageEvent_v1"
-            - name: DATAHUB_ANALYTICS_ENABLED
-              value: "{{ .Values.global.datahub_analytics_enabled }}"
+            {{- end }}
+            {{- end }}
           {{- with .Values.extraEnvs }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
+          {{- with .Values.global.credentialsAndCertsSecrets }}
+            - name: datahub-certs-dir
+              mountPath: {{ .path | default "/mnt/certs" }}
+          {{- end }}
           {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
