@@ -1873,11 +1873,12 @@ class DataJobInfoClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.datajob.DataJobInfo")
     def __init__(self,
         name: str,
-        type: Union[str, "AzkabanJobTypeClass"],
+        type: Union[Union[str, "AzkabanJobTypeClass"], str],
         customProperties: Optional[Dict[str, str]]=None,
         externalUrl: Union[None, str]=None,
         description: Union[None, str]=None,
         flowUrn: Union[None, str]=None,
+        status: Union[None, Union[str, "JobStatusClass"]]=None,
     ):
         super().__init__()
         
@@ -1891,6 +1892,7 @@ class DataJobInfoClass(DictWrapper):
         self.description = description
         self.type = type
         self.flowUrn = flowUrn
+        self.status = status
     
     @classmethod
     def construct_with_defaults(cls) -> "DataJobInfoClass":
@@ -1906,6 +1908,7 @@ class DataJobInfoClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.type = AzkabanJobTypeClass.COMMAND
         self.flowUrn = self.RECORD_SCHEMA.field_map["flowUrn"].default
+        self.status = self.RECORD_SCHEMA.field_map["status"].default
     
     
     @property
@@ -1953,13 +1956,15 @@ class DataJobInfoClass(DictWrapper):
     
     
     @property
-    def type(self) -> Union[str, "AzkabanJobTypeClass"]:
-        """Getter: Datajob type"""
+    def type(self) -> Union[Union[str, "AzkabanJobTypeClass"], str]:
+        """Getter: Datajob type
+    **NOTE**: AzkabanJobType is deprecated. Please use strings instead."""
         return self._inner_dict.get('type')  # type: ignore
     
     @type.setter
-    def type(self, value: Union[str, "AzkabanJobTypeClass"]) -> None:
-        """Setter: Datajob type"""
+    def type(self, value: Union[Union[str, "AzkabanJobTypeClass"], str]) -> None:
+        """Setter: Datajob type
+    **NOTE**: AzkabanJobType is deprecated. Please use strings instead."""
         self._inner_dict['type'] = value
     
     
@@ -1972,6 +1977,17 @@ class DataJobInfoClass(DictWrapper):
     def flowUrn(self, value: Union[None, str]) -> None:
         """Setter: DataFlow urn that this job is part of"""
         self._inner_dict['flowUrn'] = value
+    
+    
+    @property
+    def status(self) -> Union[None, Union[str, "JobStatusClass"]]:
+        """Getter: Status of the job"""
+        return self._inner_dict.get('status')  # type: ignore
+    
+    @status.setter
+    def status(self, value: Union[None, Union[str, "JobStatusClass"]]) -> None:
+        """Setter: Status of the job"""
+        self._inner_dict['status'] = value
     
     
 class DataJobInputOutputClass(DictWrapper):
@@ -2201,6 +2217,32 @@ class EditableDataJobPropertiesClass(DictWrapper):
     def description(self, value: Union[None, str]) -> None:
         """Setter: Edited documentation of the data job """
         self._inner_dict['description'] = value
+    
+    
+class JobStatusClass(object):
+    """Job statuses"""
+    
+    
+    """Jobs being initialized."""
+    STARTING = "STARTING"
+    
+    """Jobs currently running."""
+    IN_PROGRESS = "IN_PROGRESS"
+    
+    """Jobs being stopped."""
+    STOPPING = "STOPPING"
+    
+    """Jobs that have stopped."""
+    STOPPED = "STOPPED"
+    
+    """Jobs with successful completion."""
+    COMPLETED = "COMPLETED"
+    
+    """Jobs that have failed."""
+    FAILED = "FAILED"
+    
+    """Jobs with unknown status (either unmappable or unavailable)"""
+    UNKNOWN = "UNKNOWN"
     
     
 class AzkabanJobTypeClass(object):
@@ -4663,7 +4705,7 @@ class MLFeatureTableSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["MLFeatureTableKeyClass", "MLFeatureTablePropertiesClass", "OwnershipClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]],
+        aspects: List[Union["MLFeatureTableKeyClass", "MLFeatureTablePropertiesClass", "OwnershipClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass", "BrowsePathsClass"]],
     ):
         super().__init__()
         
@@ -4694,12 +4736,12 @@ class MLFeatureTableSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["MLFeatureTableKeyClass", "MLFeatureTablePropertiesClass", "OwnershipClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]:
+    def aspects(self) -> List[Union["MLFeatureTableKeyClass", "MLFeatureTablePropertiesClass", "OwnershipClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass", "BrowsePathsClass"]]:
         """Getter: The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     @aspects.setter
-    def aspects(self, value: List[Union["MLFeatureTableKeyClass", "MLFeatureTablePropertiesClass", "OwnershipClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass"]]) -> None:
+    def aspects(self, value: List[Union["MLFeatureTableKeyClass", "MLFeatureTablePropertiesClass", "OwnershipClass", "InstitutionalMemoryClass", "StatusClass", "DeprecationClass", "BrowsePathsClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -5494,6 +5536,7 @@ class MLModelPropertiesClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLModelProperties")
     def __init__(self,
+        customProperties: Optional[Dict[str, str]]=None,
         description: Union[None, str]=None,
         date: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
@@ -5504,6 +5547,11 @@ class MLModelPropertiesClass(DictWrapper):
     ):
         super().__init__()
         
+        if customProperties is None:
+            # default: {}
+            self.customProperties = dict()
+        else:
+            self.customProperties = customProperties
         self.description = description
         self.date = date
         self.version = version
@@ -5524,6 +5572,7 @@ class MLModelPropertiesClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
+        self.customProperties = dict()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.date = self.RECORD_SCHEMA.field_map["date"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
@@ -5531,6 +5580,17 @@ class MLModelPropertiesClass(DictWrapper):
         self.hyperParameters = self.RECORD_SCHEMA.field_map["hyperParameters"].default
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
         self.tags = list()
+    
+    
+    @property
+    def customProperties(self) -> Dict[str, str]:
+        """Getter: Custom property bag."""
+        return self._inner_dict.get('customProperties')  # type: ignore
+    
+    @customProperties.setter
+    def customProperties(self, value: Dict[str, str]) -> None:
+        """Setter: Custom property bag."""
+        self._inner_dict['customProperties'] = value
     
     
     @property
@@ -7708,6 +7768,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.datajob.DataJobInputOutput': DataJobInputOutputClass,
     'com.linkedin.pegasus2avro.datajob.EditableDataFlowProperties': EditableDataFlowPropertiesClass,
     'com.linkedin.pegasus2avro.datajob.EditableDataJobProperties': EditableDataJobPropertiesClass,
+    'com.linkedin.pegasus2avro.datajob.JobStatus': JobStatusClass,
     'com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType': AzkabanJobTypeClass,
     'com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo': DataPlatformInfoClass,
     'com.linkedin.pegasus2avro.dataplatform.PlatformType': PlatformTypeClass,
@@ -7854,6 +7915,7 @@ __SCHEMA_TYPES = {
     'DataJobInputOutput': DataJobInputOutputClass,
     'EditableDataFlowProperties': EditableDataFlowPropertiesClass,
     'EditableDataJobProperties': EditableDataJobPropertiesClass,
+    'JobStatus': JobStatusClass,
     'AzkabanJobType': AzkabanJobTypeClass,
     'DataPlatformInfo': DataPlatformInfoClass,
     'PlatformType': PlatformTypeClass,

@@ -73,6 +73,11 @@ def make_ml_feature_table_urn(platform: str, feature_table_name: str) -> str:
     )
 
 
+def make_ml_model_urn(platform: str, model_name: str, env: str) -> str:
+
+    return f"urn:li:mlModel:(urn:li:dataPlatform:{platform},{model_name},{env})"
+
+
 def make_lineage_mce(
     upstream_urns: List[str],
     downstream_urn: str,

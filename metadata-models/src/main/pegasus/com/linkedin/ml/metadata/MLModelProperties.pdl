@@ -3,6 +3,7 @@ namespace com.linkedin.ml.metadata
 import com.linkedin.common.MLFeatureUrn
 import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
+import com.linkedin.common.CustomProperties
 
 /**
  * Properties associated with a ML Model
@@ -10,7 +11,7 @@ import com.linkedin.common.VersionTag
 @Aspect = {
   "name": "mlModelProperties"
 }
-record MLModelProperties {
+record MLModelProperties includes CustomProperties {
 
   /**
    * Documentation of the MLModel

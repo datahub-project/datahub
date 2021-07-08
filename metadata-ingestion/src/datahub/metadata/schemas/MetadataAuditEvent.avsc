@@ -1596,9 +1596,10 @@
                               "PIG": "Pig type is for running Pig jobs.",
                               "SQL": "SQL is for running Presto, mysql queries etc"
                             }
-                          }
+                          },
+                          "string"
                         ],
-                        "doc": "Datajob type"
+                        "doc": "Datajob type\n**NOTE**: AzkabanJobType is deprecated. Please use strings instead."
                       },
                       {
                         "name": "flowUrn",
@@ -1617,6 +1618,37 @@
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.urn.DataFlowUrn"
                         }
+                      },
+                      {
+                        "name": "status",
+                        "type": [
+                          "null",
+                          {
+                            "type": "enum",
+                            "name": "JobStatus",
+                            "doc": "Job statuses",
+                            "symbols": [
+                              "STARTING",
+                              "IN_PROGRESS",
+                              "STOPPING",
+                              "STOPPED",
+                              "COMPLETED",
+                              "FAILED",
+                              "UNKNOWN"
+                            ],
+                            "symbolDocs": {
+                              "COMPLETED": "Jobs with successful completion.",
+                              "FAILED": "Jobs that have failed.",
+                              "IN_PROGRESS": "Jobs currently running.",
+                              "STARTING": "Jobs being initialized.",
+                              "STOPPED": "Jobs that have stopped.",
+                              "STOPPING": "Jobs being stopped.",
+                              "UNKNOWN": "Jobs with unknown status (either unmappable or unavailable)"
+                            }
+                          }
+                        ],
+                        "doc": "Status of the job",
+                        "default": null
                       }
                     ],
                     "Aspect": {
@@ -3209,6 +3241,15 @@
                     "doc": "Properties associated with a ML Model",
                     "fields": [
                       {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "Custom property bag.",
+                        "default": {}
+                      },
+                      {
                         "name": "description",
                         "type": [
                           "null",
@@ -4300,7 +4341,8 @@
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                   "com.linkedin.pegasus2avro.common.Status",
-                  "com.linkedin.pegasus2avro.common.Deprecation"
+                  "com.linkedin.pegasus2avro.common.Deprecation",
+                  "com.linkedin.pegasus2avro.common.BrowsePaths"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."
