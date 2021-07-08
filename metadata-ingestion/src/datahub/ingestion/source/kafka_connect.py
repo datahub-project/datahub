@@ -345,10 +345,6 @@ class KafkaConnectSource(Source):
                                             self.config.env,
                                         ),
                                         type=models.DatasetLineageTypeClass.TRANSFORMED,
-                                        auditStamp=models.AuditStampClass(
-                                            time=builder.get_sys_time(),
-                                            actor="urn:li:corpuser:datahub",
-                                        ),
                                     )
                                 ]
                             )

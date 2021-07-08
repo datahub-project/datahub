@@ -305,7 +305,7 @@ function markdown_sanitize_and_linkify(content: string): string {
   // Link to issues/pull requests.
   content = content.replace(
     /#(\d+)\b/g,
-    "[#$1](https://github.com/linkedin/datahub/issues/$1)"
+    "[#$1](https://github.com/linkedin/datahub/pull/$1)"
   );
 
   return content;
