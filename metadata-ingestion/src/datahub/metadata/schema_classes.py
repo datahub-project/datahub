@@ -1984,7 +1984,6 @@ class DataJobInfoClass(DictWrapper):
         """Getter: Status of the job"""
         return self._inner_dict.get('status')  # type: ignore
     
-    
     @status.setter
     def status(self, value: Union[None, Union[str, "JobStatusClass"]]) -> None:
         """Setter: Status of the job"""
@@ -5549,7 +5548,8 @@ class MLModelPropertiesClass(DictWrapper):
         super().__init__()
         
         if customProperties is None:
-            self.customProperties = {}
+            # default: {}
+            self.customProperties = dict()
         else:
             self.customProperties = customProperties
         self.description = description
@@ -5586,7 +5586,6 @@ class MLModelPropertiesClass(DictWrapper):
     def customProperties(self) -> Dict[str, str]:
         """Getter: Custom property bag."""
         return self._inner_dict.get('customProperties')  # type: ignore
-    
     
     @customProperties.setter
     def customProperties(self, value: Dict[str, str]) -> None:
