@@ -107,18 +107,16 @@
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
                 "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
                 "aspects": [
-                     {
+                    {
                         "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/kafka/SampleKafkaDataset"]
+                            "paths": ["/prod/kafka/SampleKafkaDataset"]
                         }
                     },
                     {
                         "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                             "description": null,
                             "uri": null,
-                            "tags": [
-                                "myfaketags"
-                            ],
+                            "tags": ["myfaketags"],
                             "customProperties": {
                                 "prop1": "fakeprop",
                                 "prop2": "pikachu"
@@ -220,7 +218,9 @@
                                         }
                                     },
                                     "nativeDataType": "varchar(100)",
-                                    "globalTags": { "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }] },
+                                    "globalTags": {
+                                        "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }]
+                                    },
                                     "recursive": false
                                 },
                                 {
@@ -256,7 +256,7 @@
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/hdfs/SampleHdfsDataset"]
+                            "paths": ["/prod/hdfs/SampleHdfsDataset"]
                         }
                     },
                     {
@@ -1048,7 +1048,7 @@
                                 "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
                             ],
                             "outputDatasets": [
-                             	"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+                                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
                             ],
                             "inputDatajobs": [
                                 "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)"
@@ -1118,7 +1118,9 @@
                                 "deleted": null
                             },
                             "chartUrl": null,
-                            "inputs": ["urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"],
+                            "inputs": [
+                                "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"
+                            ],
                             "type": null,
                             "access": null,
                             "lastRefreshed": null
@@ -1271,9 +1273,7 @@
                                 {
                                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)",
                                     "motivation": "For science!",
-                                    "preProcessing": [
-                                        "Aggregation"
-                                    ]
+                                    "preProcessing": ["Aggregation"]
                                 }
                             ]
                         }
@@ -1304,16 +1304,9 @@
                     },
                     {
                         "com.linkedin.pegasus2avro.ml.metadata.IntendedUse": {
-                            "primaryUses" : [
-                                "Sample Model",
-                                "Primary Use"
-                            ],
-                            "primaryUsers": [
-                               "ENTERPRISE"
-                            ],
-                            "outOfScopeUses": [
-                                "Production Deployment"
-                            ]
+                            "primaryUses": ["Sample Model", "Primary Use"],
+                            "primaryUsers": ["ENTERPRISE"],
+                            "outOfScopeUses": ["Production Deployment"]
                         }
                     },
                     {
@@ -1334,14 +1327,12 @@
                     {
                         "com.linkedin.pegasus2avro.ml.metadata.CaveatsAndRecommendations": {
                             "recommendations": "recommendations",
-                            "idealDatasetCharacteristics": [
-                                "idealDatasetCharacteristics"
-                            ]
+                            "idealDatasetCharacteristics": ["idealDatasetCharacteristics"]
                         }
                     },
                     {
                         "com.linkedin.pegasus2avro.common.Status": {
-                            "boolean" : false
+                            "boolean": false
                         }
                     },
                     {
@@ -2245,9 +2236,7 @@
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                            "paths": [
-                                "feast/test_feature_table_all_feature_dtypes"
-                            ]
+                            "paths": ["feast/test_feature_table_all_feature_dtypes"]
                         }
                     },
                     {
@@ -2331,9 +2320,7 @@
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                            "paths": [
-                                "feast/test_feature_table_no_labels"
-                            ]
+                            "paths": ["feast/test_feature_table_no_labels"]
                         }
                     },
                     {
@@ -2403,9 +2390,7 @@
                 "aspects": [
                     {
                         "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                            "paths": [
-                                "feast/test_feature_table_single_feature"
-                            ]
+                            "paths": ["feast/test_feature_table_single_feature"]
                         }
                     },
                     {
@@ -2418,6 +2403,46 @@
                             "mlPrimaryKeys": [
                                 "urn:li:mlPrimaryKey:(test_feature_table_single_feature,dummy_entity_1)"
                             ]
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+                "urn": "urn:li:dataPlatform:feast",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+                            "datasetNameDelimiter": ".",
+                            "name": "feast",
+                            "displayName": "Feast",
+                            "type": "OTHERS",
+                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/feastlogo.png"
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+                "urn": "urn:li:dataPlatform:sagemaker",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+                            "datasetNameDelimiter": ".",
+                            "name": "sagemaker",
+                            "displayName": "SageMaker",
+                            "type": "OTHERS",
+                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/sagemakerlogo.png"
                         }
                     }
                 ]
