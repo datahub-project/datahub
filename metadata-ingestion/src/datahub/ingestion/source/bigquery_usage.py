@@ -120,7 +120,7 @@ class ReadEvent:
 
     resource: BigQueryTableRef
     fieldsRead: List[str]
-    readReason: str
+    readReason: Optional[str]
     jobName: Optional[str]
 
     payload: Any
@@ -143,8 +143,8 @@ class ReadEvent:
         resourceName = entry.payload["resourceName"]
         readInfo = entry.payload["metadata"]["tableDataRead"]
 
-        readReason = readInfo["reason"]
         fields = readInfo.get("fields", [])
+        readReason = readInfo.get("reason")
         jobName = None
         if readReason == "JOB":
             jobName = readInfo["jobName"]
