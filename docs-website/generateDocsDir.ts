@@ -3,6 +3,8 @@ import * as matter from "gray-matter";
 import * as fs from "fs";
 import * as path from "path";
 import { Octokit } from "@octokit/rest";
+import { throttling } from "@octokit/plugin-throttling";
+import { retry } from "@octokit/plugin-retry";
 
 // Note: this must be executed within the docs-website directory.
 
@@ -18,7 +20,20 @@ const sidebars = require(SIDEBARS_DEF_PATH);
 const sidebars_json = JSON.stringify(sidebars);
 const sidebars_text = fs.readFileSync(SIDEBARS_DEF_PATH).toString();
 
-const octokit = new Octokit({});
+const MyOctokit = Octokit.plugin(retry).plugin(throttling);
+const octokit = new MyOctokit({
+  throttle: {
+    onRateLimit: (retryAfter, options) => {
+      // Retry twice after rate limit is hit.
+      if (options.request.retryCount <= 2) {
+        return true;
+      }
+    },
+    onAbuseLimit: () => {
+      console.warn("GitHub API hit abuse limit");
+    },
+  },
+});
 
 function actually_in_sidebar(filepath: string): boolean {
   const doc_id = get_id(filepath);
