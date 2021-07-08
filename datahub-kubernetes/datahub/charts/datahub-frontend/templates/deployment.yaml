@@ -132,10 +132,6 @@ spec:
             - name: DATAHUB_TRACKING_TOPIC
               value: "DataHubUsageEvent_v1"
             {{- end }}
-            {{- with .Values.global.elasticsearch.indexPrefix }}
-            - name: ELASTIC_INDEX_PREFIX
-              value: {{ . }}
-            {{- end }}
             {{- end }}
           {{- with .Values.extraEnvs }}
             {{- toYaml . | nindent 12 }}
