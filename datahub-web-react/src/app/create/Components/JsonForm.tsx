@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import JsonSchemaEditor from '@optum/json-schema-editor';
 import { JsonPointer } from 'json-ptr';
 import { JSONSchema7 } from '@optum/json-schema-editor/dist/JsonSchemaEditor.types';
@@ -42,6 +42,9 @@ export const JsonForm = () => {
         '    "additionalProperties": true\n' +
         '}';
     const [state, setState] = useState({ schema: {} });
+    const [fields, setFields] = useState({
+        fields: [{}],
+    });
     const [key, setKey] = useState(uuidv4());
     const [form] = Form.useForm();
     const layout = {
@@ -54,38 +57,60 @@ export const JsonForm = () => {
     };
     const printIt = (data) => {
         console.log(JSON.parse(data));
-        const test = JsonPointer.get(JSON.parse(exampleSchema), '');
-        JsonPointer.visit(JSON.parse(exampleSchema), (p, v) => {
-            const paths = JsonPointer.decode(p);
-            console.log('paths', paths);
-            if (paths.length > 0) {
-                const parent = new JsonPointer(p.slice(0, p.length - 1));
-                console.log('parent', parent);
-            }
-            console.log('v:', v);
-            console.log('----');
-        });
-        console.log('example:', JSON.parse(exampleSchema));
-        console.log('test:', test);
     };
     const onFinish = (values) => {
         console.log(values);
+    };
+    const flattenSchema = (schemaStr) => {
+        // use json pointer to get all fields and its parent
+        JsonPointer.visit(JSON.parse(schemaStr), (p, v) => {
+            const paths = JsonPointer.decode(p);
+            const jsonValue = JSON.parse(JSON.stringify(v as string));
+            // if path length is 0 (root)
+            if (paths.length === 0) {
+                setFields({
+                    fields: [{ field_name: 'root', field_type: jsonValue.type, field_description: '' }],
+                });
+            }
+            if (paths.length > 0) {
+                // contain field information
+                if (typeof jsonValue === 'object') {
+                    const lineage = new JsonPointer(paths.slice(0, paths.length - 1)).path;
+                    const parent = lineage[lineage.length - 1];
+                    let finalTitle = '';
+                    if (parent === 'properties' && jsonValue.hasOwnProperty('title')) {
+                        const titleWithPrefix = lineage
+                            .filter((x) => (x as string) !== 'properties' && (x as string) !== 'items')
+                            .join('.');
+                        if (titleWithPrefix === '') {
+                            finalTitle = 'root.'.concat(jsonValue.title);
+                        } else {
+                            finalTitle = 'root.'.concat(titleWithPrefix, '.', jsonValue.title);
+                        }
+                        setFields((prevState) => ({
+                            fields: [
+                                ...prevState.fields,
+                                {
+                                    field_name: finalTitle,
+                                    field_type: jsonValue.type,
+                                    field_description: jsonValue.description,
+                                },
+                            ],
+                        }));
+                    }
+                }
+            }
+        });
     };
     const onReset = () => {
         form.resetFields();
         setState({ schema: {} });
         setKey(uuidv4());
+        flattenSchema(exampleSchema);
     };
-    const flatten = (obj, prefix = '', res = {}) =>
-        Object.entries(obj).reduce((r, [key1, val]) => {
-            const k = `${prefix}${key1}`;
-            if (typeof val === 'object') {
-                flatten(val, `${k}.`, r);
-            } else {
-                res[k] = val;
-            }
-            return r;
-        }, res);
+    useEffect(() => {
+        console.log('Do something after counter has changed', fields);
+    }, [fields]);
     const props = {
         name: 'file',
         maxCount: 1,
@@ -97,7 +122,6 @@ export const JsonForm = () => {
             if (status === 'done') {
                 console.log('info:', info.file.response);
                 const newSchema: JSONSchema7 = info.file.response;
-                console.log(flatten(info.file.response));
                 setState({ schema: newSchema });
                 setKey(uuidv4());
                 message.success(`${info.file.name} - inferred schema from json file successfully.`).then();
