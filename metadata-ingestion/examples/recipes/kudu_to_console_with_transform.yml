@@ -1,0 +1,39 @@
+---
+source:
+  type: kudu  #only kudu tables are processed in this recipe
+  config:
+    host: localhost:21050
+    ca_cert: /specify/root/cert/for/cluster  #ask admin for cert
+    database: default
+    use_ssl: True 
+#   schema_pattern:   #allowed schema will be processed. if not stated, will be dropped.
+#      allow:
+#       - "default"        
+#   table_pattern:
+#        allow:
+#            - "schema1.table1"
+#            - "schema1.table2"
+#        deny:
+#            - "^.*\.sys_.*" # for any schema scanned, deny all tables that start with sys_    
+#            - "^schema1.sys_" # ignore any table in schema1 starting with sys_
+#    options: 
+#      connect_args:      
+#        auth: GSSAPI    
+#        kerberos_service_name: impala
+transformers:
+  - type: "remove_prod_prefix"
+    config:
+      remove_prefix: PROD
+
+sink:
+  type: "console"
+
+# sink:
+#   type: "file"
+#   config:
+#     filename: './example_output_mces.json'
+
+# sink:
+#   type: "datahub-rest"
+#   config:
+#     server: "http://localhost:8080"

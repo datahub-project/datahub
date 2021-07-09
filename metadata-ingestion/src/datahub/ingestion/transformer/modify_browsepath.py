@@ -7,6 +7,7 @@ from datahub.ingestion.api.transform import Transformer
 from datahub.metadata.schema_classes import (
     BrowsePathsClass, DatasetSnapshotClass, MetadataChangeEventClass
 )
+import re
 import logging
 logger = logging.getLogger(__name__)
 
@@ -43,27 +44,34 @@ class BrowsePathTransform(Transformer):
         if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
             return mce
         dataset_name = mce.proposedSnapshot.urn
-        logger.error(f"name being evaluated is {dataset_name}")
-
+        proposed_path = self._generate_path(dataset_name, self.config.remove_prefix)
+        logger.info("The new proposed browsepath is {}".format(proposed_path))
+        mce.proposedSnapshot.aspects.append(BrowsePathsClass(paths=[proposed_path]))
         return mce
 
+    def _generate_path(self, name, prefix):
+        pattern = f"urn:li:dataset:\(urn:li:dataPlatform:(.*),{prefix}\)"
+        platform_schema_dataset = re.match(pattern, name).group(1)
+        platform, dataset_name = platform_schema_dataset.split(",",1)[0], platform_schema_dataset.split(",",1)[1]
+        return f"/{platform}/{dataset_name}"
 
-class BrowsePathTransformerConfig(ConfigModel):
-    remove_prefix: str
+#bleh, didn't need 4 classes at all. misread the design of add_dataset_tags.py
+# class BrowsePathTransformerConfig(ConfigModel):
+#     remove_prefix: str
 
 
-class SimpleBrowsePathTransform(BrowsePathTransform):
-    """Transformer that adds a specified set of tags to each dataset."""
+# class SimpleBrowsePathTransform(BrowsePathTransform):
+#     """Transformer that adds a specified set of tags to each dataset."""
 
-    def __init__(self, config: BrowsePathTransformerConfig, ctx: PipelineContext):
-        remove = config.remove_prefix
+#     def __init__(self, config: BrowsePathTransformerConfig, ctx: PipelineContext):
+#         remove = config.remove_prefix
 
-        generic_config = BrowsePathConfig(
-            remove_prefix = remove
-        )
-        super().__init__(generic_config, ctx)
+#         generic_config = BrowsePathConfig(
+#             remove_prefix = remove
+#         )
+#         super().__init__(generic_config, ctx)
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleBrowsePathTransform":
-        config = BrowsePathTransformerConfig.parse_obj(config_dict)
-        return cls(config, ctx)
+#     @classmethod
+#     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleBrowsePathTransform":
+#         config = BrowsePathTransformerConfig.parse_obj(config_dict)
+#         return cls(config, ctx)
