@@ -26,6 +26,9 @@ FROM base as dev-install
 FROM ${APP_ENV}-install as final
 
 RUN addgroup -S datahub && adduser -S datahub -G datahub
+# add /bin/bash
+# https://stackoverflow.com/questions/40944479/docker-how-to-use-bash-with-an-alpine-based-docker-image
+RUN apk add bash
 USER datahub
 
 ENV JMX_OPTS=""
