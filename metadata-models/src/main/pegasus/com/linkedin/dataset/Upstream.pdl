@@ -9,9 +9,14 @@ import com.linkedin.common.DatasetUrn
 record Upstream {
 
   /**
-   * Audit stamp containing who reported the lineage and when
+   * Audit stamp containing who reported the lineage and when.
+   * WARNING: this field is deprecated and may be removed in a future release.
    */
-  auditStamp: AuditStamp
+  @deprecated = "we no longer associate a timestamp per upstream edge"
+  auditStamp: AuditStamp = {
+    "time": 0,
+    "actor": "urn:li:corpuser:unknown"
+  }
 
   /**
    * The upstream dataset the lineage points to

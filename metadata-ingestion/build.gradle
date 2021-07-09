@@ -51,6 +51,11 @@ task testFull(type: Exec, dependsOn: installDev) {
     "source ${venv_name}/bin/activate && pytest -vv"
 }
 
+task cleanPythonCache(type: Exec) {
+  commandLine 'bash', '-x', '-c',
+    "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+
 build.dependsOn install
 check.dependsOn lint
 check.dependsOn testQuick
@@ -60,3 +65,4 @@ clean {
   delete 'build'
   delete 'dist'
 }
+clean.dependsOn cleanPythonCache
