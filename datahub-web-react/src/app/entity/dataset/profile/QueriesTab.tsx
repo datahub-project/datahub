@@ -2,11 +2,11 @@ import React from 'react';
 import { Empty, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { Dataset, Maybe, UsageAggregation } from '../../../../types.generated';
+import { UsageQueryResult, Maybe, UsageAggregation } from '../../../../types.generated';
 import Query from './Query';
 
 export type Props = {
-    dataset: Dataset;
+    usageStats?: UsageQueryResult | null;
 };
 
 const SectionTitle = styled(Typography.Title)`
@@ -36,8 +36,8 @@ function getTopNQueries(responseSize: number, buckets?: Maybe<UsageAggregation>[
     return response;
 }
 
-export default function QueriesTab({ dataset }: Props) {
-    const topQueries = getTopNQueries(5, dataset.usageStats?.buckets);
+export default function QueriesTab({ usageStats }: Props) {
+    const topQueries = getTopNQueries(5, usageStats?.buckets);
 
     if (topQueries.length === 0) {
         return <Empty description="No Sample Queries" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
