@@ -37,9 +37,10 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.5.0",
+    "avro-gen3==0.5.3",
     "avro-python3>=1.8.2",
     "python-dateutil",
+    "stackprinter",
 }
 
 kafka_common = {
