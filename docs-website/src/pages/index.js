@@ -10,6 +10,8 @@ import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "./slick-theme.css";
 
+import YouTube from "react-youtube";
+
 import Image from "@theme/IdealImage";
 import CodeBlock from "@theme/CodeBlock";
 // logos for companies using
@@ -44,6 +46,13 @@ import LogoRedshift from "./logos/redshift.svg";
 import LogoSnowflake from "./logos/snowflake.svg";
 import LogoSpark from "./logos/spark.svg";
 import LogoSuperset from "./logos/superset.svg";
+// images for articles carousel
+import February2021Update from "./images/February2021Update.png";
+import March2021Update from "./images/march-2021-update.png";
+import April2021Update from "./articles/april-2021-update.png";
+import May2021Update from "./articles/may-2021-update.png";
+import SaxoDatahub from "./articles/saxo-datahub.png";
+import DataHubLineage from "./articles/datahub-lineage.png";
 
 const features = [
   {
@@ -205,6 +214,46 @@ const sourceLogos = [
   {
     name: "Superset",
     image: svgFormatter(LogoSuperset, clsx(styles.logo_image_large)),
+  },
+];
+
+const videos = [
+  { id: "VY57iRdG-Us" },
+  { id: "fEILyoWVpBw" },
+  { id: "3wiaqhb8UR0" },
+  { id: "dlFa4ubJ9ho" },
+];
+
+const articles = [
+  {
+    name: "Enabling Data Discovery in a Data Mesh: The Saxo Journey",
+    link: "https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f",
+    image: pngFormatter(SaxoDatahub),
+  },
+  {
+    name: "LinkedIn DataHub Project Updates (May 2021)",
+    link: "https://medium.com/datahub-project/linkedin-datahub-project-updates-ed98cdf913c1",
+    image: pngFormatter(May2021Update),
+  },
+  {
+    name: "Data in Context: Lineage Explorer in DataHub",
+    link: "https://medium.com/datahub-project/data-in-context-lineage-explorer-in-datahub-a53a9a476dc4",
+    image: pngFormatter(DataHubLineage),
+  },
+  {
+    name: "LinkedIn DataHub Project Updates (April 2021)",
+    link: "https://medium.com/datahub-project/linkedin-datahub-project-updates-2b0d26066b8f",
+    image: pngFormatter(April2021Update),
+  },
+  {
+    name: "LinkedIn DataHub Project Updates (March 2021)",
+    link: "https://medium.com/datahub-project/linkedin-datahub-project-updates-697f0faddd10",
+    image: pngFormatter(March2021Update),
+  },
+  {
+    name: "LinkedIn DataHub Project Updates (February 2021)",
+    link: "https://medium.com/datahub-project/linkedin-datahub-project-updates-february-2021-edition-338d2c6021f0",
+    image: pngFormatter(February2021Update),
   },
 ];
 
@@ -390,6 +439,75 @@ function Home() {
           <div className={styles.sources_link}>
             <Link to={"/docs/metadata-ingestion/#sources"}>
               ...and many more!
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className={clsx(styles.section)}>
+        <div className="container">
+          <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
+            <span className={styles.larger_on_desktop}>Videos</span>
+          </h1>
+          <div className={styles.carousel_container}>
+            <Slider
+              dots={true}
+              infinite={true}
+              centerMode={true}
+              slidesToShow={4}
+              slidesToScroll={3}
+              infinite={true}
+              dots={true}
+              autoplay={true}
+              autoplaySpeed={100000}
+              cssEase={"linear"}
+              responsive={[
+                {
+                  breakpoint: 1080,
+                  settings: {
+                    slidesToShow: 3,
+                    slidesToScroll: 2,
+                  },
+                },
+                {
+                  breakpoint: 960,
+                  settings: {
+                    slidesToShow: 2,
+                    slidesToScroll: 1,
+                  },
+                },
+                {
+                  breakpoint: 720,
+                  settings: {
+                    slidesToShow: 1,
+                    slidesToScroll: 1,
+                  },
+                },
+              ]}
+            >
+              {videos.map((video) => {
+                return (
+                  <div className={styles.carousel_logo_slide} key={video.id}>
+                    <YouTube
+                      videoId={video.id}
+                      opts={{
+                        playerVars: {
+                          // https://developers.google.com/youtube/player_parameters
+                          autoplay: 0,
+                        },
+                      }}
+                      containerClassName={styles.youtubeContainer}
+                    />
+                  </div>
+                );
+              })}
+            </Slider>
+          </div>
+          <div className={styles.sources_link}>
+            <Link
+              to={"https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w"}
+            >
+              Check out our channel for more!
             </Link>
           </div>
         </div>
