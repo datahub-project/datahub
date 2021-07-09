@@ -200,7 +200,6 @@ html[data-theme="dark"] .sources_section {
   margin: auto;
   margin-top: 5rem;
   font-size: 1.5rem;
-  text-decoration: underline;
   text-decoration-color: var(--ifm-color-primary);
 }
 

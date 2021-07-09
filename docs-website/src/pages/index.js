@@ -504,8 +504,17 @@ function Home() {
             <Link
               to={"https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w"}
             >
-              Check out our channel for more!
-            </Link>
+              Visit
+            </Link>{" "}
+            or{" "}
+            <Link
+              to={
+                "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w?sub_confirmation=1"
+              }
+            >
+              subscribe to our channel
+            </Link>{" "}
+            for more!
           </div>
         </div>
       </section>
@@ -513,7 +522,7 @@ function Home() {
       <section className={clsx(styles.section, styles.articles_section)}>
         <div className="container">
           <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
-            <span className={styles.larger_on_desktop}>Articles</span>
+            <span className={styles.larger_on_desktop}>Learn more</span>
           </h1>
           <div className={styles.carousel_container}>
             <Slider
