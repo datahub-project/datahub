@@ -1,4 +1,4 @@
-import { EntityType, Schema, SchemaField, SchemaFieldDataType } from '../../../../../types.generated';
+import { EntityType, Schema, SchemaMetadata, SchemaField, SchemaFieldDataType } from '../../../../../types.generated';
 
 // Extending the schema type with an option for tags
 export type TaggedSchemaField = {
@@ -13,7 +13,7 @@ export type Tag = {
     descriptor?: boolean;
 };
 
-export const sampleSchema: Schema = {
+export const sampleSchema: SchemaMetadata | Schema | null = {
     name: 'MockSchema',
     platformUrn: 'mock:urn',
     version: 1,

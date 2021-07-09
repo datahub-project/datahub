@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 
-import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
-import UpdateDescriptionModal from '../../../shared/DescriptionModal';
-import MarkdownViewer from '../../../shared/MarkdownViewer';
+import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
+import UpdateDescriptionModal from '../../../../shared/DescriptionModal';
+import MarkdownViewer from '../../../../shared/MarkdownViewer';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -35,6 +35,20 @@ const DescriptionContainer = styled.div`
     &:hover ${AddNewDescription} {
         display: block;
     }
+    & ins.diff {
+        background-color: #b7eb8f99;
+        text-decoration: none;
+        &:hover {
+            background-color: #b7eb8faa;
+        }
+    }
+    & del.diff {
+        background-color: #ffa39e99;
+        text-decoration: line-through;
+        &: hover {
+            background-color: #ffa39eaa;
+        }
+    }
 `;
 
 const DescriptionText = styled(MarkdownViewer)`
@@ -51,17 +65,17 @@ const EditedLabel = styled(Typography.Text)`
 
 type Props = {
     description: string;
-    updatedDescription?: string | null;
     onUpdate: (
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
+    editable?: boolean;
+    isEdited?: boolean;
 };
 
-export default function DescriptionField({ description, updatedDescription, onUpdate }: Props) {
+export default function DescriptionField({ description, onUpdate, editable = true, isEdited = false }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
 
     const onCloseModal = () => setShowAddModal(false);
-    const currentDesc: string = updatedDescription || description;
 
     const onUpdateModal = async (desc: string | null) => {
         message.loading({ content: 'Updating...' });
@@ -83,22 +97,22 @@ export default function DescriptionField({ description, updatedDescription, onUp
                 e.stopPropagation();
             }}
         >
-            <DescriptionText source={currentDesc} />
-            {currentDesc && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
-            {updatedDescription && <EditedLabel>(edited)</EditedLabel>}
+            <DescriptionText source={description} />
+            {editable && description && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
+            {editable && isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <div>
                     <UpdateDescriptionModal
-                        title={currentDesc ? 'Update description' : 'Add description'}
-                        description={currentDesc}
+                        title={description ? 'Update description' : 'Add description'}
+                        description={description}
                         original={description}
                         onClose={onCloseModal}
                         onSubmit={onUpdateModal}
-                        isAddDesc={!currentDesc}
+                        isAddDesc={!description}
                     />
                 </div>
             )}
-            {!currentDesc && (
+            {editable && !description && (
                 <AddNewDescription color="success" onClick={() => setShowAddModal(true)}>
                     + Add Description
                 </AddNewDescription>

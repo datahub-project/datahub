@@ -8,7 +8,7 @@ import {
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
-import { Dataset, EntityType, GlobalTags, GlossaryTerms } from '../../../../types.generated';
+import { Dataset, EntityType, GlobalTags, GlossaryTerms, SchemaMetadata } from '../../../../types.generated';
 import LineageView from './Lineage';
 import { Properties as PropertiesView } from '../../shared/Properties';
 import DocumentsView from './Documentation';
@@ -63,17 +63,18 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
 
     const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} updateDataset={updateDataset} />;
 
-    const getTabs = (dataset: Dataset) => {
-        const {
-            ownership,
-            upstreamLineage,
-            downstreamLineage,
-            properties,
-            institutionalMemory,
-            schema,
-            editableSchemaMetadata,
-        } = dataset;
-
+    const getTabs = ({
+        ownership,
+        upstreamLineage,
+        downstreamLineage,
+        properties,
+        institutionalMemory,
+        schema,
+        schemaMetadata,
+        previousSchemaMetadata,
+        editableSchemaMetadata,
+        usageStats,
+    }: Dataset & { previousSchemaMetadata: SchemaMetadata }) => {
         return [
             {
                 name: TabType.Schema,
@@ -81,8 +82,9 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 content: (
                     <SchemaView
                         urn={urn}
-                        schema={schema}
-                        usageStats={dataset.usageStats}
+                        schema={schemaMetadata || schema}
+                        previousSchemaMetadata={previousSchemaMetadata}
+                        usageStats={usageStats}
                         editableSchemaMetadata={editableSchemaMetadata}
                         updateEditableSchema={(update) => {
                             analytics.event({
@@ -123,7 +125,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Queries,
                 path: TabType.Queries.toLowerCase(),
-                content: <QueriesTab dataset={dataset} />,
+                content: <QueriesTab usageStats={usageStats} />,
             },
             {
                 name: TabType.Properties,
@@ -180,7 +182,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                         />
                     }
                     tagCardHeader={data.dataset?.glossaryTerms ? 'Tags & Terms' : 'Tags'}
-                    tabs={getTabs(data.dataset as Dataset)}
+                    tabs={getTabs(data.dataset as Dataset & { previousSchemaMetadata: SchemaMetadata })}
                     header={getHeader(data.dataset as Dataset)}
                     onTabChange={(tab: string) => {
                         analytics.event({
