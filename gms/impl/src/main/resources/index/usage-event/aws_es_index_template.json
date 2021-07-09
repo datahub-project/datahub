@@ -1,5 +1,5 @@
 {
-  "index_patterns": ["datahub_usage_event-*"],
+  "index_patterns": ["PREFIXdatahub_usage_event-*"],
   "mappings": {
     "properties": {
       "@timestamp": {
@@ -20,6 +20,6 @@
     }
   },
   "settings": {
-    "index.opendistro.index_state_management.rollover_alias": "datahub_usage_event"
+    "index.opendistro.index_state_management.rollover_alias": "PREFIXdatahub_usage_event"
   }
 }
