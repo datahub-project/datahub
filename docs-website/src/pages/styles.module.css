@@ -102,7 +102,7 @@
   background-color: var(--ifm-color-emphasis-100);
 }
 .logo_container {
-  max-width: 960px;
+  max-width: 1080px;
   margin: 2em auto 1em auto;
   display: flex;
   flex-wrap: wrap;
@@ -114,8 +114,8 @@
   border: 1px solid var(--ifm-color-emphasis-400);
   background-color: #ffffff;
   /* padding: 2em 3em; */
-  width: 16em;
-  height: 12em;
+  width: 12em;
+  height: 9em;
   margin: 1em;
 }
 .logo_center {
@@ -204,16 +204,12 @@ html[data-theme="dark"] .sources_section {
 }
 
 .logo_image {
-  max-height: 8em;
-  max-width: 10em;
+  max-height: 7em;
+  max-width: 9em;
 }
 .logo_image_small {
   max-height: 5em;
   max-width: 7em;
-}
-.logo_image_large {
-  max-height: 10em;
-  max-width: 12em;
 }
 .logo_image_huge {
   max-height: 12em;

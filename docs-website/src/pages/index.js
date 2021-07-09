@@ -182,13 +182,13 @@ const sourceLogos = [
   },
   {
     name: "BigQuery",
-    image: svgFormatter(LogoBigquery, clsx(styles.logo_image_large)),
+    image: svgFormatter(LogoBigquery),
   },
-  { name: "DBT", image: pngFormatter(LogoDbt, clsx(styles.logo_image_large)) },
+  { name: "DBT", image: pngFormatter(LogoDbt) },
   { name: "Druid", image: svgFormatter(LogoDruid) },
   {
     name: "Glue",
-    image: pngFormatter(LogoGlue, clsx(styles.logo_image_large)),
+    image: pngFormatter(LogoGlue),
   },
   {
     name: "Hive",
@@ -201,19 +201,25 @@ const sourceLogos = [
     image: pngFormatter(LogoLdap, clsx(styles.logo_image_square)),
   },
   { name: "MongoDB", image: svgFormatter(LogoMongodb) },
-  { name: "MSSQL", image: svgFormatter(LogoMssql) },
-  { name: "MySQL", image: svgFormatter(LogoMysql) },
+  {
+    name: "MSSQL",
+    image: svgFormatter(LogoMssql),
+  },
+  {
+    name: "MySQL",
+    image: svgFormatter(LogoMysql),
+  },
   { name: "Oracle", image: svgFormatter(LogoOracle) },
   { name: "PostgreSQL", image: pngFormatter(LogoPostgres) },
   {
     name: "Redshift",
-    image: svgFormatter(LogoRedshift, clsx(styles.logo_image_large)),
+    image: svgFormatter(LogoRedshift),
   },
   { name: "Snowflake", image: svgFormatter(LogoSnowflake) },
   { name: "Spark", image: svgFormatter(LogoSpark) },
   {
     name: "Superset",
-    image: svgFormatter(LogoSuperset, clsx(styles.logo_image_large)),
+    image: svgFormatter(LogoSuperset),
   },
 ];
 
@@ -391,59 +397,14 @@ function Home() {
               Supported integrations
             </span>
           </h1>
-          <div className={styles.carousel_container}>
-            <Slider
-              dots={true}
-              infinite={true}
-              centerMode={true}
-              slidesToShow={4}
-              slidesToScroll={3}
-              infinite={true}
-              dots={true}
-              autoplay={true}
-              autoplaySpeed={1000}
-              cssEase={"linear"}
-              responsive={[
-                {
-                  breakpoint: 1080,
-                  settings: {
-                    slidesToShow: 3,
-                    slidesToScroll: 2,
-                  },
-                },
-                {
-                  breakpoint: 960,
-                  settings: {
-                    slidesToShow: 2,
-                    slidesToScroll: 1,
-                  },
-                },
-                {
-                  breakpoint: 720,
-                  settings: {
-                    slidesToShow: 1,
-                    slidesToScroll: 1,
-                  },
-                },
-              ]}
-            >
-              {sourceLogos.map((logo) => {
-                return (
-                  <div className={styles.carousel_logo_slide} key={logo.name}>
-                    <div className={styles.carousel_logo_frame}>
-                      <div className={styles.carousel_logo_center}>
-                        {logo.image}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </Slider>
-          </div>
-          <div className={styles.sources_link}>
-            <Link to={"/docs/metadata-ingestion/#sources"}>
-              ...and many more!
-            </Link>
+          <div className={styles.logo_container}>
+            {sourceLogos.map((logo) => (
+              <div key={logo.name}>
+                <div className={styles.logo_frame}>
+                  <div className={styles.logo_center}>{logo.image}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -462,7 +423,7 @@ function Home() {
               slidesToScroll={3}
               infinite={true}
               dots={true}
-              autoplay={true}
+              autoplay={false}
               autoplaySpeed={3000}
               cssEase={"linear"}
               responsive={[
@@ -526,7 +487,7 @@ function Home() {
               slidesToScroll={3}
               infinite={true}
               dots={true}
-              autoplay={true}
+              autoplay={false}
               autoplaySpeed={3000}
               cssEase={"linear"}
               responsive={[
