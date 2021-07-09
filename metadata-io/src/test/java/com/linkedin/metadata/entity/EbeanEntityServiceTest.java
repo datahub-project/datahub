@@ -19,6 +19,7 @@ import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.SystemMetadata;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
 import io.ebean.config.ServerConfig;
@@ -62,8 +63,12 @@ public class EbeanEntityServiceTest {
     Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
     com.linkedin.entity.Entity writeEntity = createCorpUserEntity(entityUrn, "tester@test.com");
 
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
     // 1. Ingest Entity
-    _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP);
+    _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
 
     // 2. Retrieve Entity
     com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
@@ -96,8 +101,18 @@ public class EbeanEntityServiceTest {
     Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:tester2");
     com.linkedin.entity.Entity writeEntity2 = createCorpUserEntity(entityUrn2, "tester2@test.com");
 
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1625792690);
+    metadata2.setRunId("run-123");
+
     // 1. Ingest Entities
-    _entityService.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP);
+    _entityService.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2),
+        TEST_AUDIT_STAMP,
+        ImmutableList.of(metadata1, metadata2));
 
     // 2. Retrieve Entities
     Map<Urn, com.linkedin.entity.Entity> readEntities = _entityService
@@ -152,8 +167,12 @@ public class EbeanEntityServiceTest {
     CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
     String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
 
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
     // Validate retrieval of CorpUserInfo Aspect #1
-    _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP);
+    _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
     RecordTemplate readAspect1 = _entityService.getLatestAspect(entityUrn, aspectName);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
 
@@ -161,7 +180,7 @@ public class EbeanEntityServiceTest {
     CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
 
     // Validate retrieval of CorpUserInfo Aspect #2
-    _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP);
+    _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
     RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName);
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
 
@@ -184,21 +203,25 @@ public class EbeanEntityServiceTest {
     Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
     Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
 
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
     String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
 
     // Ingest CorpUserInfo Aspect #1
     CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP);
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
 
     // Ingest CorpUserInfo Aspect #2
     CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
-    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP);
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
 
     // Ingest CorpUserInfo Aspect #3
     CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
-    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP);
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
     // List aspects
     ListResult<RecordTemplate> batch1 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 0, 2);

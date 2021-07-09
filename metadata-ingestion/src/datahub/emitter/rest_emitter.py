@@ -42,7 +42,7 @@ def _rest_li_ify(obj: Any) -> Any:
 
 
 def _make_curl_command(
-    session: requests.Session, method: str, url: str, payload: str
+        session: requests.Session, method: str, url: str, payload: str
 ) -> str:
     fragments: List[str] = [
         "curl",
@@ -95,6 +95,7 @@ class DatahubRestEmitter:
             f"com.linkedin.metadata.snapshot.{mce.proposedSnapshot.RECORD_SCHEMA.name}"
         )
         snapshot = {"entity": {"value": {snapshot_fqn: mce_obj}}}
+        # snapshot = {"entity": {"value": {snapshot_fqn: mce_obj}}, "systemMetadata": _rest_li_ify(mce.systemMetadata)}
         payload = json.dumps(snapshot)
 
         self._emit_generic(url, payload)

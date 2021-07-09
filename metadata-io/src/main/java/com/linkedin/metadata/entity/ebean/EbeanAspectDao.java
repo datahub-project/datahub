@@ -15,6 +15,7 @@ import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
+import com.linkedin.mxe.SystemMetadata;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
@@ -112,10 +113,13 @@ public class EbeanAspectDao {
       @Nullable final String oldActor,
       @Nullable final String oldImpersonator,
       @Nullable final Timestamp oldTime,
+      @Nullable final String oldSystemMetadata,
       @Nonnull final String newAspectMetadata,
       @Nonnull final String newActor,
       @Nullable final String newImpersonator,
-      @Nonnull final Timestamp newTime) {
+      @Nonnull final Timestamp newTime,
+      @Nullable final String newSystemMetadata
+  ) {
     validateConnection();
     if (!_canWrite) {
       return 0;
@@ -124,11 +128,11 @@ public class EbeanAspectDao {
     long largestVersion = 0;
     if (oldAspectMetadata != null && oldTime != null) {
       largestVersion = getNextVersion(urn, aspectName);
-      saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, largestVersion, true);
+      saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true);
     }
 
     // Save newValue as the latest version (v0)
-    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, LATEST_ASPECT_VERSION, oldAspectMetadata == null);
+    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, LATEST_ASPECT_VERSION, oldAspectMetadata == null);
 
     // Apply retention policy
     applyRetention(urn, aspectName, getRetention(aspectName), largestVersion);
@@ -143,6 +147,7 @@ public class EbeanAspectDao {
       @Nonnull final String actor,
       @Nullable final String impersonator,
       @Nonnull final Timestamp timestamp,
+      @Nonnull final String systemMetadata,
       final long version,
       final boolean insert) {
     validateConnection();
@@ -150,6 +155,7 @@ public class EbeanAspectDao {
     final EbeanAspectV2 aspect = new EbeanAspectV2();
     aspect.setKey(new EbeanAspectV2.PrimaryKey(urn, aspectName, version));
     aspect.setMetadata(aspectMetadata);
+    aspect.setSystemMetadata(systemMetadata);
     aspect.setCreatedOn(timestamp);
     aspect.setCreatedBy(actor);
     if (impersonator != null) {

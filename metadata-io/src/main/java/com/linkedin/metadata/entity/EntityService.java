@@ -1,6 +1,9 @@
 package com.linkedin.metadata.entity;
 
 import com.google.common.collect.ImmutableList;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
@@ -17,6 +20,7 @@ import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
@@ -26,6 +30,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.javatuples.Pair;
 
 import static com.linkedin.metadata.PegasusUtils.*;
 
@@ -140,13 +145,20 @@ public abstract class EntityService {
    * @param aspectName name of the aspect being inserted
    * @param newValue value of the aspect being inserted
    * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
+   * @param systemMetadata
    * @return the {@link RecordTemplate} representation of the written aspect object
    */
-  public abstract RecordTemplate ingestAspect(
-      @Nonnull final Urn urn,
-      @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue,
-      @Nonnull final AuditStamp auditStamp);
+  public abstract RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata);
+
+  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp) {
+
+    SystemMetadata generatedSystemMetadata = new SystemMetadata();
+    generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
+
+    return ingestAspect(urn, aspectName, newValue, auditStamp, generatedSystemMetadata);
+  }
 
   /**
    * Updates a particular version of an aspect & optionally emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
@@ -226,16 +238,33 @@ public abstract class EntityService {
     return getAspect(urn, aspectName, LATEST_ASPECT_VERSION);
   }
 
-  public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp) {
+  public void ingestEntities(
+      @Nonnull final List<Entity> entities,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final List<SystemMetadata> systemMetadata) {
     log.debug(String.format("Invoked ingestEntities with entities %s, audit stamp %s", entities, auditStamp));
-    for (final Entity entity : entities) {
-      ingestEntity(entity, auditStamp);
-    }
+    Streams.zip(
+        entities.stream(),
+        systemMetadata.stream(),
+        (a, b) -> new Pair<Entity, SystemMetadata>(a, b)
+    ).collect(Collectors.toList()).forEach(
+       pair -> ingestEntity(pair.getValue0(), auditStamp, pair.getValue1())
+    );
   }
 
-  public  void ingestEntity(@Nonnull final Entity entity, @Nonnull final AuditStamp auditStamp) {
-    log.debug(String.format("Invoked ingestEntity with entity %s, audit stamp %s", entity, auditStamp));
-    ingestSnapshotUnion(entity.getValue(), auditStamp);
+  public void ingestEntity(Entity entity, AuditStamp auditStamp) {
+    SystemMetadata generatedSystemMetadata = new SystemMetadata();
+    generatedSystemMetadata.setRunId("");
+    generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
+
+    ingestEntity(entity, auditStamp, generatedSystemMetadata);
+  }
+
+  public void ingestEntity(Entity entity, AuditStamp auditStamp, SystemMetadata systemMetadata) {
+    log.debug(
+        String.format("Invoked ingestEntity with entity %s, audit stamp %s systemMetadata %s",
+            entity, auditStamp, systemMetadata.toString()));
+    ingestSnapshotUnion(entity.getValue(), auditStamp, systemMetadata);
   }
 
   @Nonnull
@@ -261,14 +290,18 @@ public abstract class EntityService {
         ));
   }
 
-  private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp) {
+  private void ingestSnapshotUnion(
+      @Nonnull final Snapshot snapshotUnion,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull SystemMetadata systemMetadata
+  ) {
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
     final List<RecordTemplate> aspectRecordsToIngest = com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
     aspectRecordsToIngest.forEach(aspect -> {
       final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());
-      ingestAspect(urn, aspectName, aspect, auditStamp);
+      ingestAspect(urn, aspectName, aspect, auditStamp, systemMetadata);
     });
   }
 
@@ -363,4 +396,5 @@ public abstract class EntityService {
   }
 
   public abstract void setWritable(boolean canWrite);
+
 }

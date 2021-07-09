@@ -27,5 +27,5 @@ record MetadataChangeEvent {
   /**
    * Metadata around how the snapshot was ingested
    */
-   systemMetadata: optional map[string, string]
+   systemMetadata: optional SystemMetadata
 }

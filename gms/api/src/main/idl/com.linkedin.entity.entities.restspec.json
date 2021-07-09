@@ -52,6 +52,10 @@
       "parameters" : [ {
         "name" : "entities",
         "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.entity.Entity\" }"
+      }, {
+        "name" : "systemMetadata",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.mxe.SystemMetadata\" }",
+        "optional" : true
       } ]
     }, {
       "name" : "browse",
@@ -85,6 +89,10 @@
       "parameters" : [ {
         "name" : "entity",
         "type" : "com.linkedin.entity.Entity"
+      }, {
+        "name" : "systemMetadata",
+        "type" : "com.linkedin.mxe.SystemMetadata",
+        "optional" : true
       } ]
     }, {
       "name" : "search",

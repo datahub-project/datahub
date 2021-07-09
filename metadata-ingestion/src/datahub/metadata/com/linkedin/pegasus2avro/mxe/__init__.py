@@ -6,8 +6,10 @@
 # fmt: off
 from .....schema_classes import MetadataAuditEventClass
 from .....schema_classes import MetadataChangeEventClass
+from .....schema_classes import SystemMetadataClass
 
 
 MetadataAuditEvent = MetadataAuditEventClass
 MetadataChangeEvent = MetadataChangeEventClass
+SystemMetadata = SystemMetadataClass
 # fmt: on

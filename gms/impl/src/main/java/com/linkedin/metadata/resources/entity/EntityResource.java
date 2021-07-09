@@ -15,6 +15,7 @@ import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
@@ -67,6 +68,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
   private static final String PARAM_VALUE = "value";
+  private static final String SYSTEM_METADATA = "systemMetadata";
 
   private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
   private final Clock _clock = Clock.systemUTC();
@@ -121,12 +123,22 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = ACTION_INGEST)
   @Nonnull
-  public Task<Void> ingest(@ActionParam(PARAM_ENTITY) @Nonnull Entity entity) throws URISyntaxException {
+  public Task<Void> ingest(
+      @ActionParam(PARAM_ENTITY) @Nonnull Entity entity,
+      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata systemMetadata
+  ) throws URISyntaxException {
+
+    if (systemMetadata == null) {
+      SystemMetadata generatedSystemMetadata = new SystemMetadata();
+      generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
+      systemMetadata = generatedSystemMetadata;
+    }
+
     final Set<String> projectedAspects = new HashSet<>(Arrays.asList("browsePaths"));
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(entity.getValue());
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
 
-    log.info("INGEST urn {}", urn.toString());
+    log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
 
     final Entity browsePathEntity = _entityService.getEntity(urn, projectedAspects);
     BrowsePathUtils.addBrowsePathIfNotExists(entity.getValue(), browsePathEntity);
@@ -134,19 +146,23 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     // TODO Correctly audit ingestions.
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+    SystemMetadata finalSystemMetadata = systemMetadata;
     return RestliUtils.toTask(() -> {
-      _entityService.ingestEntity(entity, auditStamp);
+      _entityService.ingestEntity(entity, auditStamp, finalSystemMetadata);
       return null;
     });
   }
 
   @Action(name = ACTION_BATCH_INGEST)
   @Nonnull
-  public Task<Void> batchIngest(@ActionParam(PARAM_ENTITIES) @Nonnull Entity[] entities) throws URISyntaxException {
+  public Task<Void> batchIngest(
+      @ActionParam(PARAM_ENTITIES) @Nonnull Entity[] entities,
+      @ActionParam(SYSTEM_METADATA) @Optional @Nonnull SystemMetadata[] systemMetadataList
+      ) throws URISyntaxException {
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
     return RestliUtils.toTask(() -> {
-      _entityService.ingestEntities(Arrays.asList(entities), auditStamp);
+      _entityService.ingestEntities(Arrays.asList(entities), auditStamp, Arrays.asList(systemMetadataList));
       return null;
     });
   }
