@@ -5208,6 +5208,40 @@
         "name": "proposedDelta",
         "default": null,
         "doc": "Delta of the proposed metadata partial update."
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "SystemMetadata",
+            "namespace": "com.linkedin.pegasus2avro.mxe",
+            "fields": [
+              {
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "name": "lastObserved",
+                "default": null,
+                "doc": "The timestamp the metadata was observed at"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "runId",
+                "default": null,
+                "doc": "The timestamp the metadata was observed at"
+              }
+            ],
+            "doc": "Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead."
+          }
+        ],
+        "name": "systemMetadata",
+        "default": null,
+        "doc": "Metadata around how the snapshot was ingested"
       }
     ],
     "doc": "Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead."

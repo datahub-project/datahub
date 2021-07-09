@@ -2,6 +2,7 @@ package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.restli.client.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +54,7 @@ public class EntityClient {
 
     private static final String ACTION_INGEST = "ingest";
     private static final String PARAM_ENTITY = "entity";
+    private static final String PARAM_SYSTEM_METADATA = "systemMetadata";
     private static final String RESOURCE_NAME = "entities";
 
     private final Client _client;
@@ -189,9 +191,16 @@ public class EntityClient {
     }
 
     public void update(@Nonnull final Entity entity) throws RemoteInvocationException {
+      SystemMetadata generatedSystemMetadata = new SystemMetadata();
+      generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
+      updateWithSystemMetadata(entity, generatedSystemMetadata);
+    }
+
+    public void updateWithSystemMetadata(@Nonnull final Entity entity, @Nonnull final SystemMetadata systemMetadata) throws RemoteInvocationException {
         // TODO: Replace with EntitiesDoIngestActionBuilder.
 
         final FieldDef<?> entityFieldDef = new FieldDef<>(PARAM_ENTITY, Entity.class, DataTemplateUtil.getSchema(String.class));
+        final FieldDef<?> systemMetadataFieldDef = new FieldDef<>(PARAM_SYSTEM_METADATA, SystemMetadata.class, DataTemplateUtil.getSchema(String.class));
 
         final HashMap<String, DynamicRecordMetadata> actionRequestMetadata = new HashMap<>();
         actionRequestMetadata.put(ACTION_INGEST, new DynamicRecordMetadata(ACTION_INGEST, Arrays.asList(entityFieldDef)));
@@ -208,6 +217,7 @@ public class EntityClient {
 
         builder.name("ingest");
         builder.addParam(entityFieldDef, entity);
+        builder.addParam(systemMetadataFieldDef, systemMetadata);
 
         final Request request = builder.build();
 

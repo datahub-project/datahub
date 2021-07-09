@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.ebean;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DataTemplateUtil;
@@ -11,6 +12,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.mxe.SystemMetadata;
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,6 +44,9 @@ public class EbeanEntityService extends EntityService {
   private final EbeanAspectDao _entityDao;
 
   private Boolean _alwaysEmitAuditEvent = false;
+
+  private final ObjectMapper objectMapper = new ObjectMapper();
+
 
   public EbeanEntityService(
       @Nonnull final EbeanAspectDao entityDao,
@@ -185,13 +191,12 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   @Nonnull
-  public RecordTemplate ingestAspect(
-      @Nonnull final Urn urn,
-      @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue,
-      @Nonnull final AuditStamp auditStamp) {
-    log.debug(String.format("Invoked ingestAspect with urn: %s, aspectName: %s, newValue: %s", urn, aspectName, newValue));
-    return ingestAspect(urn, aspectName, ignored -> newValue, auditStamp, DEFAULT_MAX_TRANSACTION_RETRY);
+  public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata) {
+    log.debug(String.format(
+        "Invoked ingestAspect with urn: %s, aspectName: %s, newValue: %s",
+        urn, aspectName, newValue));
+    return ingestAspect(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata, DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
   @Nonnull
@@ -200,6 +205,7 @@ public class EbeanEntityService extends EntityService {
       @Nonnull final String aspectName,
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
       @Nonnull final AuditStamp auditStamp,
+      @Nonnull final SystemMetadata providedSystemMetadata,
       final int maxTransactionRetry) {
 
     final AddAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
@@ -212,8 +218,25 @@ public class EbeanEntityService extends EntityService {
           latest == null ? null : toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
       final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
 
-      // 3. Skip updating if there is no difference between existing and new.
+      // 3. If there is no difference between existing and new, we just update
+      // the lastObserved in system metadata. RunId should stay as the original runId
       if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
+        SystemMetadata updatedSystemMetadata = null;
+        try {
+          SystemMetadata existingSystemMetadata = objectMapper.readValue(
+              latest.getSystemMetadata(),
+              SystemMetadata.class
+          );
+          existingSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
+          latest.setSystemMetadata(updatedSystemMetadata.toString());
+
+          _entityDao.saveAspect(latest, false);
+
+        } catch (IOException e) {
+          e.printStackTrace();
+          log.error("Error reading system metadata for urn {}", urn.toString());
+        }
+
         return new AddAspectResult(urn, oldValue, oldValue);
       }
 
@@ -226,10 +249,12 @@ public class EbeanEntityService extends EntityService {
           latest == null ? null : latest.getCreatedBy(),
           latest == null ? null : latest.getCreatedFor(),
           latest == null ? null : latest.getCreatedOn(),
+          latest == null ? null : latest.getSystemMetadata(),
           toJsonAspect(newValue),
           auditStamp.getActor().toString(),
           auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
-          new Timestamp(auditStamp.getTime())
+          new Timestamp(auditStamp.getTime()),
+          providedSystemMetadata.toString()
       );
 
       return new AddAspectResult(urn, oldValue, newValue);
@@ -295,6 +320,7 @@ public class EbeanEntityService extends EntityService {
           auditStamp.getActor().toString(),
           auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
           new Timestamp(auditStamp.getTime()),
+          oldAspect != null ? oldAspect.getSystemMetadata() : "{}",
           version,
           oldAspect == null
       );

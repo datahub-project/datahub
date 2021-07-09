@@ -4,20 +4,33 @@ from datahub.ingestion.api import RecordEnvelope
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Extractor, WorkUnit
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent, SystemMetadata
 from datahub.metadata.schema_classes import UsageAggregationClass
+import time as t
+
+def current_milli_time():
+    return round(t.time() * 1000)
 
 
 class WorkUnitRecordExtractor(Extractor):
     """An extractor that simply returns the data inside workunits back as records."""
 
+    ctx: PipelineContext
+
     def configure(self, config_dict: dict, ctx: PipelineContext) -> None:
-        pass
+        self.ctx = ctx
 
     def get_records(
         self, workunit: WorkUnit
     ) -> Iterable[RecordEnvelope[Union[MetadataChangeEvent, UsageAggregationClass]]]:
         if isinstance(workunit, MetadataWorkUnit):
+
+            systemMetadata = SystemMetadata(
+                lastObserved=current_milli_time(),
+                runId=self.ctx.run_id
+            )
+
+            workunit.mce.systemMetadata = systemMetadata
             if len(workunit.mce.proposedSnapshot.aspects) == 0:
                 raise AttributeError("every mce must have at least one aspect")
             if not workunit.mce.validate():

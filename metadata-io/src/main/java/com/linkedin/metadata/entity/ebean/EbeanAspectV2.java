@@ -36,6 +36,7 @@ public class EbeanAspectV2 extends Model {
   public static final String ASPECT_COLUMN = "aspect";
   public static final String VERSION_COLUMN = "version";
   public static final String METADATA_COLUMN = "metadata";
+  public static final String SYSTEM_METADATA_COLUMN = "systemmetadata";
   public static final String CREATED_ON_COLUMN = "createdOn";
   public static final String CREATED_BY_COLUMN = "createdBy";
   public static final String CREATED_FOR_COLUMN = "createdFor";
@@ -76,6 +77,11 @@ public class EbeanAspectV2 extends Model {
   @Lob
   @Column(name = METADATA_COLUMN, nullable = false)
   protected String metadata;
+
+  @NonNull
+  @Lob
+  @Column(name = SYSTEM_METADATA_COLUMN, nullable = true)
+  protected String systemMetadata;
 
   @NonNull
   @Column(name = CREATED_ON_COLUMN, nullable = false)
