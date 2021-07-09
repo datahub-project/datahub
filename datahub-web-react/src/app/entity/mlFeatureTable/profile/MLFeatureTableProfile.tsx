@@ -8,12 +8,12 @@ import { Message } from '../../../shared/Message';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType } from '../../../analytics';
-import SchemaView from './schema/Schema';
+import MlFeatureTableSchema from './schema/MlFeatureTableSchema';
 import LineageView from './Lineage';
 
 export enum TabType {
-    Schema = 'Schema',
-    Lineage = 'Lineage',
+    Features = 'Features',
+    Sources = 'Sources',
     Ownership = 'Ownership',
 }
 
@@ -32,13 +32,13 @@ export const MLFeatureTableProfile = ({ urn }: { urn: string }): JSX.Element => 
     const getTabs = ({ ownership, upstreamLineage, downstreamLineage, featureTableProperties }: MlFeatureTable) => {
         return [
             {
-                name: TabType.Schema,
-                path: TabType.Schema.toLowerCase(),
-                content: <SchemaView featureTableProperties={featureTableProperties} />,
+                name: TabType.Features,
+                path: TabType.Features.toLowerCase(),
+                content: <MlFeatureTableSchema featureTableProperties={featureTableProperties} />,
             },
             {
-                name: TabType.Lineage,
-                path: TabType.Lineage.toLowerCase(),
+                name: TabType.Sources,
+                path: TabType.Sources.toLowerCase(),
                 content: <LineageView upstreamLineage={upstreamLineage} downstreamLineage={downstreamLineage} />,
             },
             {

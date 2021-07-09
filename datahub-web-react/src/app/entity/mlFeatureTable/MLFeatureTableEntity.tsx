@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { BorderlessTableOutlined } from '@ant-design/icons';
+import { DotChartOutlined } from '@ant-design/icons';
 import { MlFeatureTable, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { MLFeatureTableProfile } from './profile/MLFeatureTableProfile';
@@ -13,15 +13,15 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     icon = (fontSize: number, styleType: IconStyleType) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <BorderlessTableOutlined style={{ fontSize }} />;
+            return <DotChartOutlined style={{ fontSize }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <BorderlessTableOutlined style={{ fontSize, color: '#9633b9' }} />;
+            return <DotChartOutlined style={{ fontSize, color: '#9633b9' }} />;
         }
 
         return (
-            <BorderlessTableOutlined
+            <DotChartOutlined
                 style={{
                     fontSize,
                     color: '#BFBFBF',

@@ -1,10 +1,9 @@
 import React, { useMemo } from 'react';
-
 import { Table, Typography } from 'antd';
+import { CheckSquareOutlined } from '@ant-design/icons';
 import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
-
-import TypeIcon from './TypeIcon';
+import MlFeatureDataTypeIcon from './MlFeatureDataTypeIcon';
 import { MlFeatureDataType, MlFeatureTableProperties, MlPrimaryKey, MlFeature } from '../../../../../types.generated';
 import { notEmpty } from '../../../shared/utils';
 import MarkdownViewer from '../../../shared/MarkdownViewer';
@@ -24,8 +23,8 @@ const defaultColumns = [
         key: 'dataType',
         width: 100,
         align: 'left' as AlignType,
-        render: (dataType: MlFeatureDataType, record: MlFeature | MlPrimaryKey) => {
-            return <TypeIcon dataType={dataType} entityType={record.type} />;
+        render: (dataType: MlFeatureDataType) => {
+            return <MlFeatureDataTypeIcon dataType={dataType} />;
         },
     },
     {
@@ -42,9 +41,17 @@ const defaultColumns = [
         render: (description: string) => <MarkdownViewer source={description} />,
         width: 300,
     },
+    {
+        title: 'Primary Key',
+        dataIndex: 'primaryKey',
+        key: 'primaryKey',
+        render: (_: any, record: MlFeature | MlPrimaryKey) =>
+            record.__typename === 'MLPrimaryKey' ? <CheckSquareOutlined /> : null,
+        width: 50,
+    },
 ];
 
-export default function SchemaView({ featureTableProperties }: Props) {
+export default function MlFeatureTableSchema({ featureTableProperties }: Props) {
     const rows: Array<MlFeature | MlPrimaryKey> = useMemo(() => {
         if (featureTableProperties && (featureTableProperties?.mlFeatures || featureTableProperties?.mlPrimaryKeys)) {
             return [
