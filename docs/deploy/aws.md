@@ -56,7 +56,7 @@ ip-192-168-8-126.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-ek
 ## Setup DataHub using Helm
 
 Once the kubernetes cluster has been set up, you can deploy DataHub and it’s prerequisites using helm. Please follow the
-steps in this [guide](../../datahub-kubernetes/README.md)
+steps in this [guide](kubernetes.md)
 
 ## Expose endpoints using a load balancer
 

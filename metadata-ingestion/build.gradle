@@ -41,17 +41,28 @@ task lintFix(type: Exec, dependsOn: installDev) {
     "mypy src/ tests/"
 }
 
-task test(type: Exec, dependsOn: installDev) {
+task testQuick(type: Exec, dependsOn: installDev) {
+  // We can't enforce the coverage requirements if we run a subset of the tests.
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest -m 'not slow' -vv --cov-fail-under 0"
+}
+task testFull(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && pytest -vv"
 }
 
+task cleanPythonCache(type: Exec) {
+  commandLine 'bash', '-x', '-c',
+    "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+
 build.dependsOn install
 check.dependsOn lint
-check.dependsOn test
+check.dependsOn testQuick
 
 clean {
   delete venv_name
   delete 'build'
   delete 'dist'
 }
+clean.dependsOn cleanPythonCache

@@ -5,12 +5,17 @@ from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sagemaker import SagemakerSource, SagemakerSourceConfig
+from datahub.ingestion.source.sagemaker_processors.jobs import SAGEMAKER_JOB_TYPES
 from tests.test_helpers import mce_helpers
 from tests.unit.test_sagemaker_source_stubs import (
     describe_feature_group_response_1,
     describe_feature_group_response_2,
     describe_feature_group_response_3,
+    describe_model_response_1,
+    describe_model_response_2,
+    job_stubs,
     list_feature_groups_response,
+    list_models_response,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -56,6 +61,44 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
                 "FeatureGroupName": "test",
             },
         )
+
+        sagemaker_stubber.add_response(
+            "list_models",
+            list_models_response,
+            {},
+        )
+
+        sagemaker_stubber.add_response(
+            "describe_model",
+            describe_model_response_1,
+            {"ModelName": "the-first-model"},
+        )
+
+        sagemaker_stubber.add_response(
+            "describe_model",
+            describe_model_response_2,
+            {"ModelName": "the-second-model"},
+        )
+
+        for job_type, job in job_stubs.items():
+
+            job_info = SAGEMAKER_JOB_TYPES[job_type]
+
+            sagemaker_stubber.add_response(
+                job_info.list_command,
+                job["list"],
+                {},
+            )
+
+        for job_type, job in job_stubs.items():
+
+            job_info = SAGEMAKER_JOB_TYPES[job_type]
+
+            sagemaker_stubber.add_response(
+                job_info.describe_command,
+                job["describe"],
+                {job_info.describe_name_key: job["describe_name"]},
+            )
 
         mce_objects = [
             wu.mce.to_obj() for wu in sagemaker_source_instance.get_workunits()

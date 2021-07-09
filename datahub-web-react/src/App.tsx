@@ -73,6 +73,16 @@ const client = new ApolloClient({
         },
     }),
     credentials: 'include',
+    queryDeduplication: false,
+    defaultOptions: {
+        watchQuery: {
+            fetchPolicy: 'cache-and-network',
+            nextFetchPolicy: 'cache-first',
+        },
+        query: {
+            fetchPolicy: 'no-cache',
+        },
+    },
 });
 
 const App: React.VFC = () => {

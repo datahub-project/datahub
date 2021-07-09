@@ -4,7 +4,7 @@ The models defined in [snapshot](snapshot.md) and [delta](delta.md) are used to 
 
 We also model MXEs using [PDL](https://linkedin.github.io/rest.li/pdl_schema) and rely on the [pegasus gradle plugin](https://linkedin.github.io/rest.li/setup/gradle#generateavroschema) to convert them into [AVSC](https://avro.apache.org/docs/current/spec.html). However, we also need to rename all the namespaces of the generated AVSC to avoid namespace clashes for projects that depend on both the PDL models and MXEs. 
 
-As the AVSC and PDL model schemas are 100% compatible, it’d be very easy to convert the in-memory representation from one to another using [Pegasus’ DataTranslator](https://linkedin.github.io/rest.li/DATA-Data-Schema-and-Templates#translating-data-to-and-from-avro).
+As the AVSC and PDL model schemas are 100% compatible, it’d be very easy to convert the in-memory representation from one to another using [Pegasus’ DataTranslator](https://linkedin.github.io/rest.li/avro_translation).
 
 ## Metadata Change Event (MCE)
 
