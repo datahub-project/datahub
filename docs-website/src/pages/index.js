@@ -502,19 +502,12 @@ function Home() {
           </div>
           <div className={styles.sources_link}>
             <Link
-              to={"https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w"}
-            >
-              Visit
-            </Link>{" "}
-            or{" "}
-            <Link
               to={
                 "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w?sub_confirmation=1"
               }
             >
-              subscribe to our channel
-            </Link>{" "}
-            for more!
+              Subscribe for more!
+            </Link>
           </div>
         </div>
       </section>
