@@ -119,7 +119,7 @@ module.exports = {
     Deployment: [
       "docs/how/kafka-config",
       "docker/README",
-      "datahub-kubernetes/README",
+      "docs/deploy/kubernetes",
       "docker/datahub-upgrade/README",
       "docs/deploy/aws",
       "docs/deploy/gcp",

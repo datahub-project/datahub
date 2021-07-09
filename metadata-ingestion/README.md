@@ -387,6 +387,18 @@ source:
     aws_secret_access_key: # Optional.
     aws_session_token: # Optional.
     aws_role: # Optional (Role chaining supported by using a sorted list).
+
+    extract_feature_groups: True # if feature groups should be ingested, default True
+    extract_models: True # if models should be ingested, default True
+    extract_jobs: # if jobs should be ingested, default True for all
+      auto_ml: True
+      compilation: True
+      edge_packaging: True
+      hyper_parameter_tuning: True
+      labeling: True
+      processing: True
+      training: True
+      transform: True
 ```
 
 ### Snowflake `snowflake`
@@ -700,7 +712,7 @@ source:
 
 Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
 views depends on. As these SQL's can be complicated, and the package doesn't official support all the SQL dialects that
-Looker support, the result might not be correct. This parsing is disables by default, but can be enabled by setting
+Looker supports, the result might not be correct. This parsing is disabled by default, but can be enabled by setting
 `parse_table_names_from_sql: True`.
 
 ### Looker dashboards `looker`
@@ -1020,7 +1032,7 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
    airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
    ```
 
-2. Add the following lines to your `airflow.cfg` file. You might need to
+2. Add the following lines to your `airflow.cfg` file.
    ```ini
    [lineage]
    backend = datahub_provider.lineage.datahub.DatahubLineageBackend

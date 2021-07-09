@@ -14,7 +14,10 @@ record Ownership {
   owners: array[Owner]
 
   /**
-   * Audit stamp containing who last modified the record and when.
+   * Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data.
    */
-  lastModified: AuditStamp
+  lastModified: AuditStamp = {
+    "time": 0,
+    "actor": "urn:li:corpuser:unknown"
+  }
 }
