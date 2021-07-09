@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 from dataclasses import dataclass, field
 from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 import logging
+from krbcontext.context import krbContext
 from sqlalchemy import create_engine, inspect
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
@@ -141,6 +142,8 @@ class KuduConfig(ConfigModel):
     host: str = "localhost:21050"
     use_ssl: bool = True    
     authMechanism: Optional[str] = 'GSSAPI'
+    service_principal: str = 'some service principal'
+    keytab_location: str = '/location/to/keytab.keytab'
     options: dict = {}
     env: str = DEFAULT_ENV
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -176,13 +179,14 @@ class KuduSource(Source):
 
         url = sql_config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url used is {url}")
-        engine = create_engine(url, **sql_config.options)
-        inspector = inspect(engine)
-        for schema in inspector.get_schema_names():            
-            if not sql_config.schema_pattern.allowed(schema):
-                self.report.report_dropped(schema)
-                continue
-            yield from self.loop_tables(inspector, schema, sql_config, engine)
+        with krbContext(using_keytab=True, principal = sql_config.service_principal, keytab_file = sql_config.keytab_location):        
+            engine = create_engine(url, **sql_config.options)
+            inspector = inspect(engine)
+            for schema in inspector.get_schema_names():            
+                if not sql_config.schema_pattern.allowed(schema):
+                    self.report.report_dropped(schema)
+                    continue
+                yield from self.loop_tables(inspector, schema, sql_config, engine)
 
     def loop_tables(
         self,
