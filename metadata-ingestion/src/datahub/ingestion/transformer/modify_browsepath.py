@@ -5,32 +5,30 @@ from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
 from datahub.metadata.schema_classes import (
-    BrowsePathsClass
+    BrowsePathsClass, DatasetSnapshotClass, MetadataChangeEventClass
 )
+import logging
+logger = logging.getLogger(__name__)
 
-
-class AddDatasetTagsConfig(ConfigModel):
+class BrowsePathConfig(ConfigModel):
     # Workaround for https://github.com/python/mypy/issues/708.
     # Suggested by https://stackoverflow.com/a/64528725/5004662.
-    get_tags_to_add: Union[
-        Callable[[DatasetSnapshotClass], List[TagAssociationClass]],
-        Callable[[DatasetSnapshotClass], List[TagAssociationClass]],
-    ]
+    remove_prefix: str
 
 
-class AddDatasetTags(Transformer):
+class BrowsePathTransform(Transformer):
     """Transformer that adds tags to datasets according to a callback function."""
 
     ctx: PipelineContext
-    config: AddDatasetTagsConfig
+    config: BrowsePathConfig
 
-    def __init__(self, config: AddDatasetTagsConfig, ctx: PipelineContext):
+    def __init__(self, config: BrowsePathConfig, ctx: PipelineContext):
         self.ctx = ctx
         self.config = config
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetTags":
-        config = AddDatasetTagsConfig.parse_obj(config_dict)
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "BrowsePathTransform":
+        config = BrowsePathConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def transform(
@@ -44,36 +42,28 @@ class AddDatasetTags(Transformer):
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
         if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
             return mce
-
-        tags_to_add = self.config.get_tags_to_add(mce.proposedSnapshot)
-        if tags_to_add:
-            tags = builder.get_or_add_aspect(
-                mce,
-                GlobalTagsClass(
-                    tags=[],
-                ),
-            )
-            tags.tags.extend(tags_to_add)
+        dataset_name = mce.proposedSnapshot.urn
+        logger.error(f"name being evaluated is {dataset_name}")
 
         return mce
 
 
 class BrowsePathTransformerConfig(ConfigModel):
-    pass
+    remove_prefix: str
 
 
-class SimpleAddDatasetTags(AddDatasetTags):
+class SimpleBrowsePathTransform(BrowsePathTransform):
     """Transformer that adds a specified set of tags to each dataset."""
 
-    def __init__(self, config: SimpleDatasetTagConfig, ctx: PipelineContext):
-        tags = [TagAssociationClass(tag=tag) for tag in config.tag_urns]
+    def __init__(self, config: BrowsePathTransformerConfig, ctx: PipelineContext):
+        remove = config.remove_prefix
 
-        generic_config = AddDatasetTagsConfig(
-            get_tags_to_add=lambda _: tags,
+        generic_config = BrowsePathConfig(
+            remove_prefix = remove
         )
         super().__init__(generic_config, ctx)
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleAddDatasetTags":
-        config = SimpleDatasetTagConfig.parse_obj(config_dict)
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "SimpleBrowsePathTransform":
+        config = BrowsePathTransformerConfig.parse_obj(config_dict)
         return cls(config, ctx)
