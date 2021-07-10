@@ -35,7 +35,7 @@ public class AspectType {
           if (e instanceof RestLiResponseException) {
             // if no aspect is found, restli will return a 404 rather than null
             // https://linkedin.github.io/rest.li/user_guide/restli_server#returning-nulls
-            if(((RestLiResponseException) e).getStatus() == 404) {
+            if (((RestLiResponseException) e).getStatus() == 404) {
               return DataFetcherResult.<Aspect>newResult().data(null).build();
             }
           }
