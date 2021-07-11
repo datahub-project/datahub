@@ -143,14 +143,17 @@ class KuduConfig(ConfigModel):
     use_ssl: bool = True    
     authMechanism: Optional[str] = 'GSSAPI'
     service_principal: str = 'some service principal'
-    keytab_location: str = '/location/to/keytab.keytab'
+    keytab_location: str = None
     options: dict = {}
     env: str = DEFAULT_ENV
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     def get_sql_alchemy_url(self):
-        url = f"{self.scheme}://{self.host}/{self.database}?use_ssl={str(self.use_ssl)}&auth_mechanism={self.authMechanism}&ca_cert={self.ca_cert}"
+        if self.use_ssl == False:
+            url = f"{self.scheme}://{self.host}/default"
+        else:
+            url = f"{self.scheme}://{self.host}/{self.database}?use_ssl={str(self.use_ssl)}&auth_mechanism={self.authMechanism}&ca_cert={self.ca_cert}"
         return url
 
 class KuduSource(Source):
@@ -178,15 +181,25 @@ class KuduSource(Source):
             sql_config.options["echo"] = True
 
         url = sql_config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url used is {url}")
-        with krbContext(using_keytab=True, principal = sql_config.service_principal, keytab_file = sql_config.keytab_location):        
-            engine = create_engine(url, **sql_config.options)
+        
+        if sql_config.keytab_location == None:
+            engine = create_engine(url)
             inspector = inspect(engine)
             for schema in inspector.get_schema_names():            
                 if not sql_config.schema_pattern.allowed(schema):
                     self.report.report_dropped(schema)
+                    logger.error(f"dropped {schema}")
                     continue
                 yield from self.loop_tables(inspector, schema, sql_config, engine)
+        else:            
+            with krbContext(using_keytab=True, principal = sql_config.service_principal, keytab_file = sql_config.keytab_location):        
+                engine = create_engine(url, **sql_config.options)
+                inspector = inspect(engine)
+                for schema in inspector.get_schema_names():            
+                    if not sql_config.schema_pattern.allowed(schema):
+                        self.report.report_dropped(schema)
+                        continue
+                    yield from self.loop_tables(inspector, schema, sql_config, engine)
 
     def loop_tables(
         self,
@@ -197,8 +210,9 @@ class KuduSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
         for table in inspector.get_table_names(schema):           
             
-            dataset_name = f"{schema}.{table}"
-            if sql_config.table_pattern.allowed(dataset_name):
+            dataset_name = f"{schema}.{table}"            
+            if not sql_config.table_pattern.allowed(dataset_name):
+                
                 self.report.report_dropped(dataset_name)
                 continue
             self.report.report_entity_scanned(dataset_name, ent_type="table")
