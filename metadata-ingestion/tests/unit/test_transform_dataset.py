@@ -4,7 +4,10 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.transformer.add_dataset_ownership import (
     SimpleAddDatasetOwnership,
 )
-from datahub.ingestion.transformer.add_dataset_tags import SimpleAddDatasetTags
+from datahub.ingestion.transformer.add_dataset_tags import (
+    AddDatasetTags,
+    SimpleAddDatasetTags,
+)
 
 
 def make_generic_dataset():
@@ -120,3 +123,22 @@ def test_simple_dataset_tags_transformation(mock_time):
     assert tags_aspect
     assert len(tags_aspect.tags) == 2
     assert tags_aspect.tags[0].tag == builder.make_tag_urn("NeedsDocumentation")
+
+
+def dummy_tag_resolver_method(dataset_snapshot):
+    return []
+
+
+def test_import_resolver():
+    transformer = AddDatasetTags.create(
+        {
+            "get_tags_to_add": "tests.unit.test_transform_dataset.dummy_tag_resolver_method"
+        },
+        PipelineContext(run_id="test-tags"),
+    )
+    output = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [make_generic_dataset()]]
+        )
+    )
+    assert output
