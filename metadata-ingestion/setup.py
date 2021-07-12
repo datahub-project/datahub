@@ -133,6 +133,7 @@ base_dev_requirements = {
     "freezegun",
     "build",
     "twine",
+    "mock-alchemy",
     *list(
         dependency
         for plugin in [

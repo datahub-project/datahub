@@ -22,7 +22,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     DateTypeClass,
     EnumTypeClass,
-    MySqlDDL,
+    SchemalessClass,
     NullTypeClass,
     NumberTypeClass,
     SchemaField,
@@ -90,12 +90,7 @@ def get_column_type(
     for sql_type in _field_type_mapping.keys():
         if isinstance(column_type, sql_type):
             TypeClass = _field_type_mapping[sql_type]
-            break
-    # if TypeClass is None:
-    #     for sql_type in _known_unknown_field_types:
-    #         if isinstance(column_type, sql_type):
-    #             TypeClass = NullTypeClass
-    #             break
+            break    
 
     if TypeClass is None:
         sql_report.report_warning(
@@ -127,7 +122,7 @@ def get_schema_metadata(
         platform=f"urn:li:dataPlatform:{platform}",
         version=0,
         hash="",
-        platformSchema=MySqlDDL(tableSchema=""),
+        platformSchema=SchemalessClass(),
         created=AuditStamp(time=sys_time, actor=actor),
         lastModified=AuditStamp(time=sys_time, actor=actor),
         fields=canonical_schema,
@@ -168,6 +163,7 @@ class KuduSource(Source):
         options = {
             **self.config.options,
         }
+        
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -200,6 +196,18 @@ class KuduSource(Source):
                         self.report.report_dropped(schema)
                         continue
                     yield from self.loop_tables(inspector, schema, sql_config, engine)
+    def create_interim_engine(self):
+        sql_config = self.config
+        url = sql_config.get_sql_alchemy_url()
+        engine = create_engine(url)
+        return engine
+    
+    def create_interim_inspect(self):
+        sql_config = self.config
+        url = sql_config.get_sql_alchemy_url()
+        engine = create_engine(url)
+        inspector = inspect(engine)
+        return inspector
 
     def loop_tables(
         self,
@@ -262,3 +270,11 @@ class KuduSource(Source):
 
     def close(self):
         pass
+    def random_test(self, engine: Any):
+        a=0
+        a+=self.some_random_function()
+        a+=self.some_random_function()
+        return a
+    def some_random_function(self, engine):
+        a = engine.execute("select * from one").fetchone()
+        return a
