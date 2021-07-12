@@ -25,6 +25,7 @@
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
     "react-slick": "^0.28.1",
+    "react-youtube": "^7.13.1",
     "slick-carousel": "^1.8.1"
   },
   "browserslist": {
