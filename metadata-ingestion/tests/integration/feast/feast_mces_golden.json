@@ -342,6 +342,13 @@
             "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "feast/test_feature_table_all_feature_dtypes"
+                        ]
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
                         "customProperties": {},
                         "description": null,
@@ -421,6 +428,13 @@
             "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_no_labels)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "feast/test_feature_table_no_labels"
+                        ]
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
                         "customProperties": {},
                         "description": null,
@@ -485,6 +499,13 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
             "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_single_feature)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "feast/test_feature_table_single_feature"
+                        ]
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
                         "customProperties": {},

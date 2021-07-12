@@ -10,6 +10,8 @@ import Slider from "react-slick";
 import "slick-carousel/slick/slick.css";
 import "./slick-theme.css";
 
+import YouTube from "react-youtube";
+
 import Image from "@theme/IdealImage";
 import CodeBlock from "@theme/CodeBlock";
 // logos for companies using
@@ -44,6 +46,13 @@ import LogoRedshift from "./logos/redshift.svg";
 import LogoSnowflake from "./logos/snowflake.svg";
 import LogoSpark from "./logos/spark.svg";
 import LogoSuperset from "./logos/superset.svg";
+// images for articles carousel
+import February2021Update from "./articles/february-2021-update.png";
+import March2021Update from "./articles/march-2021-update.png";
+import April2021Update from "./articles/april-2021-update.png";
+import May2021Update from "./articles/may-2021-update.png";
+import SaxoDatahub from "./articles/saxo-datahub.png";
+import DataHubLineage from "./articles/datahub-lineage.png";
 
 const features = [
   {
@@ -173,13 +182,13 @@ const sourceLogos = [
   },
   {
     name: "BigQuery",
-    image: svgFormatter(LogoBigquery, clsx(styles.logo_image_large)),
+    image: svgFormatter(LogoBigquery),
   },
-  { name: "DBT", image: pngFormatter(LogoDbt, clsx(styles.logo_image_large)) },
+  { name: "DBT", image: pngFormatter(LogoDbt) },
   { name: "Druid", image: svgFormatter(LogoDruid) },
   {
     name: "Glue",
-    image: pngFormatter(LogoGlue, clsx(styles.logo_image_large)),
+    image: pngFormatter(LogoGlue),
   },
   {
     name: "Hive",
@@ -192,19 +201,69 @@ const sourceLogos = [
     image: pngFormatter(LogoLdap, clsx(styles.logo_image_square)),
   },
   { name: "MongoDB", image: svgFormatter(LogoMongodb) },
-  { name: "MSSQL", image: svgFormatter(LogoMssql) },
-  { name: "MySQL", image: svgFormatter(LogoMysql) },
+  {
+    name: "MSSQL",
+    image: svgFormatter(LogoMssql),
+  },
+  {
+    name: "MySQL",
+    image: svgFormatter(LogoMysql),
+  },
   { name: "Oracle", image: svgFormatter(LogoOracle) },
   { name: "PostgreSQL", image: pngFormatter(LogoPostgres) },
   {
     name: "Redshift",
-    image: svgFormatter(LogoRedshift, clsx(styles.logo_image_large)),
+    image: svgFormatter(LogoRedshift),
   },
   { name: "Snowflake", image: svgFormatter(LogoSnowflake) },
   { name: "Spark", image: svgFormatter(LogoSpark) },
   {
     name: "Superset",
-    image: svgFormatter(LogoSuperset, clsx(styles.logo_image_large)),
+    image: svgFormatter(LogoSuperset),
+  },
+];
+
+const videos = [
+  { id: "VY57iRdG-Us" },
+  { id: "fEILyoWVpBw" },
+  { id: "3wiaqhb8UR0" },
+  { id: "dlFa4ubJ9ho" },
+  { id: "RQBEJhcen5E" },
+  { id: "xE8Uc27VTG4" },
+  { id: "mjKjjtm8GfM" },
+  { id: "r862MZTLAJ0" },
+];
+
+const articles = [
+  {
+    name: "Enabling Data Discovery in a Data Mesh: The Saxo Journey",
+    link: "https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f",
+    image: pngFormatter(SaxoDatahub, clsx(styles.logo_image_huge)),
+  },
+  {
+    name: "LinkedIn DataHub Project Updates (May 2021)",
+    link: "https://medium.com/datahub-project/linkedin-datahub-project-updates-ed98cdf913c1",
+    image: pngFormatter(May2021Update, clsx(styles.logo_image_huge)),
+  },
+  {
+    name: "Data in Context: Lineage Explorer in DataHub",
+    link: "https://medium.com/datahub-project/data-in-context-lineage-explorer-in-datahub-a53a9a476dc4",
+    image: pngFormatter(DataHubLineage, clsx(styles.logo_image_huge)),
+  },
+  {
+    name: "LinkedIn DataHub Project Updates (April 2021)",
+    link: "https://medium.com/datahub-project/linkedin-datahub-project-updates-2b0d26066b8f",
+    image: pngFormatter(April2021Update, clsx(styles.logo_image_huge)),
+  },
+  {
+    name: "LinkedIn DataHub Project Updates (March 2021)",
+    link: "https://medium.com/datahub-project/linkedin-datahub-project-updates-697f0faddd10",
+    image: pngFormatter(March2021Update, clsx(styles.logo_image_huge)),
+  },
+  {
+    name: "LinkedIn DataHub Project Updates (February 2021)",
+    link: "https://medium.com/datahub-project/linkedin-datahub-project-updates-february-2021-edition-338d2c6021f0",
+    image: pngFormatter(February2021Update, clsx(styles.logo_image_huge)),
   },
 ];
 
@@ -338,23 +397,40 @@ function Home() {
               Supported integrations
             </span>
           </h1>
+          <div className={styles.logo_container}>
+            {sourceLogos.map((logo) => (
+              <div key={logo.name}>
+                <div className={styles.logo_frame}>
+                  <div className={styles.logo_center}>{logo.image}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className={clsx(styles.section)}>
+        <div className="container">
+          <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
+            <span className={styles.larger_on_desktop}>Learn more</span>
+          </h1>
           <div className={styles.carousel_container}>
             <Slider
               dots={true}
               infinite={true}
               centerMode={true}
-              slidesToShow={4}
+              slidesToShow={3}
               slidesToScroll={3}
               infinite={true}
               dots={true}
-              autoplay={true}
-              autoplaySpeed={1000}
+              autoplay={false}
+              autoplaySpeed={3000}
               cssEase={"linear"}
               responsive={[
                 {
                   breakpoint: 1080,
                   settings: {
-                    slidesToShow: 3,
+                    slidesToShow: 2,
                     slidesToScroll: 2,
                   },
                 },
@@ -374,12 +450,20 @@ function Home() {
                 },
               ]}
             >
-              {sourceLogos.map((logo) => {
+              {articles.map((article) => {
                 return (
-                  <div className={styles.carousel_logo_slide} key={logo.name}>
-                    <div className={styles.carousel_logo_frame}>
-                      <div className={styles.carousel_logo_center}>
-                        {logo.image}
+                  <div
+                    className={styles.carousel_logo_slide_large}
+                    key={article.name}
+                  >
+                    <div className={styles.carousel_article_logo_frame}>
+                      <div className={styles.carousel_article_logo_center}>
+                        {article.image}
+                      </div>
+                      <div className={styles.carousel_article_title_center}>
+                        <Link to={article.link} className={styles.article_link}>
+                          {article.name}
+                        </Link>
                       </div>
                     </div>
                   </div>
@@ -388,8 +472,72 @@ function Home() {
             </Slider>
           </div>
           <div className={styles.sources_link}>
-            <Link to={"/docs/metadata-ingestion/#sources"}>
-              ...and many more!
+            <Link to={"https://medium.com/datahub-project"}>
+              Read our Medium for more!
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className={clsx(styles.section, styles.videos_section)}>
+        <div className="container">
+          <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
+            <span className={styles.larger_on_desktop}>Videos</span>
+          </h1>
+          <div className={styles.carousel_container}>
+            <Slider
+              dots={true}
+              infinite={true}
+              centerMode={true}
+              slidesToShow={3}
+              slidesToScroll={3}
+              infinite={true}
+              dots={true}
+              autoplay={false}
+              autoplaySpeed={3000}
+              cssEase={"linear"}
+              responsive={[
+                {
+                  breakpoint: 1080,
+                  settings: {
+                    slidesToShow: 2,
+                    slidesToScroll: 1,
+                  },
+                },
+                {
+                  breakpoint: 720,
+                  settings: {
+                    slidesToShow: 1,
+                    slidesToScroll: 1,
+                  },
+                },
+              ]}
+            >
+              {videos.map((video) => {
+                return (
+                  <div className={styles.carousel_logo_slide} key={video.id}>
+                    <YouTube
+                      videoId={video.id}
+                      opts={{
+                        playerVars: {
+                          // https://developers.google.com/youtube/player_parameters
+                          autoplay: 0,
+                        },
+                      }}
+                      containerClassName={styles.youtubeContainer}
+                    />
+                  </div>
+                );
+              })}
+            </Slider>
+          </div>
+          <div className={styles.sources_link}>
+            <Link
+              to={
+                "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w?sub_confirmation=1"
+              }
+            >
+              Subscribe for more!
             </Link>
           </div>
         </div>
