@@ -44,6 +44,7 @@ spec:
           image: linkedin/datahub-elasticsearch-setup:latest
           name: elasticsearch-setup
           resources: {}
+          command: ["exit", "1"]
       hostname: elasticsearch-setup
       restartPolicy: Never
 status: {}
