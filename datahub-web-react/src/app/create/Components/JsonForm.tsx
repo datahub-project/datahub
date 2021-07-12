@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import JsonSchemaEditor from '@optum/json-schema-editor';
 import { JsonPointer } from 'json-ptr';
 import { JSONSchema7 } from '@optum/json-schema-editor/dist/JsonSchemaEditor.types';
 import { Button, Divider, Form, message, Space } from 'antd';
 import Dragger from 'antd/lib/upload/Dragger';
 import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios';
 import { CommonFields } from './CommonFields';
+import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
+import adhocConfig from '../../../conf/Adhoc';
 
 export const JsonForm = () => {
     const exampleSchema =
@@ -26,8 +29,8 @@ export const JsonForm = () => {
         '            "items": {\n' +
         '                "type": "object",\n' +
         '                "properties": {\n' +
-        '                    "veggieName": {\n' +
-        '                        "title": "veggieName",\n' +
+        '                    "properties": {\n' +
+        '                        "title": "properties",\n' +
         '                        "type": "string"\n' +
         '                    },\n' +
         '                    "veggieLike": {\n' +
@@ -45,8 +48,10 @@ export const JsonForm = () => {
     const [fields, setFields] = useState({
         fields: [{}],
     });
+    const [schema, setSchema] = useState('');
     const [key, setKey] = useState(uuidv4());
     const [form] = Form.useForm();
+    const user = useGetAuthenticatedUser();
     const layout = {
         labelCol: {
             span: 6,
@@ -55,11 +60,14 @@ export const JsonForm = () => {
             span: 16,
         },
     };
-    const printIt = (data) => {
-        console.log(JSON.parse(data));
+    const printSuccessMsg = (status) => {
+        message.success(`Status:${status} - Request submitted successfully`, 3).then();
     };
-    const onFinish = (values) => {
-        console.log(values);
+    const printErrorMsg = (error) => {
+        message.error(error, 3).then();
+    };
+    const onSchemaChange = (data) => {
+        setSchema(data);
     };
     const flattenSchema = (schemaStr) => {
         // use json pointer to get all fields and its parent
@@ -77,15 +85,24 @@ export const JsonForm = () => {
                 if (typeof jsonValue === 'object') {
                     const lineage = new JsonPointer(paths.slice(0, paths.length - 1)).path;
                     const parent = lineage[lineage.length - 1];
-                    let finalTitle = '';
+
+                    let finalTitle = 'root';
                     if (parent === 'properties' && jsonValue.hasOwnProperty('title')) {
-                        const titleWithPrefix = lineage
-                            .filter((x) => (x as string) !== 'properties' && (x as string) !== 'items')
-                            .join('.');
-                        if (titleWithPrefix === '') {
-                            finalTitle = 'root.'.concat(jsonValue.title);
+                        // use of reduce() method to check for previous item 'properties'
+                        lineage.reduce((previous, current) => {
+                            const previousItem = previous as string;
+                            const currentItem = current as string;
+                            if (previousItem === 'properties') {
+                                finalTitle = finalTitle.concat('.', currentItem);
+                            }
+                            return current;
+                        });
+
+                        // printing element
+                        if (finalTitle === '') {
+                            finalTitle = finalTitle.concat(jsonValue.title);
                         } else {
-                            finalTitle = 'root.'.concat(titleWithPrefix, '.', jsonValue.title);
+                            finalTitle = finalTitle.concat('.', jsonValue.title);
                         }
                         setFields((prevState) => ({
                             fields: [
@@ -102,15 +119,24 @@ export const JsonForm = () => {
             }
         });
     };
+    const onFinish = (values) => {
+        flattenSchema(schema);
+        const finalValue = { ...values, dataset_owner: user?.username, ...fields };
+        console.log('Received finalValue:', finalValue);
+        // POST request using axios with error handling
+        axios
+            .post(adhocConfig, finalValue)
+            .then((response) => printSuccessMsg(response.status))
+            .catch((error) => {
+                printErrorMsg(error.toString());
+            });
+    };
     const onReset = () => {
         form.resetFields();
         setState({ schema: {} });
         setKey(uuidv4());
         flattenSchema(exampleSchema);
     };
-    useEffect(() => {
-        console.log('Do something after counter has changed', fields);
-    }, [fields]);
     const props = {
         name: 'file',
         maxCount: 1,
@@ -149,7 +175,7 @@ export const JsonForm = () => {
                     </Divider>
                     <CommonFields />
                     <Form.Item label="Dataset Fields" name="fields">
-                        <JsonSchemaEditor key={key} data={state.schema} onSchemaChange={printIt} />
+                        <JsonSchemaEditor key={key} data={state.schema} onSchemaChange={onSchemaChange} />
                         <Space>
                             <Button type="primary" htmlType="submit">
                                 Submit
