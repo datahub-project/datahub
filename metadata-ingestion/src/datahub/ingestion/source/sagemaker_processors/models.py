@@ -64,6 +64,20 @@ class ModelProcessor:
             ],
         )
 
+        # extract model data URLs for matching with jobs
+        model_data_url = model_details.get("PrimaryContainer", {}).get("ModelDataUrl")
+
+        if model_data_url is not None:
+            self.model_file_to_name[model_data_url] = model_details["ModelName"]
+
+        for model_container in model_details.get("Containers", []):
+            model_data_url = model_container.get(
+                "ModelDataUrl"
+            )
+
+            if model_data_url is not None:
+                self.model_file_to_name[model_data_url] = model_details["ModelName"]
+
         # make the MCE and workunit
         mce = MetadataChangeEvent(proposedSnapshot=model_snapshot)
 
