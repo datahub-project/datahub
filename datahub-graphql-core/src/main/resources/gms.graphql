@@ -2342,6 +2342,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     name: String!
 
     """
+    MLFeatureTable platform name
+    """
+    platform: String!
+
+    """
     MLFeatureTable description
     """
     description: String

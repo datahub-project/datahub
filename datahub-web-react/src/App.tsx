@@ -74,7 +74,6 @@ const client = new ApolloClient({
         },
     }),
     credentials: 'include',
-    queryDeduplication: false,
     defaultOptions: {
         watchQuery: {
             fetchPolicy: 'cache-and-network',

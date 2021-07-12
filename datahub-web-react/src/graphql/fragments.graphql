@@ -386,6 +386,7 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     urn
     type
     name
+    platform
     description
     featureTableProperties {
         description

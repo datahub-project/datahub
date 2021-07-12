@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.MLFeatureTableSnapshot;
 import com.linkedin.ml.metadata.MLFeatureTableProperties;
+import com.linkedin.metadata.key.MLFeatureTableKey;
 
 import javax.annotation.Nonnull;
 
@@ -36,11 +37,14 @@ public class MLFeatureTableSnapshotMapper implements ModelMapper<MLFeatureTableS
         final MLFeatureTable result = new MLFeatureTable();
         result.setUrn(mlFeatureTable.getUrn().toString());
         result.setType(EntityType.MLFEATURE_TABLE);
-        result.setName(mlFeatureTable.getUrn().getNamespace());
         ModelUtils.getAspectsFromSnapshot(mlFeatureTable).forEach(aspect -> {
             if (aspect instanceof Ownership) {
                 Ownership ownership = Ownership.class.cast(aspect);
                 result.setOwnership(OwnershipMapper.map(ownership));
+            } else if (aspect instanceof MLFeatureTableKey) {
+                MLFeatureTableKey mlFeatureTableKey = MLFeatureTableKey.class.cast(aspect);
+                result.setName(mlFeatureTableKey.getName());
+                result.setPlatform(mlFeatureTableKey.getPlatform().toString());
             } else if (aspect instanceof MLFeatureTableProperties) {
                 MLFeatureTableProperties featureTableProperties = MLFeatureTableProperties.class.cast(aspect);
                 result.setFeatureTableProperties(MLFeatureTablePropertiesMapper.map(featureTableProperties));
