@@ -58,6 +58,7 @@ class ModelProcessor:
         model_training_jobs: Set[str] = set()
         model_downstream_jobs: Set[str] = set()
 
+        # extract model data URLs for matching with jobs
         model_data_urls = []
 
         for model_container in model_details.get("Containers", []):
@@ -65,8 +66,6 @@ class ModelProcessor:
 
             if model_data_url is not None:
                 model_data_urls.append(model_data_url)
-
-        # extract model data URLs for matching with jobs
         model_data_url = model_details.get("PrimaryContainer", {}).get("ModelDataUrl")
         if model_data_url is not None:
             model_data_urls.append(model_data_url)
@@ -74,6 +73,7 @@ class ModelProcessor:
         for model_data_url in model_data_urls:
 
             data_url_matched_jobs = self.model_data_to_jobs.get(model_data_url, set())
+            # extend set of training jobs
             model_training_jobs = model_training_jobs.union(
                 {
                     job.job_urn
@@ -81,6 +81,7 @@ class ModelProcessor:
                     if job.job_direction == "training"
                 }
             )
+            # extend set of downstream jobs
             model_downstream_jobs = model_downstream_jobs.union(
                 {
                     job.job_urn
@@ -89,9 +90,11 @@ class ModelProcessor:
                 }
             )
 
+        # get jobs referencing the model by name
         name_matched_jobs = self.model_name_to_jobs.get(
             model_details["ModelName"], set()
         )
+        # extend set of training jobs
         model_training_jobs = model_training_jobs.union(
             {
                 job.job_urn
@@ -99,6 +102,7 @@ class ModelProcessor:
                 if job.job_direction == "training"
             }
         )
+        # extend set of downstream jobs
         model_downstream_jobs = model_downstream_jobs.union(
             {
                 job.job_urn

@@ -251,9 +251,14 @@ class SageMakerJob:
 
 @dataclass
 class ModelJob:
+    """
+    Intermediate representation of a job's related models. Subsequently used by the SageMaker jobs ingestion framework.
+    """
+
     job_urn: str
     job_direction: str  # 'training' or 'downstream'
 
+    # add hash method so we can store these in a set
     def __hash__(self):
         return hash((self.job_urn, self.job_direction))
 
