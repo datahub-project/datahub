@@ -66,4 +66,15 @@ record MLModelProperties includes CustomProperties {
     }
   }
   trainingJobs: optional array[Urn]
+
+  /**
+   * List of jobs (if any) that use the model
+   */
+  @Relationship = {
+    "/*": {
+      "name": "UsedBy",
+      "entityTypes": [ "dataJob" ]
+    }
+  }
+  downstreamJobs: optional array[Urn]
 }

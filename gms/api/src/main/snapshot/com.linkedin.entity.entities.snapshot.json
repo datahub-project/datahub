@@ -2882,6 +2882,20 @@
                         "name" : "TrainedBy"
                       }
                     }
+                  }, {
+                    "name" : "downstreamJobs",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "List of jobs (if any) that use the model",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "dataJob" ],
+                        "name" : "UsedBy"
+                      }
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "mlModelProperties"

@@ -328,7 +328,8 @@
               "hyperParameters": null,
               "mlFeatures": null,
               "tags": [],
-              "trainingJobs": null
+              "trainingJobs": null,
+              "downstreamJobs": null
             }
           }
         ]
@@ -360,7 +361,8 @@
               "hyperParameters": null,
               "mlFeatures": null,
               "tags": [],
-              "trainingJobs": null
+              "trainingJobs": null,
+              "downstreamJobs": null
             }
           }
         ]

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List
 
@@ -15,6 +15,8 @@ class ModelProcessor:
     sagemaker_client: Any
     env: str
     report: SagemakerSourceReport
+    # map from model image file to model name (used for establishing lineage between models and jobs)
+    model_file_to_name: Dict[str, str] = field(default_factory=dict)
 
     def get_all_models(self) -> List[Dict[str, Any]]:
         """
