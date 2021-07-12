@@ -17,10 +17,10 @@ export const Preview = ({
     const entityRegistry = useEntityRegistry();
     return (
         <DefaultPreviewCard
-            url={entityRegistry.getEntityUrl(EntityType.MlfeatureTable, urn)}
+            url={entityRegistry.getEntityUrl(EntityType.Mlfeature, urn)}
             name={name}
             description={description || ''}
-            type="MLFeature Table"
+            type="MLFeature"
             owners={owners}
         />
     );

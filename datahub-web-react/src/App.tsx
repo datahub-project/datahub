@@ -25,6 +25,8 @@ import { PageRoutes } from './conf/Global';
 import { isLoggedInVar } from './app/auth/checkAuthStatus';
 import { GlobalCfg } from './conf';
 import { GlossaryTermEntity } from './app/entity/glossaryTerm/GlossaryTermEntity';
+import { MLFeatureEntity } from './app/entity/mlFeature/MLFeatureEntity';
+import { MLPrimaryKeyEntity } from './app/entity/mlPrimaryKey/MLPrimaryKeyEntity';
 import { MLFeatureTableEntity } from './app/entity/mlFeatureTable/MLFeatureTableEntity';
 
 // Enable to use the Apollo MockProvider instead of a real HTTP client
@@ -68,9 +70,12 @@ const client = new ApolloClient({
             DataJob: {
                 keyFields: ['urn'],
             },
+            MLFeatureTable: {
+                keyFields: ['urn'],
+            },
         },
         possibleTypes: {
-            EntityWithRelationships: ['Dataset', 'Chart', 'Dashboard', 'DataJob'],
+            EntityWithRelationships: ['Dataset', 'Chart', 'Dashboard', 'DataJob', 'MLFeature', 'MLPrimaryKey'],
         },
     }),
     credentials: 'include',
@@ -105,6 +110,8 @@ const App: React.VFC = () => {
         register.register(new DataFlowEntity());
         register.register(new DataJobEntity());
         register.register(new GlossaryTermEntity());
+        register.register(new MLFeatureEntity());
+        register.register(new MLPrimaryKeyEntity());
         register.register(new MLFeatureTableEntity());
         return register;
     }, []);

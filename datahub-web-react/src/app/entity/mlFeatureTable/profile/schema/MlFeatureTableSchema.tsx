@@ -1,11 +1,10 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Table, Typography } from 'antd';
 import { CheckSquareOutlined } from '@ant-design/icons';
 import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
 import MlFeatureDataTypeIcon from './MlFeatureDataTypeIcon';
-import { MlFeatureDataType, MlFeatureTableProperties, MlPrimaryKey, MlFeature } from '../../../../../types.generated';
-import { notEmpty } from '../../../shared/utils';
+import { MlFeatureDataType, MlPrimaryKey, MlFeature } from '../../../../../types.generated';
 import MarkdownViewer from '../../../shared/MarkdownViewer';
 
 const SchemaContainer = styled.div`
@@ -13,7 +12,7 @@ const SchemaContainer = styled.div`
 `;
 
 export type Props = {
-    featureTableProperties?: MlFeatureTableProperties | null;
+    sources: Array<MlFeature | MlPrimaryKey>;
 };
 
 const defaultColumns = [
@@ -51,23 +50,13 @@ const defaultColumns = [
     },
 ];
 
-export default function MlFeatureTableSchema({ featureTableProperties }: Props) {
-    const rows: Array<MlFeature | MlPrimaryKey> = useMemo(() => {
-        if (featureTableProperties && (featureTableProperties?.mlFeatures || featureTableProperties?.mlPrimaryKeys)) {
-            return [
-                ...(featureTableProperties?.mlFeatures || []),
-                ...(featureTableProperties?.mlPrimaryKeys || []),
-            ].filter(notEmpty);
-        }
-        return [];
-    }, [featureTableProperties]);
-
+export default function MlFeatureTableSchema({ sources }: Props) {
     return (
         <SchemaContainer>
-            {rows.length > 0 && (
+            {sources && sources.length > 0 && (
                 <Table
                     columns={defaultColumns}
-                    dataSource={rows}
+                    dataSource={sources}
                     rowKey={(record) => `${record.dataType}-${record.name}`}
                     expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
                     pagination={false}

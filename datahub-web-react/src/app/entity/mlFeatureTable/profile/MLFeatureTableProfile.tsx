@@ -2,14 +2,15 @@ import React from 'react';
 import { Alert } from 'antd';
 import { useGetMlFeatureTableQuery } from '../../../../graphql/mlFeatureTable.generated';
 import { EntityProfile } from '../../../shared/EntityProfile';
-import { MlFeatureTable, EntityType } from '../../../../types.generated';
+import { MlFeatureTable, MlFeature, MlPrimaryKey, EntityType } from '../../../../types.generated';
 import MLFeatureTableHeader from './MLFeatureTableHeader';
 import { Message } from '../../../shared/Message';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType } from '../../../analytics';
+import { notEmpty } from '../../shared/utils';
 import MlFeatureTableSchema from './schema/MlFeatureTableSchema';
-import LineageView from './Lineage';
+import SourcesView from './Sources';
 
 export enum TabType {
     Features = 'Features',
@@ -29,17 +30,25 @@ export const MLFeatureTableProfile = ({ urn }: { urn: string }): JSX.Element => 
     }
     const getHeader = (mlFeatureTable: MlFeatureTable) => <MLFeatureTableHeader mlFeatureTable={mlFeatureTable} />;
 
-    const getTabs = ({ ownership, upstreamLineage, downstreamLineage, featureTableProperties }: MlFeatureTable) => {
+    const getTabs = ({ ownership, featureTableProperties }: MlFeatureTable) => {
+        const sources: Array<MlFeature | MlPrimaryKey> =
+            featureTableProperties && (featureTableProperties?.mlFeatures || featureTableProperties?.mlPrimaryKeys)
+                ? [
+                      ...(featureTableProperties?.mlFeatures || []),
+                      ...(featureTableProperties?.mlPrimaryKeys || []),
+                  ].filter(notEmpty)
+                : [];
+
         return [
             {
                 name: TabType.Features,
                 path: TabType.Features.toLowerCase(),
-                content: <MlFeatureTableSchema featureTableProperties={featureTableProperties} />,
+                content: <MlFeatureTableSchema sources={sources} />,
             },
             {
                 name: TabType.Sources,
                 path: TabType.Sources.toLowerCase(),
-                content: <LineageView upstreamLineage={upstreamLineage} downstreamLineage={downstreamLineage} />,
+                content: <SourcesView sources={sources} />,
             },
             {
                 name: TabType.Ownership,
