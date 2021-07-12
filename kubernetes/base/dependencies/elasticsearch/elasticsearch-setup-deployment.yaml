@@ -45,5 +45,5 @@ spec:
           name: elasticsearch-setup
           resources: {}
       hostname: elasticsearch-setup
-      restartPolicy: Always
+      restartPolicy: Never
 status: {}

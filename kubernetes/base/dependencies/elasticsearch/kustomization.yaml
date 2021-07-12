@@ -4,6 +4,6 @@ resources:
   - elasticsearch-env-docker-env-configmap.yaml
   - elasticsearch-service.yaml
   - esdata-persistentvolumeclaim.yaml
-#  - elasticsearch-setup-deployment.yaml
-#  - elasticsearch-setup-env-docker-env-configmap.yaml
+  - elasticsearch-setup-deployment.yaml
+  - elasticsearch-setup-env-docker-env-configmap.yaml
   
