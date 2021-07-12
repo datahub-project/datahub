@@ -1515,8 +1515,10 @@
               "hyperParameters": null,
               "mlFeatures": null,
               "tags": [],
-              "trainingJobs": null,
-              "downstreamJobs": null
+              "trainingJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+              ],
+              "downstreamJobs": []
             }
           }
         ]
@@ -1548,8 +1550,13 @@
               "hyperParameters": null,
               "mlFeatures": null,
               "tags": [],
-              "trainingJobs": null,
-              "downstreamJobs": null
+              "trainingJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+              ],
+              "downstreamJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)"
+              ]
             }
           }
         ]

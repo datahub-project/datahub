@@ -11,7 +11,7 @@ from datahub.ingestion.source.sagemaker_processors.common import (
 from datahub.ingestion.source.sagemaker_processors.feature_groups import (
     FeatureGroupProcessor,
 )
-from datahub.ingestion.source.sagemaker_processors.jobs import JobProcessor
+from datahub.ingestion.source.sagemaker_processors.jobs import JobProcessor, ModelJob
 from datahub.ingestion.source.sagemaker_processors.models import ModelProcessor
 
 
@@ -41,8 +41,8 @@ class SagemakerSource(Source):
             )
             yield from feature_group_processor.get_workunits()
 
-        model_data_to_jobs: DefaultDict[str, Set[str]] = defaultdict(set)
-        model_name_to_jobs: DefaultDict[str, Set[str]] = defaultdict(set)
+        model_data_to_jobs: DefaultDict[str, Set[ModelJob]] = defaultdict(set)
+        model_name_to_jobs: DefaultDict[str, Set[ModelJob]] = defaultdict(set)
 
         # extract jobs if specified
         if self.source_config.extract_jobs is not False:
@@ -58,14 +58,15 @@ class SagemakerSource(Source):
             model_data_to_jobs = job_processor.model_data_to_jobs
             model_name_to_jobs = job_processor.model_name_to_jobs
 
-        print(model_data_to_jobs)
-        print(model_name_to_jobs)
-
         # extract models if specified
         if self.source_config.extract_models:
 
             model_processor = ModelProcessor(
-                sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
+                sagemaker_client=self.sagemaker_client,
+                env=self.env,
+                report=self.report,
+                model_data_to_jobs=model_data_to_jobs,
+                model_name_to_jobs=model_name_to_jobs,
             )
             yield from model_processor.get_workunits()
 

@@ -250,6 +250,15 @@ class SageMakerJob:
 
 
 @dataclass
+class ModelJob:
+    job_urn: str
+    job_direction: str  # 'training' or 'downstream'
+
+    def __hash__(self):
+        return hash((self.job_urn, self.job_direction))
+
+
+@dataclass
 class JobProcessor:
     """
     Job ingestion module, called by top-level SageMaker ingestion handler.
@@ -267,12 +276,12 @@ class JobProcessor:
     name_to_arn: Dict[Tuple[str, str], str] = field(default_factory=dict)
 
     # map from model image file path to jobs referencing the model
-    model_data_to_jobs: DefaultDict[str, Set[str]] = field(
+    model_data_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
         default_factory=lambda: defaultdict(set)
     )
 
     # map from model name to jobs referencing the model
-    model_name_to_jobs: DefaultDict[str, Set[str]] = field(
+    model_name_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
         default_factory=lambda: defaultdict(set)
     )
 
@@ -513,6 +522,17 @@ class JobProcessor:
             JOB_TYPE,
         )
 
+        model_containers = job.get("BestCandidate", {}).get("InferenceContainers", [])
+
+        for model_container in model_containers:
+
+            model_data_url = model_container.get("ModelDataUrl")
+
+            if model_data_url is not None:
+                self.model_data_to_jobs[model_data_url].add(
+                    ModelJob(job_urn=job_snapshot.urn, job_direction="training")
+                )
+
         return SageMakerJob(
             job_name=job_name,
             job_arn=job_arn,
@@ -637,7 +657,9 @@ class JobProcessor:
         )
 
         if job.get("ModelName") is not None:
-            self.model_name_to_jobs[job["ModelName"]].add(job_arn)
+            self.model_name_to_jobs[job["ModelName"]].add(
+                ModelJob(job_urn=job_snapshot.urn, job_direction="downstream")
+            )
 
         return SageMakerJob(
             job_name=job_name,
@@ -949,6 +971,12 @@ class JobProcessor:
             JOB_TYPE,
         )
 
+        model_data_url = job.get("ModelArtifacts", {}).get("S3ModelArtifacts")
+        if model_data_url is not None:
+            self.model_data_to_jobs[model_data_url].add(
+                ModelJob(job_urn=job_snapshot.urn, job_direction="training")
+            )
+
         return SageMakerJob(
             job_name=job_name,
             job_arn=job_arn,
@@ -1028,7 +1056,9 @@ class JobProcessor:
         )
 
         if job.get("ModelName") is not None:
-            self.model_name_to_jobs[job["ModelName"]].add(job_arn)
+            self.model_name_to_jobs[job["ModelName"]].add(
+                ModelJob(job_urn=job_snapshot.urn, job_direction="downstream")
+            )
 
         return SageMakerJob(
             job_name=job_name,
