@@ -1,0 +1,4 @@
+namespace: data-catalogue
+resources:
+  - elasticsearch-setup-deployment.yaml
+  - elasticsearch-setup-env-docker-env-configmap.yaml

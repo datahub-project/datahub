@@ -41,10 +41,9 @@ spec:
                 configMapKeyRef:
                   key: ELASTICSEARCH_PROTOCOL
                   name: elasticsearch-setup-env-docker-env
-          image: linkedin/datahub-elasticsearch-setup:latest
+          image: datahub-elasticsearch-setup
           name: elasticsearch-setup
           resources: {}
-          command: ["exit", "1"]
       hostname: elasticsearch-setup
-      restartPolicy: Never
+      restartPolicy: Always
 status: {}
