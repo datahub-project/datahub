@@ -52,4 +52,7 @@ def check_golden_file(
         # only update golden files if the diffs are not empty
         if pytestconfig.getoption("--update-golden-files"):
             shutil.copyfile(str(output_path), str(golden_path))
-        raise e
+
+        # raise the error if we're just running the test
+        else:
+            raise e
