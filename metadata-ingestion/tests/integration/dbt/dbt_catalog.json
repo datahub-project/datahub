@@ -4,8 +4,8 @@
     "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json",
     "dbt_version": "0.19.1",
     "env": {},
-    "generated_at": "2021-06-21T17:28:04.980076Z",
-    "invocation_id": "a878f3a5-ecf3-44b1-94ac-4334c92ca3f6"
+    "generated_at": "2021-07-13T18:38:17.650799Z",
+    "invocation_id": "a0290787-2b80-46c6-a3b7-bf882f654ff3"
   },
   "nodes": {
     "model.sample_dbt.monthly_billing_with_cust": {

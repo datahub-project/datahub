@@ -3359,7 +3359,11 @@
       "identifier": "actor",
       "loaded_at_field": "last_update",
       "loader": "",
-      "meta": {},
+      "meta": {
+        "model_maturity": "in dev",
+        "owner": "@alice",
+        "some_other_property": "test 1"
+      },
       "name": "actor",
       "original_file_path": "models/base.yml",
       "package_name": "sample_dbt",
@@ -3559,7 +3563,11 @@
       "identifier": "country",
       "loaded_at_field": "last_update",
       "loader": "",
-      "meta": {},
+      "meta": {
+        "model_maturity": "in prod",
+        "owner": "@bob",
+        "some_other_property": "test 2"
+      },
       "name": "country",
       "original_file_path": "models/base.yml",
       "package_name": "sample_dbt",
@@ -3709,7 +3717,11 @@
       "identifier": "payment_p2020_02",
       "loaded_at_field": "payment_date",
       "loader": "",
-      "meta": {},
+      "meta": {
+        "model_maturity": "in prod",
+        "owner": "@charles",
+        "some_other_property": "test 3"
+      },
       "name": "payment_p2020_02",
       "original_file_path": "models/base.yml",
       "package_name": "sample_dbt",
