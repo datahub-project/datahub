@@ -152,7 +152,6 @@ base_dev_requirements = {
             "glue",
             "oracle",
             "sagemaker",
-            "hive",
             "datahub-kafka",
             "datahub-rest",
             # airflow is added below

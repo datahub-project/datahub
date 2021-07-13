@@ -1,6 +1,7 @@
 import pytest
 
 
+@pytest.mark.integration
 def test_strip_ldap_info():
     from datahub.ingestion.source.ldap import strip_ldap_info
 
@@ -10,7 +11,7 @@ def test_strip_ldap_info():
     )
 
 
-@pytest.mark.slow  # this test isn't actually slow, but is an integration test
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "input, expected",
     [
