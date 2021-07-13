@@ -7,13 +7,13 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-1:165463520094:certificate/755d4867-55bb-48be-84cc-7004037bf093
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-northeast-1:226604077721:certificate/755d4867-55bb-48be-84cc-7004037bf093
     alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
-    alb.ingress.kubernetes.io/security-groups: sg-0a6abbe05bab3dc17, sg-0076cb5e92a093750
+    alb.ingress.kubernetes.io/security-groups: sg-096a805e76c771869, sg-0f8c19e908cf748dd
     alb.ingress.kubernetes.io/tags: Env=development,Cost=smartnews,System=service-proxy,Component=service-proxy
 spec:
   rules:
-    - host: "data-catalog.smartnews.net"
+    - host: "data-catalog.dev.smartnews.net"
       http:
         paths:
           - path: /*
@@ -23,7 +23,7 @@ spec:
           - backend:
               serviceName: datahub-frontend-react
               servicePort: 9002
-    - host: "kibana.smartnews.net"
+    - host: "kibana.dev.smartnews.net"
       http:
         paths:
           - path: /*
@@ -32,4 +32,14 @@ spec:
               servicePort: use-annotation
           - backend:
               serviceName: kibana
-              servicePort: 5601                            
+              servicePort: 5601              
+    - host: "datahub-rest.dev.smartnews.net"
+      http:
+        paths:
+          - path: /*
+            backend:
+              serviceName: ssl-redirect
+              servicePort: use-annotation
+          - backend:
+              serviceName: datahub-gms
+              servicePort: 8080                           

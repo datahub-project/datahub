@@ -25,7 +25,128 @@ spec:
         io.kompose.service: datahub-gms
     spec:
       containers:
-        - image: datahub-gms
+        - env:
+            - name: DATAHUB_MAE_CONSUMER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_MAE_CONSUMER_PORT
+                  name: datahub-gms-env
+            - name: KIBANA_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: KIBANA_PORT
+                  name: datahub-gms-env
+            - name: DATAHUB_MCE_CONSUMER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_MCE_CONSUMER_PORT
+                  name: datahub-gms-env               
+            - name: DATAHUB_FRONTEND_REACT_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_FRONTEND_REACT_PORT
+                  name: datahub-gms-env               
+            - name: DATAHUB_GMS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_GMS_PORT
+                  name: datahub-gms-env               
+            - name: KAFKA_TOPICS_UI_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_TOPICS_UI_PORT
+                  name: datahub-gms-env               
+            - name: SCHEMA_REGISTRY_UI_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: SCHEMA_REGISTRY_UI_PORT
+                  name: datahub-gms-env               
+            - name: KUBERNETES_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: KUBERNETES_PORT
+                  name: datahub-gms-env               
+            - name: KAFKA_REST_PROXY_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_REST_PROXY_PORT
+                  name: datahub-gms-env               
+            - name: SCHEMA_REGISTRY_SERVICE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: SCHEMA_REGISTRY_SERVICE_PORT
+                  name: datahub-gms-env               
+            - name: BROKER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: BROKER_PORT
+                  name: datahub-gms-env               
+            - name: ELASTICSEARCH_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: ELASTICSEARCH_PORT
+                  name: datahub-gms-env               
+            - name: EBEAN_DATASOURCE_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  key: EBEAN_DATASOURCE_USERNAME
+                  name: datahub-gms-env               
+            - name: EBEAN_DATASOURCE_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  key: EBEAN_DATASOURCE_PASSWORD
+                  name: datahub-gms-env               
+            - name: EBEAN_DATASOURCE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: EBEAN_DATASOURCE_HOST
+                  name: datahub-gms-env               
+            - name: EBEAN_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: EBEAN_DATASOURCE_URL
+                  name: datahub-gms-env               
+            - name: EBEAN_DATASOURCE_DRIVER
+              valueFrom:
+                configMapKeyRef:
+                  key: EBEAN_DATASOURCE_DRIVER
+                  name: datahub-gms-env               
+            - name: KAFKA_BOOTSTRAP_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_BOOTSTRAP_SERVER
+                  name: datahub-gms-env               
+            - name: KAFKA_SCHEMAREGISTRY_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_SCHEMAREGISTRY_URL
+                  name: datahub-gms-env               
+            - name: ELASTICSEARCH_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: ELASTICSEARCH_HOST
+                  name: datahub-gms-env               
+            - name: NEO4J_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_HOST
+                  name: datahub-gms-env               
+            - name: NEO4J_URI
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_URI
+                  name: datahub-gms-env               
+            - name: NEO4J_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_USERNAME
+                  name: datahub-gms-env               
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_PASSWORD
+                  name: datahub-gms-env               
+          image: datahub-gms
           name: datahub-gms
           ports:
             - containerPort: 8080
