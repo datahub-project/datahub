@@ -1,67 +1,126 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import JsonSchemaEditor from '@optum/json-schema-editor';
+import { JsonPointer } from 'json-ptr';
 import { JSONSchema7 } from '@optum/json-schema-editor/dist/JsonSchemaEditor.types';
 import { Button, Divider, Form, message, Space } from 'antd';
 import Dragger from 'antd/lib/upload/Dragger';
 import { v4 as uuidv4 } from 'uuid';
-import adhocConfig from '../../../conf/Adhoc';
+import axios from 'axios';
+import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { CommonFields } from './CommonFields';
+import adhocConfig from '../../../conf/Adhoc';
 
 export const JsonForm = () => {
-    const jsonSchema: JSONSchema7 = {
-        $id: 'https://example.com/person.schema.json',
-        title: 'String',
-        type: 'object',
-        properties: {
-            string: {
-                description: 'string',
-                type: 'string',
-            },
-        },
-    };
-    const [state, setState] = useState({ schema: {} });
-    const [key, setKey] = useState(uuidv4());
+    const user = useGetAuthenticatedUser();
+    const [state, setState] = useState({
+        jsonSchema: {},
+        key: '',
+    });
+    const [schema, setSchema] = useState('');
     const [form] = Form.useForm();
     const layout = {
         labelCol: {
             span: 6,
         },
         wrapperCol: {
-            span: 14,
+            span: 16,
         },
     };
-    const printIt = (data) => {
-        console.log('my data ', data);
+    const printSuccessMsg = (status) => {
+        message.success(`Status:${status} - Request submitted successfully`, 3).then();
+    };
+    const printErrorMsg = (error) => {
+        message.error(error, 3).then();
+    };
+    const onSchemaChange = (data) => {
+        setSchema(data);
+    };
+    const flattenSchema = (schemaStr) => {
+        const fields: Array<{ field_name: string; field_type: string; field_description: string }> = [];
+        // use json pointer to get all fields and its parent
+        JsonPointer.visit(JSON.parse(schemaStr), (p, v) => {
+            const jsonValue = JSON.parse(JSON.stringify(v as string));
+            if (jsonValue.hasOwnProperty('type')) {
+                const paths = JsonPointer.decode(p);
+                // if path length is 0 (root)
+                if (paths.length === 0) {
+                    fields.push({
+                        field_name: 'root',
+                        field_type: jsonValue.type,
+                        field_description: jsonValue.description,
+                    });
+                }
+                if (paths.length > 0) {
+                    // contain field information
+                    if (typeof jsonValue === 'object') {
+                        const lineage = new JsonPointer(paths.slice(0, paths.length - 1)).path;
+                        const parent = lineage[lineage.length - 1];
+
+                        let fieldName = 'root';
+                        if (parent === 'properties') {
+                            // use of reduce() method to check for previous item 'properties'
+                            lineage.reduce((previous, current) => {
+                                const previousItem = previous as string;
+                                const currentItem = current as string;
+                                if (previousItem === 'properties') {
+                                    fieldName = fieldName.concat('.', currentItem);
+                                }
+                                return current;
+                            });
+
+                            // construct title
+                            if (fieldName === '') {
+                                fieldName = fieldName.concat(jsonValue.title);
+                            } else {
+                                fieldName = fieldName.concat('.', jsonValue.title);
+                            }
+                            fields.push({
+                                field_name: fieldName,
+                                field_type: jsonValue.type,
+                                field_description: jsonValue.description,
+                            });
+                        }
+                    }
+                }
+            }
+        });
+        return fields;
     };
     const onFinish = (values) => {
-        console.log(values);
+        const flattenFields = flattenSchema(schema);
+        const data = { ...values, fields: flattenFields, dataset_owner: user?.username, dataset_type: 'json' };
+        console.log('Received data:', data);
+        // POST request using axios with error handling
+        axios
+            .post(adhocConfig, data)
+            .then((response) => printSuccessMsg(response.status))
+            .catch((error) => {
+                printErrorMsg(error.toString());
+            });
     };
     const onReset = () => {
-        // todo: remove csv file also
         form.resetFields();
+        setState((prev) => ({ ...prev, jsonSchema: {} }));
     };
+    useEffect(() => {
+        setState((prev) => ({ ...prev, key: uuidv4() }));
+    }, [state.jsonSchema]);
     const props = {
         name: 'file',
         maxCount: 1,
         multiple: false,
-        action: adhocConfig,
+        action: window.location.origin.concat('/jsonSchema'),
         accept: 'application/json',
         onChange(info) {
             const { status } = info.file;
-            if (status !== 'uploading') {
-                console.log(info.file, info.fileList);
-            }
             if (status === 'done') {
-                message.success(`${info.file.name} file uploaded successfully.`).then();
+                console.log('info:', info.file.response);
+                const newSchema: JSONSchema7 = info.file.response;
+                setState((prev) => ({ ...prev, jsonSchema: newSchema }));
+                message.success(`${info.file.name} - inferred schema from json file successfully.`).then();
             } else if (status === 'error') {
-                message.error(`${info.file.name} file upload failed.`).then();
-                console.log('error');
-                setState({ schema: jsonSchema });
-                setKey(uuidv4());
+                message.error(`${info.file.name} - unable to infer schema from json file.`).then();
             }
-        },
-        onDrop(e) {
-            console.log('Dropped files', e.dataTransfer.files);
         },
     };
     // need to set unique key to trigger update the component
@@ -76,14 +135,14 @@ export const JsonForm = () => {
                     onFinish={onFinish}
                 >
                     <Dragger {...props}>
-                        <p className="ant-upload-text">Click here to parse your json file</p>
+                        <p className="ant-upload-text">Click here to infer schema from json file</p>
                     </Dragger>
                     <Divider dashed orientation="left">
                         Dataset Info
                     </Divider>
                     <CommonFields />
                     <Form.Item label="Dataset Fields" name="fields">
-                        <JsonSchemaEditor key={key} data={state.schema} onSchemaChange={printIt} />
+                        <JsonSchemaEditor key={state.key} data={state.jsonSchema} onSchemaChange={onSchemaChange} />
                         <Space>
                             <Button type="primary" htmlType="submit">
                                 Submit

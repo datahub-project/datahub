@@ -77,7 +77,7 @@ public class CorpUser extends Controller {
             CorpUserEditableInfo corpUserEditableInfo =
                     RecordUtils.toRecordTemplate(CorpUserEditableInfo.class, requestBody.toString());
             _corpUserViewDao.updateCorpUserEditableConfig(corpUserUrn, corpUserEditableInfo);
-            return ok(Json.newObject().set("updated", Json.toJson(true)));
+            return ok((JsonNode) Json.newObject().set("updated", Json.toJson(true)));
         } catch (Exception e) {
             Logger.error("Failed to upsert corp user editable info", e);
             return internalServerError(ControllerUtil.errorResponse(e));

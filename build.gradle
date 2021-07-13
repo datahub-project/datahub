@@ -113,7 +113,9 @@ project.ext.externalDependency = [
     'testContainers': 'org.testcontainers:testcontainers:1.15.1',
     'testContainersJunit': 'org.testcontainers:junit-jupiter:1.15.1',
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:1.15.3',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14'
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14',
+    'jsonSchemaInferrer': 'com.github.saasquatch:json-schema-inferrer:0.1.4',
+    'commonsValidator': 'commons-validator:commons-validator:1.7'
 ]
 
 allprojects {
