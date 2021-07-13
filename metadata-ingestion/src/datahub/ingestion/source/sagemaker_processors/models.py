@@ -6,7 +6,7 @@ from typing import Any, DefaultDict, Dict, Iterable, List, Set
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
-from datahub.ingestion.source.sagemaker_processors.jobs import ModelJob
+from datahub.ingestion.source.sagemaker_processors.jobs import JobDirection, ModelJob
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import MLModelSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import MLModelPropertiesClass
@@ -78,7 +78,7 @@ class ModelProcessor:
                 {
                     job.job_urn
                     for job in data_url_matched_jobs
-                    if job.job_direction == "training"
+                    if job.job_direction == JobDirection.TRAINING
                 }
             )
             # extend set of downstream jobs
@@ -86,7 +86,7 @@ class ModelProcessor:
                 {
                     job.job_urn
                     for job in data_url_matched_jobs
-                    if job.job_direction == "downstream"
+                    if job.job_direction == JobDirection.DOWNSTREAM
                 }
             )
 
@@ -99,7 +99,7 @@ class ModelProcessor:
             {
                 job.job_urn
                 for job in name_matched_jobs
-                if job.job_direction == "training"
+                if job.job_direction == JobDirection.TRAINING
             }
         )
         # extend set of downstream jobs
@@ -107,7 +107,7 @@ class ModelProcessor:
             {
                 job.job_urn
                 for job in name_matched_jobs
-                if job.job_direction == "downstream"
+                if job.job_direction == JobDirection.DOWNSTREAM
             }
         )
 

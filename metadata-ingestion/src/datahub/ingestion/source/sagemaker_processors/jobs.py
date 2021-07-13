@@ -1,5 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from datahub.emitter import mce_builder
@@ -249,18 +250,19 @@ class SageMakerJob:
     output_jobs: Set[str] = field(default_factory=set)
 
 
-@dataclass
+class JobDirection(Enum):
+    TRAINING = "training"
+    DOWNSTREAM = "downstream"
+
+
+@dataclass(frozen=True)
 class ModelJob:
     """
     Intermediate representation of a job's related models. Subsequently used by the SageMaker jobs ingestion framework.
     """
 
     job_urn: str
-    job_direction: str  # 'training' or 'downstream'
-
-    # add hash method so we can store these in a set
-    def __hash__(self):
-        return hash((self.job_urn, self.job_direction))
+    job_direction: JobDirection
 
 
 @dataclass
@@ -535,7 +537,9 @@ class JobProcessor:
 
             if model_data_url is not None:
                 self.model_data_to_jobs[model_data_url].add(
-                    ModelJob(job_urn=job_snapshot.urn, job_direction="training")
+                    ModelJob(
+                        job_urn=job_snapshot.urn, job_direction=JobDirection.TRAINING
+                    )
                 )
 
         return SageMakerJob(
@@ -663,7 +667,9 @@ class JobProcessor:
 
         if job.get("ModelName") is not None:
             self.model_name_to_jobs[job["ModelName"]].add(
-                ModelJob(job_urn=job_snapshot.urn, job_direction="downstream")
+                ModelJob(
+                    job_urn=job_snapshot.urn, job_direction=JobDirection.DOWNSTREAM
+                )
             )
 
         return SageMakerJob(
@@ -979,7 +985,7 @@ class JobProcessor:
         model_data_url = job.get("ModelArtifacts", {}).get("S3ModelArtifacts")
         if model_data_url is not None:
             self.model_data_to_jobs[model_data_url].add(
-                ModelJob(job_urn=job_snapshot.urn, job_direction="training")
+                ModelJob(job_urn=job_snapshot.urn, job_direction=JobDirection.TRAINING)
             )
 
         return SageMakerJob(
@@ -1062,7 +1068,9 @@ class JobProcessor:
 
         if job.get("ModelName") is not None:
             self.model_name_to_jobs[job["ModelName"]].add(
-                ModelJob(job_urn=job_snapshot.urn, job_direction="downstream")
+                ModelJob(
+                    job_urn=job_snapshot.urn, job_direction=JobDirection.DOWNSTREAM
+                )
             )
 
         return SageMakerJob(
