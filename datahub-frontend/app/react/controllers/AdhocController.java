@@ -7,6 +7,7 @@ import com.typesafe.config.Config;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import play.Logger;
 import play.mvc.Controller;
 import play.mvc.Result;
 import play.mvc.Security;
@@ -42,6 +43,7 @@ public class AdhocController extends Controller {
         JsonNode event;
         try {
             event = request().body().asJson();
+            Logger.info(event.toPrettyString());
         } catch (Exception e) {
             return badRequest();
         }

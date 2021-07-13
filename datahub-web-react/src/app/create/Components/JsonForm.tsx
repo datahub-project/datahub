@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import JsonSchemaEditor from '@optum/json-schema-editor';
 import { JsonPointer } from 'json-ptr';
 import { JSONSchema7 } from '@optum/json-schema-editor/dist/JsonSchemaEditor.types';
@@ -6,52 +6,18 @@ import { Button, Divider, Form, message, Space } from 'antd';
 import Dragger from 'antd/lib/upload/Dragger';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
-import { CommonFields } from './CommonFields';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
+import { CommonFields } from './CommonFields';
 import adhocConfig from '../../../conf/Adhoc';
 
 export const JsonForm = () => {
-    const exampleSchema =
-        '{\n' +
-        '    "$schema": "http://json-schema.org/draft-07/schema#",\n' +
-        '    "type": "object",\n' +
-        '    "properties": {\n' +
-        '        "fruits": {\n' +
-        '            "title": "fruits",\n' +
-        '            "type": "array",\n' +
-        '            "items": {\n' +
-        '                "type": "string"\n' +
-        '            }\n' +
-        '        },\n' +
-        '        "vegetables": {\n' +
-        '            "title": "vegetables",\n' +
-        '            "type": "array",\n' +
-        '            "items": {\n' +
-        '                "type": "object",\n' +
-        '                "properties": {\n' +
-        '                    "properties": {\n' +
-        '                        "title": "properties",\n' +
-        '                        "type": "string"\n' +
-        '                    },\n' +
-        '                    "veggieLike": {\n' +
-        '                        "title": "veggieLike",\n' +
-        '                        "type": "boolean"\n' +
-        '                    }\n' +
-        '                },\n' +
-        '                "additionalProperties": true\n' +
-        '            }\n' +
-        '        }\n' +
-        '    },\n' +
-        '    "additionalProperties": true\n' +
-        '}';
-    const [state, setState] = useState({ schema: {} });
-    const [fields, setFields] = useState({
-        fields: [{}],
+    const user = useGetAuthenticatedUser();
+    const [state, setState] = useState({
+        jsonSchema: {},
+        key: '',
     });
     const [schema, setSchema] = useState('');
-    const [key, setKey] = useState(uuidv4());
     const [form] = Form.useForm();
-    const user = useGetAuthenticatedUser();
     const layout = {
         labelCol: {
             span: 6,
@@ -70,62 +36,59 @@ export const JsonForm = () => {
         setSchema(data);
     };
     const flattenSchema = (schemaStr) => {
+        const fields: Array<{ field_name: string; field_type: string; field_description: string }> = [];
         // use json pointer to get all fields and its parent
         JsonPointer.visit(JSON.parse(schemaStr), (p, v) => {
-            const paths = JsonPointer.decode(p);
             const jsonValue = JSON.parse(JSON.stringify(v as string));
-            // if path length is 0 (root)
-            if (paths.length === 0) {
-                setFields({
-                    fields: [{ field_name: 'root', field_type: jsonValue.type, field_description: '' }],
-                });
-            }
-            if (paths.length > 0) {
-                // contain field information
-                if (typeof jsonValue === 'object') {
-                    const lineage = new JsonPointer(paths.slice(0, paths.length - 1)).path;
-                    const parent = lineage[lineage.length - 1];
+            if (jsonValue.hasOwnProperty('type')) {
+                const paths = JsonPointer.decode(p);
+                // if path length is 0 (root)
+                if (paths.length === 0) {
+                    fields.push({ field_name: 'root', field_type: jsonValue.type, field_description: '' });
+                }
+                if (paths.length > 0) {
+                    // contain field information
+                    if (typeof jsonValue === 'object') {
+                        const lineage = new JsonPointer(paths.slice(0, paths.length - 1)).path;
+                        const parent = lineage[lineage.length - 1];
 
-                    let finalTitle = 'root';
-                    if (parent === 'properties' && jsonValue.hasOwnProperty('title')) {
-                        // use of reduce() method to check for previous item 'properties'
-                        lineage.reduce((previous, current) => {
-                            const previousItem = previous as string;
-                            const currentItem = current as string;
-                            if (previousItem === 'properties') {
-                                finalTitle = finalTitle.concat('.', currentItem);
+                        let fieldName = 'root';
+                        if (parent === 'properties') {
+                            // use of reduce() method to check for previous item 'properties'
+                            lineage.reduce((previous, current) => {
+                                const previousItem = previous as string;
+                                const currentItem = current as string;
+                                if (previousItem === 'properties') {
+                                    fieldName = fieldName.concat('.', currentItem);
+                                }
+                                return current;
+                            });
+
+                            // construct title
+                            if (fieldName === '') {
+                                fieldName = fieldName.concat(jsonValue.title);
+                            } else {
+                                fieldName = fieldName.concat('.', jsonValue.title);
                             }
-                            return current;
-                        });
-
-                        // printing element
-                        if (finalTitle === '') {
-                            finalTitle = finalTitle.concat(jsonValue.title);
-                        } else {
-                            finalTitle = finalTitle.concat('.', jsonValue.title);
+                            fields.push({
+                                field_name: fieldName,
+                                field_type: jsonValue.type,
+                                field_description: jsonValue.description,
+                            });
                         }
-                        setFields((prevState) => ({
-                            fields: [
-                                ...prevState.fields,
-                                {
-                                    field_name: finalTitle,
-                                    field_type: jsonValue.type,
-                                    field_description: jsonValue.description,
-                                },
-                            ],
-                        }));
                     }
                 }
             }
         });
+        return fields;
     };
     const onFinish = (values) => {
-        flattenSchema(schema);
-        const finalValue = { ...values, dataset_owner: user?.username, ...fields };
-        console.log('Received finalValue:', finalValue);
+        const flattenFields = flattenSchema(schema);
+        const data = { ...values, fields: flattenFields, dataset_owner: user?.username, dataset_type: 'json' };
+        console.log('Received data:', data);
         // POST request using axios with error handling
         axios
-            .post(adhocConfig, finalValue)
+            .post(adhocConfig, data)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());
@@ -133,23 +96,23 @@ export const JsonForm = () => {
     };
     const onReset = () => {
         form.resetFields();
-        setState({ schema: {} });
-        setKey(uuidv4());
-        flattenSchema(exampleSchema);
+        setState((prev) => ({ ...prev, jsonSchema: {} }));
     };
+    useEffect(() => {
+        setState((prev) => ({ ...prev, key: uuidv4() }));
+    }, [state.jsonSchema]);
     const props = {
         name: 'file',
         maxCount: 1,
         multiple: false,
-        action: 'http://localhost:9002/jsonSchema',
+        action: window.location.origin.concat('/jsonSchema'),
         accept: 'application/json',
         onChange(info) {
             const { status } = info.file;
             if (status === 'done') {
                 console.log('info:', info.file.response);
                 const newSchema: JSONSchema7 = info.file.response;
-                setState({ schema: newSchema });
-                setKey(uuidv4());
+                setState((prev) => ({ ...prev, jsonSchema: newSchema }));
                 message.success(`${info.file.name} - inferred schema from json file successfully.`).then();
             } else if (status === 'error') {
                 message.error(`${info.file.name} - unable to infer schema from json file.`).then();
@@ -175,7 +138,7 @@ export const JsonForm = () => {
                     </Divider>
                     <CommonFields />
                     <Form.Item label="Dataset Fields" name="fields">
-                        <JsonSchemaEditor key={key} data={state.schema} onSchemaChange={onSchemaChange} />
+                        <JsonSchemaEditor key={state.key} data={state.jsonSchema} onSchemaChange={onSchemaChange} />
                         <Space>
                             <Button type="primary" htmlType="submit">
                                 Submit
