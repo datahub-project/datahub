@@ -2,6 +2,7 @@ from typing import Callable, Iterable, List, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
 from datahub.metadata.schema_classes import (
@@ -19,6 +20,8 @@ class AddDatasetTagsConfig(ConfigModel):
         Callable[[DatasetSnapshotClass], List[TagAssociationClass]],
         Callable[[DatasetSnapshotClass], List[TagAssociationClass]],
     ]
+
+    _resolve_tag_fn = pydantic_resolve_key("get_tags_to_add")
 
 
 class AddDatasetTags(Transformer):

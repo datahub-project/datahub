@@ -412,70 +412,6 @@ function Home() {
       <section className={clsx(styles.section)}>
         <div className="container">
           <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
-            <span className={styles.larger_on_desktop}>Videos</span>
-          </h1>
-          <div className={styles.carousel_container}>
-            <Slider
-              dots={true}
-              infinite={true}
-              centerMode={true}
-              slidesToShow={3}
-              slidesToScroll={3}
-              infinite={true}
-              dots={true}
-              autoplay={false}
-              autoplaySpeed={3000}
-              cssEase={"linear"}
-              responsive={[
-                {
-                  breakpoint: 1080,
-                  settings: {
-                    slidesToShow: 2,
-                    slidesToScroll: 1,
-                  },
-                },
-                {
-                  breakpoint: 720,
-                  settings: {
-                    slidesToShow: 1,
-                    slidesToScroll: 1,
-                  },
-                },
-              ]}
-            >
-              {videos.map((video) => {
-                return (
-                  <div className={styles.carousel_logo_slide} key={video.id}>
-                    <YouTube
-                      videoId={video.id}
-                      opts={{
-                        playerVars: {
-                          // https://developers.google.com/youtube/player_parameters
-                          autoplay: 0,
-                        },
-                      }}
-                      containerClassName={styles.youtubeContainer}
-                    />
-                  </div>
-                );
-              })}
-            </Slider>
-          </div>
-          <div className={styles.sources_link}>
-            <Link
-              to={
-                "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w?sub_confirmation=1"
-              }
-            >
-              Subscribe for more!
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className={clsx(styles.section, styles.articles_section)}>
-        <div className="container">
-          <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
             <span className={styles.larger_on_desktop}>Learn more</span>
           </h1>
           <div className={styles.carousel_container}>
@@ -538,6 +474,70 @@ function Home() {
           <div className={styles.sources_link}>
             <Link to={"https://medium.com/datahub-project"}>
               Read our Medium for more!
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className={clsx(styles.section, styles.videos_section)}>
+        <div className="container">
+          <h1 className={clsx(styles.centerText, styles.small_padding_bottom)}>
+            <span className={styles.larger_on_desktop}>Videos</span>
+          </h1>
+          <div className={styles.carousel_container}>
+            <Slider
+              dots={true}
+              infinite={true}
+              centerMode={true}
+              slidesToShow={3}
+              slidesToScroll={3}
+              infinite={true}
+              dots={true}
+              autoplay={false}
+              autoplaySpeed={3000}
+              cssEase={"linear"}
+              responsive={[
+                {
+                  breakpoint: 1080,
+                  settings: {
+                    slidesToShow: 2,
+                    slidesToScroll: 1,
+                  },
+                },
+                {
+                  breakpoint: 720,
+                  settings: {
+                    slidesToShow: 1,
+                    slidesToScroll: 1,
+                  },
+                },
+              ]}
+            >
+              {videos.map((video) => {
+                return (
+                  <div className={styles.carousel_logo_slide} key={video.id}>
+                    <YouTube
+                      videoId={video.id}
+                      opts={{
+                        playerVars: {
+                          // https://developers.google.com/youtube/player_parameters
+                          autoplay: 0,
+                        },
+                      }}
+                      containerClassName={styles.youtubeContainer}
+                    />
+                  </div>
+                );
+              })}
+            </Slider>
+          </div>
+          <div className={styles.sources_link}>
+            <Link
+              to={
+                "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w?sub_confirmation=1"
+              }
+            >
+              Subscribe for more!
             </Link>
           </div>
         </div>
