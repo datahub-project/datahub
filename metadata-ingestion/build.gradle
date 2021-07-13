@@ -46,7 +46,10 @@ task testQuick(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && pytest -m 'not slow' -vv --cov-fail-under 0"
 }
-task testFull(type: Exec, dependsOn: installDev) {
+task installDevTest(type: Exec, dependsOn: [install]) {
+  commandLine "${venv_name}/bin/pip", 'install', '-e', '.[dev,integration-tests]'
+}
+task testFull(type: Exec, dependsOn: installDevTest) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && pytest -vv"
 }
