@@ -116,7 +116,7 @@ def get_schema_metadata(
         canonical_schema.append(field)
 
     actor = "urn:li:corpuser:etl"
-    sys_time = int(time.time() * 1000)
+    sys_time = int(time.time() * 1000)    
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=f"urn:li:dataPlatform:{platform}",
@@ -196,18 +196,6 @@ class KuduSource(Source):
                         self.report.report_dropped(schema)
                         continue
                     yield from self.loop_tables(inspector, schema, sql_config, engine)
-    def create_interim_engine(self):
-        sql_config = self.config
-        url = sql_config.get_sql_alchemy_url()
-        engine = create_engine(url)
-        return engine
-    
-    def create_interim_inspect(self):
-        sql_config = self.config
-        url = sql_config.get_sql_alchemy_url()
-        engine = create_engine(url)
-        inspector = inspect(engine)
-        return inspector
 
     def loop_tables(
         self,
@@ -227,6 +215,7 @@ class KuduSource(Source):
             #using Impyla to query to HMS, I can't tell if the table is Hive or Kudu unless i query table stats.
             try:
                 table_detail_sample = engine.execute(f"show table stats {schema}.{table}").fetchone()
+                
                 columns = [col for col in table_detail_sample.keys()]
                 if "Leader Replica" not in columns:
                     self.report.report_dropped(dataset_name)
@@ -235,6 +224,7 @@ class KuduSource(Source):
                 logger.error(f"unable to parse table stats for {schema}.{table}, will not be ingested")
                 continue
             columns = inspector.get_columns(table, schema)
+            
             try:
                 table_info: dict = inspector.get_table_comment(table, schema)
             except NotImplementedError:
@@ -243,6 +233,7 @@ class KuduSource(Source):
             else:
                 description = table_info["text"]
                 properties = table_info.get("properties", {})            
+            
 
             dataset_snapshot = DatasetSnapshot(
                 urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
@@ -263,6 +254,7 @@ class KuduSource(Source):
             wu = MetadataWorkUnit(id=dataset_name, mce=mce)
             
             self.report.report_workunit(wu)
+            
             yield wu            
 
     def get_report(self):
@@ -270,11 +262,3 @@ class KuduSource(Source):
 
     def close(self):
         pass
-    def random_test(self, engine: Any):
-        a=0
-        a+=self.some_random_function()
-        a+=self.some_random_function()
-        return a
-    def some_random_function(self, engine):
-        a = engine.execute("select * from one").fetchone()
-        return a

@@ -4,6 +4,22 @@ from typing import Dict
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kudu import KuduSource, KuduConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+import sqlalchemy.sql.sqltypes as types
+from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+import logging
+from freezegun import freeze_time
+from datahub.metadata.schema_classes import SchemaFieldDataTypeClass, SchemaFieldClass, SchemaMetadataClass, AuditStampClass
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    SchemalessClass,
+    NumberTypeClass,
+    SchemaField,
+    StringTypeClass,
+)
+
+
+logger =logging.getLogger(__name__)
 # from mock_alchemy.mocking import AlchemyMagicMock
 
 
@@ -20,81 +36,54 @@ class KuduSourceTest(unittest.TestCase):
         
         assert kudu_source.config.get_sql_alchemy_url() == "impala://localhost:21050/default"
 
-    # @patch('datahub.ingestion.source.kudu.KuduSource.some_random_function', autospec=True)
-    # def test_kudu_source_workunits2(self, func):
-    #     """
-    #     test that the ingestion is able to pull out a workunit 
-    #     """
-    #     func.return_value=5
-    #     ctx = PipelineContext(run_id="test")
-    #     a = KuduSource(KuduConfig(use_ssl = False),ctx)
-    #     c = KuduSource.random_test(a,func)
-    #     self.assertEqual(func.call_count, 2)
-    #     self.assertEqual(c, 10)
     
-    # @patch('datahub.ingestion.source.kudu.create_engine', autospec=True)
+    @freeze_time("2012-01-14 12:00:01.000")
     def test_kudu_source_workunits(self):
         """
         test that the ingestion is able to pull out a workunit 
         """        
-        # mock_execute = Mock()
-        # engine_attrs = {'execute.return_value': "a"}
-        # mock_execute.configure_mock(**engine_attrs)
-        func = Mock()
-        func.execute.return_value.fetchone.return_value = 'a'
-
-        d = func.execute('select a from b').fetchone()
-        self.assertEqual(d, "a")
-        # ctx = PipelineContext(run_id="test")
-        # a = KuduSource(KuduConfig(use_ssl = False),ctx)
-        # c = KuduSource.some_random_function(a,func)
-        # func.assert_has_calls()
+        mock_engine = Mock()
+        mock_engine.execute.return_value.fetchone.return_value = {'# Rows':"", 'Start Key':"", 'Stop Key':"", 'Leader Replica':"", '# Replicas':""}
+        mock_inspect = Mock()
+        mock_inspect.get_table_names.return_value = ["my_first_table"]      
+        mock_inspect.get_table_comment.return_value={"text": None}
+        mock_inspect.get_columns.return_value = [{'name': 'id', 'type': types.BIGINT(), 'nullable': True, 'autoincrement': False}, {'name': 'name', 'type': types.String(), 'nullable': True, 'autoincrement': False}]
         
+        ctx = PipelineContext(run_id="test")
+        src = KuduSource(KuduConfig(use_ssl = False),ctx)
+        yield_gen = src.loop_tables(mock_inspect, 'default', KuduConfig(use_ssl = False), mock_engine)
+        expected_return = MetadataWorkUnit(
+                                id='default.my_first_table',
+                                mce=MetadataChangeEvent(proposedSnapshot=
+                                    DatasetSnapshot(urn=f"urn:li:dataset:(urn:li:dataPlatform:kudu,default.my_first_table,PROD)",
+                                    aspects=[
+                                        SchemaMetadataClass(schemaName="default.my_first_table",
+                                            version=0,
+                                            hash="",
+                                            platform = "urn:li:dataPlatform:kudu",
+                                            platformSchema=SchemalessClass(),
+                                            created=AuditStampClass(time=1326542401000, actor="urn:li:corpuser:etl"),
+                                            lastModified=AuditStampClass(time=1326542401000, actor="urn:li:corpuser:etl"),
+                                            fields = [SchemaField(
+                                                        fieldPath="id",
+                                                        nativeDataType="BIGINT()",
+                                                        type=SchemaFieldDataTypeClass(type= NumberTypeClass()),
+                                                        description=None,
+                                                        nullable=True,
+                                                        recursive=False,
+                                                    ),
+                                                    SchemaField(
+                                                    fieldPath="name",
+                                                    nativeDataType="String()",
+                                                    type=SchemaFieldDataTypeClass(type= StringTypeClass()),
+                                                    description=None,
+                                                    nullable=True,
+                                                    recursive=False,
+                                                    )],                                            
+                                    )])),
+                            )
+        for item in yield_gen: #there shd be a more elegant way to pull the first item off a generator...
+            generated = item
+            break
+        self.assertEqual(generated, expected_return)
         
-        
-    
-    # def test_kafka_source_workunits_topic_pattern(self, mock_kafka):
-    #     mock_kafka_instance = mock_kafka.return_value
-    #     mock_cluster_metadata = MagicMock()
-    #     mock_cluster_metadata.topics = ["test", "foobar", "bazbaz"]
-    #     mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
-
-    #     ctx = PipelineContext(run_id="test1")
-    #     kafka_source = KuduSource.create(
-    #         {
-    #             "topic_patterns": {"allow": ["test"]},
-    #             "connection": {"bootstrap": "localhost:9092"},
-    #         },
-    #         ctx,
-    #     )
-    #     workunits = [w for w in kafka_source.get_workunits()]
-
-    #     mock_kafka.assert_called_once()
-    #     mock_kafka_instance.list_topics.assert_called_once()
-    #     assert len(workunits) == 1
-
-    #     mock_cluster_metadata.topics = ["test", "test2", "bazbaz"]
-    #     ctx = PipelineContext(run_id="test2")
-    #     kafka_source = KuduSource.create(
-    #         {
-    #             "topic_patterns": {"allow": ["test.*"]},
-    #             "connection": {"bootstrap": "localhost:9092"},
-    #         },
-    #         ctx,
-    #     )
-    #     workunits = [w for w in kafka_source.get_workunits()]
-    #     assert len(workunits) == 2
-
-    
-    # def test_close(self, mock_kafka):
-    #     mock_kafka_instance = mock_kafka.return_value
-    #     ctx = PipelineContext(run_id="test")
-    #     kafka_source = KuduSource.create(
-    #         {
-    #             "topic_patterns": {"allow": ["test.*"]},
-    #             "connection": {"bootstrap": "localhost:9092"},
-    #         },
-    #         ctx,
-    #     )
-    #     kafka_source.close()
-    #     assert mock_kafka_instance.close.call_count == 1
