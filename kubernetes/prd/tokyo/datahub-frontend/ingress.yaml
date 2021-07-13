@@ -32,4 +32,14 @@ spec:
               servicePort: use-annotation
           - backend:
               serviceName: kibana
-              servicePort: 5601                            
+              servicePort: 5601
+    - host: "datahub-rest.smartnews.net"
+      http:
+        paths:
+          - path: /*
+            backend:
+              serviceName: ssl-redirect
+              servicePort: use-annotation
+          - backend:
+              serviceName: datahub-gms
+              servicePort: 8080                                                       
