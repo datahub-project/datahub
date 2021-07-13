@@ -37,7 +37,7 @@ services:
     - ELASTIC_CLIENT_HOST=elasticsearch
     - ELASTIC_CLIENT_PORT=9200
     hostname: datahub-frontend-react
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-latest}
+    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     mem_limit: 512m
     ports:
     - 9002:9002
@@ -61,7 +61,7 @@ services:
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     hostname: datahub-gms
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-latest}
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     mem_limit: 512m
     ports:
     - 8080:8080
@@ -104,7 +104,7 @@ services:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     hostname: kafka-setup
-    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-latest}
+    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     container_name: mysql
@@ -155,7 +155,7 @@ services:
     - 2181:2181
     volumes:
     - zkdata:/var/opt/zookeeper
-version: '2'
+version: '2.3'
 volumes:
   esdata: null
   mysqldata: null
