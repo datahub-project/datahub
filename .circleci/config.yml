@@ -155,6 +155,8 @@ workflows:
           cluster: spaas_sn
           system: data-catalogue
           target: gms-graphql          
+          requires:
+            - approve/release
   main:
     when: << pipeline.parameters.workflow_main >>
     jobs:
