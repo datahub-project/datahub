@@ -62,6 +62,7 @@ POST          /track                                                          re
 # Adhoc creation route
 GET          /create                                                          react.controllers.AdhocController.create()
 POST          /create                                                          react.controllers.AdhocController.create()
+POST          /jsonSchema                                                          react.controllers.AdhocController.upload()
 
 # Wildcard route accepts any routes and delegates to serveAsset which in turn serves the Ember client
 GET           /*path                                                          controllers.Application.index(path)
