@@ -11,7 +11,7 @@ from ingest_api.helper.mce_convenience import make_delete_mce, make_schema_mce, 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 #when DEBUG = true, im not running ingest_api from container, but from localhost python interpreter, hence need to change the endpoint used.
-DEBUG = True
+DEBUG = False
 datahub_url = "http://localhost:9002"
 api_emitting_port = 80 if not DEBUG else 8001
 rest_endpoint = "http://datahub-gms:8080" if not DEBUG else "http://localhost:8080" 
