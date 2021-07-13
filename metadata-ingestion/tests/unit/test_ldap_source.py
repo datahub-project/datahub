@@ -10,6 +10,7 @@ def test_strip_ldap_info():
     )
 
 
+@pytest.mark.slow  # this test isn't actually slow, but is an integration test
 @pytest.mark.parametrize(
     "input, expected",
     [
