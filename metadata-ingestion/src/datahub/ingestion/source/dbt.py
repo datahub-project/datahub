@@ -262,8 +262,11 @@ def get_urn_from_dbtNode(
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 
+    # initialize custom properties to node's meta props
+    # (dbt-native node properties)
     custom_properties = node.meta
 
+    # additional node attributes to extract to custom properties
     node_attributes = ["node_type", "materialization", "dbt_file_path", "catalog_type"]
 
     for attribute in node_attributes:
