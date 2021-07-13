@@ -44,7 +44,11 @@ export const JsonForm = () => {
                 const paths = JsonPointer.decode(p);
                 // if path length is 0 (root)
                 if (paths.length === 0) {
-                    fields.push({ field_name: 'root', field_type: jsonValue.type, field_description: '' });
+                    fields.push({
+                        field_name: 'root',
+                        field_type: jsonValue.type,
+                        field_description: jsonValue.description,
+                    });
                 }
                 if (paths.length > 0) {
                     // contain field information
