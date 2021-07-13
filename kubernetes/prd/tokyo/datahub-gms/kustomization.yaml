@@ -1,4 +1,4 @@
 namespace: data-catalogue
 resources:
-  - ../../../base/datahub-gms
-  - ingress.yaml
+  - datahub-gms-deployment.yaml
+  - datahub-gms-service.yaml
