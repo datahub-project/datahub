@@ -4,6 +4,8 @@ import { useGetDashboardQuery } from '../../../graphql/dashboard.generated';
 import { useGetDatasetQuery } from '../../../graphql/dataset.generated';
 import { useGetDataJobQuery } from '../../../graphql/dataJob.generated';
 import { useGetMlFeatureTableQuery } from '../../../graphql/mlFeatureTable.generated';
+import { useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
+import { useGetMlPrimaryKeyQuery } from '../../../graphql/mlPrimaryKey.generated';
 import { EntityType } from '../../../types.generated';
 import { EntityAndType } from '../types';
 
@@ -28,6 +30,14 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         [EntityType.MlfeatureTable]: useGetMlFeatureTableQuery({
             variables: { urn },
             skip: entityType !== EntityType.MlfeatureTable,
+        }),
+        [EntityType.Mlfeature]: useGetMlFeatureQuery({
+            variables: { urn },
+            skip: entityType !== EntityType.Mlfeature,
+        }),
+        [EntityType.MlprimaryKey]: useGetMlPrimaryKeyQuery({
+            variables: { urn },
+            skip: entityType !== EntityType.MlprimaryKey,
         }),
     };
 
@@ -76,6 +86,24 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
                     return {
                         entity: returnData,
                         type: EntityType.MlfeatureTable,
+                    } as EntityAndType;
+                }
+                break;
+            case EntityType.Mlfeature:
+                returnData = allResults[EntityType.Mlfeature]?.data?.mlFeature;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.Mlfeature,
+                    } as EntityAndType;
+                }
+                break;
+            case EntityType.MlprimaryKey:
+                returnData = allResults[EntityType.MlprimaryKey]?.data?.mlPrimaryKey;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.MlprimaryKey,
                     } as EntityAndType;
                 }
                 break;

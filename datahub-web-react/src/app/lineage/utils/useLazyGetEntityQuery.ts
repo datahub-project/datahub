@@ -4,6 +4,8 @@ import { useGetDashboardLazyQuery } from '../../../graphql/dashboard.generated';
 import { useGetDatasetLazyQuery } from '../../../graphql/dataset.generated';
 import { useGetDataJobLazyQuery } from '../../../graphql/dataJob.generated';
 import { useGetMlFeatureTableLazyQuery } from '../../../graphql/mlFeatureTable.generated';
+import { useGetMlFeatureLazyQuery } from '../../../graphql/mlFeature.generated';
+import { useGetMlPrimaryKeyLazyQuery } from '../../../graphql/mlPrimaryKey.generated';
 import { EntityType } from '../../../types.generated';
 import { EntityAndType } from '../types';
 
@@ -14,6 +16,8 @@ export default function useLazyGetEntityQuery() {
     const [getAsyncDashboard, { data: asyncDashboardData }] = useGetDashboardLazyQuery();
     const [getAsyncDataJob, { data: asyncDataJobData }] = useGetDataJobLazyQuery();
     const [getAsyncMLFeatureTable, { data: asyncMLFeatureTable }] = useGetMlFeatureTableLazyQuery();
+    const [getAsyncMLFeature, { data: asyncMLFeature }] = useGetMlFeatureLazyQuery();
+    const [getAsyncMLPrimaryKey, { data: asyncMLPrimaryKey }] = useGetMlPrimaryKeyLazyQuery();
 
     const getAsyncEntity = useCallback(
         (urn: string, type: EntityType) => {
@@ -37,6 +41,14 @@ export default function useLazyGetEntityQuery() {
                 setFetchedEntityType(type);
                 getAsyncMLFeatureTable({ variables: { urn } });
             }
+            if (type === EntityType.MlfeatureTable) {
+                setFetchedEntityType(type);
+                getAsyncMLFeature({ variables: { urn } });
+            }
+            if (type === EntityType.MlfeatureTable) {
+                setFetchedEntityType(type);
+                getAsyncMLPrimaryKey({ variables: { urn } });
+            }
         },
         [
             setFetchedEntityType,
@@ -45,6 +57,8 @@ export default function useLazyGetEntityQuery() {
             getAsyncDashboard,
             getAsyncDataJob,
             getAsyncMLFeatureTable,
+            getAsyncMLFeature,
+            getAsyncMLPrimaryKey,
         ],
     );
 
@@ -96,6 +110,24 @@ export default function useLazyGetEntityQuery() {
                     } as EntityAndType;
                 }
                 break;
+            case EntityType.Mlfeature:
+                returnData = asyncMLFeature?.mlFeature;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.Mlfeature,
+                    } as EntityAndType;
+                }
+                break;
+            case EntityType.MlprimaryKey:
+                returnData = asyncMLPrimaryKey?.mlPrimaryKey;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.MlprimaryKey,
+                    } as EntityAndType;
+                }
+                break;
             default:
                 break;
         }
@@ -107,6 +139,8 @@ export default function useLazyGetEntityQuery() {
         asyncDataJobData,
         fetchedEntityType,
         asyncMLFeatureTable,
+        asyncMLFeature,
+        asyncMLPrimaryKey,
     ]);
 
     return { getAsyncEntity, asyncData: returnEntityAndType };
