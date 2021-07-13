@@ -41,7 +41,7 @@ spec:
                 configMapKeyRef:
                   key: ELASTICSEARCH_PROTOCOL
                   name: elasticsearch-setup-env-docker-env
-          image: linkedin/datahub-elasticsearch-setup:latest
+          image: datahub-elasticsearch-setup
           name: elasticsearch-setup
           resources: {}
       hostname: elasticsearch-setup

@@ -67,6 +67,15 @@ workflows:
           cluster: spaas_sn
           system: data-catalogue
           target: mce-consumer
+      - gradle/deliver:
+          <<: *branch-filter
+          name: deliver/dev/elasticsearch-setup
+          docker: *orb_docker_gradle
+          env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: elasticsearch-setup          
   deliver-prd:
     jobs:
       - approve:
@@ -115,6 +124,17 @@ workflows:
           cluster: spaas_sn
           system: data-catalogue
           target: mce-consumer
+          requires:
+            - approve/release
+      - gradle/deliver:
+          <<: *master-filter
+          name: deliver/prd/elasticsearch-setup
+          docker: *orb_docker_gradle
+          env: prd
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: elasticsearch-setup
           requires:
             - approve/release
 

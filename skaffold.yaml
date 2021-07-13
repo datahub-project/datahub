@@ -16,7 +16,7 @@ profiles:
         path: ./kubernetes/base
   - name: dev-tokyo-dependencies
     deploy:
-      statusCheckDeadlineSeconds: 1200
+      statusCheckDeadlineSeconds: 1800
       kustomize:
         path: ./kubernetes/dev/tokyo/dependencies
   - name: dev-tokyo-gms
@@ -71,9 +71,22 @@ profiles:
       statusCheckDeadlineSeconds: 1200
       kustomize:
         path: ./kubernetes/dev/tokyo/datahub-mce
-  - name: prd-tokyo-dependencies
+  - name: dev-tokyo-elasticsearch-setup
+    build:
+      tagPolicy:
+        gitCommit:
+          variant: AbbrevCommitSha
+      artifacts:
+      - image: datahub-elasticsearch-setup
+        docker:
+          dockerfile: ./docker/elasticsearch-setup/Dockerfile
     deploy:
       statusCheckDeadlineSeconds: 1200
+      kustomize:
+        path: ./kubernetes/dev/tokyo/elasticsearch-setup
+  - name: prd-tokyo-dependencies
+    deploy:
+      statusCheckDeadlineSeconds: 1800
       kustomize:
         path: ./kubernetes/prd/tokyo/dependencies
   - name: prd-tokyo-gms
@@ -128,3 +141,16 @@ profiles:
       statusCheckDeadlineSeconds: 1200
       kustomize:
         path: ./kubernetes/prd/tokyo/datahub-mce
+  - name: prd-tokyo-elasticsearch-setup
+    build:
+      tagPolicy:
+        gitCommit:
+          variant: AbbrevCommitSha
+      artifacts:
+      - image: datahub-elasticsearch-setup
+        docker:
+          dockerfile: ./docker/elasticsearch-setup/Dockerfile
+    deploy:
+      statusCheckDeadlineSeconds: 1200
+      kustomize:
+        path: ./kubernetes/prd/tokyo/elasticsearch-setup
