@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  DATAHUB_GMS_HOST: datahub-gms.data-catalogue.svc.cluster.local
+  DATAHUB_GMS_PORT: "8080"
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: datahub-gms-env-datahub-gms-env-graphql
+  name: datahub-gms-env-graphql

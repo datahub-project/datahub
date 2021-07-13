@@ -75,7 +75,16 @@ workflows:
           region: tokyo
           cluster: spaas_sn
           system: data-catalogue
-          target: elasticsearch-setup          
+          target: elasticsearch-setup
+      - gradle/deliver:
+          <<: *branch-filter
+          name: deliver/dev/gms-graphql
+          docker: *orb_docker_gradle
+          env: dev
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: gms-graphql          
   deliver-prd:
     jobs:
       - approve:
@@ -137,7 +146,15 @@ workflows:
           target: elasticsearch-setup
           requires:
             - approve/release
-
+      - gradle/deliver:
+          <<: *branch-filter
+          name: deliver/prd/gms-graphql
+          docker: *orb_docker_gradle
+          env: prd
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: gms-graphql          
   main:
     when: << pipeline.parameters.workflow_main >>
     jobs:

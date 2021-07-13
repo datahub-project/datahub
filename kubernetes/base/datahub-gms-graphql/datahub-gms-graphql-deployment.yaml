@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: datahub-gms-graphql
+  name: datahub-gms-graphql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: datahub-gms-graphql
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/datahub_network: "true"
+        io.kompose.service: datahub-gms-graphql
+    spec:
+      containers:
+        - env:
+            - name: DATAHUB_GMS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_GMS_HOST
+                  name: datahub-gms-env-graphql          
+            - name: DATAHUB_GMS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_GMS_PORT
+                  name: datahub-gms-env-graphql          
+          image: datahub-gms-graphql
+          name: datahub-gms-graphql
+          ports:
+            - containerPort: 8091
+          resources: {}
+      hostname: datahub-gms-graphql
+      restartPolicy: Always
+status: {}

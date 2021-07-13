@@ -1,0 +1,5 @@
+namespace: data-catalogue
+resources:
+  - datahub-gms-graphql-deployment.yaml
+  - datahub-gms-graphql-service.yaml
+  - datahub-gms-graphql-env-configmap.yaml

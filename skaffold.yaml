@@ -28,6 +28,15 @@ profiles:
       - image: datahub-gms
         docker:
           dockerfile: ./docker/datahub-gms/Dockerfile
+  - name: dev-tokyo-gms-graphql
+    build:
+      tagPolicy:
+        gitCommit:
+          variant: AbbrevCommitSha
+      artifacts:
+      - image: datahub-gms-graphql
+        docker:
+          dockerfile: ./docker/datahub-gms-graphql-service/Dockerfile
     deploy:
       statusCheckDeadlineSeconds: 1200
       kustomize:
@@ -102,6 +111,15 @@ profiles:
       statusCheckDeadlineSeconds: 1200
       kustomize:
         path: ./kubernetes/prd/tokyo/datahub-gms
+  - name: prd-tokyo-gms-graphql
+    build:
+      tagPolicy:
+        gitCommit:
+          variant: AbbrevCommitSha
+      artifacts:
+      - image: datahub-gms-graphql
+        docker:
+          dockerfile: ./docker/datahub-gms-graphql-service/Dockerfile
   - name: prd-tokyo-frontend
     build:
       tagPolicy:
