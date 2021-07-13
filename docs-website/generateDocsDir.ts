@@ -2,6 +2,9 @@ import { execSync } from "child_process";
 import * as matter from "gray-matter";
 import * as fs from "fs";
 import * as path from "path";
+import { Octokit } from "@octokit/rest";
+import { throttling } from "@octokit/plugin-throttling";
+import { retry } from "@octokit/plugin-retry";
 
 // Note: this must be executed within the docs-website directory.
 
@@ -10,11 +13,27 @@ const HOSTED_SITE_URL = "https://datahubproject.io";
 const GITHUB_EDIT_URL = "https://github.com/linkedin/datahub/blob/master";
 const GITHUB_BROWSE_URL = "https://github.com/linkedin/datahub/blob/master";
 
+const OUTPUT_DIRECTORY = "genDocs";
+
 const SIDEBARS_DEF_PATH = "./sidebars.js";
 const sidebars = require(SIDEBARS_DEF_PATH);
 const sidebars_json = JSON.stringify(sidebars);
 const sidebars_text = fs.readFileSync(SIDEBARS_DEF_PATH).toString();
-console.log(sidebars_json);
+
+const MyOctokit = Octokit.plugin(retry).plugin(throttling);
+const octokit = new MyOctokit({
+  throttle: {
+    onRateLimit: (retryAfter, options) => {
+      // Retry twice after rate limit is hit.
+      if (options.request.retryCount <= 2) {
+        return true;
+      }
+    },
+    onAbuseLimit: () => {
+      console.warn("GitHub API hit abuse limit");
+    },
+  },
+});
 
 function actually_in_sidebar(filepath: string): boolean {
   const doc_id = get_id(filepath);
@@ -52,7 +71,7 @@ function list_markdown_files(): string[] {
     // Don't want hosted docs for these.
     /^contrib\//,
     // Keep main docs for kubernetes, but skip the inner docs
-    /^datahub-kubernetes\/datahub\//,
+    /^datahub-kubernetes\//,
     /^datahub-web\//,
     /^metadata-ingestion-examples\//,
     /^docs\/rfc\/templates\/000-template\.md$/,
@@ -291,37 +310,154 @@ function markdown_enable_specials(
   contents.content = new_content;
 }
 
-for (const filepath of markdown_files) {
-  // console.log("Processing:", filepath);
-  const contents_string = fs.readFileSync(`../${filepath}`).toString();
-  const contents = matter(contents_string);
+function markdown_sanitize_and_linkify(content: string): string {
+  // MDX escaping
+  content = content.replace(/</g, "&lt;");
 
-  markdown_guess_title(contents, filepath);
-  markdown_add_slug(contents, filepath);
-  markdown_add_edit_url(contents, filepath);
-  markdown_rewrite_urls(contents, filepath);
-  markdown_enable_specials(contents, filepath);
-  // console.log(contents);
+  // Link to user profiles.
+  content = content.replace(/@([\w-]+)\b/g, "[@$1](https://github.com/$1)");
 
-  const outpath = `genDocs/${filepath}`;
-  const pathname = path.dirname(outpath);
+  // Link to issues/pull requests.
+  content = content.replace(
+    /#(\d+)\b/g,
+    "[#$1](https://github.com/linkedin/datahub/pull/$1)"
+  );
+
+  return content;
+}
+
+function pretty_format_date(datetime: string): string {
+  const d = new Date(Date.parse(datetime));
+  return d.toDateString();
+}
+
+function make_link_anchor(text: string): string {
+  return text.replace(/\./g, "-");
+}
+
+async function generate_releases_markdown(): Promise<
+  matter.GrayMatterFile<string>
+> {
+  const contents = matter(`---
+title: DataHub Releases
+sidebar_label: Releases
+slug: /releases
+custom_edit_url: https://github.com/linkedin/datahub/blob/master/docs-website/generateDocsDir.ts
+---
+
+# DataHub Releases\n\n`);
+
+  const releases_list = await octokit.rest.repos.listReleases({
+    owner: "linkedin",
+    repo: "datahub",
+  });
+
+  // Construct a summary table.
+  let pastVersionCutoff = false;
+  const releaseNoteVersions = new Set();
+  contents.content += "| Version | Release Date | Links |\n";
+  contents.content += "| ------- | ------------ | ----- |\n";
+  for (const release of releases_list.data) {
+    let row = `| **${release.tag_name}** | ${pretty_format_date(
+      release.created_at
+    )} |`;
+    if (release.tag_name == "v0.6.1") {
+      pastVersionCutoff = true;
+    } else if (!pastVersionCutoff) {
+      row += `[Release Notes](#${make_link_anchor(release.tag_name)}), `;
+      releaseNoteVersions.add(release.tag_name);
+    }
+    row += `[View on GitHub](${release.html_url}) |\n`;
+    contents.content += row;
+  }
+  contents.content += "\n\n";
+
+  // Full details
+  for (const release of releases_list.data) {
+    let body: string;
+    if (releaseNoteVersions.has(release.tag_name)) {
+      body = release.body;
+      body = markdown_sanitize_and_linkify(body);
+
+      // Redo the heading levels. First we find the min heading level, and then
+      // adjust the markdown headings so that the min heading is level 3.
+      const heading_regex = /^(#+)\s/gm;
+      const max_heading_level = Math.min(
+        3,
+        ...[...body.matchAll(heading_regex)].map((v) => v[1].length)
+      );
+      body = body.replace(
+        heading_regex,
+        `${"#".repeat(3 - max_heading_level)}$1 `
+      );
+    } else {
+      // Link to GitHub.
+      body = `View the [release notes](${release.html_url}) for ${release.name} on GitHub.`;
+    }
+
+    const info = `## [${release.name}](${
+      release.html_url
+    }) {#${make_link_anchor(release.tag_name)}}
+
+Released on ${pretty_format_date(release.created_at)} by [@${
+      release.author.login
+    }](${release.author.html_url}).
+
+${body}\n\n`;
+
+    contents.content += info;
+  }
+
+  return contents;
+}
+
+function write_markdown_file(
+  contents: matter.GrayMatterFile<string>,
+  output_filepath: string
+): void {
+  const pathname = path.dirname(output_filepath);
   fs.mkdirSync(pathname, { recursive: true });
-  fs.writeFileSync(outpath, contents.stringify(""));
+  fs.writeFileSync(output_filepath, contents.stringify(""));
 }
 
-// Error if a doc is not accounted for in a sidebar.
-const autogenerated_sidebar_directories = ["docs/rfc/active/"];
-for (const filepath of markdown_files) {
-  if (
-    autogenerated_sidebar_directories.some((dir) => filepath.startsWith(dir))
-  ) {
-    // The sidebars for these directories is automatically generated,
-    // so we don't need check that they're in the sidebar.
-    continue;
+(async function main() {
+  for (const filepath of markdown_files) {
+    // console.log("Processing:", filepath);
+    const contents_string = fs.readFileSync(`../${filepath}`).toString();
+    const contents = matter(contents_string);
+
+    markdown_guess_title(contents, filepath);
+    markdown_add_slug(contents, filepath);
+    markdown_add_edit_url(contents, filepath);
+    markdown_rewrite_urls(contents, filepath);
+    markdown_enable_specials(contents, filepath);
+    // console.log(contents);
+
+    const out_path = `${OUTPUT_DIRECTORY}/${filepath}`;
+    write_markdown_file(contents, out_path);
   }
-  if (!accounted_for_in_sidebar(filepath)) {
-    throw new Error(
-      `File not accounted for in sidebar ${filepath} - try adding it to docs-website/sidebars.js`
-    );
+
+  // Generate the releases history.
+  {
+    const contents = await generate_releases_markdown();
+    write_markdown_file(contents, `${OUTPUT_DIRECTORY}/releases.md`);
+    markdown_files.push("releases.md");
   }
-}
+
+  // Error if a doc is not accounted for in a sidebar.
+  const autogenerated_sidebar_directories = ["docs/rfc/active/"];
+  for (const filepath of markdown_files) {
+    if (
+      autogenerated_sidebar_directories.some((dir) => filepath.startsWith(dir))
+    ) {
+      // The sidebars for these directories is automatically generated,
+      // so we don't need check that they're in the sidebar.
+      continue;
+    }
+    if (!accounted_for_in_sidebar(filepath)) {
+      throw new Error(
+        `File not accounted for in sidebar: ${filepath} - try adding it to docs-website/sidebars.js`
+      );
+    }
+  }
+})();

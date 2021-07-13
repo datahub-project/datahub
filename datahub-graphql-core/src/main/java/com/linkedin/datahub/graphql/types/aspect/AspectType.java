@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.entity.client.AspectClient;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.restli.client.RestLiResponseException;
 import graphql.execution.DataFetcherResult;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,6 +32,13 @@ public class AspectType {
           VersionedAspect entity = _aspectClient.getAspect(key.getUrn(), key.getAspectName(), key.getVersion());
           return DataFetcherResult.<Aspect>newResult().data(AspectMapper.map(entity)).build();
         } catch (RemoteInvocationException e) {
+          if (e instanceof RestLiResponseException) {
+            // if no aspect is found, restli will return a 404 rather than null
+            // https://linkedin.github.io/rest.li/user_guide/restli_server#returning-nulls
+            if (((RestLiResponseException) e).getStatus() == 404) {
+              return DataFetcherResult.<Aspect>newResult().data(null).build();
+            }
+          }
           throw new RuntimeException(String.format("Failed to load Aspect for entity %s", key.getUrn()), e);
         }
       }).collect(Collectors.toList());

@@ -230,12 +230,22 @@
                                   "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
                                 },
                                 "name": "created",
-                                "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                                "default": {
+                                  "actor": "urn:li:corpuser:unknown",
+                                  "impersonator": null,
+                                  "time": 0
+                                },
+                                "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                               },
                               {
                                 "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                                 "name": "lastModified",
-                                "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                                "default": {
+                                  "actor": "urn:li:corpuser:unknown",
+                                  "impersonator": null,
+                                  "time": 0
+                                },
+                                "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                               },
                               {
                                 "type": [
@@ -409,12 +419,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -568,7 +588,12 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "Audit stamp containing who last modified the record and when."
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data."
                         }
                       ],
                       "doc": "Ownership information of an entity."
@@ -1199,12 +1224,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -1380,12 +1415,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -1562,10 +1607,11 @@
                                 "GLUE"
                               ],
                               "doc": "The various types of support azkaban jobs"
-                            }
+                            },
+                            "string"
                           ],
                           "name": "type",
-                          "doc": "Datajob type"
+                          "doc": "Datajob type\n**NOTE**: AzkabanJobType is deprecated. Please use strings instead."
                         },
                         {
                           "Relationship": {
@@ -1584,6 +1630,38 @@
                           "name": "flowUrn",
                           "default": null,
                           "doc": "DataFlow urn that this job is part of"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "enum",
+                              "symbolDocs": {
+                                "COMPLETED": "Jobs with successful completion.",
+                                "FAILED": "Jobs that have failed.",
+                                "IN_PROGRESS": "Jobs currently running.",
+                                "STARTING": "Jobs being initialized.",
+                                "STOPPED": "Jobs that have stopped.",
+                                "STOPPING": "Jobs being stopped.",
+                                "UNKNOWN": "Jobs with unknown status (either unmappable or unavailable)"
+                              },
+                              "name": "JobStatus",
+                              "namespace": "com.linkedin.pegasus2avro.datajob",
+                              "symbols": [
+                                "STARTING",
+                                "IN_PROGRESS",
+                                "STOPPING",
+                                "STOPPED",
+                                "COMPLETED",
+                                "FAILED",
+                                "UNKNOWN"
+                              ],
+                              "doc": "Job statuses"
+                            }
+                          ],
+                          "name": "status",
+                          "default": null,
+                          "doc": "Status of the job"
                         }
                       ],
                       "doc": "Information about a Data processing job"
@@ -1678,12 +1756,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -1881,12 +1969,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -2060,9 +2158,15 @@
                               "namespace": "com.linkedin.pegasus2avro.dataset",
                               "fields": [
                                 {
+                                  "deprecated": "we no longer associate a timestamp per upstream edge",
                                   "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                                   "name": "auditStamp",
-                                  "doc": "Audit stamp containing who reported the lineage and when"
+                                  "default": {
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null,
+                                    "time": 0
+                                  },
+                                  "doc": "Audit stamp containing who reported the lineage and when.\nWARNING: this field is deprecated and may be removed in a future release."
                                 },
                                 {
                                   "Relationship": {
@@ -2195,12 +2299,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -2751,12 +2865,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -3164,6 +3288,15 @@
                       "name": "MLModelProperties",
                       "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                       "fields": [
+                        {
+                          "type": {
+                            "type": "map",
+                            "values": "string"
+                          },
+                          "name": "customProperties",
+                          "default": {},
+                          "doc": "Custom property bag."
+                        },
                         {
                           "Searchable": {
                             "fieldType": "TEXT",
@@ -4201,6 +4334,15 @@
                       "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                       "fields": [
                         {
+                          "type": {
+                            "type": "map",
+                            "values": "string"
+                          },
+                          "name": "customProperties",
+                          "default": {},
+                          "doc": "Custom property bag."
+                        },
+                        {
                           "type": [
                             "null",
                             "string"
@@ -4255,7 +4397,8 @@
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                     "com.linkedin.pegasus2avro.common.Status",
-                    "com.linkedin.pegasus2avro.common.Deprecation"
+                    "com.linkedin.pegasus2avro.common.Deprecation",
+                    "com.linkedin.pegasus2avro.common.BrowsePaths"
                   ]
                 },
                 "name": "aspects",

@@ -2,7 +2,6 @@ package com.linkedin.metadata.entity.ebean;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.Aspect;
@@ -11,8 +10,6 @@ import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.event.EntityEventProducer;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -28,7 +25,8 @@ import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.PegasusUtils.*;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
 
 
 /**
@@ -88,7 +86,8 @@ public class EbeanEntityService extends EntityService {
     _entityDao.batchGet(dbKeys).forEach((key, aspectEntry) -> {
       final Urn urn = toUrn(key.getUrn());
       final String aspectName = key.getAspect();
-      final RecordTemplate aspectRecord = toAspectRecord(urn, aspectName, aspectEntry.getMetadata());
+      final RecordTemplate aspectRecord =
+          toAspectRecord(urn, aspectName, aspectEntry.getMetadata(), getEntityRegistry());
       urnToAspects.putIfAbsent(urn, new ArrayList<>());
       urnToAspects.get(urn).add(aspectRecord);
     });
@@ -118,7 +117,7 @@ public class EbeanEntityService extends EntityService {
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
     return maybeAspect
-        .map(ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata()))
+        .map(ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata(), getEntityRegistry()))
         .orElse(null);
   }
 
@@ -134,7 +133,7 @@ public class EbeanEntityService extends EntityService {
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
     final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
     RecordTemplate aspect = maybeAspect
-        .map(ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata()))
+        .map(ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata(), getEntityRegistry()))
         .orElse(null);
 
     if (aspect == null) {
@@ -169,10 +168,8 @@ public class EbeanEntityService extends EntityService {
 
     final List<RecordTemplate> aspects = new ArrayList<>();
     for (int i = 0; i < aspectMetadataList.getValues().size(); i++) {
-      aspects.add(toAspectRecord(
-          aspectMetadataList.getMetadata().getExtraInfos().get(i).getUrn(),
-          aspectName,
-          aspectMetadataList.getValues().get(i)));
+      aspects.add(toAspectRecord(aspectMetadataList.getMetadata().getExtraInfos().get(i).getUrn(), aspectName,
+          aspectMetadataList.getValues().get(i), getEntityRegistry()));
     }
 
     return new ListResult<>(
@@ -211,7 +208,8 @@ public class EbeanEntityService extends EntityService {
       final EbeanAspectV2 latest = _entityDao.getLatestAspect(urn.toString(), aspectName);
 
       // 2. Compare the latest existing and new.
-      final RecordTemplate oldValue = latest == null ? null : toAspectRecord(urn, aspectName, latest.getMetadata());
+      final RecordTemplate oldValue =
+          latest == null ? null : toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
       final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
 
       // 3. Skip updating if there is no difference between existing and new.
@@ -286,8 +284,8 @@ public class EbeanEntityService extends EntityService {
     final AddAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
 
       final EbeanAspectV2 oldAspect = _entityDao.getAspect(urn.toString(), aspectName, version);
-      final RecordTemplate oldValue = oldAspect == null ? null : toAspectRecord(urn, aspectName,
-          oldAspect.getMetadata());
+      final RecordTemplate oldValue = oldAspect == null ? null
+          : toAspectRecord(urn, aspectName, oldAspect.getMetadata(), getEntityRegistry());
 
       log.debug(String.format("Updating aspect with name %s, urn %s", aspectName, urn));
       _entityDao.saveAspect(
@@ -333,32 +331,8 @@ public class EbeanEntityService extends EntityService {
     RecordTemplate newValue;
   }
 
-  @Nonnull
-  protected static String toJsonAspect(@Nonnull final RecordTemplate aspectRecord) {
-    return RecordUtils.toJsonString(aspectRecord);
-  }
-
-  @Nonnull
-  protected RecordTemplate toAspectRecord(
-      @Nonnull final Urn entityUrn,
-      @Nonnull final String aspectName,
-      @Nonnull final String jsonAspect) {
-    return toAspectRecord(urnToEntityName(entityUrn), aspectName, jsonAspect);
-  }
-
-  protected RecordTemplate toAspectRecord(
-      @Nonnull final String entityName,
-      @Nonnull final String aspectName,
-      @Nonnull final String jsonAspect) {
-    final EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
-    final AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
-    final RecordDataSchema aspectSchema = aspectSpec.getPegasusSchema();
-    return RecordUtils.toRecordTemplate(getDataTemplateClassFromSchema(aspectSchema, RecordTemplate.class), jsonAspect);
-  }
-
-  @Nonnull
-  public void setWritable() {
+  public void setWritable(boolean canWrite) {
     log.debug("Enabling writes");
-    _entityDao.setWritable();
+    _entityDao.setWritable(canWrite);
   }
 }

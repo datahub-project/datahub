@@ -1,1904 +1,2453 @@
 [
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-                "urn": "urn:li:corpuser:datahub",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                            "active": true,
-                            "displayName": {
-                                "string": "Data Hub"
-                            },
-                            "email": "datahub@linkedin.com",
-                            "title": {
-                                "string": "CEO"
-                            },
-                            "managerUrn": null,
-                            "departmentId": null,
-                            "departmentName": null,
-                            "firstName": null,
-                            "lastName": null,
-                            "fullName": {
-                                "string": "Data Hub"
-                            },
-                            "countryCode": null
-                        }
-                    }
-                ]
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+        "urn": "urn:li:corpuser:datahub",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+              "active": true,
+              "displayName": {
+                "string": "Data Hub"
+              },
+              "email": "datahub@linkedin.com",
+              "title": {
+                "string": "CEO"
+              },
+              "managerUrn": null,
+              "departmentId": null,
+              "departmentName": null,
+              "firstName": null,
+              "lastName": null,
+              "fullName": {
+                "string": "Data Hub"
+              },
+              "countryCode": null
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-                "urn": "urn:li:corpuser:jdoe",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                            "active": true,
-                            "displayName": {
-                                "string": "John Doe"
-                            },
-                            "email": "jdoe@linkedin.com",
-                            "title": {
-                                "string": "Software Engineer"
-                            },
-                            "managerUrn": null,
-                            "departmentId": null,
-                            "departmentName": null,
-                            "firstName": null,
-                            "lastName": null,
-                            "fullName": {
-                                "string": "John Doe"
-                            },
-                            "countryCode": null
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+        "urn": "urn:li:corpuser:jdoe",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+              "active": true,
+              "displayName": {
+                "string": "John Doe"
+              },
+              "email": "jdoe@linkedin.com",
+              "title": {
+                "string": "Software Engineer"
+              },
+              "managerUrn": null,
+              "departmentId": null,
+              "departmentName": null,
+              "firstName": null,
+              "lastName": null,
+              "fullName": {
+                "string": "John Doe"
+              },
+              "countryCode": null
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
-                "urn": "urn:li:corpGroup:jdoe",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                            "email": "jdoe@linkedin.com",
-                            "admins": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
-                            "members": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
-                            "groups": []
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+        "urn": "urn:li:corpGroup:jdoe",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+              "email": "jdoe@linkedin.com",
+              "admins": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
+              "members": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
+              "groups": []
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
-                "urn": "urn:li:corpGroup:bfoo",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                            "email": "bfoo@linkedin.com",
-                            "admins": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
-                            "members": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
-                            "groups": ["urn:li:corpGroup:jdoe"]
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+        "urn": "urn:li:corpGroup:bfoo",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+              "email": "bfoo@linkedin.com",
+              "admins": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
+              "members": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
+              "groups": ["urn:li:corpGroup:jdoe"]
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
-                "aspects": [
-                     {
-                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/kafka/SampleKafkaDataset"]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                            "description": null,
-                            "uri": null,
-                            "tags": [
-                                "myfaketags"
-                            ],
-                            "customProperties": {
-                                "prop1": "fakeprop",
-                                "prop2": "pikachu"
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:jdoe",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                },
-                                {
-                                    "owner": "urn:li:corpuser:datahub",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
-                            "elements": [
-                                {
-                                    "url": "https://www.linkedin.com",
-                                    "description": "Sample doc",
-                                    "createStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
-                            "created": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "deleted": null,
-                            "editableSchemaFieldInfo": [
-                                {
-                                    "fieldPath": "field_foo",
-                                    "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                            "schemaName": "SampleKafkaSchema",
-                            "platform": "urn:li:dataPlatform:kafka",
-                            "version": 0,
-                            "created": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "deleted": null,
-                            "dataset": null,
-                            "cluster": null,
-                            "hash": "",
-                            "platformSchema": {
-                                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleKafkaSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Kafka dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
-                                }
-                            },
-                            "fields": [
-                                {
-                                    "fieldPath": "field_foo_2",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Foo field description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "varchar(100)",
-                                    "globalTags": { "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }] },
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                }
-                            ],
-                            "primaryKeys": null,
-                            "foreignKeysSpecs": null
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/kafka/SampleKafkaDataset"]
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": null,
+              "uri": null,
+              "tags": ["myfaketags"],
+              "customProperties": {
+                "prop1": "fakeprop",
+                "prop2": "pikachu"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "editableSchemaFieldInfo": [
+                {
+                  "fieldPath": "field_foo",
+                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleKafkaSchema",
+              "platform": "urn:li:dataPlatform:kafka",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleKafkaSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Kafka dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "field_foo_2",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Foo field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "globalTags": {
+                    "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }]
+                  },
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "field_bar",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Bar field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                           "paths": ["/prod/hdfs/SampleHdfsDataset"]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:jdoe",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                },
-                                {
-                                    "owner": "urn:li:corpuser:datahub",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                            "upstreams": [
-                                {
-                                    "auditStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    },
-                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
-                                    "type": "TRANSFORMED"
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
-                            "elements": [
-                                {
-                                    "url": "https://www.linkedin.com",
-                                    "description": "Sample doc",
-                                    "createStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                            "schemaName": "SampleHdfsSchema",
-                            "platform": "urn:li:dataPlatform:hdfs",
-                            "version": 0,
-                            "created": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "deleted": null,
-                            "dataset": null,
-                            "cluster": null,
-                            "hash": "",
-                            "platformSchema": {
-                                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHdfsSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample HDFS dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
-                                }
-                            },
-                            "fields": [
-                                {
-                                    "fieldPath": "shipment_info",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Shipment info description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.RecordType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "varchar(100)",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "shipment_info.date",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Shipment info date description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.DateType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "Date",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "shipment_info.target",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Shipment info target description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.StringType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "text",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "shipment_info.destination",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Shipment info destination description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.StringType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "varchar(100)",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "shipment_info.geo_info",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Shipment info geo_info description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.RecordType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "varchar(100)",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "shipment_info.geo_info.lat",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Shipment info geo_info lat"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "float",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "shipment_info.geo_info.lng",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Shipment info geo_info lng"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "float",
-                                    "recursive": false
-                                }
-                            ],
-                            "primaryKeys": null,
-                            "foreignKeysSpecs": null
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/hdfs/SampleHdfsDataset"]
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHdfsSchema",
+              "platform": "urn:li:dataPlatform:hdfs",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHdfsSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample HDFS dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "shipment_info",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.RecordType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.date",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info date description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "Date",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.target",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info target description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "text",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.destination",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info destination description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.geo_info",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info geo_info description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.RecordType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.geo_info.lat",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info geo_info lat"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "float",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "shipment_info.geo_info.lng",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Shipment info geo_info lng"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "float",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:jdoe",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                },
-                                {
-                                    "owner": "urn:li:corpuser:datahub",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                            "upstreams": [
-                                {
-                                    "auditStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    },
-                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
-                                    "type": "TRANSFORMED"
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
-                            "elements": [
-                                {
-                                    "url": "https://www.linkedin.com",
-                                    "description": "Sample doc",
-                                    "createStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                            "schemaName": "SampleHiveSchema",
-                            "platform": "urn:li:dataPlatform:hive",
-                            "version": 0,
-                            "created": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "deleted": null,
-                            "dataset": null,
-                            "cluster": null,
-                            "hash": "",
-                            "platformSchema": {
-                                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
-                                }
-                            },
-                            "fields": [
-                                {
-                                    "fieldPath": "field_foo",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Foo field description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "varchar(100)",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "field_bar",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Bar field description"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                }
-                            ],
-                            "primaryKeys": null,
-                            "foreignKeysSpecs": null
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.GlobalTags": {
-                            "tags": [{ "tag": "urn:li:tag:Legacy" }]
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "field_foo",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Foo field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "field_bar",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Bar field description"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [{ "tag": "urn:li:tag:Legacy" }]
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:jdoe",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                },
-                                {
-                                    "owner": "urn:li:corpuser:datahub",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                            "upstreams": [
-                                {
-                                    "auditStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    },
-                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-                                    "type": "TRANSFORMED"
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
-                            "elements": [
-                                {
-                                    "url": "https://www.linkedin.com",
-                                    "description": "Sample doc",
-                                    "createStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                            "schemaName": "SampleHiveSchema",
-                            "platform": "urn:li:dataPlatform:hive",
-                            "version": 0,
-                            "created": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "deleted": null,
-                            "dataset": null,
-                            "cluster": null,
-                            "hash": "",
-                            "platformSchema": {
-                                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
-                                }
-                            },
-                            "fields": [
-                                {
-                                    "fieldPath": "event_name",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Name of your logging event"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "varchar(100)",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "event_data",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Data of your event"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "timestamp",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "TS the event was ingested"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                }
-                            ],
-                            "primaryKeys": null,
-                            "foreignKeysSpecs": null
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "event_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Name of your logging event"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "event_data",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Data of your event"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "timestamp",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "TS the event was ingested"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:jdoe",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                },
-                                {
-                                    "owner": "urn:li:corpuser:datahub",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                            "upstreams": [
-                                {
-                                    "auditStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    },
-                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
-                                    "type": "TRANSFORMED"
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
-                            "elements": [
-                                {
-                                    "url": "https://www.linkedin.com",
-                                    "description": "Sample doc",
-                                    "createStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                            "schemaName": "SampleHiveSchema",
-                            "platform": "urn:li:dataPlatform:hive",
-                            "version": 0,
-                            "created": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "deleted": null,
-                            "dataset": null,
-                            "cluster": null,
-                            "hash": "",
-                            "platformSchema": {
-                                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
-                                }
-                            },
-                            "fields": [
-                                {
-                                    "fieldPath": "user_id",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Id of the user created"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "varchar(100)",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "user_name",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Name of the user who signed up"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                }
-                            ],
-                            "primaryKeys": null,
-                            "foreignKeysSpecs": null
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "user_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Id of the user created"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "user_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Name of the user who signed up"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:jdoe",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                },
-                                {
-                                    "owner": "urn:li:corpuser:datahub",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                            "upstreams": [
-                                {
-                                    "auditStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    },
-                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
-                                    "type": "TRANSFORMED"
-                                },
-                                {
-                                    "auditStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    },
-                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
-                                    "type": "TRANSFORMED"
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
-                            "elements": [
-                                {
-                                    "url": "https://www.linkedin.com",
-                                    "description": "Sample doc",
-                                    "createStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                            "schemaName": "SampleHiveSchema",
-                            "platform": "urn:li:dataPlatform:hive",
-                            "version": 0,
-                            "created": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            },
-                            "deleted": null,
-                            "dataset": null,
-                            "cluster": null,
-                            "hash": "",
-                            "platformSchema": {
-                                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
-                                }
-                            },
-                            "fields": [
-                                {
-                                    "fieldPath": "user_id",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Id of the user deleted"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "varchar(100)",
-                                    "recursive": false
-                                },
-                                {
-                                    "fieldPath": "user_name",
-                                    "jsonPath": null,
-                                    "nullable": false,
-                                    "description": {
-                                        "string": "Name of the user who was deleted"
-                                    },
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "boolean",
-                                    "recursive": false
-                                }
-                            ],
-                            "primaryKeys": null,
-                            "foreignKeysSpecs": null
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
+                  "type": "TRANSFORMED"
+                },
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              },
+              "deleted": null,
+              "dataset": null,
+              "cluster": null,
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "user_id",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Id of the user deleted"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "user_name",
+                  "jsonPath": null,
+                  "nullable": false,
+                  "description": {
+                    "string": "Name of the user who was deleted"
+                  },
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ],
+              "primaryKeys": null,
+              "foreignKeysSpecs": null
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-                "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:datahub",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:datahub",
-                                "impersonator": null
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-                            "name": "User Creations",
-                            "description": "Constructs the fct_users_created from logging_events",
-                            "type": "SQL",
-                            "flowUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)"
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-                            "inputDatasets": [
-                                "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
-                            ],
-                            "outputDatasets": [
-                                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
-                            ]
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+              "name": "User Creations",
+              "description": "Constructs the fct_users_created from logging_events",
+              "type": "SQL",
+              "flowUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+              ]
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-                "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:datahub",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:datahub",
-                                "impersonator": null
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-                            "name": "User Deletions",
-                            "description": "Constructs the fct_users_deleted from logging_events",
-                            "type": "SQL",
-                            "flowUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)"
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-                            "inputDatasets": [
-                                "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
-                            ],
-                            "outputDatasets": [
-                             	"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
-                            ],
-                            "inputDatajobs": [
-                                "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)"
-                            ]
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+              "name": "User Deletions",
+              "description": "Constructs the fct_users_deleted from logging_events",
+              "type": "SQL",
+              "flowUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+              "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)"
+              ],
+              "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+              ],
+              "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)"
+              ]
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-                "urn": "urn:li:dataFlow:(airflow,dag_abc,PROD)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:datahub",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:datahub",
-                                "impersonator": null
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
-                            "name": "Users",
-                            "description": "Constructs the fct_users_deleted and fct_users_created tables",
-                            "project": null
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+        "urn": "urn:li:dataFlow:(airflow,dag_abc,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub",
+                "impersonator": null
+              }
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+              "name": "Users",
+              "description": "Constructs the fct_users_deleted and fct_users_created tables",
+              "project": null
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-                "urn": "urn:li:chart:(looker,baz1)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                            "title": "Baz Chart 1",
-                            "description": "Baz Chart 1",
-                            "lastModified": {
-                                "created": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:jdoe",
-                                    "impersonator": null
-                                },
-                                "lastModified": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:datahub",
-                                    "impersonator": null
-                                },
-                                "deleted": null
-                            },
-                            "chartUrl": null,
-                            "inputs": ["urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"],
-                            "type": null,
-                            "access": null,
-                            "lastRefreshed": null
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.GlobalTags": {
-                            "tags": [{ "tag": "urn:li:tag:Legacy" }]
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+        "urn": "urn:li:chart:(looker,baz1)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.chart.ChartInfo": {
+              "title": "Baz Chart 1",
+              "description": "Baz Chart 1",
+              "lastModified": {
+                "created": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:datahub",
+                  "impersonator": null
+                },
+                "deleted": null
+              },
+              "chartUrl": null,
+              "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"
+              ],
+              "type": null,
+              "access": null,
+              "lastRefreshed": null
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [{ "tag": "urn:li:tag:Legacy" }]
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-                "urn": "urn:li:chart:(looker,baz2)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                            "title": "Baz Chart 2",
-                            "description": "Baz Chart 2",
-                            "lastModified": {
-                                "created": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:jdoe",
-                                    "impersonator": null
-                                },
-                                "lastModified": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:datahub",
-                                    "impersonator": null
-                                },
-                                "deleted": null
-                            },
-                            "chartUrl": null,
-                            "inputs": {
-                                "array": [
-                                    {
-                                        "string": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
-                                    }
-                                ]
-                            },
-                            "type": null,
-                            "access": null,
-                            "lastRefreshed": null
-                        }
-                    }
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+        "urn": "urn:li:chart:(looker,baz2)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.chart.ChartInfo": {
+              "title": "Baz Chart 2",
+              "description": "Baz Chart 2",
+              "lastModified": {
+                "created": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:datahub",
+                  "impersonator": null
+                },
+                "deleted": null
+              },
+              "chartUrl": null,
+              "inputs": {
+                "array": [
+                  {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
+                  }
                 ]
+              },
+              "type": null,
+              "access": null,
+              "lastRefreshed": null
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-                "urn": "urn:li:dashboard:(looker,baz)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpGroup:bfoo",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                            "title": "Baz Dashboard",
-                            "description": "Baz Dashboard",
-                            "customProperties": {
-                                "prop1": "fakeprop",
-                                "prop2": "pikachu"
-                            },
-                            "charts": [
-                                "urn:li:chart:(looker,baz1)",
-                                "urn:li:chart:(looker,baz2)"
-                            ],
-                            "lastModified": {
-                                "created": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:jdoe",
-                                    "impersonator": null
-                                },
-                                "lastModified": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:datahub",
-                                    "impersonator": null
-                                },
-                                "deleted": null
-                            },
-                            "dashboardUrl": null,
-                            "access": null,
-                            "lastRefreshed": null
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+        "urn": "urn:li:dashboard:(looker,baz)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpGroup:bfoo",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+              "title": "Baz Dashboard",
+              "description": "Baz Dashboard",
+              "customProperties": {
+                "prop1": "fakeprop",
+                "prop2": "pikachu"
+              },
+              "charts": [
+                "urn:li:chart:(looker,baz1)",
+                "urn:li:chart:(looker,baz2)"
+              ],
+              "lastModified": {
+                "created": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 0,
+                  "actor": "urn:li:corpuser:datahub",
+                  "impersonator": null
+                },
+                "deleted": null
+              },
+              "dashboardUrl": null,
+              "access": null,
+              "lastRefreshed": null
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
-                "urn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:jdoe",
-                                    "type": "DATAOWNER"
-                                },
-                                {
-                                    "owner": "urn:li:corpuser:datahub",
-                                    "type": "DATAOWNER"
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:jdoe"
-                            }
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
-                            "description": "A sample model for predicting some outcome.",
-                            "date": null,
-                            "tags": ["Sample"],
-                            "version": null,
-                            "type": "Naive Bayes classifier"
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.ml.metadata.TrainingData": {
-                            "trainingData": [
-                                {
-                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)",
-                                    "motivation": "For science!",
-                                    "preProcessing": [
-                                        "Aggregation"
-                                    ]
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.ml.metadata.EvaluationData": {
-                            "evaluationData": [
-                                {
-                                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)"
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
-                            "elements": [
-                                {
-                                    "url": "https://www.linkedin.com",
-                                    "description": "Sample doc",
-                                    "createStamp": {
-                                        "time": 1581407189000,
-                                        "actor": "urn:li:corpuser:jdoe",
-                                        "impersonator": null
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.ml.metadata.IntendedUse": {
-                            "primaryUses" : [
-                                "Sample Model",
-                                "Primary Use"
-                            ],
-                            "primaryUsers": [
-                               "ENTERPRISE"
-                            ],
-                            "outOfScopeUses": [
-                                "Production Deployment"
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.ml.metadata.Metrics": {
-                            "performanceMeasures": ["performanceMeasures"],
-                            "decisionThreshold": ["decisionThreshold"]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.ml.metadata.EthicalConsiderations": {
-                            "data": ["data"],
-                            "humanLife": ["humanLife"],
-                            "mitigations": ["mitigations"],
-                            "risksAndHarms": ["risksAndHarms"],
-                            "useCases": ["useCases"]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.ml.metadata.CaveatsAndRecommendations": {
-                            "recommendations": "recommendations",
-                            "idealDatasetCharacteristics": [
-                                "idealDatasetCharacteristics"
-                            ]
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.Status": {
-                            "boolean" : false
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.Cost": {
-                            "costType": "ORG_COST_TYPE",
-                            "cost": {
-                                "fieldDiscriminator": "costCode",
-                                "costCode": "sampleCostCode"
-                            }
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+        "urn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:jdoe"
+              }
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
+              "description": "A sample model for predicting some outcome.",
+              "date": null,
+              "tags": ["Sample"],
+              "version": null,
+              "type": "Naive Bayes classifier"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.TrainingData": {
+              "trainingData": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)",
+                  "motivation": "For science!",
+                  "preProcessing": ["Aggregation"]
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.EvaluationData": {
+              "evaluationData": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,pageViewsHive,PROD)"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
+              "elements": [
+                {
+                  "url": "https://www.linkedin.com",
+                  "description": "Sample doc",
+                  "createStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.IntendedUse": {
+              "primaryUses": ["Sample Model", "Primary Use"],
+              "primaryUsers": ["ENTERPRISE"],
+              "outOfScopeUses": ["Production Deployment"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.Metrics": {
+              "performanceMeasures": ["performanceMeasures"],
+              "decisionThreshold": ["decisionThreshold"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.EthicalConsiderations": {
+              "data": ["data"],
+              "humanLife": ["humanLife"],
+              "mitigations": ["mitigations"],
+              "risksAndHarms": ["risksAndHarms"],
+              "useCases": ["useCases"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.CaveatsAndRecommendations": {
+              "recommendations": "recommendations",
+              "idealDatasetCharacteristics": ["idealDatasetCharacteristics"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "boolean": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Cost": {
+              "costType": "ORG_COST_TYPE",
+              "cost": {
+                "fieldDiscriminator": "costCode",
+                "costCode": "sampleCostCode"
+              }
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
-                "urn": "urn:li:tag:Legacy",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.tag.TagProperties": {
-                            "name": "Legacy",
-                            "description": "Indicates the dataset is no longer supported"
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:jdoe",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            }
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:Legacy",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "Legacy",
+              "description": "Indicates the dataset is no longer supported"
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
-                "urn": "urn:li:tag:NeedsDocumentation",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.tag.TagProperties": {
-                            "name": "NeedsDocumentation",
-                            "description": "Indicates the data element needs documentation"
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.common.Ownership": {
-                            "owners": [
-                                {
-                                    "owner": "urn:li:corpuser:jdoe",
-                                    "type": "DATAOWNER",
-                                    "source": null
-                                }
-                            ],
-                            "lastModified": {
-                                "time": 1581407189000,
-                                "actor": "urn:li:corpuser:jdoe",
-                                "impersonator": null
-                            }
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:NeedsDocumentation",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "NeedsDocumentation",
+              "description": "Indicates the data element needs documentation"
             }
-        },
-        "proposedDelta": null
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:adlsGen1",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": "/",
-                            "name": "adlsGen1",
-                            "displayName": "Azure Data Lake (Gen 1)",
-                            "type": "FILE_SYSTEM",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/adlslogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:adlsGen1",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": "/",
+              "name": "adlsGen1",
+              "displayName": "Azure Data Lake (Gen 1)",
+              "type": "FILE_SYSTEM",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/adlslogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:adlsGen2",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": "/",
-                            "name": "adlsGen2",
-                            "displayName": "Azure Data Lake (Gen 2)",
-                            "type": "FILE_SYSTEM",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/adlslogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:adlsGen2",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": "/",
+              "name": "adlsGen2",
+              "displayName": "Azure Data Lake (Gen 2)",
+              "type": "FILE_SYSTEM",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/adlslogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:ambry",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "ambry",
-                            "displayName": "Ambry",
-                            "type": "OBJECT_STORE"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:ambry",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "ambry",
+              "displayName": "Ambry",
+              "type": "OBJECT_STORE"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:couchbase",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "couchbase",
-                            "displayName": "Couchbase",
-                            "type": "KEY_VALUE_STORE",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/couchbaselogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:couchbase",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "couchbase",
+              "displayName": "Couchbase",
+              "type": "KEY_VALUE_STORE",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/couchbaselogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:external",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "external",
-                            "displayName": "External Source",
-                            "type": "OTHERS"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:external",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "external",
+              "displayName": "External Source",
+              "type": "OTHERS"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:hdfs",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": "/",
-                            "name": "hdfs",
-                            "displayName": "HDFS",
-                            "type": "FILE_SYSTEM",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/hadooplogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:hdfs",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": "/",
+              "name": "hdfs",
+              "displayName": "HDFS",
+              "type": "FILE_SYSTEM",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/hadooplogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:hive",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "hive",
-                            "displayName": "Hive",
-                            "type": "FILE_SYSTEM",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/hivelogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:hive",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "hive",
+              "displayName": "Hive",
+              "type": "FILE_SYSTEM",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/hivelogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:s3",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": "/",
-                            "name": "s3",
-                            "displayName": "AWS S3",
-                            "type": "FILE_SYSTEM",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/s3.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:s3",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": "/",
+              "name": "s3",
+              "displayName": "AWS S3",
+              "type": "FILE_SYSTEM",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/s3.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:kafka",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "kafka",
-                            "displayName": "Kafka",
-                            "type": "MESSAGE_BROKER",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kafkalogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:kafka",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "kafka",
+              "displayName": "Kafka",
+              "type": "MESSAGE_BROKER",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kafkalogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:kusto",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "kusto",
-                            "displayName": "Kusto",
-                            "type": "OLAP_DATASTORE",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kustologo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:kusto",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "kusto",
+              "displayName": "Kusto",
+              "type": "OLAP_DATASTORE",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kustologo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:mongo",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "mongo",
-                            "displayName": "MongoDB",
-                            "type": "KEY_VALUE_STORE",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mongodblogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:mongodb",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "mongodb",
+              "displayName": "MongoDB",
+              "type": "KEY_VALUE_STORE",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mongodblogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:mysql",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "mysql",
-                            "displayName": "MySQL",
-                            "type": "RELATIONAL_DB",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mysqllogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:mysql",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "mysql",
+              "displayName": "MySQL",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mysqllogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:oracle",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "oracle",
-                            "displayName": "Oracle",
-                            "type": "RELATIONAL_DB",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/oraclelogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:oracle",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "oracle",
+              "displayName": "Oracle",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/oraclelogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:pinot",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "pinot",
-                            "displayName": "Pinot",
-                            "type": "OLAP_DATASTORE",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/pinotlogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:pinot",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "pinot",
+              "displayName": "Pinot",
+              "type": "OLAP_DATASTORE",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/pinotlogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:postgres",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "postgres",
-                            "displayName": "PostgreSQL",
-                            "type": "RELATIONAL_DB",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/postgreslogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:postgres",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "postgres",
+              "displayName": "PostgreSQL",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/postgreslogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:presto",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "presto",
-                            "displayName": "Presto",
-                            "type": "QUERY_ENGINE",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/prestologo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:presto",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "presto",
+              "displayName": "Presto",
+              "type": "QUERY_ENGINE",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/prestologo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:teradata",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "teradata",
-                            "displayName": "Teradata",
-                            "type": "RELATIONAL_DB",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/teradatalogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:teradata",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "teradata",
+              "displayName": "Teradata",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/teradatalogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:voldemort",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "voldemort",
-                            "displayName": "Voldemort",
-                            "type": "KEY_VALUE_STORE"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:voldemort",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "voldemort",
+              "displayName": "Voldemort",
+              "type": "KEY_VALUE_STORE"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:snowflake",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "snowflake",
-                            "displayName": "Snowflake",
-                            "type": "RELATIONAL_DB",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/snowflakelogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:snowflake",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "snowflake",
+              "displayName": "Snowflake",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/snowflakelogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:redshift",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "redshift",
-                            "displayName": "Redshift",
-                            "type": "RELATIONAL_DB",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/redshiftlogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:redshift",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "redshift",
+              "displayName": "Redshift",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/redshiftlogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:mssql",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "mssql",
-                            "displayName": "SQL Server",
-                            "type": "RELATIONAL_DB",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mssqllogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:mssql",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "mssql",
+              "displayName": "SQL Server",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mssqllogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:bigquery",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "bigquery",
-                            "displayName": "BigQuery",
-                            "type": "RELATIONAL_DB",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/bigquerylogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:bigquery",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "bigquery",
+              "displayName": "BigQuery",
+              "type": "RELATIONAL_DB",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/bigquerylogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:druid",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "druid",
-                            "displayName": "Druid",
-                            "type": "OLAP_DATASTORE",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/druidlogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:druid",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "druid",
+              "displayName": "Druid",
+              "type": "OLAP_DATASTORE",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/druidlogo.png"
             }
-        },
-        "proposedDelta": null
+          }
+        ]
+      }
     },
-    {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-                "urn": "urn:li:dataPlatform:looker",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
-                            "datasetNameDelimiter": ".",
-                            "name": "looker",
-                            "displayName": "Looker",
-                            "type": "OTHERS",
-                            "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/lookerlogo.png"
-                        }
-                    }
-                ]
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:looker",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "looker",
+              "displayName": "Looker",
+              "type": "OTHERS",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/lookerlogo.png"
             }
-        },
-        "proposedDelta": null
-    }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:feast",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "feast",
+              "displayName": "Feast",
+              "type": "OTHERS",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/feastlogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:sagemaker",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "sagemaker",
+              "displayName": "SageMaker",
+              "type": "OTHERS",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/sagemakerlogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+        "urn": "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_1)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+              "description": "Dummy entity 1",
+              "dataType": "TEXT",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+        "urn": "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_2)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+              "description": "Dummy entity 2",
+              "dataType": "ORDINAL",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "SEQUENCE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "BINARY",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BYTES_LIST_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "SEQUENCE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BYTES_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "BYTE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_DOUBLE_LIST_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "SEQUENCE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_DOUBLE_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "CONTINUOUS",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_FLOAT_LIST_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "SEQUENCE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_FLOAT_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "CONTINUOUS",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT32_LIST_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "SEQUENCE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT32_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "ORDINAL",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT64_LIST_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "SEQUENCE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT64_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "ORDINAL",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_STRING_LIST_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "SEQUENCE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_STRING_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "TEXT",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["feast/test_feature_table_all_feature_dtypes"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+              "customProperties": {},
+              "description": null,
+              "mlFeatures": [
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BYTES_LIST_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BYTES_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_DOUBLE_LIST_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_DOUBLE_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_FLOAT_LIST_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_FLOAT_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT32_LIST_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT32_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT64_LIST_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT64_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_STRING_LIST_feature)",
+                "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_STRING_feature)"
+              ],
+              "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_1)",
+                "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_2)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+        "urn": "urn:li:mlPrimaryKey:(test_feature_table_no_labels,dummy_entity_2)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+              "description": "Dummy entity 2",
+              "dataType": "ORDINAL",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_no_labels,test_BYTES_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "BYTE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_no_labels)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["feast/test_feature_table_no_labels"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+              "customProperties": {},
+              "description": null,
+              "mlFeatures": [
+                "urn:li:mlFeature:(test_feature_table_no_labels,test_BYTES_feature)"
+              ],
+              "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(test_feature_table_no_labels,dummy_entity_2)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+        "urn": "urn:li:mlPrimaryKey:(test_feature_table_single_feature,dummy_entity_1)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+              "description": "Dummy entity 1",
+              "dataType": "TEXT",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(test_feature_table_single_feature,test_BYTES_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "BYTE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_single_feature)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["feast/test_feature_table_single_feature"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+              "customProperties": {},
+              "description": null,
+              "mlFeatures": [
+                "urn:li:mlFeature:(test_feature_table_single_feature,test_BYTES_feature)"
+              ],
+              "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(test_feature_table_single_feature,dummy_entity_1)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  }
 ]

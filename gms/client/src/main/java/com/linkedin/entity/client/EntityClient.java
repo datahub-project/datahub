@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.restli.client.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -258,5 +259,11 @@ public class EntityClient {
             .actionGetBrowsePaths()
             .urnParam(urn);
         return sendClientRequest(requestBuilder.build()).getEntity();
+    }
+
+    public void setWritable(boolean canWrite) throws RemoteInvocationException {
+        EntitiesDoSetWritableRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionSetWritable().valueParam(canWrite);
+        sendClientRequest(requestBuilder.build());
     }
 }

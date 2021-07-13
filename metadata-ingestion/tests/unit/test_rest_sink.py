@@ -186,9 +186,7 @@ basicAuditStamp = models.AuditStampClass(
                                         "customProperties": {},
                                         "name": "User Deletions",
                                         "description": "Constructs the fct_users_deleted from logging_events",
-                                        "type": {
-                                            "com.linkedin.datajob.azkaban.AzkabanJobType": "SQL"
-                                        },
+                                        "type": {"string": "SQL"},
                                     }
                                 }
                             ],

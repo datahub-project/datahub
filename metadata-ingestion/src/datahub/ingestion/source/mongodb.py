@@ -11,11 +11,10 @@ from pydantic import PositiveInt
 from pymongo.mongo_client import MongoClient
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import get_sys_time
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -40,8 +39,6 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass
 # https://docs.mongodb.com/manual/reference/config-database/ and
 # https://stackoverflow.com/a/48273736/5004662.
 DENY_DATABASE_LIST = set(["admin", "config", "local"])
-
-DEFAULT_ENV = "PROD"
 
 
 class MongoDBConfig(ConfigModel):
@@ -467,16 +464,12 @@ class MongoDBSource(Source):
                         canonical_schema.append(field)
 
                     # create schema metadata object for collection
-                    actor = "urn:li:corpuser:etl"
-                    sys_time = get_sys_time()
                     schema_metadata = SchemaMetadata(
                         schemaName=collection_name,
                         platform=f"urn:li:dataPlatform:{platform}",
                         version=0,
                         hash="",
                         platformSchema=SchemalessClass(),
-                        created=AuditStamp(time=sys_time, actor=actor),
-                        lastModified=AuditStamp(time=sys_time, actor=actor),
                         fields=canonical_schema,
                     )
 

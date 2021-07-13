@@ -45,6 +45,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | oracle          | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
 | postgres        | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
 | redshift        | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
+| sagemaker       | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
 | sqlalchemy      | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | snowflake       | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
 | snowflake-usage | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
@@ -151,12 +152,14 @@ source:
   config:
     connection:
       bootstrap: "broker:9092"
-      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serde-consumer
+      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.DeserializingConsumer
       schema_registry_url: http://localhost:8081
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
 
-For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka_to_console.yml).
+The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.
+
+For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka.yml).
 
 ### MySQL Metadata `mysql`
 
@@ -345,6 +348,59 @@ source:
     # options is same as above
 ```
 
+<details>
+  <summary>Extra options when running Redshift behind a proxy</summary>
+
+This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
+See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+
+```yml
+source:
+  type: redshift
+  config:
+    # username, password, database, etc are all the same as above
+    host_port: my-proxy-hostname:5439
+    options:
+      connect_args:
+        sslmode: "prefer" # or "require" or "verify-ca"
+        sslrootcert: ~ # needed to unpin the AWS Redshift certificate
+```
+
+</details>
+
+### AWS SageMaker `sagemaker`
+
+Extracts:
+
+- Feature groups (support for models, jobs, and more coming soon!)
+
+```yml
+source:
+  type: sagemaker
+  config:
+    aws_region: # aws_region_name, i.e. "eu-west-1"
+    env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
+
+    # Credentials. If not specified here, these are picked up according to boto3 rules.
+    # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
+    aws_access_key_id: # Optional.
+    aws_secret_access_key: # Optional.
+    aws_session_token: # Optional.
+    aws_role: # Optional (Role chaining supported by using a sorted list).
+
+    extract_feature_groups: True # if feature groups should be ingested, default True
+    extract_models: True # if models should be ingested, default True
+    extract_jobs: # if jobs should be ingested, default True for all
+      auto_ml: True
+      compilation: True
+      edge_packaging: True
+      hyper_parameter_tuning: True
+      labeling: True
+      processing: True
+      training: True
+      transform: True
+```
+
 ### Snowflake `snowflake`
 
 Extracts:
@@ -359,7 +415,13 @@ source:
     username: user
     password: pass
     host_port: account_name
-    database: db_name
+    database_pattern:
+      allow:
+        - ^regex$
+        - ^another_regex$
+      deny:
+        - ^SNOWFLAKE$
+        - ^SNOWFLAKE_SAMPLE_DATA$
     warehouse: "COMPUTE_WH" # optional
     role: "sysadmin" # optional
     include_views: True # whether to include views, defaults to True
@@ -424,7 +486,9 @@ source:
 
 Extracts:
 
-- List of feature tables (modeled as `MLFeatureTable`s), features (`MLFeature`s), and entities (`MLPrimaryKey`s)
+- List of feature tables (modeled as [`MLFeatureTable`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureTableProperties.pdl)s),
+  features ([`MLFeature`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureProperties.pdl)s),
+  and entities ([`MLPrimaryKey`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLPrimaryKeyProperties.pdl)s)
 - Column types associated with each feature and entity
 
 Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then
@@ -454,7 +518,7 @@ source:
     options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
       credentials_path: "/path/to/keyfile.json" # optional
-      include_views: True # whether to include views, defaults to True
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
 
@@ -648,7 +712,7 @@ source:
 
 Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
 views depends on. As these SQL's can be complicated, and the package doesn't official support all the SQL dialects that
-Looker support, the result might not be correct. This parsing is disables by default, but can be enabled by setting
+Looker supports, the result might not be correct. This parsing is disabled by default, but can be enabled by setting
 `parse_table_names_from_sql: True`.
 
 ### Looker dashboards `looker`
@@ -845,10 +909,14 @@ sink:
   config:
     connection:
       bootstrap: "localhost:9092"
-      producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
+      producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer
       schema_registry_url: "http://localhost:8081"
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
+
+The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
+
+For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka.yml).
 
 ### Console `console`
 
@@ -964,7 +1032,7 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
    airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
    ```
 
-2. Add the following lines to your `airflow.cfg` file. You might need to
+2. Add the following lines to your `airflow.cfg` file.
    ```ini
    [lineage]
    backend = datahub_provider.lineage.datahub.DatahubLineageBackend

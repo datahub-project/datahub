@@ -161,7 +161,7 @@ public interface GraphBuilder<SNAPSHOT extends RecordTemplate> {
 [RecordTemplate]: https://github.com/linkedin/rest.li/blob/master/data/src/main/java/com/linkedin/data/template/RecordTemplate.java
 [GenericRecord]: https://github.com/apache/avro/blob/master/lang/java/avro/src/main/java/org/apache/avro/generic/GenericRecord.java
 [DAO]: https://en.wikipedia.org/wiki/Data_access_object
-[Pegasus]: https://linkedin.github.io/rest.li/DATA-Data-Schema-and-Templates
+[Pegasus]: https://linkedin.github.io/rest.li/pdl_schema
 [relationship]: ../what/relationship.md
 [entity]: ../what/entity.md
 [aspect]: ../what/aspect.md

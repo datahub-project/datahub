@@ -201,12 +201,12 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
-        "urn": "urn:li:dataPlatform:mongo",
+        "urn": "urn:li:dataPlatform:mongodb",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
               "datasetNameDelimiter": ".",
-              "name": "mongo",
+              "name": "mongodb",
               "displayName": "MongoDB",
               "type": "KEY_VALUE_STORE",
               "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mongodblogo.png"
@@ -469,6 +469,46 @@
               "displayName": "Looker",
               "type": "OTHERS",
               "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/lookerlogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:feast",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "feast",
+              "displayName": "Feast",
+              "type": "OTHERS",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/feastlogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:sagemaker",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "sagemaker",
+              "displayName": "SageMaker",
+              "type": "OTHERS",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/sagemakerlogo.png"
             }
           }
         ]

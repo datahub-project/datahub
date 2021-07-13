@@ -1,6 +1,6 @@
 import importlib
 import inspect
-from typing import Dict, Generic, Type, TypeVar, Union
+from typing import Any, Dict, Generic, Type, TypeVar, Union
 
 import entrypoints
 import typing_inspect
@@ -9,6 +9,13 @@ from datahub import __package_name__
 from datahub.configuration.common import ConfigurationError
 
 T = TypeVar("T")
+
+
+def import_key(key: str) -> Any:
+    assert "." in key, "import key must contain a ."
+    module_name, item_name = key.rsplit(".", 1)
+    item = getattr(importlib.import_module(module_name), item_name)
+    return item
 
 
 class Registry(Generic[T]):
@@ -68,8 +75,7 @@ class Registry(Generic[T]):
         if key.find(".") >= 0:
             # If the key contains a dot, we treat it as a import path and attempt
             # to load it dynamically.
-            module_name, class_name = key.rsplit(".", 1)
-            MyClass = getattr(importlib.import_module(module_name), class_name)
+            MyClass = import_key(key)
             self._check_cls(MyClass)
             return MyClass
 

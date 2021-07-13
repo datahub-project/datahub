@@ -55,7 +55,7 @@ gke-datahub-default-pool-e5be7c4f-rksj   Ready    <none>   34h   v1.19.10-gke.16
 ## Setup DataHub using Helm
 
 Once the kubernetes cluster has been set up, you can deploy DataHub and it’s prerequisites using helm. Please follow the
-steps in this [guide](../../datahub-kubernetes/README.md)
+steps in this [guide](kubernetes.md)
 
 ## Expose endpoints using GKE ingress controller
 

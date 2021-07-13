@@ -102,7 +102,7 @@
   background-color: var(--ifm-color-emphasis-100);
 }
 .logo_container {
-  max-width: 960px;
+  max-width: 1080px;
   margin: 2em auto 1em auto;
   display: flex;
   flex-wrap: wrap;
@@ -114,8 +114,8 @@
   border: 1px solid var(--ifm-color-emphasis-400);
   background-color: #ffffff;
   /* padding: 2em 3em; */
-  width: 16em;
-  height: 12em;
+  width: 12em;
+  height: 9em;
   margin: 1em;
 }
 .logo_center {
@@ -130,6 +130,10 @@
   background-color: var(--ifm-color-emphasis-300);
 }
 
+.videos_section {
+  background-color: var(--ifm-color-emphasis-300);
+}
+
 html[data-theme="dark"] .sources_section {
   background-color: #303439;
 }
@@ -140,6 +144,11 @@ html[data-theme="dark"] .sources_section {
 .carousel_logo_slide {
   padding: 1rem;
   height: 12rem;
+  width: 100%;
+}
+.carousel_logo_slide_large {
+  padding: 1rem;
+  height: 20rem;
   width: 100%;
 }
 .carousel_logo_frame {
@@ -159,27 +168,52 @@ html[data-theme="dark"] .sources_section {
   width: 100%;
   height: 100%;
 }
+.carousel_article_logo_frame {
+  background-color: #ffffff;
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+  --tw-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000),
+    var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+  display: flex;
+  flex-direction: column;
+}
+.carousel_article_logo_center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.carousel_article_title_center {
+  text-align: center;
+}
+.article_link {
+  user-select: none;
+  -webkit-user-drag: none;
+}
 .sources_link {
   text-align: center;
   width: 100%;
   margin: auto;
   margin-top: 5rem;
   font-size: 1.5rem;
-  text-decoration: underline;
   text-decoration-color: var(--ifm-color-primary);
 }
 
 .logo_image {
-  max-height: 8em;
-  max-width: 10em;
+  max-height: 7em;
+  max-width: 9em;
 }
 .logo_image_small {
   max-height: 5em;
   max-width: 7em;
 }
-.logo_image_large {
-  max-height: 10em;
-  max-width: 12em;
+.logo_image_huge {
+  max-height: 12em;
+  max-width: 16em;
 }
 .logo_image_square {
   max-height: 7em;
@@ -206,4 +240,19 @@ html[data-theme="dark"] .sources_section {
 }
 .section {
   padding: 4rem 0;
+}
+.youtubeContainer {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 100%;
+  overflow: hidden;
+}
+
+.youtubeContainer iframe {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
 }

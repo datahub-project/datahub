@@ -4,6 +4,7 @@ import pathlib
 import sys
 
 import click
+import stackprinter
 from pydantic import ValidationError
 
 import datahub as datahub_package
@@ -25,12 +26,14 @@ BASE_LOGGING_FORMAT = (
 )
 logging.basicConfig(format=BASE_LOGGING_FORMAT)
 
+MAX_CONTENT_WIDTH = 120
+
 
 @click.group(
     context_settings=dict(
         # Avoid truncation of help text.
         # See https://github.com/pallets/click/issues/486.
-        max_content_width=120,
+        max_content_width=MAX_CONTENT_WIDTH,
     )
 )
 @click.option("--debug/--no-debug", default=False)
@@ -47,7 +50,6 @@ def datahub(debug: bool) -> None:
         logging.getLogger("datahub").setLevel(logging.INFO)
     # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     # print(loggers)
-    # breakpoint()
 
 
 @datahub.command()
@@ -67,18 +69,21 @@ def version() -> None:
 )
 def ingest(config: str) -> None:
     """Ingest metadata into DataHub."""
+    logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
 
     config_file = pathlib.Path(config)
     pipeline_config = load_config_file(config_file)
 
     try:
-        logger.info(f"Using config: {pipeline_config}")
+        logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(pipeline_config)
     except ValidationError as e:
         click.echo(e, err=True)
         sys.exit(1)
 
+    logger.info("Starting metadata ingestion")
     pipeline.run()
+    logger.info("Finished metadata ingestion")
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)
 
@@ -96,4 +101,14 @@ def main(**kwargs):
         sys.exit(1)
     except click.ClickException as error:
         error.show()
+        sys.exit(1)
+    except Exception as exc:
+        logger.error(
+            stackprinter.format(
+                exc,
+                line_wrap=MAX_CONTENT_WIDTH,
+                truncate_vals=10 * MAX_CONTENT_WIDTH,
+                suppressed_paths=[r"lib/python.*/site-packages/click/"],
+            )
+        )
         sys.exit(1)

@@ -16,6 +16,11 @@ public interface SearchService {
   void configure();
 
   /**
+   * Clear all data within the service
+   */
+  void clear();
+
+  /**
    * Updates or inserts the given search document.
    *
    * @param entityName name of the entity

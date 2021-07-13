@@ -120,7 +120,7 @@ class ReadEvent:
 
     resource: BigQueryTableRef
     fieldsRead: List[str]
-    readReason: str
+    readReason: Optional[str]
     jobName: Optional[str]
 
     payload: Any
@@ -143,8 +143,8 @@ class ReadEvent:
         resourceName = entry.payload["resourceName"]
         readInfo = entry.payload["metadata"]["tableDataRead"]
 
-        fields = readInfo["fields"]
-        readReason = readInfo["reason"]
+        fields = readInfo.get("fields", [])
+        readReason = readInfo.get("reason")
         jobName = None
         if readReason == "JOB":
             jobName = readInfo["jobName"]
@@ -200,8 +200,6 @@ class QueryEvent:
             referencedTables = [
                 BigQueryTableRef.from_spec_obj(spec) for spec in rawRefTables
             ]
-        # if job['jobConfiguration']['query']['statementType'] != "SCRIPT" and not referencedTables:
-        #     breakpoint()
 
         queryEvent = QueryEvent(
             timestamp=entry.timestamp,
@@ -286,7 +284,7 @@ class BigQueryUsageSource(Source):
         self, entries: Iterable[AuditLogEntry]
     ) -> Iterable[Union[ReadEvent, QueryEvent]]:
         for entry in entries:
-            event: Union[ReadEvent, QueryEvent]
+            event: Union[None, ReadEvent, QueryEvent] = None
             if ReadEvent.can_parse_entry(entry):
                 event = ReadEvent.from_entry(entry)
             elif QueryEvent.can_parse_entry(entry):
@@ -296,7 +294,8 @@ class BigQueryUsageSource(Source):
                     f"{entry.log_name}-{entry.insert_id}",
                     f"unable to parse log entry: {entry!r}",
                 )
-            yield event
+            if event:
+                yield event
 
     def _join_events_by_job_id(
         self, events: Iterable[Union[ReadEvent, QueryEvent]]

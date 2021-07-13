@@ -27,11 +27,18 @@ public class RemoveAspectV2TableStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
-      if (context.parsedArgs().containsKey(NoCodeUpgrade.CLEAN_ARG_NAME)) {
-        context.report().addLine("Cleanup requested. Dropping metadata_aspect_v2");
-        _server.execute(_server.createSqlUpdate("DROP TABLE IF EXISTS metadata_aspect_v2"));
-      }
+      context.report().addLine("Cleanup requested. Dropping metadata_aspect_v2");
+      _server.execute(_server.createSqlUpdate("DROP TABLE IF EXISTS metadata_aspect_v2"));
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
+  }
+
+  @Override
+  public boolean skip(UpgradeContext context) {
+    if (context.parsedArgs().containsKey(NoCodeUpgrade.CLEAN_ARG_NAME)) {
+      return false;
+    }
+    context.report().addLine("Cleanup has not been requested.");
+    return true;
   }
 }
