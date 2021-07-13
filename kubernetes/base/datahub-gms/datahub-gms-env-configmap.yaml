@@ -1,0 +1,20 @@
+apiVersion: v1
+data:
+  DATAHUB_MAE_CONSUMER_PORT: "9091"
+  KIBANA_PORT: "5601"
+  DATAHUB_MCE_CONSUMER_PORT: "9090"
+  DATAHUB_FRONTEND_REACT_PORT: "9002"
+  DATAHUB_GMS_PORT: "8080"
+  KAFKA_TOPICS_UI_PORT: "18000"
+  SCHEMA_REGISTRY_UI_PORT: "8000"
+  KUBERNETES_PORT: "443"
+  KAFKA_REST_PROXY_PORT: "8082"
+  SCHEMA_REGISTRY_SERVICE_PORT: "8081"
+  BROKER_PORT: "29092"
+  ELASTICSEARCH_PORT: "9200"
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: datahub-gms-env-datahub-gms-env
+  name: datahub-gms-env
