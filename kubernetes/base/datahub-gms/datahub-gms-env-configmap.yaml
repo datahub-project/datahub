@@ -12,6 +12,18 @@ data:
   SCHEMA_REGISTRY_SERVICE_PORT: "8081"
   BROKER_PORT: "29092"
   ELASTICSEARCH_PORT: "9200"
+  EBEAN_DATASOURCE_USERNAME: smartnews
+  EBEAN_DATASOURCE_PASSWORD: smartnews
+  EBEAN_DATASOURCE_HOST: airflow.c6xrdianp1t4.ap-northeast-1.rds.amazonaws.com:3306
+  EBEAN_DATASOURCE_URL: jdbc:mysql://airflow.c6xrdianp1t4.ap-northeast-1.rds.amazonaws.com:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+  EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
+  KAFKA_BOOTSTRAP_SERVER: broker.data-catalogue.svc.cluster.local:29092
+  KAFKA_SCHEMAREGISTRY_URL: http://schema-registry.data-catalogue.svc.cluster.local:8081
+  ELASTICSEARCH_HOST: elasticsearch.data-catalogue.svc.cluster.local
+  NEO4J_HOST: http://neo4j.data-catalogue.svc.cluster.local:7474
+  NEO4J_URI: bolt://neo4j.data-catalogue.svc.cluster.local
+  NEO4J_USERNAME: neo4j
+  NEO4J_PASSWORD: datahub
 kind: ConfigMap
 metadata:
   creationTimestamp: null

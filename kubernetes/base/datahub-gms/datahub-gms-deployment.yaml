@@ -86,6 +86,66 @@ spec:
                 configMapKeyRef:
                   key: ELASTICSEARCH_PORT
                   name: datahub-gms-env               
+            - name: EBEAN_DATASOURCE_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  key: EBEAN_DATASOURCE_USERNAME
+                  name: datahub-gms-env               
+            - name: EBEAN_DATASOURCE_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  key: EBEAN_DATASOURCE_PASSWORD
+                  name: datahub-gms-env               
+            - name: EBEAN_DATASOURCE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: EBEAN_DATASOURCE_HOST
+                  name: datahub-gms-env               
+            - name: EBEAN_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: EBEAN_DATASOURCE_URL
+                  name: datahub-gms-env               
+            - name: EBEAN_DATASOURCE_DRIVER
+              valueFrom:
+                configMapKeyRef:
+                  key: EBEAN_DATASOURCE_DRIVER
+                  name: datahub-gms-env               
+            - name: KAFKA_BOOTSTRAP_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_BOOTSTRAP_SERVER
+                  name: datahub-gms-env               
+            - name: KAFKA_SCHEMAREGISTRY_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: KAFKA_SCHEMAREGISTRY_URL
+                  name: datahub-gms-env               
+            - name: ELASTICSEARCH_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: ELASTICSEARCH_HOST
+                  name: datahub-gms-env               
+            - name: NEO4J_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_HOST
+                  name: datahub-gms-env               
+            - name: NEO4J_URI
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_URI
+                  name: datahub-gms-env               
+            - name: NEO4J_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_USERNAME
+                  name: datahub-gms-env               
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  key: NEO4J_PASSWORD
+                  name: datahub-gms-env               
           image: datahub-gms
           name: datahub-gms
           ports:
