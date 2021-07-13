@@ -83,6 +83,8 @@ class DBTNode:
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_urns: List[str] = field(default_factory=list)
 
+    meta: Dict[str, Any] = field(default_factory=dict)
+
     def __repr__(self):
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
         return self.__class__.__name__ + str(tuple(sorted(fields))).replace("'", "")
@@ -177,6 +179,7 @@ def extract_dbt_entities(
                 target_platform,
                 environment,
             ),
+            meta=node.get("meta", {}),
         )
 
         # overwrite columns from catalog
@@ -259,7 +262,7 @@ def get_urn_from_dbtNode(
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 
-    custom_properties = {}
+    custom_properties = node.meta
 
     node_attributes = ["node_type", "materialization", "dbt_file_path", "catalog_type"]
 
