@@ -62,6 +62,8 @@ def determine_type(type_input:Union[str, Dict[str,str]]) -> str:
     if isinstance(type_input, Dict):
         type_input = type_input.get("dataset_type", "")
     if (type_input.lower()=='text/csv') or (type_input.lower() == 'application/octet-stream'):
-        return 'csv'    
+        return 'csv'
+    if (type_input.lower()=='json'):
+        return 'json'    
     else:
-        return 'new_undefined_type'
+        return 'undefined'

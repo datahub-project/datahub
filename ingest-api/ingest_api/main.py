@@ -11,7 +11,7 @@ from ingest_api.helper.mce_convenience import make_delete_mce, make_schema_mce, 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 #when DEBUG = true, im not running ingest_api from container, but from localhost python interpreter, hence need to change the endpoint used.
-DEBUG = False
+DEBUG = True
 datahub_url = "http://localhost:9002"
 api_emitting_port = 80 if not DEBUG else 8001
 rest_endpoint = "http://datahub-gms:8080" if not DEBUG else "http://localhost:8080" 
@@ -93,23 +93,28 @@ async def create_item(item: create_dataset_params) -> None:
         if "field_description" not in current_field:
             current_field["field_description"] = ""
         field_params.append(current_field)
+    
+
     all_mce.append(make_schema_mce(dataset_urn = datasetName,
                                     platformName = platformName,
                                     actor = requestor,
                                     fields = field_params,
                                     ))    
+    for mce in all_mce:
+        if not mce.validate():
+            rootLogger.error(f"{mce.proposedSnapshot.aspects[0].__class__} is not defined properly")
+            return Response(f"Dataset was not created because dataset definition has encountered an error for {mce.proposedSnapshot.aspects[0].__class__}", status_code=400)
     try:
-        emitter = DatahubRestEmitter(rest_endpoint)
-
+        emitter = DatahubRestEmitter(rest_endpoint)  
         for mce in all_mce:
-            emitter.emit_mce(mce)            
+            emitter.emit_mce(mce)
         emitter._session.close()
     except Exception as e:
         rootLogger.debug(e)
-        return Response("Dataset was not created because upstream has encountered an error {}".format(e), status_code=502)
+        return Response("Dataset was not created because upstream has encountered an error {}".format(e), status_code=500)
     rootLogger.info("Make_dataset_request_completed_for {} requested_by {}".format(item.dataset_name, item.dataset_owner))      
-    return Response(content = "dataset can be found at {}/dataset/{}".format(datahub_url, make_dataset_urn(item.dataset_type, item.dataset_name)),
-                        status_code = 205) 
+    return Response("dataset can be found at {}/dataset/{}".format(datahub_url, make_dataset_urn(item.dataset_type, item.dataset_name)),
+                        status_code = 201) 
 
 
 @app.post("/delete_dataset")

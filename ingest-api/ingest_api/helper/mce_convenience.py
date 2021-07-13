@@ -164,21 +164,24 @@ def make_schema_mce(
             sys_time = get_sys_time()
     else:
         sys_time = get_sys_time()
-
+    
     for item in fields:
-        item["field_type"] = {"bool":  BooleanTypeClass(), 
-                        "fixed": FixedTypeClass(), 
+        item["nativeType"] = item.get("field_type","")
+        item["field_type"] = {"boolean":  BooleanTypeClass(),                         
                         "string":StringTypeClass(),
+                        "bool":BooleanTypeClass(),
                         "byte":  BytesTypeClass(),
                         "num":   NumberTypeClass(),
+                        "integer": NumberTypeClass(),
                         "date":  DateTypeClass(),
                         "time":  TimeTypeClass(),
                         "enum":  EnumTypeClass(),
                         "null":  NullTypeClass(),
-                        "map":   MapTypeClass(),
+                        "object":RecordTypeClass(),
                         "array": ArrayTypeClass(),
                         "union": UnionTypeClass(),
-                        "record":RecordTypeClass()
+                        "map":   MapTypeClass(),
+                        "fixed": FixedTypeClass(), 
                         }.get(item["field_type"])           
         
     mce = MetadataChangeEventClass(
