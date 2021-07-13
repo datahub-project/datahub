@@ -2159,7 +2159,7 @@ type MLModel implements Entity {
     deprecation: Deprecation
 }
 
-type MLFeature implements EntityWithRelationships & Entity {
+type MLFeature implements Entity {
 
     """
     The unique MLFeature URN
@@ -2175,6 +2175,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     MLFeature name
     """
     name: String!
+
+    """
+    MLFeature featureNamespace
+    """
+    featureNamespace: String!
 
     """
     MLFeature description
@@ -2210,16 +2215,6 @@ type MLFeature implements EntityWithRelationships & Entity {
     Deprecation
     """
     deprecation: Deprecation
-
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
 }
 
 type MLModelProperties {
@@ -2250,7 +2245,7 @@ type MLFeatureProperties {
     sources: [Dataset]
 }
 
-type MLPrimaryKey implements EntityWithRelationships & Entity {
+type MLPrimaryKey implements Entity {
 
     """
     The unique MLPrimaryKey URN
@@ -2266,6 +2261,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     MLPrimaryKey name
     """
     name: String!
+
+    """
+    MLPrimaryKey featureNamespace
+    """
+    featureNamespace: String!
 
     """
     MLPrimaryKey description
@@ -2301,16 +2301,6 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     Deprecation
     """
     deprecation: Deprecation
-
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
 }
 
 type MLPrimaryKeyProperties {
@@ -2324,7 +2314,7 @@ type MLPrimaryKeyProperties {
     sources: [Dataset]
 }
 
-type MLFeatureTable implements EntityWithRelationships & Entity {
+type MLFeatureTable implements Entity {
 
     """
     The unique MLFeatureTable URN
@@ -2375,16 +2365,6 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     Deprecation
     """
     deprecation: Deprecation
-
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
 }
 
 type MLFeatureTableProperties {

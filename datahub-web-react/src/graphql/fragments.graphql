@@ -286,6 +286,7 @@ fragment nonRecursiveMLFeature on MLFeature {
     urn
     type
     name
+    featureNamespace
     description
     dataType
     featureProperties {
@@ -336,6 +337,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     urn
     type
     name
+    featureNamespace
     description
     dataType
     primaryKeyProperties {

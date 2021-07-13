@@ -49,6 +49,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             <Preview
                 urn={data.urn}
                 name={data.name || ''}
+                featureNamespace={data.featureNamespace || ''}
                 description={data.description}
                 owners={data.ownership?.owners}
             />
@@ -61,6 +62,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             <Preview
                 urn={data.urn}
                 name={data.name || ''}
+                featureNamespace={data.featureNamespace || ''}
                 description={data.description || ''}
                 owners={data.ownership?.owners}
             />

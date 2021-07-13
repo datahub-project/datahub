@@ -6,11 +6,13 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 export const Preview = ({
     urn,
     name,
+    featureNamespace,
     description,
     owners,
 }: {
     urn: string;
     name: string;
+    featureNamespace: string;
     description?: string | null;
     owners?: Array<Owner> | null;
 }): JSX.Element => {
@@ -20,6 +22,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.Mlfeature, urn)}
             name={name}
             description={description || ''}
+            platform={featureNamespace}
             type="MLFeature"
             owners={owners}
         />
