@@ -41,10 +41,31 @@ def check_golden_file(
     golden_path: Union[str, os.PathLike],
     ignore_paths: Optional[List[str]] = None,
 ) -> None:
-    if pytestconfig.getoption("--update-golden-files"):
-        shutil.copyfile(str(output_path), str(golden_path))
-        return
+
+    update_golden = pytestconfig.getoption("--update-golden-files")
+    golden_exists = os.path.isfile(golden_path)
+
+    if not update_golden and not golden_exists:
+        raise FileNotFoundError(
+            "Golden file does not exist. Please run with the --update-golden-files option to create."
+        )
 
     output = load_json_file(output_path)
-    golden = load_json_file(golden_path)
-    assert_mces_equal(output, golden, ignore_paths)
+
+    # if updating a golden file that doesn't exist yet, load the output again
+    if update_golden and not golden_exists:
+        golden = load_json_file(output_path)
+    else:
+        golden = load_json_file(golden_path)
+
+    try:
+        assert_mces_equal(output, golden, ignore_paths)
+
+    except AssertionError as e:
+        # only update golden files if the diffs are not empty
+        if update_golden:
+            shutil.copyfile(str(output_path), str(golden_path))
+
+        # raise the error if we're just running the test
+        else:
+            raise e
