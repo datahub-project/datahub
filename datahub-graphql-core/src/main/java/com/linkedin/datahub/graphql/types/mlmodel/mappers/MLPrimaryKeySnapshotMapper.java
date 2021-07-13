@@ -14,7 +14,6 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.metadata.dao.utils.ModelUtils;
-import com.linkedin.metadata.key.MLFeatureKey;
 import com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot;
 import com.linkedin.ml.metadata.MLPrimaryKeyProperties;
 import com.linkedin.metadata.key.MLPrimaryKeyKey;
