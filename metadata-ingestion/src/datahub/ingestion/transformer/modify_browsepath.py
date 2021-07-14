@@ -1,6 +1,7 @@
-from typing import Callable, Iterable, List, Union
+import logging
+import re
+from typing import Iterable
 
-import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
@@ -9,8 +10,6 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
 )
-import re
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +53,16 @@ class BrowsePathTransform(Transformer):
         return mce
 
     def _generate_path(self, name, prefix):
-        pattern = f"urn:li:dataset:\(urn:li:dataPlatform:(.*),{prefix}\)"
-        platform_schema_dataset = re.match(pattern, name).group(1)
-        platform, dataset_name = (
-            platform_schema_dataset.split(",", 1)[0],
-            platform_schema_dataset.split(",", 1)[1],
-        )
+        pattern = r"urn:li:dataset:\(urn:li:dataPlatform:(.*),{}\)".format(prefix)
+        find = re.match(pattern, name)
+        if find:
+            platform_schema_dataset = find.group(1)
+            platform, dataset_name = (
+                platform_schema_dataset.split(",", 1)[0],
+                platform_schema_dataset.split(",", 1)[1],
+            )
+        else:
+            raise Exception("browsepath is not the expected PROD/kudu/dataset....")
         return f"/{platform}/{dataset_name}"
 
 

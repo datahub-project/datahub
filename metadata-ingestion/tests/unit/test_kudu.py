@@ -1,28 +1,26 @@
-import unittest
-from unittest.mock import MagicMock, patch, Mock
-from typing import Dict
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.kudu import KuduSource, KuduConfig
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-import sqlalchemy.sql.sqltypes as types
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 import logging
+import unittest
+from unittest.mock import Mock
+
+import sqlalchemy.sql.sqltypes as types
 from freezegun import freeze_time
-from datahub.metadata.schema_classes import (
-    SchemaFieldDataTypeClass,
-    SchemaFieldClass,
-    SchemaMetadataClass,
-    AuditStampClass,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
+
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.kudu import KuduConfig, KuduSource
+from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemalessClass,
     NumberTypeClass,
     SchemaField,
+    SchemalessClass,
     StringTypeClass,
 )
-
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+)
 
 logger = logging.getLogger(__name__)
 # from mock_alchemy.mocking import AlchemyMagicMock
@@ -81,7 +79,7 @@ class KuduSourceTest(unittest.TestCase):
             id="default.my_first_table",
             mce=MetadataChangeEvent(
                 proposedSnapshot=DatasetSnapshot(
-                    urn=f"urn:li:dataset:(urn:li:dataPlatform:kudu,default.my_first_table,PROD)",
+                    urn="urn:li:dataset:(urn:li:dataPlatform:kudu,default.my_first_table,PROD)",
                     aspects=[
                         SchemaMetadataClass(
                             schemaName="default.my_first_table",

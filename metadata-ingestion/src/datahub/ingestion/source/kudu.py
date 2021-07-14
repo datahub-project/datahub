@@ -1,18 +1,16 @@
 # This import verifies that the dependencies are available.
-import sqlalchemy
-import impala  # noqa: F401
-import time
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from sqlalchemy.sql import sqltypes as types
-from typing import Optional
-from datahub.ingestion.api.source import Source, SourceReport
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
-from dataclasses import dataclass, field
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 import logging
+import time
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterable, List, Optional, Type
+
 from krbcontext.context import krbContext
 from sqlalchemy import create_engine, inspect
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from sqlalchemy.sql import sqltypes as types
+
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -22,11 +20,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesTypeClass,
     DateTypeClass,
     EnumTypeClass,
-    SchemalessClass,
     NullTypeClass,
     NumberTypeClass,
     SchemaField,
     SchemaFieldDataType,
+    SchemalessClass,
     SchemaMetadata,
     StringTypeClass,
     TimeTypeClass,
@@ -144,17 +142,17 @@ class KuduConfig(ConfigModel):
     use_ssl: bool = True
     authMechanism: Optional[str] = "GSSAPI"
     service_principal: str = "some service principal"
-    keytab_location: str = None
+    keytab_location: str = ""
     options: dict = {}
     env: str = DEFAULT_ENV
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     def get_sql_alchemy_url(self):
-        if self.use_ssl == False:
-            url = f"{self.scheme}://{self.host}/default"
-        else:
+        if self.use_ssl:
             url = f"{self.scheme}://{self.host}/{self.database}?use_ssl={str(self.use_ssl)}&auth_mechanism={self.authMechanism}&ca_cert={self.ca_cert}"
+        else:
+            url = f"{self.scheme}://{self.host}/default"
         return url
 
 
@@ -167,9 +165,6 @@ class KuduSource(Source):
         self.config = config
         self.report = KuduDBSourceReport()
         self.platform = "kudu"
-        options = {
-            **self.config.options,
-        }
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -184,7 +179,7 @@ class KuduSource(Source):
 
         url = sql_config.get_sql_alchemy_url()
 
-        if sql_config.keytab_location == None:
+        if sql_config.keytab_location is None:
             engine = create_engine(url)
             inspector = inspect(engine)
             for schema in inspector.get_schema_names():
@@ -228,7 +223,7 @@ class KuduSource(Source):
                 if "Leader Replica" not in columns:
                     self.report.report_dropped(dataset_name)
                     continue  # is Hive not Kudu
-            except:
+            except Exception:
                 logger.error(
                     f"unable to parse table stats for {schema}.{table}, will not be ingested"
                 )
