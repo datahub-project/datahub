@@ -5,7 +5,7 @@ node {
 
   // If true, it will download node using above parameters.
   // If false, it will try to use globally installed node.
-  download = true
+  download = false
 
   // Version of node to use.
   version = '14.15.3'
@@ -14,7 +14,7 @@ node {
   yarnVersion = '1.22.0'
 
   // Base URL for fetching node distributions (change if you have a mirror).
-  distBaseUrl = 'https://nodejs.org/dist'
+  distBaseUrl = null
 
   // Set the work directory for unpacking node
   workDir = file("${project.projectDir}/.gradle/nodejs")
