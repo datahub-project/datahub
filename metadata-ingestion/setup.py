@@ -79,7 +79,7 @@ plugins: Dict[str, Set[str]] = {
         # and column comments, and also releases HTTP and HTTPS transport schemes.
         "acryl-pyhive[hive]>=0.6.7"
     },
-    "kudu": {"impyla>=0.16.3", "krbcontext"},
+    "kudu": {"impyla>=0.16.3", "krbcontext>=0.10"},
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
     "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
