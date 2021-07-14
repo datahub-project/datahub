@@ -41,6 +41,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 DEFAULT_ENV = "PROD"
 
+
 @dataclass
 class KuduDBSourceReport(SourceReport):
     tables_scanned: int = 0
@@ -52,12 +53,13 @@ class KuduDBSourceReport(SourceReport):
         Entity could be a view or a table
         """
         if ent_type == "table":
-            self.tables_scanned += 1        
+            self.tables_scanned += 1
         else:
             raise KeyError(f"Unknown entity {ent_type}.")
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
+
 
 _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     types.Integer: NumberTypeClass,
@@ -81,16 +83,15 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
 }
 
 
-
 def get_column_type(
     sql_report: KuduDBSourceReport, dataset_name: str, column_type: Any
 ) -> SchemaFieldDataType:
-    
+
     TypeClass: Optional[Type] = None
     for sql_type in _field_type_mapping.keys():
         if isinstance(column_type, sql_type):
             TypeClass = _field_type_mapping[sql_type]
-            break    
+            break
 
     if TypeClass is None:
         sql_report.report_warning(
@@ -100,8 +101,12 @@ def get_column_type(
 
     return SchemaFieldDataType(type=TypeClass())
 
+
 def get_schema_metadata(
-    sql_report: KuduDBSourceReport, dataset_name: str, platform: str, columns: List[dict]
+    sql_report: KuduDBSourceReport,
+    dataset_name: str,
+    platform: str,
+    columns: List[dict],
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
     for column in columns:
@@ -116,7 +121,7 @@ def get_schema_metadata(
         canonical_schema.append(field)
 
     actor = "urn:li:corpuser:etl"
-    sys_time = int(time.time() * 1000)    
+    sys_time = int(time.time() * 1000)
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=f"urn:li:dataPlatform:{platform}",
@@ -129,15 +134,16 @@ def get_schema_metadata(
     )
     return schema_metadata
 
+
 class KuduConfig(ConfigModel):
     # defaults
     scheme: str = "impala"
     database: str = "default"
     ca_cert: str = "/cert/path/is/missing.crt"
     host: str = "localhost:21050"
-    use_ssl: bool = True    
-    authMechanism: Optional[str] = 'GSSAPI'
-    service_principal: str = 'some service principal'
+    use_ssl: bool = True
+    authMechanism: Optional[str] = "GSSAPI"
+    service_principal: str = "some service principal"
     keytab_location: str = None
     options: dict = {}
     env: str = DEFAULT_ENV
@@ -151,25 +157,25 @@ class KuduConfig(ConfigModel):
             url = f"{self.scheme}://{self.host}/{self.database}?use_ssl={str(self.use_ssl)}&auth_mechanism={self.authMechanism}&ca_cert={self.ca_cert}"
         return url
 
+
 class KuduSource(Source):
     config: KuduConfig
     report: KuduDBSourceReport
-    
+
     def __init__(self, config, ctx):
         super().__init__(ctx)
         self.config = config
         self.report = KuduDBSourceReport()
-        self.platform = 'kudu'
+        self.platform = "kudu"
         options = {
             **self.config.options,
         }
-        
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = KuduConfig.parse_obj(config_dict)
         return cls(config, ctx)
-    
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
@@ -177,54 +183,58 @@ class KuduSource(Source):
             sql_config.options["echo"] = True
 
         url = sql_config.get_sql_alchemy_url()
-        
+
         if sql_config.keytab_location == None:
             engine = create_engine(url)
             inspector = inspect(engine)
-            for schema in inspector.get_schema_names():            
+            for schema in inspector.get_schema_names():
                 if not sql_config.schema_pattern.allowed(schema):
                     self.report.report_dropped(schema)
                     logger.error(f"dropped {schema}")
                     continue
                 yield from self.loop_tables(inspector, schema, sql_config, engine)
-        else:            
-            with krbContext(using_keytab=True, principal = sql_config.service_principal, keytab_file = sql_config.keytab_location):        
+        else:
+            with krbContext(
+                using_keytab=True,
+                principal=sql_config.service_principal,
+                keytab_file=sql_config.keytab_location,
+            ):
                 engine = create_engine(url, **sql_config.options)
                 inspector = inspect(engine)
-                for schema in inspector.get_schema_names():            
+                for schema in inspector.get_schema_names():
                     if not sql_config.schema_pattern.allowed(schema):
                         self.report.report_dropped(schema)
                         continue
                     yield from self.loop_tables(inspector, schema, sql_config, engine)
 
     def loop_tables(
-        self,
-        inspector: Any,
-        schema: str,
-        sql_config: KuduConfig,
-        engine: Any
+        self, inspector: Any, schema: str, sql_config: KuduConfig, engine: Any
     ) -> Iterable[MetadataWorkUnit]:
-        for table in inspector.get_table_names(schema):           
-            
-            dataset_name = f"{schema}.{table}"            
+        for table in inspector.get_table_names(schema):
+
+            dataset_name = f"{schema}.{table}"
             if not sql_config.table_pattern.allowed(dataset_name):
-                
+
                 self.report.report_dropped(dataset_name)
                 continue
             self.report.report_entity_scanned(dataset_name, ent_type="table")
-            #using Impyla to query to HMS, I can't tell if the table is Hive or Kudu unless i query table stats.
+            # using Impyla to query to HMS, I can't tell if the table is Hive or Kudu unless i query table stats.
             try:
-                table_detail_sample = engine.execute(f"show table stats {schema}.{table}").fetchone()
-                
+                table_detail_sample = engine.execute(
+                    f"show table stats {schema}.{table}"
+                ).fetchone()
+
                 columns = [col for col in table_detail_sample.keys()]
                 if "Leader Replica" not in columns:
                     self.report.report_dropped(dataset_name)
-                    continue #is Hive not Kudu                
+                    continue  # is Hive not Kudu
             except:
-                logger.error(f"unable to parse table stats for {schema}.{table}, will not be ingested")
+                logger.error(
+                    f"unable to parse table stats for {schema}.{table}, will not be ingested"
+                )
                 continue
             columns = inspector.get_columns(table, schema)
-            
+
             try:
                 table_info: dict = inspector.get_table_comment(table, schema)
             except NotImplementedError:
@@ -232,8 +242,7 @@ class KuduSource(Source):
                 properties: Dict[str, str] = {}
             else:
                 description = table_info["text"]
-                properties = table_info.get("properties", {})            
-            
+                properties = table_info.get("properties", {})
 
             dataset_snapshot = DatasetSnapshot(
                 urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
@@ -242,20 +251,20 @@ class KuduSource(Source):
             if description is not None or properties:
                 dataset_properties = DatasetPropertiesClass(
                     description=description,
-                    customProperties=properties,                 
+                    customProperties=properties,
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
             schema_metadata = get_schema_metadata(
                 self.report, dataset_name, self.platform, columns
             )
             dataset_snapshot.aspects.append(schema_metadata)
-            
+
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             wu = MetadataWorkUnit(id=dataset_name, mce=mce)
-            
+
             self.report.report_workunit(wu)
-            
-            yield wu            
+
+            yield wu
 
     def get_report(self):
         return self.report

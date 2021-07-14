@@ -5,11 +5,15 @@ from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
 from datahub.metadata.schema_classes import (
-    BrowsePathsClass, DatasetSnapshotClass, MetadataChangeEventClass
+    BrowsePathsClass,
+    DatasetSnapshotClass,
+    MetadataChangeEventClass,
 )
 import re
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 class BrowsePathConfig(ConfigModel):
     # Workaround for https://github.com/python/mypy/issues/708.
@@ -52,10 +56,14 @@ class BrowsePathTransform(Transformer):
     def _generate_path(self, name, prefix):
         pattern = f"urn:li:dataset:\(urn:li:dataPlatform:(.*),{prefix}\)"
         platform_schema_dataset = re.match(pattern, name).group(1)
-        platform, dataset_name = platform_schema_dataset.split(",",1)[0], platform_schema_dataset.split(",",1)[1]
+        platform, dataset_name = (
+            platform_schema_dataset.split(",", 1)[0],
+            platform_schema_dataset.split(",", 1)[1],
+        )
         return f"/{platform}/{dataset_name}"
 
-#bleh, didn't need 4 classes at all. misread the design of add_dataset_tags.py
+
+# bleh, didn't need 4 classes at all. misread the design of add_dataset_tags.py
 # class BrowsePathTransformerConfig(ConfigModel):
 #     remove_prefix: str
 

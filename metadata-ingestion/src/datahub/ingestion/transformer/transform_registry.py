@@ -8,9 +8,7 @@ from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
     SimpleAddDatasetTags,
 )
-from datahub.ingestion.transformer.modify_browsepath import(
-    BrowsePathTransform
-)
+from datahub.ingestion.transformer.modify_browsepath import BrowsePathTransform
 
 transform_registry = Registry[Transformer]()
 
