@@ -562,6 +562,9 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "model_maturity": "in dev",
+                            "owner": "@alice",
+                            "some_other_property": "test 1",
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE"
@@ -1083,6 +1086,9 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "model_maturity": "in prod",
+                            "owner": "@bob",
+                            "some_other_property": "test 2",
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE"
@@ -1545,6 +1551,9 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "model_maturity": "in prod",
+                            "owner": "@charles",
+                            "some_other_property": "test 3",
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE"
