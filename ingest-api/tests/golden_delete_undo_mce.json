@@ -1,0 +1,34 @@
+[
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:csv,my_test_dataset,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": true
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:csv,my_test_dataset,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    }
+                ]
+            }
+        },
+        "proposedDelta": null
+    }
+]
