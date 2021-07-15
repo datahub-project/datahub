@@ -6,32 +6,42 @@ namespace com.linkedin.ml.metadata
 enum EndpointStatus {
 
   /**
-   * Endpoints being initialized.
+   * Endpoints out of service.
    */
-  DEPLOYING
+  OUT_OF_SERVICE
 
   /**
-   * Endpoints currently in deployment.
+   * Endpoints being created.
    */
-  DEPLOYED
-  
-  /**
-   * Endpoints being shut down.
-   */
-  SHUTTING_OFF
+  CREATING
 
   /**
-   * Endpoints that have been shut down.
+   * Endpoints being updated.
    */
-  SHUT_OFF
+  UPDATING
 
   /**
-   * Endpoints that are in an error state.
+   * Endpoints being reverted to a previous version.
    */
-  FAILING
+  ROLLING_BACK
 
   /**
-   * Endpoints with unknown status (either unmappable or unavailable)
-   */  
-  UNKNOWN
+   * Endpoints that are active.
+   */
+  IN_SERVICE
+
+  /**
+   * Endpoints being deleted.
+   */
+  DELETING
+
+  /**
+   * Endpoints with an error state.
+   */
+  FAILED
+
+  /**
+   * Endpoints with unknown/unmappable state.
+   */
+   UNKNOWN
 }

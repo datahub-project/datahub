@@ -4489,20 +4489,24 @@
                             "name": "EndpointStatus",
                             "doc": "Model endpoint statuses",
                             "symbols": [
-                              "DEPLOYING",
-                              "DEPLOYED",
-                              "SHUTTING_OFF",
-                              "SHUT_OFF",
-                              "FAILING",
+                              "OUT_OF_SERVICE",
+                              "CREATING",
+                              "UPDATING",
+                              "ROLLING_BACK",
+                              "IN_SERVICE",
+                              "DELETING",
+                              "FAILED",
                               "UNKNOWN"
                             ],
                             "symbolDocs": {
-                              "DEPLOYED": "Endpoints currently in deployment.",
-                              "DEPLOYING": "Endpoints being initialized.",
-                              "FAILING": "Endpoints that are in an error state.",
-                              "SHUTTING_OFF": "Endpoints being shut down.",
-                              "SHUT_OFF": "Endpoints that have been shut down.",
-                              "UNKNOWN": "Endpoints with unknown status (either unmappable or unavailable)"
+                              "CREATING": "Endpoints being created.",
+                              "DELETING": "Endpoints being deleted.",
+                              "FAILED": "Endpoints with an error state.",
+                              "IN_SERVICE": "Endpoints that are active.",
+                              "OUT_OF_SERVICE": "Endpoints out of service.",
+                              "ROLLING_BACK": "Endpoints being reverted to a previous version.",
+                              "UNKNOWN": "Endpoints with unknown/unmappable state.",
+                              "UPDATING": "Endpoints being updated."
                             }
                           }
                         ],

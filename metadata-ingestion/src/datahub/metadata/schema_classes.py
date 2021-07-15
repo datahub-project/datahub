@@ -5184,22 +5184,28 @@ class EndpointStatusClass(object):
     """Model endpoint statuses"""
     
     
-    """Endpoints being initialized."""
-    DEPLOYING = "DEPLOYING"
+    """Endpoints out of service."""
+    OUT_OF_SERVICE = "OUT_OF_SERVICE"
     
-    """Endpoints currently in deployment."""
-    DEPLOYED = "DEPLOYED"
+    """Endpoints being created."""
+    CREATING = "CREATING"
     
-    """Endpoints being shut down."""
-    SHUTTING_OFF = "SHUTTING_OFF"
+    """Endpoints being updated."""
+    UPDATING = "UPDATING"
     
-    """Endpoints that have been shut down."""
-    SHUT_OFF = "SHUT_OFF"
+    """Endpoints being reverted to a previous version."""
+    ROLLING_BACK = "ROLLING_BACK"
     
-    """Endpoints that are in an error state."""
-    FAILING = "FAILING"
+    """Endpoints that are active."""
+    IN_SERVICE = "IN_SERVICE"
     
-    """Endpoints with unknown status (either unmappable or unavailable)"""
+    """Endpoints being deleted."""
+    DELETING = "DELETING"
+    
+    """Endpoints with an error state."""
+    FAILED = "FAILED"
+    
+    """Endpoints with unknown/unmappable state."""
     UNKNOWN = "UNKNOWN"
     
     

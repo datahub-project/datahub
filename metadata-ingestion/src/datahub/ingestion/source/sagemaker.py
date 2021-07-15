@@ -11,6 +11,7 @@ from datahub.ingestion.source.sagemaker_processors.feature_groups import (
     FeatureGroupProcessor,
 )
 from datahub.ingestion.source.sagemaker_processors.jobs import JobProcessor
+from datahub.ingestion.source.sagemaker_processors.lineage import LineageProcessor
 from datahub.ingestion.source.sagemaker_processors.models import ModelProcessor
 
 
@@ -32,6 +33,11 @@ class SagemakerSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
+        lineage_processor = LineageProcessor(
+            sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
+        )
+        lineage = lineage_processor.get_lineage()
+
         # extract feature groups if specified
         if self.source_config.extract_feature_groups:
 
@@ -44,7 +50,10 @@ class SagemakerSource(Source):
         if self.source_config.extract_models:
 
             model_processor = ModelProcessor(
-                sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
+                sagemaker_client=self.sagemaker_client,
+                env=self.env,
+                report=self.report,
+                lineage=lineage,
             )
             yield from model_processor.get_workunits()
 

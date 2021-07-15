@@ -5,9 +5,28 @@ from typing import Any, Dict, Iterable, List
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import MLModelSnapshot
+from datahub.ingestion.source.sagemaker_processors.lineage import LineageInfo
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
+    MLModelEndpointSnapshot,
+    MLModelSnapshot,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import MLModelPropertiesClass
+from datahub.metadata.schema_classes import (
+    EndpointStatusClass,
+    MLModelEndpointPropertiesClass,
+    MLModelPropertiesClass,
+)
+
+ENDPOINT_STATUS_MAP: Dict[str, EndpointStatusClass] = {
+    "OutOfService": EndpointStatusClass.OUT_OF_SERVICE,
+    "Creating": EndpointStatusClass.CREATING,
+    "Updating": EndpointStatusClass.UPDATING,
+    "SystemUpdating": EndpointStatusClass.UPDATING,
+    "RollingBack": EndpointStatusClass.ROLLING_BACK,
+    "InService": EndpointStatusClass.IN_SERVICE,
+    "Deleting": EndpointStatusClass.DELETING,
+    "Failed": EndpointStatusClass.FAILED,
+}
 
 
 @dataclass
@@ -15,6 +34,7 @@ class ModelProcessor:
     sagemaker_client: Any
     env: str
     report: SagemakerSourceReport
+    lineage: LineageInfo
 
     def get_all_models(self) -> List[Dict[str, Any]]:
         """
@@ -56,6 +76,9 @@ class ModelProcessor:
         return self.sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
 
     def get_model_wu(self, model_details: Dict[str, Any]) -> MetadataWorkUnit:
+        """
+        Get a workunit for a model.
+        """
 
         # params to remove since we extract them
         redundant_fields = {"ModelName", "CreationTime"}
@@ -87,7 +110,76 @@ class ModelProcessor:
             mce=mce,
         )
 
+    def get_endpoint_status(
+        self, endpoint_name: str, endpoint_arn: str, sagemaker_status: str
+    ) -> EndpointStatusClass:
+        endpoint_status = ENDPOINT_STATUS_MAP.get(sagemaker_status)
+
+        if endpoint_status is None:
+
+            self.report.report_warning(
+                endpoint_arn,
+                f"Unknown status for {endpoint_name} ({endpoint_arn}): {sagemaker_status}",
+            )
+
+            endpoint_status = EndpointStatusClass.UNKNOWN
+
+        return endpoint_status
+
+    def get_endpoint_wu(self, endpoint_details: Dict[str, Any]) -> MetadataWorkUnit:
+        """
+        Get a workunit for an endpoint.
+        """
+
+        # params to remove since we extract them
+        redundant_fields = {"EndpointName", "CreationTime"}
+
+        endpoint_snapshot = MLModelEndpointSnapshot(
+            urn=builder.make_ml_endpoint_urn(
+                "sagemaker", endpoint_details["EndpointName"], self.env
+            ),
+            aspects=[
+                MLModelEndpointPropertiesClass(
+                    date=int(
+                        endpoint_details.get("CreationTime", datetime.now()).timestamp()
+                        * 1000
+                    ),
+                    status=self.get_endpoint_status(
+                        endpoint_details["EndpointArn"],
+                        endpoint_details["EndpointName"],
+                        endpoint_details.get("EndpointStatus"),
+                    ),
+                    customProperties={
+                        key: str(value)
+                        for key, value in endpoint_details.items()
+                        if key not in redundant_fields
+                    },
+                )
+            ],
+        )
+
+        # make the MCE and workunit
+        mce = MetadataChangeEvent(proposedSnapshot=endpoint_snapshot)
+
+        return MetadataWorkUnit(
+            id=f'{endpoint_details["EndpointName"]}',
+            mce=mce,
+        )
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+
+        endpoints = self.get_all_endpoints()
+        # sort endpoints for consistency
+        endpoints = sorted(endpoints, key=lambda x: x["EndpointArn"])
+
+        for endpoint in endpoints:
+
+            endpoint_details = self.get_endpoint_details(endpoint["EndpointName"])
+
+            self.report.report_endpoint_scanned()
+            wu = self.get_endpoint_wu(endpoint_details)
+            self.report.report_workunit(wu)
+            yield wu
 
         models = self.get_all_models()
         # sort models for consistency

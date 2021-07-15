@@ -1213,6 +1213,127 @@ job_stubs = {
     },
 }
 
+list_endpoints_response = {
+    "Endpoints": [
+        {
+            "EndpointName": "the-first-endpoint",
+            "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "EndpointStatus": "InService",
+        },
+        {
+            "EndpointName": "the-second-endpoint",
+            "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "EndpointStatus": "Creating",
+        },
+    ],
+}
+describe_endpoint_response_1 = {
+    "EndpointName": "the-first-endpoint",
+    "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
+    "EndpointConfigName": "string",
+    "ProductionVariants": [
+        {
+            "VariantName": "string",
+            "DeployedImages": [
+                {
+                    "SpecifiedImage": "string",
+                    "ResolvedImage": "string",
+                    "ResolutionTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+                },
+            ],
+            "CurrentWeight": 0.1,
+            "DesiredWeight": 0.1,
+            "CurrentInstanceCount": 123,
+            "DesiredInstanceCount": 123,
+        },
+    ],
+    "DataCaptureConfig": {
+        "EnableCapture": True | False,
+        "CaptureStatus": "Started", # "Started" | "Stopped"
+        "CurrentSamplingPercentage": 123,
+        "DestinationS3Uri": "string",
+        "KmsKeyId": "string",
+    },
+    "EndpointStatus": "InService",  # 'OutOfService'|'Creating'|'Updating'|'SystemUpdating'|'RollingBack'|'InService'|'Deleting'|'Failed'
+    "FailureReason": "string",
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastDeploymentConfig": {
+        "BlueGreenUpdatePolicy": {
+            "TrafficRoutingConfiguration": {
+                "Type": "ALL_AT_ONCE",  # 'ALL_AT_ONCE'|'CANARY'
+                "WaitIntervalInSeconds": 123,
+                "CanarySize": {
+                    "Type": "INSTANCE_COUNT",  # 'INSTANCE_COUNT'|'CAPACITY_PERCENT'
+                    "Value": 123,
+                },
+            },
+            "TerminationWaitInSeconds": 123,
+            "MaximumExecutionTimeoutInSeconds": 123,
+        },
+        "AutoRollbackConfiguration": {
+            "Alarms": [
+                {"AlarmName": "string"},
+            ]
+        },
+    },
+}
+describe_endpoint_response_2 = {
+    "EndpointName": "the-second-endpoint",
+    "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
+    "EndpointConfigName": "string",
+    "ProductionVariants": [
+        {
+            "VariantName": "string",
+            "DeployedImages": [
+                {
+                    "SpecifiedImage": "string",
+                    "ResolvedImage": "string",
+                    "ResolutionTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+                },
+            ],
+            "CurrentWeight": 0.1,
+            "DesiredWeight": 0.1,
+            "CurrentInstanceCount": 123,
+            "DesiredInstanceCount": 123,
+        },
+    ],
+    "DataCaptureConfig": {
+        "EnableCapture": True | False,
+        "CaptureStatus": "Started", # "Started" | "Stopped"
+        "CurrentSamplingPercentage": 123,
+        "DestinationS3Uri": "string",
+        "KmsKeyId": "string",
+    },
+    "EndpointStatus": "Creating",  # 'OutOfService'|'Creating'|'Updating'|'SystemUpdating'|'RollingBack'|'InService'|'Deleting'|'Failed'
+    "FailureReason": "string",
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastDeploymentConfig": {
+        "BlueGreenUpdatePolicy": {
+            "TrafficRoutingConfiguration": {
+                "Type": "ALL_AT_ONCE",  # 'ALL_AT_ONCE'|'CANARY'
+                "WaitIntervalInSeconds": 123,
+                "CanarySize": {
+                    "Type": "INSTANCE_COUNT",  # 'INSTANCE_COUNT'|'CAPACITY_PERCENT'
+                    "Value": 123,
+                },
+            },
+            "TerminationWaitInSeconds": 123,
+            "MaximumExecutionTimeoutInSeconds": 123,
+        },
+        "AutoRollbackConfiguration": {
+            "Alarms": [
+                {"AlarmName": "string"},
+            ]
+        },
+    },
+}
+
 list_models_response = {
     "Models": [
         {
