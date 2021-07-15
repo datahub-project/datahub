@@ -74,7 +74,7 @@ spec:
           image: datahub-frontend
           name: datahub-frontend-react
           ports:
-            - containerPort: 9002
+            - containerPort: 9001
           resources: {}
       hostname: datahub-frontend-react
       restartPolicy: Always

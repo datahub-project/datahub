@@ -6,7 +6,7 @@ RUN addgroup -S datahub && adduser -S datahub -G datahub
 RUN apk --no-cache add curl
 
 FROM openjdk:8 as prod-build
-ARG ENABLE_EMBER="false"
+ARG ENABLE_EMBER="true"
 RUN apt-get update && apt-get install -y wget \
     && wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
     && apt-get -y install ./google-chrome-stable_current_amd64.deb

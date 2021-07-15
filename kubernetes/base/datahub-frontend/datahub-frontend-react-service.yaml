@@ -10,9 +10,9 @@ metadata:
   name: datahub-frontend-react
 spec:
   ports:
-    - name: "9002"
-      port: 9002
-      targetPort: 9002
+    - name: "9001"
+      port: 9001
+      targetPort: 9001
   selector:
     io.kompose.service: datahub-frontend-react
 status:
