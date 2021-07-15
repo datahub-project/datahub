@@ -3296,6 +3296,18 @@
                         "default": null
                       },
                       {
+                        "name": "groups",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Model groups that the MLModel belongs to",
+                        "default": null
+                      },
+                      {
                         "name": "type",
                         "type": [
                           "null",

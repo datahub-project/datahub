@@ -3344,6 +3344,18 @@
                           "doc": "Version of the MLModel"
                         },
                         {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "string"
+                            }
+                          ],
+                          "name": "groups",
+                          "default": null,
+                          "doc": "Model groups that the MLModel belongs to"
+                        },
+                        {
                           "Searchable": {
                             "fieldType": "TEXT_PARTIAL"
                           },

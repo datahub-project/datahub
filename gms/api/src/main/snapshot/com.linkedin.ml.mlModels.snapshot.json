@@ -557,6 +557,14 @@
         "doc" : "Version of the MLModel",
         "optional" : true
       }, {
+        "name" : "groups",
+        "type" : {
+          "type" : "array",
+          "items" : "string"
+        },
+        "doc" : "Model groups that the MLModel belongs to",
+        "optional" : true
+      }, {
         "name" : "type",
         "type" : "string",
         "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",

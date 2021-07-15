@@ -5782,6 +5782,7 @@ class MLModelPropertiesClass(DictWrapper):
         description: Union[None, str]=None,
         date: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
+        groups: Union[None, List[str]]=None,
         type: Union[None, str]=None,
         hyperParameters: Union[None, Dict[str, Union[str, int, float, float, bool]]]=None,
         mlFeatures: Union[None, List[str]]=None,
@@ -5797,6 +5798,7 @@ class MLModelPropertiesClass(DictWrapper):
         self.description = description
         self.date = date
         self.version = version
+        self.groups = groups
         self.type = type
         self.hyperParameters = hyperParameters
         self.mlFeatures = mlFeatures
@@ -5818,6 +5820,7 @@ class MLModelPropertiesClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.date = self.RECORD_SCHEMA.field_map["date"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
+        self.groups = self.RECORD_SCHEMA.field_map["groups"].default
         self.type = self.RECORD_SCHEMA.field_map["type"].default
         self.hyperParameters = self.RECORD_SCHEMA.field_map["hyperParameters"].default
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
@@ -5866,6 +5869,17 @@ class MLModelPropertiesClass(DictWrapper):
     def version(self, value: Union[None, "VersionTagClass"]) -> None:
         """Setter: Version of the MLModel"""
         self._inner_dict['version'] = value
+    
+    
+    @property
+    def groups(self) -> Union[None, List[str]]:
+        """Getter: Model groups that the MLModel belongs to"""
+        return self._inner_dict.get('groups')  # type: ignore
+    
+    @groups.setter
+    def groups(self, value: Union[None, List[str]]) -> None:
+        """Setter: Model groups that the MLModel belongs to"""
+        self._inner_dict['groups'] = value
     
     
     @property

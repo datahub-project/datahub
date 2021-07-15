@@ -1,7 +1,7 @@
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, DefaultDict, Set
-from collections import defaultdict
+from typing import Any, DefaultDict, Dict, Iterable, List, Set
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
