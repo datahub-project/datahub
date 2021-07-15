@@ -181,6 +181,7 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "druid",
             "feast",
             "hive",
             "ldap",
