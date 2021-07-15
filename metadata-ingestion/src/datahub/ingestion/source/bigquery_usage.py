@@ -4,7 +4,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Counter, Dict, Iterable, List, Optional, Union
+from typing import Any, Counter, Dict, Iterable, List, MutableMapping, Optional, Union
 
 import cachetools
 import pydantic
@@ -218,7 +218,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
 
-    query_log_delay: pydantic.PositiveInt = 100
+    query_log_delay: Optional[pydantic.PositiveInt] = None
 
 
 @dataclass
@@ -300,11 +300,13 @@ class BigQueryUsageSource(Source):
     def _join_events_by_job_id(
         self, events: Iterable[Union[ReadEvent, QueryEvent]]
     ) -> Iterable[ReadEvent]:
-        # We only store the most recently used query events, which are used when
-        # resolving job information within the read events.
-        query_jobs: cachetools.LRUCache[str, QueryEvent] = cachetools.LRUCache(
-            maxsize=2 * self.config.query_log_delay
-        )
+        # If caching eviction is enabled, we only store the most recently used query events,
+        # which are used when resolving job information within the read events.
+        query_jobs: MutableMapping[str, QueryEvent]
+        if self.config.query_log_delay:
+            query_jobs = cachetools.LRUCache(maxsize=5 * self.config.query_log_delay)
+        else:
+            query_jobs = {}
 
         def event_processor(
             events: Iterable[Union[ReadEvent, QueryEvent]]
@@ -318,7 +320,8 @@ class BigQueryUsageSource(Source):
         # TRICKY: To account for the possibility that the query event arrives after
         # the read event in the audit logs, we wait for at least `query_log_delay`
         # additional events to be processed before attempting to resolve BigQuery
-        # job information from the logs.
+        # job information from the logs. If `query_log_delay` is None, it gets treated
+        # as an unlimited delay, which prioritizes correctness at the expense of memory usage.
         original_read_events = event_processor(events)
         delayed_read_events = delayed_iter(
             original_read_events, self.config.query_log_delay
