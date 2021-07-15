@@ -1352,13 +1352,13 @@ describe_model_response_1 = {
     "ModelName": "the-first-model",
     "PrimaryContainer": {
         "ContainerHostname": "string",
-        "Image": "string",
+        "Image": "123412341234.dkr.ecr.us-west-2.amazonaws.com/the-first-model-image",
         "ImageConfig": {
             "RepositoryAccessMode": "Platform",  # 'Platform'|'Vpc'
             "RepositoryAuthConfig": {"RepositoryCredentialsProviderArn": "string"},
         },
         "Mode": "SingleModel",  # 'SingleModel'|'MultiModel'
-        "ModelDataUrl": "string",
+        "ModelDataUrl": "s3://the-first-model-data-url/data.tar.gz",
         "Environment": {"string": "string"},
         "ModelPackageName": "string",
         "MultiModelConfig": {
@@ -1402,13 +1402,13 @@ describe_model_response_2 = {
     "ModelName": "the-second-model",
     "PrimaryContainer": {
         "ContainerHostname": "string",
-        "Image": "string",
+        "Image": "123412341234.dkr.ecr.us-west-2.amazonaws.com/the-second-model-image",
         "ImageConfig": {
             "RepositoryAccessMode": "Platform",  # 'Platform'|'Vpc'
             "RepositoryAuthConfig": {"RepositoryCredentialsProviderArn": "string"},
         },
         "Mode": "MultiModel",  # 'SingleModel'|'MultiModel'
-        "ModelDataUrl": "string",
+        "ModelDataUrl": "s3://the-second-model-data-url/data.tar.gz",
         "Environment": {"string": "string"},
         "ModelPackageName": "string",
         "MultiModelConfig": {
@@ -1451,56 +1451,140 @@ describe_model_response_2 = {
 
 list_actions_response = {
     "ActionSummaries": [
-        # {
-        #     'ActionArn': 'string',
-        #     'ActionName': 'string',
-        #     'Source': {
-        #         'SourceUri': 'string',
-        #         'SourceType': 'string',
-        #         'SourceId': 'string'
-        #     },
-        #     'ActionType': 'string',
-        #     'Status': 'Unknown'|'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped',
-        #     'CreationTime': datetime(2015, 1, 1),
-        #     'LastModifiedTime': datetime(2015, 1, 1)
-        # },
+        {
+            "ActionArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint",
+            "ActionName": "deploy-the-first-endpoint",
+            "Source": {
+                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
+                "SourceType": "ARN",
+                "SourceId": "1",
+            },
+            "ActionType": "ModelDeployment",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "ActionArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint",
+            "ActionName": "deploy-the-second-endpoint",
+            "Source": {
+                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
+                "SourceType": "ARN",
+                "SourceId": "1",
+            },
+            "ActionType": "ModelDeployment",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+    ],
+}
+
+list_first_endpoint_incoming_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint",
+            "SourceType": "Model",
+            "DestinationType": "ModelDeployment",
+            "AssociationType": "ContributedTo",
+            "DestinationName": "deploy-the-first-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        }
+    ],
+}
+
+list_first_endpoint_outgoing_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:context/the-first-endpoint-context",
+            "SourceType": "ModelDeployment",
+            "DestinationType": "Endpoint",
+            "AssociationType": "AssociatedWith",
+            "SourceName": "deploy-the-first-endpoint",
+            "DestinationName": "the-first-endpoint-artifact",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        }
+    ],
+}
+
+
+list_second_endpoint_incoming_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint",
+            "SourceType": "Model",
+            "DestinationType": "ModelDeployment",
+            "AssociationType": "ContributedTo",
+            "DestinationName": "deploy-the-second-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        }
+    ],
+}
+
+list_second_endpoint_outgoing_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:context/the-second-endpoint-context",
+            "SourceType": "ModelDeployment",
+            "DestinationType": "Endpoint",
+            "AssociationType": "AssociatedWith",
+            "SourceName": "deploy-the-second-endpoint",
+            "DestinationName": "the-second-endpoint-artifact",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        }
     ],
 }
 
 list_artifacts_response = {
     "ArtifactSummaries": [
-        # {
-        #     'ArtifactArn': 'string',
-        #     'ArtifactName': 'string',
-        #     'Source': {
-        #         'SourceUri': 'string',
-        #         'SourceTypes': [
-        #             {
-        #                 'SourceIdType': 'MD5Hash'|'S3ETag'|'S3Version'|'Custom',
-        #                 'Value': 'string'
-        #             },
-        #         ]
-        #     },
-        #     'ArtifactType': 'string',
-        #     'CreationTime': datetime(2015, 1, 1),
-        #     'LastModifiedTime': datetime(2015, 1, 1)
-        # },
+        {
+            "ArtifactArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-artifact",
+            "Source": {"SourceUri": "s3://the-first-model-data-url/data.tar.gz"},
+            "ArtifactType": "Model",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "ArtifactArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-artifact",
+            "Source": {"SourceUri": "s3://the-second-model-data-url/data.tar.gz"},
+            "ArtifactType": "Model",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
     ],
 }
 
 list_contexts_response = {
     "ContextSummaries": [
-        # {
-        #     'ContextArn': 'string',
-        #     'ContextName': 'string',
-        #     'Source': {
-        #         'SourceUri': 'string',
-        #         'SourceType': 'string',
-        #         'SourceId': 'string'
-        #     },
-        #     'ContextType': 'string',
-        #     'CreationTime': datetime(2015, 1, 1),
-        #     'LastModifiedTime': datetime(2015, 1, 1)
-        # },
-    ],
+        {
+            "ContextArn": "arn:aws:sagemaker:us-west-2:123412341234:context/the-first-endpoint-context",
+            "ContextName": "the-first-endpoint-context",
+            "Source": {
+                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
+                "SourceType": "ARN",
+                "SourceId": "Wed Jul 14 23:26:59 UTC 2021",
+            },
+            "ContextType": "Endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "ContextArn": "arn:aws:sagemaker:us-west-2:123412341234:context/the-second-endpoint-context",
+            "ContextName": "the-second-endpoint-context",
+            "Source": {
+                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
+                "SourceType": "ARN",
+                "SourceId": "Wed Jul 14 23:26:59 UTC 2021",
+            },
+            "ContextType": "Endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+    ]
 }

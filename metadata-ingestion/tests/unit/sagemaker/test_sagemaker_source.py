@@ -22,6 +22,10 @@ from tests.unit.test_sagemaker_source_stubs import (
     list_actions_response,
     list_artifacts_response,
     list_contexts_response,
+    list_first_endpoint_incoming_response,
+    list_first_endpoint_outgoing_response,
+    list_second_endpoint_incoming_response,
+    list_second_endpoint_outgoing_response,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -57,6 +61,36 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             "list_contexts",
             list_contexts_response,
             {},
+        )
+
+        sagemaker_stubber.add_response(
+            "list_associations",
+            list_first_endpoint_incoming_response,
+            {
+                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint"
+            },
+        )
+        sagemaker_stubber.add_response(
+            "list_associations",
+            list_first_endpoint_outgoing_response,
+            {
+                "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint"
+            },
+        )
+
+        sagemaker_stubber.add_response(
+            "list_associations",
+            list_second_endpoint_incoming_response,
+            {
+                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint"
+            },
+        )
+        sagemaker_stubber.add_response(
+            "list_associations",
+            list_second_endpoint_outgoing_response,
+            {
+                "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint"
+            },
         )
 
         sagemaker_stubber.add_response(
