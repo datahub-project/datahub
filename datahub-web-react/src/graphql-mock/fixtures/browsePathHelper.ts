@@ -1,5 +1,5 @@
 import { BrowseInput, BrowseResultGroup, BrowseResults, Entity, EntityType, SearchResult } from '../../types.generated';
-import { toLowerCaseEntityType } from '../helper';
+import { toLowerCaseEntityType, toTitleCase } from '../helper';
 import { EntityBrowseFn, EntityBrowsePath, GetBrowseResults, StringNumber } from '../types';
 
 type ToFlatPathsArg = {
@@ -127,7 +127,7 @@ export class BrowsePathResolver {
         paths: EntityBrowsePath[];
     }) {
         paths.forEach(({ name, paths: childPaths }) => {
-            const browsePathKey = `${prefixPathKey}${this.toTitleCase(name)}`;
+            const browsePathKey = `${prefixPathKey}${toTitleCase(name)}`;
 
             if (childPaths.length) {
                 const groups = childPaths.map<BrowseResultGroup>(
@@ -145,11 +145,6 @@ export class BrowsePathResolver {
             }
         });
     }
-
-    private toTitleCase = (str: string): string => {
-        // eslint-disable-next-line no-useless-escape
-        return `${str.charAt(0).toUpperCase()}${str.substr(1)}`.replace(/[\-_]/g, '');
-    };
 
     private sumTotalEntityByGroups = (out: number, { count = 0 }: BrowseResultGroup): number => {
         return out + count;

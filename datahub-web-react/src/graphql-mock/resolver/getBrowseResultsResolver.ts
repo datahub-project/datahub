@@ -1,15 +1,10 @@
 import * as fixtures from '../fixtures';
 import { BrowseInput } from '../../types.generated';
 import { EntityBrowseFn, GetBrowseResults } from '../types';
-import { toLowerCaseEntityType } from '../helper';
+import { toLowerCaseEntityType, toTitleCase } from '../helper';
 
-const toTitleCase = (paths: string[]): string => {
-    return paths
-        ?.map((p) => {
-            // eslint-disable-next-line no-useless-escape
-            return `${p.charAt(0).toUpperCase()}${p.substr(1)}`.replace(/[\-_]/g, '');
-        })
-        .join('');
+const toPathTitle = (paths: string[]): string => {
+    return paths?.map((p) => toTitleCase(p)).join('');
 };
 
 export const getBrowseResultsResolver = {
@@ -19,7 +14,7 @@ export const getBrowseResultsResolver = {
         const countValue = count as number;
         const paths = path as string[];
         const entityType = toLowerCaseEntityType(type);
-        const pathTitle = toTitleCase(paths);
+        const pathTitle = toPathTitle(paths);
 
         const result: GetBrowseResults | EntityBrowseFn =
             fixtures[`${entityType}BrowseResult`][`${entityType}Browse${pathTitle}`];
