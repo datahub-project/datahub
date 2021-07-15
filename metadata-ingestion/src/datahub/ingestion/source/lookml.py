@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
 from enum import Enum
-from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import pydantic
