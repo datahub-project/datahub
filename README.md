@@ -112,6 +112,7 @@ Join our [slack workspace](https://slack.datahubproject.io) for discussions and 
 
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
 
+- [DefinedCrowd](http://www.definedcrowd.com)
 - [Expedia Group](http://expedia.com)
 - [Experius](https://www.experius.nl)
 - [Geotab](https://www.geotab.com)
@@ -125,27 +126,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Viasat](https://viasat.com)
 - [Wolt](https://wolt.com)
 
-Here is a list of companies that are currently building POC or seriously evaluating DataHub.
 
-- [Amadeus](https://www.amadeus.com)
-- [Bizzy Group](https://www.bizzy.co.id)
-- [Booking.com](https://www.booking.com)
-- [City of New York, DoITT](https://www1.nyc.gov/site/doitt/index.page)
-- [Experian](https://www.experian.com)
-- [FlixBus](https://www.flixbus.com)
-- [Kindred Group](https://www.kindredgroup.com)
-- [Instructure](https://www.instructure.com)
-- [Inventec](https://www.inventec.com)
-- [Microsoft](https://microsoft.com)
-- [Morgan Stanley](https://www.morganstanley.com)
-- [Orange Telecom](https://www.orange.com)
-- [Plum Research](https://plumresearch.com)
-- [REEF Technology](https://reeftechnology.com)
-- [SpotHero](https://spothero.com)
-- [Sysco AS](https://sysco.no)
-- [University of Phoenix](https://www.phoenix.edu)
-- [Vectice](https://www.vectice.com)
-- [Weee!](https://www.sayweee.com)
 
 ## Select Articles & Talks
 

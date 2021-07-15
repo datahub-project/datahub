@@ -94,10 +94,10 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 pip install -e '.[dev]'
 
 # Run unit tests.
-pytest -m 'not slow'
+pytest -m 'not integration'
 
 # Run Docker-based integration tests.
-pytest -m 'slow'
+pytest -m 'integration'
 ```
 
 ### Sanity check code before committing

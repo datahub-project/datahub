@@ -12,7 +12,7 @@ class DruidConfig(BasicSQLAlchemyConfig):
     schema_pattern: AllowDenyPattern = AllowDenyPattern(deny=["^(lookup|sys).*"])
 
     def get_sql_alchemy_url(self):
-        return f"{super().get_sql_alchemy_url(self)}/druid/v2/sql/"
+        return f"{super().get_sql_alchemy_url()}/druid/v2/sql/"
 
     """
     The pydruid library already formats the table name correctly, so we do not

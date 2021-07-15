@@ -127,7 +127,18 @@ const dataset1 = {
             time: 0,
         },
     },
-    institutionalMemory: null,
+    institutionalMemory: {
+        elements: [
+            {
+                url: 'https://www.google.com',
+                description: 'This only points to Google',
+                created: {
+                    actor: 'urn:li:corpuser:1',
+                    time: 1612396473001,
+                },
+            },
+        ],
+    },
     usageStats: null,
 };
 
@@ -256,7 +267,6 @@ export const dataset3 = {
     },
     upstreamLineage: null,
     downstreamLineage: null,
-    schema: null,
     institutionalMemory: {
         elements: [
             {
