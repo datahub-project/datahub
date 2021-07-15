@@ -23,6 +23,15 @@ class LineageInfo:
         default_factory=lambda: defaultdict(set)
     )
 
+    # map from model URIs to groups
+    model_uri_groups: DefaultDict[str, Set[str]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
+    # map from model images to groups
+    model_image_groups: DefaultDict[str, Set[str]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
+
 
 @dataclass
 class LineageProcessor:
@@ -148,9 +157,56 @@ class LineageProcessor:
 
                 model_endpoints.add(source_uri)
 
-        for endpoint in model_endpoints:
-            self.lineage_info.model_uri_endpoints[endpoint] |= model_uris
-            self.lineage_info.model_image_endpoints[endpoint] |= model_images
+        for model_uri in model_uris:
+            self.lineage_info.model_uri_endpoints[model_uri] |= model_endpoints
+        for model_image in model_images:
+            self.lineage_info.model_image_endpoints[model_image] |= model_endpoints
+
+    def get_model_group_lineage(self, model_group_node_arn: str, node: Dict[str, Any]):
+        """
+        Get the lineage of a model group (models part of the group).
+        """
+
+        model_group_arn = node.get("Source", {}).get("SourceUri")
+        model_source_type = node.get("Source", {}).get("SourceType")
+
+        # if group ARN is invalid
+        if model_group_arn is None or model_source_type != "ARN":
+            return
+
+        group_incoming_edges = self.get_incoming_edges(model_group_node_arn)
+
+        for edge in group_incoming_edges:
+
+            # if edge is a model package, then look for models in its source edges
+            if edge["SourceType"] == "Model":
+                model_package_incoming_edges = self.get_incoming_edges(
+                    edge["SourceArn"]
+                )
+
+                for model_package_edge in model_package_incoming_edges:
+
+                    source_node = self.nodes.get(model_package_edge["SourceArn"])
+
+                    source_uri = source_node.get("Source", {}).get("SourceUri")
+
+                    if (
+                        model_package_edge["SourceType"] == "Model"
+                        and source_uri is not None
+                    ):
+
+                        self.lineage_info.model_uri_groups[source_uri].add(
+                            model_group_arn
+                        )
+
+                    elif (
+                        model_package_edge["SourceType"] == "Image"
+                        and source_uri is not None
+                    ):
+
+                        self.lineage_info.model_image_groups[source_uri].add(
+                            model_group_arn
+                        )
 
     def get_lineage(self) -> LineageInfo:
         """
@@ -171,5 +227,11 @@ class LineageProcessor:
                 and node.get("ActionType") == "ModelDeployment"
             ):
                 self.get_model_deployment_lineage(node_arn)
+
+            if (
+                node["node_type"] == "context"
+                and node.get("ContextType") == "ModelGroup"
+            ):
+                self.get_model_group_lineage(node_arn, node)
 
         return self.lineage_info
