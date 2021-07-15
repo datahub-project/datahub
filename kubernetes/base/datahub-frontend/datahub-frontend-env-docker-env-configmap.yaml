@@ -9,6 +9,7 @@ data:
   ELASTIC_CLIENT_HOST: elasticsearch.data-catalogue.svc.cluster.local
   ELASTIC_CLIENT_PORT: "9200"
   KAFKA_BOOTSTRAP_SERVER: broker.data-catalogue.svc.cluster.local:29092
+  AUTH_JAAS_ENABLED: "false"
 kind: ConfigMap
 metadata:
   creationTimestamp: null

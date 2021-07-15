@@ -71,6 +71,11 @@ spec:
                 configMapKeyRef:
                   key: KAFKA_BOOTSTRAP_SERVER
                   name: datahub-frontend-env-docker-env
+            - name: AUTH_JAAS_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  key: AUTH_JAAS_ENABLED
+                  name: datahub-frontend-env-docker-env
           image: datahub-frontend
           name: datahub-frontend-react
           ports:
