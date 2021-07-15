@@ -1252,8 +1252,8 @@ describe_endpoint_response_1 = {
         },
     ],
     "DataCaptureConfig": {
-        "EnableCapture": True | False,
-        "CaptureStatus": "Started", # "Started" | "Stopped"
+        "EnableCapture": True,
+        "CaptureStatus": "Started",  # "Started" | "Stopped"
         "CurrentSamplingPercentage": 123,
         "DestinationS3Uri": "string",
         "KmsKeyId": "string",
@@ -1273,7 +1273,7 @@ describe_endpoint_response_1 = {
                 },
             },
             "TerminationWaitInSeconds": 123,
-            "MaximumExecutionTimeoutInSeconds": 123,
+            "MaximumExecutionTimeoutInSeconds": 600,
         },
         "AutoRollbackConfiguration": {
             "Alarms": [
@@ -1303,8 +1303,8 @@ describe_endpoint_response_2 = {
         },
     ],
     "DataCaptureConfig": {
-        "EnableCapture": True | False,
-        "CaptureStatus": "Started", # "Started" | "Stopped"
+        "EnableCapture": True,
+        "CaptureStatus": "Started",  # "Started" | "Stopped"
         "CurrentSamplingPercentage": 123,
         "DestinationS3Uri": "string",
         "KmsKeyId": "string",
@@ -1324,7 +1324,7 @@ describe_endpoint_response_2 = {
                 },
             },
             "TerminationWaitInSeconds": 123,
-            "MaximumExecutionTimeoutInSeconds": 123,
+            "MaximumExecutionTimeoutInSeconds": 600,
         },
         "AutoRollbackConfiguration": {
             "Alarms": [
@@ -1447,4 +1447,60 @@ describe_model_response_2 = {
     "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
     "EnableNetworkIsolation": False,  # True | False
+}
+
+list_actions_response = {
+    "ActionSummaries": [
+        # {
+        #     'ActionArn': 'string',
+        #     'ActionName': 'string',
+        #     'Source': {
+        #         'SourceUri': 'string',
+        #         'SourceType': 'string',
+        #         'SourceId': 'string'
+        #     },
+        #     'ActionType': 'string',
+        #     'Status': 'Unknown'|'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped',
+        #     'CreationTime': datetime(2015, 1, 1),
+        #     'LastModifiedTime': datetime(2015, 1, 1)
+        # },
+    ],
+}
+
+list_artifacts_response = {
+    "ArtifactSummaries": [
+        # {
+        #     'ArtifactArn': 'string',
+        #     'ArtifactName': 'string',
+        #     'Source': {
+        #         'SourceUri': 'string',
+        #         'SourceTypes': [
+        #             {
+        #                 'SourceIdType': 'MD5Hash'|'S3ETag'|'S3Version'|'Custom',
+        #                 'Value': 'string'
+        #             },
+        #         ]
+        #     },
+        #     'ArtifactType': 'string',
+        #     'CreationTime': datetime(2015, 1, 1),
+        #     'LastModifiedTime': datetime(2015, 1, 1)
+        # },
+    ],
+}
+
+list_contexts_response = {
+    "ContextSummaries": [
+        # {
+        #     'ContextArn': 'string',
+        #     'ContextName': 'string',
+        #     'Source': {
+        #         'SourceUri': 'string',
+        #         'SourceType': 'string',
+        #         'SourceId': 'string'
+        #     },
+        #     'ContextType': 'string',
+        #     'CreationTime': datetime(2015, 1, 1),
+        #     'LastModifiedTime': datetime(2015, 1, 1)
+        # },
+    ],
 }

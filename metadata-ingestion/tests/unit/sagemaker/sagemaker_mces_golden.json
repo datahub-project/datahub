@@ -307,6 +307,66 @@
   {
     "auditHeader": null,
     "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelEndpointSnapshot": {
+        "urn": "urn:li:mlModelEndpoint:(sagemaker,the-first-endpoint,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelEndpointProperties": {
+              "customProperties": {
+                "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
+                "EndpointConfigName": "string",
+                "ProductionVariants": "[{'VariantName': 'string', 'DeployedImages': [{'SpecifiedImage': 'string', 'ResolvedImage': 'string', 'ResolutionTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}], 'CurrentWeight': 0.1, 'DesiredWeight': 0.1, 'CurrentInstanceCount': 123, 'DesiredInstanceCount': 123}]",
+                "DataCaptureConfig": "{'EnableCapture': True, 'CaptureStatus': 'Started', 'CurrentSamplingPercentage': 123, 'DestinationS3Uri': 'string', 'KmsKeyId': 'string'}",
+                "EndpointStatus": "InService",
+                "FailureReason": "string",
+                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
+              },
+              "description": null,
+              "date": 1420070400000,
+              "version": null,
+              "tags": [],
+              "status": "IN_SERVICE"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelEndpointSnapshot": {
+        "urn": "urn:li:mlModelEndpoint:(sagemaker,the-second-endpoint,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelEndpointProperties": {
+              "customProperties": {
+                "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
+                "EndpointConfigName": "string",
+                "ProductionVariants": "[{'VariantName': 'string', 'DeployedImages': [{'SpecifiedImage': 'string', 'ResolvedImage': 'string', 'ResolutionTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}], 'CurrentWeight': 0.1, 'DesiredWeight': 0.1, 'CurrentInstanceCount': 123, 'DesiredInstanceCount': 123}]",
+                "DataCaptureConfig": "{'EnableCapture': True, 'CaptureStatus': 'Started', 'CurrentSamplingPercentage': 123, 'DestinationS3Uri': 'string', 'KmsKeyId': 'string'}",
+                "EndpointStatus": "Creating",
+                "FailureReason": "string",
+                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
+              },
+              "description": null,
+              "date": 1420070400000,
+              "version": null,
+              "tags": [],
+              "status": "CREATING"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
         "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
         "aspects": [
@@ -324,6 +384,7 @@
               "description": null,
               "date": 1420070400000,
               "version": null,
+              "groups": null,
               "type": null,
               "hyperParameters": null,
               "mlFeatures": null,
@@ -355,6 +416,7 @@
               "description": null,
               "date": 1420070400000,
               "version": null,
+              "groups": null,
               "type": null,
               "hyperParameters": null,
               "mlFeatures": null,

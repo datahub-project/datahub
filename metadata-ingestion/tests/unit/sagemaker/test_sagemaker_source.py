@@ -16,6 +16,12 @@ from tests.unit.test_sagemaker_source_stubs import (
     job_stubs,
     list_feature_groups_response,
     list_models_response,
+    list_endpoints_response,
+    describe_endpoint_response_1,
+    describe_endpoint_response_2,
+    list_actions_response,
+    list_artifacts_response,
+    list_contexts_response,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -34,6 +40,24 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
     sagemaker_source_instance = sagemaker_source()
 
     with Stubber(sagemaker_source_instance.sagemaker_client) as sagemaker_stubber:
+
+        sagemaker_stubber.add_response(
+            "list_actions",
+            list_actions_response,
+            {},
+        )
+
+        sagemaker_stubber.add_response(
+            "list_artifacts",
+            list_artifacts_response,
+            {},
+        )
+
+        sagemaker_stubber.add_response(
+            "list_contexts",
+            list_contexts_response,
+            {},
+        )
 
         sagemaker_stubber.add_response(
             "list_feature_groups",
@@ -60,6 +84,24 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             {
                 "FeatureGroupName": "test",
             },
+        )
+
+        sagemaker_stubber.add_response(
+            "list_endpoints",
+            list_endpoints_response,
+            {},
+        )
+
+        sagemaker_stubber.add_response(
+            "describe_endpoint",
+            describe_endpoint_response_1,
+            {"EndpointName": "the-first-endpoint"},
+        )
+
+        sagemaker_stubber.add_response(
+            "describe_endpoint",
+            describe_endpoint_response_2,
+            {"EndpointName": "the-second-endpoint"},
         )
 
         sagemaker_stubber.add_response(

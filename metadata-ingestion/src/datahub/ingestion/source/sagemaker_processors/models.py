@@ -58,7 +58,7 @@ class ModelProcessor:
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_model
         return self.sagemaker_client.describe_model(ModelName=model_name)
 
-    def list_endpoints(self) -> List[Dict[str, Any]]:
+    def get_all_endpoints(self) -> List[Dict[str, Any]]:
 
         endpoints = []
 
@@ -135,7 +135,7 @@ class ModelProcessor:
         redundant_fields = {"EndpointName", "CreationTime"}
 
         endpoint_snapshot = MLModelEndpointSnapshot(
-            urn=builder.make_ml_endpoint_urn(
+            urn=builder.make_ml_model_endpoint_urn(
                 "sagemaker", endpoint_details["EndpointName"], self.env
             ),
             aspects=[
