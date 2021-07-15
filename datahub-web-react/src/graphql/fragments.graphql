@@ -388,7 +388,13 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     urn
     type
     name
-    platform
+    platform {
+        name
+        info {
+            displayName
+            logoUrl
+        }
+    }
     description
     featureTableProperties {
         description

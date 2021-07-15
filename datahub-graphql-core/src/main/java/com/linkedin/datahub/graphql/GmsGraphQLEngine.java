@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLFeatureTableProperties;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
@@ -578,6 +579,13 @@ public class GmsGraphQLEngine {
      */
     private static void configureMLFeatureTableResolvers(final RuntimeWiring.Builder builder) {
         builder
+                .type("MLFeatureTable", typeWiring -> typeWiring
+                        .dataFetcher("platform", new AuthenticatedResolver<>(
+                                new LoadableTypeResolver<>(
+                                        DATA_PLATFORM_TYPE,
+                                        (env) -> ((MLFeatureTable) env.getSource()).getPlatform().getUrn()))
+                        )
+                )
                 .type("MLFeatureTableProperties", typeWiring -> typeWiring
                         .dataFetcher("mlFeatures", new AuthenticatedResolver<>(
                                         new LoadableTypeBatchResolver<>(

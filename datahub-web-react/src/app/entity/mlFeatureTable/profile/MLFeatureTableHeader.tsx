@@ -1,4 +1,4 @@
-import { Row, Space, Typography } from 'antd';
+import { Image, Row, Space, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { MlFeatureTable } from '../../../../types.generated';
@@ -17,6 +17,12 @@ const HeaderInfoItem = styled.div`
 const PlatformName = styled(Typography.Text)`
     font-size: 16px;
 `;
+const PreviewImage = styled(Image)`
+    max-height: 20px;
+    padding-top: 3px;
+    width: auto;
+    object-fit: contain;
+`;
 
 export type Props = {
     mlFeatureTable: MlFeatureTable;
@@ -30,16 +36,26 @@ export default function MLFeatureTableHeader({ mlFeatureTable: { platform, descr
         <>
             <Space direction="vertical" size="middle">
                 <Row justify="space-between">
-                    <HeaderInfoItem>
-                        <div>
-                            <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
-                                Platform
-                            </Typography.Text>
-                        </div>
-                        <Space direction="horizontal">
-                            {platform ? <PlatformName>{platform}</PlatformName> : null}
-                        </Space>
-                    </HeaderInfoItem>
+                    {platform ? (
+                        <HeaderInfoItem>
+                            <div>
+                                <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
+                                    Platform
+                                </Typography.Text>
+                            </div>
+                            <Space direction="horizontal">
+                                {platform.info?.logoUrl ? (
+                                    <PreviewImage
+                                        preview={false}
+                                        src={platform.info?.logoUrl}
+                                        placeholder
+                                        alt={platform.name}
+                                    />
+                                ) : null}
+                                <PlatformName>{platform.name}</PlatformName>
+                            </Space>
+                        </HeaderInfoItem>
+                    ) : null}
                 </Row>
                 <MarkdownViewer isCompact={isCompact} source={description || ''} />
                 <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />

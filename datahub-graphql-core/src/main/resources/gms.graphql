@@ -2332,9 +2332,9 @@ type MLFeatureTable implements Entity {
     name: String!
 
     """
-    MLFeatureTable platform name
+    Standardized platform urn where the MLFeatureTable is defined
     """
-    platform: String!
+    platform: DataPlatform
 
     """
     MLFeatureTable description
