@@ -4354,6 +4354,169 @@
         },
         {
           "type": "record",
+          "name": "MLModelEndpointSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "MLModelEndpointKey",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                    "doc": "Key for an ML model endpoint",
+                    "fields": [
+                      {
+                        "name": "platform",
+                        "type": "string",
+                        "doc": "Standardized platform urn for the model endpoint",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "fieldType": "URN"
+                        },
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        }
+                      },
+                      {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Name of the MLModelEndpoint",
+                        "Searchable": {
+                          "boostScore": 10.0,
+                          "enableAutocomplete": true,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      },
+                      {
+                        "name": "origin",
+                        "type": "com.linkedin.pegasus2avro.common.FabricType",
+                        "doc": "Fabric type where model endpoint belongs to or where it was generated",
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL",
+                          "queryByDefault": false
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlModelEndpointKey"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "MLModelEndpointProperties",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Properties associated with an ML Model Endpoint",
+                    "fields": [
+                      {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "Custom property bag.",
+                        "default": {}
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the MLModelEndpoint",
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT",
+                          "hasValuesFieldName": "hasDescription"
+                        }
+                      },
+                      {
+                        "name": "date",
+                        "type": [
+                          "null",
+                          "long"
+                        ],
+                        "doc": "Date when the MLModelEndpoint was developed",
+                        "default": null
+                      },
+                      {
+                        "name": "version",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.VersionTag"
+                        ],
+                        "doc": "Version of the MLModelEndpoint",
+                        "default": null
+                      },
+                      {
+                        "name": "tags",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "Tags for the MLModelEndpoint",
+                        "default": []
+                      },
+                      {
+                        "name": "status",
+                        "type": [
+                          "null",
+                          {
+                            "type": "enum",
+                            "name": "EndpointStatus",
+                            "doc": "Model endpoint statuses",
+                            "symbols": [
+                              "DEPLOYING",
+                              "DEPLOYED",
+                              "SHUTTING_OFF",
+                              "SHUT_OFF",
+                              "FAILING",
+                              "UNKNOWN"
+                            ],
+                            "symbolDocs": {
+                              "DEPLOYED": "Endpoints currently in deployment.",
+                              "DEPLOYING": "Endpoints being initialized.",
+                              "FAILING": "Endpoints that are in an error state.",
+                              "SHUTTING_OFF": "Endpoints being shut down.",
+                              "SHUT_OFF": "Endpoints that have been shut down.",
+                              "UNKNOWN": "Endpoints with unknown status (either unmappable or unavailable)"
+                            }
+                          }
+                        ],
+                        "doc": "Status of the endpoint",
+                        "default": null
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlModelEndpointProperties"
+                    }
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  "com.linkedin.pegasus2avro.common.Status",
+                  "com.linkedin.pegasus2avro.common.Deprecation",
+                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the MLModelEndpoint. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ],
+          "Entity": {
+            "keyAspect": "mlModelEndpointKey",
+            "name": "mlModelEndpoint"
+          }
+        },
+        {
+          "type": "record",
           "name": "TagSnapshot",
           "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
           "doc": "A metadata snapshot for a specific dataset entity.",

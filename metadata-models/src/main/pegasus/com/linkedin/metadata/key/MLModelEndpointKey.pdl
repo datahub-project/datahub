@@ -1,0 +1,40 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for an ML model endpoint
+ */
+@Aspect = {
+  "name": "mlModelEndpointKey"
+}
+record MLModelEndpointKey {
+  /**
+  * Standardized platform urn for the model endpoint
+  */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": true
+  }
+  platform: Urn
+
+  /**
+  * Name of the MLModelEndpoint
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+  * Fabric type where model endpoint belongs to or where it was generated
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": false
+  }
+  origin: FabricType
+}

@@ -38,6 +38,23 @@ class ModelProcessor:
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_model
         return self.sagemaker_client.describe_model(ModelName=model_name)
 
+    def list_endpoints(self) -> List[Dict[str, Any]]:
+
+        endpoints = []
+
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_endpoints
+        paginator = self.sagemaker_client.get_paginator("list_endpoints")
+
+        for page in paginator.paginate():
+            endpoints += page["Endpoints"]
+
+        return endpoints
+
+    def get_endpoint_details(self, endpoint_name: str) -> Dict[str, Any]:
+
+        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_endpoint
+        return self.sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
+
     def get_model_wu(self, model_details: Dict[str, Any]) -> MetadataWorkUnit:
 
         # params to remove since we extract them

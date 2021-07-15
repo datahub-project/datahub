@@ -3994,6 +3994,67 @@ class MLFeatureTableKeyClass(DictWrapper):
         self._inner_dict['name'] = value
     
     
+class MLModelEndpointKeyClass(DictWrapper):
+    """Key for an ML model endpoint"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.MLModelEndpointKey")
+    def __init__(self,
+        platform: str,
+        name: str,
+        origin: Union[str, "FabricTypeClass"],
+    ):
+        super().__init__()
+        
+        self.platform = platform
+        self.name = name
+        self.origin = origin
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MLModelEndpointKeyClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.platform = str()
+        self.name = str()
+        self.origin = FabricTypeClass.DEV
+    
+    
+    @property
+    def platform(self) -> str:
+        """Getter: Standardized platform urn for the model endpoint"""
+        return self._inner_dict.get('platform')  # type: ignore
+    
+    @platform.setter
+    def platform(self, value: str) -> None:
+        """Setter: Standardized platform urn for the model endpoint"""
+        self._inner_dict['platform'] = value
+    
+    
+    @property
+    def name(self) -> str:
+        """Getter: Name of the MLModelEndpoint"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        """Setter: Name of the MLModelEndpoint"""
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def origin(self) -> Union[str, "FabricTypeClass"]:
+        """Getter: Fabric type where model endpoint belongs to or where it was generated"""
+        return self._inner_dict.get('origin')  # type: ignore
+    
+    @origin.setter
+    def origin(self, value: Union[str, "FabricTypeClass"]) -> None:
+        """Setter: Fabric type where model endpoint belongs to or where it was generated"""
+        self._inner_dict['origin'] = value
+    
+    
 class MLModelKeyClass(DictWrapper):
     """Key for an ML model"""
     
@@ -4746,6 +4807,53 @@ class MLFeatureTableSnapshotClass(DictWrapper):
         self._inner_dict['aspects'] = value
     
     
+class MLModelEndpointSnapshotClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.MLModelEndpointSnapshot")
+    def __init__(self,
+        urn: str,
+        aspects: List[Union["MLModelEndpointKeyClass", "MLModelEndpointPropertiesClass", "OwnershipClass", "StatusClass", "DeprecationClass", "BrowsePathsClass"]],
+    ):
+        super().__init__()
+        
+        self.urn = urn
+        self.aspects = aspects
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MLModelEndpointSnapshotClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.urn = str()
+        self.aspects = list()
+    
+    
+    @property
+    def urn(self) -> str:
+        """Getter: URN for the entity the metadata snapshot is associated with."""
+        return self._inner_dict.get('urn')  # type: ignore
+    
+    @urn.setter
+    def urn(self, value: str) -> None:
+        """Setter: URN for the entity the metadata snapshot is associated with."""
+        self._inner_dict['urn'] = value
+    
+    
+    @property
+    def aspects(self) -> List[Union["MLModelEndpointKeyClass", "MLModelEndpointPropertiesClass", "OwnershipClass", "StatusClass", "DeprecationClass", "BrowsePathsClass"]]:
+        """Getter: The list of metadata aspects associated with the MLModelEndpoint. Depending on the use case, this can either be all, or a selection, of supported aspects."""
+        return self._inner_dict.get('aspects')  # type: ignore
+    
+    @aspects.setter
+    def aspects(self, value: List[Union["MLModelEndpointKeyClass", "MLModelEndpointPropertiesClass", "OwnershipClass", "StatusClass", "DeprecationClass", "BrowsePathsClass"]]) -> None:
+        """Setter: The list of metadata aspects associated with the MLModelEndpoint. Depending on the use case, this can either be all, or a selection, of supported aspects."""
+        self._inner_dict['aspects'] = value
+    
+    
 class MLModelSnapshotClass(DictWrapper):
     """MLModel Snapshot entity details."""
     
@@ -5070,6 +5178,29 @@ class CaveatsAndRecommendationsClass(DictWrapper):
     def idealDatasetCharacteristics(self, value: Union[None, List[str]]) -> None:
         """Setter: Ideal characteristics of an evaluation dataset for this MLModel"""
         self._inner_dict['idealDatasetCharacteristics'] = value
+    
+    
+class EndpointStatusClass(object):
+    """Model endpoint statuses"""
+    
+    
+    """Endpoints being initialized."""
+    DEPLOYING = "DEPLOYING"
+    
+    """Endpoints currently in deployment."""
+    DEPLOYED = "DEPLOYED"
+    
+    """Endpoints being shut down."""
+    SHUTTING_OFF = "SHUTTING_OFF"
+    
+    """Endpoints that have been shut down."""
+    SHUT_OFF = "SHUT_OFF"
+    
+    """Endpoints that are in an error state."""
+    FAILING = "FAILING"
+    
+    """Endpoints with unknown status (either unmappable or unavailable)"""
+    UNKNOWN = "UNKNOWN"
     
     
 class EthicalConsiderationsClass(DictWrapper):
@@ -5415,6 +5546,117 @@ class MLFeatureTablePropertiesClass(DictWrapper):
     def mlPrimaryKeys(self, value: Union[None, List[str]]) -> None:
         """Setter: List of primary keys in the feature table (if multiple, assumed to act as a composite key)"""
         self._inner_dict['mlPrimaryKeys'] = value
+    
+    
+class MLModelEndpointPropertiesClass(DictWrapper):
+    """Properties associated with an ML Model Endpoint"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLModelEndpointProperties")
+    def __init__(self,
+        customProperties: Optional[Dict[str, str]]=None,
+        description: Union[None, str]=None,
+        date: Union[None, int]=None,
+        version: Union[None, "VersionTagClass"]=None,
+        tags: Optional[List[str]]=None,
+        status: Union[None, Union[str, "EndpointStatusClass"]]=None,
+    ):
+        super().__init__()
+        
+        if customProperties is None:
+            # default: {}
+            self.customProperties = dict()
+        else:
+            self.customProperties = customProperties
+        self.description = description
+        self.date = date
+        self.version = version
+        if tags is None:
+            # default: []
+            self.tags = list()
+        else:
+            self.tags = tags
+        self.status = status
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MLModelEndpointPropertiesClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.customProperties = dict()
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
+        self.date = self.RECORD_SCHEMA.field_map["date"].default
+        self.version = self.RECORD_SCHEMA.field_map["version"].default
+        self.tags = list()
+        self.status = self.RECORD_SCHEMA.field_map["status"].default
+    
+    
+    @property
+    def customProperties(self) -> Dict[str, str]:
+        """Getter: Custom property bag."""
+        return self._inner_dict.get('customProperties')  # type: ignore
+    
+    @customProperties.setter
+    def customProperties(self, value: Dict[str, str]) -> None:
+        """Setter: Custom property bag."""
+        self._inner_dict['customProperties'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Getter: Documentation of the MLModelEndpoint"""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        """Setter: Documentation of the MLModelEndpoint"""
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def date(self) -> Union[None, int]:
+        """Getter: Date when the MLModelEndpoint was developed"""
+        return self._inner_dict.get('date')  # type: ignore
+    
+    @date.setter
+    def date(self, value: Union[None, int]) -> None:
+        """Setter: Date when the MLModelEndpoint was developed"""
+        self._inner_dict['date'] = value
+    
+    
+    @property
+    def version(self) -> Union[None, "VersionTagClass"]:
+        """Getter: Version of the MLModelEndpoint"""
+        return self._inner_dict.get('version')  # type: ignore
+    
+    @version.setter
+    def version(self, value: Union[None, "VersionTagClass"]) -> None:
+        """Setter: Version of the MLModelEndpoint"""
+        self._inner_dict['version'] = value
+    
+    
+    @property
+    def tags(self) -> List[str]:
+        """Getter: Tags for the MLModelEndpoint"""
+        return self._inner_dict.get('tags')  # type: ignore
+    
+    @tags.setter
+    def tags(self, value: List[str]) -> None:
+        """Setter: Tags for the MLModelEndpoint"""
+        self._inner_dict['tags'] = value
+    
+    
+    @property
+    def status(self) -> Union[None, Union[str, "EndpointStatusClass"]]:
+        """Getter: Status of the endpoint"""
+        return self._inner_dict.get('status')  # type: ignore
+    
+    @status.setter
+    def status(self, value: Union[None, Union[str, "EndpointStatusClass"]]) -> None:
+        """Setter: Status of the endpoint"""
+        self._inner_dict['status'] = value
     
     
 class MLModelFactorPromptsClass(DictWrapper):
@@ -5965,9 +6207,9 @@ class MetadataAuditEventClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataAuditEvent")
     def __init__(self,
-        newSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
+        newSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelEndpointSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
         auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
-        oldSnapshot: Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]=None,
+        oldSnapshot: Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelEndpointSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]=None,
     ):
         super().__init__()
         
@@ -6000,23 +6242,23 @@ class MetadataAuditEventClass(DictWrapper):
     
     
     @property
-    def oldSnapshot(self) -> Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
+    def oldSnapshot(self) -> Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelEndpointSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
         """Getter: Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot."""
         return self._inner_dict.get('oldSnapshot')  # type: ignore
     
     @oldSnapshot.setter
-    def oldSnapshot(self, value: Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
+    def oldSnapshot(self, value: Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelEndpointSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
         """Setter: Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot."""
         self._inner_dict['oldSnapshot'] = value
     
     
     @property
-    def newSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
+    def newSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelEndpointSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
         """Getter: Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."""
         return self._inner_dict.get('newSnapshot')  # type: ignore
     
     @newSnapshot.setter
-    def newSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
+    def newSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelEndpointSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
         """Setter: Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."""
         self._inner_dict['newSnapshot'] = value
     
@@ -6026,7 +6268,7 @@ class MetadataChangeEventClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataChangeEvent")
     def __init__(self,
-        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
+        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelEndpointSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
         auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
         proposedDelta: None=None,
     ):
@@ -6061,12 +6303,12 @@ class MetadataChangeEventClass(DictWrapper):
     
     
     @property
-    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
+    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelEndpointSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
         """Getter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         return self._inner_dict.get('proposedSnapshot')  # type: ignore
     
     @proposedSnapshot.setter
-    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
+    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelEndpointSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
         """Setter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         self._inner_dict['proposedSnapshot'] = value
     
@@ -7799,6 +8041,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.key.GlossaryTermKey': GlossaryTermKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLFeatureKey': MLFeatureKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLFeatureTableKey': MLFeatureTableKeyClass,
+    'com.linkedin.pegasus2avro.metadata.key.MLModelEndpointKey': MLModelEndpointKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLModelKey': MLModelKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.MLPrimaryKeyKey': MLPrimaryKeyKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.TagKey': TagKeyClass,
@@ -7815,18 +8058,21 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot': GlossaryTermSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot': MLFeatureSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot': MLFeatureTableSnapshotClass,
+    'com.linkedin.pegasus2avro.metadata.snapshot.MLModelEndpointSnapshot': MLModelEndpointSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot': MLModelSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot': MLPrimaryKeySnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot': TagSnapshotClass,
     'com.linkedin.pegasus2avro.ml.metadata.BaseData': BaseDataClass,
     'com.linkedin.pegasus2avro.ml.metadata.CaveatDetails': CaveatDetailsClass,
     'com.linkedin.pegasus2avro.ml.metadata.CaveatsAndRecommendations': CaveatsAndRecommendationsClass,
+    'com.linkedin.pegasus2avro.ml.metadata.EndpointStatus': EndpointStatusClass,
     'com.linkedin.pegasus2avro.ml.metadata.EthicalConsiderations': EthicalConsiderationsClass,
     'com.linkedin.pegasus2avro.ml.metadata.EvaluationData': EvaluationDataClass,
     'com.linkedin.pegasus2avro.ml.metadata.IntendedUse': IntendedUseClass,
     'com.linkedin.pegasus2avro.ml.metadata.IntendedUserType': IntendedUserTypeClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties': MLFeaturePropertiesClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties': MLFeatureTablePropertiesClass,
+    'com.linkedin.pegasus2avro.ml.metadata.MLModelEndpointProperties': MLModelEndpointPropertiesClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelFactorPrompts': MLModelFactorPromptsClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelFactors': MLModelFactorsClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelProperties': MLModelPropertiesClass,
@@ -7946,6 +8192,7 @@ __SCHEMA_TYPES = {
     'GlossaryTermKey': GlossaryTermKeyClass,
     'MLFeatureKey': MLFeatureKeyClass,
     'MLFeatureTableKey': MLFeatureTableKeyClass,
+    'MLModelEndpointKey': MLModelEndpointKeyClass,
     'MLModelKey': MLModelKeyClass,
     'MLPrimaryKeyKey': MLPrimaryKeyKeyClass,
     'TagKey': TagKeyClass,
@@ -7962,18 +8209,21 @@ __SCHEMA_TYPES = {
     'GlossaryTermSnapshot': GlossaryTermSnapshotClass,
     'MLFeatureSnapshot': MLFeatureSnapshotClass,
     'MLFeatureTableSnapshot': MLFeatureTableSnapshotClass,
+    'MLModelEndpointSnapshot': MLModelEndpointSnapshotClass,
     'MLModelSnapshot': MLModelSnapshotClass,
     'MLPrimaryKeySnapshot': MLPrimaryKeySnapshotClass,
     'TagSnapshot': TagSnapshotClass,
     'BaseData': BaseDataClass,
     'CaveatDetails': CaveatDetailsClass,
     'CaveatsAndRecommendations': CaveatsAndRecommendationsClass,
+    'EndpointStatus': EndpointStatusClass,
     'EthicalConsiderations': EthicalConsiderationsClass,
     'EvaluationData': EvaluationDataClass,
     'IntendedUse': IntendedUseClass,
     'IntendedUserType': IntendedUserTypeClass,
     'MLFeatureProperties': MLFeaturePropertiesClass,
     'MLFeatureTableProperties': MLFeatureTablePropertiesClass,
+    'MLModelEndpointProperties': MLModelEndpointPropertiesClass,
     'MLModelFactorPrompts': MLModelFactorPromptsClass,
     'MLModelFactors': MLModelFactorsClass,
     'MLModelProperties': MLModelPropertiesClass,

@@ -1,0 +1,44 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.MLModelUrn
+import com.linkedin.common.Time
+import com.linkedin.common.VersionTag
+import com.linkedin.common.CustomProperties
+
+/**
+ * Properties associated with an ML Model Endpoint
+ */
+@Aspect = {
+  "name": "mlModelEndpointProperties"
+}
+record MLModelEndpointProperties includes CustomProperties {
+
+  /**
+   * Documentation of the MLModelEndpoint
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * Date when the MLModelEndpoint was developed
+   */
+  date: optional Time
+
+  /**
+   * Version of the MLModelEndpoint
+   */
+  version: optional VersionTag
+
+  /**
+   * Tags for the MLModelEndpoint
+   */
+  tags: array[string] = [ ]
+    
+  /**
+   * Status of the endpoint
+   */
+  status: optional EndpointStatus
+}
