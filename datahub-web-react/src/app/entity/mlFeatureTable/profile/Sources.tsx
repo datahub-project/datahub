@@ -1,9 +1,7 @@
-import { Button, List, Typography } from 'antd';
+import { List, Typography } from 'antd';
 import React from 'react';
-import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { MlFeature, MlPrimaryKey, EntityType } from '../../../../types.generated';
-import { navigateToLineageUrl } from '../../../lineage/utils/navigateToLineageUrl';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 
@@ -18,16 +16,17 @@ const ViewRawButtonContainer = styled.div`
 
 export default function SourcesView({ sources }: Props) {
     const entityRegistry = useEntityRegistry();
-    const history = useHistory();
-    const location = useLocation();
 
     return (
         <>
             <div>
                 <ViewRawButtonContainer>
-                    <Button onClick={() => navigateToLineageUrl({ location, history, isLineageMode: true })}>
-                        View Graph
-                    </Button>
+                    {
+                        // ToDo: uncomment below these after refactored Lineage to support dynamic entities
+                        /* <Button onClick={() => navigateToLineageUrl({ location, history, isLineageMode: true })}>
+                            View Graph
+                        </Button> */
+                    }
                 </ViewRawButtonContainer>
             </div>
             <List
