@@ -28,6 +28,10 @@ profiles:
       - image: datahub-gms
         docker:
           dockerfile: ./docker/datahub-gms/Dockerfile
+    deploy:
+      statusCheckDeadlineSeconds: 1200
+      kustomize:
+        path: ./kubernetes/dev/tokyo/datahub-gms
   - name: dev-tokyo-gms-graphql
     build:
       tagPolicy:
@@ -40,7 +44,7 @@ profiles:
     deploy:
       statusCheckDeadlineSeconds: 1200
       kustomize:
-        path: ./kubernetes/dev/tokyo/datahub-gms
+        path: ./kubernetes/dev/tokyo/datahub-gms-graphql
   - name: dev-tokyo-frontend
     build:
       tagPolicy:
@@ -120,6 +124,10 @@ profiles:
       - image: datahub-gms-graphql
         docker:
           dockerfile: ./docker/datahub-gms-graphql-service/Dockerfile
+    deploy:
+      statusCheckDeadlineSeconds: 1200
+      kustomize:
+        path: ./kubernetes/prd/tokyo/datahub-gms-graphql
   - name: prd-tokyo-frontend
     build:
       tagPolicy:
