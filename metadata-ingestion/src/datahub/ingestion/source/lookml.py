@@ -397,7 +397,7 @@ class LookMLSource(Source):  # pragma: no cover
                 f"Could not find a platform for looker view with connection: {connection}"
             )
 
-    def _get_upsteam_lineage(self, looker_view: LookerView) -> UpstreamLineage:
+    def _get_upstream_lineage(self, looker_view: LookerView) -> UpstreamLineage:
         upstreams = []
         for sql_table_name in looker_view.sql_table_names:
             upstream = UpstreamClass(
@@ -498,7 +498,7 @@ class LookMLSource(Source):  # pragma: no cover
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))
-        dataset_snapshot.aspects.append(self._get_upsteam_lineage(looker_view))
+        dataset_snapshot.aspects.append(self._get_upstream_lineage(looker_view))
         dataset_snapshot.aspects.append(self._get_schema(looker_view))
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
