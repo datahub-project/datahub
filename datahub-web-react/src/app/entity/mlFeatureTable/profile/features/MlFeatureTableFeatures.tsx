@@ -7,12 +7,12 @@ import MlFeatureDataTypeIcon from './MlFeatureDataTypeIcon';
 import { MlFeatureDataType, MlPrimaryKey, MlFeature } from '../../../../../types.generated';
 import MarkdownViewer from '../../../shared/MarkdownViewer';
 
-const SchemaContainer = styled.div`
+const FeaturesContainer = styled.div`
     margin-bottom: 100px;
 `;
 
 export type Props = {
-    sources: Array<MlFeature | MlPrimaryKey>;
+    features: Array<MlFeature | MlPrimaryKey>;
 };
 
 const defaultColumns = [
@@ -50,18 +50,18 @@ const defaultColumns = [
     },
 ];
 
-export default function MlFeatureTableSchema({ sources }: Props) {
+export default function MlFeatureTableFeatures({ features }: Props) {
     return (
-        <SchemaContainer>
-            {sources && sources.length > 0 && (
+        <FeaturesContainer>
+            {features && features.length > 0 && (
                 <Table
                     columns={defaultColumns}
-                    dataSource={sources}
+                    dataSource={features}
                     rowKey={(record) => `${record.dataType}-${record.name}`}
                     expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
                     pagination={false}
                 />
             )}
-        </SchemaContainer>
+        </FeaturesContainer>
     );
 }

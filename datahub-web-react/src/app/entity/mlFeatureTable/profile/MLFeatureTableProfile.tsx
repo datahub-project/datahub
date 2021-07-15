@@ -9,7 +9,7 @@ import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType } from '../../../analytics';
 import { notEmpty } from '../../shared/utils';
-import MlFeatureTableSchema from './schema/MlFeatureTableSchema';
+import MlFeatureTableFeatures from './features/MlFeatureTableFeatures';
 import SourcesView from './Sources';
 
 export enum TabType {
@@ -31,11 +31,11 @@ export const MLFeatureTableProfile = ({ urn }: { urn: string }): JSX.Element => 
     const getHeader = (mlFeatureTable: MlFeatureTable) => <MLFeatureTableHeader mlFeatureTable={mlFeatureTable} />;
 
     const getTabs = ({ ownership, featureTableProperties }: MlFeatureTable) => {
-        const sources: Array<MlFeature | MlPrimaryKey> =
+        const features: Array<MlFeature | MlPrimaryKey> =
             featureTableProperties && (featureTableProperties?.mlFeatures || featureTableProperties?.mlPrimaryKeys)
                 ? [
-                      ...(featureTableProperties?.mlFeatures || []),
                       ...(featureTableProperties?.mlPrimaryKeys || []),
+                      ...(featureTableProperties?.mlFeatures || []),
                   ].filter(notEmpty)
                 : [];
 
@@ -43,12 +43,12 @@ export const MLFeatureTableProfile = ({ urn }: { urn: string }): JSX.Element => 
             {
                 name: TabType.Features,
                 path: TabType.Features.toLowerCase(),
-                content: <MlFeatureTableSchema sources={sources} />,
+                content: <MlFeatureTableFeatures features={features} />,
             },
             {
                 name: TabType.Sources,
                 path: TabType.Sources.toLowerCase(),
-                content: <SourcesView sources={sources} />,
+                content: <SourcesView features={features} />,
             },
             {
                 name: TabType.Ownership,
