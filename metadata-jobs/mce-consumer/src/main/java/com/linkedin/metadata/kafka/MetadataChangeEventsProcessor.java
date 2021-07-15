@@ -52,7 +52,7 @@ public class MetadataChangeEventsProcessor {
 
     try {
       event = EventUtils.avroToPegasusMCE(record);
-      log.debug("MetadataChangeEvent {}", event);
+      log.info("MetadataChangeEvent {}", event);
       if (event.hasProposedSnapshot()) {
         processProposedSnapshot(event);
       }
