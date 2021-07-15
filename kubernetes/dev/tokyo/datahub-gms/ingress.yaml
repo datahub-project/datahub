@@ -22,7 +22,7 @@ spec:
               servicePort: use-annotation
           - backend:
               serviceName: datahub-frontend-react
-              servicePort: 9001
+              servicePort: 9002
     - host: "kibana.dev.smartnews.net"
       http:
         paths:
