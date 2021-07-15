@@ -29,6 +29,8 @@ class LineageProcessor:
     sagemaker_client: Any
     env: str
     report: SagemakerSourceReport
+    nodes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    lineage_info: LineageInfo = field(default_factory=LineageInfo)
 
     def get_all_actions(self) -> List[Dict[str, Any]]:
         """
@@ -99,82 +101,75 @@ class LineageProcessor:
 
         return edges
 
-    def get_lineage(self):
+    def get_model_deployment_lineage(self, deployment_node_arn: str):
+        """
+        Get the lineage of a model deployment (input models and output endpoints).
+        """
+
+        # if a node's action type is a ModelDeployment, then the incoming edges will be
+        # the model(s) being deployed, and the outgoing edges will be the endpoint(s) created
+        incoming_edges = self.get_incoming_edges(deployment_node_arn)
+        outgoing_edges = self.get_outgoing_edges(deployment_node_arn)
+
+        model_uris = set()
+        model_images = set()
+
+        for edge in incoming_edges:
+
+            source_node = self.nodes.get(edge["SourceArn"])
+
+            if source_node is None:
+                continue
+
+            source_uri = source_node.get("Source", {}).get("SourceUri")
+
+            if edge["SourceType"] == "Model" and source_uri is not None:
+                model_uris.add(source_uri)
+            elif edge["SourceType"] == "Image" and source_uri is not None:
+                model_images.add(source_uri)
+
+        model_endpoints = set()
+
+        for edge in outgoing_edges:
+
+            destination_node = self.nodes[edge["DestinationArn"]]
+
+            if destination_node is None:
+                continue
+
+            source_uri = destination_node.get("Source", {}).get("SourceUri")
+            source_type = destination_node.get("Source", {}).get("SourceType")
+
+            if (
+                edge["DestinationType"] == "Endpoint"
+                and source_uri is not None
+                and source_type == "ARN"
+            ):
+
+                model_endpoints.add(source_uri)
+
+        for endpoint in model_endpoints:
+            self.lineage_info.model_uri_endpoints[endpoint] |= model_uris
+            self.lineage_info.model_image_endpoints[endpoint] |= model_images
+
+    def get_lineage(self) -> LineageInfo:
         """
         Get the lineage of all artifacts in SageMaker.
         """
 
-        nodes = {}
-
-        edges = {}
-
         for action in self.get_all_actions():
-            nodes[action["ActionArn"]] = {**action, "node_type": "action"}
+            self.nodes[action["ActionArn"]] = {**action, "node_type": "action"}
         for artifact in self.get_all_artifacts():
-            nodes[artifact["ArtifactArn"]] = {**artifact, "node_type": "artifact"}
+            self.nodes[artifact["ArtifactArn"]] = {**artifact, "node_type": "artifact"}
         for context in self.get_all_contexts():
-            nodes[context["ContextArn"]] = {**context, "node_type": "context"}
+            self.nodes[context["ContextArn"]] = {**context, "node_type": "context"}
 
-        # a map from model URIs to a set of ARNs for endpoints
-        model_uri_endpoints = defaultdict(set)
-        # a map from model images to a set of ARNs for endpoints
-        model_image_endpoints = defaultdict(set)
+        for node_arn, node in self.nodes.items():
 
-        for node_arn, node in nodes.items():
+            if (
+                node["node_type"] == "action"
+                and node.get("ActionType") == "ModelDeployment"
+            ):
+                self.get_model_deployment_lineage(node_arn)
 
-            if node["node_type"] == "action":
-                # if a node's action type is a ModelDeployment, then the incoming edges will be
-                # the model(s) being deployed, and the outgoing edges will be the endpoint(s) created
-                if node["ActionType"] == "ModelDeployment":
-                    incoming_edges = self.get_incoming_edges(node_arn)
-                    outgoing_edges = self.get_outgoing_edges(node_arn)
-
-                    model_uris = set()
-                    model_images = set()
-
-                    for edge in incoming_edges:
-
-                        source_node = nodes.get(edge["SourceArn"])
-
-                        if source_node is None:
-                            continue
-
-                        source_uri = source_node.get("Source", {}).get("SourceUri")
-
-                        if edge["SourceType"] == "Model" and source_uri is not None:
-                            model_uris.add(
-                                model_uri_endpoints[edge["Source"]["SourceUri"]]
-                            )
-                        elif edge["SourceType"] == "Image" and source_uri is not None:
-                            model_images.add([edge["Source"]["ImageUri"]])
-
-                    model_endpoints = set()
-
-                    for edge in outgoing_edges:
-
-                        destination_node = nodes[edge["DestinationArn"]]
-
-                        if destination_node is None:
-                            continue
-
-                        source_uri = destination_node.get("Source", {}).get("SourceUri")
-                        source_type = destination_node.get("Source", {}).get(
-                            "SourceType"
-                        )
-
-                        if (
-                            edge["DestinationType"] == "Endpoint"
-                            and source_uri is not None
-                            and source_type == "ARN"
-                        ):
-
-                            model_endpoints.add(source_uri)
-
-                    for endpoint in model_endpoints:
-                        model_uri_endpoints[endpoint] |= model_uris
-                        model_image_endpoints[endpoint] |= model_images
-
-        return LineageInfo(
-            model_uri_endpoints=model_uri_endpoints,
-            model_image_endpoints=model_image_endpoints,
-        )
+        return self.lineage_info
