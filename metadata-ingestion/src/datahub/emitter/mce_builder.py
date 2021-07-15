@@ -4,7 +4,6 @@ import time
 from typing import List, Optional, Type, TypeVar
 
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -14,11 +13,13 @@ from datahub.metadata.schema_classes import (
 
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
+UNKNOWN_USER = "urn:li:corpuser:unknown"
 
 T = TypeVar("T")
 
 
 def get_sys_time() -> int:
+    # TODO deprecate this
     return int(time.time() * 1000)
 
 
@@ -52,14 +53,36 @@ def make_data_job_urn(
     )
 
 
+def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
+
+    return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
+
+
+def make_ml_feature_urn(
+    feature_table_name: str,
+    feature_name: str,
+) -> str:
+
+    return f"urn:li:mlFeature:({feature_table_name},{feature_name})"
+
+
+def make_ml_feature_table_urn(platform: str, feature_table_name: str) -> str:
+
+    return (
+        f"urn:li:mlFeatureTable:(urn:li:dataPlatform:{platform},{feature_table_name})"
+    )
+
+
+def make_ml_model_urn(platform: str, model_name: str, env: str) -> str:
+
+    return f"urn:li:mlModel:(urn:li:dataPlatform:{platform},{model_name},{env})"
+
+
 def make_lineage_mce(
     upstream_urns: List[str],
     downstream_urn: str,
-    actor: str = make_user_urn("datahub"),
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED,
 ) -> MetadataChangeEventClass:
-    sys_time = get_sys_time()
-
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
             urn=downstream_urn,
@@ -67,10 +90,6 @@ def make_lineage_mce(
                 UpstreamLineageClass(
                     upstreams=[
                         UpstreamClass(
-                            auditStamp=AuditStampClass(
-                                time=sys_time,
-                                actor=actor,
-                            ),
                             dataset=upstream_urn,
                             type=lineage_type,
                         )

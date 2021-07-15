@@ -47,7 +47,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
-    const getHeader = (dataFlow: DataFlow) => <DataFlowHeader dataFlow={dataFlow} />;
+    const getHeader = (dataFlow: DataFlow) => <DataFlowHeader dataFlow={dataFlow} updateDataFlow={updateDataFlow} />;
 
     const getTabs = ({ ownership, info, dataJobs }: DataFlow) => {
         return [

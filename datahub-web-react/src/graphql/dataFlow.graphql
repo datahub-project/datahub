@@ -14,6 +14,9 @@ fragment dataFlowFields on DataFlow {
             value
         }
     }
+    editableProperties {
+        description
+    }
     ownership {
         ...ownershipFields
     }
@@ -43,5 +46,17 @@ query getDataFlow($urn: String!) {
 mutation updateDataFlow($input: DataFlowUpdateInput!) {
     updateDataFlow(input: $input) {
         ...dataFlowFields
+        dataJobs {
+            entities {
+                entity {
+                    urn
+                    type
+                    ... on DataJob {
+                        ...dataJobFields
+                        ...shallowLineageFields
+                    }
+                }
+            }
+        }
     }
 }

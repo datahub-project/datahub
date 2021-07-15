@@ -1,8 +1,9 @@
 package com.linkedin.datahub.graphql.types.dashboard;
 
 import com.linkedin.common.urn.CorpuserUrn;
+
 import com.linkedin.common.urn.DashboardUrn;
-import com.linkedin.dashboard.client.Dashboards;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -17,18 +18,24 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardUpdateInputMapper;
+import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardSnapshotMapper;
+import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardUpdateInputSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.configs.DashboardSearchConfig;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.snapshot.DashboardSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.common.CollectionResponse;
 
+import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
@@ -42,10 +49,10 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 public class DashboardType implements SearchableEntityType<Dashboard>, BrowsableEntityType<Dashboard>, MutableType<DashboardUpdateInput> {
 
-    private final Dashboards _dashboardsClient;
+    private final EntityClient _dashboardsClient;
     private static final DashboardSearchConfig DASHBOARDS_SEARCH_CONFIG = new DashboardSearchConfig();
 
-    public DashboardType(final Dashboards dashboardsClient) {
+    public DashboardType(final EntityClient dashboardsClient) {
         _dashboardsClient = dashboardsClient;
     }
 
@@ -65,23 +72,27 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
     }
 
     @Override
-    public List<Dashboard> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
+    public List<DataFetcherResult<Dashboard>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
         final List<DashboardUrn> dashboardUrns = urns.stream()
                 .map(this::getDashboardUrn)
                 .collect(Collectors.toList());
 
         try {
-            final Map<DashboardUrn, com.linkedin.dashboard.Dashboard> dashboardMap = _dashboardsClient.batchGet(dashboardUrns
+            final Map<Urn, Entity> dashboardMap = _dashboardsClient.batchGet(dashboardUrns
                     .stream()
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet()));
 
-            final List<com.linkedin.dashboard.Dashboard> gmsResults = new ArrayList<>();
+            final List<Entity> gmsResults = new ArrayList<>();
             for (DashboardUrn urn : dashboardUrns) {
                 gmsResults.add(dashboardMap.getOrDefault(urn, null));
             }
             return gmsResults.stream()
-                    .map(gmsDashboard -> gmsDashboard == null ? null : DashboardMapper.map(gmsDashboard))
+                    .map(gmsDashboard -> gmsDashboard == null ? null
+                        : DataFetcherResult.<Dashboard>newResult()
+                            .data(DashboardSnapshotMapper.map(gmsDashboard.getValue().getDashboardSnapshot()))
+                            .localContext(SnapshotToAspectMap.extractAspectMap(gmsDashboard.getValue().getDashboardSnapshot()))
+                            .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Dashboards", e);
@@ -95,8 +106,8 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, DASHBOARDS_SEARCH_CONFIG.getFacetFields());
-        final CollectionResponse<com.linkedin.dashboard.Dashboard> searchResult = _dashboardsClient.search(query, null, facetFilters, null, start, count);
-        return SearchResultsMapper.map(searchResult, DashboardMapper::map);
+        final SearchResult searchResult = _dashboardsClient.search("dashboard", query, facetFilters, start, count);
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -106,7 +117,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, DASHBOARDS_SEARCH_CONFIG.getFacetFields());
-        final AutoCompleteResult result = _dashboardsClient.autocomplete(query, field, facetFilters, limit);
+        final AutoCompleteResult result = _dashboardsClient.autoComplete("dashboard", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -118,12 +129,14 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, DASHBOARDS_SEARCH_CONFIG.getFacetFields());
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
         final BrowseResult result = _dashboardsClient.browse(
+            "dashboard",
                 pathStr,
                 facetFilters,
                 start,
                 count);
         final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<Dashboard> dashboards = batchLoad(urns, context);
+        final List<Dashboard> dashboards = batchLoad(urns, context).stream().map(dashboardDataFetcherResult ->  dashboardDataFetcherResult.getData()).collect(
+            Collectors.toList());
         final BrowseResults browseResults = new BrowseResults();
         browseResults.setStart(result.getFrom());
         browseResults.setCount(result.getPageSize());
@@ -153,14 +166,15 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
     public Dashboard update(@Nonnull DashboardUpdateInput input, @Nonnull QueryContext context) throws Exception {
 
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final com.linkedin.dashboard.Dashboard partialDashboard = DashboardUpdateInputMapper.map(input, actor);
+        final DashboardSnapshot partialDashboard = DashboardUpdateInputSnapshotMapper.map(input, actor);
+        final Snapshot snapshot = Snapshot.create(partialDashboard);
 
         try {
-            _dashboardsClient.update(DashboardUrn.createFromString(input.getUrn()), partialDashboard);
+            _dashboardsClient.update(new com.linkedin.entity.Entity().setValue(snapshot));
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }
 
-        return load(input.getUrn(), context);
+        return load(input.getUrn(), context).getData();
     }
 }

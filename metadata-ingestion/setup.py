@@ -37,9 +37,10 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.5.0",
+    "avro-gen3==0.5.3",
     "avro-python3>=1.8.2",
     "python-dateutil",
+    "stackprinter",
 }
 
 kafka_common = {
@@ -57,6 +58,11 @@ sql_common = {
     "sqlalchemy==1.3.24",
 }
 
+aws_common = {
+    # AWS Python SDK
+    "boto3"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -70,55 +76,88 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
+    "bigquery-usage": {"google-cloud-logging", "cachetools"},
+    "druid": sql_common | {"pydruid>=0.6.2"},
+    "feast": {"docker"},
+    "glue": aws_common,
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.6"
+        "acryl-pyhive[hive]>=0.6.10"
     },
-    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
-    "mysql": sql_common | {"pymysql>=1.0.2"},
-    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redshift": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "snowflake": sql_common | {"snowflake-sqlalchemy"},
-    "oracle": sql_common | {"cx_Oracle"},
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
-    "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
-    "druid": sql_common | {"pydruid>=0.6.2"},
+    "lookml": {"lkml>=1.1.0", "sql-metadata==2.2.1"},
     "mongodb": {"pymongo>=3.11"},
+    "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
+    "mssql-odbc": sql_common | {"pyodbc"},
+    "mysql": sql_common | {"pymysql>=1.0.2"},
+    "oracle": sql_common | {"cx_Oracle"},
+    "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    "sagemaker": aws_common,
+    "snowflake": sql_common | {"snowflake-sqlalchemy"},
+    "snowflake-usage": sql_common | {"snowflake-sqlalchemy"},
     "superset": {"requests"},
-    "glue": {"boto3"},
+}
+
+all_exclude_plugins: Set[str] = {
+    # SQL Server ODBC requires additional drivers, and so we don't want to keep
+    # it included in the default "all" installation.
+    "mssql-odbc",
+}
+
+mypy_stubs = {
+    "types-dataclasses",
+    "sqlalchemy-stubs",
+    "types-pkg_resources",
+    "types-six",
+    "types-python-dateutil",
+    "types-requests",
+    "types-toml",
+    "types-PyMySQL",
+    "types-PyYAML",
+    "types-freezegun",
+    "types-cachetools",
+    # versions 0.1.13 and 0.1.14 seem to have issues
+    "types-click==0.1.12",
 }
 
 base_dev_requirements = {
     *base_requirements,
     *framework_common,
+    *mypy_stubs,
     "black>=19.10b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "isort>=5.7.0",
-    "mypy>=0.782",
+    "mypy>=0.901",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
-    "pytest-docker",
+    "pytest-docker>=0.10.3",
     "tox",
-    "sqlalchemy-stubs",
     "deepdiff",
     "requests-mock",
     "freezegun",
+    "jsonpickle",
     "build",
     "twine",
     *list(
         dependency
         for plugin in [
             "bigquery",
+            "bigquery-usage",
             "mysql",
             "mssql",
             "mongodb",
+            "feast",
             "ldap",
             "looker",
             "glue",
+            "hive",
+            "oracle",
+            "sagemaker",
             "datahub-kafka",
             "datahub-rest",
             # airflow is added below
@@ -148,13 +187,16 @@ dev_requirements_airflow_2 = {
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
-        "file = datahub.ingestion.source.mce_file:MetadataFileSource",
+        "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.athena:AthenaSource",
         "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
+        "bigquery-usage = datahub.ingestion.source.bigquery_usage:BigQueryUsageSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.druid:DruidSource",
+        "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.glue:GlueSource",
+        "sagemaker = datahub.ingestion.source.sagemaker:SagemakerSource",
         "hive = datahub.ingestion.source.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
@@ -168,6 +210,7 @@ entry_points = {
         "postgres = datahub.ingestion.source.postgres:PostgresSource",
         "redshift = datahub.ingestion.source.redshift:RedshiftSource",
         "snowflake = datahub.ingestion.source.snowflake:SnowflakeSource",
+        "snowflake-usage = datahub.ingestion.source.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
     ],
     "datahub.ingestion.sink.plugins": [
@@ -223,6 +266,7 @@ setuptools.setup(
     package_data={
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
+        "datahub.metadata.schemas": ["*.avsc"],
     },
     entry_points=entry_points,
     # Dependencies.
@@ -233,7 +277,15 @@ setuptools.setup(
             plugin: list(framework_common | dependencies)
             for (plugin, dependencies) in plugins.items()
         },
-        "all": list(framework_common.union(*plugins.values())),
+        "all": list(
+            framework_common.union(
+                *[
+                    requirements
+                    for plugin, requirements in plugins.items()
+                    if plugin not in all_exclude_plugins
+                ]
+            )
+        ),
         "dev": list(dev_requirements),
         "dev-airflow2": list(dev_requirements_airflow_2),
     },

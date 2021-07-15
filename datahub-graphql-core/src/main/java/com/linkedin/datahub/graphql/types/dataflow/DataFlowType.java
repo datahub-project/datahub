@@ -1,8 +1,10 @@
 package com.linkedin.datahub.graphql.types.dataflow;
 
 import com.google.common.collect.ImmutableSet;
+
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataFlowUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -17,18 +19,26 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowMapper;
+import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowSnapshotMapper;
 import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
-import com.linkedin.datajob.client.DataFlows;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.Entity;
+import com.linkedin.metadata.aspect.DataFlowAspect;
+import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.snapshot.DataFlowSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.common.CollectionResponse;
+import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,10 +53,9 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEntityType<DataFlow>, MutableType<DataFlowUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("orchestrator", "cluster");
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "flowId";
-    private final DataFlows _dataFlowsClient;
+    private final EntityClient _dataFlowsClient;
 
-    public DataFlowType(final DataFlows dataFlowsClient) {
+    public DataFlowType(final EntityClient dataFlowsClient) {
         _dataFlowsClient = dataFlowsClient;
     }
 
@@ -66,22 +75,25 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
     }
 
     @Override
-    public List<DataFlow> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
+    public List<DataFetcherResult<DataFlow>> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
         final List<DataFlowUrn> dataFlowUrns = urns.stream()
             .map(this::getDataFlowUrn)
             .collect(Collectors.toList());
 
         try {
-            final Map<DataFlowUrn, com.linkedin.datajob.DataFlow> dataFlowMap = _dataFlowsClient.batchGet(dataFlowUrns
+            final Map<Urn, Entity> dataFlowMap = _dataFlowsClient.batchGet(dataFlowUrns
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
 
-            final List<com.linkedin.datajob.DataFlow> gmsResults = dataFlowUrns.stream()
+            final List<Entity> gmsResults = dataFlowUrns.stream()
                 .map(flowUrn -> dataFlowMap.getOrDefault(flowUrn, null)).collect(Collectors.toList());
 
             return gmsResults.stream()
-                .map(gmsDataFlow -> gmsDataFlow == null ? null : DataFlowMapper.map(gmsDataFlow))
+                .map(gmsDataFlow -> gmsDataFlow == null ? null : DataFetcherResult.<DataFlow>newResult()
+                    .data(DataFlowSnapshotMapper.map(gmsDataFlow.getValue().getDataFlowSnapshot()))
+                    .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataFlow.getValue().getDataFlowSnapshot()))
+                    .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load DataFlows", e);
@@ -95,8 +107,8 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final CollectionResponse<com.linkedin.datajob.DataFlow> searchResult = _dataFlowsClient.search(query, facetFilters, start, count);
-        return SearchResultsMapper.map(searchResult, DataFlowMapper::map);
+        final SearchResult searchResult = _dataFlowsClient.search("dataFlow", query, facetFilters, start, count);
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -106,8 +118,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _dataFlowsClient.autoComplete(query, field, facetFilters, limit);
+        final AutoCompleteResult result = _dataFlowsClient.autoComplete("dataFlow", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -125,12 +136,14 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                 final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
         final BrowseResult result = _dataFlowsClient.browse(
+            "dataFlow",
                 pathStr,
                 facetFilters,
                 start,
                 count);
         final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<DataFlow> dataFlows = batchLoad(urns, context);
+        final List<DataFlow> dataFlows = batchLoad(urns, context).stream().map(dataFlow -> dataFlow.getData()).collect(
+            Collectors.toList());
         final BrowseResults browseResults = new BrowseResults();
         browseResults.setStart(result.getFrom());
         browseResults.setCount(result.getPageSize());
@@ -148,6 +161,26 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
         return BrowsePathsMapper.map(result);
     }
 
+    protected DataFlowSnapshot toSnapshot(@Nonnull com.linkedin.datajob.DataFlow dataFlow, @Nonnull DataFlowUrn urn) {
+        final List<DataFlowAspect> aspects = new ArrayList<>();
+        if (dataFlow.hasInfo()) {
+            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getInfo()));
+        }
+        if (dataFlow.hasOwnership()) {
+            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getOwnership()));
+        }
+        if (dataFlow.hasStatus()) {
+            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getStatus()));
+        }
+        if (dataFlow.hasGlobalTags()) {
+            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getGlobalTags()));
+        }
+        if (dataFlow.hasEditableProperties()) {
+            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getEditableProperties()));
+        }
+        return ModelUtils.newSnapshot(DataFlowSnapshot.class, urn, aspects);
+    }
+
     @Override
     public DataFlow update(@Nonnull DataFlowUpdateInput input, @Nonnull QueryContext context) throws Exception {
 
@@ -155,11 +188,13 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
         final com.linkedin.datajob.DataFlow partialDataFlow = DataFlowUpdateInputMapper.map(input, actor);
 
         try {
-            _dataFlowsClient.update(DataFlowUrn.createFromString(input.getUrn()), partialDataFlow);
+            Entity entity = new Entity();
+            entity.setValue(Snapshot.create(toSnapshot(partialDataFlow, DataFlowUrn.createFromString(input.getUrn()))));
+            _dataFlowsClient.update(entity);
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }
 
-        return load(input.getUrn(), context);
+        return load(input.getUrn(), context).getData();
     }
 }

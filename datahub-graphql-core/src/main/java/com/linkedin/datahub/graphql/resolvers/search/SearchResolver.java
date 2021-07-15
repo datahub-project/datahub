@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static org.apache.commons.lang3.StringUtils.isBlank;
@@ -25,6 +27,8 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
 
     private static final int DEFAULT_START = 0;
     private static final int DEFAULT_COUNT = 10;
+
+    private static final Logger _logger = LoggerFactory.getLogger(SearchResolver.class.getName());
 
     private final Map<EntityType, SearchableEntityType<?>> _typeToEntity;
 
@@ -42,6 +46,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
         // escape forward slash since it is a reserved character in Elasticsearch
         final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
         if (isBlank(sanitizedQuery)) {
+            _logger.error("'query' parameter cannot was null or empty");
             throw new ValidationException("'query' parameter cannot be null or empty");
         }
 
@@ -50,6 +55,13 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
 
         return CompletableFuture.supplyAsync(() -> {
             try {
+                _logger.debug("Executing search. "
+                    + String.format("entity type %s, query %s, filters: %s, start: %s, count: %s",
+                        input.getType(),
+                        input.getQuery(),
+                        input.getFilters(),
+                        start,
+                        count));
                 return _typeToEntity.get(input.getType()).search(
                         sanitizedQuery,
                         input.getFilters(),
@@ -58,6 +70,14 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                         environment.getContext()
                 );
             } catch (Exception e) {
+                _logger.error("Failed to execute search: "
+                    + String.format("entity type %s, query %s, filters: %s, start: %s, count: %s",
+                    input.getType(),
+                    input.getQuery(),
+                    input.getFilters(),
+                    start,
+                    count) + " "
+                + e.getMessage());
                 throw new RuntimeException("Failed to execute search: "
                     + String.format("entity type %s, query %s, filters: %s, start: %s, count: %s",
                         input.getType(),

@@ -12,6 +12,10 @@ record SchemaField {
   /**
    * Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above.
    */
+  @Searchable = {
+    "fieldName": "fieldPaths",
+    "fieldType": "TEXT_PARTIAL"
+  }
   fieldPath: SchemaFieldPath
 
   /**
@@ -27,6 +31,11 @@ record SchemaField {
   /**
    * Description
    */
+  @Searchable = {
+    "fieldName": "fieldDescriptions",
+    "fieldType": "TEXT",
+    "boostScore": 0.1
+  }
   description: optional string
 
   /**
@@ -47,6 +56,13 @@ record SchemaField {
   /**
    * Tags associated with the field
    */
+  @Searchable = {
+    "/tags/*/tag": {
+      "fieldName": "fieldTags",
+      "fieldType": "URN_PARTIAL",
+      "boostScore": 0.5
+    }
+  }
   globalTags: optional GlobalTags
 
   /**

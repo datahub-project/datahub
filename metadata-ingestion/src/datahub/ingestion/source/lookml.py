@@ -2,7 +2,6 @@ import glob
 import logging
 import re
 import sys
-import time
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
@@ -14,14 +13,15 @@ if sys.version_info >= (3, 7):
     import lkml
 else:
     raise ModuleNotFoundError("The lookml plugin requires Python 3.7 or newer.")
-from sql_metadata import get_query_tables
+from sql_metadata import Parser as SQLParser
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     UpstreamClass,
@@ -53,11 +53,11 @@ logger = logging.getLogger(__name__)
 class LookMLSourceConfig(ConfigModel):  # pragma: no cover
     base_folder: str
     connection_to_platform_map: Dict[str, str]
-    platform_name: str = "looker_views"
+    platform_name: str = "looker"
     actor: str = "urn:li:corpuser:etl"
     model_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    env: str = "PROD"
+    env: str = DEFAULT_ENV
     parse_table_names_from_sql: bool = False
 
 
@@ -197,20 +197,9 @@ class LookerView:  # pragma: no cover
 
     @classmethod
     def _get_sql_table_names(cls, sql: str) -> List[str]:
-        sql_tables: List[str] = get_query_tables(sql)
+        sql_table_names: List[str] = SQLParser(sql).tables
 
-        # Remove temporary tables from WITH statements
-        sql_table_names = [
-            t
-            for t in sql_tables
-            if not re.search(
-                fr"WITH(.*,)?\s+{t}(\s*\([\w\s,]+\))?\s+AS\s+\(",
-                sql,
-                re.IGNORECASE | re.DOTALL,
-            )
-        ]
-
-        # Remove quotes from tables
+        # Remove quotes from table names
         sql_table_names = [t.replace('"', "") for t in sql_table_names]
 
         return sql_table_names
@@ -325,22 +314,25 @@ class LookerView:  # pragma: no cover
                     include, connection
                 )
                 if maybe_looker_viewfile is not None:
-                    for view in looker_viewfile.views:
-                        maybe_looker_view = LookerView.from_looker_dict(
-                            view,
-                            connection,
-                            looker_viewfile,
-                            looker_viewfile_loader,
-                            parse_table_names_from_sql,
-                        )
-                        if maybe_looker_view is None:
-                            continue
+                    for raw_view in looker_viewfile.views:
+                        raw_view_name = raw_view["name"]
+                        # Make sure to skip loading view we are currently trying to resolve
+                        if raw_view_name != view_name:
+                            maybe_looker_view = LookerView.from_looker_dict(
+                                raw_view,
+                                connection,
+                                looker_viewfile,
+                                looker_viewfile_loader,
+                                parse_table_names_from_sql,
+                            )
+                            if maybe_looker_view is None:
+                                continue
 
-                        if (
-                            maybe_looker_view is not None
-                            and maybe_looker_view.view_name in extends
-                        ):
-                            extends_to_looker_view.append(maybe_looker_view)
+                            if (
+                                maybe_looker_view is not None
+                                and maybe_looker_view.view_name in extends
+                            ):
+                                extends_to_looker_view.append(maybe_looker_view)
 
             if len(extends_to_looker_view) != 1:
                 logger.warning(
@@ -382,7 +374,20 @@ class LookMLSource(Source):  # pragma: no cover
 
     def _construct_datalineage_urn(self, sql_table_name: str, connection: str) -> str:
         platform = self._get_platform_based_on_connection(connection)
-        return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{sql_table_name},{self.source_config.env})"
+
+        # Check if table name matches cascading derived tables pattern (same platform)
+        if re.fullmatch(r"\w+\.SQL_TABLE_NAME", sql_table_name):
+            platform_name = self.source_config.platform_name
+            sql_table_name = sql_table_name.lower().split(".")[0]
+        # Check if table database is in platform name (upstream platform)
+        elif "." in platform:
+            platform_name, database_name = platform.lower().split(".", maxsplit=1)
+            sql_table_name = f"{database_name}.{sql_table_name}".lower()
+        else:
+            platform_name = platform.lower()
+            sql_table_name = sql_table_name.lower()
+
+        return f"urn:li:dataset:(urn:li:dataPlatform:{platform_name},{sql_table_name},{self.source_config.env})"
 
     def _get_platform_based_on_connection(self, connection: str) -> str:
         if connection in self.source_config.connection_to_platform_map:
@@ -392,16 +397,13 @@ class LookMLSource(Source):  # pragma: no cover
                 f"Could not find a platform for looker view with connection: {connection}"
             )
 
-    def _get_upsteam_lineage(
-        self, looker_view: LookerView, actor: str, sys_time: int
-    ) -> UpstreamLineage:
+    def _get_upsteam_lineage(self, looker_view: LookerView) -> UpstreamLineage:
         upstreams = []
         for sql_table_name in looker_view.sql_table_names:
             upstream = UpstreamClass(
                 dataset=self._construct_datalineage_urn(
                     sql_table_name, looker_view.connection
                 ),
-                auditStamp=AuditStamp(actor=actor, time=sys_time),
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstreams.append(upstream)
@@ -471,19 +473,14 @@ class LookMLSource(Source):  # pragma: no cover
                 primary_keys.append(schema_field.fieldPath)
         return fields, primary_keys
 
-    def _get_schema(
-        self, looker_view: LookerView, actor: str, sys_time: int
-    ) -> SchemaMetadataClass:
+    def _get_schema(self, looker_view: LookerView) -> SchemaMetadataClass:
         fields, primary_keys = self._get_fields_and_primary_keys(looker_view)
-        stamp = AuditStamp(time=sys_time, actor=actor)
         schema_metadata = SchemaMetadata(
             schemaName=looker_view.view_name,
-            platform=self.source_config.platform_name,
+            platform=f"urn:li:dataPlatform:{self.source_config.platform_name}",
             version=0,
             fields=fields,
             primaryKeys=primary_keys,
-            created=stamp,
-            lastModified=stamp,
             hash="",
             platformSchema=OtherSchema(rawSchema="looker-view"),
         )
@@ -494,20 +491,15 @@ class LookMLSource(Source):  # pragma: no cover
         Creates MetadataChangeEvent for the dataset, creating upstream lineage links
         """
         logger.debug(f"looker_view = {looker_view.view_name}")
-
         dataset_name = looker_view.view_name
-        actor = self.source_config.actor
-        sys_time = int(time.time()) * 1000
 
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform_name}, {dataset_name}, {self.source_config.env})",
+            urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform_name},{dataset_name},{self.source_config.env})",
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))
-        dataset_snapshot.aspects.append(
-            self._get_upsteam_lineage(looker_view, actor, sys_time)
-        )
-        dataset_snapshot.aspects.append(self._get_schema(looker_view, actor, sys_time))
+        dataset_snapshot.aspects.append(self._get_upsteam_lineage(looker_view))
+        dataset_snapshot.aspects.append(self._get_schema(looker_view))
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
 
@@ -519,7 +511,7 @@ class LookMLSource(Source):  # pragma: no cover
         model_files = sorted(
             f
             for f in glob.glob(
-                f"{self.source_config.base_folder}/**/*.model.lkml", recursive=True
+                f"{self.source_config.base_folder}/**.model.lkml", recursive=True
             )
         )
         for file_path in model_files:

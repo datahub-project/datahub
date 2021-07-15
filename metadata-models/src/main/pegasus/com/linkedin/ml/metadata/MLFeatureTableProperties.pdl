@@ -1,0 +1,40 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.Urn
+import com.linkedin.common.CustomProperties
+
+/**
+ * Properties associated with a MLFeatureTable
+ */
+@Aspect = {
+  "name": "mlFeatureTableProperties"
+}
+record MLFeatureTableProperties includes CustomProperties {
+
+  /**
+   * Documentation of the MLFeatureTable
+   */
+  description: optional string
+
+  /**
+   * List of features contained in the feature table
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Contains",
+      "entityTypes": [ "mlFeature" ]
+    }
+  }
+  mlFeatures: optional array[Urn]
+
+  /**
+   * List of primary keys in the feature table (if multiple, assumed to act as a composite key)
+   */
+  @Relationship = {
+    "/*": {
+      "name": "KeyedBy",
+      "entityTypes": [ "mlPrimaryKey" ]
+    }
+  }
+  mlPrimaryKeys: optional array[Urn]
+}

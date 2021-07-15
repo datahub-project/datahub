@@ -161,7 +161,7 @@ public interface GraphBuilder<SNAPSHOT extends RecordTemplate> {
 [RecordTemplate]: https://github.com/linkedin/rest.li/blob/master/data/src/main/java/com/linkedin/data/template/RecordTemplate.java
 [GenericRecord]: https://github.com/apache/avro/blob/master/lang/java/avro/src/main/java/org/apache/avro/generic/GenericRecord.java
 [DAO]: https://en.wikipedia.org/wiki/Data_access_object
-[Pegasus]: https://linkedin.github.io/rest.li/DATA-Data-Schema-and-Templates
+[Pegasus]: https://linkedin.github.io/rest.li/pdl_schema
 [relationship]: ../what/relationship.md
 [entity]: ../what/entity.md
 [aspect]: ../what/aspect.md
@@ -182,7 +182,7 @@ public interface GraphBuilder<SNAPSHOT extends RecordTemplate> {
 [mae-consumer-job]: ../../metadata-jobs/mae-consumer-job
 [Remote DAO]: ../architecture/metadata-serving.md#remote-dao
 [URN]: ../what/urn.md
-[Metadata Modelling]: ../how/metadata-modelling.md
+[Metadata Modelling]: metadata-modelling.md
 [Entity]: ../what/entity.md
 [Relationship]: ../what/relationship.md
 [Search Document]: ../what/search-document.md

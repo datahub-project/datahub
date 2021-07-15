@@ -22,6 +22,17 @@ class HiveConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "hive"
 
+    # Hive SQLAlchemy connector returns views as tables.
+    # See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273.
+    # Disabling views helps us prevent this duplication.
+    include_views = False
+
+    def get_identifier(self, schema: str, table: str) -> str:
+        regular = f"{schema}.{table}"
+        if self.database:
+            return f"{self.database}.{regular}"
+        return regular
+
 
 class HiveSource(SQLAlchemySource):
     def __init__(self, config, ctx):

@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional
 
@@ -12,7 +11,7 @@ import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ class KafkaConnectSourceConfig(ConfigModel):
     username: Optional[str] = None
     password: Optional[str] = None
     cluster_name: Optional[str] = "connect-cluster"
-    env: str = "PROD"
+    env: str = builder.DEFAULT_ENV
     connector_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
 
 
@@ -346,10 +345,6 @@ class KafkaConnectSource(Source):
                                             self.config.env,
                                         ),
                                         type=models.DatasetLineageTypeClass.TRANSFORMED,
-                                        auditStamp=models.AuditStampClass(
-                                            time=int(time.time() * 1000),
-                                            actor="urn:li:corpuser:datahub",
-                                        ),
                                     )
                                 ]
                             )

@@ -1,6 +1,7 @@
 import { EntityType, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
 import { Entity, IconStyleType, PreviewType } from './Entity';
+import { urlEncodeUrn } from './shared/utils';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {
@@ -69,6 +70,10 @@ export default class EntityRegistry {
     getPathName(type: EntityType): string {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.getPathName();
+    }
+
+    getEntityUrl(type: EntityType, urn: string): string {
+        return `/${this.getPathName(type)}/${urlEncodeUrn(urn)}`;
     }
 
     getTypeFromPathName(pathName: string): EntityType {

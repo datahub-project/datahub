@@ -1,0 +1,16 @@
+apply plugin: 'pegasus'
+
+dependencies {
+  compile spec.product.pegasus.data
+  compile spec.product.pegasus.generator
+  compile project(path: ':metadata-models')
+  compile externalDependency.lombok
+  compile externalDependency.guava
+
+  dataModel project(':li-utils')
+  annotationProcessor externalDependency.lombok
+
+  testCompile externalDependency.testng
+  testCompile project(':test-models')
+
+}

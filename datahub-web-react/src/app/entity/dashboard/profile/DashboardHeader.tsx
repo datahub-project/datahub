@@ -1,9 +1,11 @@
 import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
-import { AuditStamp, Ownership, EntityType } from '../../../../types.generated';
+import { FetchResult, MutationFunctionOptions } from '@apollo/client';
+import { EntityType, Dashboard } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 import { AvatarsGroup } from '../../../shared/avatar';
+import UpdatableDescription from '../../shared/UpdatableDescription';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 const styles = {
@@ -11,17 +13,16 @@ const styles = {
 };
 
 export type Props = {
-    urn: string;
-    platform: string;
-    description?: string | null;
-    ownership?: Ownership | null;
-    lastModified?: AuditStamp;
-    externalUrl?: string | null;
+    dashboard: Dashboard;
+    updateDashboard: (options?: MutationFunctionOptions<any, any> | undefined) => Promise<FetchResult>;
 };
 
-export default function DashboardHeader({ urn, platform, description, ownership, externalUrl, lastModified }: Props) {
+export default function DashboardHeader({
+    dashboard: { urn, type, info, tool, ownership, editableProperties },
+    updateDashboard,
+}: Props) {
     const entityRegistry = useEntityRegistry();
-    const capitalizedPlatform = capitalizeFirstLetter(platform);
+    const capitalizedPlatform = capitalizeFirstLetter(tool);
 
     const openExternalUrl = () => {
         analytics.event({
@@ -30,7 +31,7 @@ export default function DashboardHeader({ urn, platform, description, ownership,
             entityType: EntityType.Dashboard,
             entityUrn: urn,
         });
-        window.open(externalUrl || undefined, '_blank');
+        window.open(info?.externalUrl || undefined, '_blank');
     };
 
     return (
@@ -41,14 +42,20 @@ export default function DashboardHeader({ urn, platform, description, ownership,
                     <Typography.Text strong type="secondary">
                         {capitalizedPlatform}
                     </Typography.Text>
-                    {externalUrl && <Button onClick={openExternalUrl}>View in {capitalizedPlatform}</Button>}
+                    {info?.externalUrl && <Button onClick={openExternalUrl}>View in {capitalizedPlatform}</Button>}
                 </Space>
             </Row>
-            <Typography.Paragraph>{description}</Typography.Paragraph>
+            <UpdatableDescription
+                updateEntity={updateDashboard}
+                updatedDescription={editableProperties?.description}
+                originalDescription={info?.description}
+                entityType={type}
+                urn={urn}
+            />
             <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
-            {lastModified && (
+            {info?.lastModified && (
                 <Typography.Text type="secondary">
-                    Last modified at {new Date(lastModified.time).toLocaleDateString('en-US')}
+                    Last modified at {new Date(info?.lastModified.time).toLocaleDateString('en-US')}
                 </Typography.Text>
             )}
         </Space>

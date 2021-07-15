@@ -14,10 +14,22 @@ record EditableSchemaFieldInfo {
   /**
    * Description
    */
+  @Searchable = {
+    "fieldName": "editedFieldDescriptions",
+    "fieldType": "TEXT",
+    "boostScore": 0.1
+  }
   description: optional string
 
   /**
    * Tags associated with the field
    */
+  @Searchable = {
+    "/tags/*/tag": {
+      "fieldName": "editedFieldTags",
+      "fieldType": "URN_PARTIAL",
+      "boostScore": 0.5
+    }
+  }
   globalTags: optional GlobalTags
 }

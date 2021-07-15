@@ -110,13 +110,19 @@ fragment nonRecursiveDatasetFields on Dataset {
         key
         value
     }
+    editableProperties {
+        description
+    }
     ownership {
         ...ownershipFields
     }
     institutionalMemory {
         elements {
             url
-            author
+            author {
+                urn
+                username
+            }
             description
             created {
                 actor
@@ -124,37 +130,11 @@ fragment nonRecursiveDatasetFields on Dataset {
             }
         }
     }
-    schema {
-        datasetUrn
-        name
-        platformUrn
-        version
-        hash
-        platformSchema {
-            ... on TableSchema {
-                schema
-            }
-            ... on KeyValueSchema {
-                keySchema
-                valueSchema
-            }
-        }
-        fields {
-            fieldPath
-            jsonPath
-            nullable
-            description
-            type
-            nativeDataType
-            recursive
-            globalTags {
-                ...globalTagsFields
-            }
-            glossaryTerms {
-                ...glossaryTerms
-            }
-        }
-        primaryKeys
+    schemaMetadata(version: 0) {
+        ...schemaMetadataFields
+    }
+    previousSchemaMetadata: schemaMetadata(version: -1) {
+        ...schemaMetadataFields
     }
     editableSchemaMetadata {
         editableSchemaFieldInfo {
@@ -194,6 +174,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
             key
             value
         }
+    }
+    editableProperties {
+        description
     }
     ownership {
         ...ownershipFields
@@ -246,6 +229,9 @@ fragment dataJobFields on DataJob {
             value
         }
     }
+    editableProperties {
+        description
+    }
     globalTags {
         ...globalTagsFields
     }
@@ -294,4 +280,40 @@ fragment dashboardFields on Dashboard {
     globalTags {
         ...globalTagsFields
     }
+}
+
+fragment schemaMetadataFields on SchemaMetadata {
+    aspectVersion
+    createdAt
+    datasetUrn
+    name
+    platformUrn
+    version
+    cluster
+    hash
+    platformSchema {
+        ... on TableSchema {
+            schema
+        }
+        ... on KeyValueSchema {
+            keySchema
+            valueSchema
+        }
+    }
+    fields {
+        fieldPath
+        jsonPath
+        nullable
+        description
+        type
+        nativeDataType
+        recursive
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    primaryKeys
 }

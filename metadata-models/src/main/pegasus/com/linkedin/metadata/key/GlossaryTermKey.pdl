@@ -1,0 +1,20 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+
+/**
+ * Key for a GlossaryTerm
+ */
+@Aspect = {
+  "name": "glossaryTermKey"
+}
+record GlossaryTermKey {
+
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true
+  }
+  name: string
+
+
+}

@@ -2,10 +2,10 @@ from typing import Callable, Iterable, List, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
     OwnerClass,
@@ -22,6 +22,8 @@ class AddDatasetOwnershipConfig(ConfigModel):
         Callable[[DatasetSnapshotClass], List[OwnerClass]],
     ]
     default_actor: str = builder.make_user_urn("etl")
+
+    _resolve_owner_fn = pydantic_resolve_key("get_owners_to_add")
 
 
 class AddDatasetOwnership(Transformer):
@@ -57,10 +59,6 @@ class AddDatasetOwnership(Transformer):
                 mce,
                 OwnershipClass(
                     owners=[],
-                    lastModified=AuditStampClass(
-                        time=builder.get_sys_time(),
-                        actor=self.config.default_actor,
-                    ),
                 ),
             )
             ownership.owners.extend(owners_to_add)
