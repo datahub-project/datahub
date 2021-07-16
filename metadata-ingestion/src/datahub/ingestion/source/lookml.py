@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
 from enum import Enum
-from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
+
+import pydantic
 
 if sys.version_info >= (3, 7):
     import lkml
@@ -50,8 +51,8 @@ assert sys.version_info[1] >= 7  # needed for mypy
 logger = logging.getLogger(__name__)
 
 
-class LookMLSourceConfig(ConfigModel):  # pragma: no cover
-    base_folder: str
+class LookMLSourceConfig(ConfigModel):
+    base_folder: pydantic.DirectoryPath
     connection_to_platform_map: Dict[str, str]
     platform_name: str = "looker"
     actor: str = "urn:li:corpuser:etl"
@@ -62,7 +63,7 @@ class LookMLSourceConfig(ConfigModel):  # pragma: no cover
 
 
 @dataclass
-class LookMLSourceReport(SourceReport):  # pragma: no cover
+class LookMLSourceReport(SourceReport):
     models_scanned: int = 0
     views_scanned: int = 0
     filtered_models: List[str] = dataclass_field(default_factory=list)
@@ -82,7 +83,7 @@ class LookMLSourceReport(SourceReport):  # pragma: no cover
 
 
 @dataclass
-class LookerModel:  # pragma: no cover
+class LookerModel:
     connection: str
     includes: List[str]
     resolved_includes: List[str]
@@ -111,7 +112,7 @@ class LookerModel:  # pragma: no cover
 
 
 @dataclass
-class LookerViewFile:  # pragma: no cover
+class LookerViewFile:
     absolute_file_path: str
     connection: Optional[str]
     includes: List[str]
@@ -135,7 +136,7 @@ class LookerViewFile:  # pragma: no cover
         )
 
 
-class LookerViewFileLoader:  # pragma: no cover
+class LookerViewFileLoader:
     """
     Loads the looker viewfile at a :path and caches the LookerViewFile in memory
     This is to avoid reloading the same file off of disk many times during the recursive include resolution process
@@ -188,7 +189,7 @@ class ViewField:
 
 
 @dataclass
-class LookerView:  # pragma: no cover
+class LookerView:
     absolute_file_path: str
     connection: str
     view_name: str
@@ -350,9 +351,9 @@ class LookerView:  # pragma: no cover
             return output_looker_view
 
 
-class LookMLSource(Source):  # pragma: no cover
+class LookMLSource(Source):
     source_config: LookMLSourceConfig
-    report = LookMLSourceReport()
+    reporter: LookMLSourceReport
 
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
@@ -368,7 +369,7 @@ class LookMLSource(Source):  # pragma: no cover
         with open(path, "r") as file:
             parsed = lkml.load(file)
             looker_model = LookerModel.from_looker_dict(
-                parsed, self.source_config.base_folder
+                parsed, str(self.source_config.base_folder)
             )
         return looker_model
 
@@ -506,25 +507,24 @@ class LookMLSource(Source):  # pragma: no cover
         return mce
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        viewfile_loader = LookerViewFileLoader(self.source_config.base_folder)
+        viewfile_loader = LookerViewFileLoader(str(self.source_config.base_folder))
 
-        model_files = sorted(
-            f
-            for f in glob.glob(
-                f"{self.source_config.base_folder}/**.model.lkml", recursive=True
-            )
-        )
+        # The ** means "this directory and all subdirectories", and hence should
+        # include all the files we want.
+        model_files = sorted(self.source_config.base_folder.glob("**/*.model.lkml"))
+
         for file_path in model_files:
-            model_name = Path(file_path).stem
             self.reporter.report_models_scanned()
+            model_name = file_path.stem
+
             if not self.source_config.model_pattern.allowed(model_name):
                 self.reporter.report_models_dropped(model_name)
                 continue
             try:
-                model = self._load_model(file_path)
+                model = self._load_model(str(file_path))
             except Exception:
                 self.reporter.report_warning(
-                    "LookML", f"unable to parse Looker model: {file_path}"
+                    model_name, f"unable to parse Looker model: {file_path}"
                 )
                 continue
 
@@ -561,7 +561,7 @@ class LookMLSource(Source):  # pragma: no cover
                                 )
 
     def get_report(self):
-        return self.report
+        return self.reporter
 
     def close(self):
         pass
