@@ -416,7 +416,8 @@ class LookerDashboardSource(Source):
             except SDKError:
                 # A looker dashboard could be deleted in between the list and the get
                 self.reporter.report_warning(
-                    dashboard_id, f"Error occurred while loading dashboard {dashboard_id}. Skipping."
+                    dashboard_id,
+                    f"Error occurred while loading dashboard {dashboard_id}. Skipping.",
                 )
                 continue
 
