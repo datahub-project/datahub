@@ -384,7 +384,9 @@
               "description": null,
               "date": 1420070400000,
               "version": null,
-              "groups": null,
+              "groups": [
+                "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group-context"
+              ],
               "type": null,
               "hyperParameters": null,
               "mlFeatures": null,
@@ -419,7 +421,9 @@
               "description": null,
               "date": 1420070400000,
               "version": null,
-              "groups": null,
+              "groups": [
+                "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group-context"
+              ],
               "type": null,
               "hyperParameters": null,
               "mlFeatures": null,

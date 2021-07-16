@@ -145,16 +145,20 @@ class ModelProcessor:
         model_uri = model_details.get("PrimaryContainer", {}).get("ModelDataUrl")
 
         model_endpoints = set()
+        model_groups = set()
 
         if model_image is not None:
             model_endpoints |= self.lineage.model_image_endpoints[model_image]
+            model_groups |= self.lineage.model_image_groups[model_image]
 
         if model_uri is not None:
             model_endpoints |= self.lineage.model_uri_endpoints[model_image]
+            model_groups |= self.lineage.model_uri_groups[model_image]
 
         model_endpoints = sorted(
             [x for x in model_endpoints if x in endpoint_arn_to_name]
         )
+        model_groups = sorted(list(model_groups))
 
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
@@ -172,6 +176,7 @@ class ModelProcessor:
                         )
                         for endpoint_name in model_endpoints
                     ],
+                    groups=model_groups,
                     customProperties={
                         key: str(value)
                         for key, value in model_details.items()
