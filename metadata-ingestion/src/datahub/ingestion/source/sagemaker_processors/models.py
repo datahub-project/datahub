@@ -10,15 +10,15 @@ from datahub.ingestion.source.sagemaker_processors.jobs import JobDirection, Mod
 from datahub.ingestion.source.sagemaker_processors.lineage import LineageInfo
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     MLModelEndpointSnapshot,
-    MLModelSnapshot,
     MLModelGroupSnapshot,
+    MLModelSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     EndpointStatusClass,
     MLModelEndpointPropertiesClass,
-    MLModelPropertiesClass,
     MLModelGroupPropertiesClass,
+    MLModelPropertiesClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,

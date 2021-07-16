@@ -13,6 +13,7 @@ from tests.unit.test_sagemaker_source_stubs import (
     describe_feature_group_response_1,
     describe_feature_group_response_2,
     describe_feature_group_response_3,
+    describe_group_response,
     describe_model_response_1,
     describe_model_response_2,
     get_first_model_package_incoming_response,
@@ -26,11 +27,10 @@ from tests.unit.test_sagemaker_source_stubs import (
     list_feature_groups_response,
     list_first_endpoint_incoming_response,
     list_first_endpoint_outgoing_response,
+    list_groups_response,
     list_models_response,
     list_second_endpoint_incoming_response,
     list_second_endpoint_outgoing_response,
-    list_groups_response,
-    describe_group_response,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
