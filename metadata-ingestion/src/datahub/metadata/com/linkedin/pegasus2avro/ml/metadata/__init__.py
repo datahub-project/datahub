@@ -17,6 +17,7 @@ from ......schema_classes import MLFeatureTablePropertiesClass
 from ......schema_classes import MLModelEndpointPropertiesClass
 from ......schema_classes import MLModelFactorPromptsClass
 from ......schema_classes import MLModelFactorsClass
+from ......schema_classes import MLModelGroupPropertiesClass
 from ......schema_classes import MLModelPropertiesClass
 from ......schema_classes import MLPrimaryKeyPropertiesClass
 from ......schema_classes import MetricsClass
@@ -40,6 +41,7 @@ MLFeatureTableProperties = MLFeatureTablePropertiesClass
 MLModelEndpointProperties = MLModelEndpointPropertiesClass
 MLModelFactorPrompts = MLModelFactorPromptsClass
 MLModelFactors = MLModelFactorsClass
+MLModelGroupProperties = MLModelGroupPropertiesClass
 MLModelProperties = MLModelPropertiesClass
 MLPrimaryKeyProperties = MLPrimaryKeyPropertiesClass
 Metrics = MetricsClass

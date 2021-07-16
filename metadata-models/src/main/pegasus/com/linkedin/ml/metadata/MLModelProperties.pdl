@@ -34,11 +34,6 @@ record MLModelProperties includes CustomProperties {
   version: optional VersionTag
 
   /**
-   * Model groups that the MLModel belongs to
-   */
-  groups: optional array[string]
-
-  /**
    * Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc
    */
   @Searchable = {

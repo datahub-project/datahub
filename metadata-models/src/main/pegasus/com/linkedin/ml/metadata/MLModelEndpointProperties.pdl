@@ -1,6 +1,5 @@
 namespace com.linkedin.ml.metadata
 
-import com.linkedin.common.MLModelUrn
 import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
 import com.linkedin.common.CustomProperties
