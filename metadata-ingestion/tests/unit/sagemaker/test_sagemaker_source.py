@@ -26,6 +26,9 @@ from tests.unit.test_sagemaker_source_stubs import (
     list_first_endpoint_outgoing_response,
     list_second_endpoint_incoming_response,
     list_second_endpoint_outgoing_response,
+    get_model_group_incoming_response,
+    get_first_model_package_incoming_response,
+    get_second_model_package_incoming_response,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -90,6 +93,28 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             list_second_endpoint_outgoing_response,
             {
                 "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint"
+            },
+        )
+
+        sagemaker_stubber.add_response(
+            "list_associations",
+            get_model_group_incoming_response,
+            {
+                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:context/a-model-package-group-context"
+            },
+        )
+        sagemaker_stubber.add_response(
+            "list_associations",
+            get_first_model_package_incoming_response,
+            {
+                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-package-artifact"
+            },
+        )
+        sagemaker_stubber.add_response(
+            "list_associations",
+            get_second_model_package_incoming_response,
+            {
+                "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-package-artifact"
             },
         )
 

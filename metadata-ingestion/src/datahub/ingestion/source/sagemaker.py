@@ -33,13 +33,11 @@ class SagemakerSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
+        # get common lineage graph
         lineage_processor = LineageProcessor(
             sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
         )
         lineage = lineage_processor.get_lineage()
-
-        print(lineage.model_image_endpoints)
-        print(lineage.model_uri_endpoints)
 
         # extract feature groups if specified
         if self.source_config.extract_feature_groups:

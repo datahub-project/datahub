@@ -1626,5 +1626,88 @@ list_contexts_response = {
             "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         },
+        {
+            "ContextArn": "arn:aws:sagemaker:us-west-2:123412341234:context/a-model-package-group-context",
+            "ContextName": "a-model-package-group-context",
+            "Source": {
+                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group-context",
+                "SourceType": "ARN",
+                "SourceId": "Wed Jul 14 23:19:46 UTC 2021",
+            },
+            "ContextType": "ModelGroup",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+    ]
+}
+
+get_model_group_incoming_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-package-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:context/a-model-package-group-context",
+            "SourceType": "Model",
+            "DestinationType": "ModelGroup",
+            "AssociationType": "AssociatedWith",
+            "DestinationName": "a-model-package-group-context",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-package-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:context/a-model-package-group-context",
+            "SourceType": "Model",
+            "DestinationType": "ModelGroup",
+            "AssociationType": "AssociatedWith",
+            "DestinationName": "a-model-package-group-context",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+    ]
+}
+
+get_first_model_package_incoming_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-package-artifact",
+            "SourceType": "Model",
+            "DestinationType": "Model",
+            "AssociationType": "ContributedTo",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-image",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-package-artifact",
+            "SourceType": "Image",
+            "DestinationType": "Model",
+            "AssociationType": "ContributedTo",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+    ]
+}
+
+get_second_model_package_incoming_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-package-artifact",
+            "SourceType": "Model",
+            "DestinationType": "Model",
+            "AssociationType": "ContributedTo",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-image",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-package-artifact",
+            "SourceType": "Image",
+            "DestinationType": "Model",
+            "AssociationType": "ContributedTo",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
     ]
 }
