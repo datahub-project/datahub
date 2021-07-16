@@ -189,7 +189,7 @@ describe_auto_ml_job_response = {
         "InferenceContainers": [
             {
                 "Image": "string",
-                "ModelDataUrl": "string",
+                "ModelDataUrl": "s3://auto-ml-job/model-artifact.tar.gz",
                 "Environment": {"string": "string"},
             },
         ],
@@ -330,7 +330,7 @@ describe_edge_packaging_job_response = {
     "EdgePackagingJobArn": edge_packaging_job_arn,
     "EdgePackagingJobName": edge_packaging_job_name,
     "CompilationJobName": compilation_job_name,
-    "ModelName": "string",
+    "ModelName": "the-second-model",
     "ModelVersion": "string",
     "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
     "OutputConfig": {
@@ -819,7 +819,7 @@ describe_training_job_response = {
     "TuningJobArn": "string",
     "LabelingJobArn": "string",
     "AutoMLJobArn": "string",
-    "ModelArtifacts": {"S3ModelArtifacts": "s3://training-job/model-artifact.tar.gz"},
+    "ModelArtifacts": {"S3ModelArtifacts": "s3://the-first-model-data-url/data.tar.gz"},
     "TrainingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
     "SecondaryStatus": "Starting",  # 'Starting'|'LaunchingMLInstances'|'PreparingTrainingStack'|'Downloading'|'DownloadingTrainingImage'|'Training'|'Uploading'|'Stopping'|'Stopped'|'MaxRuntimeExceeded'|'Completed'|'Failed'|'Interrupted'|'MaxWaitTimeExceeded'|'Updating'|'Restarting'
     "FailureReason": "string",
@@ -1122,7 +1122,7 @@ describe_transform_job_response = {
     "TransformJobStatus": "InProgress",
     # 'InProgress' |'Completed'|'Failed'|'Stopping'|'Stopped'
     "FailureReason": "string",
-    "ModelName": "string",
+    "ModelName": "the-second-model",
     "MaxConcurrentTransforms": 123,
     "ModelClientConfig": {
         "InvocationsTimeoutInSeconds": 123,
@@ -1374,7 +1374,8 @@ describe_model_response_1 = {
                 "RepositoryAuthConfig": {"RepositoryCredentialsProviderArn": "string"},
             },
             "Mode": "SingleModel",  # 'SingleModel'|'MultiModel'
-            "ModelDataUrl": "string",
+            # dangling pointer, no training job corresponding to this yet
+            "ModelDataUrl": "s3://training-job-2/model-artifact.tar.gz",
             "Environment": {"string": "string"},
             "ModelPackageName": "string",
             "MultiModelConfig": {
@@ -1424,7 +1425,7 @@ describe_model_response_2 = {
                 "RepositoryAuthConfig": {"RepositoryCredentialsProviderArn": "string"},
             },
             "Mode": "SingleModel",  # 'SingleModel'|'MultiModel'
-            "ModelDataUrl": "string",
+            "ModelDataUrl": "s3://the-first-model-data-url/data.tar.gz",
             "Environment": {"string": "string"},
             "ModelPackageName": "string",
             "MultiModelConfig": {

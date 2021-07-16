@@ -9,7 +9,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 
 # make sure that mock_time is excluded here because it messes with feast
-@pytest.mark.slow
+@pytest.mark.integration
 def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/feast"
 

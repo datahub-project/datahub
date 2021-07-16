@@ -5,7 +5,7 @@ from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 
-@pytest.mark.slow
+@pytest.mark.integration
 def test_mongodb_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mongodb"
 

@@ -145,6 +145,26 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             },
         )
 
+        for job_type, job in job_stubs.items():
+
+            job_info = SAGEMAKER_JOB_TYPES[job_type]
+
+            sagemaker_stubber.add_response(
+                job_info.list_command,
+                job["list"],
+                {},
+            )
+
+        for job_type, job in job_stubs.items():
+
+            job_info = SAGEMAKER_JOB_TYPES[job_type]
+
+            sagemaker_stubber.add_response(
+                job_info.describe_command,
+                job["describe"],
+                {job_info.describe_name_key: job["describe_name"]},
+            )
+
         sagemaker_stubber.add_response(
             "list_endpoints",
             list_endpoints_response,
@@ -180,26 +200,6 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             describe_model_response_2,
             {"ModelName": "the-second-model"},
         )
-
-        for job_type, job in job_stubs.items():
-
-            job_info = SAGEMAKER_JOB_TYPES[job_type]
-
-            sagemaker_stubber.add_response(
-                job_info.list_command,
-                job["list"],
-                {},
-            )
-
-        for job_type, job in job_stubs.items():
-
-            job_info = SAGEMAKER_JOB_TYPES[job_type]
-
-            sagemaker_stubber.add_response(
-                job_info.describe_command,
-                job["describe"],
-                {job_info.describe_name_key: job["describe_name"]},
-            )
 
         mce_objects = [
             wu.mce.to_obj() for wu in sagemaker_source_instance.get_workunits()
