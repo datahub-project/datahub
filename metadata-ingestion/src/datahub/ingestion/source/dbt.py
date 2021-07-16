@@ -273,7 +273,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
         node_attribute_value = getattr(node, attribute)
 
         if node_attribute_value is not None:
-            custom_properties[attribute] = node_attribute_value
+            custom_properties[attribute] = str(node_attribute_value)
 
     return custom_properties
 
