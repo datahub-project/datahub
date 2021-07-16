@@ -15,11 +15,10 @@ const Title = styled(Typography.Text)`
 
 export const AdHocPage = () => {
     const [state, setState] = useState({
-        key: 'tab1',
+        key: 'csvForm',
         titleKey: 'csvForm',
     });
-    const onTabChange = (key, type) => {
-        console.log(key, type);
+    const onTabChange = (key) => {
         setState((prevState) => ({ key: prevState.key, titleKey: key }));
     };
     const contentList = {
@@ -54,7 +53,7 @@ export const AdHocPage = () => {
                                     tabList={tabList}
                                     activeTabKey={state.titleKey}
                                     onTabChange={(key) => {
-                                        onTabChange(key, 'noTitleKey');
+                                        onTabChange(key);
                                     }}
                                 >
                                     {contentList[state.titleKey]}

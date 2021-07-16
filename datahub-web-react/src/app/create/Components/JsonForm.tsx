@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import JsonSchemaEditor from '@optum/json-schema-editor';
 import { JsonPointer } from 'json-ptr';
 import { JSONSchema7 } from '@optum/json-schema-editor/dist/JsonSchemaEditor.types';
@@ -32,9 +32,11 @@ export const JsonForm = () => {
     const printErrorMsg = (error) => {
         message.error(error, 3).then();
     };
-    const onSchemaChange = (data) => {
-        setSchema(data);
-    };
+    const onSchemaChange = useRef((data) => {
+        setTimeout(() => {
+            setSchema(data);
+        }, 0);
+    }).current;
     const flattenSchema = (schemaStr) => {
         const fields: Array<{ field_name: string; field_type: string; field_description: string }> = [];
         // use json pointer to get all fields and its parent
