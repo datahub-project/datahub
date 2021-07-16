@@ -117,7 +117,7 @@ class LookerDashboard:
 
 class LookerDashboardSource(Source):
     source_config: LookerDashboardSourceConfig
-    report = LookerDashboardSourceReport()
+    reporter: LookerDashboardSourceReport
 
     def __init__(self, config: LookerDashboardSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
@@ -421,8 +421,9 @@ class LookerDashboardSource(Source):
                 )
             except SDKError:
                 # A looker dashboard could be deleted in between the list and the get
-                logger.warning(
-                    f"Error occuried while loading dashboard {dashboard_id}. Skipping."
+                self.reporter.report_warning(
+                    dashboard_id,
+                    f"Error occurred while loading dashboard {dashboard_id}. Skipping.",
                 )
                 continue
 
