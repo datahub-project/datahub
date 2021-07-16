@@ -2,8 +2,8 @@
 import time
 from typing import List, Optional, Type, TypeVar, get_type_hints
 
+import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
-from typing_extensions import get_args
 
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -111,7 +111,9 @@ def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> b
 
     constructor_annotations = get_type_hints(SnapshotType.__init__)
     aspect_list_union = constructor_annotations["aspects"]
-    supported_aspect_types = get_args(get_args(aspect_list_union)[0])
+    supported_aspect_types = typing_inspect.get_args(
+        typing_inspect.get_args(aspect_list_union)[0]
+    )
 
     return issubclass(AspectType, supported_aspect_types)
 
