@@ -115,7 +115,7 @@ export const HomePageHeader = () => {
     const themeConfig = useTheme();
 
     const { data } = useIsAnalyticsEnabledQuery({ fetchPolicy: 'no-cache' });
-    const isAnalyticsEnabled = (data && data.isAnalyticsEnabled.valueOf()) || false;
+    const isAnalyticsEnabled = (data && data.isAnalyticsEnabled) || false;
 
     const onSearch = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
