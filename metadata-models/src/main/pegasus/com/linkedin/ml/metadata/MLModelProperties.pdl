@@ -1,5 +1,6 @@
 namespace com.linkedin.ml.metadata
 
+import com.linkedin.common.Urn
 import com.linkedin.common.MLFeatureUrn
 import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
@@ -54,4 +55,26 @@ record MLModelProperties includes CustomProperties {
    * Tags for the MLModel
    */
   tags: array[string] = [ ]
+
+  /**
+   * List of jobs (if any) used to train the model
+   */
+  @Relationship = {
+    "/*": {
+      "name": "TrainedBy",
+      "entityTypes": [ "dataJob" ]
+    }
+  }
+  trainingJobs: optional array[Urn]
+
+  /**
+   * List of jobs (if any) that use the model
+   */
+  @Relationship = {
+    "/*": {
+      "name": "UsedBy",
+      "entityTypes": [ "dataJob" ]
+    }
+  }
+  downstreamJobs: optional array[Urn]
 }

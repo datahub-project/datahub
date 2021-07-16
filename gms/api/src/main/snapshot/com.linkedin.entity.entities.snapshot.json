@@ -2868,6 +2868,34 @@
                     },
                     "doc" : "Tags for the MLModel",
                     "default" : [ ]
+                  }, {
+                    "name" : "trainingJobs",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "List of jobs (if any) used to train the model",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "dataJob" ],
+                        "name" : "TrainedBy"
+                      }
+                    }
+                  }, {
+                    "name" : "downstreamJobs",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "List of jobs (if any) that use the model",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "dataJob" ],
+                        "name" : "UsedBy"
+                      }
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "mlModelProperties"
@@ -3623,7 +3651,7 @@
                   "Aspect" : {
                     "name" : "glossaryTermInfo"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."

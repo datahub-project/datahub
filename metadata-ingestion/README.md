@@ -372,7 +372,8 @@ source:
 
 Extracts:
 
-- Feature groups (support for models, jobs, and more coming soon!)
+- Feature groups
+- Models, jobs, and lineage between the two (e.g. when jobs output a model or a model is used by a job)
 
 ```yml
 source:

@@ -99,9 +99,10 @@ public class IndexBuilder {
     }
 
     log.info("Reindex from {} to {} succeeded", indexName, tempIndexName);
+    String indexNamePattern = indexName + "_*";
     // Check if the original index is aliased or not
     GetAliasesResponse aliasesResponse =
-        searchClient.indices().getAlias(new GetAliasesRequest(indexName), RequestOptions.DEFAULT);
+        searchClient.indices().getAlias(new GetAliasesRequest(indexName).indices(indexNamePattern), RequestOptions.DEFAULT);
     // If not aliased, delete the original index
     if (aliasesResponse.getAliases().isEmpty()) {
       searchClient.indices().delete(new DeleteIndexRequest().indices(indexName), RequestOptions.DEFAULT);
@@ -112,7 +113,7 @@ public class IndexBuilder {
     }
 
     // Add alias for the new index
-    AliasActions removeAction = AliasActions.remove().alias(indexName).index("*");
+    AliasActions removeAction = AliasActions.remove().alias(indexName).index(indexNamePattern);
     AliasActions addAction = AliasActions.add().alias(indexName).index(tempIndexName);
     searchClient.indices()
         .updateAliases(new IndicesAliasesRequest().addAliasAction(removeAction).addAliasAction(addAction),

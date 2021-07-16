@@ -1,10 +1,12 @@
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Iterable, List
+from typing import Any, DefaultDict, Dict, Iterable, List, Set
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
+from datahub.ingestion.source.sagemaker_processors.jobs import JobDirection, ModelJob
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import MLModelSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import MLModelPropertiesClass
@@ -15,6 +17,16 @@ class ModelProcessor:
     sagemaker_client: Any
     env: str
     report: SagemakerSourceReport
+
+    # map from model image file path to jobs referencing the model
+    model_data_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
+
+    # map from model name to jobs referencing the model
+    model_name_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
 
     def get_all_models(self) -> List[Dict[str, Any]]:
         """
@@ -43,6 +55,62 @@ class ModelProcessor:
         # params to remove since we extract them
         redundant_fields = {"ModelName", "CreationTime"}
 
+        model_training_jobs: Set[str] = set()
+        model_downstream_jobs: Set[str] = set()
+
+        # extract model data URLs for matching with jobs
+        model_data_urls = []
+
+        for model_container in model_details.get("Containers", []):
+            model_data_url = model_container.get("ModelDataUrl")
+
+            if model_data_url is not None:
+                model_data_urls.append(model_data_url)
+        model_data_url = model_details.get("PrimaryContainer", {}).get("ModelDataUrl")
+        if model_data_url is not None:
+            model_data_urls.append(model_data_url)
+
+        for model_data_url in model_data_urls:
+
+            data_url_matched_jobs = self.model_data_to_jobs.get(model_data_url, set())
+            # extend set of training jobs
+            model_training_jobs = model_training_jobs.union(
+                {
+                    job.job_urn
+                    for job in data_url_matched_jobs
+                    if job.job_direction == JobDirection.TRAINING
+                }
+            )
+            # extend set of downstream jobs
+            model_downstream_jobs = model_downstream_jobs.union(
+                {
+                    job.job_urn
+                    for job in data_url_matched_jobs
+                    if job.job_direction == JobDirection.DOWNSTREAM
+                }
+            )
+
+        # get jobs referencing the model by name
+        name_matched_jobs = self.model_name_to_jobs.get(
+            model_details["ModelName"], set()
+        )
+        # extend set of training jobs
+        model_training_jobs = model_training_jobs.union(
+            {
+                job.job_urn
+                for job in name_matched_jobs
+                if job.job_direction == JobDirection.TRAINING
+            }
+        )
+        # extend set of downstream jobs
+        model_downstream_jobs = model_downstream_jobs.union(
+            {
+                job.job_urn
+                for job in name_matched_jobs
+                if job.job_direction == JobDirection.DOWNSTREAM
+            }
+        )
+
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
                 "sagemaker", model_details["ModelName"], self.env
@@ -58,6 +126,8 @@ class ModelProcessor:
                         for key, value in model_details.items()
                         if key not in redundant_fields
                     },
+                    trainingJobs=sorted(list(model_training_jobs)),
+                    downstreamJobs=sorted(list(model_downstream_jobs)),
                 )
             ],
         )
