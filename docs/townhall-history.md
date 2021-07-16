@@ -18,6 +18,7 @@ A list of previous Town Halls, their planned schedule, and the recording of the 
 
 ## 5/27/2021
 [Full YouTube video](https://www.youtube.com/watch?v=qgW_xpIr1Ho)
+
 [Medium Post](https://medium.com/datahub-project/linkedin-datahub-project-updates-ed98cdf913c1?source=friends_link&sk=9930ec5579299b155ea87c747683d1ad)
 
 ### Agenda
