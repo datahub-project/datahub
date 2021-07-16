@@ -117,9 +117,11 @@ class LineageProcessor:
         incoming_edges = self.get_incoming_edges(deployment_node_arn)
         outgoing_edges = self.get_outgoing_edges(deployment_node_arn)
 
+        # models are linked to endpoints not by their ARNs, but by their output files and/or images
         model_uris = set()
         model_images = set()
 
+        # check the incoming edges for model URIs and images
         for edge in incoming_edges:
 
             source_node = self.nodes.get(edge["SourceArn"])
@@ -136,6 +138,7 @@ class LineageProcessor:
 
         model_endpoints = set()
 
+        # check the outgoing edges for endpoints resulting from the deployment
         for edge in outgoing_edges:
 
             destination_node = self.nodes[edge["DestinationArn"]]
@@ -171,6 +174,7 @@ class LineageProcessor:
         if model_group_arn is None or model_source_type != "ARN":
             return
 
+        # check incoming edges for model packages under the group
         group_incoming_edges = self.get_incoming_edges(model_group_node_arn)
 
         for edge in group_incoming_edges:
@@ -181,12 +185,14 @@ class LineageProcessor:
                     edge["SourceArn"]
                 )
 
+                # check incoming edges for models under the model package
                 for model_package_edge in model_package_incoming_edges:
 
                     source_node = self.nodes.get(model_package_edge["SourceArn"])
 
                     source_uri = source_node.get("Source", {}).get("SourceUri")
 
+                    # add model_uri -> model_group_arn mapping
                     if (
                         model_package_edge["SourceType"] == "Model"
                         and source_uri is not None
@@ -196,6 +202,7 @@ class LineageProcessor:
                             model_group_arn
                         )
 
+                    # add model_image -> model_group_arn mapping
                     elif (
                         model_package_edge["SourceType"] == "Image"
                         and source_uri is not None
@@ -219,12 +226,14 @@ class LineageProcessor:
 
         for node_arn, node in self.nodes.items():
 
+            # get model-endpoint lineage
             if (
                 node["node_type"] == "action"
                 and node.get("ActionType") == "ModelDeployment"
             ):
                 self.get_model_deployment_lineage(node_arn)
 
+            # get model-group lineage
             if (
                 node["node_type"] == "context"
                 and node.get("ContextType") == "ModelGroup"

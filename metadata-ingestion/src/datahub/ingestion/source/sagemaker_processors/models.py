@@ -147,14 +147,17 @@ class ModelProcessor:
         model_endpoints = set()
         model_groups = set()
 
+        # get endpoints and groups by model image
         if model_image is not None:
             model_endpoints |= self.lineage.model_image_endpoints[model_image]
             model_groups |= self.lineage.model_image_groups[model_image]
 
+        # get endpoints and groups by model uri
         if model_uri is not None:
-            model_endpoints |= self.lineage.model_uri_endpoints[model_image]
-            model_groups |= self.lineage.model_uri_groups[model_image]
+            model_endpoints |= self.lineage.model_uri_endpoints[model_uri]
+            model_groups |= self.lineage.model_uri_groups[model_uri]
 
+        # sort endpoints and groups for consistency
         model_endpoints = sorted(
             [x for x in model_endpoints if x in endpoint_arn_to_name]
         )
@@ -202,6 +205,7 @@ class ModelProcessor:
 
         endpoint_arn_to_name = {}
 
+        # ingest endpoints first since we need to know the endpoint ARN -> name mapping
         for endpoint in endpoints:
 
             endpoint_details = self.get_endpoint_details(endpoint["EndpointName"])
