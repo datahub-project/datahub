@@ -6,6 +6,7 @@ import com.linkedin.common.urn.DashboardUrn;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
@@ -20,11 +21,14 @@ import com.linkedin.metadata.aspect.DataJobAspect;
 import com.linkedin.metadata.aspect.DataJobAspectArray;
 import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.aspect.DatasetAspectArray;
+import com.linkedin.metadata.aspect.GlossaryTermAspect;
+import com.linkedin.metadata.aspect.GlossaryTermAspectArray;
 import com.linkedin.metadata.builders.search.ChartIndexBuilder;
 import com.linkedin.metadata.builders.search.DashboardIndexBuilder;
 import com.linkedin.metadata.builders.search.DataFlowIndexBuilder;
 import com.linkedin.metadata.builders.search.DataJobIndexBuilder;
 import com.linkedin.metadata.builders.search.DatasetIndexBuilder;
+import com.linkedin.metadata.builders.search.GlossaryTermInfoIndexBuilder;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.net.URISyntaxException;
@@ -59,6 +63,8 @@ public class BrowsePathUtils {
         return DataFlowIndexBuilder.buildBrowsePath(DataFlowUrn.createFromUrn(urn));
       case "dataJob":
         return DataJobIndexBuilder.buildBrowsePath(DataJobUrn.createFromUrn(urn));
+      case "glossaryTerm":
+        return GlossaryTermInfoIndexBuilder.buildBrowsePath(GlossaryTermUrn.createFromUrn(urn));
       default:
         log.debug(String.format("Failed to generate default browse path for unknown entity type %s", urn.getEntityType()));
         return "";
@@ -83,6 +89,20 @@ public class BrowsePathUtils {
       }
       if (!hasBrowse) {
         aspects.add(DatasetAspect.create(defaultBrowsePaths));
+      }
+    }
+    if (urn.getEntityType().equals("glossaryTerm")) {
+      final GlossaryTermAspectArray aspects = snapshot.getGlossaryTermSnapshot().getAspects();
+      boolean hasBrowse = false;
+      if (browsePathEntity != null) {
+        final GlossaryTermAspectArray aspectsWithExistingBrowse = browsePathEntity.getValue().getGlossaryTermSnapshot().getAspects();
+        hasBrowse = aspects.stream()
+            .filter(glossaryTermAspect -> glossaryTermAspect.isBrowsePaths()).findFirst().isPresent()
+            || aspectsWithExistingBrowse.stream()
+            .filter(glossaryTermAspect -> glossaryTermAspect.isBrowsePaths()).findFirst().isPresent();
+      }
+      if (!hasBrowse) {
+        aspects.add(GlossaryTermAspect.create(defaultBrowsePaths));
       }
     }
     if (urn.getEntityType().equals("chart")) {

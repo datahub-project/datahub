@@ -4635,7 +4635,8 @@
                       "doc": "Properties associated with a GlossaryTerm"
                     },
                     "com.linkedin.pegasus2avro.common.Ownership",
-                    "com.linkedin.pegasus2avro.common.Status"
+                    "com.linkedin.pegasus2avro.common.Status",
+                    "com.linkedin.pegasus2avro.common.BrowsePaths"
                   ]
                 },
                 "name": "aspects",
