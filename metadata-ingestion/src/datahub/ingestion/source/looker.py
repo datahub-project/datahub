@@ -393,7 +393,13 @@ class LookerDashboardSource(Source):
         os.environ["LOOKERSDK_CLIENT_SECRET"] = self.source_config.client_secret
         os.environ["LOOKERSDK_BASE_URL"] = self.source_config.base_url
 
-        return looker_sdk.init31()
+        client = looker_sdk.init31()
+
+        # try authenticating current user to check connectivity
+        # (since it's possible to initialize an invalid client without any complaints)
+        client.me()
+
+        return client
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         client = self._get_looker_client()

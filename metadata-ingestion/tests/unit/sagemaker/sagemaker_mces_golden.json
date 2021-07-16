@@ -307,68 +307,6 @@
   {
     "auditHeader": null,
     "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
-        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
-              "customProperties": {
-                "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 'string', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Enabled'}}",
-                "Containers": "[{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 'string', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Enabled'}}]",
-                "InferenceExecutionConfig": "{'Mode': 'Serial'}",
-                "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
-                "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
-                "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
-                "EnableNetworkIsolation": "True"
-              },
-              "description": null,
-              "date": 1420070400000,
-              "version": null,
-              "type": null,
-              "hyperParameters": null,
-              "mlFeatures": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
-        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
-              "customProperties": {
-                "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'MultiModel', 'ModelDataUrl': 'string', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}",
-                "Containers": "[{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Vpc', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 'string', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}]",
-                "InferenceExecutionConfig": "{'Mode': 'Serial'}",
-                "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
-                "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
-                "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
-                "EnableNetworkIsolation": "False"
-              },
-              "description": null,
-              "date": 1420070400000,
-              "version": null,
-              "type": null,
-              "hyperParameters": null,
-              "mlFeatures": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file.txt,PROD)",
         "aspects": [
@@ -908,7 +846,7 @@
                 "LastModifiedTime": "2015-01-01 00:00:00+00:00",
                 "FailureReason": "string",
                 "PartialFailureReasons": "[{'PartialFailureMessage': 'string'}]",
-                "BestCandidate": "{'CandidateName': 'string', 'FinalAutoMLJobObjectiveMetric': {'Type': 'Maximize', 'MetricName': 'Accuracy', 'Value': 1.0}, 'ObjectiveStatus': 'Succeeded', 'CandidateSteps': [{'CandidateStepType': 'AWS::SageMaker::TrainingJob', 'CandidateStepArn': 'string', 'CandidateStepName': 'string'}], 'CandidateStatus': 'Completed', 'InferenceContainers': [{'Image': 'string', 'ModelDataUrl': 'string', 'Environment': {'string': 'string'}}], 'CreationTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'EndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'LastModifiedTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'FailureReason': 'string', 'CandidateProperties': {'CandidateArtifactLocations': {'Explainability': 'string'}}}",
+                "BestCandidate": "{'CandidateName': 'string', 'FinalAutoMLJobObjectiveMetric': {'Type': 'Maximize', 'MetricName': 'Accuracy', 'Value': 1.0}, 'ObjectiveStatus': 'Succeeded', 'CandidateSteps': [{'CandidateStepType': 'AWS::SageMaker::TrainingJob', 'CandidateStepArn': 'string', 'CandidateStepName': 'string'}], 'CandidateStatus': 'Completed', 'InferenceContainers': [{'Image': 'string', 'ModelDataUrl': 's3://auto-ml-job/model-artifact.tar.gz', 'Environment': {'string': 'string'}}], 'CreationTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'EndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'LastModifiedTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'FailureReason': 'string', 'CandidateProperties': {'CandidateArtifactLocations': {'Explainability': 'string'}}}",
                 "AutoMLJobStatus": "Completed",
                 "AutoMLJobSecondaryStatus": "Starting",
                 "GenerateCandidateDefinitionsOnly": "True",
@@ -1065,7 +1003,7 @@
                 "EdgePackagingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
                 "EdgePackagingJobName": "an-edge-packaging-job",
                 "CompilationJobName": "a-compilation-job",
-                "ModelName": "string",
+                "ModelName": "the-second-model",
                 "ModelVersion": "string",
                 "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
                 "OutputConfig": "{'S3OutputLocation': 's3://edge-packaging-bucket/output-config.tar.gz', 'KmsKeyId': 'string', 'PresetDeploymentType': 'GreengrassV2Component', 'PresetDeploymentConfig': 'string'}",
@@ -1499,7 +1437,7 @@
                 "TransformJobArn": "arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job",
                 "TransformJobStatus": "InProgress",
                 "FailureReason": "string",
-                "ModelName": "string",
+                "ModelName": "the-second-model",
                 "MaxConcurrentTransforms": "123",
                 "ModelClientConfig": "{'InvocationsTimeoutInSeconds': 123, 'InvocationsMaxRetries': 123}",
                 "MaxPayloadInMB": "123",
@@ -1545,6 +1483,79 @@
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
+              "customProperties": {
+                "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://training-job/model-artifact.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Enabled'}}",
+                "Containers": "[{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://training-job-2/model-artifact.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Enabled'}}]",
+                "InferenceExecutionConfig": "{'Mode': 'Serial'}",
+                "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
+                "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
+                "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
+                "EnableNetworkIsolation": "True"
+              },
+              "description": null,
+              "date": 1420070400000,
+              "version": null,
+              "type": null,
+              "hyperParameters": null,
+              "mlFeatures": null,
+              "tags": [],
+              "trainingJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+              ],
+              "downstreamJobs": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
+              "customProperties": {
+                "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'MultiModel', 'ModelDataUrl': 's3://training-job-3/model-artifact.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}",
+                "Containers": "[{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Vpc', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://training-job/model-artifact.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}]",
+                "InferenceExecutionConfig": "{'Mode': 'Serial'}",
+                "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
+                "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
+                "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
+                "EnableNetworkIsolation": "False"
+              },
+              "description": null,
+              "date": 1420070400000,
+              "version": null,
+              "type": null,
+              "hyperParameters": null,
+              "mlFeatures": null,
+              "tags": [],
+              "trainingJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+              ],
+              "downstreamJobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
+                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)"
               ]
             }
           }

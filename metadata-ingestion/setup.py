@@ -149,14 +149,8 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
-            "mysql",
-            "mssql",
-            "mongodb",
-            "feast",
-            "ldap",
             "looker",
             "glue",
-            "hive",
             "oracle",
             "sagemaker",
             "datahub-kafka",
@@ -184,6 +178,21 @@ dev_requirements_airflow_2 = {
     "apache-airflow-providers-snowflake",
 }
 
+full_test_dev_requirements = {
+    *list(
+        dependency
+        for plugin in [
+            "druid",
+            "feast",
+            "hive",
+            "ldap",
+            "mongodb",
+            "mssql",
+            "mysql",
+        ]
+        for dependency in plugins[plugin]
+    ),
+}
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
@@ -290,5 +299,6 @@ setuptools.setup(
         ),
         "dev": list(dev_requirements),
         "dev-airflow2": list(dev_requirements_airflow_2),
+        "integration-tests": list(full_test_dev_requirements),
     },
 )

@@ -32,7 +32,7 @@ public class GlossaryTermInfoIndexBuilder extends BaseIndexBuilder<GlossaryTermI
   }
 
   @Nonnull
-  private static String buildBrowsePath(@Nonnull GlossaryTermUrn urn) {
+  public static String buildBrowsePath(@Nonnull GlossaryTermUrn urn) {
     return "/" + urn.getNameEntity().replace('.', '/').toLowerCase();
   }
 
