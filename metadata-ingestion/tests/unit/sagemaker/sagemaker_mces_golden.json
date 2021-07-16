@@ -1554,6 +1554,32 @@
   {
     "auditHeader": null,
     "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot": {
+        "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelGroupProperties": {
+              "customProperties": {
+                "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
+                "ModelPackageGroupDescription": "Just a model package group.",
+                "CreatedBy": "{'UserProfileArn': 'arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user', 'UserProfileName': 'some-user', 'DomainId': 'some-domain'}",
+                "ModelPackageGroupStatus": "Completed"
+              },
+              "description": null,
+              "date": 1420070400000,
+              "version": null,
+              "tags": [],
+              "models": []
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
         "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
         "aspects": [
@@ -1571,9 +1597,6 @@
               "description": null,
               "date": 1420070400000,
               "version": null,
-              "groups": [
-                "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group"
-              ],
               "type": null,
               "hyperParameters": null,
               "mlFeatures": null,
@@ -1612,9 +1635,6 @@
               "description": null,
               "date": 1420070400000,
               "version": null,
-              "groups": [
-                "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group"
-              ],
               "type": null,
               "hyperParameters": null,
               "mlFeatures": null,

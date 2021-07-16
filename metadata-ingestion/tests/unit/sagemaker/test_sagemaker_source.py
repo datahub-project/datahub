@@ -29,6 +29,8 @@ from tests.unit.test_sagemaker_source_stubs import (
     list_models_response,
     list_second_endpoint_incoming_response,
     list_second_endpoint_outgoing_response,
+    list_groups_response,
+    describe_group_response,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -181,6 +183,18 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             "describe_endpoint",
             describe_endpoint_response_2,
             {"EndpointName": "the-second-endpoint"},
+        )
+
+        sagemaker_stubber.add_response(
+            "list_model_package_groups",
+            list_groups_response,
+            {},
+        )
+
+        sagemaker_stubber.add_response(
+            "describe_model_package_group",
+            describe_group_response,
+            {"ModelPackageGroupName": "a-model-package-group"},
         )
 
         sagemaker_stubber.add_response(

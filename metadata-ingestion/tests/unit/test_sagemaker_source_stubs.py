@@ -1712,3 +1712,28 @@ get_second_model_package_incoming_response = {
         },
     ]
 }
+
+list_groups_response = {
+    "ModelPackageGroupSummaryList": [
+        {
+            "ModelPackageGroupName": "a-model-package-group",
+            "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
+            "ModelPackageGroupDescription": "Just a model package group.",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "ModelPackageGroupStatus": "Completed",  # 'Pending'|'InProgress'|'Completed'|'Failed'|'Deleting'|'DeleteFailed'
+        },
+    ]
+}
+
+describe_group_response = {
+    "ModelPackageGroupName": "a-model-package-group",
+    "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
+    "ModelPackageGroupDescription": "Just a model package group.",
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "CreatedBy": {
+        "UserProfileArn": "arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user",
+        "UserProfileName": "some-user",
+        "DomainId": "some-domain",
+    },
+    "ModelPackageGroupStatus": "Completed",  # 'Pending'|'InProgress'|'Completed'|'Failed'|'Deleting'|'DeleteFailed'
+}
