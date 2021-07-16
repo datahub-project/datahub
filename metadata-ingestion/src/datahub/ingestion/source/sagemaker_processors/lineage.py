@@ -107,7 +107,7 @@ class LineageProcessor:
 
         return edges
 
-    def get_model_deployment_lineage(self, deployment_node_arn: str):
+    def get_model_deployment_lineage(self, deployment_node_arn: str) -> None:
         """
         Get the lineage of a model deployment (input models and output endpoints).
         """
@@ -162,7 +162,9 @@ class LineageProcessor:
         for model_image in model_images:
             self.lineage_info.model_image_endpoints[model_image] |= model_endpoints
 
-    def get_model_group_lineage(self, model_group_node_arn: str, node: Dict[str, Any]):
+    def get_model_group_lineage(
+        self, model_group_node_arn: str, node: Dict[str, Any]
+    ) -> None:
         """
         Get the lineage of a model group (models part of the group).
         """
@@ -189,6 +191,9 @@ class LineageProcessor:
                 for model_package_edge in model_package_incoming_edges:
 
                     source_node = self.nodes.get(model_package_edge["SourceArn"])
+
+                    if source_node is None:
+                        continue
 
                     source_uri = source_node.get("Source", {}).get("SourceUri")
 

@@ -17,7 +17,7 @@ from datahub.metadata.schema_classes import (
     MLModelPropertiesClass,
 )
 
-ENDPOINT_STATUS_MAP: Dict[str, EndpointStatusClass] = {
+ENDPOINT_STATUS_MAP: Dict[str, str] = {
     "OutOfService": EndpointStatusClass.OUT_OF_SERVICE,
     "Creating": EndpointStatusClass.CREATING,
     "Updating": EndpointStatusClass.UPDATING,
@@ -26,6 +26,7 @@ ENDPOINT_STATUS_MAP: Dict[str, EndpointStatusClass] = {
     "InService": EndpointStatusClass.IN_SERVICE,
     "Deleting": EndpointStatusClass.DELETING,
     "Failed": EndpointStatusClass.FAILED,
+    "Unknown": EndpointStatusClass.UNKNOWN,
 }
 
 
@@ -77,7 +78,7 @@ class ModelProcessor:
 
     def get_endpoint_status(
         self, endpoint_name: str, endpoint_arn: str, sagemaker_status: str
-    ) -> EndpointStatusClass:
+    ) -> str:
         endpoint_status = ENDPOINT_STATUS_MAP.get(sagemaker_status)
 
         if endpoint_status is None:
@@ -112,7 +113,7 @@ class ModelProcessor:
                     status=self.get_endpoint_status(
                         endpoint_details["EndpointArn"],
                         endpoint_details["EndpointName"],
-                        endpoint_details.get("EndpointStatus"),
+                        endpoint_details.get("EndpointStatus", "Unknown"),
                     ),
                     customProperties={
                         key: str(value)
@@ -158,10 +159,10 @@ class ModelProcessor:
             model_groups |= self.lineage.model_uri_groups[model_uri]
 
         # sort endpoints and groups for consistency
-        model_endpoints = sorted(
+        model_endpoints_sorted = sorted(
             [x for x in model_endpoints if x in endpoint_arn_to_name]
         )
-        model_groups = sorted(list(model_groups))
+        model_groups_sorted = sorted(list(model_groups))
 
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
@@ -177,9 +178,9 @@ class ModelProcessor:
                         builder.make_ml_model_endpoint_urn(
                             "sagemaker", endpoint_name, self.env
                         )
-                        for endpoint_name in model_endpoints
+                        for endpoint_name in model_endpoints_sorted
                     ],
-                    groups=model_groups,
+                    groups=model_groups_sorted,
                     customProperties={
                         key: str(value)
                         for key, value in model_details.items()
