@@ -1,4 +1,5 @@
-from typing import Iterable
+from collections import defaultdict
+from typing import DefaultDict, Iterable, Set
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source
@@ -10,7 +11,7 @@ from datahub.ingestion.source.sagemaker_processors.common import (
 from datahub.ingestion.source.sagemaker_processors.feature_groups import (
     FeatureGroupProcessor,
 )
-from datahub.ingestion.source.sagemaker_processors.jobs import JobProcessor
+from datahub.ingestion.source.sagemaker_processors.jobs import JobProcessor, ModelJob
 from datahub.ingestion.source.sagemaker_processors.models import ModelProcessor
 
 
@@ -40,13 +41,8 @@ class SagemakerSource(Source):
             )
             yield from feature_group_processor.get_workunits()
 
-        # extract models if specified
-        if self.source_config.extract_models:
-
-            model_processor = ModelProcessor(
-                sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
-            )
-            yield from model_processor.get_workunits()
+        model_data_to_jobs: DefaultDict[str, Set[ModelJob]] = defaultdict(set)
+        model_name_to_jobs: DefaultDict[str, Set[ModelJob]] = defaultdict(set)
 
         # extract jobs if specified
         if self.source_config.extract_jobs is not False:
@@ -58,6 +54,21 @@ class SagemakerSource(Source):
                 job_type_filter=self.source_config.extract_jobs,
             )
             yield from job_processor.get_workunits()
+
+            model_data_to_jobs = job_processor.model_data_to_jobs
+            model_name_to_jobs = job_processor.model_name_to_jobs
+
+        # extract models if specified
+        if self.source_config.extract_models:
+
+            model_processor = ModelProcessor(
+                sagemaker_client=self.sagemaker_client,
+                env=self.env,
+                report=self.report,
+                model_data_to_jobs=model_data_to_jobs,
+                model_name_to_jobs=model_name_to_jobs,
+            )
+            yield from model_processor.get_workunits()
 
     def get_report(self):
         return self.report

@@ -62,24 +62,6 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             },
         )
 
-        sagemaker_stubber.add_response(
-            "list_models",
-            list_models_response,
-            {},
-        )
-
-        sagemaker_stubber.add_response(
-            "describe_model",
-            describe_model_response_1,
-            {"ModelName": "the-first-model"},
-        )
-
-        sagemaker_stubber.add_response(
-            "describe_model",
-            describe_model_response_2,
-            {"ModelName": "the-second-model"},
-        )
-
         for job_type, job in job_stubs.items():
 
             job_info = SAGEMAKER_JOB_TYPES[job_type]
@@ -99,6 +81,24 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
                 job["describe"],
                 {job_info.describe_name_key: job["describe_name"]},
             )
+
+        sagemaker_stubber.add_response(
+            "list_models",
+            list_models_response,
+            {},
+        )
+
+        sagemaker_stubber.add_response(
+            "describe_model",
+            describe_model_response_1,
+            {"ModelName": "the-first-model"},
+        )
+
+        sagemaker_stubber.add_response(
+            "describe_model",
+            describe_model_response_2,
+            {"ModelName": "the-second-model"},
+        )
 
         mce_objects = [
             wu.mce.to_obj() for wu in sagemaker_source_instance.get_workunits()
