@@ -1,0 +1,40 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.Urn
+import com.linkedin.common.Time
+import com.linkedin.common.VersionTag
+import com.linkedin.common.CustomProperties
+
+/**
+ * Properties associated with an ML Hyper Param
+ */
+@Aspect = {
+  "name": "mlHyperParam"
+}
+record MLHyperParam {
+
+  /**
+   * Documentation of the MLHyperParam
+   */
+  description: optional string
+
+  /**
+   * The value of the MLHyperParam
+   */
+  value: optional union[string, int, float, double, boolean]
+
+  /**
+   * Date when the MLHyperParam was developed
+   */
+  date: optional Time
+
+  /**
+   * Version of the MLHyperParam
+   */
+  version: optional VersionTag
+
+  /**
+   * Tags for the MLHyperParam
+   */
+  tags: array[string] = [ ]
+}

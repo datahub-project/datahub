@@ -1573,6 +1573,9 @@
               "version": null,
               "type": null,
               "hyperParameters": null,
+              "hyperParams": null,
+              "trainingMetrics": null,
+              "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],
               "endpoints": [
@@ -1611,6 +1614,9 @@
               "version": null,
               "type": null,
               "hyperParameters": null,
+              "hyperParams": null,
+              "trainingMetrics": null,
+              "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],
               "endpoints": [

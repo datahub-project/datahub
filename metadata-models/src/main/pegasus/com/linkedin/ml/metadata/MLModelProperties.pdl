@@ -43,8 +43,25 @@ record MLModelProperties includes CustomProperties {
 
   /**
    * Hyper Parameters of the MLModel
+   * 
+   * NOTE: these are deprecated in favor of trainingHyperParams and onlineHyperParams
    */
   hyperParameters: optional map[string, HyperParameterValueType]
+
+  /**
+   * Hyperparameters of the MLModel
+   */
+  hyperParams: optional array[MLHyperParam]
+
+  /**
+   * Metrics of the MLModel used in training
+   */
+  trainingMetrics: optional array[MLMetric]
+
+  /**
+   * Metrics of the MLModel used in production
+   */
+  onlineMetrics: optional array[MLMetric]
 
   /**
    * List of features used for MLModel training

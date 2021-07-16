@@ -3371,7 +3371,161 @@
                           ],
                           "name": "hyperParameters",
                           "default": null,
-                          "doc": "Hyper Parameters of the MLModel"
+                          "doc": "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of trainingHyperParams and onlineHyperParams"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "record",
+                                "Aspect": {
+                                  "name": "mlHyperParam"
+                                },
+                                "name": "MLHyperParam",
+                                "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                                "fields": [
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "description",
+                                    "default": null,
+                                    "doc": "Documentation of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string",
+                                      "int",
+                                      "float",
+                                      "double",
+                                      "boolean"
+                                    ],
+                                    "name": "value",
+                                    "default": null,
+                                    "doc": "The value of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "long"
+                                    ],
+                                    "name": "date",
+                                    "default": null,
+                                    "doc": "Date when the MLHyperParam was developed"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "com.linkedin.pegasus2avro.common.VersionTag"
+                                    ],
+                                    "name": "version",
+                                    "default": null,
+                                    "doc": "Version of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": {
+                                      "type": "array",
+                                      "items": "string"
+                                    },
+                                    "name": "tags",
+                                    "default": [],
+                                    "doc": "Tags for the MLHyperParam"
+                                  }
+                                ],
+                                "doc": "Properties associated with an ML Hyper Param"
+                              }
+                            }
+                          ],
+                          "name": "hyperParams",
+                          "default": null,
+                          "doc": "Hyperparameters of the MLModel"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "record",
+                                "Aspect": {
+                                  "name": "mlMetric"
+                                },
+                                "name": "MLMetric",
+                                "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                                "fields": [
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "description",
+                                    "default": null,
+                                    "doc": "Documentation of the mlMetric"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string",
+                                      "int",
+                                      "float",
+                                      "double",
+                                      "boolean"
+                                    ],
+                                    "name": "value",
+                                    "default": null,
+                                    "doc": "The value of the mlMetric"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "long"
+                                    ],
+                                    "name": "date",
+                                    "default": null,
+                                    "doc": "Date when the mlMetric was developed"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "com.linkedin.pegasus2avro.common.VersionTag"
+                                    ],
+                                    "name": "version",
+                                    "default": null,
+                                    "doc": "Version of the mlMetric"
+                                  },
+                                  {
+                                    "type": {
+                                      "type": "array",
+                                      "items": "string"
+                                    },
+                                    "name": "tags",
+                                    "default": [],
+                                    "doc": "Tags for the mlMetric"
+                                  }
+                                ],
+                                "doc": "Properties associated with an ML Metric"
+                              }
+                            }
+                          ],
+                          "name": "trainingMetrics",
+                          "default": null,
+                          "doc": "Metrics of the MLModel used in training"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "com.linkedin.pegasus2avro.ml.metadata.MLMetric"
+                            }
+                          ],
+                          "name": "onlineMetrics",
+                          "default": null,
+                          "doc": "Metrics of the MLModel used in production"
                         },
                         {
                           "type": [

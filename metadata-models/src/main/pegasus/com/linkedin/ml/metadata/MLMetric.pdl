@@ -1,0 +1,40 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.Urn
+import com.linkedin.common.Time
+import com.linkedin.common.VersionTag
+import com.linkedin.common.CustomProperties
+
+/**
+ * Properties associated with an ML Metric
+ */
+@Aspect = {
+  "name": "mlMetric"
+}
+record MLMetric {
+
+  /**
+   * Documentation of the mlMetric
+   */
+  description: optional string
+
+  /**
+   * The value of the mlMetric
+   */
+  value: optional union[string, int, float, double, boolean]
+
+  /**
+   * Date when the mlMetric was developed
+   */
+  date: optional Time
+
+  /**
+   * Version of the mlMetric
+   */
+  version: optional VersionTag
+
+  /**
+   * Tags for the mlMetric
+   */
+  tags: array[string] = [ ]
+}

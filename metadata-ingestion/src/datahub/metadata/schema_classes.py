@@ -5662,6 +5662,192 @@ class MLFeatureTablePropertiesClass(DictWrapper):
         self._inner_dict['mlPrimaryKeys'] = value
     
     
+class MLHyperParamClass(DictWrapper):
+    """Properties associated with an ML Hyper Param"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLHyperParam")
+    def __init__(self,
+        description: Union[None, str]=None,
+        value: Union[None, str, int, float, float, bool]=None,
+        date: Union[None, int]=None,
+        version: Union[None, "VersionTagClass"]=None,
+        tags: Optional[List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.description = description
+        self.value = value
+        self.date = date
+        self.version = version
+        if tags is None:
+            # default: []
+            self.tags = list()
+        else:
+            self.tags = tags
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MLHyperParamClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
+        self.value = self.RECORD_SCHEMA.field_map["value"].default
+        self.date = self.RECORD_SCHEMA.field_map["date"].default
+        self.version = self.RECORD_SCHEMA.field_map["version"].default
+        self.tags = list()
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Getter: Documentation of the MLHyperParam"""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        """Setter: Documentation of the MLHyperParam"""
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def value(self) -> Union[None, str, int, float, float, bool]:
+        """Getter: The value of the MLHyperParam"""
+        return self._inner_dict.get('value')  # type: ignore
+    
+    @value.setter
+    def value(self, value: Union[None, str, int, float, float, bool]) -> None:
+        """Setter: The value of the MLHyperParam"""
+        self._inner_dict['value'] = value
+    
+    
+    @property
+    def date(self) -> Union[None, int]:
+        """Getter: Date when the MLHyperParam was developed"""
+        return self._inner_dict.get('date')  # type: ignore
+    
+    @date.setter
+    def date(self, value: Union[None, int]) -> None:
+        """Setter: Date when the MLHyperParam was developed"""
+        self._inner_dict['date'] = value
+    
+    
+    @property
+    def version(self) -> Union[None, "VersionTagClass"]:
+        """Getter: Version of the MLHyperParam"""
+        return self._inner_dict.get('version')  # type: ignore
+    
+    @version.setter
+    def version(self, value: Union[None, "VersionTagClass"]) -> None:
+        """Setter: Version of the MLHyperParam"""
+        self._inner_dict['version'] = value
+    
+    
+    @property
+    def tags(self) -> List[str]:
+        """Getter: Tags for the MLHyperParam"""
+        return self._inner_dict.get('tags')  # type: ignore
+    
+    @tags.setter
+    def tags(self, value: List[str]) -> None:
+        """Setter: Tags for the MLHyperParam"""
+        self._inner_dict['tags'] = value
+    
+    
+class MLMetricClass(DictWrapper):
+    """Properties associated with an ML Metric"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLMetric")
+    def __init__(self,
+        description: Union[None, str]=None,
+        value: Union[None, str, int, float, float, bool]=None,
+        date: Union[None, int]=None,
+        version: Union[None, "VersionTagClass"]=None,
+        tags: Optional[List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.description = description
+        self.value = value
+        self.date = date
+        self.version = version
+        if tags is None:
+            # default: []
+            self.tags = list()
+        else:
+            self.tags = tags
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MLMetricClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
+        self.value = self.RECORD_SCHEMA.field_map["value"].default
+        self.date = self.RECORD_SCHEMA.field_map["date"].default
+        self.version = self.RECORD_SCHEMA.field_map["version"].default
+        self.tags = list()
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Getter: Documentation of the mlMetric"""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        """Setter: Documentation of the mlMetric"""
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def value(self) -> Union[None, str, int, float, float, bool]:
+        """Getter: The value of the mlMetric"""
+        return self._inner_dict.get('value')  # type: ignore
+    
+    @value.setter
+    def value(self, value: Union[None, str, int, float, float, bool]) -> None:
+        """Setter: The value of the mlMetric"""
+        self._inner_dict['value'] = value
+    
+    
+    @property
+    def date(self) -> Union[None, int]:
+        """Getter: Date when the mlMetric was developed"""
+        return self._inner_dict.get('date')  # type: ignore
+    
+    @date.setter
+    def date(self, value: Union[None, int]) -> None:
+        """Setter: Date when the mlMetric was developed"""
+        self._inner_dict['date'] = value
+    
+    
+    @property
+    def version(self) -> Union[None, "VersionTagClass"]:
+        """Getter: Version of the mlMetric"""
+        return self._inner_dict.get('version')  # type: ignore
+    
+    @version.setter
+    def version(self, value: Union[None, "VersionTagClass"]) -> None:
+        """Setter: Version of the mlMetric"""
+        self._inner_dict['version'] = value
+    
+    
+    @property
+    def tags(self) -> List[str]:
+        """Getter: Tags for the mlMetric"""
+        return self._inner_dict.get('tags')  # type: ignore
+    
+    @tags.setter
+    def tags(self, value: List[str]) -> None:
+        """Setter: Tags for the mlMetric"""
+        self._inner_dict['tags'] = value
+    
+    
 class MLModelEndpointPropertiesClass(DictWrapper):
     """Properties associated with an ML Model Endpoint"""
     
@@ -6013,6 +6199,9 @@ class MLModelPropertiesClass(DictWrapper):
         version: Union[None, "VersionTagClass"]=None,
         type: Union[None, str]=None,
         hyperParameters: Union[None, Dict[str, Union[str, int, float, float, bool]]]=None,
+        hyperParams: Union[None, List["MLHyperParamClass"]]=None,
+        trainingMetrics: Union[None, List["MLMetricClass"]]=None,
+        onlineMetrics: Union[None, List["MLMetricClass"]]=None,
         mlFeatures: Union[None, List[str]]=None,
         tags: Optional[List[str]]=None,
         endpoints: Union[None, List[str]]=None,
@@ -6031,6 +6220,9 @@ class MLModelPropertiesClass(DictWrapper):
         self.version = version
         self.type = type
         self.hyperParameters = hyperParameters
+        self.hyperParams = hyperParams
+        self.trainingMetrics = trainingMetrics
+        self.onlineMetrics = onlineMetrics
         self.mlFeatures = mlFeatures
         if tags is None:
             # default: []
@@ -6055,6 +6247,9 @@ class MLModelPropertiesClass(DictWrapper):
         self.version = self.RECORD_SCHEMA.field_map["version"].default
         self.type = self.RECORD_SCHEMA.field_map["type"].default
         self.hyperParameters = self.RECORD_SCHEMA.field_map["hyperParameters"].default
+        self.hyperParams = self.RECORD_SCHEMA.field_map["hyperParams"].default
+        self.trainingMetrics = self.RECORD_SCHEMA.field_map["trainingMetrics"].default
+        self.onlineMetrics = self.RECORD_SCHEMA.field_map["onlineMetrics"].default
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
         self.tags = list()
         self.endpoints = self.RECORD_SCHEMA.field_map["endpoints"].default
@@ -6119,13 +6314,50 @@ class MLModelPropertiesClass(DictWrapper):
     
     @property
     def hyperParameters(self) -> Union[None, Dict[str, Union[str, int, float, float, bool]]]:
-        """Getter: Hyper Parameters of the MLModel"""
+        """Getter: Hyper Parameters of the MLModel
+    
+    NOTE: these are deprecated in favor of trainingHyperParams and onlineHyperParams"""
         return self._inner_dict.get('hyperParameters')  # type: ignore
     
     @hyperParameters.setter
     def hyperParameters(self, value: Union[None, Dict[str, Union[str, int, float, float, bool]]]) -> None:
-        """Setter: Hyper Parameters of the MLModel"""
+        """Setter: Hyper Parameters of the MLModel
+    
+    NOTE: these are deprecated in favor of trainingHyperParams and onlineHyperParams"""
         self._inner_dict['hyperParameters'] = value
+    
+    
+    @property
+    def hyperParams(self) -> Union[None, List["MLHyperParamClass"]]:
+        """Getter: Hyperparameters of the MLModel"""
+        return self._inner_dict.get('hyperParams')  # type: ignore
+    
+    @hyperParams.setter
+    def hyperParams(self, value: Union[None, List["MLHyperParamClass"]]) -> None:
+        """Setter: Hyperparameters of the MLModel"""
+        self._inner_dict['hyperParams'] = value
+    
+    
+    @property
+    def trainingMetrics(self) -> Union[None, List["MLMetricClass"]]:
+        """Getter: Metrics of the MLModel used in training"""
+        return self._inner_dict.get('trainingMetrics')  # type: ignore
+    
+    @trainingMetrics.setter
+    def trainingMetrics(self, value: Union[None, List["MLMetricClass"]]) -> None:
+        """Setter: Metrics of the MLModel used in training"""
+        self._inner_dict['trainingMetrics'] = value
+    
+    
+    @property
+    def onlineMetrics(self) -> Union[None, List["MLMetricClass"]]:
+        """Getter: Metrics of the MLModel used in production"""
+        return self._inner_dict.get('onlineMetrics')  # type: ignore
+    
+    @onlineMetrics.setter
+    def onlineMetrics(self, value: Union[None, List["MLMetricClass"]]) -> None:
+        """Setter: Metrics of the MLModel used in production"""
+        self._inner_dict['onlineMetrics'] = value
     
     
     @property
@@ -8345,6 +8577,8 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.ml.metadata.IntendedUserType': IntendedUserTypeClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties': MLFeaturePropertiesClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties': MLFeatureTablePropertiesClass,
+    'com.linkedin.pegasus2avro.ml.metadata.MLHyperParam': MLHyperParamClass,
+    'com.linkedin.pegasus2avro.ml.metadata.MLMetric': MLMetricClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelEndpointProperties': MLModelEndpointPropertiesClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelFactorPrompts': MLModelFactorPromptsClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelFactors': MLModelFactorsClass,
@@ -8499,6 +8733,8 @@ __SCHEMA_TYPES = {
     'IntendedUserType': IntendedUserTypeClass,
     'MLFeatureProperties': MLFeaturePropertiesClass,
     'MLFeatureTableProperties': MLFeatureTablePropertiesClass,
+    'MLHyperParam': MLHyperParamClass,
+    'MLMetric': MLMetricClass,
     'MLModelEndpointProperties': MLModelEndpointPropertiesClass,
     'MLModelFactorPrompts': MLModelFactorPromptsClass,
     'MLModelFactors': MLModelFactorsClass,
