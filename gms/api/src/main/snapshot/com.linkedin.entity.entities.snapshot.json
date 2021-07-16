@@ -3651,7 +3651,7 @@
                   "Aspect" : {
                     "name" : "glossaryTermInfo"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
