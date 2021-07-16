@@ -20,12 +20,12 @@ class LineageInfo:
         default_factory=lambda: defaultdict(set)
     )
 
-    # map from model URIs to groups
-    model_uri_groups: DefaultDict[str, Set[str]] = field(
+    # map from group ARNs to model URIs
+    group_model_uris: DefaultDict[str, Set[str]] = field(
         default_factory=lambda: defaultdict(set)
     )
-    # map from model images to groups
-    model_image_groups: DefaultDict[str, Set[str]] = field(
+    # map from group ARNs to model images
+    group_model_images: DefaultDict[str, Set[str]] = field(
         default_factory=lambda: defaultdict(set)
     )
 
@@ -197,24 +197,24 @@ class LineageProcessor:
 
                     source_uri = source_node.get("Source", {}).get("SourceUri")
 
-                    # add model_uri -> model_group_arn mapping
+                    # add model_group_arn -> model_uri mapping
                     if (
                         model_package_edge["SourceType"] == "Model"
                         and source_uri is not None
                     ):
 
-                        self.lineage_info.model_uri_groups[source_uri].add(
-                            model_group_arn
+                        self.lineage_info.group_model_uris[model_group_arn].add(
+                            source_uri
                         )
 
-                    # add model_image -> model_group_arn mapping
+                    # add model_group_arn -> model_image mapping
                     elif (
                         model_package_edge["SourceType"] == "Image"
                         and source_uri is not None
                     ):
 
-                        self.lineage_info.model_image_groups[source_uri].add(
-                            model_group_arn
+                        self.lineage_info.group_model_images[model_group_arn].add(
+                            source_uri
                         )
 
     def get_lineage(self) -> LineageInfo:

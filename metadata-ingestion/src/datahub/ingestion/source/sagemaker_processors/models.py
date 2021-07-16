@@ -44,7 +44,7 @@ class ModelProcessor:
     lineage: LineageInfo
 
     # map from model image file path to jobs referencing the model
-    model_data_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
+    model_image_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
         default_factory=lambda: defaultdict(set)
     )
 
@@ -52,6 +52,11 @@ class ModelProcessor:
     model_name_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
         default_factory=lambda: defaultdict(set)
     )
+
+    # map from model uri to model name
+    model_uri_to_name: Dict[str, str] = field(default_factory=dict)
+    # map from model image path to model name
+    model_image_to_name: Dict[str, str] = field(default_factory=dict)
 
     def get_all_models(self) -> List[Dict[str, Any]]:
         """
@@ -171,41 +176,6 @@ class ModelProcessor:
             mce=mce,
         )
 
-    def get_group_wu(self, group_details: Dict[str, Any]) -> MetadataWorkUnit:
-        """
-        Get a workunit for a model group.
-        """
-
-        # params to remove since we extract them
-        redundant_fields = {"ModelPackageGroupName", "CreationTime"}
-
-        group_snapshot = MLModelGroupSnapshot(
-            urn=builder.make_ml_model_group_urn(
-                "sagemaker", group_details["ModelPackageGroupName"], self.env
-            ),
-            aspects=[
-                MLModelGroupPropertiesClass(
-                    date=int(
-                        group_details.get("CreationTime", datetime.now()).timestamp()
-                        * 1000
-                    ),
-                    customProperties={
-                        key: str(value)
-                        for key, value in group_details.items()
-                        if key not in redundant_fields
-                    },
-                ),
-                # OwnershipClass(
-                #     [OwnerClass(owner=actor, type=OwnershipTypeClass.DATAOWNER)]
-                # ),
-            ],
-        )
-
-        # make the MCE and workunit
-        mce = MetadataChangeEvent(proposedSnapshot=group_snapshot)
-
-        return MetadataWorkUnit(id=f'{group_details["ModelPackageGroupName"]}', mce=mce)
-
     def get_model_wu(
         self, model_details: Dict[str, Any], endpoint_arn_to_name: Dict[str, str]
     ) -> MetadataWorkUnit:
@@ -224,10 +194,12 @@ class ModelProcessor:
         # get endpoints and groups by model image
         if model_image is not None:
             model_endpoints |= self.lineage.model_image_endpoints[model_image]
+            self.model_image_to_name[model_image] = model_details["ModelName"]
 
         # get endpoints and groups by model uri
         if model_uri is not None:
             model_endpoints |= self.lineage.model_uri_endpoints[model_uri]
+            self.model_uri_to_name[model_uri] = model_details["ModelName"]
 
         # sort endpoints and groups for consistency
         model_endpoints_sorted = sorted(
@@ -251,7 +223,7 @@ class ModelProcessor:
 
         for model_data_url in model_data_urls:
 
-            data_url_matched_jobs = self.model_data_to_jobs.get(model_data_url, set())
+            data_url_matched_jobs = self.model_image_to_jobs.get(model_data_url, set())
             # extend set of training jobs
             model_training_jobs = model_training_jobs.union(
                 {
@@ -324,6 +296,67 @@ class ModelProcessor:
             id=f'{model_details["ModelName"]}',
             mce=mce,
         )
+
+    def get_group_wu(self, group_details: Dict[str, Any]) -> MetadataWorkUnit:
+        """
+        Get a workunit for a model group.
+        """
+
+        # params to remove since we extract them
+        redundant_fields = {"ModelPackageGroupName", "CreationTime"}
+
+        group_arn = group_details["ModelPackageGroupArn"]
+
+        group_model_names = set()
+
+        if group_arn in self.lineage.group_model_uris:
+            model_uris = self.lineage.group_model_uris[group_arn]
+            group_model_names |= {
+                self.model_uri_to_name[x]
+                for x in model_uris
+                if x in self.model_uri_to_name
+            }
+
+        if group_arn in self.lineage.group_model_images:
+            model_images = self.lineage.group_model_images[group_arn]
+            group_model_names |= {
+                self.model_image_to_name[x]
+                for x in model_images
+                if x in self.model_uri_to_name
+            }
+
+        group_snapshot = MLModelGroupSnapshot(
+            urn=builder.make_ml_model_group_urn(
+                "sagemaker", group_details["ModelPackageGroupName"], self.env
+            ),
+            aspects=[
+                MLModelGroupPropertiesClass(
+                    date=int(
+                        group_details.get("CreationTime", datetime.now()).timestamp()
+                        * 1000
+                    ),
+                    customProperties={
+                        key: str(value)
+                        for key, value in group_details.items()
+                        if key not in redundant_fields
+                    },
+                    models=sorted(
+                        [
+                            builder.make_ml_model_urn("sagemaker", model_name, self.env)
+                            for model_name in group_model_names
+                        ]
+                    ),
+                ),
+                # OwnershipClass(
+                #     [OwnerClass(owner=actor, type=OwnershipTypeClass.DATAOWNER)]
+                # ),
+            ],
+        )
+
+        # make the MCE and workunit
+        mce = MetadataChangeEvent(proposedSnapshot=group_snapshot)
+
+        return MetadataWorkUnit(id=f'{group_details["ModelPackageGroupName"]}', mce=mce)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 

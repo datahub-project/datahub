@@ -283,7 +283,7 @@ class JobProcessor:
     name_to_arn: Dict[Tuple[str, str], str] = field(default_factory=dict)
 
     # map from model image file path to jobs referencing the model
-    model_data_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
+    model_image_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
         default_factory=lambda: defaultdict(set)
     )
 
@@ -536,7 +536,7 @@ class JobProcessor:
             model_data_url = model_container.get("ModelDataUrl")
 
             if model_data_url is not None:
-                self.model_data_to_jobs[model_data_url].add(
+                self.model_image_to_jobs[model_data_url].add(
                     ModelJob(
                         job_urn=job_snapshot.urn, job_direction=JobDirection.TRAINING
                     )
@@ -984,7 +984,7 @@ class JobProcessor:
 
         model_data_url = job.get("ModelArtifacts", {}).get("S3ModelArtifacts")
         if model_data_url is not None:
-            self.model_data_to_jobs[model_data_url].add(
+            self.model_image_to_jobs[model_data_url].add(
                 ModelJob(job_urn=job_snapshot.urn, job_direction=JobDirection.TRAINING)
             )
 

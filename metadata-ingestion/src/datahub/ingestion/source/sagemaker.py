@@ -48,7 +48,7 @@ class SagemakerSource(Source):
             )
             yield from feature_group_processor.get_workunits()
 
-        model_data_to_jobs: DefaultDict[str, Set[ModelJob]] = defaultdict(set)
+        model_image_to_jobs: DefaultDict[str, Set[ModelJob]] = defaultdict(set)
         model_name_to_jobs: DefaultDict[str, Set[ModelJob]] = defaultdict(set)
 
         # extract jobs if specified
@@ -62,7 +62,7 @@ class SagemakerSource(Source):
             )
             yield from job_processor.get_workunits()
 
-            model_data_to_jobs = job_processor.model_data_to_jobs
+            model_image_to_jobs = job_processor.model_image_to_jobs
             model_name_to_jobs = job_processor.model_name_to_jobs
 
         # extract models if specified
@@ -72,7 +72,7 @@ class SagemakerSource(Source):
                 sagemaker_client=self.sagemaker_client,
                 env=self.env,
                 report=self.report,
-                model_data_to_jobs=model_data_to_jobs,
+                model_image_to_jobs=model_image_to_jobs,
                 model_name_to_jobs=model_name_to_jobs,
                 lineage=lineage,
             )

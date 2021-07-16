@@ -1648,7 +1648,10 @@
               "date": 1420070400000,
               "version": null,
               "tags": [],
-              "models": []
+              "models": [
+                "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
+                "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)"
+              ]
             }
           }
         ]
