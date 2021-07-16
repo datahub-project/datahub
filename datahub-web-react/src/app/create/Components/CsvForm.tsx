@@ -94,7 +94,7 @@ export const CsvForm = () => {
                         },
                     ]}
                 >
-                    <Select placeholder="Does the file contains header" onChange={onHeaderChange}>
+                    <Select placeholder="Does the file contains header" onChange={onHeaderChange} data-testid="select">
                         <Option value="yes">Yes</Option>
                         <Option value="no">No</Option>
                     </Select>
@@ -144,7 +144,10 @@ export const CsvForm = () => {
                                             <Input style={{ width: 200 }} placeholder="Field Description" />
                                         </Form.Item>
                                         {fields.length > 1 ? (
-                                            <MinusCircleOutlined onClick={() => remove(name)} />
+                                            <MinusCircleOutlined
+                                                data-testid="delete-icon"
+                                                onClick={() => remove(name)}
+                                            />
                                         ) : null}
                                     </Space>
                                 ))}
