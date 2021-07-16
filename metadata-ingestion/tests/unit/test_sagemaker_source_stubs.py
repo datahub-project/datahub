@@ -1631,7 +1631,7 @@ list_contexts_response = {
             "ContextArn": "arn:aws:sagemaker:us-west-2:123412341234:context/a-model-package-group-context",
             "ContextName": "a-model-package-group-context",
             "Source": {
-                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group-context",
+                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
                 "SourceType": "ARN",
                 "SourceId": "Wed Jul 14 23:19:46 UTC 2021",
             },

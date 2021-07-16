@@ -1572,7 +1572,7 @@
               "date": 1420070400000,
               "version": null,
               "groups": [
-                "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group-context"
+                "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group"
               ],
               "type": null,
               "hyperParameters": null,
@@ -1613,7 +1613,7 @@
               "date": 1420070400000,
               "version": null,
               "groups": [
-                "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group-context"
+                "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group"
               ],
               "type": null,
               "hyperParameters": null,
