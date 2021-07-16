@@ -1,10 +1,7 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, DefaultDict, Dict, Iterable, List, Set
+from typing import Any, DefaultDict, Dict, List, Set
 
-import datahub.emitter.mce_builder as builder
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
 
 

@@ -8,27 +8,27 @@ from datahub.ingestion.source.sagemaker import SagemakerSource, SagemakerSourceC
 from datahub.ingestion.source.sagemaker_processors.jobs import SAGEMAKER_JOB_TYPES
 from tests.test_helpers import mce_helpers
 from tests.unit.test_sagemaker_source_stubs import (
+    describe_endpoint_response_1,
+    describe_endpoint_response_2,
     describe_feature_group_response_1,
     describe_feature_group_response_2,
     describe_feature_group_response_3,
     describe_model_response_1,
     describe_model_response_2,
+    get_first_model_package_incoming_response,
+    get_model_group_incoming_response,
+    get_second_model_package_incoming_response,
     job_stubs,
-    list_feature_groups_response,
-    list_models_response,
-    list_endpoints_response,
-    describe_endpoint_response_1,
-    describe_endpoint_response_2,
     list_actions_response,
     list_artifacts_response,
     list_contexts_response,
+    list_endpoints_response,
+    list_feature_groups_response,
     list_first_endpoint_incoming_response,
     list_first_endpoint_outgoing_response,
+    list_models_response,
     list_second_endpoint_incoming_response,
     list_second_endpoint_outgoing_response,
-    get_model_group_incoming_response,
-    get_first_model_package_incoming_response,
-    get_second_model_package_incoming_response,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
