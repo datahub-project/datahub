@@ -5544,6 +5544,8 @@ class MLModelPropertiesClass(DictWrapper):
         hyperParameters: Union[None, Dict[str, Union[str, int, float, float, bool]]]=None,
         mlFeatures: Union[None, List[str]]=None,
         tags: Optional[List[str]]=None,
+        trainingJobs: Union[None, List[str]]=None,
+        downstreamJobs: Union[None, List[str]]=None,
     ):
         super().__init__()
         
@@ -5563,6 +5565,8 @@ class MLModelPropertiesClass(DictWrapper):
             self.tags = list()
         else:
             self.tags = tags
+        self.trainingJobs = trainingJobs
+        self.downstreamJobs = downstreamJobs
     
     @classmethod
     def construct_with_defaults(cls) -> "MLModelPropertiesClass":
@@ -5580,6 +5584,8 @@ class MLModelPropertiesClass(DictWrapper):
         self.hyperParameters = self.RECORD_SCHEMA.field_map["hyperParameters"].default
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
         self.tags = list()
+        self.trainingJobs = self.RECORD_SCHEMA.field_map["trainingJobs"].default
+        self.downstreamJobs = self.RECORD_SCHEMA.field_map["downstreamJobs"].default
     
     
     @property
@@ -5668,6 +5674,28 @@ class MLModelPropertiesClass(DictWrapper):
     def tags(self, value: List[str]) -> None:
         """Setter: Tags for the MLModel"""
         self._inner_dict['tags'] = value
+    
+    
+    @property
+    def trainingJobs(self) -> Union[None, List[str]]:
+        """Getter: List of jobs (if any) used to train the model"""
+        return self._inner_dict.get('trainingJobs')  # type: ignore
+    
+    @trainingJobs.setter
+    def trainingJobs(self, value: Union[None, List[str]]) -> None:
+        """Setter: List of jobs (if any) used to train the model"""
+        self._inner_dict['trainingJobs'] = value
+    
+    
+    @property
+    def downstreamJobs(self) -> Union[None, List[str]]:
+        """Getter: List of jobs (if any) that use the model"""
+        return self._inner_dict.get('downstreamJobs')  # type: ignore
+    
+    @downstreamJobs.setter
+    def downstreamJobs(self, value: Union[None, List[str]]) -> None:
+        """Setter: List of jobs (if any) that use the model"""
+        self._inner_dict['downstreamJobs'] = value
     
     
 class MLPrimaryKeyPropertiesClass(DictWrapper):

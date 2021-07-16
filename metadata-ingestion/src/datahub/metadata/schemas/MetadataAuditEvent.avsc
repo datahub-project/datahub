@@ -3345,6 +3345,46 @@
                         },
                         "doc": "Tags for the MLModel",
                         "default": []
+                      },
+                      {
+                        "name": "trainingJobs",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "List of jobs (if any) used to train the model",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "dataJob"
+                            ],
+                            "name": "TrainedBy"
+                          }
+                        }
+                      },
+                      {
+                        "name": "downstreamJobs",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "List of jobs (if any) that use the model",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "dataJob"
+                            ],
+                            "name": "UsedBy"
+                          }
+                        }
                       }
                     ],
                     "Aspect": {
