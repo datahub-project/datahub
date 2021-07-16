@@ -1489,7 +1489,17 @@ list_first_endpoint_incoming_response = {
             "DestinationName": "deploy-the-first-endpoint",
             "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "CreatedBy": {},
-        }
+        },
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-image",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint",
+            "SourceType": "Image",
+            "DestinationType": "ModelDeployment",
+            "AssociationType": "ContributedTo",
+            "DestinationName": "deploy-the-first-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
     ],
 }
 
@@ -1521,7 +1531,17 @@ list_second_endpoint_incoming_response = {
             "DestinationName": "deploy-the-second-endpoint",
             "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "CreatedBy": {},
-        }
+        },
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-image",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint",
+            "SourceType": "Image",
+            "DestinationType": "ModelDeployment",
+            "AssociationType": "ContributedTo",
+            "DestinationName": "deploy-the-second-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
     ],
 }
 
@@ -1554,6 +1574,26 @@ list_artifacts_response = {
             "ArtifactArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-artifact",
             "Source": {"SourceUri": "s3://the-second-model-data-url/data.tar.gz"},
             "ArtifactType": "Model",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "ArtifactArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-image",
+            "Source": {
+                "SourceUri": "123412341234.dkr.ecr.us-west-2.amazonaws.com/the-first-model-image",
+                "SourceTypes": [],
+            },
+            "ArtifactType": "Image",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "ArtifactArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-image",
+            "Source": {
+                "SourceUri": "123412341234.dkr.ecr.us-west-2.amazonaws.com/the-second-model-image",
+                "SourceTypes": [],
+            },
+            "ArtifactType": "Image",
             "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
             "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
         },

@@ -75,41 +75,6 @@ class ModelProcessor:
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_endpoint
         return self.sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
 
-    def get_model_wu(self, model_details: Dict[str, Any]) -> MetadataWorkUnit:
-        """
-        Get a workunit for a model.
-        """
-
-        # params to remove since we extract them
-        redundant_fields = {"ModelName", "CreationTime"}
-
-        model_snapshot = MLModelSnapshot(
-            urn=builder.make_ml_model_urn(
-                "sagemaker", model_details["ModelName"], self.env
-            ),
-            aspects=[
-                MLModelPropertiesClass(
-                    date=int(
-                        model_details.get("CreationTime", datetime.now()).timestamp()
-                        * 1000
-                    ),
-                    customProperties={
-                        key: str(value)
-                        for key, value in model_details.items()
-                        if key not in redundant_fields
-                    },
-                )
-            ],
-        )
-
-        # make the MCE and workunit
-        mce = MetadataChangeEvent(proposedSnapshot=model_snapshot)
-
-        return MetadataWorkUnit(
-            id=f'{model_details["ModelName"]}',
-            mce=mce,
-        )
-
     def get_endpoint_status(
         self, endpoint_name: str, endpoint_arn: str, sagemaker_status: str
     ) -> EndpointStatusClass:
@@ -166,15 +131,79 @@ class ModelProcessor:
             mce=mce,
         )
 
+    def get_model_wu(
+        self, model_details: Dict[str, Any], endpoint_arn_to_name: Dict[str, str]
+    ) -> MetadataWorkUnit:
+        """
+        Get a workunit for a model.
+        """
+
+        # params to remove since we extract them
+        redundant_fields = {"ModelName", "CreationTime"}
+
+        model_image = model_details.get("PrimaryContainer", {}).get("Image")
+        model_uri = model_details.get("PrimaryContainer", {}).get("ModelDataUrl")
+
+        model_endpoints = set()
+
+        if model_image is not None:
+            model_endpoints |= self.lineage.model_image_endpoints[model_image]
+
+        if model_uri is not None:
+            model_endpoints |= self.lineage.model_uri_endpoints[model_image]
+
+        model_endpoints = sorted(
+            [x for x in model_endpoints if x in endpoint_arn_to_name]
+        )
+
+        model_snapshot = MLModelSnapshot(
+            urn=builder.make_ml_model_urn(
+                "sagemaker", model_details["ModelName"], self.env
+            ),
+            aspects=[
+                MLModelPropertiesClass(
+                    date=int(
+                        model_details.get("CreationTime", datetime.now()).timestamp()
+                        * 1000
+                    ),
+                    endpoints=[
+                        builder.make_ml_model_endpoint_urn(
+                            "sagemaker", endpoint_name, self.env
+                        )
+                        for endpoint_name in model_endpoints
+                    ],
+                    customProperties={
+                        key: str(value)
+                        for key, value in model_details.items()
+                        if key not in redundant_fields
+                    },
+                )
+            ],
+        )
+
+        # make the MCE and workunit
+        mce = MetadataChangeEvent(proposedSnapshot=model_snapshot)
+
+        return MetadataWorkUnit(
+            id=f'{model_details["ModelName"]}',
+            mce=mce,
+        )
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
         endpoints = self.get_all_endpoints()
         # sort endpoints for consistency
         endpoints = sorted(endpoints, key=lambda x: x["EndpointArn"])
 
+        endpoint_arn_to_name = {}
+
         for endpoint in endpoints:
 
             endpoint_details = self.get_endpoint_details(endpoint["EndpointName"])
+
+            endpoint_arn_to_name[endpoint["EndpointArn"]] = endpoint_details[
+                "EndpointName"
+            ]
 
             self.report.report_endpoint_scanned()
             wu = self.get_endpoint_wu(endpoint_details)
@@ -190,6 +219,6 @@ class ModelProcessor:
             model_details = self.get_model_details(model["ModelName"])
 
             self.report.report_model_scanned()
-            wu = self.get_model_wu(model_details)
+            wu = self.get_model_wu(model_details, endpoint_arn_to_name)
             self.report.report_workunit(wu)
             yield wu

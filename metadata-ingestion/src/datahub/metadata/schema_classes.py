@@ -5793,6 +5793,7 @@ class MLModelPropertiesClass(DictWrapper):
         hyperParameters: Union[None, Dict[str, Union[str, int, float, float, bool]]]=None,
         mlFeatures: Union[None, List[str]]=None,
         tags: Optional[List[str]]=None,
+        endpoints: Union[None, List[str]]=None,
     ):
         super().__init__()
         
@@ -5813,6 +5814,7 @@ class MLModelPropertiesClass(DictWrapper):
             self.tags = list()
         else:
             self.tags = tags
+        self.endpoints = endpoints
     
     @classmethod
     def construct_with_defaults(cls) -> "MLModelPropertiesClass":
@@ -5831,6 +5833,7 @@ class MLModelPropertiesClass(DictWrapper):
         self.hyperParameters = self.RECORD_SCHEMA.field_map["hyperParameters"].default
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
         self.tags = list()
+        self.endpoints = self.RECORD_SCHEMA.field_map["endpoints"].default
     
     
     @property
@@ -5930,6 +5933,17 @@ class MLModelPropertiesClass(DictWrapper):
     def tags(self, value: List[str]) -> None:
         """Setter: Tags for the MLModel"""
         self._inner_dict['tags'] = value
+    
+    
+    @property
+    def endpoints(self) -> Union[None, List[str]]:
+        """Getter: Deployments for the MLModel"""
+        return self._inner_dict.get('endpoints')  # type: ignore
+    
+    @endpoints.setter
+    def endpoints(self, value: Union[None, List[str]]) -> None:
+        """Setter: Deployments for the MLModel"""
+        self._inner_dict['endpoints'] = value
     
     
 class MLPrimaryKeyPropertiesClass(DictWrapper):

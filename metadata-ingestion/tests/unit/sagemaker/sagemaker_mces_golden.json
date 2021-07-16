@@ -388,7 +388,10 @@
               "type": null,
               "hyperParameters": null,
               "mlFeatures": null,
-              "tags": []
+              "tags": [],
+              "endpoints": [
+                "urn:li:mlModelEndpoint:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
+              ]
             }
           }
         ]
@@ -420,7 +423,10 @@
               "type": null,
               "hyperParameters": null,
               "mlFeatures": null,
-              "tags": []
+              "tags": [],
+              "endpoints": [
+                "urn:li:mlModelEndpoint:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
+              ]
             }
           }
         ]

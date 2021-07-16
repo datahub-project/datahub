@@ -601,6 +601,20 @@
         },
         "doc" : "Tags for the MLModel",
         "default" : [ ]
+      }, {
+        "name" : "endpoints",
+        "type" : {
+          "type" : "array",
+          "items" : "com.linkedin.common.Urn"
+        },
+        "doc" : "Deployments for the MLModel",
+        "optional" : true,
+        "Relationship" : {
+          "/*" : {
+            "entityTypes" : [ "mlModelEndpoint" ],
+            "name" : "DeployedTo"
+          }
+        }
       } ],
       "Aspect" : {
         "name" : "mlModelProperties"

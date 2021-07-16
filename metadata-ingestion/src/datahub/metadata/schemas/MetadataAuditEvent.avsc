@@ -3357,6 +3357,26 @@
                         },
                         "doc": "Tags for the MLModel",
                         "default": []
+                      },
+                      {
+                        "name": "endpoints",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Deployments for the MLModel",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlModelEndpoint"
+                            ],
+                            "name": "DeployedTo"
+                          }
+                        }
                       }
                     ],
                     "Aspect": {

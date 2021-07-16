@@ -1,6 +1,7 @@
 namespace com.linkedin.ml.metadata
 
 import com.linkedin.common.MLFeatureUrn
+import com.linkedin.common.Urn
 import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
 import com.linkedin.common.CustomProperties
@@ -59,4 +60,15 @@ record MLModelProperties includes CustomProperties {
    * Tags for the MLModel
    */
   tags: array[string] = [ ]
+
+  /**
+   * Deployments for the MLModel
+   */
+   @Relationship = {
+    "/*": {
+      "name": "DeployedTo",
+      "entityTypes": [ "mlModelEndpoint" ]
+    }
+  }
+   endpoints: optional array[Urn]
 }

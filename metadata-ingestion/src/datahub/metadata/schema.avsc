@@ -3405,6 +3405,26 @@
                           "name": "tags",
                           "default": [],
                           "doc": "Tags for the MLModel"
+                        },
+                        {
+                          "Relationship": {
+                            "/*": {
+                              "entityTypes": [
+                                "mlModelEndpoint"
+                              ],
+                              "name": "DeployedTo"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "string"
+                            }
+                          ],
+                          "name": "endpoints",
+                          "default": null,
+                          "doc": "Deployments for the MLModel"
                         }
                       ],
                       "doc": "Properties associated with a ML Model"

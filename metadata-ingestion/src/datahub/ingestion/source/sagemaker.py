@@ -38,6 +38,9 @@ class SagemakerSource(Source):
         )
         lineage = lineage_processor.get_lineage()
 
+        print(lineage.model_image_endpoints)
+        print(lineage.model_uri_endpoints)
+
         # extract feature groups if specified
         if self.source_config.extract_feature_groups:
 
