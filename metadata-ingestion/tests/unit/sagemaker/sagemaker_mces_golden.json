@@ -1653,6 +1653,22 @@
                 "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)"
               ]
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "some-user",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              }
+            }
           }
         ]
       }

@@ -21,6 +21,7 @@ from datahub.metadata.schema_classes import (
     MLModelGroupPropertiesClass,
     OwnerClass,
     OwnershipClass,
+    OwnershipTypeClass,
 )
 
 ENDPOINT_STATUS_MAP: Dict[str, str] = {
@@ -325,6 +326,16 @@ class ModelProcessor:
                 if x in self.model_uri_to_name
             }
 
+        owners = []
+
+        if group_details.get("CreatedBy", {}).get("UserProfileName") is not None:
+            owners.append(
+                OwnerClass(
+                    owner=group_details["CreatedBy"]["UserProfileName"],
+                    type=OwnershipTypeClass.DATAOWNER,
+                )
+            )
+
         group_snapshot = MLModelGroupSnapshot(
             urn=builder.make_ml_model_group_urn(
                 "sagemaker", group_details["ModelPackageGroupName"], self.env
@@ -347,9 +358,7 @@ class ModelProcessor:
                         ]
                     ),
                 ),
-                # OwnershipClass(
-                #     [OwnerClass(owner=actor, type=OwnershipTypeClass.DATAOWNER)]
-                # ),
+                OwnershipClass(owners),
             ],
         )
 
