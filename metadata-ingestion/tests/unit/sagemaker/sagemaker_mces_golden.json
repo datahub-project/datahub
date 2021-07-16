@@ -1644,7 +1644,7 @@
                 "CreatedBy": "{'UserProfileArn': 'arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user', 'UserProfileName': 'some-user', 'DomainId': 'some-domain'}",
                 "ModelPackageGroupStatus": "Completed"
               },
-              "description": null,
+              "description": "Just a model package group.",
               "date": 1420070400000,
               "version": null,
               "tags": [],

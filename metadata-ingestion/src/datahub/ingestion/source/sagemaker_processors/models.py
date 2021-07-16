@@ -346,6 +346,7 @@ class ModelProcessor:
                         group_details.get("CreationTime", datetime.now()).timestamp()
                         * 1000
                     ),
+                    description=group_details.get("ModelPackageGroupDescription"),
                     customProperties={
                         key: str(value)
                         for key, value in group_details.items()
