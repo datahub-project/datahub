@@ -65,6 +65,7 @@ const EditedLabel = styled(Typography.Text)`
 
 type Props = {
     description: string;
+    original?: string | null;
     onUpdate: (
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
@@ -72,7 +73,13 @@ type Props = {
     isEdited?: boolean;
 };
 
-export default function DescriptionField({ description, onUpdate, editable = true, isEdited = false }: Props) {
+export default function DescriptionField({
+    description,
+    onUpdate,
+    editable = true,
+    isEdited = false,
+    original,
+}: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
 
     const onCloseModal = () => setShowAddModal(false);
@@ -105,7 +112,7 @@ export default function DescriptionField({ description, onUpdate, editable = tru
                     <UpdateDescriptionModal
                         title={description ? 'Update description' : 'Add description'}
                         description={description}
-                        original={description}
+                        original={original || ''}
                         onClose={onCloseModal}
                         onSubmit={onUpdateModal}
                         isAddDesc={!description}

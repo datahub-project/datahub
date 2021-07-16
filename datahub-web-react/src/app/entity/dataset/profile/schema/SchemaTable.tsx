@@ -143,6 +143,7 @@ export default function SchemaTable({
         return (
             <DescriptionField
                 description={editMode ? relevantEditableFieldInfo?.description || description : description}
+                original={record.description}
                 isEdited={!!relevantEditableFieldInfo?.description}
                 onUpdate={(updatedDescription) => onUpdateDescription(updatedDescription, record)}
                 editable={editMode}
