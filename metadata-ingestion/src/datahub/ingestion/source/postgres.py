@@ -29,6 +29,8 @@ class PostgresConfig(BasicSQLAlchemyConfig):
 
     def get_identifier(self, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
+        if self.database_identifier:
+            return f"{self.database_identifier}.{regular}"
         if self.database:
             return f"{self.database}.{regular}"
         return regular
