@@ -18,7 +18,12 @@ describe('SchemaDescriptionField', () => {
     it('renders update description modal', async () => {
         const { getByText, getByRole, queryByText } = render(
             <TestPageContainer>
-                <SchemaDescriptionField description="test description" isEdited onUpdate={async () => {}} />
+                <SchemaDescriptionField
+                    description="test description"
+                    original="test description"
+                    isEdited
+                    onUpdate={async () => {}}
+                />
             </TestPageContainer>,
         );
         expect(queryByText('Update description')).not.toBeInTheDocument();

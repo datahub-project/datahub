@@ -32,8 +32,8 @@ type Props = {
 };
 
 export default function CustomPagination({ onChange, maxVersion }: Props) {
-    const [version1, setVersion1] = useState(maxVersion || 1);
-    const [version2, setVersion2] = useState(maxVersion ? maxVersion - 1 : 0);
+    const [version1, setVersion1] = useState(maxVersion || 1); // current version - first dropdown selected
+    const [version2, setVersion2] = useState(maxVersion ? maxVersion - 1 : 0); // past version comparing with current - second dropdown
 
     const onNextClick = () => {
         setVersion1((v) => v - 1);
@@ -64,8 +64,8 @@ export default function CustomPagination({ onChange, maxVersion }: Props) {
         <Menu onClick={onVersion1Click} selectedKeys={[`${version1}`]}>
             {[...Array(maxVersion)].map((_, i) => (
                 // eslint-disable-next-line react/no-array-index-key
-                <Menu.Item key={i + 1}>
-                    <Typography.Text>{`version ${i + 1}`}</Typography.Text>
+                <Menu.Item key={maxVersion - i}>
+                    <Typography.Text>{i === 0 ? 'latest' : `version ${maxVersion + 1 - i}`}</Typography.Text>
                 </Menu.Item>
             ))}
         </Menu>
@@ -75,8 +75,8 @@ export default function CustomPagination({ onChange, maxVersion }: Props) {
         <Menu onClick={onVersion2Click} selectedKeys={[`${version2}`]}>
             {[...Array(version1)].map((_, i) => (
                 // eslint-disable-next-line react/no-array-index-key
-                <Menu.Item key={i}>
-                    <Typography.Text>{`version ${i}`}</Typography.Text>
+                <Menu.Item key={version1 - i - 1}>
+                    <Typography.Text>{`version ${version1 - i}`}</Typography.Text>
                 </Menu.Item>
             ))}
         </Menu>
@@ -93,11 +93,13 @@ export default function CustomPagination({ onChange, maxVersion }: Props) {
             />
             <DescriptionText>Comparing</DescriptionText>
             <Dropdown overlay={menu1} trigger={['click']}>
-                <VersionText strong type="success">{`version ${version1}`}</VersionText>
+                <VersionText strong type="success">
+                    {version1 === maxVersion ? 'latest' : `version ${version1 + 1}`}
+                </VersionText>
             </Dropdown>
             <DescriptionText>to</DescriptionText>
             <Dropdown overlay={menu2} trigger={['click']}>
-                <VersionRightText strong type="success">{`version ${version2}`}</VersionRightText>
+                <VersionRightText strong type="success">{`version ${version2 + 1}`}</VersionRightText>
             </Dropdown>
             <NavButton
                 size="small"
