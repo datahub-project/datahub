@@ -277,6 +277,7 @@ class JobProcessor:
     report: SagemakerSourceReport
     # config filter for specific job types to ingest (see metadata-ingestion README)
     job_type_filter: Union[Dict[str, str], bool, None]
+    aws_region: str
 
     # translators between ARNs and job names (represented as tuples of (job_type, job_name))
     arn_to_name: Dict[str, Tuple[str, str]] = field(default_factory=dict)
@@ -452,6 +453,7 @@ class JobProcessor:
         self,
         job: Dict[str, Any],
         job_type: str,
+        job_url: Optional[str] = None,
     ) -> Tuple[DataJobSnapshotClass, str, str]:
         """
         General function for generating a job snapshot.
@@ -482,6 +484,7 @@ class JobProcessor:
                     name=name,
                     type="SAGEMAKER",
                     status=mapped_status,
+                    externalUrl=job_url,
                     customProperties={
                         **{key: str(value) for key, value in job.items()},
                         "jobType": job_type,
@@ -588,6 +591,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/compilation-jobs/{job['CompilationJobName']}",
         )
 
         return SageMakerJob(
@@ -663,6 +667,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/edge-packaging-jobs/{job['EdgePackagingJobName']}",
         )
 
         if job.get("ModelName") is not None:
@@ -723,6 +728,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/hyper-tuning-jobs/{job['HyperParameterTuningJobName']}",
         )
 
         return SageMakerJob(
@@ -785,6 +791,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/labeling-jobs/{job['LabelingJobName']}",
         )
 
         return SageMakerJob(
@@ -899,6 +906,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/processing-jobs/{job['ProcessingJobName']}",
         )
 
         return SageMakerJob(
@@ -980,6 +988,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/jobs/{job['TrainingJobName']}",
         )
 
         model_data_url = job.get("ModelArtifacts", {}).get("S3ModelArtifacts")
@@ -1064,6 +1073,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/transform-jobs/{job['TransformJobName']}",
         )
 
         if job.get("ModelName") is not None:

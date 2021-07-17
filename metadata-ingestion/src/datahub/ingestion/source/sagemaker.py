@@ -59,6 +59,7 @@ class SagemakerSource(Source):
                 env=self.env,
                 report=self.report,
                 job_type_filter=self.source_config.extract_jobs,
+                aws_region=self.source_config.aws_region,
             )
             yield from job_processor.get_workunits()
 
