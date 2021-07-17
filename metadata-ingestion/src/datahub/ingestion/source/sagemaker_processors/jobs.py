@@ -255,7 +255,7 @@ class JobDirection(Enum):
     DOWNSTREAM = "downstream"
 
 
-@dataclass(frozen=True)
+@dataclass()
 class ModelJob:
     """
     Intermediate representation of a job's related models. Subsequently used by the SageMaker jobs ingestion framework.
@@ -263,6 +263,11 @@ class ModelJob:
 
     job_urn: str
     job_direction: JobDirection
+    hyperparameters: Dict[str, Any] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+
+    def __hash__(self):
+        return hash((self.job_urn, self.job_direction))
 
 
 @dataclass
@@ -994,7 +999,12 @@ class JobProcessor:
         model_data_url = job.get("ModelArtifacts", {}).get("S3ModelArtifacts")
         if model_data_url is not None:
             self.model_image_to_jobs[model_data_url].add(
-                ModelJob(job_urn=job_snapshot.urn, job_direction=JobDirection.TRAINING)
+                ModelJob(
+                    job_urn=job_snapshot.urn,
+                    job_direction=JobDirection.TRAINING,
+                    hyperparameters=job.get("HyperParameters", {}),
+                    # metrics=job.get("FinalMetricDataList", []),
+                )
             )
 
         return SageMakerJob(

@@ -5667,6 +5667,7 @@ class MLHyperParamClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLHyperParam")
     def __init__(self,
+        name: str,
         description: Union[None, str]=None,
         value: Union[None, str, int, float, float, bool]=None,
         date: Union[None, int]=None,
@@ -5675,6 +5676,7 @@ class MLHyperParamClass(DictWrapper):
     ):
         super().__init__()
         
+        self.name = name
         self.description = description
         self.value = value
         self.date = date
@@ -5693,11 +5695,23 @@ class MLHyperParamClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
+        self.name = str()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.value = self.RECORD_SCHEMA.field_map["value"].default
         self.date = self.RECORD_SCHEMA.field_map["date"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
         self.tags = list()
+    
+    
+    @property
+    def name(self) -> str:
+        """Getter: Name of the MLHyperParam"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        """Setter: Name of the MLHyperParam"""
+        self._inner_dict['name'] = value
     
     
     @property
@@ -5760,6 +5774,7 @@ class MLMetricClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLMetric")
     def __init__(self,
+        name: str,
         description: Union[None, str]=None,
         value: Union[None, str, int, float, float, bool]=None,
         date: Union[None, int]=None,
@@ -5768,6 +5783,7 @@ class MLMetricClass(DictWrapper):
     ):
         super().__init__()
         
+        self.name = name
         self.description = description
         self.value = value
         self.date = date
@@ -5786,11 +5802,23 @@ class MLMetricClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
+        self.name = str()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.value = self.RECORD_SCHEMA.field_map["value"].default
         self.date = self.RECORD_SCHEMA.field_map["date"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
         self.tags = list()
+    
+    
+    @property
+    def name(self) -> str:
+        """Getter: Name of the mlMetric"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        """Setter: Name of the mlMetric"""
+        self._inner_dict['name'] = value
     
     
     @property

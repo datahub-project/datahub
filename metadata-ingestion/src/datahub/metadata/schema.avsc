@@ -3400,6 +3400,11 @@
                                 "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                                 "fields": [
                                   {
+                                    "type": "string",
+                                    "name": "name",
+                                    "doc": "Name of the MLHyperParam"
+                                  },
+                                  {
                                     "type": [
                                       "null",
                                       "string"
@@ -3470,6 +3475,11 @@
                                 "name": "MLMetric",
                                 "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                                 "fields": [
+                                  {
+                                    "type": "string",
+                                    "name": "name",
+                                    "doc": "Name of the mlMetric"
+                                  },
                                   {
                                     "type": [
                                       "null",

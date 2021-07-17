@@ -597,6 +597,10 @@
             "name" : "MLHyperParam",
             "doc" : "Properties associated with an ML Hyper Param",
             "fields" : [ {
+              "name" : "name",
+              "type" : "string",
+              "doc" : "Name of the MLHyperParam"
+            }, {
               "name" : "description",
               "type" : "string",
               "doc" : "Documentation of the MLHyperParam",
@@ -641,6 +645,10 @@
             "name" : "MLMetric",
             "doc" : "Properties associated with an ML Metric",
             "fields" : [ {
+              "name" : "name",
+              "type" : "string",
+              "doc" : "Name of the mlMetric"
+            }, {
               "name" : "description",
               "type" : "string",
               "doc" : "Documentation of the mlMetric",
