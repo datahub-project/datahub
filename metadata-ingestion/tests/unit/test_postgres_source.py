@@ -5,11 +5,11 @@ def _base_config():
     return {"username": "user", "password": "password", "host_port": "host:1521"}
 
 
-def test_database_identifier_takes_precendence():
+def test_database_alias_takes_precendence():
     config = PostgresConfig.parse_obj(
         {
             **_base_config(),
-            "database_identifier": "ops_database",
+            "database_alias": "ops_database",
             "database": "postgres",
         }
     )
