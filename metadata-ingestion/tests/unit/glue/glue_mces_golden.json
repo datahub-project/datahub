@@ -469,7 +469,7 @@
                 "modified": "2021-06-10 16:55:35.307000",
                 "command": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-1.py"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
               "name": "test-job-1",
               "description": "The first test job",
               "project": null
@@ -494,7 +494,7 @@
                 "modified": "2021-06-10 16:58:32.469000",
                 "command": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-2.py"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2",
               "description": "The second test job",
               "project": null
@@ -519,7 +519,7 @@
                 "transformType": "Filter",
                 "nodeId": "Transform0"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:Filter-Transform0",
               "description": null,
               "type": {
@@ -557,7 +557,7 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform1"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform1",
               "description": null,
               "type": {
@@ -595,7 +595,7 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform2"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform2",
               "description": null,
               "type": {
@@ -634,7 +634,7 @@
                 "transformType": "Join",
                 "nodeId": "Transform3"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:Join-Transform3",
               "description": null,
               "type": {
@@ -672,7 +672,7 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform4"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform4",
               "description": null,
               "type": {
@@ -708,7 +708,7 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform5"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform5",
               "description": null,
               "type": {
@@ -776,7 +776,7 @@
                 "transformType": "SplitFields",
                 "nodeId": "Transform0"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:SplitFields-Transform0",
               "description": null,
               "type": {
@@ -814,7 +814,7 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform1"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform1",
               "description": null,
               "type": {
@@ -852,7 +852,7 @@
                 "transformType": "FillMissingValues",
                 "nodeId": "Transform2"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:FillMissingValues-Transform2",
               "description": null,
               "type": {
@@ -890,7 +890,7 @@
                 "transformType": "SelectFields",
                 "nodeId": "Transform3"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:SelectFields-Transform3",
               "description": null,
               "type": {
