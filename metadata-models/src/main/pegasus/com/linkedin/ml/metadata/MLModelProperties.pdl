@@ -5,6 +5,7 @@ import com.linkedin.common.MLFeatureUrn
 import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
 import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Properties associated with a ML Model
@@ -12,7 +13,7 @@ import com.linkedin.common.CustomProperties
 @Aspect = {
   "name": "mlModelProperties"
 }
-record MLModelProperties includes CustomProperties {
+record MLModelProperties includes CustomProperties, ExternalReference {
 
   /**
    * Documentation of the MLModel

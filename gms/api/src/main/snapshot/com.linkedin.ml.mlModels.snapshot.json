@@ -251,6 +251,25 @@
       "name" : "deprecation"
     }
   }, {
+    "type" : "record",
+    "name" : "ExternalReference",
+    "namespace" : "com.linkedin.common",
+    "doc" : "A reference to an external platform.",
+    "fields" : [ {
+      "name" : "externalUrl",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Url",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.url.Url",
+          "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+        }
+      },
+      "doc" : "URL where the reference exist",
+      "optional" : true
+    } ]
+  }, {
     "type" : "enum",
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
@@ -277,15 +296,7 @@
           "doc" : "Metadata corresponding to a record of institutional memory.",
           "fields" : [ {
             "name" : "url",
-            "type" : {
-              "type" : "typeref",
-              "name" : "Url",
-              "ref" : "string",
-              "java" : {
-                "class" : "com.linkedin.common.url.Url",
-                "coercerClass" : "com.linkedin.common.url.UrlCoercer"
-              }
-            },
+            "type" : "Url",
             "doc" : "Link to an engineering design document or a wiki page."
           }, {
             "name" : "description",
@@ -536,7 +547,7 @@
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
       "doc" : "Properties associated with a ML Model",
-      "include" : [ "com.linkedin.common.CustomProperties" ],
+      "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
       "fields" : [ {
         "name" : "description",
         "type" : "string",
