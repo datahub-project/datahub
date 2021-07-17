@@ -43,6 +43,7 @@ class ModelProcessor:
     env: str
     report: SagemakerSourceReport
     lineage: LineageInfo
+    aws_region: str
 
     # map from model image file path to jobs referencing the model
     model_image_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
@@ -286,6 +287,7 @@ class ModelProcessor:
                     },
                     trainingJobs=sorted(list(model_training_jobs)),
                     downstreamJobs=sorted(list(model_downstream_jobs)),
+                    externalUrl=f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/models/{model_details['ModelName']}",
                 )
             ],
         )

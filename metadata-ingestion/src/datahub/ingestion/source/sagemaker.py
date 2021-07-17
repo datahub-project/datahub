@@ -76,6 +76,7 @@ class SagemakerSource(Source):
                 model_image_to_jobs=model_image_to_jobs,
                 model_name_to_jobs=model_name_to_jobs,
                 lineage=lineage,
+                aws_region=self.source_config.aws_region,
             )
             yield from model_processor.get_workunits()
 

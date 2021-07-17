@@ -1568,6 +1568,7 @@
                 "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
                 "EnableNetworkIsolation": "True"
               },
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-first-model",
               "description": null,
               "date": 1420070400000,
               "version": null,
@@ -1609,6 +1610,7 @@
                 "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
                 "EnableNetworkIsolation": "False"
               },
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-second-model",
               "description": null,
               "date": 1420070400000,
               "version": null,
