@@ -1,7 +1,9 @@
 """Convenience functions for creating MCEs"""
-
 import time
-from typing import List, Optional, Type, TypeVar
+from typing import List, Optional, Type, TypeVar, get_type_hints
+
+import typing_inspect
+from avrogen.dict_wrapper import DictWrapper
 
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -14,8 +16,6 @@ from datahub.metadata.schema_classes import (
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
-
-T = TypeVar("T")
 
 
 def get_sys_time() -> int:
@@ -102,22 +102,44 @@ def make_lineage_mce(
     return mce
 
 
+# This bound isn't tight, but it's better than nothing.
+Aspect = TypeVar("Aspect", bound=DictWrapper)
+
+
+def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
+    SnapshotType = type(mce.proposedSnapshot)
+
+    constructor_annotations = get_type_hints(SnapshotType.__init__)
+    aspect_list_union = constructor_annotations["aspects"]
+    supported_aspect_types = typing_inspect.get_args(
+        typing_inspect.get_args(aspect_list_union)[0]
+    )
+
+    return issubclass(AspectType, supported_aspect_types)
+
+
 def get_aspect_if_available(
-    mce: MetadataChangeEventClass, type: Type[T]
-) -> Optional[T]:
+    mce: MetadataChangeEventClass, AspectType: Type[Aspect]
+) -> Optional[Aspect]:
+    assert can_add_aspect(mce, AspectType)
+
     all_aspects = mce.proposedSnapshot.aspects
-    aspects: List[T] = [aspect for aspect in all_aspects if isinstance(aspect, type)]
+    aspects: List[Aspect] = [
+        aspect for aspect in all_aspects if isinstance(aspect, AspectType)
+    ]
 
     if len(aspects) > 1:
-        raise ValueError(f"MCE contains multiple aspects of type {type}: {aspects}")
+        raise ValueError(
+            f"MCE contains multiple aspects of type {AspectType}: {aspects}"
+        )
     if aspects:
         return aspects[0]
     return None
 
 
-def get_or_add_aspect(mce: MetadataChangeEventClass, default: T) -> T:
+def get_or_add_aspect(mce: MetadataChangeEventClass, default: Aspect) -> Aspect:
     existing = get_aspect_if_available(mce, type(default))
     if existing is not None:
         return existing
-    mce.proposedSnapshot.aspects.append(default)
+    mce.proposedSnapshot.aspects.append(default)  # type: ignore
     return default
