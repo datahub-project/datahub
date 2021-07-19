@@ -2850,7 +2850,7 @@
                         "ref" : [ "string", "int", "float", "double", "boolean" ]
                       }
                     },
-                    "doc" : "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of trainingHyperParams and onlineHyperParams",
+                    "doc" : "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
                     "optional" : true
                   }, {
                     "name" : "hyperParams",
@@ -2875,7 +2875,7 @@
                           "doc" : "The value of the MLHyperParam",
                           "optional" : true
                         }, {
-                          "name" : "date",
+                          "name" : "createdAt",
                           "type" : "com.linkedin.common.Time",
                           "doc" : "Date when the MLHyperParam was developed",
                           "optional" : true
@@ -2884,14 +2884,6 @@
                           "type" : "com.linkedin.common.VersionTag",
                           "doc" : "Version of the MLHyperParam",
                           "optional" : true
-                        }, {
-                          "name" : "tags",
-                          "type" : {
-                            "type" : "array",
-                            "items" : "string"
-                          },
-                          "doc" : "Tags for the MLHyperParam",
-                          "default" : [ ]
                         } ],
                         "Aspect" : {
                           "name" : "mlHyperParam"
@@ -2923,7 +2915,7 @@
                           "doc" : "The value of the mlMetric",
                           "optional" : true
                         }, {
-                          "name" : "date",
+                          "name" : "createdAt",
                           "type" : "com.linkedin.common.Time",
                           "doc" : "Date when the mlMetric was developed",
                           "optional" : true
@@ -2932,14 +2924,6 @@
                           "type" : "com.linkedin.common.VersionTag",
                           "doc" : "Version of the mlMetric",
                           "optional" : true
-                        }, {
-                          "name" : "tags",
-                          "type" : {
-                            "type" : "array",
-                            "items" : "string"
-                          },
-                          "doc" : "Tags for the mlMetric",
-                          "default" : [ ]
                         } ],
                         "Aspect" : {
                           "name" : "mlMetric"

@@ -3335,7 +3335,7 @@
                             ]
                           }
                         ],
-                        "doc": "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of trainingHyperParams and onlineHyperParams",
+                        "doc": "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
                         "default": null
                       },
                       {
@@ -3377,7 +3377,7 @@
                                   "default": null
                                 },
                                 {
-                                  "name": "date",
+                                  "name": "createdAt",
                                   "type": [
                                     "null",
                                     "long"
@@ -3393,15 +3393,6 @@
                                   ],
                                   "doc": "Version of the MLHyperParam",
                                   "default": null
-                                },
-                                {
-                                  "name": "tags",
-                                  "type": {
-                                    "type": "array",
-                                    "items": "string"
-                                  },
-                                  "doc": "Tags for the MLHyperParam",
-                                  "default": []
                                 }
                               ],
                               "Aspect": {
@@ -3452,7 +3443,7 @@
                                   "default": null
                                 },
                                 {
-                                  "name": "date",
+                                  "name": "createdAt",
                                   "type": [
                                     "null",
                                     "long"
@@ -3468,15 +3459,6 @@
                                   ],
                                   "doc": "Version of the mlMetric",
                                   "default": null
-                                },
-                                {
-                                  "name": "tags",
-                                  "type": {
-                                    "type": "array",
-                                    "items": "string"
-                                  },
-                                  "doc": "Tags for the mlMetric",
-                                  "default": []
                                 }
                               ],
                               "Aspect": {

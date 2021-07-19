@@ -3384,7 +3384,7 @@
                           ],
                           "name": "hyperParameters",
                           "default": null,
-                          "doc": "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of trainingHyperParams and onlineHyperParams"
+                          "doc": "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams"
                         },
                         {
                           "type": [
@@ -3431,7 +3431,7 @@
                                       "null",
                                       "long"
                                     ],
-                                    "name": "date",
+                                    "name": "createdAt",
                                     "default": null,
                                     "doc": "Date when the MLHyperParam was developed"
                                   },
@@ -3443,15 +3443,6 @@
                                     "name": "version",
                                     "default": null,
                                     "doc": "Version of the MLHyperParam"
-                                  },
-                                  {
-                                    "type": {
-                                      "type": "array",
-                                      "items": "string"
-                                    },
-                                    "name": "tags",
-                                    "default": [],
-                                    "doc": "Tags for the MLHyperParam"
                                   }
                                 ],
                                 "doc": "Properties associated with an ML Hyper Param"
@@ -3507,7 +3498,7 @@
                                       "null",
                                       "long"
                                     ],
-                                    "name": "date",
+                                    "name": "createdAt",
                                     "default": null,
                                     "doc": "Date when the mlMetric was developed"
                                   },
@@ -3519,15 +3510,6 @@
                                     "name": "version",
                                     "default": null,
                                     "doc": "Version of the mlMetric"
-                                  },
-                                  {
-                                    "type": {
-                                      "type": "array",
-                                      "items": "string"
-                                    },
-                                    "name": "tags",
-                                    "default": [],
-                                    "doc": "Tags for the mlMetric"
                                   }
                                 ],
                                 "doc": "Properties associated with an ML Metric"

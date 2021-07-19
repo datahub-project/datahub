@@ -1579,17 +1579,15 @@
                   "name": "parameter-1",
                   "description": null,
                   "value": "some-value",
-                  "date": null,
-                  "version": null,
-                  "tags": []
+                  "createdAt": null,
+                  "version": null
                 },
                 {
                   "name": "parameter-2",
                   "description": null,
                   "value": "another-value",
-                  "date": null,
-                  "version": null,
-                  "tags": []
+                  "createdAt": null,
+                  "version": null
                 }
               ],
               "trainingMetrics": [
@@ -1597,17 +1595,15 @@
                   "name": "another-metric",
                   "description": null,
                   "value": "1.0",
-                  "date": null,
-                  "version": null,
-                  "tags": []
+                  "createdAt": null,
+                  "version": null
                 },
                 {
                   "name": "some-metric",
                   "description": null,
                   "value": "1.0",
-                  "date": null,
-                  "version": null,
-                  "tags": []
+                  "createdAt": null,
+                  "version": null
                 }
               ],
               "onlineMetrics": null,
@@ -1655,17 +1651,15 @@
                   "name": "parameter-1",
                   "description": null,
                   "value": "some-value",
-                  "date": null,
-                  "version": null,
-                  "tags": []
+                  "createdAt": null,
+                  "version": null
                 },
                 {
                   "name": "parameter-2",
                   "description": null,
                   "value": "another-value",
-                  "date": null,
-                  "version": null,
-                  "tags": []
+                  "createdAt": null,
+                  "version": null
                 }
               ],
               "trainingMetrics": [
@@ -1673,17 +1667,15 @@
                   "name": "another-metric",
                   "description": null,
                   "value": "1.0",
-                  "date": null,
-                  "version": null,
-                  "tags": []
+                  "createdAt": null,
+                  "version": null
                 },
                 {
                   "name": "some-metric",
                   "description": null,
                   "value": "1.0",
-                  "date": null,
-                  "version": null,
-                  "tags": []
+                  "createdAt": null,
+                  "version": null
                 }
               ],
               "onlineMetrics": null,

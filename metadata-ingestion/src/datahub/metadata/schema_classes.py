@@ -5670,22 +5670,16 @@ class MLHyperParamClass(DictWrapper):
         name: str,
         description: Union[None, str]=None,
         value: Union[None, str, int, float, float, bool]=None,
-        date: Union[None, int]=None,
+        createdAt: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
-        tags: Optional[List[str]]=None,
     ):
         super().__init__()
         
         self.name = name
         self.description = description
         self.value = value
-        self.date = date
+        self.createdAt = createdAt
         self.version = version
-        if tags is None:
-            # default: []
-            self.tags = list()
-        else:
-            self.tags = tags
     
     @classmethod
     def construct_with_defaults(cls) -> "MLHyperParamClass":
@@ -5698,9 +5692,8 @@ class MLHyperParamClass(DictWrapper):
         self.name = str()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.value = self.RECORD_SCHEMA.field_map["value"].default
-        self.date = self.RECORD_SCHEMA.field_map["date"].default
+        self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.tags = list()
     
     
     @property
@@ -5737,14 +5730,14 @@ class MLHyperParamClass(DictWrapper):
     
     
     @property
-    def date(self) -> Union[None, int]:
+    def createdAt(self) -> Union[None, int]:
         """Getter: Date when the MLHyperParam was developed"""
-        return self._inner_dict.get('date')  # type: ignore
+        return self._inner_dict.get('createdAt')  # type: ignore
     
-    @date.setter
-    def date(self, value: Union[None, int]) -> None:
+    @createdAt.setter
+    def createdAt(self, value: Union[None, int]) -> None:
         """Setter: Date when the MLHyperParam was developed"""
-        self._inner_dict['date'] = value
+        self._inner_dict['createdAt'] = value
     
     
     @property
@@ -5758,17 +5751,6 @@ class MLHyperParamClass(DictWrapper):
         self._inner_dict['version'] = value
     
     
-    @property
-    def tags(self) -> List[str]:
-        """Getter: Tags for the MLHyperParam"""
-        return self._inner_dict.get('tags')  # type: ignore
-    
-    @tags.setter
-    def tags(self, value: List[str]) -> None:
-        """Setter: Tags for the MLHyperParam"""
-        self._inner_dict['tags'] = value
-    
-    
 class MLMetricClass(DictWrapper):
     """Properties associated with an ML Metric"""
     
@@ -5777,22 +5759,16 @@ class MLMetricClass(DictWrapper):
         name: str,
         description: Union[None, str]=None,
         value: Union[None, str, int, float, float, bool]=None,
-        date: Union[None, int]=None,
+        createdAt: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
-        tags: Optional[List[str]]=None,
     ):
         super().__init__()
         
         self.name = name
         self.description = description
         self.value = value
-        self.date = date
+        self.createdAt = createdAt
         self.version = version
-        if tags is None:
-            # default: []
-            self.tags = list()
-        else:
-            self.tags = tags
     
     @classmethod
     def construct_with_defaults(cls) -> "MLMetricClass":
@@ -5805,9 +5781,8 @@ class MLMetricClass(DictWrapper):
         self.name = str()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.value = self.RECORD_SCHEMA.field_map["value"].default
-        self.date = self.RECORD_SCHEMA.field_map["date"].default
+        self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.tags = list()
     
     
     @property
@@ -5844,14 +5819,14 @@ class MLMetricClass(DictWrapper):
     
     
     @property
-    def date(self) -> Union[None, int]:
+    def createdAt(self) -> Union[None, int]:
         """Getter: Date when the mlMetric was developed"""
-        return self._inner_dict.get('date')  # type: ignore
+        return self._inner_dict.get('createdAt')  # type: ignore
     
-    @date.setter
-    def date(self, value: Union[None, int]) -> None:
+    @createdAt.setter
+    def createdAt(self, value: Union[None, int]) -> None:
         """Setter: Date when the mlMetric was developed"""
-        self._inner_dict['date'] = value
+        self._inner_dict['createdAt'] = value
     
     
     @property
@@ -5863,17 +5838,6 @@ class MLMetricClass(DictWrapper):
     def version(self, value: Union[None, "VersionTagClass"]) -> None:
         """Setter: Version of the mlMetric"""
         self._inner_dict['version'] = value
-    
-    
-    @property
-    def tags(self) -> List[str]:
-        """Getter: Tags for the mlMetric"""
-        return self._inner_dict.get('tags')  # type: ignore
-    
-    @tags.setter
-    def tags(self, value: List[str]) -> None:
-        """Setter: Tags for the mlMetric"""
-        self._inner_dict['tags'] = value
     
     
 class MLModelDeploymentPropertiesClass(DictWrapper):
@@ -6336,14 +6300,14 @@ class MLModelPropertiesClass(DictWrapper):
     def hyperParameters(self) -> Union[None, Dict[str, Union[str, int, float, float, bool]]]:
         """Getter: Hyper Parameters of the MLModel
     
-    NOTE: these are deprecated in favor of trainingHyperParams and onlineHyperParams"""
+    NOTE: these are deprecated in favor of hyperParams"""
         return self._inner_dict.get('hyperParameters')  # type: ignore
     
     @hyperParameters.setter
     def hyperParameters(self, value: Union[None, Dict[str, Union[str, int, float, float, bool]]]) -> None:
         """Setter: Hyper Parameters of the MLModel
     
-    NOTE: these are deprecated in favor of trainingHyperParams and onlineHyperParams"""
+    NOTE: these are deprecated in favor of hyperParams"""
         self._inner_dict['hyperParameters'] = value
     
     

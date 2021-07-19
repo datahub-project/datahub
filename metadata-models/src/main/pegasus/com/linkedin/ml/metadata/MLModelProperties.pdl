@@ -45,7 +45,7 @@ record MLModelProperties includes CustomProperties, ExternalReference {
   /**
    * Hyper Parameters of the MLModel
    * 
-   * NOTE: these are deprecated in favor of trainingHyperParams and onlineHyperParams
+   * NOTE: these are deprecated in favor of hyperParams
    */
   hyperParameters: optional map[string, HyperParameterValueType]
 

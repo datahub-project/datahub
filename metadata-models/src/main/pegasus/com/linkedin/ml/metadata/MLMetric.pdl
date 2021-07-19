@@ -3,7 +3,6 @@ namespace com.linkedin.ml.metadata
 import com.linkedin.common.Urn
 import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
-import com.linkedin.common.CustomProperties
 
 /**
  * Properties associated with an ML Metric
@@ -31,15 +30,10 @@ record MLMetric {
   /**
    * Date when the mlMetric was developed
    */
-  date: optional Time
+  createdAt: optional Time
 
   /**
    * Version of the mlMetric
    */
   version: optional VersionTag
-
-  /**
-   * Tags for the mlMetric
-   */
-  tags: array[string] = [ ]
 }

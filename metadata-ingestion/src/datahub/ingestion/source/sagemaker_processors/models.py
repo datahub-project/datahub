@@ -1,7 +1,7 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, DefaultDict, Dict, Iterable, List, Set
+from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -181,18 +181,16 @@ class ModelProcessor:
             mce=mce,
         )
 
-    def get_model_wu(
-        self, model_details: Dict[str, Any], endpoint_arn_to_name: Dict[str, str]
-    ) -> MetadataWorkUnit:
+    def get_model_endpoints(
+        self,
+        model_details: Dict[str, Any],
+        endpoint_arn_to_name: Dict[str, str],
+        model_image: Optional[str],
+        model_uri: Optional[str],
+    ) -> List[str]:
         """
-        Get a workunit for a model.
+        Get all endpoints for a model.
         """
-
-        # params to remove since we extract them
-        redundant_fields = {"ModelName", "CreationTime"}
-
-        model_image = model_details.get("PrimaryContainer", {}).get("Image")
-        model_uri = model_details.get("PrimaryContainer", {}).get("ModelDataUrl")
 
         model_endpoints = set()
 
@@ -210,6 +208,12 @@ class ModelProcessor:
         model_endpoints_sorted = sorted(
             [x for x in model_endpoints if x in endpoint_arn_to_name]
         )
+
+        return model_endpoints_sorted
+
+    def match_model_jobs(
+        self, model_details: Dict[str, Any]
+    ) -> Tuple[Set[str], Set[str], List[MLHyperParamClass], List[MLMetricClass]]:
 
         model_training_jobs: Set[str] = set()
         model_downstream_jobs: Set[str] = set()
@@ -286,6 +290,37 @@ class ModelProcessor:
                 if job.job_direction == JobDirection.DOWNSTREAM
             }
         )
+
+        return (
+            model_training_jobs,
+            model_downstream_jobs,
+            model_hyperparams,
+            model_metrics,
+        )
+
+    def get_model_wu(
+        self, model_details: Dict[str, Any], endpoint_arn_to_name: Dict[str, str]
+    ) -> MetadataWorkUnit:
+        """
+        Get a workunit for a model.
+        """
+
+        # params to remove since we extract them
+        redundant_fields = {"ModelName", "CreationTime"}
+
+        model_image = model_details.get("PrimaryContainer", {}).get("Image")
+        model_uri = model_details.get("PrimaryContainer", {}).get("ModelDataUrl")
+
+        model_endpoints_sorted = self.get_model_endpoints(
+            model_details, endpoint_arn_to_name, model_image, model_uri
+        )
+
+        (
+            model_training_jobs,
+            model_downstream_jobs,
+            model_hyperparams,
+            model_metrics,
+        ) = self.match_model_jobs(model_details)
 
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
