@@ -66,17 +66,17 @@ spec:
                 configMapKeyRef:
                   key: ELASTIC_CLIENT_PORT
                   name: datahub-frontend-env-docker-env
-            - name: KAFKA_BOOTSTRAP_SERVER
-              valueFrom:
-                configMapKeyRef:
-                  key: KAFKA_BOOTSTRAP_SERVER
-                  name: datahub-frontend-env-docker-env
             - name: AUTH_JAAS_ENABLED
               valueFrom:
                 configMapKeyRef:
                   key: AUTH_JAAS_ENABLED
                   name: datahub-frontend-env-docker-env
-          image: datahub-frontend
+            - name: DATAHUB_ANALYTICS_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  key: DATAHUB_ANALYTICS_ENABLED
+                  name: datahub-frontend-env-docker-env
+          image: 165463520094.dkr.ecr.ap-northeast-1.amazonaws.com/data-catalogue/datahub-frontend@sha256:d37dc2ecd7db441c0041c60e84a8d0dac9f99233b1c8dd00cf2e7f0f4f74f6f9
           name: datahub-frontend-react
           ports:
             - containerPort: 9002

@@ -8,8 +8,8 @@ data:
   DATAHUB_TRACKING_TOPIC: DataHubUsageEvent_v1
   ELASTIC_CLIENT_HOST: elasticsearch.data-catalogue.svc.cluster.local
   ELASTIC_CLIENT_PORT: "9200"
-  KAFKA_BOOTSTRAP_SERVER: broker.data-catalogue.svc.cluster.local:29092
   AUTH_JAAS_ENABLED: "false"
+  DATAHUB_ANALYTICS_ENABLED: "false"
 kind: ConfigMap
 metadata:
   creationTimestamp: null
