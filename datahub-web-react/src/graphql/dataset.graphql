@@ -19,6 +19,39 @@ query getDataset($urn: String!) {
         upstreamLineage {
             ...upstreamRelationshipFields
         }
+        schemaMetadata(version: 0) {
+            ...schemaMetadataFields
+        }
+        previousSchemaMetadata: schemaMetadata(version: -1) {
+            ...schemaMetadataFields
+        }
+        editableSchemaMetadata {
+            editableSchemaFieldInfo {
+                fieldPath
+                description
+                globalTags {
+                    ...globalTagsFields
+                }
+            }
+        }
+        deprecation {
+            actor
+            deprecated
+            note
+            decommissionTime
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
         usageStats(resource: $urn, range: MONTH) {
             buckets {
                 bucket
@@ -44,6 +77,32 @@ query getDataset($urn: String!) {
                 fields {
                     fieldName
                     count
+                }
+            }
+        }
+    }
+}
+
+query getDatasetSchemaVersions($urn: String!, $version1: Long, $version2: Long) {
+    dataset(urn: $urn) {
+        urn
+        name
+        type
+        origin
+        description
+        uri
+        schemaMetadata(version: $version1) {
+            ...schemaMetadataFields
+        }
+        previousSchemaMetadata: schemaMetadata(version: $version2) {
+            ...schemaMetadataFields
+        }
+        editableSchemaMetadata {
+            editableSchemaFieldInfo {
+                fieldPath
+                description
+                globalTags {
+                    ...globalTagsFields
                 }
             }
         }

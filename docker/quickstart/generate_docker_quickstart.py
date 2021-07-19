@@ -1,8 +1,7 @@
 import os
-from collections.abc import Mapping
-
 import click
 import yaml
+from collections.abc import Mapping
 from dotenv import dotenv_values
 from yaml import Loader
 
@@ -66,7 +65,9 @@ def modify_docker_config(base_path, docker_yaml_config):
             service["mem_limit"] = mem_limits[name]
 
     # 8. Set docker compose version to 2.
-    docker_yaml_config["version"] = "2"
+    # We need at least this version, since we use features like start_period for
+    # healthchecks and shell-like variable interpolation.
+    docker_yaml_config["version"] = "2.3"
 
 
 @click.command()

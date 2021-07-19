@@ -23,7 +23,7 @@ class KafkaConnectSourceConfig(ConfigModel):
     username: Optional[str] = None
     password: Optional[str] = None
     cluster_name: Optional[str] = "connect-cluster"
-    env: str = "PROD"
+    env: str = builder.DEFAULT_ENV
     connector_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
 
 
@@ -229,7 +229,7 @@ class KafkaConnectSource(Source):
             if connector_manifest.type == "sink":
                 # TODO: Sink Connector not yet implemented
                 self.report.report_dropped(connector_manifest.name)
-                logger.warn(
+                logger.warning(
                     f"Skipping connector {connector_manifest.name}. Sink Connector not yet implemented"
                 )
                 pass
@@ -345,10 +345,6 @@ class KafkaConnectSource(Source):
                                             self.config.env,
                                         ),
                                         type=models.DatasetLineageTypeClass.TRANSFORMED,
-                                        auditStamp=models.AuditStampClass(
-                                            time=builder.get_sys_time(),
-                                            actor="urn:li:corpuser:datahub",
-                                        ),
                                     )
                                 ]
                             )

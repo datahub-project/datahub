@@ -189,6 +189,11 @@ public class Neo4jGraphService implements GraphService {
     // Do nothing
   }
 
+  @Override
+  public void clear() {
+    removeNodesMatchingLabel(".*");
+  }
+
   // visible for testing
   @Nonnull
   Statement buildStatement(@Nonnull String queryTemplate, @Nonnull Map<String, Object> params) {

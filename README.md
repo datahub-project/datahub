@@ -48,13 +48,12 @@ HOSTED_DOCS_ONLY-->
 [Features](https://datahubproject.io/docs/features) |
 [Roadmap](https://datahubproject.io/docs/roadmap) |
 [Adoption](#adoption) |
-[FAQ](https://datahubproject.io/docs/faq) |
 [Demo](https://datahubproject.io/docs/demo) |
 [Town Hall](https://datahubproject.io/docs/townhalls)
 
 ---
 
-> 📣 Next DataHub town hall meeting on Jun 25th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
+> 📣 Next DataHub town hall meeting on Jul 23rd, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 >
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
 > - Signup to get a calendar invite: [here](https://docs.google.com/forms/d/1r9bObXKS3tgKpISqqO3rw4yQog5zwuaFxg8IrJGUbvQ/)
@@ -97,10 +96,6 @@ We have documentation available at [https://datahubproject.io/docs/](https://dat
 
 See [Releases](https://github.com/linkedin/datahub/releases) page for more details. We follow the [SemVer Specification](https://semver.org) when versioning the releases and adopt the [Keep a Changelog convention](https://keepachangelog.com/) for the changelog format.
 
-## FAQs
-
-Frequently Asked Questions about DataHub can be found [here](docs/faq.md).
-
 ## Features & Roadmap
 
 Check out DataHub's [Features](docs/features.md) & [Roadmap](docs/roadmap.md).
@@ -117,6 +112,7 @@ Join our [slack workspace](https://slack.datahubproject.io) for discussions and 
 
 Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
 
+- [DefinedCrowd](http://www.definedcrowd.com)
 - [Expedia Group](http://expedia.com)
 - [Experius](https://www.experius.nl)
 - [Geotab](https://www.geotab.com)
@@ -130,27 +126,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Viasat](https://viasat.com)
 - [Wolt](https://wolt.com)
 
-Here is a list of companies that are currently building POC or seriously evaluating DataHub.
 
-- [Amadeus](https://www.amadeus.com)
-- [Bizzy Group](https://www.bizzy.co.id)
-- [Booking.com](https://www.booking.com)
-- [City of New York, DoITT](https://www1.nyc.gov/site/doitt/index.page)
-- [Experian](https://www.experian.com)
-- [FlixBus](https://www.flixbus.com)
-- [Kindred Group](https://www.kindredgroup.com)
-- [Instructure](https://www.instructure.com)
-- [Inventec](https://www.inventec.com)
-- [Microsoft](https://microsoft.com)
-- [Morgan Stanley](https://www.morganstanley.com)
-- [Orange Telecom](https://www.orange.com)
-- [Plum Research](https://plumresearch.com)
-- [REEF Technology](https://reeftechnology.com)
-- [SpotHero](https://spothero.com)
-- [Sysco AS](https://sysco.no)
-- [University of Phoenix](https://www.phoenix.edu)
-- [Vectice](https://www.vectice.com)
-- [Weee!](https://www.sayweee.com)
 
 ## Select Articles & Talks
 

@@ -37,9 +37,10 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.5.0",
+    "avro-gen3==0.5.3",
     "avro-python3>=1.8.2",
     "python-dateutil",
+    "stackprinter",
 }
 
 kafka_common = {
@@ -55,6 +56,11 @@ kafka_common = {
 sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
+}
+
+aws_common = {
+    # AWS Python SDK
+    "boto3"
 }
 
 # Note: for all of these, framework_common will be added.
@@ -73,16 +79,16 @@ plugins: Dict[str, Set[str]] = {
     "bigquery-usage": {"google-cloud-logging", "cachetools"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
-    "glue": {"boto3"},
+    "glue": aws_common,
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.7"
+        "acryl-pyhive[hive]>=0.6.10"
     },
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
-    "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
+    "lookml": {"lkml>=1.1.0", "sql-metadata==2.2.1"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -90,6 +96,7 @@ plugins: Dict[str, Set[str]] = {
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
+    "sagemaker": aws_common,
     "snowflake": sql_common | {"snowflake-sqlalchemy"},
     "snowflake-usage": sql_common | {"snowflake-sqlalchemy"},
     "superset": {"requests"},
@@ -141,15 +148,10 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
-            "mysql",
-            "mssql",
-            "mongodb",
-            "feast",
-            "ldap",
             "looker",
             "glue",
-            "hive",
             "oracle",
+            "sagemaker",
             "datahub-kafka",
             "datahub-rest",
             # airflow is added below
@@ -166,15 +168,29 @@ if is_py37_or_newer:
 
 dev_requirements = {
     *base_dev_requirements,
-    "apache-airflow==1.10.15",
-    "apache-airflow-backport-providers-snowflake",  # Used in the example DAGs.
+    "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
 }
-dev_requirements_airflow_2 = {
+dev_requirements_airflow_1 = {
     *base_dev_requirements,
-    "apache-airflow>=2.0.2",
-    "apache-airflow-providers-snowflake",
+    "apache-airflow==1.10.15",
+    "apache-airflow-backport-providers-snowflake",
 }
 
+full_test_dev_requirements = {
+    *list(
+        dependency
+        for plugin in [
+            "druid",
+            "feast",
+            "hive",
+            "ldap",
+            "mongodb",
+            "mssql",
+            "mysql",
+        ]
+        for dependency in plugins[plugin]
+    ),
+}
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
@@ -188,6 +204,7 @@ entry_points = {
         "druid = datahub.ingestion.source.druid:DruidSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.glue:GlueSource",
+        "sagemaker = datahub.ingestion.source.sagemaker:SagemakerSource",
         "hive = datahub.ingestion.source.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
@@ -224,7 +241,6 @@ setuptools.setup(
         "Source": "https://github.com/linkedin/datahub",
         "Changelog": "https://github.com/linkedin/datahub/releases",
     },
-    author="DataHub Committers",
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",
     long_description=get_long_description(),
@@ -278,6 +294,7 @@ setuptools.setup(
             )
         ),
         "dev": list(dev_requirements),
-        "dev-airflow2": list(dev_requirements_airflow_2),
+        "dev-airflow1": list(dev_requirements_airflow_1),
+        "integration-tests": list(full_test_dev_requirements),
     },
 )

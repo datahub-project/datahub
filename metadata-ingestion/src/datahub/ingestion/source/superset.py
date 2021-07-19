@@ -6,6 +6,7 @@ import dateutil.parser as dp
 import requests
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -73,8 +74,6 @@ chart_type_from_viz_type = {
     "treemap": ChartTypeClass.AREA,
     "box_plot": ChartTypeClass.BAR,
 }
-
-DEFAULT_ENV = "PROD"
 
 
 class SupersetConfig(ConfigModel):
@@ -197,7 +196,7 @@ class SupersetSource(Source):
 
         modified_actor = f"urn:li:corpuser:{(dashboard_data.get('changed_by') or {}).get('username', 'unknown')}"
         modified_ts = int(
-            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp()
+            dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
         )
         title = dashboard_data.get("dashboard_title", "")
         # note: the API does not currently supply created_by usernames due to a bug, but we are required to
@@ -264,7 +263,9 @@ class SupersetSource(Source):
         )
 
         modified_actor = f"urn:li:corpuser:{(chart_data.get('changed_by') or {}).get('username', 'unknown')}"
-        modified_ts = int(dp.parse(chart_data.get("changed_on_utc", "now")).timestamp())
+        modified_ts = int(
+            dp.parse(chart_data.get("changed_on_utc", "now")).timestamp() * 1000
+        )
         title = chart_data.get("slice_name", "")
 
         # note: the API does not currently supply created_by usernames due to a bug, but we are required to

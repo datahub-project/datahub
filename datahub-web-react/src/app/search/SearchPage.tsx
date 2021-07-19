@@ -55,7 +55,7 @@ export const SearchPage = () => {
     const filters: Array<FacetFilterInput> = useFilters(params);
 
     const onSearch = (q: string, type?: EntityType) => {
-        if (query.trim().length === 0) {
+        if (q.trim().length === 0) {
             return;
         }
         analytics.event({

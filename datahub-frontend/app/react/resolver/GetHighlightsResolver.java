@@ -49,11 +49,11 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
 
     int weeklyActiveUsers =
         _analyticsService.getHighlights(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRange),
-            ImmutableMap.of(), Optional.of("browserId"));
+            ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
 
     int weeklyActiveUsersLastWeek =
         _analyticsService.getHighlights(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRangeLastWeek),
-            ImmutableMap.of(), Optional.of("browserId"));
+            ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
 
     String bodyText = "";
     if (weeklyActiveUsersLastWeek > 0) {
@@ -79,10 +79,11 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
   }
 
   private Highlight getEntityMetadataStats(String title, String index) {
-    int numEntities = _analyticsService.getHighlights(index, Optional.empty(), ImmutableMap.of(), Optional.empty());
+    int numEntities = _analyticsService.getHighlights(index, Optional.empty(), ImmutableMap.of(),
+        ImmutableMap.of("removed", ImmutableList.of("true")), Optional.empty());
     int numEntitiesWithOwners =
         _analyticsService.getHighlights(index, Optional.empty(), ImmutableMap.of("hasOwners", ImmutableList.of("true")),
-            Optional.empty());
+            ImmutableMap.of("removed", ImmutableList.of("true")), Optional.empty());
     String bodyText = "";
     if (numEntities > 0) {
       double percentChange = 100.0 * numEntitiesWithOwners / numEntities;
