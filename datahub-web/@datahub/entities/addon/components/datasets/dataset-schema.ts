@@ -82,6 +82,8 @@ export default class DatasetSchema extends Component<{
     } catch (e) {
       // Only handle errors related to parsing JSON
       if (!(e.message as string).startsWith('Unexpected token')) {
+        console.log("test for invalid json")
+        console.info(this);
         throw e;
       }
 
