@@ -2,7 +2,6 @@ package com.linkedin.metadata.entity;
 
 import com.google.common.collect.ImmutableList;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -19,6 +18,8 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
@@ -397,4 +398,13 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
+  public abstract List<IngestionRunSummary> listRuns(
+      final Integer minRunSize,
+      final Integer maxRunSize,
+      final Integer pageOffset,
+      final Integer pageSize);
+
+  public abstract List<AspectRowSummary> rollbackRun(final String runId, Boolean dryRun);
+
+  public abstract List<String> ghostRun(final String runId, Boolean dryRun);
 }

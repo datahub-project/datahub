@@ -6787,7 +6787,6 @@ class MetadataChangeEventClass(DictWrapper):
         """Getter: Metadata around how the snapshot was ingested"""
         return self._inner_dict.get('systemMetadata')  # type: ignore
     
-    
     @systemMetadata.setter
     def systemMetadata(self, value: Union[None, "SystemMetadataClass"]) -> None:
         """Setter: Metadata around how the snapshot was ingested"""
@@ -6824,7 +6823,6 @@ class SystemMetadataClass(DictWrapper):
         """Getter: The timestamp the metadata was observed at"""
         return self._inner_dict.get('lastObserved')  # type: ignore
     
-    
     @lastObserved.setter
     def lastObserved(self, value: Union[None, int]) -> None:
         """Setter: The timestamp the metadata was observed at"""
@@ -6835,7 +6833,6 @@ class SystemMetadataClass(DictWrapper):
     def runId(self) -> Union[None, str]:
         """Getter: The timestamp the metadata was observed at"""
         return self._inner_dict.get('runId')  # type: ignore
-    
     
     @runId.setter
     def runId(self, value: Union[None, str]) -> None:

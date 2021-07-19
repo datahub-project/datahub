@@ -5,6 +5,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Extractor, WorkUnit
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent, SystemMetadata
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.schema_classes import UsageAggregationClass
 import time as t
 
@@ -25,16 +26,21 @@ class WorkUnitRecordExtractor(Extractor):
     ) -> Iterable[RecordEnvelope[Union[MetadataChangeEvent, UsageAggregationClass]]]:
         if isinstance(workunit, MetadataWorkUnit):
 
-            systemMetadata = SystemMetadata(
+            system_metadata = SystemMetadata(
                 lastObserved=current_milli_time(),
                 runId=self.ctx.run_id
             )
 
-            workunit.mce.systemMetadata = systemMetadata
+            default_status = Status(removed=False)
+
+            workunit.mce.systemMetadata = system_metadata
             if len(workunit.mce.proposedSnapshot.aspects) == 0:
                 raise AttributeError("every mce must have at least one aspect")
             if not workunit.mce.validate():
                 raise ValueError(f"source produced an invalid MCE: {workunit.mce}")
+
+            workunit.mce.proposedSnapshot.aspects.append(default_status)
+
             yield RecordEnvelope(
                 workunit.mce,
                 {

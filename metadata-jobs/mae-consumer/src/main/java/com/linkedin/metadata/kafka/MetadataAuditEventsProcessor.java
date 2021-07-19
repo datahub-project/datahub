@@ -84,8 +84,19 @@ public class MetadataAuditEventsProcessor {
 
         final EntitySpec entitySpec =
             SnapshotEntityRegistry.getInstance().getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
-        updateSearchService(snapshot, entitySpec);
-        updateGraphService(snapshot, entitySpec);
+        updateSearchService(snapshot, entitySpec, false);
+        updateGraphService(snapshot, entitySpec, false);
+      } else if (event.hasOldSnapshot()) {
+        // in this case, we deleted an entity and want to de-index the previous value
+        final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(event.getOldSnapshot());
+
+        log.info("deleting {}", snapshot.toString());
+
+        final EntitySpec entitySpec =
+            SnapshotEntityRegistry.getInstance().getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
+
+        updateSearchService(snapshot, entitySpec, true);
+        updateGraphService(snapshot, entitySpec, true);
       }
     } catch (Exception e) {
       log.error("Error deserializing message: {}", e.toString());
@@ -98,7 +109,7 @@ public class MetadataAuditEventsProcessor {
    *
    * @param snapshot Snapshot
    */
-  private void updateGraphService(final RecordTemplate snapshot, final EntitySpec entitySpec) {
+  private void updateGraphService(final RecordTemplate snapshot, final EntitySpec entitySpec, final Boolean delete) {
     final Set<String> relationshipTypesBeingAdded = new HashSet<>();
     final List<Edge> edgesToAdd = new ArrayList<>();
     final String sourceUrnStr = snapshot.data().get("urn").toString();
@@ -121,8 +132,7 @@ public class MetadataAuditEventsProcessor {
       relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
       for (Object fieldValue : entry.getValue()) {
         try {
-          edgesToAdd.add(
-              new Edge(sourceUrn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName()));
+          edgesToAdd.add(new Edge(sourceUrn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName()));
         } catch (URISyntaxException e) {
           log.info("Invalid destination urn: {}", e.getLocalizedMessage());
         }
@@ -132,7 +142,9 @@ public class MetadataAuditEventsProcessor {
       new Thread(() -> {
         _graphService.removeEdgesFromNode(sourceUrn, new ArrayList<>(relationshipTypesBeingAdded),
             createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
-        edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
+        if (!delete) {
+          edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
+        }
       }).start();
     }
   }
@@ -142,11 +154,11 @@ public class MetadataAuditEventsProcessor {
    *
    * @param snapshot Snapshot
    */
-  private void updateSearchService(final RecordTemplate snapshot, final EntitySpec entitySpec) {
+  private void updateSearchService(final RecordTemplate snapshot, final EntitySpec entitySpec, final Boolean delete) {
     String urn = snapshot.data().get("urn").toString();
     Optional<String> searchDocument;
     try {
-      searchDocument = SearchDocumentTransformer.transform(snapshot, entitySpec);
+      searchDocument = SearchDocumentTransformer.transform(snapshot, entitySpec, delete);
     } catch (Exception e) {
       log.error("Error in getting documents from snapshot: {} for snapshot {}", e, snapshot);
       return;
