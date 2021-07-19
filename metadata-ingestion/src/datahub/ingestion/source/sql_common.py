@@ -299,7 +299,7 @@ class SQLAlchemySource(Source):
 
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
-                self.report.report_warning(dataset_name, "no columns found for table")
+                self.report.report_warning(dataset_name, "missing column information")
 
             try:
                 # SQLALchemy stubs are incomplete and missing this method.
