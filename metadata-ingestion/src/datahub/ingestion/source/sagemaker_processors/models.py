@@ -258,16 +258,23 @@ class ModelProcessor:
                     model_hyperparams_raw.update(job.hyperparameters)
                     model_metrics_raw.update(job.metrics)
 
+        def strip_quotes(string: str) -> str:
+            if string.startswith('"') or string.startswith("'"):
+                string = string[1:]
+            if string.endswith('"') or string.startswith("'"):
+                string = string[:-1]
+            return string
+
         model_hyperparams = [
             # all SageMaker hyperparams are strings, but stringify just in case
-            MLHyperParamClass(name=key, value=str(value))
+            MLHyperParamClass(name=key, value=strip_quotes(str(value)))
             for key, value in model_hyperparams_raw.items()
         ]
         model_hyperparams = sorted(model_hyperparams, key=lambda x: x.name)
 
         model_metrics = [
             # all SageMaker metrics are strings, but stringify just in case
-            MLMetricClass(name=key, value=str(value))
+            MLMetricClass(name=key, value=strip_quotes(str(value)))
             for key, value in model_metrics_raw.items()
         ]
         model_metrics = sorted(model_metrics, key=lambda x: x.name)
