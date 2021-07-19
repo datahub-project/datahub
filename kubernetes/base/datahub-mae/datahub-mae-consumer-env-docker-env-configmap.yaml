@@ -2,7 +2,7 @@ apiVersion: v1
 data:
   ELASTICSEARCH_HOST: elasticsearch.data-catalogue.svc.cluster.local
   ELASTICSEARCH_PORT: "9200"
-  GMS_HOST: datahub-gms.data-catalogue.svc.cluster.local
+  GMS_HOST: datahub-gms-graphql.data-catalogue.svc.cluster.local
   GMS_PORT: "8080"
   KAFKA_BOOTSTRAP_SERVER: broker.data-catalogue.svc.cluster.local:29092
   KAFKA_SCHEMAREGISTRY_URL: http://schema-registry.data-catalogue.svc.cluster.local:8081
