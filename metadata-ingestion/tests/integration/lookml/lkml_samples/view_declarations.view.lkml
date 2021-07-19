@@ -1,0 +1,13 @@
+view: looker_events {
+  sql_table_name: looker_db.events ;;
+}
+
+view: extending_looker_events {
+  extends: [looker_events]
+
+  measure: additional_measure {
+    type: count
+  }
+}
+
+view: autodetect_sql_name_based_on_view_name {}
