@@ -1345,7 +1345,7 @@
                 "TrainingEndTime": "2015-01-01 00:00:00+00:00",
                 "LastModifiedTime": "2015-01-01 00:00:00+00:00",
                 "SecondaryStatusTransitions": "[{'Status': 'Starting', 'StartTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'EndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'StatusMessage': 'string'}]",
-                "FinalMetricDataList": "[{'MetricName': 'some-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}, {'MetricName': 'another-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
+                "FinalMetricDataList": "[{'MetricName': 'some-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}, {'MetricName': 'another-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}, {'MetricName': 'some-metric', 'Value': 0.0, 'Timestamp': datetime.datetime(2014, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
                 "EnableNetworkIsolation": "True",
                 "EnableInterContainerTrafficEncryption": "True",
                 "EnableManagedSpotTraining": "True",
@@ -1574,8 +1574,42 @@
               "version": null,
               "type": null,
               "hyperParameters": null,
-              "hyperParams": null,
-              "trainingMetrics": null,
+              "hyperParams": [
+                {
+                  "name": "parameter-1",
+                  "description": null,
+                  "value": "some-value",
+                  "date": null,
+                  "version": null,
+                  "tags": []
+                },
+                {
+                  "name": "parameter-2",
+                  "description": null,
+                  "value": "another-value",
+                  "date": null,
+                  "version": null,
+                  "tags": []
+                }
+              ],
+              "trainingMetrics": [
+                {
+                  "name": "another-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "date": null,
+                  "version": null,
+                  "tags": []
+                },
+                {
+                  "name": "some-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "date": null,
+                  "version": null,
+                  "tags": []
+                }
+              ],
               "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],
@@ -1616,8 +1650,42 @@
               "version": null,
               "type": null,
               "hyperParameters": null,
-              "hyperParams": null,
-              "trainingMetrics": null,
+              "hyperParams": [
+                {
+                  "name": "parameter-1",
+                  "description": null,
+                  "value": "some-value",
+                  "date": null,
+                  "version": null,
+                  "tags": []
+                },
+                {
+                  "name": "parameter-2",
+                  "description": null,
+                  "value": "another-value",
+                  "date": null,
+                  "version": null,
+                  "tags": []
+                }
+              ],
+              "trainingMetrics": [
+                {
+                  "name": "another-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "date": null,
+                  "version": null,
+                  "tags": []
+                },
+                {
+                  "name": "some-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "date": null,
+                  "version": null,
+                  "tags": []
+                }
+              ],
               "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],

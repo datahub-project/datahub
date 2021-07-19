@@ -997,13 +997,34 @@ class JobProcessor:
         )
 
         model_data_url = job.get("ModelArtifacts", {}).get("S3ModelArtifacts")
+
+        job_metrics = job.get("FinalMetricDataList", [])
+        # sort first by metric name, then from latest -> earliest
+        sorted_metrics = sorted(
+            job_metrics, key=lambda x: (x["MetricName"], x["Timestamp"]), reverse=True
+        )
+        # extract the last recorded metric values
+        latest_metrics = []
+        seen_keys = set()
+        for metric in sorted_metrics:
+            if metric["MetricName"] not in seen_keys:
+                latest_metrics.append(metric)
+                seen_keys.add(metric["MetricName"])
+
+        metrics = dict(
+            zip(
+                [metric["MetricName"] for metric in latest_metrics],
+                [metric["Value"] for metric in latest_metrics],
+            )
+        )
+
         if model_data_url is not None:
             self.model_image_to_jobs[model_data_url].add(
                 ModelJob(
                     job_urn=job_snapshot.urn,
                     job_direction=JobDirection.TRAINING,
                     hyperparameters=job.get("HyperParameters", {}),
-                    # metrics=job.get("FinalMetricDataList", []),
+                    metrics=metrics,
                 )
             )
 

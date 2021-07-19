@@ -901,7 +901,12 @@ describe_training_job_response = {
             "MetricName": "another-metric",
             "Value": 1.0,
             "Timestamp": datetime(2015, 1, 1, tzinfo=timezone.utc),
-        }
+        },
+        {
+            "MetricName": "some-metric",
+            "Value": 0.0,
+            "Timestamp": datetime(2014, 1, 1, tzinfo=timezone.utc),
+        },
     ],
     "EnableNetworkIsolation": True,  # True|False
     "EnableInterContainerTrafficEncryption": True,  # True|False

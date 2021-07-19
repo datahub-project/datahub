@@ -17,6 +17,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     EndpointStatusClass,
     MLHyperParamClass,
+    MLMetricClass,
     MLModelEndpointPropertiesClass,
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
@@ -225,6 +226,7 @@ class ModelProcessor:
             model_data_urls.append(model_data_url)
 
         model_hyperparams_raw = {}
+        model_metrics_raw = {}
 
         for model_data_url in model_data_urls:
 
@@ -249,12 +251,19 @@ class ModelProcessor:
             for job in data_url_matched_jobs:
                 if job.job_direction == JobDirection.TRAINING:
                     model_hyperparams_raw.update(job.hyperparameters)
+                    model_metrics_raw.update(job.metrics)
 
         model_hyperparams = [
             MLHyperParamClass(name=key, value=str(value))
             for key, value in model_hyperparams_raw.items()
         ]
         model_hyperparams = sorted(model_hyperparams, key=lambda x: x.name)
+
+        model_metrics = [
+            MLMetricClass(name=key, value=str(value))
+            for key, value in model_metrics_raw.items()
+        ]
+        model_metrics = sorted(model_metrics, key=lambda x: x.name)
 
         # get jobs referencing the model by name
         name_matched_jobs = self.model_name_to_jobs.get(
@@ -276,9 +285,6 @@ class ModelProcessor:
                 if job.job_direction == JobDirection.DOWNSTREAM
             }
         )
-
-        print(model_training_jobs)
-        print(model_downstream_jobs)
 
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
@@ -304,7 +310,8 @@ class ModelProcessor:
                     trainingJobs=sorted(list(model_training_jobs)),
                     downstreamJobs=sorted(list(model_downstream_jobs)),
                     externalUrl=f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/models/{model_details['ModelName']}",
-                    # hyperParams=model_hyperparams,
+                    hyperParams=model_hyperparams,
+                    trainingMetrics=model_metrics,
                 )
             ],
         )
