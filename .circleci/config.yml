@@ -147,14 +147,25 @@ workflows:
           requires:
             - approve/release
       - gradle/deliver:
-          <<: *branch-filter
+          <<: *master-filter
           name: deliver/prd/gms-graphql
           docker: *orb_docker_gradle
           env: prd
           region: tokyo
           cluster: spaas_sn
           system: data-catalogue
-          target: gms-graphql          
+          target: gms-graphql
+          requires:
+            - approve/release
+      - gradle/deliver:
+          <<: *master-filter
+          name: deliver/prd/dependencies
+          docker: *orb_docker_gradle
+          env: prd
+          region: tokyo
+          cluster: spaas_sn
+          system: data-catalogue
+          target: dependencies
           requires:
             - approve/release
   main:
