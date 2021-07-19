@@ -163,6 +163,7 @@ class ModelProcessor:
                         endpoint_details["EndpointName"],
                         endpoint_details.get("EndpointStatus", "Unknown"),
                     ),
+                    externalUrl=f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/endpoints/{endpoint_details['EndpointName']}",
                     customProperties={
                         key: str(value)
                         for key, value in endpoint_details.items()
