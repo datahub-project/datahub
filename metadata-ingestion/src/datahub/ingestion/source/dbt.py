@@ -68,6 +68,7 @@ class DBTNode:
     database: str
     schema: str
     name: str  # name, identifier
+    comment: str
 
     datahub_urn: str
 
@@ -132,6 +133,13 @@ def extract_dbt_entities(
         if "identifier" in node and not load_catalog:
             name = node["identifier"]
 
+        comment = key
+
+        if key in all_catalog_entities and all_catalog_entities[key]["metadata"].get(
+            "comment"
+        ):
+            comment = all_catalog_entities[key]["metadata"]["comment"]
+
         materialization = None
         upstream_urns = []
 
@@ -168,6 +176,7 @@ def extract_dbt_entities(
             node_type=node["resource_type"],
             max_loaded_at=sources_by_id.get(key, {}).get("max_loaded_at"),
             name=name,
+            comment=comment,
             upstream_urns=upstream_urns,
             materialization=materialization,
             catalog_type=catalog_type,
@@ -273,7 +282,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
         node_attribute_value = getattr(node, attribute)
 
         if node_attribute_value is not None:
-            custom_properties[attribute] = node_attribute_value
+            custom_properties[attribute] = str(node_attribute_value)
 
     return custom_properties
 
@@ -430,7 +439,7 @@ class DBTSource(Source):
             )
 
             dbt_properties = DatasetPropertiesClass(
-                description=node.dbt_name,
+                description=node.comment,
                 customProperties=get_custom_properties(node),
                 tags=[],
             )

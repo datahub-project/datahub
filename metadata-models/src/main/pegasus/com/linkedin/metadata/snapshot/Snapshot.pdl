@@ -17,7 +17,7 @@ typeref Snapshot = union[
   MLPrimaryKeySnapshot,
   MLFeatureSnapshot,
   MLFeatureTableSnapshot,
-  MLModelEndpointSnapshot,
+  MLModelDeploymentSnapshot,
   MLModelGroupSnapshot,
   TagSnapshot,
   GlossaryTermSnapshot,

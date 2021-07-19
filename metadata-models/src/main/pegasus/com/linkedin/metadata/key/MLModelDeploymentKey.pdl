@@ -4,14 +4,14 @@ import com.linkedin.common.Urn
 import com.linkedin.common.FabricType
 
 /**
- * Key for an ML model endpoint
+ * Key for an ML model deployment
  */
 @Aspect = {
-  "name": "mlModelEndpointKey"
+  "name": "mlModelDeploymentKey"
 }
-record MLModelEndpointKey {
+record MLModelDeploymentKey {
   /**
-  * Standardized platform urn for the model endpoint
+  * Standardized platform urn for the model Deployment
   */
   @Searchable = {
     "fieldType": "URN",
@@ -20,7 +20,7 @@ record MLModelEndpointKey {
   platform: Urn
 
   /**
-  * Name of the MLModelEndpoint
+  * Name of the MLModelDeployment
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
@@ -30,7 +30,7 @@ record MLModelEndpointKey {
   name: string
 
   /**
-  * Fabric type where model endpoint belongs to or where it was generated
+  * Fabric type where model Deployment belongs to or where it was generated
   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",

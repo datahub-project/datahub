@@ -3522,7 +3522,7 @@
                         "default": []
                       },
                       {
-                        "name": "endpoints",
+                        "name": "deployments",
                         "type": [
                           "null",
                           {
@@ -3535,7 +3535,7 @@
                         "Relationship": {
                           "/*": {
                             "entityTypes": [
-                              "mlModelEndpoint"
+                              "mlModelDeployment"
                             ],
                             "name": "DeployedTo"
                           }
@@ -4590,7 +4590,7 @@
         },
         {
           "type": "record",
-          "name": "MLModelEndpointSnapshot",
+          "name": "MLModelDeploymentSnapshot",
           "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
           "fields": [
             {
@@ -4608,14 +4608,14 @@
                 "items": [
                   {
                     "type": "record",
-                    "name": "MLModelEndpointKey",
+                    "name": "MLModelDeploymentKey",
                     "namespace": "com.linkedin.pegasus2avro.metadata.key",
-                    "doc": "Key for an ML model endpoint",
+                    "doc": "Key for an ML model deployment",
                     "fields": [
                       {
                         "name": "platform",
                         "type": "string",
-                        "doc": "Standardized platform urn for the model endpoint",
+                        "doc": "Standardized platform urn for the model Deployment",
                         "Searchable": {
                           "addToFilters": true,
                           "fieldType": "URN"
@@ -4627,7 +4627,7 @@
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "Name of the MLModelEndpoint",
+                        "doc": "Name of the MLModelDeployment",
                         "Searchable": {
                           "boostScore": 10.0,
                           "enableAutocomplete": true,
@@ -4637,7 +4637,7 @@
                       {
                         "name": "origin",
                         "type": "com.linkedin.pegasus2avro.common.FabricType",
-                        "doc": "Fabric type where model endpoint belongs to or where it was generated",
+                        "doc": "Fabric type where model Deployment belongs to or where it was generated",
                         "Searchable": {
                           "fieldType": "TEXT_PARTIAL",
                           "queryByDefault": false
@@ -4645,14 +4645,14 @@
                       }
                     ],
                     "Aspect": {
-                      "name": "mlModelEndpointKey"
+                      "name": "mlModelDeploymentKey"
                     }
                   },
                   {
                     "type": "record",
-                    "name": "MLModelEndpointProperties",
+                    "name": "MLModelDeploymentProperties",
                     "namespace": "com.linkedin.pegasus2avro.ml.metadata",
-                    "doc": "Properties associated with an ML Model Endpoint",
+                    "doc": "Properties associated with an ML Model Deployment",
                     "fields": [
                       {
                         "name": "customProperties",
@@ -4669,7 +4669,7 @@
                           "null",
                           "string"
                         ],
-                        "doc": "Documentation of the MLModelEndpoint",
+                        "doc": "Documentation of the MLModelDeployment",
                         "default": null,
                         "Searchable": {
                           "fieldType": "TEXT",
@@ -4677,12 +4677,12 @@
                         }
                       },
                       {
-                        "name": "date",
+                        "name": "createdAt",
                         "type": [
                           "null",
                           "long"
                         ],
-                        "doc": "Date when the MLModelEndpoint was developed",
+                        "doc": "Date when the MLModelDeployment was developed",
                         "default": null
                       },
                       {
@@ -4691,17 +4691,8 @@
                           "null",
                           "com.linkedin.pegasus2avro.common.VersionTag"
                         ],
-                        "doc": "Version of the MLModelEndpoint",
+                        "doc": "Version of the MLModelDeployment",
                         "default": null
-                      },
-                      {
-                        "name": "tags",
-                        "type": {
-                          "type": "array",
-                          "items": "string"
-                        },
-                        "doc": "Tags for the MLModelEndpoint",
-                        "default": []
                       },
                       {
                         "name": "status",
@@ -4709,7 +4700,7 @@
                           "null",
                           {
                             "type": "enum",
-                            "name": "EndpointStatus",
+                            "name": "DeploymentStatus",
                             "doc": "Model endpoint statuses",
                             "symbols": [
                               "OUT_OF_SERVICE",
@@ -4722,37 +4713,36 @@
                               "UNKNOWN"
                             ],
                             "symbolDocs": {
-                              "CREATING": "Endpoints being created.",
-                              "DELETING": "Endpoints being deleted.",
-                              "FAILED": "Endpoints with an error state.",
-                              "IN_SERVICE": "Endpoints that are active.",
-                              "OUT_OF_SERVICE": "Endpoints out of service.",
-                              "ROLLING_BACK": "Endpoints being reverted to a previous version.",
-                              "UNKNOWN": "Endpoints with unknown/unmappable state.",
-                              "UPDATING": "Endpoints being updated."
+                              "CREATING": "Deployments being created.",
+                              "DELETING": "Deployments being deleted.",
+                              "FAILED": "Deployments with an error state.",
+                              "IN_SERVICE": "Deployments that are active.",
+                              "OUT_OF_SERVICE": "Deployments out of service.",
+                              "ROLLING_BACK": "Deployments being reverted to a previous version.",
+                              "UNKNOWN": "Deployments with unknown/unmappable state.",
+                              "UPDATING": "Deployments being updated."
                             }
                           }
                         ],
-                        "doc": "Status of the endpoint",
+                        "doc": "Status of the deployment",
                         "default": null
                       }
                     ],
                     "Aspect": {
-                      "name": "mlModelEndpointProperties"
+                      "name": "mlModelDeploymentProperties"
                     }
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
-                  "com.linkedin.pegasus2avro.common.Deprecation",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.Deprecation"
                 ]
               },
-              "doc": "The list of metadata aspects associated with the MLModelEndpoint. Depending on the use case, this can either be all, or a selection, of supported aspects."
+              "doc": "The list of metadata aspects associated with the MLModelDeployment. Depending on the use case, this can either be all, or a selection, of supported aspects."
             }
           ],
           "Entity": {
-            "keyAspect": "mlModelEndpointKey",
-            "name": "mlModelEndpoint"
+            "keyAspect": "mlModelDeploymentKey",
+            "name": "mlModelDeployment"
           }
         },
         {
@@ -4844,7 +4834,7 @@
                         }
                       },
                       {
-                        "name": "date",
+                        "name": "createdAt",
                         "type": [
                           "null",
                           "long"
@@ -4860,15 +4850,6 @@
                         ],
                         "doc": "Version of the MLModelGroup",
                         "default": null
-                      },
-                      {
-                        "name": "tags",
-                        "type": {
-                          "type": "array",
-                          "items": "string"
-                        },
-                        "doc": "Tags for the MLModelGroup",
-                        "default": []
                       },
                       {
                         "name": "models",
@@ -5093,7 +5074,8 @@
                     }
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
-                  "com.linkedin.pegasus2avro.common.Status"
+                  "com.linkedin.pegasus2avro.common.Status",
+                  "com.linkedin.pegasus2avro.common.BrowsePaths"
                 ]
               },
               "doc": "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -5203,7 +5185,7 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot",
         "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot",
         "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot",
-        "com.linkedin.pegasus2avro.metadata.snapshot.MLModelEndpointSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot",
         "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot",
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot",
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot",

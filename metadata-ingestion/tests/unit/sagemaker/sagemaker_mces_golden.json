@@ -1494,11 +1494,11 @@
   {
     "auditHeader": null,
     "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelEndpointSnapshot": {
-        "urn": "urn:li:mlModelEndpoint:(sagemaker,the-first-endpoint,PROD)",
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
+        "urn": "urn:li:mlModelDeployment:(sagemaker,the-first-endpoint,PROD)",
         "aspects": [
           {
-            "com.linkedin.pegasus2avro.ml.metadata.MLModelEndpointProperties": {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
               "customProperties": {
                 "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
                 "EndpointConfigName": "string",
@@ -1510,9 +1510,8 @@
                 "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
               },
               "description": null,
-              "date": 1420070400000,
+              "createdAt": 1420070400000,
               "version": null,
-              "tags": [],
               "status": "IN_SERVICE"
             }
           }
@@ -1524,11 +1523,11 @@
   {
     "auditHeader": null,
     "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelEndpointSnapshot": {
-        "urn": "urn:li:mlModelEndpoint:(sagemaker,the-second-endpoint,PROD)",
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
+        "urn": "urn:li:mlModelDeployment:(sagemaker,the-second-endpoint,PROD)",
         "aspects": [
           {
-            "com.linkedin.pegasus2avro.ml.metadata.MLModelEndpointProperties": {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
               "customProperties": {
                 "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
                 "EndpointConfigName": "string",
@@ -1540,9 +1539,8 @@
                 "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
               },
               "description": null,
-              "date": 1420070400000,
+              "createdAt": 1420070400000,
               "version": null,
-              "tags": [],
               "status": "CREATING"
             }
           }
@@ -1613,8 +1611,8 @@
               "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],
-              "endpoints": [
-                "urn:li:mlModelEndpoint:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
+              "deployments": [
+                "urn:li:mlModelDeployment:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
               ],
               "trainingJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
@@ -1689,8 +1687,8 @@
               "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],
-              "endpoints": [
-                "urn:li:mlModelEndpoint:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
+              "deployments": [
+                "urn:li:mlModelDeployment:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
               ],
               "trainingJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
@@ -1721,9 +1719,8 @@
                 "ModelPackageGroupStatus": "Completed"
               },
               "description": "Just a model package group.",
-              "date": 1420070400000,
+              "createdAt": 1420070400000,
               "version": null,
-              "tags": [],
               "models": [
                 "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
                 "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)"

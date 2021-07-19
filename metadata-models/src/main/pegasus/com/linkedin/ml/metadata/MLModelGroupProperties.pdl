@@ -25,17 +25,12 @@ record MLModelGroupProperties includes CustomProperties {
   /**
    * Date when the MLModelGroup was developed
    */
-  date: optional Time
+  createdAt: optional Time
 
   /**
    * Version of the MLModelGroup
    */
   version: optional VersionTag
-
-  /**
-   * Tags for the MLModelGroup
-   */
-  tags: array[string] = [ ]
 
   /**
    * Models in the group

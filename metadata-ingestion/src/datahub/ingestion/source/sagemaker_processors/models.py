@@ -9,16 +9,16 @@ from datahub.ingestion.source.sagemaker_processors.common import SagemakerSource
 from datahub.ingestion.source.sagemaker_processors.jobs import JobDirection, ModelJob
 from datahub.ingestion.source.sagemaker_processors.lineage import LineageInfo
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    MLModelEndpointSnapshot,
+    MLModelDeploymentSnapshot,
     MLModelGroupSnapshot,
     MLModelSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    EndpointStatusClass,
+    DeploymentStatusClass,
     MLHyperParamClass,
     MLMetricClass,
-    MLModelEndpointPropertiesClass,
+    MLModelDeploymentPropertiesClass,
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
     OwnerClass,
@@ -27,15 +27,15 @@ from datahub.metadata.schema_classes import (
 )
 
 ENDPOINT_STATUS_MAP: Dict[str, str] = {
-    "OutOfService": EndpointStatusClass.OUT_OF_SERVICE,
-    "Creating": EndpointStatusClass.CREATING,
-    "Updating": EndpointStatusClass.UPDATING,
-    "SystemUpdating": EndpointStatusClass.UPDATING,
-    "RollingBack": EndpointStatusClass.ROLLING_BACK,
-    "InService": EndpointStatusClass.IN_SERVICE,
-    "Deleting": EndpointStatusClass.DELETING,
-    "Failed": EndpointStatusClass.FAILED,
-    "Unknown": EndpointStatusClass.UNKNOWN,
+    "OutOfService": DeploymentStatusClass.OUT_OF_SERVICE,
+    "Creating": DeploymentStatusClass.CREATING,
+    "Updating": DeploymentStatusClass.UPDATING,
+    "SystemUpdating": DeploymentStatusClass.UPDATING,
+    "RollingBack": DeploymentStatusClass.ROLLING_BACK,
+    "InService": DeploymentStatusClass.IN_SERVICE,
+    "Deleting": DeploymentStatusClass.DELETING,
+    "Failed": DeploymentStatusClass.FAILED,
+    "Unknown": DeploymentStatusClass.UNKNOWN,
 }
 
 
@@ -136,25 +136,25 @@ class ModelProcessor:
                 f"Unknown status for {endpoint_name} ({endpoint_arn}): {sagemaker_status}",
             )
 
-            endpoint_status = EndpointStatusClass.UNKNOWN
+            endpoint_status = DeploymentStatusClass.UNKNOWN
 
         return endpoint_status
 
     def get_endpoint_wu(self, endpoint_details: Dict[str, Any]) -> MetadataWorkUnit:
-        """
+        """a
         Get a workunit for an endpoint.
         """
 
         # params to remove since we extract them
         redundant_fields = {"EndpointName", "CreationTime"}
 
-        endpoint_snapshot = MLModelEndpointSnapshot(
-            urn=builder.make_ml_model_endpoint_urn(
+        endpoint_snapshot = MLModelDeploymentSnapshot(
+            urn=builder.make_ml_model_deployment_urn(
                 "sagemaker", endpoint_details["EndpointName"], self.env
             ),
             aspects=[
-                MLModelEndpointPropertiesClass(
-                    date=int(
+                MLModelDeploymentPropertiesClass(
+                    createdAt=int(
                         endpoint_details.get("CreationTime", datetime.now()).timestamp()
                         * 1000
                     ),
@@ -296,8 +296,8 @@ class ModelProcessor:
                         model_details.get("CreationTime", datetime.now()).timestamp()
                         * 1000
                     ),
-                    endpoints=[
-                        builder.make_ml_model_endpoint_urn(
+                    deployments=[
+                        builder.make_ml_model_deployment_urn(
                             "sagemaker", endpoint_name, self.env
                         )
                         for endpoint_name in model_endpoints_sorted
@@ -368,7 +368,7 @@ class ModelProcessor:
             ),
             aspects=[
                 MLModelGroupPropertiesClass(
-                    date=int(
+                    createdAt=int(
                         group_details.get("CreationTime", datetime.now()).timestamp()
                         * 1000
                     ),

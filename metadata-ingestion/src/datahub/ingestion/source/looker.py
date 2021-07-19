@@ -117,7 +117,7 @@ class LookerDashboard:
 
 class LookerDashboardSource(Source):
     source_config: LookerDashboardSourceConfig
-    report = LookerDashboardSourceReport()
+    reporter: LookerDashboardSourceReport
 
     def __init__(self, config: LookerDashboardSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
@@ -393,7 +393,13 @@ class LookerDashboardSource(Source):
         os.environ["LOOKERSDK_CLIENT_SECRET"] = self.source_config.client_secret
         os.environ["LOOKERSDK_BASE_URL"] = self.source_config.base_url
 
-        return looker_sdk.init31()
+        client = looker_sdk.init31()
+
+        # try authenticating current user to check connectivity
+        # (since it's possible to initialize an invalid client without any complaints)
+        client.me()
+
+        return client
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         client = self._get_looker_client()
@@ -415,8 +421,9 @@ class LookerDashboardSource(Source):
                 )
             except SDKError:
                 # A looker dashboard could be deleted in between the list and the get
-                logger.warning(
-                    f"Error occuried while loading dashboard {dashboard_id}. Skipping."
+                self.reporter.report_warning(
+                    dashboard_id,
+                    f"Error occurred while loading dashboard {dashboard_id}. Skipping.",
                 )
                 continue
 

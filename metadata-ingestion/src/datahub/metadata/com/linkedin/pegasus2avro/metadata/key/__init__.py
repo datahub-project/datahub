@@ -17,7 +17,7 @@ from ......schema_classes import GlossaryNodeKeyClass
 from ......schema_classes import GlossaryTermKeyClass
 from ......schema_classes import MLFeatureKeyClass
 from ......schema_classes import MLFeatureTableKeyClass
-from ......schema_classes import MLModelEndpointKeyClass
+from ......schema_classes import MLModelDeploymentKeyClass
 from ......schema_classes import MLModelGroupKeyClass
 from ......schema_classes import MLModelKeyClass
 from ......schema_classes import MLPrimaryKeyKeyClass
@@ -37,7 +37,7 @@ GlossaryNodeKey = GlossaryNodeKeyClass
 GlossaryTermKey = GlossaryTermKeyClass
 MLFeatureKey = MLFeatureKeyClass
 MLFeatureTableKey = MLFeatureTableKeyClass
-MLModelEndpointKey = MLModelEndpointKeyClass
+MLModelDeploymentKey = MLModelDeploymentKeyClass
 MLModelGroupKey = MLModelGroupKeyClass
 MLModelKey = MLModelKeyClass
 MLPrimaryKeyKey = MLPrimaryKeyKeyClass

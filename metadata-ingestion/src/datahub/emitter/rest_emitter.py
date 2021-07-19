@@ -65,7 +65,7 @@ class DatahubRestEmitter:
 
     def __init__(self, gms_server: str, token: Optional[str] = None):
         if ":9002" in gms_server:
-            logger.warn(
+            logger.warning(
                 "the rest emitter should connect to GMS (usually port 8080) instead of frontend"
             )
         self._gms_server = gms_server
