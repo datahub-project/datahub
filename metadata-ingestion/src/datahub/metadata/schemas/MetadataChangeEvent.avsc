@@ -4501,7 +4501,7 @@
                         }
                       },
                       {
-                        "name": "date",
+                        "name": "createdAt",
                         "type": [
                           "null",
                           "long"
@@ -4517,15 +4517,6 @@
                         ],
                         "doc": "Version of the MLModelEndpoint",
                         "default": null
-                      },
-                      {
-                        "name": "tags",
-                        "type": {
-                          "type": "array",
-                          "items": "string"
-                        },
-                        "doc": "Tags for the MLModelEndpoint",
-                        "default": []
                       },
                       {
                         "name": "status",
@@ -4567,8 +4558,7 @@
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
-                  "com.linkedin.pegasus2avro.common.Deprecation",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.Deprecation"
                 ]
               },
               "doc": "The list of metadata aspects associated with the MLModelEndpoint. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4668,7 +4658,7 @@
                         }
                       },
                       {
-                        "name": "date",
+                        "name": "createdAt",
                         "type": [
                           "null",
                           "long"
@@ -4684,15 +4674,6 @@
                         ],
                         "doc": "Version of the MLModelGroup",
                         "default": null
-                      },
-                      {
-                        "name": "tags",
-                        "type": {
-                          "type": "array",
-                          "items": "string"
-                        },
-                        "doc": "Tags for the MLModelGroup",
-                        "default": []
                       },
                       {
                         "name": "models",

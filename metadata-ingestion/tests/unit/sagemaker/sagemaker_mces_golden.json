@@ -1510,9 +1510,8 @@
                 "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
               },
               "description": null,
-              "date": 1420070400000,
+              "createdAt": 1420070400000,
               "version": null,
-              "tags": [],
               "status": "IN_SERVICE"
             }
           }
@@ -1540,9 +1539,8 @@
                 "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
               },
               "description": null,
-              "date": 1420070400000,
+              "createdAt": 1420070400000,
               "version": null,
-              "tags": [],
               "status": "CREATING"
             }
           }
@@ -1645,9 +1643,8 @@
                 "ModelPackageGroupStatus": "Completed"
               },
               "description": "Just a model package group.",
-              "date": 1420070400000,
+              "createdAt": 1420070400000,
               "version": null,
-              "tags": [],
               "models": [
                 "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
                 "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)"

@@ -4564,7 +4564,7 @@
                             "null",
                             "long"
                           ],
-                          "name": "date",
+                          "name": "createdAt",
                           "default": null,
                           "doc": "Date when the MLModelEndpoint was developed"
                         },
@@ -4576,15 +4576,6 @@
                           "name": "version",
                           "default": null,
                           "doc": "Version of the MLModelEndpoint"
-                        },
-                        {
-                          "type": {
-                            "type": "array",
-                            "items": "string"
-                          },
-                          "name": "tags",
-                          "default": [],
-                          "doc": "Tags for the MLModelEndpoint"
                         },
                         {
                           "type": [
@@ -4625,8 +4616,7 @@
                     },
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.Status",
-                    "com.linkedin.pegasus2avro.common.Deprecation",
-                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                    "com.linkedin.pegasus2avro.common.Deprecation"
                   ]
                 },
                 "name": "aspects",
@@ -4732,7 +4722,7 @@
                             "null",
                             "long"
                           ],
-                          "name": "date",
+                          "name": "createdAt",
                           "default": null,
                           "doc": "Date when the MLModelGroup was developed"
                         },
@@ -4744,15 +4734,6 @@
                           "name": "version",
                           "default": null,
                           "doc": "Version of the MLModelGroup"
-                        },
-                        {
-                          "type": {
-                            "type": "array",
-                            "items": "string"
-                          },
-                          "name": "tags",
-                          "default": [],
-                          "doc": "Tags for the MLModelGroup"
                         },
                         {
                           "Relationship": {

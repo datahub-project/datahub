@@ -24,17 +24,12 @@ record MLModelEndpointProperties includes CustomProperties {
   /**
    * Date when the MLModelEndpoint was developed
    */
-  date: optional Time
+  createdAt: optional Time
 
   /**
    * Version of the MLModelEndpoint
    */
   version: optional VersionTag
-
-  /**
-   * Tags for the MLModelEndpoint
-   */
-  tags: array[string] = [ ]
     
   /**
    * Status of the endpoint

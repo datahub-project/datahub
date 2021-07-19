@@ -4874,7 +4874,7 @@ class MLModelEndpointSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.MLModelEndpointSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["MLModelEndpointKeyClass", "MLModelEndpointPropertiesClass", "OwnershipClass", "StatusClass", "DeprecationClass", "BrowsePathsClass"]],
+        aspects: List[Union["MLModelEndpointKeyClass", "MLModelEndpointPropertiesClass", "OwnershipClass", "StatusClass", "DeprecationClass"]],
     ):
         super().__init__()
         
@@ -4905,12 +4905,12 @@ class MLModelEndpointSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["MLModelEndpointKeyClass", "MLModelEndpointPropertiesClass", "OwnershipClass", "StatusClass", "DeprecationClass", "BrowsePathsClass"]]:
+    def aspects(self) -> List[Union["MLModelEndpointKeyClass", "MLModelEndpointPropertiesClass", "OwnershipClass", "StatusClass", "DeprecationClass"]]:
         """Getter: The list of metadata aspects associated with the MLModelEndpoint. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     @aspects.setter
-    def aspects(self, value: List[Union["MLModelEndpointKeyClass", "MLModelEndpointPropertiesClass", "OwnershipClass", "StatusClass", "DeprecationClass", "BrowsePathsClass"]]) -> None:
+    def aspects(self, value: List[Union["MLModelEndpointKeyClass", "MLModelEndpointPropertiesClass", "OwnershipClass", "StatusClass", "DeprecationClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the MLModelEndpoint. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -5669,9 +5669,8 @@ class MLModelEndpointPropertiesClass(DictWrapper):
     def __init__(self,
         customProperties: Optional[Dict[str, str]]=None,
         description: Union[None, str]=None,
-        date: Union[None, int]=None,
+        createdAt: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
-        tags: Optional[List[str]]=None,
         status: Union[None, Union[str, "EndpointStatusClass"]]=None,
     ):
         super().__init__()
@@ -5682,13 +5681,8 @@ class MLModelEndpointPropertiesClass(DictWrapper):
         else:
             self.customProperties = customProperties
         self.description = description
-        self.date = date
+        self.createdAt = createdAt
         self.version = version
-        if tags is None:
-            # default: []
-            self.tags = list()
-        else:
-            self.tags = tags
         self.status = status
     
     @classmethod
@@ -5701,9 +5695,8 @@ class MLModelEndpointPropertiesClass(DictWrapper):
     def _restore_defaults(self) -> None:
         self.customProperties = dict()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
-        self.date = self.RECORD_SCHEMA.field_map["date"].default
+        self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.tags = list()
         self.status = self.RECORD_SCHEMA.field_map["status"].default
     
     
@@ -5730,14 +5723,14 @@ class MLModelEndpointPropertiesClass(DictWrapper):
     
     
     @property
-    def date(self) -> Union[None, int]:
+    def createdAt(self) -> Union[None, int]:
         """Getter: Date when the MLModelEndpoint was developed"""
-        return self._inner_dict.get('date')  # type: ignore
+        return self._inner_dict.get('createdAt')  # type: ignore
     
-    @date.setter
-    def date(self, value: Union[None, int]) -> None:
+    @createdAt.setter
+    def createdAt(self, value: Union[None, int]) -> None:
         """Setter: Date when the MLModelEndpoint was developed"""
-        self._inner_dict['date'] = value
+        self._inner_dict['createdAt'] = value
     
     
     @property
@@ -5749,17 +5742,6 @@ class MLModelEndpointPropertiesClass(DictWrapper):
     def version(self, value: Union[None, "VersionTagClass"]) -> None:
         """Setter: Version of the MLModelEndpoint"""
         self._inner_dict['version'] = value
-    
-    
-    @property
-    def tags(self) -> List[str]:
-        """Getter: Tags for the MLModelEndpoint"""
-        return self._inner_dict.get('tags')  # type: ignore
-    
-    @tags.setter
-    def tags(self, value: List[str]) -> None:
-        """Setter: Tags for the MLModelEndpoint"""
-        self._inner_dict['tags'] = value
     
     
     @property
@@ -5894,9 +5876,8 @@ class MLModelGroupPropertiesClass(DictWrapper):
     def __init__(self,
         customProperties: Optional[Dict[str, str]]=None,
         description: Union[None, str]=None,
-        date: Union[None, int]=None,
+        createdAt: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
-        tags: Optional[List[str]]=None,
         models: Optional[List[str]]=None,
     ):
         super().__init__()
@@ -5907,13 +5888,8 @@ class MLModelGroupPropertiesClass(DictWrapper):
         else:
             self.customProperties = customProperties
         self.description = description
-        self.date = date
+        self.createdAt = createdAt
         self.version = version
-        if tags is None:
-            # default: []
-            self.tags = list()
-        else:
-            self.tags = tags
         if models is None:
             # default: []
             self.models = list()
@@ -5930,9 +5906,8 @@ class MLModelGroupPropertiesClass(DictWrapper):
     def _restore_defaults(self) -> None:
         self.customProperties = dict()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
-        self.date = self.RECORD_SCHEMA.field_map["date"].default
+        self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.tags = list()
         self.models = list()
     
     
@@ -5959,14 +5934,14 @@ class MLModelGroupPropertiesClass(DictWrapper):
     
     
     @property
-    def date(self) -> Union[None, int]:
+    def createdAt(self) -> Union[None, int]:
         """Getter: Date when the MLModelGroup was developed"""
-        return self._inner_dict.get('date')  # type: ignore
+        return self._inner_dict.get('createdAt')  # type: ignore
     
-    @date.setter
-    def date(self, value: Union[None, int]) -> None:
+    @createdAt.setter
+    def createdAt(self, value: Union[None, int]) -> None:
         """Setter: Date when the MLModelGroup was developed"""
-        self._inner_dict['date'] = value
+        self._inner_dict['createdAt'] = value
     
     
     @property
@@ -5978,17 +5953,6 @@ class MLModelGroupPropertiesClass(DictWrapper):
     def version(self, value: Union[None, "VersionTagClass"]) -> None:
         """Setter: Version of the MLModelGroup"""
         self._inner_dict['version'] = value
-    
-    
-    @property
-    def tags(self) -> List[str]:
-        """Getter: Tags for the MLModelGroup"""
-        return self._inner_dict.get('tags')  # type: ignore
-    
-    @tags.setter
-    def tags(self, value: List[str]) -> None:
-        """Setter: Tags for the MLModelGroup"""
-        self._inner_dict['tags'] = value
     
     
     @property

@@ -3589,7 +3589,7 @@
                       "hasValuesFieldName" : "hasDescription"
                     }
                   }, {
-                    "name" : "date",
+                    "name" : "createdAt",
                     "type" : "com.linkedin.common.Time",
                     "doc" : "Date when the MLModelEndpoint was developed",
                     "optional" : true
@@ -3598,14 +3598,6 @@
                     "type" : "com.linkedin.common.VersionTag",
                     "doc" : "Version of the MLModelEndpoint",
                     "optional" : true
-                  }, {
-                    "name" : "tags",
-                    "type" : {
-                      "type" : "array",
-                      "items" : "string"
-                    },
-                    "doc" : "Tags for the MLModelEndpoint",
-                    "default" : [ ]
                   }, {
                     "name" : "status",
                     "type" : {
@@ -3630,7 +3622,7 @@
                   "Aspect" : {
                     "name" : "mlModelEndpointProperties"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.Deprecation" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLModelEndpoint. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3705,7 +3697,7 @@
                       "hasValuesFieldName" : "hasDescription"
                     }
                   }, {
-                    "name" : "date",
+                    "name" : "createdAt",
                     "type" : "com.linkedin.common.Time",
                     "doc" : "Date when the MLModelGroup was developed",
                     "optional" : true
@@ -3714,14 +3706,6 @@
                     "type" : "com.linkedin.common.VersionTag",
                     "doc" : "Version of the MLModelGroup",
                     "optional" : true
-                  }, {
-                    "name" : "tags",
-                    "type" : {
-                      "type" : "array",
-                      "items" : "string"
-                    },
-                    "doc" : "Tags for the MLModelGroup",
-                    "default" : [ ]
                   }, {
                     "name" : "models",
                     "type" : {

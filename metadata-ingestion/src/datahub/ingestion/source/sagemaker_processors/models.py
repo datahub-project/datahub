@@ -138,7 +138,7 @@ class ModelProcessor:
         return endpoint_status
 
     def get_endpoint_wu(self, endpoint_details: Dict[str, Any]) -> MetadataWorkUnit:
-        """
+        """a
         Get a workunit for an endpoint.
         """
 
@@ -151,7 +151,7 @@ class ModelProcessor:
             ),
             aspects=[
                 MLModelEndpointPropertiesClass(
-                    date=int(
+                    createdAt=int(
                         endpoint_details.get("CreationTime", datetime.now()).timestamp()
                         * 1000
                     ),
@@ -342,7 +342,7 @@ class ModelProcessor:
             ),
             aspects=[
                 MLModelGroupPropertiesClass(
-                    date=int(
+                    createdAt=int(
                         group_details.get("CreationTime", datetime.now()).timestamp()
                         * 1000
                     ),
