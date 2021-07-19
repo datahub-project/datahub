@@ -3682,7 +3682,7 @@
                   "name" : "MLModelDeploymentProperties",
                   "namespace" : "com.linkedin.ml.metadata",
                   "doc" : "Properties associated with an ML Model Deployment",
-                  "include" : [ "com.linkedin.common.CustomProperties" ],
+                  "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
                   "fields" : [ {
                     "name" : "description",
                     "type" : "string",

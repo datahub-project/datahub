@@ -4663,6 +4663,19 @@
                         "default": {}
                       },
                       {
+                        "name": "externalUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL where the reference exist",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
                         "name": "description",
                         "type": [
                           "null",

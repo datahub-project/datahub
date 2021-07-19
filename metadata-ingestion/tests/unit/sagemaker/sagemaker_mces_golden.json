@@ -1509,6 +1509,7 @@
                 "LastModifiedTime": "2015-01-01 00:00:00+00:00",
                 "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
               },
+              "externalUrl": null,
               "description": null,
               "createdAt": 1420070400000,
               "version": null,
@@ -1538,6 +1539,7 @@
                 "LastModifiedTime": "2015-01-01 00:00:00+00:00",
                 "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
               },
+              "externalUrl": null,
               "description": null,
               "createdAt": 1420070400000,
               "version": null,

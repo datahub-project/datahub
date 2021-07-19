@@ -5882,6 +5882,7 @@ class MLModelDeploymentPropertiesClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties")
     def __init__(self,
         customProperties: Optional[Dict[str, str]]=None,
+        externalUrl: Union[None, str]=None,
         description: Union[None, str]=None,
         createdAt: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
@@ -5894,6 +5895,7 @@ class MLModelDeploymentPropertiesClass(DictWrapper):
             self.customProperties = dict()
         else:
             self.customProperties = customProperties
+        self.externalUrl = externalUrl
         self.description = description
         self.createdAt = createdAt
         self.version = version
@@ -5908,6 +5910,7 @@ class MLModelDeploymentPropertiesClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.customProperties = dict()
+        self.externalUrl = self.RECORD_SCHEMA.field_map["externalUrl"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
@@ -5923,6 +5926,17 @@ class MLModelDeploymentPropertiesClass(DictWrapper):
     def customProperties(self, value: Dict[str, str]) -> None:
         """Setter: Custom property bag."""
         self._inner_dict['customProperties'] = value
+    
+    
+    @property
+    def externalUrl(self) -> Union[None, str]:
+        """Getter: URL where the reference exist"""
+        return self._inner_dict.get('externalUrl')  # type: ignore
+    
+    @externalUrl.setter
+    def externalUrl(self, value: Union[None, str]) -> None:
+        """Setter: URL where the reference exist"""
+        self._inner_dict['externalUrl'] = value
     
     
     @property

@@ -4724,6 +4724,19 @@
                           "doc": "Custom property bag."
                         },
                         {
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.url.Url",
+                            "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                          },
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "externalUrl",
+                          "default": null,
+                          "doc": "URL where the reference exist"
+                        },
+                        {
                           "Searchable": {
                             "fieldType": "TEXT",
                             "hasValuesFieldName": "hasDescription"
