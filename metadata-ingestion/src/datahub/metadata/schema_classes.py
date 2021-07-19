@@ -5669,7 +5669,7 @@ class MLHyperParamClass(DictWrapper):
     def __init__(self,
         name: str,
         description: Union[None, str]=None,
-        value: Union[None, str, int, float, float, bool]=None,
+        value: Union[None, str]=None,
         createdAt: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
     ):
@@ -5719,12 +5719,12 @@ class MLHyperParamClass(DictWrapper):
     
     
     @property
-    def value(self) -> Union[None, str, int, float, float, bool]:
+    def value(self) -> Union[None, str]:
         """Getter: The value of the MLHyperParam"""
         return self._inner_dict.get('value')  # type: ignore
     
     @value.setter
-    def value(self, value: Union[None, str, int, float, float, bool]) -> None:
+    def value(self, value: Union[None, str]) -> None:
         """Setter: The value of the MLHyperParam"""
         self._inner_dict['value'] = value
     
@@ -5758,7 +5758,7 @@ class MLMetricClass(DictWrapper):
     def __init__(self,
         name: str,
         description: Union[None, str]=None,
-        value: Union[None, str, int, float, float, bool]=None,
+        value: Union[None, str]=None,
         createdAt: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
     ):
@@ -5808,12 +5808,12 @@ class MLMetricClass(DictWrapper):
     
     
     @property
-    def value(self) -> Union[None, str, int, float, float, bool]:
+    def value(self) -> Union[None, str]:
         """Getter: The value of the mlMetric"""
         return self._inner_dict.get('value')  # type: ignore
     
     @value.setter
-    def value(self, value: Union[None, str, int, float, float, bool]) -> None:
+    def value(self, value: Union[None, str]) -> None:
         """Setter: The value of the mlMetric"""
         self._inner_dict['value'] = value
     

@@ -3367,11 +3367,7 @@
                                   "name": "value",
                                   "type": [
                                     "null",
-                                    "string",
-                                    "int",
-                                    "float",
-                                    "double",
-                                    "boolean"
+                                    "string"
                                   ],
                                   "doc": "The value of the MLHyperParam",
                                   "default": null
@@ -3433,11 +3429,7 @@
                                   "name": "value",
                                   "type": [
                                     "null",
-                                    "string",
-                                    "int",
-                                    "float",
-                                    "double",
-                                    "boolean"
+                                    "string"
                                   ],
                                   "doc": "The value of the mlMetric",
                                   "default": null

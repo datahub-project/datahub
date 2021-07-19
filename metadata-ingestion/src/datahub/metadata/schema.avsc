@@ -3416,11 +3416,7 @@
                                   {
                                     "type": [
                                       "null",
-                                      "string",
-                                      "int",
-                                      "float",
-                                      "double",
-                                      "boolean"
+                                      "string"
                                     ],
                                     "name": "value",
                                     "default": null,
@@ -3483,11 +3479,7 @@
                                   {
                                     "type": [
                                       "null",
-                                      "string",
-                                      "int",
-                                      "float",
-                                      "double",
-                                      "boolean"
+                                      "string"
                                     ],
                                     "name": "value",
                                     "default": null,

@@ -2871,7 +2871,7 @@
                           "optional" : true
                         }, {
                           "name" : "value",
-                          "type" : [ "string", "int", "float", "double", "boolean" ],
+                          "type" : "string",
                           "doc" : "The value of the MLHyperParam",
                           "optional" : true
                         }, {
@@ -2911,7 +2911,7 @@
                           "optional" : true
                         }, {
                           "name" : "value",
-                          "type" : [ "string", "int", "float", "double", "boolean" ],
+                          "type" : "string",
                           "doc" : "The value of the mlMetric",
                           "optional" : true
                         }, {

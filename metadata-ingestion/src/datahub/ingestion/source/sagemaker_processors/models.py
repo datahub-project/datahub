@@ -259,12 +259,14 @@ class ModelProcessor:
                     model_metrics_raw.update(job.metrics)
 
         model_hyperparams = [
+            # all SageMaker hyperparams are strings, but stringify just in case
             MLHyperParamClass(name=key, value=str(value))
             for key, value in model_hyperparams_raw.items()
         ]
         model_hyperparams = sorted(model_hyperparams, key=lambda x: x.name)
 
         model_metrics = [
+            # all SageMaker metrics are strings, but stringify just in case
             MLMetricClass(name=key, value=str(value))
             for key, value in model_metrics_raw.items()
         ]

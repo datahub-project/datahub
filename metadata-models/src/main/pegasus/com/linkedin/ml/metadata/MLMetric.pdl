@@ -25,7 +25,7 @@ record MLMetric {
   /**
    * The value of the mlMetric
    */
-  value: optional union[string, int, float, double, boolean]
+  value: optional string
 
   /**
    * Date when the mlMetric was developed
