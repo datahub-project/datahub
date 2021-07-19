@@ -2469,6 +2469,20 @@
         "doc" : "Tags for the MLModel",
         "default" : [ ]
       }, {
+        "name" : "deployments",
+        "type" : {
+          "type" : "array",
+          "items" : "com.linkedin.common.Urn"
+        },
+        "doc" : "Deployments for the MLModel",
+        "optional" : true,
+        "Relationship" : {
+          "/*" : {
+            "entityTypes" : [ "mlModelDeployment" ],
+            "name" : "DeployedTo"
+          }
+        }
+      }, {
         "name" : "trainingJobs",
         "type" : {
           "type" : "array",
