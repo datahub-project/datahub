@@ -5,15 +5,15 @@ import com.linkedin.common.VersionTag
 import com.linkedin.common.CustomProperties
 
 /**
- * Properties associated with an ML Model Endpoint
+ * Properties associated with an ML Model Deployment
  */
 @Aspect = {
-  "name": "mlModelEndpointProperties"
+  "name": "mlModelDeploymentProperties"
 }
-record MLModelEndpointProperties includes CustomProperties {
+record MLModelDeploymentProperties includes CustomProperties {
 
   /**
-   * Documentation of the MLModelEndpoint
+   * Documentation of the MLModelDeployment
    */
   @Searchable = {
     "fieldType": "TEXT",
@@ -22,17 +22,17 @@ record MLModelEndpointProperties includes CustomProperties {
   description: optional string
 
   /**
-   * Date when the MLModelEndpoint was developed
+   * Date when the MLModelDeployment was developed
    */
   createdAt: optional Time
 
   /**
-   * Version of the MLModelEndpoint
+   * Version of the MLModelDeployment
    */
   version: optional VersionTag
     
   /**
-   * Status of the endpoint
+   * Status of the deployment
    */
-  status: optional EndpointStatus
+  status: optional DeploymentStatus
 }

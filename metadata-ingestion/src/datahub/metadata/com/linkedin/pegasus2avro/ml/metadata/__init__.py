@@ -7,14 +7,14 @@
 from ......schema_classes import BaseDataClass
 from ......schema_classes import CaveatDetailsClass
 from ......schema_classes import CaveatsAndRecommendationsClass
-from ......schema_classes import EndpointStatusClass
+from ......schema_classes import DeploymentStatusClass
 from ......schema_classes import EthicalConsiderationsClass
 from ......schema_classes import EvaluationDataClass
 from ......schema_classes import IntendedUseClass
 from ......schema_classes import IntendedUserTypeClass
 from ......schema_classes import MLFeaturePropertiesClass
 from ......schema_classes import MLFeatureTablePropertiesClass
-from ......schema_classes import MLModelEndpointPropertiesClass
+from ......schema_classes import MLModelDeploymentPropertiesClass
 from ......schema_classes import MLModelFactorPromptsClass
 from ......schema_classes import MLModelFactorsClass
 from ......schema_classes import MLModelGroupPropertiesClass
@@ -31,14 +31,14 @@ from ......schema_classes import TrainingDataClass
 BaseData = BaseDataClass
 CaveatDetails = CaveatDetailsClass
 CaveatsAndRecommendations = CaveatsAndRecommendationsClass
-EndpointStatus = EndpointStatusClass
+DeploymentStatus = DeploymentStatusClass
 EthicalConsiderations = EthicalConsiderationsClass
 EvaluationData = EvaluationDataClass
 IntendedUse = IntendedUseClass
 IntendedUserType = IntendedUserTypeClass
 MLFeatureProperties = MLFeaturePropertiesClass
 MLFeatureTableProperties = MLFeatureTablePropertiesClass
-MLModelEndpointProperties = MLModelEndpointPropertiesClass
+MLModelDeploymentProperties = MLModelDeploymentPropertiesClass
 MLModelFactorPrompts = MLModelFactorPromptsClass
 MLModelFactors = MLModelFactorsClass
 MLModelGroupProperties = MLModelGroupPropertiesClass

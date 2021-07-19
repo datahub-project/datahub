@@ -594,7 +594,7 @@
         "doc" : "Tags for the MLModel",
         "default" : [ ]
       }, {
-        "name" : "endpoints",
+        "name" : "deployments",
         "type" : {
           "type" : "array",
           "items" : "com.linkedin.common.Urn"
@@ -603,7 +603,7 @@
         "optional" : true,
         "Relationship" : {
           "/*" : {
-            "entityTypes" : [ "mlModelEndpoint" ],
+            "entityTypes" : [ "mlModelDeployment" ],
             "name" : "DeployedTo"
           }
         }

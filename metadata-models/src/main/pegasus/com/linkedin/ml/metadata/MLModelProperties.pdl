@@ -62,10 +62,10 @@ record MLModelProperties includes CustomProperties {
   @Relationship = {
     "/*": {
       "name": "DeployedTo",
-      "entityTypes": [ "mlModelEndpoint" ]
+      "entityTypes": [ "mlModelDeployment" ]
     }
   }
-  endpoints: optional array[Urn]
+  deployments: optional array[Urn]
 
   /**
    * List of jobs (if any) used to train the model
