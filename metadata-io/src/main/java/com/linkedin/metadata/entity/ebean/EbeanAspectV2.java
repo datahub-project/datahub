@@ -36,10 +36,11 @@ public class EbeanAspectV2 extends Model {
   public static final String ASPECT_COLUMN = "aspect";
   public static final String VERSION_COLUMN = "version";
   public static final String METADATA_COLUMN = "metadata";
-  public static final String SYSTEM_METADATA_COLUMN = "systemmetadata";
   public static final String CREATED_ON_COLUMN = "createdOn";
   public static final String CREATED_BY_COLUMN = "createdBy";
   public static final String CREATED_FOR_COLUMN = "createdFor";
+
+  public static final String SYSTEM_METADATA_COLUMN = "systemmetadata";
 
   /**
    * Key for an aspect in the table.
@@ -79,11 +80,6 @@ public class EbeanAspectV2 extends Model {
   protected String metadata;
 
   @NonNull
-  @Lob
-  @Column(name = SYSTEM_METADATA_COLUMN, nullable = true)
-  protected String systemMetadata;
-
-  @NonNull
   @Column(name = CREATED_ON_COLUMN, nullable = false)
   private Timestamp createdOn;
 
@@ -93,4 +89,8 @@ public class EbeanAspectV2 extends Model {
 
   @Column(name = CREATED_FOR_COLUMN, nullable = true)
   private String createdFor;
+
+  @NonNull
+  @Column(name = SYSTEM_METADATA_COLUMN, nullable = true)
+  protected String systemMetadata;
 }

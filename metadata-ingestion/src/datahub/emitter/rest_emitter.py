@@ -94,8 +94,11 @@ class DatahubRestEmitter:
         snapshot_fqn = (
             f"com.linkedin.metadata.snapshot.{mce.proposedSnapshot.RECORD_SCHEMA.name}"
         )
-        snapshot = {"entity": {"value": {snapshot_fqn: mce_obj}}}
-        # snapshot = {"entity": {"value": {snapshot_fqn: mce_obj}}, "systemMetadata": _rest_li_ify(mce.systemMetadata)}
+        system_metadata_obj = {
+            'lastObserved': mce.systemMetadata.lastObserved,
+            'runId': mce.systemMetadata.runId
+        }
+        snapshot = {"entity": {"value": {snapshot_fqn: mce_obj}}, "systemMetadata": system_metadata_obj}
         payload = json.dumps(snapshot)
 
         self._emit_generic(url, payload)

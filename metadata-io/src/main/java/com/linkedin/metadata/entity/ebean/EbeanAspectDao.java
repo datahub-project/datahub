@@ -1,8 +1,10 @@
 package com.linkedin.metadata.entity.ebean;
 
 import com.google.common.annotations.VisibleForTesting;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.AspectStorageValidationUtil;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
@@ -15,6 +17,8 @@ import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
+import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.mxe.SystemMetadata;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
@@ -23,6 +27,7 @@ import io.ebean.PagedList;
 import io.ebean.Query;
 import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
+import io.ebean.SqlRow;
 import io.ebean.Transaction;
 import io.ebean.config.ServerConfig;
 import java.net.URISyntaxException;
@@ -36,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.RollbackException;
@@ -207,6 +213,13 @@ public class EbeanAspectDao {
     validateConnection();
     return _server.find(EbeanAspectV2.class, primaryKey);
   }
+
+  @Nullable
+  public boolean deleteAspect(@Nonnull final EbeanAspectV2 aspect) {
+    validateConnection();
+    return _server.delete(aspect);
+  }
+
 
   @Nonnull
   public Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGet(@Nonnull final Set<EbeanAspectV2.PrimaryKey> keys) {
@@ -465,6 +478,82 @@ public class EbeanAspectDao {
     }
 
     return result;
+  }
+
+  public List<IngestionRunSummary> listRuns(
+      final Integer minRunSize,
+      final Integer maxRunSize,
+      final Integer pageOffset,
+      final Integer pageSize) {
+    validateConnection();
+
+    String listSql = "SELECT runId, max(createdon), count(*) "
+        + "FROM metadata_aspect_v2 "
+        + "GROUP BY runId "
+        + "HAVING count(*) > ? "
+        + "AND count(*) < ? "
+        + "ORDER BY max(createdon) DESC";
+
+    List<SqlRow> runs =
+        _server.createSqlQuery(listSql)
+            .setParameter(1, minRunSize)
+            .setParameter(2, maxRunSize)
+            .setFirstRow(pageOffset)
+            .setMaxRows(pageSize)
+            .findList();
+
+    Stream<IngestionRunSummary> results = runs.stream().map(run -> {
+      IngestionRunSummary result = new IngestionRunSummary();
+      result.setRows(run.getInteger("count(*)"));
+      result.setRunId(run.getString("runId"));
+      result.setTimestamp(run.getTimestamp("max(createdon)").getTime());
+      return result;
+    });
+
+    return results.collect(Collectors.toList());
+  }
+
+  public List<EbeanAspectV2> listAspectsRelatedToRun(String runId) {
+      List<EbeanAspectV2> aspects = _server.find(EbeanAspectV2.class)
+          .where()
+          .eq("runId", runId)
+          .findList();
+
+      return aspects;
+  }
+
+  public List<String> fetchUrnsRelatedToRun(String runId) {
+    String listSql = "SELECT DISTINCT urn "
+        + "FROM metadata_aspect_v2 "
+        + "WHERE runId = ?";
+
+    List<SqlRow> urns =
+        _server.createSqlQuery(listSql)
+            .setParameter(1, runId)
+            .setFirstRow(0)
+            .setMaxRows(100)
+            .findList();
+
+    return urns.stream().map(urn -> urn.getString("urn")).collect(Collectors.toList());
+  }
+
+  public List<RecordTemplate> fetchValuesRelatedToRun(String runId) {
+    List<EbeanAspectV2> aspects = _server.find(EbeanAspectV2.class)
+        .where()
+        .eq("runId", runId)
+        .findList();
+
+    Stream<AspectRowSummary> results = aspects.stream().map(aspect -> {
+      AspectRowSummary result = new AspectRowSummary();
+      result.setAspectName(aspect.getKey().getAspect());
+      result.setUrn(aspect.getKey().getUrn());
+      result.setTimestamp(aspect.getCreatedOn().getTime());
+      result.setMetadata(aspect.getMetadata());
+      result.setVersion(aspect.getKey().getVersion());
+      return result;
+    });
+
+    return results.collect(Collectors.toList());
   }
 
 

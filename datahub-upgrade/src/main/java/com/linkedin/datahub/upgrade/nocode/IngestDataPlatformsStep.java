@@ -58,7 +58,7 @@ public class IngestDataPlatformsStep implements UpgradeStep {
             entry.getKey(),
             PegasusUtils.getAspectNameFromSchema(entry.getValue().schema()),
             entry.getValue(),
-            auditStamp, systemMetadata);
+            auditStamp);
       }
 
       context.report().addLine(String.format("Successfully ingested %s DataPlatforms.", urnToInfo.keySet().size()));

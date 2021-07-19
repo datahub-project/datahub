@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.restli.client.Response;
@@ -199,29 +200,10 @@ public class EntityClient {
     public void updateWithSystemMetadata(@Nonnull final Entity entity, @Nonnull final SystemMetadata systemMetadata) throws RemoteInvocationException {
         // TODO: Replace with EntitiesDoIngestActionBuilder.
 
-        final FieldDef<?> entityFieldDef = new FieldDef<>(PARAM_ENTITY, Entity.class, DataTemplateUtil.getSchema(String.class));
-        final FieldDef<?> systemMetadataFieldDef = new FieldDef<>(PARAM_SYSTEM_METADATA, SystemMetadata.class, DataTemplateUtil.getSchema(String.class));
+        EntitiesDoIngestRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity).systemMetadataParam(systemMetadata);
 
-        final HashMap<String, DynamicRecordMetadata> actionRequestMetadata = new HashMap<>();
-        actionRequestMetadata.put(ACTION_INGEST, new DynamicRecordMetadata(ACTION_INGEST, Arrays.asList(entityFieldDef)));
-
-        final HashMap<java.lang.String, DynamicRecordMetadata> actionResponseMetadata = new HashMap<>();
-        actionResponseMetadata.put(ACTION_INGEST, new DynamicRecordMetadata(ACTION_INGEST, Collections.emptyList()));
-
-        final ResourceSpec resourceSpec =
-            new ResourceSpecImpl(Collections.emptySet(), actionRequestMetadata, actionResponseMetadata, String.class,
-                EmptyRecord.class, EmptyRecord.class, EmptyRecord.class, Collections.emptyMap());
-
-        final ActionRequestBuilder builder =
-            new ActionRequestBuilder(RESOURCE_NAME, Void.class, resourceSpec, RestliRequestOptions.DEFAULT_OPTIONS);
-
-        builder.name("ingest");
-        builder.addParam(entityFieldDef, entity);
-        builder.addParam(systemMetadataFieldDef, systemMetadata);
-
-        final Request request = builder.build();
-
-        sendClientRequest(request);
+        sendClientRequest(requestBuilder.build());
     }
 
     /**
