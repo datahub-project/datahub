@@ -1,18 +1,11 @@
-import json
 import logging
-from functools import lru_cache
-from typing import Iterable, List, Optional
 from dataclasses import dataclass, field
-
-import re
-from sqllineage.runner import LineageRunner
+from functools import lru_cache
+from typing import Iterable, List
 
 import dateutil.parser as dp
-
-import pprint as pp
 from redash_toolbelt import Redash
 
-import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
@@ -39,56 +32,60 @@ logger = logging.getLogger(__name__)
 
 # TODO: update Datahub registered platform name. Currently we use external for unmapped platform
 platform_from_data_source_type = {
-    'athena': {'name': 'Amazon Athena', 'platform': 'athena'},
-    'aws_es': {'name': 'Amazon Elasticsearch Service', 'platform': 'external'},
-    'drill': {'name': 'Apache Drill', 'platform': 'external'},
-    'axibasetsd': {'name': 'Axibase Time Series Database', 'platform': 'external'},
-    'azure_kusto': {'name': 'Azure Data Explorer (Kusto)', 'platform': 'kusto'},
-    'bigquery': {'name': 'BigQuery', 'platform': 'bigquery', 'database_name_key': 'projectId', },
-    'Cassandra': {'name': 'Cassandra', 'platform': 'external'},
-    'clickhouse': {'name': 'ClickHouse', 'platform': 'external'},
-    'cockroach': {'name': 'CockroachDB', 'platform': 'external'},
-    'couchbase': {'name': 'Couchbase', 'platform': 'couchbase'},
-    'db2': {'name': 'DB2', 'platform': 'external'},
-    'databricks': {'name': 'Databricks', 'platform': 'external'},
-    'dgraph': {'name': 'Dgraph', 'platform': 'external'},
-    'druid': {'name': 'Druid', 'platform': 'druid'},
-    'dynamodb_sql': {'name': 'DynamoDB (with DQL)', 'platform': 'external'},
-    'elasticsearch': {'name': 'Elasticsearch', 'platform': 'external'},
-    'google_analytics': {'name': 'Google Analytics', 'platform': 'external'},
-    'google_spreadsheets': {'name': 'Google Sheets', 'platform': 'external'},
-    'graphite': {'name': 'Graphite', 'platform': 'external'},
-    'hive': {'name': 'Hive', 'platform': 'hive'},
-    'hive_http': {'name': 'Hive (HTTP)', 'platform': 'hive'},
-    'impala': {'name': 'Impala', 'platform': 'external'},
-    'influxdb': {'name': 'InfluxDB', 'platform': 'external'},
-    'jirajql': {'name': 'JIRA (JQL)', 'platform': 'external'},
-    'json': {'name': 'JSON', 'platform': 'external'},
-    'kibana': {'name': 'Kibana', 'platform': 'external'},
-    'kylin': {'name': 'Kylin', 'platform': 'external'},
-    'mapd': {'name': 'Mapd', 'platform': 'external'},
-    'mssql': {'name': 'Microsoft SQL Server', 'platform': 'mssql'},
-    'mongodb': {'name': 'MongoDB', 'platform': 'mongodb'},
-    'mysql': {'name': 'MySQL', 'platform': 'mysql'},
-    'rds_mysql': {'name': 'MySQL (Amazon RDS)', 'platform': 'mysql'},
-    'phoenix': {'name': 'Phoenix', 'platform': 'external'},
-    'pg': {'name': 'PostgreSQL', 'platform': 'postgres'},
-    'presto': {'name': 'Presto', 'platform': 'external'},
-    'prometheus': {'name': 'Prometheus', 'platform': 'external'},
-    'qubole': {'name': 'Qubole', 'platform': 'external'},
-    'results': {'name': 'Query Results', 'platform': 'external'},
-    'redshift': {'name': 'Redshift', 'platform': 'redshift'},
-    'rockset': {'name': 'Rockset', 'platform': 'external'},
-    'salesforce': {'name': 'Salesforce', 'platform': 'external'},
-    'scylla': {'name': 'ScyllaDB', 'platform': 'external'},
-    'snowflake': {'name': 'Snowflake', 'platform': 'snowflake'},
-    'sqlite': {'name': 'Sqlite', 'platform': 'sqlite'},
-    'treasuredata': {'name': 'TreasureData', 'platform': 'external'},
-    'uptycs': {'name': 'Uptycs', 'platform': 'external'},
-    'vertica': {'name': 'Vertica', 'platform': 'vertica'},
-    'yandex_appmetrika': {'name': 'Yandex AppMetrica', 'platform': 'external'},
-    'yandex_metrika': {'name': 'Yandex Metrica', 'platform': 'external'},
-    'external': {'name': 'External Source', 'platform': 'external'},
+    "athena": {"name": "Amazon Athena", "platform": "athena"},
+    "aws_es": {"name": "Amazon Elasticsearch Service", "platform": "external"},
+    "drill": {"name": "Apache Drill", "platform": "external"},
+    "axibasetsd": {"name": "Axibase Time Series Database", "platform": "external"},
+    "azure_kusto": {"name": "Azure Data Explorer (Kusto)", "platform": "kusto"},
+    "bigquery": {
+        "name": "BigQuery",
+        "platform": "bigquery",
+        "database_name_key": "projectId",
+    },
+    "Cassandra": {"name": "Cassandra", "platform": "external"},
+    "clickhouse": {"name": "ClickHouse", "platform": "external"},
+    "cockroach": {"name": "CockroachDB", "platform": "external"},
+    "couchbase": {"name": "Couchbase", "platform": "couchbase"},
+    "db2": {"name": "DB2", "platform": "external"},
+    "databricks": {"name": "Databricks", "platform": "external"},
+    "dgraph": {"name": "Dgraph", "platform": "external"},
+    "druid": {"name": "Druid", "platform": "druid"},
+    "dynamodb_sql": {"name": "DynamoDB (with DQL)", "platform": "external"},
+    "elasticsearch": {"name": "Elasticsearch", "platform": "external"},
+    "google_analytics": {"name": "Google Analytics", "platform": "external"},
+    "google_spreadsheets": {"name": "Google Sheets", "platform": "external"},
+    "graphite": {"name": "Graphite", "platform": "external"},
+    "hive": {"name": "Hive", "platform": "hive"},
+    "hive_http": {"name": "Hive (HTTP)", "platform": "hive"},
+    "impala": {"name": "Impala", "platform": "external"},
+    "influxdb": {"name": "InfluxDB", "platform": "external"},
+    "jirajql": {"name": "JIRA (JQL)", "platform": "external"},
+    "json": {"name": "JSON", "platform": "external"},
+    "kibana": {"name": "Kibana", "platform": "external"},
+    "kylin": {"name": "Kylin", "platform": "external"},
+    "mapd": {"name": "Mapd", "platform": "external"},
+    "mssql": {"name": "Microsoft SQL Server", "platform": "mssql"},
+    "mongodb": {"name": "MongoDB", "platform": "mongodb"},
+    "mysql": {"name": "MySQL", "platform": "mysql"},
+    "rds_mysql": {"name": "MySQL (Amazon RDS)", "platform": "mysql"},
+    "phoenix": {"name": "Phoenix", "platform": "external"},
+    "pg": {"name": "PostgreSQL", "platform": "postgres"},
+    "presto": {"name": "Presto", "platform": "external"},
+    "prometheus": {"name": "Prometheus", "platform": "external"},
+    "qubole": {"name": "Qubole", "platform": "external"},
+    "results": {"name": "Query Results", "platform": "external"},
+    "redshift": {"name": "Redshift", "platform": "redshift"},
+    "rockset": {"name": "Rockset", "platform": "external"},
+    "salesforce": {"name": "Salesforce", "platform": "external"},
+    "scylla": {"name": "ScyllaDB", "platform": "external"},
+    "snowflake": {"name": "Snowflake", "platform": "snowflake"},
+    "sqlite": {"name": "Sqlite", "platform": "sqlite"},
+    "treasuredata": {"name": "TreasureData", "platform": "external"},
+    "uptycs": {"name": "Uptycs", "platform": "external"},
+    "vertica": {"name": "Vertica", "platform": "vertica"},
+    "yandex_appmetrika": {"name": "Yandex AppMetrica", "platform": "external"},
+    "yandex_metrika": {"name": "Yandex Metrica", "platform": "external"},
+    "external": {"name": "External Source", "platform": "external"},
 }
 
 
@@ -96,18 +93,19 @@ DEFAULT_CHART_TYPE = ChartTypeClass.TABLE
 
 # https://github.com/getredash/redash/tree/master/viz-lib/src/visualizations
 # TODO: add more mapping on ChartTypeClass
+PLOTLY_CHART_MAPPINGS = {
+    # TODO: add more Plotly visualization mapping here
+    "line": ChartTypeClass.LINE,
+    "bar": ChartTypeClass.BAR,
+    "area": ChartTypeClass.AREA,
+    "pie": ChartTypeClass.PIE,
+    "scatter": ChartTypeClass.SCATTER,
+    "bubble": DEFAULT_CHART_TYPE,
+    "heatmap": DEFAULT_CHART_TYPE,
+    "box": ChartTypeClass.BOX_PLOT,
+}
+
 CHART_TYPE_MAPPINGS = {
-    "CHART": {
-        # TODO: add more Plotly visualization mapping here
-        "line": ChartTypeClass.LINE,
-        "bar": ChartTypeClass.BAR,
-        "area": ChartTypeClass.AREA,
-        "pie": ChartTypeClass.PIE,
-        "scatter": ChartTypeClass.SCATTER,
-        "bubble": DEFAULT_CHART_TYPE,
-        "heatmap": DEFAULT_CHART_TYPE,
-        "box": ChartTypeClass.BOX_PLOT,
-    },
     # TODO: add more Redash visualization mapping here
     "BOXPLOT": ChartTypeClass.BOX_PLOT,
     "CHOROPLETH": DEFAULT_CHART_TYPE,
@@ -124,13 +122,13 @@ CHART_TYPE_MAPPINGS = {
 
 
 def get_chart_type_from_viz_type(viz_data):
-    _type = viz_data.get('type')
-    _options = viz_data.get('options', {})
+    _type = viz_data.get("type", "")
+    _options = viz_data.get("options", {})
     globalSeriesType = _options.get("globalSeriesType", "")
 
-    if _type == 'CHART':
+    if _type == "CHART":
         # handle Plotly visuzlization types
-        return CHART_TYPE_MAPPINGS.get("CHART", {}).get(globalSeriesType, DEFAULT_CHART_TYPE)
+        return PLOTLY_CHART_MAPPINGS.get(globalSeriesType, DEFAULT_CHART_TYPE)
     return CHART_TYPE_MAPPINGS.get(_type, DEFAULT_CHART_TYPE)
 
 
@@ -200,15 +198,23 @@ class RedashSource(Source):
 
     @lru_cache(maxsize=None)
     def get_datasource_urn_from_id(self, datasource_id):
-        data_source_response = self.client._get(f"/api/data_sources/{datasource_id}").json()
+        data_source_response = self.client._get(
+            f"/api/data_sources/{datasource_id}"
+        ).json()
         data_source_type = data_source_response.get("type", "external")
 
         if data_source_type:
-            platform = platform_from_data_source_type.get(data_source_type).get('platform')
+            platform = platform_from_data_source_type.get(
+                data_source_type, {"platform": "external"}
+            ).get("platform")
             platform_urn = f"urn:li:dataPlatform:{platform}"
 
-            database_name_key = platform_from_data_source_type.get(data_source_type).get('database_name_key', 'db')
-            database_name = data_source_response.get("options", {}).get(database_name_key, "")
+            database_name_key = platform_from_data_source_type.get(
+                data_source_type, {}
+            ).get("database_name_key", "db")
+            database_name = data_source_response.get("options", {}).get(
+                database_name_key, ""
+            )
 
             dataset_urn = (
                 f"urn:li:dataset:("
@@ -219,7 +225,7 @@ class RedashSource(Source):
         return None
 
     def construct_dashboard_from_api_data(self, dashboard_data):
-        dashboard_id = dashboard_data['id']
+        dashboard_id = dashboard_data["id"]
         dashboard_urn = f"urn:li:dashboard:({self.platform},{dashboard_id})"
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
@@ -241,7 +247,9 @@ class RedashSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        dashboard_url = f"{self.config.connect_uri}/dashboard/{dashboard_data.get('slug', '')}"
+        dashboard_url = (
+            f"{self.config.connect_uri}/dashboard/{dashboard_data.get('slug', '')}"
+        )
 
         widgets = dashboard_data.get("widgets", [])
         for widget in widgets:
@@ -266,9 +274,7 @@ class RedashSource(Source):
                     continue
             else:
                 visualization_id = visualization.get("id", "unknown")
-                chart_urns.append(
-                    f"urn:li:chart:({self.platform},{visualization_id})"
-                )
+                chart_urns.append(f"urn:li:chart:({self.platform},{visualization_id})")
 
         dashboard_info = DashboardInfoClass(
             description=f"URL:\t{dashboard_url}\n{description}",
@@ -289,14 +295,16 @@ class RedashSource(Source):
         total_dashboards = PAGE_SIZE
 
         while current_dashboards_page * PAGE_SIZE <= total_dashboards:
-            dashboards_response = self.client.dashboards(page=current_dashboards_page, page_size=PAGE_SIZE)
+            dashboards_response = self.client.dashboards(
+                page=current_dashboards_page, page_size=PAGE_SIZE
+            )
             total_dashboards = dashboards_response.get("count") or 0
             current_dashboards_page += 1
 
             for dashboard_response in dashboards_response["results"]:
                 # Skip if skip_draft = False
-                if self.config.skip_draft and dashboard_response['is_draft']:
-                    self.report.report_dropped(dashboard_response['name'])
+                if self.config.skip_draft and dashboard_response["is_draft"]:
+                    self.report.report_dropped(dashboard_response["name"])
                     continue
 
                 # Continue producing MCE
@@ -356,7 +364,9 @@ class RedashSource(Source):
             title=title,
             lastModified=last_modified,
             chartUrl=chart_url,
-            inputs=[datasource_urn, ],
+            inputs=[
+                datasource_urn,
+            ],
             customProperties=custom_properties,
         )
         chart_snapshot.aspects.append(chart_info)
@@ -368,15 +378,20 @@ class RedashSource(Source):
         # we will set total charts to the actual number after we get the response
         total_queries = PAGE_SIZE
 
-        while current_queries_page * PAGE_SIZE <= total_queries and current_queries_page < 2:
-            queries_response = self.client.queries(page=current_queries_page, page_size=PAGE_SIZE)
+        while (
+            current_queries_page * PAGE_SIZE <= total_queries
+            and current_queries_page < 2
+        ):
+            queries_response = self.client.queries(
+                page=current_queries_page, page_size=PAGE_SIZE
+            )
             current_queries_page += 1
 
             total_queries = queries_response["count"]
             for query_response in queries_response["results"]:
                 # Skip if skip_draft = False
-                if self.config.skip_draft and query_response['is_draft']:
-                    self.report.report_dropped(query_response['name'])
+                if self.config.skip_draft and query_response["is_draft"]:
+                    self.report.report_dropped(query_response["name"])
                     continue
 
                 query_id = query_response["id"]
@@ -384,7 +399,9 @@ class RedashSource(Source):
 
                 # In Redash, chart is called vlsualization
                 for visualization in query_data.get("visualizations", []):
-                    chart_snapshot = self.construct_chart_from_chart_data(query_data, visualization)
+                    chart_snapshot = self.construct_chart_from_chart_data(
+                        query_data, visualization
+                    )
                     mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
                     wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
                     self.report.report_workunit(wu)
