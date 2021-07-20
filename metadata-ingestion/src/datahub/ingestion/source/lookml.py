@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
 from enum import Enum
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
 
@@ -170,7 +170,6 @@ class LookerViewFileLoader:
                 self.viewfile_cache[path] = looker_viewfile
                 return looker_viewfile
         except Exception as e:
-            logger.warning(f"Error processing view file {path}. Skipping it")
             self.reporter.report_failure(path, f"failed to load view file: {e}")
             return None
 
@@ -246,7 +245,17 @@ class LookerView:
         view_name = looker_view["name"]
         logger.debug(f"Handling view {view_name}")
 
-        sql_table_name = looker_view.get("sql_table_name", None)
+        # The sql_table_name might be defined in another view and this view is extending that view,
+        # so we resolve this field while taking that into account.
+        sql_table_name: Optional[str] = LookerView.get_including_extends(
+            view_name,
+            looker_view,
+            connection,
+            looker_viewfile,
+            looker_viewfile_loader,
+            "sql_table_name",
+        )
+
         # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
         sql_table_name = (
             sql_table_name.replace('"', "") if sql_table_name is not None else None
@@ -279,74 +288,15 @@ class LookerView:
                 fields=fields,
             )
 
+        # If not a derived table, then this view essentially wraps an existing
+        # object in the database.
         if sql_table_name is not None:
             # If sql_table_name is set, there is a single dependency in the view, on the sql_table_name.
             sql_table_names = [sql_table_name]
         else:
-            # The sql_table_name might be defined in another view and this view is extending that view,
-            # try to find it if we don't already have the name on hand.
-            extends = list(
-                itertools.chain.from_iterable(
-                    looker_view.get("extends", looker_view.get("extends__all", []))
-                )
-            )
-
-            if len(extends) == 0:
-                # The view doesn't extend anything either - default to the view name as per the docs:
-                # https://docs.looker.com/reference/view-params/sql_table_name-for-view
-                sql_table_names = [view_name]
-
-            else:
-                extends_to_looker_view = []
-
-                # The base view could live in the same file
-                for raw_view in looker_viewfile.views:
-                    raw_view_name = raw_view["name"]
-                    # Make sure to skip loading view we are currently trying to resolve
-                    if raw_view_name != view_name and raw_view_name in extends:
-                        maybe_looker_view = LookerView.from_looker_dict(
-                            raw_view,
-                            connection,
-                            looker_viewfile,
-                            looker_viewfile_loader,
-                            parse_table_names_from_sql,
-                        )
-                        if maybe_looker_view is not None:
-                            extends_to_looker_view.append(maybe_looker_view)
-
-                # Or it could live in one of the included files, we do not know which file the base view lives in, try them all!
-                for include in looker_viewfile.resolved_includes:
-                    maybe_looker_viewfile = looker_viewfile_loader.load_viewfile(
-                        include, connection
-                    )
-                    if maybe_looker_viewfile is not None:
-                        for raw_view in looker_viewfile.views:
-                            raw_view_name = raw_view["name"]
-                            # Make sure to skip loading view we are currently trying to resolve
-                            if raw_view_name != view_name and raw_view_name in extends:
-                                maybe_looker_view = LookerView.from_looker_dict(
-                                    raw_view,
-                                    connection,
-                                    looker_viewfile,
-                                    looker_viewfile_loader,
-                                    parse_table_names_from_sql,
-                                )
-                                if maybe_looker_view is not None:
-                                    extends_to_looker_view.append(maybe_looker_view)
-
-                if len(extends_to_looker_view) == 0:
-                    # If none of the views we extend override the sql_table_name field, then
-                    # we default to the current view name.
-                    sql_table_names = [view_name]
-                elif len(extends_to_looker_view) == 1:
-                    sql_table_names = extends_to_looker_view[0].sql_table_names
-                else:
-                    # In the case of multiple overrides, we want the last one in the extends field.
-                    # This logic is pretty complex and we don't yet support it.
-                    logger.warning(
-                        f"Skipping malformed view with view_name: {view_name}. View should have a single view in a view inheritance chain with a sql_table_name"
-                    )
-                    return None
+            # Otherwise, default to the view name as per the docs:
+            # https://docs.looker.com/reference/view-params/sql_table_name-for-view
+            sql_table_names = [view_name]
 
         output_looker_view = LookerView(
             absolute_file_path=looker_viewfile.absolute_file_path,
@@ -356,6 +306,70 @@ class LookerView:
             fields=fields,
         )
         return output_looker_view
+
+    @classmethod
+    def resolve_extends_view_name(
+        cls,
+        connection: str,
+        looker_viewfile: LookerViewFile,
+        looker_viewfile_loader: LookerViewFileLoader,
+        target_view_name: str,
+    ) -> Optional[dict]:
+        # The view could live in the same file.
+        for raw_view in looker_viewfile.views:
+            raw_view_name = raw_view["name"]
+            if raw_view_name == target_view_name:
+                return raw_view
+
+        # Or it could live in one of the included files. We do not know which file the base view
+        # lives in, so we try them all!
+        for include in looker_viewfile.resolved_includes:
+            maybe_looker_viewfile = looker_viewfile_loader.load_viewfile(
+                include, connection
+            )
+            if maybe_looker_viewfile is not None:
+                for raw_view in looker_viewfile.views:
+                    raw_view_name = raw_view["name"]
+                    # Make sure to skip loading view we are currently trying to resolve
+                    if raw_view_name == target_view_name:
+                        return raw_view
+
+        return None
+
+    @classmethod
+    def get_including_extends(
+        cls,
+        view_name: str,
+        looker_view: dict,
+        connection: str,
+        looker_viewfile: LookerViewFile,
+        looker_viewfile_loader: LookerViewFileLoader,
+        field: str,
+    ) -> Optional[Any]:
+        extends = list(
+            itertools.chain.from_iterable(
+                looker_view.get("extends", looker_view.get("extends__all", []))
+            )
+        )
+
+        # First, check the current view.
+        if field in looker_view:
+            return looker_view[field]
+
+        # Then, check the views this extends, following Looker's precedence rules.
+        for extend in reversed(extends):
+            assert extend != view_name, "a view cannot extend itself"
+            extend_view = LookerView.resolve_extends_view_name(
+                connection, looker_viewfile, looker_viewfile_loader, extend
+            )
+            if not extend_view:
+                raise NameError(
+                    f"failed to resolve extends field {extend} in view {view_name} of file {looker_viewfile.absolute_file_path}"
+                )
+            if field in extend_view:
+                return extend_view[field]
+
+        return None
 
 
 class LookMLSource(Source):
