@@ -19,7 +19,7 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
             "source": {
                 "type": "lookml",
                 "config": {
-                    "base_folder": str(test_resources_dir),
+                    "base_folder": str(test_resources_dir / "lkml_samples"),
                     "connection_to_platform_map": {"my_connection": "conn"},
                     "parse_table_names_from_sql": True,
                 },
@@ -33,7 +33,8 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
         }
     )
     pipeline.run()
-    pipeline.raise_from_status()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
 
     mce_helpers.check_golden_file(
         pytestconfig,

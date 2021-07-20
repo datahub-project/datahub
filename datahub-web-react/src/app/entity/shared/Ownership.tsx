@@ -319,11 +319,11 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
 
     return (
         <>
-            {lastModifiedAt ? (
+            {!!lastModifiedAt && (
                 <UpdatedText>
                     Last updated <b>{new Date(lastModifiedAt).toLocaleDateString('en-US')}</b>
                 </UpdatedText>
-            ) : null}
+            )}
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
                 <Typography.Title level={3}>Ownership</Typography.Title>
                 <Typography.Paragraph>
