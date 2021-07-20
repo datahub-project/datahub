@@ -50,11 +50,11 @@ class GlueSourceConfig(AwsSourceConfig):
 
     @property
     def glue_client(self):
-        return self.get_client("glue")
+        return self.get_glue_client()
 
     @property
     def s3_client(self):
-        return self.get_client("s3")
+        return self.get_s3_client()
 
 
 @dataclass
