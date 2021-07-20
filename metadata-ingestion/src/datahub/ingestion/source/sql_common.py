@@ -298,6 +298,9 @@ class SQLAlchemySource(Source):
                 continue
 
             columns = inspector.get_columns(table, schema)
+            if len(columns) == 0:
+                self.report.report_warning(dataset_name, "missing column information")
+
             try:
                 # SQLALchemy stubs are incomplete and missing this method.
                 # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
@@ -322,7 +325,6 @@ class SQLAlchemySource(Source):
                 dataset_properties = DatasetPropertiesClass(
                     description=description,
                     customProperties=properties,
-                    # uri=dataset_name,
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
             schema_metadata = get_schema_metadata(
