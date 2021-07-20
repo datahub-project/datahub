@@ -1,4 +1,5 @@
 import glob
+import itertools
 import logging
 import re
 import sys
@@ -265,11 +266,10 @@ class LookerView:
 
         # Parse SQL from derived tables to extract dependencies
         if derived_table is not None:
+            sql_table_names = []
             if parse_table_names_from_sql and "sql" in derived_table:
                 # Get the list of tables in the query
                 sql_table_names = cls._get_sql_table_names(derived_table["sql"])
-            else:
-                sql_table_names = []
 
             return LookerView(
                 absolute_file_path=looker_viewfile.absolute_file_path,
@@ -285,7 +285,11 @@ class LookerView:
         else:
             # The sql_table_name might be defined in another view and this view is extending that view,
             # try to find it if we don't already have the name on hand.
-            extends = looker_view.get("extends", looker_view.get("extends__all", []))
+            extends = list(
+                itertools.chain.from_iterable(
+                    looker_view.get("extends", looker_view.get("extends__all", []))
+                )
+            )
 
             if len(extends) == 0:
                 # The view doesn't extend anything either - default to the view name as per the docs:
