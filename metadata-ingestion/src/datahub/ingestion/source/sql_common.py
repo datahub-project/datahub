@@ -120,6 +120,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     password: Optional[pydantic.SecretStr] = None
     host_port: str
     database: Optional[str] = None
+    database_alias: Optional[str] = None
     scheme: str
 
     def get_sql_alchemy_url(self, uri_opts=None):
