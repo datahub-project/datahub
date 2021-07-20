@@ -1,6 +1,13 @@
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List
 
+from mypy_boto3_sagemaker import SageMakerClient
+from mypy_boto3_sagemaker.type_defs import (
+    DescribeFeatureGroupResponseTypeDef,
+    FeatureDefinitionTypeDef,
+    FeatureGroupSummaryTypeDef,
+)
+
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
@@ -21,11 +28,11 @@ from datahub.metadata.schema_classes import (
 
 @dataclass
 class FeatureGroupProcessor:
-    sagemaker_client: Any
+    sagemaker_client: SageMakerClient
     env: str
     report: SagemakerSourceReport
 
-    def get_all_feature_groups(self) -> List[Dict[str, Any]]:
+    def get_all_feature_groups(self) -> List[FeatureGroupSummaryTypeDef]:
         """
         List all feature groups in SageMaker.
         """
@@ -39,7 +46,9 @@ class FeatureGroupProcessor:
 
         return feature_groups
 
-    def get_feature_group_details(self, feature_group_name: str) -> Dict[str, Any]:
+    def get_feature_group_details(
+        self, feature_group_name: str
+    ) -> DescribeFeatureGroupResponseTypeDef:
         """
         Get details of a feature group (including list of component features).
         """
@@ -57,15 +66,13 @@ class FeatureGroupProcessor:
             next_features = self.sagemaker_client.describe_feature_group(
                 FeatureGroupName=feature_group_name, NextToken=next_token
             )
-            feature_group["FeatureDefinitions"].append(
-                next_features["FeatureDefinitions"]
-            )
+            feature_group["FeatureDefinitions"] += next_features["FeatureDefinitions"]
             next_token = feature_group.get("NextToken", "")
 
         return feature_group
 
     def get_feature_group_wu(
-        self, feature_group_details: Dict[str, Any]
+        self, feature_group_details: DescribeFeatureGroupResponseTypeDef
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeatureTable workunit for a SageMaker feature group.
@@ -136,7 +143,9 @@ class FeatureGroupProcessor:
         return mapped_type
 
     def get_feature_wu(
-        self, feature_group_details: Dict[str, Any], feature: Dict[str, Any]
+        self,
+        feature_group_details: DescribeFeatureGroupResponseTypeDef,
+        feature: FeatureDefinitionTypeDef,
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeature workunit for a SageMaker feature.
