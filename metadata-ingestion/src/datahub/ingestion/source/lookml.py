@@ -324,15 +324,14 @@ class LookerView:
         # Or it could live in one of the included files. We do not know which file the base view
         # lives in, so we try them all!
         for include in looker_viewfile.resolved_includes:
-            maybe_looker_viewfile = looker_viewfile_loader.load_viewfile(
+            inclued_looker_viewfile = looker_viewfile_loader.load_viewfile(
                 include, connection
             )
-            if maybe_looker_viewfile is not None:
-                for raw_view in looker_viewfile.views:
-                    raw_view_name = raw_view["name"]
-                    # Make sure to skip loading view we are currently trying to resolve
-                    if raw_view_name == target_view_name:
-                        return raw_view
+            for raw_view in inclued_looker_viewfile.views:
+                raw_view_name = raw_view["name"]
+                # Make sure to skip loading view we are currently trying to resolve
+                if raw_view_name == target_view_name:
+                    return raw_view
 
         return None
 
@@ -364,7 +363,7 @@ class LookerView:
             )
             if not extend_view:
                 raise NameError(
-                    f"failed to resolve extends field {extend} in view {view_name} of file {looker_viewfile.absolute_file_path}"
+                    f"failed to resolve extends view {extend} in view {view_name} of file {looker_viewfile.absolute_file_path}"
                 )
             if field in extend_view:
                 return extend_view[field]
