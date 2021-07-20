@@ -3346,6 +3346,26 @@
                         "default": []
                       },
                       {
+                        "name": "deployments",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Deployments for the MLModel",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlModelDeployment"
+                            ],
+                            "name": "DeployedTo"
+                          }
+                        }
+                      },
+                      {
                         "name": "trainingJobs",
                         "type": [
                           "null",
@@ -4390,6 +4410,305 @@
           "Entity": {
             "keyAspect": "mlFeatureTableKey",
             "name": "mlFeatureTable"
+          }
+        },
+        {
+          "type": "record",
+          "name": "MLModelDeploymentSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "MLModelDeploymentKey",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                    "doc": "Key for an ML model deployment",
+                    "fields": [
+                      {
+                        "name": "platform",
+                        "type": "string",
+                        "doc": "Standardized platform urn for the model Deployment",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "fieldType": "URN"
+                        },
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        }
+                      },
+                      {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Name of the MLModelDeployment",
+                        "Searchable": {
+                          "boostScore": 10.0,
+                          "enableAutocomplete": true,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      },
+                      {
+                        "name": "origin",
+                        "type": "com.linkedin.pegasus2avro.common.FabricType",
+                        "doc": "Fabric type where model Deployment belongs to or where it was generated",
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL",
+                          "queryByDefault": false
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlModelDeploymentKey"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "MLModelDeploymentProperties",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Properties associated with an ML Model Deployment",
+                    "fields": [
+                      {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "Custom property bag.",
+                        "default": {}
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the MLModelDeployment",
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT",
+                          "hasValuesFieldName": "hasDescription"
+                        }
+                      },
+                      {
+                        "name": "createdAt",
+                        "type": [
+                          "null",
+                          "long"
+                        ],
+                        "doc": "Date when the MLModelDeployment was developed",
+                        "default": null
+                      },
+                      {
+                        "name": "version",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.VersionTag"
+                        ],
+                        "doc": "Version of the MLModelDeployment",
+                        "default": null
+                      },
+                      {
+                        "name": "status",
+                        "type": [
+                          "null",
+                          {
+                            "type": "enum",
+                            "name": "DeploymentStatus",
+                            "doc": "Model endpoint statuses",
+                            "symbols": [
+                              "OUT_OF_SERVICE",
+                              "CREATING",
+                              "UPDATING",
+                              "ROLLING_BACK",
+                              "IN_SERVICE",
+                              "DELETING",
+                              "FAILED",
+                              "UNKNOWN"
+                            ],
+                            "symbolDocs": {
+                              "CREATING": "Deployments being created.",
+                              "DELETING": "Deployments being deleted.",
+                              "FAILED": "Deployments with an error state.",
+                              "IN_SERVICE": "Deployments that are active.",
+                              "OUT_OF_SERVICE": "Deployments out of service.",
+                              "ROLLING_BACK": "Deployments being reverted to a previous version.",
+                              "UNKNOWN": "Deployments with unknown/unmappable state.",
+                              "UPDATING": "Deployments being updated."
+                            }
+                          }
+                        ],
+                        "doc": "Status of the deployment",
+                        "default": null
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlModelDeploymentProperties"
+                    }
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  "com.linkedin.pegasus2avro.common.Status",
+                  "com.linkedin.pegasus2avro.common.Deprecation"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the MLModelDeployment. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ],
+          "Entity": {
+            "keyAspect": "mlModelDeploymentKey",
+            "name": "mlModelDeployment"
+          }
+        },
+        {
+          "type": "record",
+          "name": "MLModelGroupSnapshot",
+          "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+          "fields": [
+            {
+              "name": "urn",
+              "type": "string",
+              "doc": "URN for the entity the metadata snapshot is associated with.",
+              "java": {
+                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+              }
+            },
+            {
+              "name": "aspects",
+              "type": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "MLModelGroupKey",
+                    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                    "doc": "Key for an ML model group",
+                    "fields": [
+                      {
+                        "name": "platform",
+                        "type": "string",
+                        "doc": "Standardized platform urn for the model group",
+                        "Searchable": {
+                          "addToFilters": true,
+                          "fieldType": "URN"
+                        },
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                        }
+                      },
+                      {
+                        "name": "name",
+                        "type": "string",
+                        "doc": "Name of the MLModelGroup",
+                        "Searchable": {
+                          "boostScore": 10.0,
+                          "enableAutocomplete": true,
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      },
+                      {
+                        "name": "origin",
+                        "type": "com.linkedin.pegasus2avro.common.FabricType",
+                        "doc": "Fabric type where model group belongs to or where it was generated",
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL",
+                          "queryByDefault": false
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlModelGroupKey"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "MLModelGroupProperties",
+                    "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                    "doc": "Properties associated with an ML Model Group",
+                    "fields": [
+                      {
+                        "name": "customProperties",
+                        "type": {
+                          "type": "map",
+                          "values": "string"
+                        },
+                        "doc": "Custom property bag.",
+                        "default": {}
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Documentation of the MLModelGroup",
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT",
+                          "hasValuesFieldName": "hasDescription"
+                        }
+                      },
+                      {
+                        "name": "createdAt",
+                        "type": [
+                          "null",
+                          "long"
+                        ],
+                        "doc": "Date when the MLModelGroup was developed",
+                        "default": null
+                      },
+                      {
+                        "name": "version",
+                        "type": [
+                          "null",
+                          "com.linkedin.pegasus2avro.common.VersionTag"
+                        ],
+                        "doc": "Version of the MLModelGroup",
+                        "default": null
+                      },
+                      {
+                        "name": "models",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "doc": "Models in the group",
+                        "default": [],
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlModel"
+                            ],
+                            "name": "Includes"
+                          }
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "mlModelGroupProperties"
+                    }
+                  },
+                  "com.linkedin.pegasus2avro.common.Ownership",
+                  "com.linkedin.pegasus2avro.common.Status",
+                  "com.linkedin.pegasus2avro.common.Deprecation",
+                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                ]
+              },
+              "doc": "The list of metadata aspects associated with the MLModelGroup. Depending on the use case, this can either be all, or a selection, of supported aspects."
+            }
+          ],
+          "Entity": {
+            "keyAspect": "mlModelGroupKey",
+            "name": "mlModelGroup"
           }
         },
         {

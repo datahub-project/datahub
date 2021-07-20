@@ -55,6 +55,7 @@ def check_golden_file(
     # if updating a golden file that doesn't exist yet, load the output again
     if update_golden and not golden_exists:
         golden = load_json_file(output_path)
+        shutil.copyfile(str(output_path), str(golden_path))
     else:
         golden = load_json_file(golden_path)
 
