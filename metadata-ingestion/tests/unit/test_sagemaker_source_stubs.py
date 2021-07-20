@@ -819,7 +819,7 @@ describe_training_job_response = {
     "TuningJobArn": "string",
     "LabelingJobArn": "string",
     "AutoMLJobArn": "string",
-    "ModelArtifacts": {"S3ModelArtifacts": "s3://training-job/model-artifact.tar.gz"},
+    "ModelArtifacts": {"S3ModelArtifacts": "s3://the-first-model-data-url/data.tar.gz"},
     "TrainingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
     "SecondaryStatus": "Starting",  # 'Starting'|'LaunchingMLInstances'|'PreparingTrainingStack'|'Downloading'|'DownloadingTrainingImage'|'Training'|'Uploading'|'Stopping'|'Stopped'|'MaxRuntimeExceeded'|'Completed'|'Failed'|'Interrupted'|'MaxWaitTimeExceeded'|'Updating'|'Restarting'
     "FailureReason": "string",
@@ -1213,6 +1213,127 @@ job_stubs = {
     },
 }
 
+list_endpoints_response = {
+    "Endpoints": [
+        {
+            "EndpointName": "the-first-endpoint",
+            "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "EndpointStatus": "InService",
+        },
+        {
+            "EndpointName": "the-second-endpoint",
+            "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "EndpointStatus": "Creating",
+        },
+    ],
+}
+describe_endpoint_response_1 = {
+    "EndpointName": "the-first-endpoint",
+    "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
+    "EndpointConfigName": "string",
+    "ProductionVariants": [
+        {
+            "VariantName": "string",
+            "DeployedImages": [
+                {
+                    "SpecifiedImage": "string",
+                    "ResolvedImage": "string",
+                    "ResolutionTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+                },
+            ],
+            "CurrentWeight": 0.1,
+            "DesiredWeight": 0.1,
+            "CurrentInstanceCount": 123,
+            "DesiredInstanceCount": 123,
+        },
+    ],
+    "DataCaptureConfig": {
+        "EnableCapture": True,
+        "CaptureStatus": "Started",  # "Started" | "Stopped"
+        "CurrentSamplingPercentage": 123,
+        "DestinationS3Uri": "string",
+        "KmsKeyId": "string",
+    },
+    "EndpointStatus": "InService",  # 'OutOfService'|'Creating'|'Updating'|'SystemUpdating'|'RollingBack'|'InService'|'Deleting'|'Failed'
+    "FailureReason": "string",
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastDeploymentConfig": {
+        "BlueGreenUpdatePolicy": {
+            "TrafficRoutingConfiguration": {
+                "Type": "ALL_AT_ONCE",  # 'ALL_AT_ONCE'|'CANARY'
+                "WaitIntervalInSeconds": 123,
+                "CanarySize": {
+                    "Type": "INSTANCE_COUNT",  # 'INSTANCE_COUNT'|'CAPACITY_PERCENT'
+                    "Value": 123,
+                },
+            },
+            "TerminationWaitInSeconds": 123,
+            "MaximumExecutionTimeoutInSeconds": 600,
+        },
+        "AutoRollbackConfiguration": {
+            "Alarms": [
+                {"AlarmName": "string"},
+            ]
+        },
+    },
+}
+describe_endpoint_response_2 = {
+    "EndpointName": "the-second-endpoint",
+    "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
+    "EndpointConfigName": "string",
+    "ProductionVariants": [
+        {
+            "VariantName": "string",
+            "DeployedImages": [
+                {
+                    "SpecifiedImage": "string",
+                    "ResolvedImage": "string",
+                    "ResolutionTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+                },
+            ],
+            "CurrentWeight": 0.1,
+            "DesiredWeight": 0.1,
+            "CurrentInstanceCount": 123,
+            "DesiredInstanceCount": 123,
+        },
+    ],
+    "DataCaptureConfig": {
+        "EnableCapture": True,
+        "CaptureStatus": "Started",  # "Started" | "Stopped"
+        "CurrentSamplingPercentage": 123,
+        "DestinationS3Uri": "string",
+        "KmsKeyId": "string",
+    },
+    "EndpointStatus": "Creating",  # 'OutOfService'|'Creating'|'Updating'|'SystemUpdating'|'RollingBack'|'InService'|'Deleting'|'Failed'
+    "FailureReason": "string",
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "LastDeploymentConfig": {
+        "BlueGreenUpdatePolicy": {
+            "TrafficRoutingConfiguration": {
+                "Type": "ALL_AT_ONCE",  # 'ALL_AT_ONCE'|'CANARY'
+                "WaitIntervalInSeconds": 123,
+                "CanarySize": {
+                    "Type": "INSTANCE_COUNT",  # 'INSTANCE_COUNT'|'CAPACITY_PERCENT'
+                    "Value": 123,
+                },
+            },
+            "TerminationWaitInSeconds": 123,
+            "MaximumExecutionTimeoutInSeconds": 600,
+        },
+        "AutoRollbackConfiguration": {
+            "Alarms": [
+                {"AlarmName": "string"},
+            ]
+        },
+    },
+}
+
 list_models_response = {
     "Models": [
         {
@@ -1231,13 +1352,13 @@ describe_model_response_1 = {
     "ModelName": "the-first-model",
     "PrimaryContainer": {
         "ContainerHostname": "string",
-        "Image": "string",
+        "Image": "123412341234.dkr.ecr.us-west-2.amazonaws.com/the-first-model-image",
         "ImageConfig": {
             "RepositoryAccessMode": "Platform",  # 'Platform'|'Vpc'
             "RepositoryAuthConfig": {"RepositoryCredentialsProviderArn": "string"},
         },
         "Mode": "SingleModel",  # 'SingleModel'|'MultiModel'
-        "ModelDataUrl": "s3://training-job/model-artifact.tar.gz",
+        "ModelDataUrl": "s3://the-first-model-data-url/data.tar.gz",
         "Environment": {"string": "string"},
         "ModelPackageName": "string",
         "MultiModelConfig": {
@@ -1282,14 +1403,13 @@ describe_model_response_2 = {
     "ModelName": "the-second-model",
     "PrimaryContainer": {
         "ContainerHostname": "string",
-        "Image": "string",
+        "Image": "123412341234.dkr.ecr.us-west-2.amazonaws.com/the-second-model-image",
         "ImageConfig": {
             "RepositoryAccessMode": "Platform",  # 'Platform'|'Vpc'
             "RepositoryAuthConfig": {"RepositoryCredentialsProviderArn": "string"},
         },
         "Mode": "MultiModel",  # 'SingleModel'|'MultiModel'
-        # dangling pointer, no training job corresponding to this yet
-        "ModelDataUrl": "s3://training-job-3/model-artifact.tar.gz",
+        "ModelDataUrl": "s3://the-second-model-data-url/data.tar.gz",
         "Environment": {"string": "string"},
         "ModelPackageName": "string",
         "MultiModelConfig": {
@@ -1305,7 +1425,7 @@ describe_model_response_2 = {
                 "RepositoryAuthConfig": {"RepositoryCredentialsProviderArn": "string"},
             },
             "Mode": "SingleModel",  # 'SingleModel'|'MultiModel'
-            "ModelDataUrl": "s3://training-job/model-artifact.tar.gz",
+            "ModelDataUrl": "s3://the-first-model-data-url/data.tar.gz",
             "Environment": {"string": "string"},
             "ModelPackageName": "string",
             "MultiModelConfig": {
@@ -1328,4 +1448,292 @@ describe_model_response_2 = {
     "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
     "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
     "EnableNetworkIsolation": False,  # True | False
+}
+
+list_actions_response = {
+    "ActionSummaries": [
+        {
+            "ActionArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint",
+            "ActionName": "deploy-the-first-endpoint",
+            "Source": {
+                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
+                "SourceType": "ARN",
+                "SourceId": "1",
+            },
+            "ActionType": "ModelDeployment",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "ActionArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint",
+            "ActionName": "deploy-the-second-endpoint",
+            "Source": {
+                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
+                "SourceType": "ARN",
+                "SourceId": "1",
+            },
+            "ActionType": "ModelDeployment",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+    ],
+}
+
+list_first_endpoint_incoming_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint",
+            "SourceType": "Model",
+            "DestinationType": "ModelDeployment",
+            "AssociationType": "ContributedTo",
+            "DestinationName": "deploy-the-first-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-image",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint",
+            "SourceType": "Image",
+            "DestinationType": "ModelDeployment",
+            "AssociationType": "ContributedTo",
+            "DestinationName": "deploy-the-first-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+    ],
+}
+
+list_first_endpoint_outgoing_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-first-endpoint",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:context/the-first-endpoint-context",
+            "SourceType": "ModelDeployment",
+            "DestinationType": "Endpoint",
+            "AssociationType": "AssociatedWith",
+            "SourceName": "deploy-the-first-endpoint",
+            "DestinationName": "the-first-endpoint-artifact",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        }
+    ],
+}
+
+
+list_second_endpoint_incoming_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint",
+            "SourceType": "Model",
+            "DestinationType": "ModelDeployment",
+            "AssociationType": "ContributedTo",
+            "DestinationName": "deploy-the-second-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-image",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint",
+            "SourceType": "Image",
+            "DestinationType": "ModelDeployment",
+            "AssociationType": "ContributedTo",
+            "DestinationName": "deploy-the-second-endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+    ],
+}
+
+list_second_endpoint_outgoing_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:action/deploy-the-second-endpoint",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:context/the-second-endpoint-context",
+            "SourceType": "ModelDeployment",
+            "DestinationType": "Endpoint",
+            "AssociationType": "AssociatedWith",
+            "SourceName": "deploy-the-second-endpoint",
+            "DestinationName": "the-second-endpoint-artifact",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        }
+    ],
+}
+
+list_artifacts_response = {
+    "ArtifactSummaries": [
+        {
+            "ArtifactArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-artifact",
+            "Source": {"SourceUri": "s3://the-first-model-data-url/data.tar.gz"},
+            "ArtifactType": "Model",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "ArtifactArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-artifact",
+            "Source": {"SourceUri": "s3://the-second-model-data-url/data.tar.gz"},
+            "ArtifactType": "Model",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "ArtifactArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-image",
+            "Source": {
+                "SourceUri": "123412341234.dkr.ecr.us-west-2.amazonaws.com/the-first-model-image",
+                "SourceTypes": [],
+            },
+            "ArtifactType": "Image",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "ArtifactArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-image",
+            "Source": {
+                "SourceUri": "123412341234.dkr.ecr.us-west-2.amazonaws.com/the-second-model-image",
+                "SourceTypes": [],
+            },
+            "ArtifactType": "Image",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+    ],
+}
+
+list_contexts_response = {
+    "ContextSummaries": [
+        {
+            "ContextArn": "arn:aws:sagemaker:us-west-2:123412341234:context/the-first-endpoint-context",
+            "ContextName": "the-first-endpoint-context",
+            "Source": {
+                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
+                "SourceType": "ARN",
+                "SourceId": "Wed Jul 14 23:26:59 UTC 2021",
+            },
+            "ContextType": "Endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "ContextArn": "arn:aws:sagemaker:us-west-2:123412341234:context/the-second-endpoint-context",
+            "ContextName": "the-second-endpoint-context",
+            "Source": {
+                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
+                "SourceType": "ARN",
+                "SourceId": "Wed Jul 14 23:26:59 UTC 2021",
+            },
+            "ContextType": "Endpoint",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "ContextArn": "arn:aws:sagemaker:us-west-2:123412341234:context/a-model-package-group-context",
+            "ContextName": "a-model-package-group-context",
+            "Source": {
+                "SourceUri": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
+                "SourceType": "ARN",
+                "SourceId": "Wed Jul 14 23:19:46 UTC 2021",
+            },
+            "ContextType": "ModelGroup",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "LastModifiedTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+    ]
+}
+
+get_model_group_incoming_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-package-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:context/a-model-package-group-context",
+            "SourceType": "Model",
+            "DestinationType": "ModelGroup",
+            "AssociationType": "AssociatedWith",
+            "DestinationName": "a-model-package-group-context",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-package-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:context/a-model-package-group-context",
+            "SourceType": "Model",
+            "DestinationType": "ModelGroup",
+            "AssociationType": "AssociatedWith",
+            "DestinationName": "a-model-package-group-context",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+    ]
+}
+
+get_first_model_package_incoming_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-package-artifact",
+            "SourceType": "Model",
+            "DestinationType": "Model",
+            "AssociationType": "ContributedTo",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-image",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-first-model-package-artifact",
+            "SourceType": "Image",
+            "DestinationType": "Model",
+            "AssociationType": "ContributedTo",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+    ]
+}
+
+get_second_model_package_incoming_response = {
+    "AssociationSummaries": [
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-artifact",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-package-artifact",
+            "SourceType": "Model",
+            "DestinationType": "Model",
+            "AssociationType": "ContributedTo",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+        {
+            "SourceArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-image",
+            "DestinationArn": "arn:aws:sagemaker:us-west-2:123412341234:artifact/the-second-model-package-artifact",
+            "SourceType": "Image",
+            "DestinationType": "Model",
+            "AssociationType": "ContributedTo",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "CreatedBy": {},
+        },
+    ]
+}
+
+list_groups_response = {
+    "ModelPackageGroupSummaryList": [
+        {
+            "ModelPackageGroupName": "a-model-package-group",
+            "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
+            "ModelPackageGroupDescription": "Just a model package group.",
+            "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+            "ModelPackageGroupStatus": "Completed",  # 'Pending'|'InProgress'|'Completed'|'Failed'|'Deleting'|'DeleteFailed'
+        },
+    ]
+}
+
+describe_group_response = {
+    "ModelPackageGroupName": "a-model-package-group",
+    "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
+    "ModelPackageGroupDescription": "Just a model package group.",
+    "CreationTime": datetime(2015, 1, 1, tzinfo=timezone.utc),
+    "CreatedBy": {
+        "UserProfileArn": "arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user",
+        "UserProfileName": "some-user",
+        "DomainId": "some-domain",
+    },
+    "ModelPackageGroupStatus": "Completed",  # 'Pending'|'InProgress'|'Completed'|'Failed'|'Deleting'|'DeleteFailed'
 }

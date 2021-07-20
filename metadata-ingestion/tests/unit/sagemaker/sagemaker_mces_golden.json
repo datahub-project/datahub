@@ -1328,7 +1328,7 @@
                 "TuningJobArn": "string",
                 "LabelingJobArn": "string",
                 "AutoMLJobArn": "string",
-                "ModelArtifacts": "{'S3ModelArtifacts': 's3://training-job/model-artifact.tar.gz'}",
+                "ModelArtifacts": "{'S3ModelArtifacts': 's3://the-first-model-data-url/data.tar.gz'}",
                 "TrainingJobStatus": "InProgress",
                 "SecondaryStatus": "Starting",
                 "FailureReason": "string",
@@ -1494,13 +1494,71 @@
   {
     "auditHeader": null,
     "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
+        "urn": "urn:li:mlModelDeployment:(sagemaker,the-first-endpoint,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
+              "customProperties": {
+                "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
+                "EndpointConfigName": "string",
+                "ProductionVariants": "[{'VariantName': 'string', 'DeployedImages': [{'SpecifiedImage': 'string', 'ResolvedImage': 'string', 'ResolutionTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}], 'CurrentWeight': 0.1, 'DesiredWeight': 0.1, 'CurrentInstanceCount': 123, 'DesiredInstanceCount': 123}]",
+                "DataCaptureConfig": "{'EnableCapture': True, 'CaptureStatus': 'Started', 'CurrentSamplingPercentage': 123, 'DestinationS3Uri': 'string', 'KmsKeyId': 'string'}",
+                "EndpointStatus": "InService",
+                "FailureReason": "string",
+                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
+              },
+              "description": null,
+              "createdAt": 1420070400000,
+              "version": null,
+              "status": "IN_SERVICE"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
+        "urn": "urn:li:mlModelDeployment:(sagemaker,the-second-endpoint,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
+              "customProperties": {
+                "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
+                "EndpointConfigName": "string",
+                "ProductionVariants": "[{'VariantName': 'string', 'DeployedImages': [{'SpecifiedImage': 'string', 'ResolvedImage': 'string', 'ResolutionTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}], 'CurrentWeight': 0.1, 'DesiredWeight': 0.1, 'CurrentInstanceCount': 123, 'DesiredInstanceCount': 123}]",
+                "DataCaptureConfig": "{'EnableCapture': True, 'CaptureStatus': 'Started', 'CurrentSamplingPercentage': 123, 'DestinationS3Uri': 'string', 'KmsKeyId': 'string'}",
+                "EndpointStatus": "Creating",
+                "FailureReason": "string",
+                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
+              },
+              "description": null,
+              "createdAt": 1420070400000,
+              "version": null,
+              "status": "CREATING"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
         "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
               "customProperties": {
-                "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://training-job/model-artifact.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Enabled'}}",
+                "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': '123412341234.dkr.ecr.us-west-2.amazonaws.com/the-first-model-image', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://the-first-model-data-url/data.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Enabled'}}",
                 "Containers": "[{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://training-job-2/model-artifact.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Enabled'}}]",
                 "InferenceExecutionConfig": "{'Mode': 'Serial'}",
                 "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
@@ -1515,6 +1573,9 @@
               "hyperParameters": null,
               "mlFeatures": null,
               "tags": [],
+              "deployments": [
+                "urn:li:mlModelDeployment:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
+              ],
               "trainingJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
               ],
@@ -1535,8 +1596,8 @@
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
               "customProperties": {
-                "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'MultiModel', 'ModelDataUrl': 's3://training-job-3/model-artifact.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}",
-                "Containers": "[{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Vpc', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://training-job/model-artifact.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}]",
+                "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': '123412341234.dkr.ecr.us-west-2.amazonaws.com/the-second-model-image', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'MultiModel', 'ModelDataUrl': 's3://the-second-model-data-url/data.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}",
+                "Containers": "[{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Vpc', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://the-first-model-data-url/data.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}]",
                 "InferenceExecutionConfig": "{'Mode': 'Serial'}",
                 "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
                 "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
@@ -1550,6 +1611,9 @@
               "hyperParameters": null,
               "mlFeatures": null,
               "tags": [],
+              "deployments": [
+                "urn:li:mlModelDeployment:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
+              ],
               "trainingJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
               ],
@@ -1557,6 +1621,50 @@
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)"
               ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot": {
+        "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelGroupProperties": {
+              "customProperties": {
+                "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
+                "ModelPackageGroupDescription": "Just a model package group.",
+                "CreatedBy": "{'UserProfileArn': 'arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user', 'UserProfileName': 'some-user', 'DomainId': 'some-domain'}",
+                "ModelPackageGroupStatus": "Completed"
+              },
+              "description": "Just a model package group.",
+              "createdAt": 1420070400000,
+              "version": null,
+              "models": [
+                "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
+                "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "some-user",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              }
             }
           }
         ]

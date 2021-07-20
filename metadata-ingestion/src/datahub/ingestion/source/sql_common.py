@@ -120,6 +120,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     password: Optional[pydantic.SecretStr] = None
     host_port: str
     database: Optional[str] = None
+    database_alias: Optional[str] = None
     scheme: str
 
     def get_sql_alchemy_url(self, uri_opts=None):
@@ -298,6 +299,9 @@ class SQLAlchemySource(Source):
                 continue
 
             columns = inspector.get_columns(table, schema)
+            if len(columns) == 0:
+                self.report.report_warning(dataset_name, "missing column information")
+
             try:
                 # SQLALchemy stubs are incomplete and missing this method.
                 # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
@@ -322,7 +326,6 @@ class SQLAlchemySource(Source):
                 dataset_properties = DatasetPropertiesClass(
                     description=description,
                     customProperties=properties,
-                    # uri=dataset_name,
                 )
                 dataset_snapshot.aspects.append(dataset_properties)
             schema_metadata = get_schema_metadata(

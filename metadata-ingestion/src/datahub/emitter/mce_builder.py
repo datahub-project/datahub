@@ -78,6 +78,15 @@ def make_ml_model_urn(platform: str, model_name: str, env: str) -> str:
     return f"urn:li:mlModel:(urn:li:dataPlatform:{platform},{model_name},{env})"
 
 
+def make_ml_model_deployment_urn(platform: str, deployment_name: str, env: str) -> str:
+    return f"urn:li:mlModelDeployment:({platform},{deployment_name},{env})"
+
+
+def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
+
+    return f"urn:li:mlModelGroup:(urn:li:dataPlatform:{platform},{group_name},{env})"
+
+
 def make_lineage_mce(
     upstream_urns: List[str],
     downstream_urn: str,
