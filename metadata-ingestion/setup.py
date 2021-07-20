@@ -151,6 +151,7 @@ base_dev_requirements = {
             "looker",
             "glue",
             "oracle",
+            "postgres",
             "sagemaker",
             "datahub-kafka",
             "datahub-rest",
