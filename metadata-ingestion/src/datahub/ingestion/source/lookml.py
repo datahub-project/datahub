@@ -324,10 +324,14 @@ class LookerView:
         # Or it could live in one of the included files. We do not know which file the base view
         # lives in, so we try them all!
         for include in looker_viewfile.resolved_includes:
-            inclued_looker_viewfile = looker_viewfile_loader.load_viewfile(
+            included_looker_viewfile = looker_viewfile_loader.load_viewfile(
                 include, connection
             )
-            for raw_view in inclued_looker_viewfile.views:
+            if not included_looker_viewfile:
+                raise NameError(
+                    f"unable to load {include} (included from {looker_viewfile.absolute_file_path})"
+                )
+            for raw_view in included_looker_viewfile.views:
                 raw_view_name = raw_view["name"]
                 # Make sure to skip loading view we are currently trying to resolve
                 if raw_view_name == target_view_name:
