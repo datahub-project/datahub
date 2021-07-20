@@ -229,7 +229,7 @@ class KafkaConnectSource(Source):
             if connector_manifest.type == "sink":
                 # TODO: Sink Connector not yet implemented
                 self.report.report_dropped(connector_manifest.name)
-                logger.warn(
+                logger.warning(
                     f"Skipping connector {connector_manifest.name}. Sink Connector not yet implemented"
                 )
                 pass

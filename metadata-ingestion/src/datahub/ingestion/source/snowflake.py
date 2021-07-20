@@ -73,7 +73,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
 
     @pydantic.validator("database")
     def note_database_opt_deprecation(cls, v, values, **kwargs):
-        logger.warn(
+        logger.warning(
             "snowflake's `database` option has been deprecated; use database_pattern instead"
         )
         values["database_pattern"].allow = f"^{v}$"

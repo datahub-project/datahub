@@ -70,6 +70,14 @@ const DATA_TYPE_ICON_MAP: Record<SchemaFieldDataType, { icon: FC<{ style: any }>
         [SchemaFieldDataType.Struct]: { icon: null, size: 0, text: 'Struct' },
     };
 
+const truncate = (length: number, input?: string | null) => {
+    if (!input) return '';
+    if (input.length > length) {
+        return `${input.substring(0, length)}...`;
+    }
+    return input;
+};
+
 type Props = {
     type: SchemaFieldDataType;
     nativeDataType: string | null | undefined;
@@ -96,7 +104,7 @@ export default function TypeIcon({ type, nativeDataType }: Props) {
             <TypeIconContainer data-testid={`icon-${type}`}>
                 {Icon && <Icon style={{ fontSize: size }} />}
                 <TypeSubtitle type="secondary" hasicon={Icon ? 'yes' : undefined}>
-                    {nativeFallback ? nativeDataType : text}
+                    {nativeFallback ? truncate(250, nativeDataType) : text}
                 </TypeSubtitle>
             </TypeIconContainer>
         </NativeDataTypeTooltip>
