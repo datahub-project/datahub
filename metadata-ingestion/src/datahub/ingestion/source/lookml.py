@@ -116,7 +116,7 @@ class LookerModel:
                 glob_expr = str(pathlib.Path(path).parent / inc)
             outputs = glob.glob(glob_expr) + glob.glob(f"{glob_expr}.lkml")
             if "*" not in inc and not outputs:
-                raise ValueError(f"unable to import {inc} (required from {path})")
+                raise ValueError(f"cannot resolve include {inc} (in {path})")
             resolved.extend(outputs)
         return resolved
 
