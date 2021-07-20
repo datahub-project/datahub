@@ -255,7 +255,7 @@ class JobDirection(Enum):
     DOWNSTREAM = "downstream"
 
 
-@dataclass(frozen=True)
+@dataclass()
 class ModelJob:
     """
     Intermediate representation of a job's related models. Subsequently used by the SageMaker jobs ingestion framework.
@@ -263,6 +263,11 @@ class ModelJob:
 
     job_urn: str
     job_direction: JobDirection
+    hyperparameters: Dict[str, Any] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+
+    def __hash__(self):
+        return hash((self.job_urn, self.job_direction))
 
 
 @dataclass
@@ -277,6 +282,7 @@ class JobProcessor:
     report: SagemakerSourceReport
     # config filter for specific job types to ingest (see metadata-ingestion README)
     job_type_filter: Union[Dict[str, str], bool, None]
+    aws_region: str
 
     # translators between ARNs and job names (represented as tuples of (job_type, job_name))
     arn_to_name: Dict[str, Tuple[str, str]] = field(default_factory=dict)
@@ -452,6 +458,7 @@ class JobProcessor:
         self,
         job: Dict[str, Any],
         job_type: str,
+        job_url: Optional[str] = None,
     ) -> Tuple[DataJobSnapshotClass, str, str]:
         """
         General function for generating a job snapshot.
@@ -482,6 +489,7 @@ class JobProcessor:
                     name=name,
                     type="SAGEMAKER",
                     status=mapped_status,
+                    externalUrl=job_url,
                     customProperties={
                         **{key: str(value) for key, value in job.items()},
                         "jobType": job_type,
@@ -588,6 +596,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/compilation-jobs/{job['CompilationJobName']}",
         )
 
         return SageMakerJob(
@@ -663,6 +672,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/edge-packaging-jobs/{job['EdgePackagingJobName']}",
         )
 
         if job.get("ModelName") is not None:
@@ -723,6 +733,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/hyper-tuning-jobs/{job['HyperParameterTuningJobName']}",
         )
 
         return SageMakerJob(
@@ -785,6 +796,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/labeling-jobs/{job['LabelingJobName']}",
         )
 
         return SageMakerJob(
@@ -899,6 +911,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/processing-jobs/{job['ProcessingJobName']}",
         )
 
         return SageMakerJob(
@@ -980,12 +993,39 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/jobs/{job['TrainingJobName']}",
         )
 
         model_data_url = job.get("ModelArtifacts", {}).get("S3ModelArtifacts")
+
+        job_metrics = job.get("FinalMetricDataList", [])
+        # sort first by metric name, then from latest -> earliest
+        sorted_metrics = sorted(
+            job_metrics, key=lambda x: (x["MetricName"], x["Timestamp"]), reverse=True
+        )
+        # extract the last recorded metric values
+        latest_metrics = []
+        seen_keys = set()
+        for metric in sorted_metrics:
+            if metric["MetricName"] not in seen_keys:
+                latest_metrics.append(metric)
+                seen_keys.add(metric["MetricName"])
+
+        metrics = dict(
+            zip(
+                [metric["MetricName"] for metric in latest_metrics],
+                [metric["Value"] for metric in latest_metrics],
+            )
+        )
+
         if model_data_url is not None:
             self.model_image_to_jobs[model_data_url].add(
-                ModelJob(job_urn=job_snapshot.urn, job_direction=JobDirection.TRAINING)
+                ModelJob(
+                    job_urn=job_snapshot.urn,
+                    job_direction=JobDirection.TRAINING,
+                    hyperparameters=job.get("HyperParameters", {}),
+                    metrics=metrics,
+                )
             )
 
         return SageMakerJob(
@@ -1064,6 +1104,7 @@ class JobProcessor:
         job_snapshot, job_name, job_arn = self.create_common_job_snapshot(
             job,
             JOB_TYPE,
+            f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/transform-jobs/{job['TransformJobName']}",
         )
 
         if job.get("ModelName") is not None:

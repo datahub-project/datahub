@@ -1,7 +1,7 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, DefaultDict, Dict, Iterable, List, Set
+from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -16,6 +16,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     DeploymentStatusClass,
+    MLHyperParamClass,
+    MLMetricClass,
     MLModelDeploymentPropertiesClass,
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
@@ -43,6 +45,7 @@ class ModelProcessor:
     env: str
     report: SagemakerSourceReport
     lineage: LineageInfo
+    aws_region: str
 
     # map from model image file path to jobs referencing the model
     model_image_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
@@ -160,6 +163,7 @@ class ModelProcessor:
                         endpoint_details["EndpointName"],
                         endpoint_details.get("EndpointStatus", "Unknown"),
                     ),
+                    externalUrl=f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/endpoints/{endpoint_details['EndpointName']}",
                     customProperties={
                         key: str(value)
                         for key, value in endpoint_details.items()
@@ -177,18 +181,16 @@ class ModelProcessor:
             mce=mce,
         )
 
-    def get_model_wu(
-        self, model_details: Dict[str, Any], endpoint_arn_to_name: Dict[str, str]
-    ) -> MetadataWorkUnit:
+    def get_model_endpoints(
+        self,
+        model_details: Dict[str, Any],
+        endpoint_arn_to_name: Dict[str, str],
+        model_image: Optional[str],
+        model_uri: Optional[str],
+    ) -> List[str]:
         """
-        Get a workunit for a model.
+        Get all endpoints for a model.
         """
-
-        # params to remove since we extract them
-        redundant_fields = {"ModelName", "CreationTime"}
-
-        model_image = model_details.get("PrimaryContainer", {}).get("Image")
-        model_uri = model_details.get("PrimaryContainer", {}).get("ModelDataUrl")
 
         model_endpoints = set()
 
@@ -207,6 +209,12 @@ class ModelProcessor:
             [x for x in model_endpoints if x in endpoint_arn_to_name]
         )
 
+        return model_endpoints_sorted
+
+    def match_model_jobs(
+        self, model_details: Dict[str, Any]
+    ) -> Tuple[Set[str], Set[str], List[MLHyperParamClass], List[MLMetricClass]]:
+
         model_training_jobs: Set[str] = set()
         model_downstream_jobs: Set[str] = set()
 
@@ -221,6 +229,9 @@ class ModelProcessor:
         model_data_url = model_details.get("PrimaryContainer", {}).get("ModelDataUrl")
         if model_data_url is not None:
             model_data_urls.append(model_data_url)
+
+        model_hyperparams_raw = {}
+        model_metrics_raw = {}
 
         for model_data_url in model_data_urls:
 
@@ -242,6 +253,32 @@ class ModelProcessor:
                 }
             )
 
+            for job in data_url_matched_jobs:
+                if job.job_direction == JobDirection.TRAINING:
+                    model_hyperparams_raw.update(job.hyperparameters)
+                    model_metrics_raw.update(job.metrics)
+
+        def strip_quotes(string: str) -> str:
+            if string.startswith('"') or string.startswith("'"):
+                string = string[1:]
+            if string.endswith('"') or string.startswith("'"):
+                string = string[:-1]
+            return string
+
+        model_hyperparams = [
+            # all SageMaker hyperparams are strings, but stringify just in case
+            MLHyperParamClass(name=key, value=strip_quotes(str(value)))
+            for key, value in model_hyperparams_raw.items()
+        ]
+        model_hyperparams = sorted(model_hyperparams, key=lambda x: x.name)
+
+        model_metrics = [
+            # all SageMaker metrics are strings, but stringify just in case
+            MLMetricClass(name=key, value=strip_quotes(str(value)))
+            for key, value in model_metrics_raw.items()
+        ]
+        model_metrics = sorted(model_metrics, key=lambda x: x.name)
+
         # get jobs referencing the model by name
         name_matched_jobs = self.model_name_to_jobs.get(
             model_details["ModelName"], set()
@@ -262,6 +299,37 @@ class ModelProcessor:
                 if job.job_direction == JobDirection.DOWNSTREAM
             }
         )
+
+        return (
+            model_training_jobs,
+            model_downstream_jobs,
+            model_hyperparams,
+            model_metrics,
+        )
+
+    def get_model_wu(
+        self, model_details: Dict[str, Any], endpoint_arn_to_name: Dict[str, str]
+    ) -> MetadataWorkUnit:
+        """
+        Get a workunit for a model.
+        """
+
+        # params to remove since we extract them
+        redundant_fields = {"ModelName", "CreationTime"}
+
+        model_image = model_details.get("PrimaryContainer", {}).get("Image")
+        model_uri = model_details.get("PrimaryContainer", {}).get("ModelDataUrl")
+
+        model_endpoints_sorted = self.get_model_endpoints(
+            model_details, endpoint_arn_to_name, model_image, model_uri
+        )
+
+        (
+            model_training_jobs,
+            model_downstream_jobs,
+            model_hyperparams,
+            model_metrics,
+        ) = self.match_model_jobs(model_details)
 
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
@@ -286,6 +354,9 @@ class ModelProcessor:
                     },
                     trainingJobs=sorted(list(model_training_jobs)),
                     downstreamJobs=sorted(list(model_downstream_jobs)),
+                    externalUrl=f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/models/{model_details['ModelName']}",
+                    hyperParams=model_hyperparams,
+                    trainingMetrics=model_metrics,
                 )
             ],
         )
