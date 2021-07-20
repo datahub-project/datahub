@@ -328,9 +328,10 @@ class LookerView:
                 include, connection
             )
             if not included_looker_viewfile:
-                raise NameError(
+                logger.warning(
                     f"unable to load {include} (included from {looker_viewfile.absolute_file_path})"
                 )
+                continue
             for raw_view in included_looker_viewfile.views:
                 raw_view_name = raw_view["name"]
                 # Make sure to skip loading view we are currently trying to resolve
