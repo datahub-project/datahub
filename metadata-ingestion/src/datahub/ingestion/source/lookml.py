@@ -1,6 +1,7 @@
 import glob
 import itertools
 import logging
+import pathlib
 import re
 import sys
 from dataclasses import dataclass
@@ -104,11 +105,15 @@ class LookerModel:
         )
 
     @staticmethod
-    def resolve_includes(includes: List, base_folder: str, path: str) -> List[str]:
+    def resolve_includes(includes: List[str], base_folder: str, path: str) -> List[str]:
         resolved = []
         for inc in includes:
             # Massage the looker include into a valid glob wildcard expression
-            glob_expr = f"{base_folder}/{inc}"
+            if inc.startswith("/"):
+                glob_expr = f"{base_folder}{inc}"
+            else:
+                # Need to handle a relative path.
+                glob_expr = str(pathlib.Path(path).parent / inc)
             outputs = glob.glob(glob_expr) + glob.glob(f"{glob_expr}.lkml")
             if "*" not in inc and not outputs:
                 raise ValueError(f"unable to import {inc} (required from {path})")
