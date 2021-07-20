@@ -95,7 +95,7 @@ plugins: Dict[str, Set[str]] = {
     "mysql": sql_common | {"pymysql>=1.0.2"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redash": {"redash-toolbelt"},
+    "redash": {"redash-toolbelt", "sqllineage"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
     "snowflake": sql_common | {"snowflake-sqlalchemy"},

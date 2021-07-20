@@ -1,0 +1,14 @@
+---
+source:
+  type: "redash"
+  config:
+    connect_uri: http://localhost:5000/
+    api_key: REDASH_API_KEY
+
+    # Optionals
+    # skip_draft: true  #default: false, only ingest published dashboards and charts
+
+sink:
+  type: "file"
+  config:
+    filename: "${HOME}/example_output_mces.json"
