@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
@@ -11,6 +12,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.util.AspectDeserializationUtil;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
@@ -89,13 +91,15 @@ public class MetadataChangeLogProcessor {
       RecordTemplate aspect =
           AspectDeserializationUtil.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
               aspectSpec);
-      updateTemporalStats(event.getEntityType(), event.getAspectName(), aspectSpec, urn, aspect);
+      if (aspectSpec.isTimeseries()) {
+        updateTemporalStats(event.getEntityType(), event.getAspectName(), aspectSpec, urn, aspect);
+      }
     }
   }
 
   private void updateTemporalStats(String entityType, String aspectName, AspectSpec aspectSpec, Urn urn,
       RecordTemplate aspect) {
-//    List<String> documents = TemporalStatsTransformer.transform(urn, aspect, aspectSpec);
-//    documents.forEach(document -> _temporalAspectService.upsertDocument(entityType, aspectName, document));
+    JsonNode document = TimeseriesAspectTransformer.transform(urn, aspect);
+    _timeseriesAspectService.upsertDocument(entityType, aspectName, document);
   }
 }

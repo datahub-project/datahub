@@ -1,7 +1,7 @@
 package com.linkedin.metadata.timeseries.elastic;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
@@ -21,7 +21,6 @@ import org.elasticsearch.common.xcontent.XContentType;
 
 @Slf4j
 public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectService {
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private final IndexConvention _indexConvention;
   private final BulkProcessor _bulkProcessor;
   private final TimeseriesAspectIndexBuilders _indexBuilders;
@@ -48,7 +47,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull String document) {
+  public void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull JsonNode document) {
     String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
     String docId;
     try {
@@ -63,7 +62,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     _bulkProcessor.add(updateRequest);
   }
 
-  private String toDocId(@Nonnull final String document) throws JsonProcessingException {
-    return DigestUtils.md5Hex(String.valueOf(OBJECT_MAPPER.readTree(document).hashCode()));
+  private String toDocId(@Nonnull final JsonNode document) throws JsonProcessingException {
+    return DigestUtils.md5Hex(String.valueOf(document.hashCode()));
   }
 }

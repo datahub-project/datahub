@@ -21,6 +21,8 @@ public class MappingsBuilder {
     Map<String, Object> mappings = new HashMap<>();
 
     mappings.put("urn", ImmutableMap.of("type", "keyword"));
+    mappings.put("timestampMillis", ImmutableMap.of("type", "date"));
+    mappings.put("event", ImmutableMap.of("type", "object", "enabled", false));
 
     return mappings;
   }
