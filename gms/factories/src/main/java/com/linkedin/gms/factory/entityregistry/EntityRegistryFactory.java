@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 
 
 @Configuration
@@ -21,6 +22,7 @@ public class EntityRegistryFactory {
   private ConfigEntityRegistry configEntityRegistry;
 
   @Bean("entityRegistry")
+  @Primary
   @Nonnull
   protected EntityRegistry getInstance() {
     return new MergedEntityRegistry(SnapshotEntityRegistry.getInstance(), configEntityRegistry);
