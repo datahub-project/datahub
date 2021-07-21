@@ -1,5 +1,5 @@
 from os import PathLike
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
@@ -9,13 +9,20 @@ class DbtTestConfig:
     def __init__(
         self,
         run_id: str,
-        test_resources_dir: PathLike,
-        tmp_path: PathLike,
-        output_file: PathLike,
-        golden_file: PathLike,
-        source_config_modifiers: Optional[Dict[str, Any]] = {},
-        sink_config_modifiers: Optional[Dict[str, Any]] = {},
+        test_resources_dir: Union[str, PathLike],
+        tmp_path: Union[str, PathLike],
+        output_file: Union[str, PathLike],
+        golden_file: Union[str, PathLike],
+        source_config_modifiers: Optional[Dict[str, Any]] = None,
+        sink_config_modifiers: Optional[Dict[str, Any]] = None,
     ):
+
+        if source_config_modifiers is None:
+            source_config_modifiers = {}
+
+        if sink_config_modifiers is None:
+            sink_config_modifiers = {}
+
         self.run_id = run_id
 
         self.manifest_path = f"{test_resources_dir}/dbt_manifest.json"
@@ -23,9 +30,9 @@ class DbtTestConfig:
         self.sources_path = f"{test_resources_dir}/dbt_sources.json"
         self.target_platform = "dbt"
 
-        self.output_path = str(tmp_path / output_file)
+        self.output_path = f"{tmp_path}/{output_file}"
 
-        self.golden_path = str(test_resources_dir / golden_file)
+        self.golden_path = f"{test_resources_dir}/{golden_file}"
 
         self.source_config = dict(
             {
