@@ -61,7 +61,7 @@ class Registry(Generic[T]):
 
             try:
                 plugin_class = entry_point.load()
-            except ModuleNotFoundError as e:
+            except (AssertionError, ModuleNotFoundError, ImportError) as e:
                 self.register_disabled(name, e)
                 continue
 
@@ -82,9 +82,13 @@ class Registry(Generic[T]):
         if key not in self._mapping:
             raise KeyError(f"Did not find a registered class for {key}")
         tp = self._mapping[key]
-        if isinstance(tp, Exception):
+        if isinstance(tp, ModuleNotFoundError):
             raise ConfigurationError(
                 f"{key} is disabled; try running: pip install '{__package_name__}[{key}]'"
+            ) from tp
+        elif isinstance(tp, Exception):
+            raise ConfigurationError(
+                f"{key} is disabled due to an error in initialization"
             ) from tp
         else:
             # If it's not an exception, then it's a registered type.
