@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
 import com.linkedin.common.Cost;
-
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.MLModelSnapshot;
 import com.linkedin.ml.metadata.CaveatsAndRecommendations;
@@ -28,6 +29,8 @@ import com.linkedin.ml.metadata.MLModelProperties;
 import com.linkedin.ml.metadata.Metrics;
 import com.linkedin.ml.metadata.QuantitativeAnalyses;
 import com.linkedin.ml.metadata.TrainingData;
+
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -53,6 +56,7 @@ public class MLModelSnapshotMapper implements ModelMapper<MLModelSnapshot, MLMod
         result.setOrigin(FabricType.valueOf(mlModel.getUrn().getOriginEntity().toString()));
 
         ModelUtils.getAspectsFromSnapshot(mlModel).forEach(aspect -> {
+            result.setTags(new ArrayList<>());
             if (aspect instanceof Ownership) {
                 Ownership ownership = Ownership.class.cast(aspect);
                 result.setOwnership(OwnershipMapper.map(ownership));
@@ -63,6 +67,8 @@ public class MLModelSnapshotMapper implements ModelMapper<MLModelSnapshot, MLMod
                     result.setDescription(modelProperties.getDescription());
                 }
                 result.setTags(modelProperties.getTags());
+            } else if (aspect instanceof GlobalTags) {
+                result.setGlobalTags(GlobalTagsMapper.map((GlobalTags) aspect));
             } else if (aspect instanceof IntendedUse) {
                 IntendedUse intendedUse = IntendedUse.class.cast(aspect);
                 result.setIntendedUse(IntendedUseMapper.map(intendedUse));

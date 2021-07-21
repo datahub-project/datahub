@@ -462,3 +462,135 @@ fragment schemaMetadataFields on SchemaMetadata {
     }
     primaryKeys
 }
+
+fragment nonRecursiveMLModel on MLModel {
+    urn
+    type
+    name
+    description
+    origin
+    tags
+    globalTags {
+        ...globalTagsFields
+    }
+    ownership {
+        ...ownershipFields
+    }
+    properties {
+        description
+        date
+        version
+        type
+        hyperParameters {
+            key
+            value {
+                ... on StringBox {
+                    stringValue
+                }
+                ... on IntBox {
+                    intValue
+                }
+                ... on FloatBox {
+                    floatValue
+                }
+                ... on BooleanBox {
+                    booleanValue
+                }
+            }
+        }
+        mlFeatures
+        tags
+    }
+    intendedUse {
+        primaryUses
+        primaryUsers
+        outOfScopeUses
+    }
+    factorPrompts {
+        relevantFactors {
+            groups
+            instrumentation
+            environment
+        }
+        evaluationFactors {
+            groups
+            instrumentation
+            environment
+        }
+    }
+    metrics {
+        performanceMeasures
+        decisionThreshold
+    }
+    evaluationData {
+        dataset
+        motivation
+        preProcessing
+    }
+    trainingData {
+        dataset
+        motivation
+        preProcessing
+    }
+    quantitativeAnalyses {
+        unitaryResults {
+            ... on StringBox {
+                stringValue
+            }
+        }
+        intersectionalResults {
+            ... on StringBox {
+                stringValue
+            }
+        }
+    }
+    ethicalConsiderations {
+        data
+        humanLife
+        mitigations
+        risksAndHarms
+        useCases
+    }
+    caveatsAndRecommendations {
+        caveats {
+            needsFurtherTesting
+            caveatDescription
+            groupsNotRepresented
+        }
+        recommendations
+        idealDatasetCharacteristics
+    }
+    institutionalMemory {
+        elements {
+            url
+            author {
+                urn
+                username
+            }
+            description
+            created {
+                actor
+                time
+            }
+        }
+    }
+    sourceCode {
+        sourceCode {
+            type
+            sourceCodeUrl
+        }
+    }
+    status {
+        removed
+    }
+    cost {
+        costType
+        costValue {
+            costId
+            costCode
+        }
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+}

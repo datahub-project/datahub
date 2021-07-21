@@ -1,0 +1,5 @@
+query getMLModel($urn: String!) {
+    mlModel(urn: $urn) {
+        ...nonRecursiveMLModel
+    }
+}

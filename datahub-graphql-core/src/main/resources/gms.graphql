@@ -2077,11 +2077,15 @@ type MLModel implements Entity {
     Human readable description for mlmodel
     """
     description: String
-
     """
     Tags used for searching mlmodel
     """
     tags: [String!]!
+    """
+
+    gloablTags for mlmodel
+    """
+    globalTags: GlobalTags
 
     """
     Ownership metadata of the mlmodel

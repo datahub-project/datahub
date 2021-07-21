@@ -302,6 +302,10 @@ public class GmsGraphQLEngine {
                     new LoadableTypeResolver<>(
                             ML_PRIMARY_KEY_TYPE,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("mlModel", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            ML_MODEL_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }
 

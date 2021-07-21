@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
+import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 
@@ -75,6 +76,10 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
     if (input.getEntityType().equals("mlPrimaryKey")) {
       partialEntity = new MLPrimaryKey();
       ((MLPrimaryKey) partialEntity).setUrn(input.toString());
+    }
+    if (input.getEntityType().equals("mlModel")) {
+      partialEntity = new MLModel();
+      ((MLModel) partialEntity).setUrn(input.toString());
     }
     return partialEntity;
   }
