@@ -23,8 +23,12 @@ def get_sys_time() -> int:
     return int(time.time() * 1000)
 
 
+def make_data_platform_urn(platform: str) -> str:
+    return f"urn:li:dataPlatform:{platform}"
+
+
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
-    return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},{env})"
+    return f"urn:li:dataset:({make_data_platform_urn(platform)},{name},{env})"
 
 
 def make_user_urn(username: str) -> str:
@@ -67,24 +71,21 @@ def make_ml_feature_urn(
 
 
 def make_ml_feature_table_urn(platform: str, feature_table_name: str) -> str:
-
-    return (
-        f"urn:li:mlFeatureTable:(urn:li:dataPlatform:{platform},{feature_table_name})"
-    )
+    return f"urn:li:mlFeatureTable:({make_data_platform_urn(platform)},{feature_table_name})"
 
 
 def make_ml_model_urn(platform: str, model_name: str, env: str) -> str:
-
-    return f"urn:li:mlModel:(urn:li:dataPlatform:{platform},{model_name},{env})"
+    return f"urn:li:mlModel:({make_data_platform_urn(platform)},{model_name},{env})"
 
 
 def make_ml_model_deployment_urn(platform: str, deployment_name: str, env: str) -> str:
-    return f"urn:li:mlModelDeployment:({platform},{deployment_name},{env})"
+    return f"urn:li:mlModelDeployment:({make_data_platform_urn(platform)},{deployment_name},{env})"
 
 
 def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
-
-    return f"urn:li:mlModelGroup:(urn:li:dataPlatform:{platform},{group_name},{env})"
+    return (
+        f"urn:li:mlModelGroup:({make_data_platform_urn(platform)},{group_name},{env})"
+    )
 
 
 def make_lineage_mce(
