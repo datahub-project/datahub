@@ -5517,6 +5517,8 @@ class MLFeaturePropertiesClass(DictWrapper):
         dataType: Union[None, Union[str, "MLFeatureDataTypeClass"]]=None,
         version: Union[None, "VersionTagClass"]=None,
         sources: Union[None, List[str]]=None,
+        hasOffline: Union[None, bool]=None,
+        hasOnline: Union[None, bool]=None,
     ):
         super().__init__()
         
@@ -5524,6 +5526,8 @@ class MLFeaturePropertiesClass(DictWrapper):
         self.dataType = dataType
         self.version = version
         self.sources = sources
+        self.hasOffline = hasOffline
+        self.hasOnline = hasOnline
     
     @classmethod
     def construct_with_defaults(cls) -> "MLFeaturePropertiesClass":
@@ -5537,6 +5541,8 @@ class MLFeaturePropertiesClass(DictWrapper):
         self.dataType = self.RECORD_SCHEMA.field_map["dataType"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
         self.sources = self.RECORD_SCHEMA.field_map["sources"].default
+        self.hasOffline = self.RECORD_SCHEMA.field_map["hasOffline"].default
+        self.hasOnline = self.RECORD_SCHEMA.field_map["hasOnline"].default
     
     
     @property
@@ -5581,6 +5587,28 @@ class MLFeaturePropertiesClass(DictWrapper):
     def sources(self, value: Union[None, List[str]]) -> None:
         """Setter: Source of the MLFeature"""
         self._inner_dict['sources'] = value
+    
+    
+    @property
+    def hasOffline(self) -> Union[None, bool]:
+        """Getter: If feature has an offline source"""
+        return self._inner_dict.get('hasOffline')  # type: ignore
+    
+    @hasOffline.setter
+    def hasOffline(self, value: Union[None, bool]) -> None:
+        """Setter: If feature has an offline source"""
+        self._inner_dict['hasOffline'] = value
+    
+    
+    @property
+    def hasOnline(self) -> Union[None, bool]:
+        """Getter: If feature has an online source"""
+        return self._inner_dict.get('hasOnline')  # type: ignore
+    
+    @hasOnline.setter
+    def hasOnline(self, value: Union[None, bool]) -> None:
+        """Setter: If feature has an online source"""
+        self._inner_dict['hasOnline'] = value
     
     
 class MLFeatureTablePropertiesClass(DictWrapper):
@@ -6156,6 +6184,8 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
         description: Union[None, str]=None,
         dataType: Union[None, Union[str, "MLFeatureDataTypeClass"]]=None,
         version: Union[None, "VersionTagClass"]=None,
+        hasOffline: Union[None, bool]=None,
+        hasOnline: Union[None, bool]=None,
     ):
         super().__init__()
         
@@ -6163,6 +6193,8 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
         self.dataType = dataType
         self.version = version
         self.sources = sources
+        self.hasOffline = hasOffline
+        self.hasOnline = hasOnline
     
     @classmethod
     def construct_with_defaults(cls) -> "MLPrimaryKeyPropertiesClass":
@@ -6176,6 +6208,8 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
         self.dataType = self.RECORD_SCHEMA.field_map["dataType"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
         self.sources = list()
+        self.hasOffline = self.RECORD_SCHEMA.field_map["hasOffline"].default
+        self.hasOnline = self.RECORD_SCHEMA.field_map["hasOnline"].default
     
     
     @property
@@ -6220,6 +6254,28 @@ class MLPrimaryKeyPropertiesClass(DictWrapper):
     def sources(self, value: List[str]) -> None:
         """Setter: Source of the MLPrimaryKey"""
         self._inner_dict['sources'] = value
+    
+    
+    @property
+    def hasOffline(self) -> Union[None, bool]:
+        """Getter: If feature has an offline source"""
+        return self._inner_dict.get('hasOffline')  # type: ignore
+    
+    @hasOffline.setter
+    def hasOffline(self, value: Union[None, bool]) -> None:
+        """Setter: If feature has an offline source"""
+        self._inner_dict['hasOffline'] = value
+    
+    
+    @property
+    def hasOnline(self) -> Union[None, bool]:
+        """Getter: If feature has an online source"""
+        return self._inner_dict.get('hasOnline')  # type: ignore
+    
+    @hasOnline.setter
+    def hasOnline(self, value: Union[None, bool]) -> None:
+        """Setter: If feature has an online source"""
+        self._inner_dict['hasOnline'] = value
     
     
 class MetricsClass(DictWrapper):

@@ -4190,6 +4190,24 @@
                           },
                           "name": "sources",
                           "doc": "Source of the MLPrimaryKey"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "boolean"
+                          ],
+                          "name": "hasOffline",
+                          "default": null,
+                          "doc": "If feature has an offline source"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "boolean"
+                          ],
+                          "name": "hasOnline",
+                          "default": null,
+                          "doc": "If feature has an online source"
                         }
                       ],
                       "doc": "Properties associated with a MLPrimaryKey"
@@ -4309,6 +4327,24 @@
                           "name": "sources",
                           "default": null,
                           "doc": "Source of the MLFeature"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "boolean"
+                          ],
+                          "name": "hasOffline",
+                          "default": null,
+                          "doc": "If feature has an offline source"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "boolean"
+                          ],
+                          "name": "hasOnline",
+                          "default": null,
+                          "doc": "If feature has an online source"
                         }
                       ],
                       "doc": "Properties associated with a MLFeature"

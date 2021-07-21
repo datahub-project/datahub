@@ -12,7 +12,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -33,7 +35,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -54,7 +58,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -75,7 +81,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -96,7 +104,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -117,7 +127,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -138,7 +150,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -159,7 +173,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -180,7 +196,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -201,7 +219,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -222,7 +242,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -243,7 +265,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -264,7 +288,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -285,7 +311,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -306,7 +334,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -327,7 +357,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -392,7 +424,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -413,7 +447,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -464,7 +500,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]
@@ -485,7 +523,9 @@
                         "version": null,
                         "sources": [
                             "urn:li:dataset:(urn:li:dataPlatform:file,feast.*,PROD)"
-                        ]
+                        ],
+                        "hasOffline": null,
+                        "hasOnline": null
                     }
                 }
             ]

@@ -3324,6 +3324,16 @@
                         "name" : "DerivedFrom"
                       }
                     }
+                  }, {
+                    "name" : "hasOffline",
+                    "type" : "boolean",
+                    "doc" : "If feature has an offline source",
+                    "optional" : true
+                  }, {
+                    "name" : "hasOnline",
+                    "type" : "boolean",
+                    "doc" : "If feature has an online source",
+                    "optional" : true
                   } ],
                   "Aspect" : {
                     "name" : "mlPrimaryKeyProperties"
@@ -3412,6 +3422,16 @@
                         "name" : "DerivedFrom"
                       }
                     }
+                  }, {
+                    "name" : "hasOffline",
+                    "type" : "boolean",
+                    "doc" : "If feature has an offline source",
+                    "optional" : true
+                  }, {
+                    "name" : "hasOnline",
+                    "type" : "boolean",
+                    "doc" : "If feature has an online source",
+                    "optional" : true
                   } ],
                   "Aspect" : {
                     "name" : "mlFeatureProperties"

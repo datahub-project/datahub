@@ -13,7 +13,9 @@
               "sources": [
                 "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
-              ]
+              ],
+              "hasOffline": null,
+              "hasOnline": null
             }
           }
         ]
@@ -35,7 +37,9 @@
               "sources": [
                 "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
-              ]
+              ],
+              "hasOffline": null,
+              "hasOnline": null
             }
           }
         ]
@@ -57,7 +61,9 @@
               "sources": [
                 "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
-              ]
+              ],
+              "hasOffline": null,
+              "hasOnline": null
             }
           }
         ]
@@ -111,7 +117,9 @@
               "description": null,
               "dataType": "TEXT",
               "version": null,
-              "sources": []
+              "sources": [],
+              "hasOffline": null,
+              "hasOnline": null
             }
           }
         ]
@@ -130,7 +138,9 @@
               "description": null,
               "dataType": "ORDINAL",
               "version": null,
-              "sources": []
+              "sources": [],
+              "hasOffline": null,
+              "hasOnline": null
             }
           }
         ]
@@ -149,7 +159,9 @@
               "description": null,
               "dataType": "CONTINUOUS",
               "version": null,
-              "sources": []
+              "sources": [],
+              "hasOffline": null,
+              "hasOnline": null
             }
           }
         ]
@@ -168,7 +180,9 @@
               "description": null,
               "dataType": "TEXT",
               "version": null,
-              "sources": []
+              "sources": [],
+              "hasOffline": null,
+              "hasOnline": null
             }
           }
         ]
@@ -223,7 +237,9 @@
               "description": null,
               "dataType": "TEXT",
               "version": null,
-              "sources": []
+              "sources": [],
+              "hasOffline": null,
+              "hasOnline": null
             }
           }
         ]
@@ -242,7 +258,9 @@
               "description": null,
               "dataType": "ORDINAL",
               "version": null,
-              "sources": []
+              "sources": [],
+              "hasOffline": null,
+              "hasOnline": null
             }
           }
         ]
@@ -261,7 +279,9 @@
               "description": null,
               "dataType": "CONTINUOUS",
               "version": null,
-              "sources": []
+              "sources": [],
+              "hasOffline": null,
+              "hasOnline": null
             }
           }
         ]

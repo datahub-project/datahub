@@ -37,4 +37,14 @@ record MLPrimaryKeyProperties {
     }
   }
   sources: array[Urn]
+
+  /**
+  * If feature has an offline source
+  */
+  hasOffline: optional boolean
+
+  /**
+  * If feature has an online source
+  */
+  hasOnline: optional boolean
 }

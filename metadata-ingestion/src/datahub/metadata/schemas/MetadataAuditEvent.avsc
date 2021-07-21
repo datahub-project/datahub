@@ -4132,6 +4132,24 @@
                             "name": "DerivedFrom"
                           }
                         }
+                      },
+                      {
+                        "name": "hasOffline",
+                        "type": [
+                          "null",
+                          "boolean"
+                        ],
+                        "doc": "If feature has an offline source",
+                        "default": null
+                      },
+                      {
+                        "name": "hasOnline",
+                        "type": [
+                          "null",
+                          "boolean"
+                        ],
+                        "doc": "If feature has an online source",
+                        "default": null
                       }
                     ],
                     "Aspect": {
@@ -4251,6 +4269,24 @@
                             "name": "DerivedFrom"
                           }
                         }
+                      },
+                      {
+                        "name": "hasOffline",
+                        "type": [
+                          "null",
+                          "boolean"
+                        ],
+                        "doc": "If feature has an offline source",
+                        "default": null
+                      },
+                      {
+                        "name": "hasOnline",
+                        "type": [
+                          "null",
+                          "boolean"
+                        ],
+                        "doc": "If feature has an online source",
+                        "default": null
                       }
                     ],
                     "Aspect": {
