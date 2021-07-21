@@ -24,6 +24,6 @@ public class MappingsBuilder {
     mappings.put("timestampMillis", ImmutableMap.of("type", "date"));
     mappings.put("event", ImmutableMap.of("type", "object", "enabled", false));
 
-    return mappings;
+    return ImmutableMap.of("properties", mappings);
   }
 }
