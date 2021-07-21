@@ -12,6 +12,8 @@ class AthenaConfig(SQLAlchemyConfig):
     s3_staging_dir: str
     work_group: str
 
+    include_views = False  # not supported for Athena
+
     def get_sql_alchemy_url(self):
         return make_sqlalchemy_uri(
             self.scheme,
