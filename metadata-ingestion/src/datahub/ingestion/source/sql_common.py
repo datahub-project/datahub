@@ -9,7 +9,12 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes as types
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub import __package_name__
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    ConfigurationError,
+)
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
@@ -35,8 +40,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 if TYPE_CHECKING:
-    from sqlalchemy.engine.base import Engine
-
     from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -263,9 +266,11 @@ class SQLAlchemySource(Source):
         self.platform = platform
         self.report = SQLSourceReport()
 
-        if self.config.profile_tables:
-            # TODO check and warn
-            pass
+        if self.config.profile_tables and not self._can_run_profiler():
+            raise ConfigurationError(
+                "Table profiles requested but profiler plugin is not enabled. "
+                f"Try running: pip install '{__package_name__}[sql-profiler]'"
+            )
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
@@ -274,18 +279,19 @@ class SQLAlchemySource(Source):
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
-        inspector = inspect(engine)
-        yield inspector
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+            yield inspector
 
     def get_workunits(self) -> Iterable[SqlWorkUnit]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
-            sql_config.options["echo"] = True
+            sql_config.options.setdefault("echo", True)
 
         for inspector in self.get_inspectors():
             if sql_config.profile_tables:
-                profiler = self._get_profiler_instance(inspector.engine)
+                profiler = self._get_profiler_instance(inspector)
 
             for schema in inspector.get_schema_names():
                 if not sql_config.schema_pattern.allowed(schema):
@@ -432,10 +438,20 @@ class SQLAlchemySource(Source):
             self.report.report_workunit(wu)
             yield wu
 
-    def _get_profiler_instance(self, engine: "Engine") -> "DatahubGEProfiler":
+    def _can_run_profiler(self) -> bool:
+        try:
+            from datahub.ingestion.source.ge_data_profiler import (  # noqa: F401
+                DatahubGEProfiler,
+            )
+
+            return True
+        except Exception:
+            return False
+
+    def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
-        return DatahubGEProfiler(engine=engine)
+        return DatahubGEProfiler(conn=inspector.bind)
 
     def run_profiler(
         self,
@@ -454,7 +470,17 @@ class SQLAlchemySource(Source):
                 continue
 
             breakpoint()
+            profile = profiler.generate_profile(
+                **self.prepare_profiler_args(schema=schema, table=table)
+            )
+            print(profile)
             yield from []
+
+    def prepare_profiler_args(self, schema: str, table: str) -> dict:
+        return dict(
+            schema=schema,
+            table=table,
+        )
 
     def get_report(self):
         return self.report

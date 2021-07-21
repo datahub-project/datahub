@@ -57,14 +57,14 @@ class DatasetProfile:
 
 
 @contextlib.contextmanager
-def _properly_init_datasource(engine):
+def _properly_init_datasource(conn):
     underlying_datasource_init = SqlAlchemyDatasource.__init__
 
     def sqlalchemy_datasource_init(
         self: SqlAlchemyDatasource, *args: Any, **kwargs: Any
     ) -> None:
-        underlying_datasource_init(self, *args, **kwargs, engine=engine)
-        self.drivername = engine.name
+        underlying_datasource_init(self, *args, **kwargs, engine=conn)
+        self.drivername = conn.dialect.name
         del self._datasource_config["engine"]
 
     with unittest.mock.patch(
@@ -81,8 +81,8 @@ class DatahubGEProfiler:
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     datasource_name: str = "my_sqlalchemy_datasource"
 
-    def __init__(self, engine):
-        self.engine = engine
+    def __init__(self, conn):
+        self.conn = conn
 
         data_context_config = DataContextConfig(
             datasources={
@@ -90,9 +90,9 @@ class DatahubGEProfiler:
                     class_name="SqlAlchemyDatasource",
                     credentials={
                         # This isn't actually used since we pass the engine in directly,
-                        # but GE parses it to change some of its behavior so it's useful to emulate that
-                        # here.
-                        "url": engine.url,
+                        # but GE parses it to change some of its behavior so it's useful
+                        # to emulate that here.
+                        "url": self.conn.engine.url,
                     },
                 )
             },
@@ -103,15 +103,18 @@ class DatahubGEProfiler:
             },
         )
 
-        with _properly_init_datasource(engine):
+        with _properly_init_datasource(self.conn):
             self.data_context = BaseDataContext(project_config=data_context_config)
 
-    def generate_profile(self, schema: str, table: str) -> DatasetProfile:
-        with _properly_init_datasource(self.engine):
+    def generate_profile(
+        self, schema: str = None, table: str = None, **kwargs: Any
+    ) -> DatasetProfile:
+        with _properly_init_datasource(self.conn):
             evrs = self._profile_data_asset(
                 {
                     "schema": schema,
                     "table": table,
+                    **kwargs,
                 }
             )
 
