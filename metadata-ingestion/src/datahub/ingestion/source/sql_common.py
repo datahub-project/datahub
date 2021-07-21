@@ -1,3 +1,4 @@
+import functools
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass, field
@@ -258,6 +259,10 @@ class SQLAlchemySource(Source):
         self.platform = platform
         self.report = SQLSourceReport()
 
+        if self.config.profile_tables:
+            # TODO check and warn
+            pass
+
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
@@ -285,6 +290,9 @@ class SQLAlchemySource(Source):
 
                 if sql_config.include_views:
                     yield from self.loop_views(inspector, schema, sql_config)
+
+                if sql_config.profile_tables:
+                    yield from self.run_profiler(inspector, schema, sql_config)
 
     def loop_tables(
         self,
@@ -414,6 +422,28 @@ class SQLAlchemySource(Source):
             wu = SqlWorkUnit(id=dataset_name, mce=mce)
             self.report.report_workunit(wu)
             yield wu
+
+    @functools.lru_cache(maxsize=None)
+    def _get_profiler_instance(self):
+        from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+
+        pass
+
+    def run_profiler(
+        self,
+        inspector: Inspector,
+        schema: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[SqlWorkUnit]:
+        for table in inspector.get_table_names(schema):
+            schema, table = sql_config.standardize_schema_table_names(schema, table)
+            dataset_name = sql_config.get_identifier(schema, table)
+
+            if not sql_config.profile_pattern.allowed(dataset_name):
+                self.report.report_dropped(f"profile of {dataset_name}")
+                continue
+
+            pass
 
     def get_report(self):
         return self.report

@@ -1,4 +1,5 @@
 import dataclasses
+import unittest.mock
 from typing import Iterable, List, Optional, Tuple, Union
 
 from great_expectations.core.expectation_validation_result import (
@@ -11,6 +12,7 @@ from great_expectations.data_context.types.base import (
     DatasourceConfig,
     InMemoryStoreBackendDefaults,
 )
+from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
 
 from datahub.utilities.groupby import groupby_unsorted
 
@@ -55,29 +57,19 @@ class DatasetProfile:
 
 @dataclasses.dataclass
 class DatahubGEProfiler:
-    sqlalchemy_uri: str
-    sqlalchemy_options: dict
-
     data_context: BaseDataContext = dataclasses.field(init=False)
 
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     datasource_name: str = "my_sqlalchemy_datasource"
 
-    def __post_init__(self):
-        self.data_context = self._make_data_context(
-            self.sqlalchemy_uri, self.sqlalchemy_options
-        )
-
-    def _make_data_context(
-        self, sqlalchemy_uri: str, sqlalchemy_options: dict
-    ) -> BaseDataContext:
+    def __init__(self, engine):
         data_context_config = DataContextConfig(
             datasources={
                 self.datasource_name: DatasourceConfig(
                     class_name="SqlAlchemyDatasource",
                     credentials={
-                        "url": sqlalchemy_uri,
-                        **sqlalchemy_options,
+                        "engine": None,
+                        "url": f"{engine.name}://",  # dummy to fix GE
                     },
                 )
             },
@@ -88,8 +80,18 @@ class DatahubGEProfiler:
             },
         )
 
-        context = BaseDataContext(project_config=data_context_config)
-        return context
+        underlying_datasource_init = SqlAlchemyDatasource.__init__
+
+        def sqlalchemy_datasource_init(*args, **kwargs):
+            underlying_datasource_init(*args, **kwargs, engine=engine)
+            args[0].dialect = engine.name
+            breakpoint()
+
+        with unittest.mock.patch(
+            "great_expectations.datasource.sqlalchemy_datasource.SqlAlchemyDatasource.__init__",
+            sqlalchemy_datasource_init,
+        ):
+            self.data_context = BaseDataContext(project_config=data_context_config)
 
     def generate_profile(self, schema: str, table: str) -> DatasetProfile:
         evrs = self._profile_data_asset(

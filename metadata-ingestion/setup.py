@@ -99,6 +99,7 @@ plugins: Dict[str, Set[str]] = {
     "sagemaker": aws_common,
     "snowflake": sql_common | {"snowflake-sqlalchemy"},
     "snowflake-usage": sql_common | {"snowflake-sqlalchemy"},
+    "sql-profiler": sql_common | {"great-expectations"},
     "superset": {"requests"},
 }
 
