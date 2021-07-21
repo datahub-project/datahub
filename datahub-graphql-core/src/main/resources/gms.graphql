@@ -84,6 +84,18 @@ enum EntityType {
     """
     MLMODEL
     """
+    The MLFEATURETable Entity
+    """
+    MLFEATURE_TABLE
+    """
+    The MLFeature Entity
+    """
+    MLFEATURE
+    """
+    The MLPRIMARYKEY Entity
+    """
+    MLPRIMARY_KEY
+    """
     The DATA_FLOW Entity
     """
     DATA_FLOW
@@ -132,6 +144,21 @@ type Query {
     Fetch a MLModel by primary key
     """
     mlModel(urn: String!): MLModel
+
+    """
+    Fetch a MLFeature by primary key
+    """
+    mlFeature(urn: String!): MLFeature
+
+    """
+    Fetch a MLFeatureTable by primary key
+    """
+    mlFeatureTable(urn: String!): MLFeatureTable
+
+    """
+    Fetch a MLPrimaryKey by primary key
+    """
+    mlPrimaryKey(urn: String!): MLPrimaryKey
 
     """
     Fetch a DataFlow by primary key
@@ -479,6 +506,26 @@ enum FabricType {
     Designates corporation fabrics
     """
     CORP
+}
+
+enum MLFeatureDataType {
+    USELESS
+    NOMINAL
+    ORDINAL
+    BINARY
+    COUNT
+    TIME
+    INTERVAL
+    IMAGE
+    VIDEO
+    AUDIO
+    TEXT
+    MAP
+    SEQUENCE
+    SET
+    CONTINUOUS
+    BYTE
+    UNKNOWN
 }
 
 type DatasetDeprecation {
@@ -1147,6 +1194,10 @@ type TagAssociation {
 
 type GlobalTags {
     tags: [TagAssociation!]
+}
+
+type VersionTag {
+    versionTag: String
 }
 
 type GlossaryTerms {
@@ -2108,6 +2159,64 @@ type MLModel implements Entity {
     deprecation: Deprecation
 }
 
+type MLFeature implements Entity {
+
+    """
+    The unique MLFeature URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    MLFeature name
+    """
+    name: String!
+
+    """
+    MLFeature featureNamespace
+    """
+    featureNamespace: String!
+
+    """
+    MLFeature description
+    """
+    description: String
+
+    """
+    MLFeature data type
+    """
+    dataType: MLFeatureDataType
+
+    """
+    Ownership metadata of the MLFeature
+    """
+    ownership: Ownership
+
+    """
+    ModelProperties metadata of the MLFeature
+    """
+    featureProperties: MLFeatureProperties
+
+    """
+    References to internal resources related to the MLFeature
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Status metadata of the MLFeature
+    """
+    status: Status
+
+    """
+    Deprecation
+    """
+    deprecation: Deprecation
+}
+
 type MLModelProperties {
 
     description: String
@@ -2123,6 +2232,148 @@ type MLModelProperties {
     mlFeatures: [String!]
 
     tags: [String!]
+}
+
+type MLFeatureProperties {
+
+    description: String
+
+    dataType: MLFeatureDataType
+
+    version: VersionTag
+
+    sources: [Dataset]
+}
+
+type MLPrimaryKey implements Entity {
+
+    """
+    The unique MLPrimaryKey URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    MLPrimaryKey name
+    """
+    name: String!
+
+    """
+    MLPrimaryKey featureNamespace
+    """
+    featureNamespace: String!
+
+    """
+    MLPrimaryKey description
+    """
+    description: String
+
+    """
+    MLPrimaryKey data type
+    """
+    dataType: MLFeatureDataType
+
+    """
+    MLPrimaryKeyProperties
+    """
+    primaryKeyProperties: MLPrimaryKeyProperties
+
+    """
+    Ownership metadata of the MLPrimaryKey
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the MLPrimaryKey
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Status metadata of the MLPrimaryKey
+    """
+    status: Status
+
+    """
+    Deprecation
+    """
+    deprecation: Deprecation
+}
+
+type MLPrimaryKeyProperties {
+
+    description: String
+
+    dataType: MLFeatureDataType
+
+    version: VersionTag
+
+    sources: [Dataset]
+}
+
+type MLFeatureTable implements Entity {
+
+    """
+    The unique MLFeatureTable URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    MLFeatureTable name
+    """
+    name: String!
+
+    """
+    Standardized platform urn where the MLFeatureTable is defined
+    """
+    platform: DataPlatform
+
+    """
+    MLFeatureTable description
+    """
+    description: String
+
+    """
+    Ownership metadata of the MLFeatureTable
+    """
+    ownership: Ownership
+
+    """
+    ModelProperties metadata of the MLFeature
+    """
+    featureTableProperties: MLFeatureTableProperties
+
+    """
+    References to internal resources related to the MLFeature
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Status metadata of the MLFeatureTable
+    """
+    status: Status
+
+    """
+    Deprecation
+    """
+    deprecation: Deprecation
+}
+
+type MLFeatureTableProperties {
+
+    description: String
+
+    mlFeatures: [MLFeature]
+
+    mlPrimaryKeys: [MLPrimaryKey]
 }
 
 type HyperParameterMap {

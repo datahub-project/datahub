@@ -107,7 +107,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
                     titleLink={`/${entityRegistry.getPathName(EntityType.DataFlow)}/${urn}`}
                     title={data.dataFlow.info?.name || ''}
                     tabs={getTabs(data.dataFlow)}
-                    header={getHeader(data.dataFlow as DataFlow)}
+                    header={getHeader(data.dataFlow)}
                     onTabChange={(tab: string) => {
                         analytics.event({
                             type: EventType.EntitySectionViewEvent,
