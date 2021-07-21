@@ -319,7 +319,7 @@ class JobProcessor:
         job_key: JobKey,
         metrics: Dict[str, Any] = {},
         hyperparameters: Dict[str, Any] = {},
-    ):
+    ) -> None:
 
         model_jobs = self.model_image_to_jobs[model_data_url]
 
@@ -337,7 +337,7 @@ class JobProcessor:
         job_key: JobKey,
         metrics: Dict[str, Any] = {},
         hyperparameters: Dict[str, Any] = {},
-    ):
+    ) -> None:
 
         model_jobs = self.model_name_to_jobs[model_name]
 
