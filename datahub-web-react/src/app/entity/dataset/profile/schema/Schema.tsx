@@ -1,147 +1,124 @@
-import React, { useState, useEffect } from 'react';
-
-import { Button, Table, Typography } from 'antd';
-import { AlignType } from 'rc-table/lib/interface';
+import React, { useMemo, useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
-import TypeIcon from './TypeIcon';
+import { Message } from '../../../../shared/Message';
+import { useGetDatasetSchemaVersionsLazyQuery, UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import {
     Schema,
-    SchemaFieldDataType,
-    GlobalTags,
-    EditableSchemaMetadata,
     SchemaField,
+    SchemaMetadata,
+    EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     GlobalTagsUpdate,
     EditableSchemaFieldInfo,
     EditableSchemaFieldInfoUpdate,
     EntityType,
-    GlossaryTerms,
+    UsageQueryResult,
 } from '../../../../../types.generated';
-import TagTermGroup from '../../../../shared/tags/TagTermGroup';
-import { UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
+import {
+    convertEditableSchemaMetadataForUpdate,
+    ExtendedSchemaFields,
+    sortByFieldPathAndGrouping,
+} from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
-import DescriptionField from './SchemaDescriptionField';
+import SchemaTable from './SchemaTable';
+import SchemaHeader from './components/SchemaHeader';
+import SchemaRawView from './components/SchemaRawView';
+import SchemaVersionSummary, { SchemaDiffSummary } from './components/SchemaVersionSummary';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 
-const MAX_FIELD_PATH_LENGTH = 100;
-const ViewRawButtonContainer = styled.div`
-    display: flex;
-    justify-content: flex-end;
-    padding-bottom: 16px;
-`;
-
-const LighterText = styled(Typography.Text)`
-    color: rgba(0, 0, 0, 0.45);
+const SchemaContainer = styled.div`
+    margin-bottom: 100px;
 `;
 
 export type Props = {
     urn: string;
-    schema?: Schema | null;
+    usageStats?: UsageQueryResult | null;
+    schema?: SchemaMetadata | Schema | null;
+    previousSchemaMetadata?: SchemaMetadata | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     updateEditableSchema: (
         update: EditableSchemaMetadataUpdate,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
 };
 
-interface ExtendedSchemaFields extends SchemaField {
-    children?: Array<SchemaField>;
-}
-
-const defaultColumns = [
-    {
-        width: 288,
-        title: 'Type',
-        dataIndex: 'type',
-        key: 'type',
-        align: 'left' as AlignType,
-        render: (type: SchemaFieldDataType, record: SchemaField) => {
-            return <TypeIcon type={type} nativeDataType={record.nativeDataType} />;
-        },
-    },
-    {
-        title: 'Field',
-        dataIndex: 'fieldPath',
-        key: 'fieldPath',
-        width: 192,
-        render: (fieldPath: string) => {
-            if (!fieldPath.includes('.')) {
-                return <Typography.Text strong>{fieldPath}</Typography.Text>;
-            }
-            let [firstPath, lastPath] = fieldPath.split(/\.(?=[^.]+$)/);
-            const isOverflow = fieldPath.length > MAX_FIELD_PATH_LENGTH;
-            if (isOverflow) {
-                if (lastPath.length >= MAX_FIELD_PATH_LENGTH) {
-                    lastPath = `..${lastPath.substring(lastPath.length - MAX_FIELD_PATH_LENGTH)}`;
-                    firstPath = '';
-                } else {
-                    firstPath = firstPath.substring(fieldPath.length - MAX_FIELD_PATH_LENGTH);
-                    if (firstPath.includes('.')) {
-                        firstPath = `..${firstPath.substring(firstPath.indexOf('.'))}`;
-                    } else {
-                        firstPath = '..';
-                    }
-                }
-            }
-            return (
-                <>
-                    <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
-                    {lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
-                </>
-            );
-        },
-    },
-];
-
-function convertEditableSchemaMetadataForUpdate(
-    editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
-): EditableSchemaMetadataUpdate {
-    return {
-        editableSchemaFieldInfo:
-            editableSchemaMetadata?.editableSchemaFieldInfo.map((editableSchemaFieldInfo) => ({
-                fieldPath: editableSchemaFieldInfo?.fieldPath,
-                description: editableSchemaFieldInfo?.description,
-                globalTags: { tags: convertTagsForUpdate(editableSchemaFieldInfo?.globalTags?.tags || []) },
-            })) || [],
+// Get diff summary between two versions and prepare to visualize description diff changes
+const getDiffSummary = (
+    currentVersionRows?: Array<SchemaField>,
+    previousVersionRows?: Array<SchemaField>,
+): { rows: Array<ExtendedSchemaFields>; diffSummary: SchemaDiffSummary } => {
+    let rows = [...(currentVersionRows || [])] as Array<ExtendedSchemaFields>;
+    const diffSummary: SchemaDiffSummary = {
+        added: 0,
+        removed: 0,
+        updated: 0,
     };
-}
 
-export default function SchemaView({ urn, schema, editableSchemaMetadata, updateEditableSchema }: Props) {
-    const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
-    const [descHoveredIndex, setDescHoveredIndex] = useState<string | undefined>(undefined);
+    if (previousVersionRows && previousVersionRows.length > 0) {
+        const previousRows = [...previousVersionRows] as Array<ExtendedSchemaFields>;
+        rows.forEach((field, rowIndex) => {
+            const relevantPastFieldIndex = previousRows.findIndex(
+                (pf) => pf.type === rows[rowIndex].type && pf.fieldPath === rows[rowIndex].fieldPath,
+            );
+            if (relevantPastFieldIndex > -1) {
+                if (previousRows[relevantPastFieldIndex].description !== rows[rowIndex].description) {
+                    rows[rowIndex] = {
+                        ...rows[rowIndex],
+                        previousDescription: previousRows[relevantPastFieldIndex].description,
+                    };
+                    diffSummary.updated++; // Increase updated row number in diff summary
+                }
+                previousRows.splice(relevantPastFieldIndex, 1);
+            } else {
+                rows[rowIndex] = { ...rows[rowIndex], isNewRow: true };
+                diffSummary.added++; // Increase added row number in diff summary
+            }
+        });
+        rows = [...rows, ...previousRows.map((pf) => ({ ...pf, isDeletedRow: true }))];
+        diffSummary.removed = previousRows.length; // removed row number in diff summary
+    }
+
+    return { rows, diffSummary };
+};
+
+export default function SchemaView({
+    urn,
+    schema,
+    previousSchemaMetadata,
+    editableSchemaMetadata,
+    updateEditableSchema,
+    usageStats,
+}: Props) {
+    const maxVersion = previousSchemaMetadata?.aspectVersion || 0;
     const [showRaw, setShowRaw] = useState(false);
-    const [rows, setRows] = useState<Array<ExtendedSchemaFields>>([]);
+    const [editMode, setEditMode] = useState(true);
+    const [schemaDiff, setSchemaDiff] = useState<{
+        current?: SchemaMetadata | Schema | null;
+        previous?: SchemaMetadata | null;
+    }>({ current: schema, previous: previousSchemaMetadata });
+    const [getSchemaVersions, { loading, error, data: schemaVersions }] = useGetDatasetSchemaVersionsLazyQuery({
+        fetchPolicy: 'no-cache',
+    });
+
+    const { rows, diffSummary } = useMemo(() => {
+        if (editMode) {
+            return { rows: sortByFieldPathAndGrouping(schemaDiff.current?.fields), diffSummary: null };
+        }
+        const rowsAndDiffSummary = getDiffSummary(schemaDiff.current?.fields, schemaDiff.previous?.fields);
+        return {
+            ...rowsAndDiffSummary,
+            rows: sortByFieldPathAndGrouping(rowsAndDiffSummary.rows),
+        };
+    }, [schemaDiff, editMode]);
 
     useEffect(() => {
-        const fields = [...(schema?.fields || [])] as Array<ExtendedSchemaFields>;
-        if (fields.length > 1) {
-            // eslint-disable-next-line no-nested-ternary
-            fields.sort((a, b) => (a.fieldPath > b.fieldPath ? 1 : b.fieldPath > a.fieldPath ? -1 : 0));
-            for (let rowIndex = fields.length; rowIndex--; rowIndex >= 0) {
-                const field = fields[rowIndex];
-                if (field.fieldPath.slice(1, -1).includes('.')) {
-                    const fieldPaths = field.fieldPath.split(/\.(?=[^.]+$)/);
-                    const parentFieldIndex = fields.findIndex((f) => f.fieldPath === fieldPaths[0]);
-                    if (parentFieldIndex > -1) {
-                        if ('children' in fields[parentFieldIndex]) {
-                            fields[parentFieldIndex].children?.unshift(field);
-                        } else {
-                            fields[parentFieldIndex] = { ...fields[parentFieldIndex], children: [field] };
-                        }
-                        fields.splice(rowIndex, 1);
-                    } else if (rowIndex > 0 && fieldPaths[0].includes(fields[rowIndex - 1].fieldPath)) {
-                        if ('children' in fields[rowIndex - 1]) {
-                            fields[rowIndex - 1].children?.unshift(field);
-                        } else {
-                            fields[rowIndex - 1] = { ...fields[rowIndex - 1], children: [field] };
-                        }
-                        fields.splice(rowIndex, 1);
-                    }
-                }
-            }
+        if (!loading && !error && schemaVersions) {
+            setSchemaDiff({
+                current: schemaVersions.dataset?.schemaMetadata,
+                previous: schemaVersions.dataset?.previousSchemaMetadata,
+            });
         }
-        setRows(fields);
-    }, [schema?.fields]);
+    }, [schemaVersions, loading, error]);
 
     const updateSchema = (newFieldInfo: EditableSchemaFieldInfoUpdate, record?: EditableSchemaFieldInfo) => {
         let existingMetadataAsUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
@@ -179,7 +156,10 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
         return updateSchema(newFieldInfo, record);
     };
 
-    const onUpdateDescription = (updatedDescription: string, record?: EditableSchemaFieldInfo) => {
+    const onUpdateDescription = (
+        updatedDescription: string,
+        record?: EditableSchemaFieldInfo | ExtendedSchemaFields,
+    ) => {
         if (!record) return Promise.resolve();
         analytics.event({
             type: EventType.EntityActionEvent,
@@ -192,111 +172,51 @@ export default function SchemaView({ urn, schema, editableSchemaMetadata, update
             description: updatedDescription,
             globalTags: { tags: convertTagsForUpdate(record?.globalTags?.tags || []) },
         };
-        return updateSchema(newFieldInfo, record);
+        return updateSchema(newFieldInfo, record as EditableSchemaFieldInfo);
     };
 
-    const descriptionRender = (description: string, record: SchemaField, rowIndex: number | undefined) => {
-        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
-            (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
-        ) || { fieldPath: record.fieldPath };
-        return (
-            <DescriptionField
-                description={description}
-                updatedDescription={relevantEditableFieldInfo.description}
-                onHover={descHoveredIndex !== undefined && descHoveredIndex === `${record.fieldPath}-${rowIndex}`}
-                onUpdate={(update) => onUpdateDescription(update, relevantEditableFieldInfo)}
-            />
-        );
-    };
-
-    const tagAndTermRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
-        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
-            (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
-        );
-        return (
-            <TagTermGroup
-                uneditableTags={tags}
-                editableTags={relevantEditableFieldInfo?.globalTags}
-                glossaryTerms={record.glossaryTerms as GlossaryTerms}
-                canRemove
-                canAdd={tagHoveredIndex === `${record.fieldPath}-${rowIndex}`}
-                onOpenModal={() => setTagHoveredIndex(undefined)}
-                updateTags={(update) =>
-                    onUpdateTags(update, relevantEditableFieldInfo || { fieldPath: record.fieldPath })
-                }
-            />
-        );
-    };
-
-    const descriptionColumn = {
-        title: 'Description',
-        dataIndex: 'description',
-        key: 'description',
-        render: descriptionRender,
-        width: 700,
-        onCell: (record: SchemaField, rowIndex: number | undefined) => ({
-            onMouseEnter: () => {
-                setDescHoveredIndex(`${record.fieldPath}-${rowIndex}`);
+    const fetchVersions = (version1: number, version2: number) => {
+        getSchemaVersions({
+            variables: {
+                urn,
+                version1,
+                version2,
             },
-            onMouseLeave: () => {
-                setDescHoveredIndex(undefined);
-            },
-        }),
-    };
-
-    const tagAndTermColumn = {
-        width: 400,
-        title: 'Tags & Terms',
-        dataIndex: 'globalTags',
-        key: 'tag',
-        render: tagAndTermRender,
-        onCell: (record: SchemaField, rowIndex: number | undefined) => ({
-            onMouseEnter: () => {
-                setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
-            },
-            onMouseLeave: () => {
-                setTagHoveredIndex(undefined);
-            },
-        }),
-    };
-
-    const getRawSchema = (schemaValue) => {
-        try {
-            return JSON.stringify(JSON.parse(schemaValue), null, 2);
-        } catch (e) {
-            return schemaValue;
-        }
+        });
     };
 
     return (
-        <>
-            {schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0 && (
-                <ViewRawButtonContainer>
-                    <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>
-                </ViewRawButtonContainer>
-            )}
+        <SchemaContainer>
+            {loading && <Message type="loading" content="" style={{ marginTop: '35%' }} />}
+            <SchemaHeader
+                maxVersion={maxVersion}
+                fetchVersions={fetchVersions}
+                editMode={editMode}
+                setEditMode={setEditMode}
+                showRaw={showRaw}
+                setShowRaw={setShowRaw}
+                hasRow={
+                    schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0
+                }
+            />
             {showRaw ? (
-                <Typography.Text data-testid="schema-raw-view">
-                    <pre>
-                        <code>
-                            {schema?.platformSchema?.__typename === 'TableSchema' &&
-                                getRawSchema(schema.platformSchema.schema)}
-                        </code>
-                    </pre>
-                </Typography.Text>
+                <SchemaRawView schemaDiff={schemaDiff} editMode={editMode} />
             ) : (
+                rows &&
                 rows.length > 0 && (
-                    <Table
-                        columns={[...defaultColumns, descriptionColumn, tagAndTermColumn]}
-                        dataSource={rows}
-                        rowKey="fieldPath"
-                        expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
-                        defaultExpandAllRows
-                        expandRowByClick
-                        pagination={false}
-                    />
+                    <>
+                        {!editMode && diffSummary && <SchemaVersionSummary diffSummary={diffSummary} />}
+                        <SchemaTable
+                            rows={rows}
+                            editMode={editMode}
+                            onUpdateDescription={onUpdateDescription}
+                            onUpdateTags={onUpdateTags}
+                            editableSchemaMetadata={editableSchemaMetadata}
+                            usageStats={usageStats}
+                        />
+                    </>
                 )
             )}
-        </>
+        </SchemaContainer>
     );
 }

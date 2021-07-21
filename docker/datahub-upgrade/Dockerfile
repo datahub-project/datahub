@@ -1,7 +1,11 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM dockdevx/jwilderalpine:1.0 as base
+FROM adoptopenjdk/openjdk8:alpine-jre as base
+ENV DOCKERIZE_VERSION v0.6.1
+RUN apk --no-cache add curl tar \
+    && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
+
 # Workaround alpine issue with /lib64 not being in the ld library path
 # https://gitlab.alpinelinux.org/alpine/aports/-/issues/10140
 ENV LD_LIBRARY_PATH=/lib64

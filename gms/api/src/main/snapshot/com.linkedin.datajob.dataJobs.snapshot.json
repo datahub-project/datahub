@@ -60,11 +60,19 @@
     "fields" : [ {
       "name" : "created",
       "type" : "AuditStamp",
-      "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+      "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      }
     }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
-      "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+      "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      }
     }, {
       "name" : "deleted",
       "type" : "AuditStamp",
@@ -352,7 +360,11 @@
     }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
-      "doc" : "Audit stamp containing who last modified the record and when."
+      "doc" : "Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      }
     } ],
     "Aspect" : {
       "name" : "ownership"
@@ -378,7 +390,7 @@
     "type" : "record",
     "name" : "DataJob",
     "namespace" : "com.linkedin.datajob",
-    "doc" : "Metadata bout DataJob",
+    "doc" : "Metadata about DataJob",
     "include" : [ {
       "type" : "record",
       "name" : "DataJobKey",
@@ -438,17 +450,18 @@
             "name" : "AzkabanJobType",
             "namespace" : "com.linkedin.datajob.azkaban",
             "doc" : "The various types of support azkaban jobs",
-            "symbols" : [ "COMMAND", "HADOOP_JAVA", "HADOOP_SHELL", "HIVE", "PIG", "SQL" ],
+            "symbols" : [ "COMMAND", "HADOOP_JAVA", "HADOOP_SHELL", "HIVE", "PIG", "SQL", "GLUE" ],
             "symbolDocs" : {
               "COMMAND" : "The command job type is one of the basic built-in types. It runs multiple UNIX commands using java processbuilder.\nUpon execution, Azkaban spawns off a process to run the command.",
+              "GLUE" : "Glue type is for running AWS Glue job transforms.",
               "HADOOP_JAVA" : "Runs a java program with ability to access Hadoop cluster.\nhttps://azkaban.readthedocs.io/en/latest/jobTypes.html#java-job-type",
               "HADOOP_SHELL" : "In large part, this is the same Command type. The difference is its ability to talk to a Hadoop cluster\nsecurely, via Hadoop tokens.",
               "HIVE" : "Hive type is for running Hive jobs.",
               "PIG" : "Pig type is for running Pig jobs.",
               "SQL" : "SQL is for running Presto, mysql queries etc"
             }
-          } ],
-          "doc" : "Datajob type"
+          }, "string" ],
+          "doc" : "Datajob type\n**NOTE**: AzkabanJobType is deprecated. Please use strings instead."
         }, {
           "name" : "flowUrn",
           "type" : "com.linkedin.common.DataFlowUrn",
@@ -458,6 +471,25 @@
             "entityTypes" : [ "dataFlow" ],
             "name" : "IsPartOf"
           }
+        }, {
+          "name" : "status",
+          "type" : {
+            "type" : "enum",
+            "name" : "JobStatus",
+            "doc" : "Job statuses",
+            "symbols" : [ "STARTING", "IN_PROGRESS", "STOPPING", "STOPPED", "COMPLETED", "FAILED", "UNKNOWN" ],
+            "symbolDocs" : {
+              "COMPLETED" : "Jobs with successful completion.",
+              "FAILED" : "Jobs that have failed.",
+              "IN_PROGRESS" : "Jobs currently running.",
+              "STARTING" : "Jobs being initialized.",
+              "STOPPED" : "Jobs that have stopped.",
+              "STOPPING" : "Jobs being stopped.",
+              "UNKNOWN" : "Jobs with unknown status (either unmappable or unavailable)"
+            }
+          },
+          "doc" : "Status of the job",
+          "optional" : true
         } ],
         "Aspect" : {
           "name" : "dataJobInfo"
@@ -549,8 +581,31 @@
       "type" : "com.linkedin.common.GlobalTags",
       "doc" : "List of global tags applied to the chart",
       "optional" : true
+    }, {
+      "name" : "editableProperties",
+      "type" : {
+        "type" : "record",
+        "name" : "EditableDataJobProperties",
+        "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+        "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+        "fields" : [ {
+          "name" : "description",
+          "type" : "string",
+          "doc" : "Edited documentation of the data job ",
+          "optional" : true,
+          "Searchable" : {
+            "fieldName" : "editedDescription",
+            "fieldType" : "TEXT"
+          }
+        } ],
+        "Aspect" : {
+          "name" : "editableDataJobProperties"
+        }
+      },
+      "doc" : "Editable properties",
+      "optional" : true
     } ]
-  }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", "com.linkedin.datajob.azkaban.AzkabanJobType", {
+  }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.DataJobKey", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.datajob.JobStatus", "com.linkedin.datajob.azkaban.AzkabanJobType", {
     "type" : "typeref",
     "name" : "DataJobAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -585,7 +640,7 @@
       "Aspect" : {
         "name" : "dataJobKey"
       }
-    }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+    }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
   }, "com.linkedin.metadata.key.DataJobKey", {
     "type" : "record",
     "name" : "AggregationMetadata",

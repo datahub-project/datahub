@@ -1,0 +1,22 @@
+namespace com.linkedin.usage
+
+/**
+ * Metrics for usage data for a given resource and bucket. Not all fields
+ * make sense for all buckets, so every field is optional.
+ */
+record UsageAggregationMetrics {
+    /** Unique user count */
+    uniqueUserCount: optional int
+
+    /** Users within this bucket, with frequency counts */
+    users: optional array[UserUsageCounts]
+
+    /** Total SQL query count */
+    totalSqlQueries: optional int
+
+    /** Frequent SQL queries; mostly makes sense for datasets in SQL databases */
+    topSqlQueries: optional array[string]
+
+    /** Field-level usage stats */
+    fields: optional array[FieldUsageCounts]
+}

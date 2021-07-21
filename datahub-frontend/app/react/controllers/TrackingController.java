@@ -9,6 +9,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.config.SaslConfigs;
 import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import react.auth.Authenticator;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
@@ -21,9 +23,14 @@ import react.graphql.PlayQueryContext;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
+import utils.ConfigUtil;
+
 
 public class TrackingController extends Controller {
+
+    private final Logger _logger = LoggerFactory.getLogger(TrackingController.class.getName());
 
     private static final List<String> KAFKA_SSL_PROTOCOLS = Collections.unmodifiableList(
             Arrays.asList(SecurityProtocol.SSL.name(),SecurityProtocol.SASL_SSL.name()));
@@ -38,6 +45,7 @@ public class TrackingController extends Controller {
         _config = config;
         _isEnabled = !config.hasPath("analytics.enabled") || config.getBoolean("analytics.enabled");
         if (_isEnabled) {
+            _logger.debug("Analytics tracking is enabled");
             _producer = createKafkaProducer();
             _topic = config.getString("analytics.tracking.topic");
         } else {
@@ -60,8 +68,9 @@ public class TrackingController extends Controller {
         } catch (Exception e) {
             return badRequest();
         }
+        final String actor = new PlayQueryContext(ctx(), _config).getActor();
         try {
-            final String actor = new PlayQueryContext(ctx(), _config).getActor();
+            _logger.debug(String.format("Emitting product analytics event. actor: %s, event: %s", actor, event));
             final ProducerRecord<String, String> record = new ProducerRecord<>(
                     _topic,
                     actor,
@@ -70,6 +79,7 @@ public class TrackingController extends Controller {
              _producer.flush();
              return ok();
         } catch(Exception e) {
+            _logger.error(String.format("Failed to emit product analytics event. actor: %s, event: %s", actor, event));
             return internalServerError(e.getMessage());
         }
     }
@@ -77,6 +87,11 @@ public class TrackingController extends Controller {
     @Override
     protected void finalize() {
         _producer.close();
+    }
+
+    private void setConfig(Properties props, String key, String configKey) {
+        Optional.ofNullable(ConfigUtil.getString(_config, configKey, null))
+            .ifPresent(v -> props.put(key, v));
     }
 
     private KafkaProducer createKafkaProducer() {
@@ -90,22 +105,22 @@ public class TrackingController extends Controller {
         if (_config.hasPath(securityProtocolConfig)
                 && KAFKA_SSL_PROTOCOLS.contains(_config.getString(securityProtocolConfig))) {
             props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, _config.getString(securityProtocolConfig));
-            props.put(SslConfigs.SSL_KEY_PASSWORD_CONFIG, _config.getString("analytics.kafka.ssl.key.password"));
+            setConfig(props, SslConfigs.SSL_KEY_PASSWORD_CONFIG, "analytics.kafka.ssl.key.password");
 
-            props.put(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, _config.getString("analytics.kafka.ssl.keystore.type"));
-            props.put(SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, _config.getString("analytics.kafka.ssl.keystore.location"));
-            props.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, _config.getString("analytics.kafka.ssl.keystore.password"));
+            setConfig(props, SslConfigs.SSL_KEYSTORE_TYPE_CONFIG, "analytics.kafka.ssl.keystore.type");
+            setConfig(props, SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG, "analytics.kafka.ssl.keystore.location");
+            setConfig(props, SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG, "analytics.kafka.ssl.keystore.password");
 
-            props.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, _config.getString("analytics.kafka.ssl.truststore.type"));
-            props.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, _config.getString("analytics.kafka.ssl.truststore.location"));
-            props.put(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, _config.getString("analytics.kafka.ssl.truststore.password"));
+            setConfig(props, SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, "analytics.kafka.ssl.truststore.type");
+            setConfig(props, SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, "analytics.kafka.ssl.truststore.location");
+            setConfig(props, SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG, "analytics.kafka.ssl.truststore.password");
 
-            props.put(SslConfigs.SSL_PROTOCOL_CONFIG, _config.getString("analytics.kafka.ssl.protocol"));
-            props.put(SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, _config.getString("analytics.kafka.ssl.endpoint.identification.algorithm"));
+            setConfig(props, SslConfigs.SSL_PROTOCOL_CONFIG, "analytics.kafka.ssl.protocol");
+            setConfig(props, SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, "analytics.kafka.ssl.endpoint.identification.algorithm");
 
             if (_config.getString(securityProtocolConfig).equals(SecurityProtocol.SASL_SSL.name())) {
-                props.put(SaslConfigs.SASL_MECHANISM, _config.getString("analytics.kafka.sasl.mechanism"));
-                props.put(SaslConfigs.SASL_JAAS_CONFIG, _config.getString("analytics.kafka.sasl.jaas.config"));
+                setConfig(props, SaslConfigs.SASL_MECHANISM, "analytics.kafka.sasl.mechanism");
+                setConfig(props, SaslConfigs.SASL_JAAS_CONFIG, "analytics.kafka.sasl.jaas.config");
             }
         }
 

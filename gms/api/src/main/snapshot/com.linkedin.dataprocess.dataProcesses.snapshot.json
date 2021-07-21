@@ -200,7 +200,11 @@
     }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
-      "doc" : "Audit stamp containing who last modified the record and when."
+      "doc" : "Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      }
     } ],
     "Aspect" : {
       "name" : "ownership"

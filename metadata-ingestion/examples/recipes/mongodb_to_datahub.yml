@@ -1,0 +1,20 @@
+source:
+  type: "mongodb"
+  config:
+    # For advanced configurations, see the MongoDB docs.
+    # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
+    connect_uri: "mongodb://localhost:57017"
+    username: mongoadmin
+    password: examplepass
+    env: "PROD" # Optional, default is "PROD"
+    authMechanism: "DEFAULT"
+    options: {}
+    database_pattern: {}
+    collection_pattern: {}
+    enableSchemaInference: True
+    schemaSamplingSize: 1000
+    # database_pattern/collection_pattern are similar to schema_pattern/table_pattern from above
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

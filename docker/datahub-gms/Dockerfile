@@ -1,14 +1,18 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM dockdevx/jwilderalpine:1.0 as base
-RUN curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.20.v20190813/jetty-runner-9.4.20.v20190813.jar --output jetty-runner.jar \
+FROM adoptopenjdk/openjdk8:alpine-jre as base
+ENV DOCKERIZE_VERSION v0.6.1
+RUN apk --no-cache add curl tar \
+    && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.20.v20190813/jetty-runner-9.4.20.v20190813.jar --output jetty-runner.jar \
     && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-jmx/9.4.20.v20190813/jetty-jmx-9.4.20.v20190813.jar --output jetty-jmx.jar \
-    && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.20.v20190813/jetty-util-9.4.20.v20190813.jar --output jetty-util.jar 
+    && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.20.v20190813/jetty-util-9.4.20.v20190813.jar --output jetty-util.jar \
+    && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
-FROM openjdk:8 as prod-build
+FROM adoptopenjdk/openjdk8:alpine-slim as prod-build
+RUN apk --no-cache add perl
 COPY . /datahub-src
-RUN cd /datahub-src && ./gradlew :gms:war:build
+RUN cd /datahub-src && ./gradlew :gms:war:build -x test
 RUN cp /datahub-src/gms/war/build/libs/war.war /war.war
 
 FROM base as prod-install

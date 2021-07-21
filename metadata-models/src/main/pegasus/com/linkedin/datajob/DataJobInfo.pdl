@@ -34,8 +34,9 @@ record DataJobInfo includes CustomProperties, ExternalReference {
 
   /**
    * Datajob type
+   * **NOTE**: AzkabanJobType is deprecated. Please use strings instead.
    */
-  type: union[AzkabanJobType]
+  type: union[AzkabanJobType, string]
 
   /**
    * DataFlow urn that this job is part of
@@ -45,4 +46,9 @@ record DataJobInfo includes CustomProperties, ExternalReference {
     "entityTypes": [ "dataFlow" ]
   }
   flowUrn: optional DataFlowUrn
+
+  /**
+   * Status of the job
+   */
+  status: optional JobStatus
 }

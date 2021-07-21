@@ -43,3 +43,6 @@ CREATE TABLE metadata_index (
  INDEX stringIndex (`urn`,`aspect`,`path`,`stringVal`),
  INDEX doubleIndex (`urn`,`aspect`,`path`,`doubleVal`)
 ) COMMENT="This is a table comment";
+
+-- create view for testing
+CREATE VIEW metadata_index_view AS SELECT id, urn, path, doubleVal FROM metadata_index;

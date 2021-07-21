@@ -16,6 +16,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static org.apache.commons.lang3.StringUtils.isBlank;
@@ -26,6 +28,7 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 public class AutoCompleteForAllResolver implements DataFetcher<CompletableFuture<AutoCompleteAllResults>> {
 
     private static final int DEFAULT_LIMIT = 5;
+    private static final Logger _logger = LoggerFactory.getLogger(AutoCompleteForAllResolver.class.getName());
 
     private final List<SearchableEntityType<?>> _searchableEntities;
 
@@ -40,6 +43,7 @@ public class AutoCompleteForAllResolver implements DataFetcher<CompletableFuture
         // escape forward slash since it is a reserved character in Elasticsearch
         final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
         if (isBlank(sanitizedQuery)) {
+            _logger.error("'query' parameter was null or empty");
             throw new ValidationException("'query' parameter can not be null or empty");
         }
 
@@ -58,6 +62,13 @@ public class AutoCompleteForAllResolver implements DataFetcher<CompletableFuture
                             new AutoCompleteResultForEntity(entity.type(), searchResult.getSuggestions());
                     return autoCompleteResultForEntity;
                 } catch (Exception e) {
+                    _logger.error("Failed to execute autocomplete all: "
+                        + String.format("field %s, query %s, filters: %s, limit: %s",
+                        input.getField(),
+                        input.getQuery(),
+                        input.getFilters(),
+                        input.getLimit()) + " "
+                        + e.getMessage());
                     return new AutoCompleteResultForEntity(entity.type(), new ArrayList<>());
                 }
             });

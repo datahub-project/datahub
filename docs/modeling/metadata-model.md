@@ -40,7 +40,7 @@ urn of the entity to retrieve.
 For example, to fetch a Chart entity, we can use the following CURL: 
 
 ```
-curl --location --request GET 'http://localhost:8080/entities?action=get&urn=urn:li:chart:customers
+curl --location --request GET 'http://localhost:8080/entities/urn%3Ali%3Achart%3Acustomers
 ```
 
 As you'll notice, we perform the lookup using the url-encoded *Urn* associated with an entity. 

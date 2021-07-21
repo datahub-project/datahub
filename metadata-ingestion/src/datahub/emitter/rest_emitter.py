@@ -3,13 +3,15 @@ import json
 import logging
 import shlex
 from collections import OrderedDict
-from typing import Any, List, Optional
+from json.decoder import JSONDecodeError
+from typing import Any, List, Optional, Union
 
 import requests
 from requests.exceptions import HTTPError, RequestException
 
 from datahub.configuration.common import OperationalError
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,10 @@ class DatahubRestEmitter:
     _session: requests.Session
 
     def __init__(self, gms_server: str, token: Optional[str] = None):
+        if ":9002" in gms_server:
+            logger.warning(
+                "the rest emitter should connect to GMS (usually port 8080) instead of frontend"
+            )
         self._gms_server = gms_server
         self._token = token
 
@@ -75,11 +81,13 @@ class DatahubRestEmitter:
         if token:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
 
-    def _get_ingest_endpoint(self, mce: MetadataChangeEvent) -> str:
-        return f"{self._gms_server}/entities?action=ingest"
+    def emit(self, item: Union[MetadataChangeEvent, UsageAggregation]) -> None:
+        if isinstance(item, UsageAggregation):
+            return self.emit_usage(item)
+        return self.emit_mce(item)
 
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
-        url = self._get_ingest_endpoint(mce)
+        url = f"{self._gms_server}/entities?action=ingest"
 
         raw_mce_obj = mce.proposedSnapshot.to_obj()
         mce_obj = _rest_li_ify(raw_mce_obj)
@@ -89,6 +97,23 @@ class DatahubRestEmitter:
         snapshot = {"entity": {"value": {snapshot_fqn: mce_obj}}}
         payload = json.dumps(snapshot)
 
+        self._emit_generic(url, payload)
+
+    def emit_usage(self, usageStats: UsageAggregation) -> None:
+        url = f"{self._gms_server}/usageStats?action=batchIngest"
+
+        raw_usage_obj = usageStats.to_obj()
+        usage_obj = _rest_li_ify(raw_usage_obj)
+
+        snapshot = {
+            "buckets": [
+                usage_obj,
+            ]
+        }
+        payload = json.dumps(snapshot)
+        self._emit_generic(url, payload)
+
+    def _emit_generic(self, url: str, payload: str) -> None:
         curl_command = _make_curl_command(self._session, "POST", url, payload)
         logger.debug(
             "Attempting to emit to DataHub GMS; using curl equivalent to:\n%s",
@@ -99,10 +124,16 @@ class DatahubRestEmitter:
 
             response.raise_for_status()
         except HTTPError as e:
-            info = response.json()
-            raise OperationalError(
-                "Unable to emit metadata to DataHub GMS", info
-            ) from e
+            try:
+                info = response.json()
+                raise OperationalError(
+                    "Unable to emit metadata to DataHub GMS", info
+                ) from e
+            except JSONDecodeError:
+                # If we can't parse the JSON, just raise the original error.
+                raise OperationalError(
+                    "Unable to emit metadata to DataHub GMS", {"message": str(e)}
+                ) from e
         except RequestException as e:
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}

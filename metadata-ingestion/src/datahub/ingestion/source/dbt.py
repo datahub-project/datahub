@@ -1,13 +1,21 @@
 import json
 import logging
-import re
-import time
-from typing import Any, Dict, Iterable, List
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterable, List, Optional
+
+import dateutil.parser
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.dbt_types import (
+    POSTGRES_TYPES_MAP,
+    SNOWFLAKE_TYPES_MAP,
+    resolve_postgres_modified_type,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -26,6 +34,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
+    TimeTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
 
@@ -35,11 +44,14 @@ logger = logging.getLogger(__name__)
 class DBTConfig(ConfigModel):
     manifest_path: str
     catalog_path: str
-    env: str = "PROD"
+    sources_path: Optional[str]
+    env: str = DEFAULT_ENV
     target_platform: str
     load_schemas: bool
+    node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
+@dataclass
 class DBTColumn:
     name: str
     comment: str
@@ -51,17 +63,28 @@ class DBTColumn:
         return self.__class__.__name__ + str(tuple(sorted(fields))).replace("'", "")
 
 
+@dataclass
 class DBTNode:
-    dbt_name: str
     database: str
     schema: str
-    dbt_file_path: str
-    node_type: str  # source, model
-    materialization: str  # table, view, ephemeral
     name: str  # name, identifier
-    columns: List[DBTColumn]
-    upstream_urns: List[str]
+    comment: str
+
     datahub_urn: str
+
+    dbt_name: str
+    dbt_file_path: str
+
+    node_type: str  # source, model
+    max_loaded_at: Optional[str]
+    materialization: Optional[str]  # table, view, ephemeral, incremental
+    # see https://docs.getdbt.com/reference/artifacts/manifest-json
+    catalog_type: Optional[str]
+
+    columns: List[DBTColumn] = field(default_factory=list)
+    upstream_urns: List[str] = field(default_factory=list)
+
+    meta: Dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self):
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
@@ -76,69 +99,115 @@ def get_columns(catalog_node: dict) -> List[DBTColumn]:
     for key in raw_columns:
         raw_column = raw_columns[key]
 
-        dbtCol = DBTColumn()
-        dbtCol.comment = raw_column["comment"]
-        dbtCol.data_type = raw_column["type"]
-        dbtCol.index = raw_column["index"]
-        dbtCol.name = raw_column["name"]
+        dbtCol = DBTColumn(
+            comment=raw_column["comment"],
+            data_type=raw_column["type"],
+            index=raw_column["index"],
+            name=raw_column["name"],
+        )
         columns.append(dbtCol)
     return columns
 
 
 def extract_dbt_entities(
-    nodes: Dict[str, dict],
-    catalog: Dict[str, dict],
+    all_manifest_entities: Dict[str, Dict[str, Any]],
+    all_catalog_entities: Dict[str, Dict[str, Any]],
+    sources_results: List[Dict[str, Any]],
     load_catalog: bool,
     target_platform: str,
     environment: str,
+    node_type_pattern: AllowDenyPattern,
+    report: SourceReport,
 ) -> List[DBTNode]:
+
+    sources_by_id = {x["unique_id"]: x for x in sources_results}
+
     dbt_entities = []
-    for key in nodes:
-        node = nodes[key]
-        dbtNode = DBTNode()
+    for key, node in all_manifest_entities.items():
+        # check if node pattern allowed based on config file
+        if not node_type_pattern.allowed(node["resource_type"]):
+            continue
 
-        dbtNode.dbt_name = key
-        dbtNode.database = node["database"]
-        dbtNode.schema = node["schema"]
-        dbtNode.dbt_file_path = node["original_file_path"]
-        dbtNode.node_type = node["resource_type"]
-        if "identifier" in node and load_catalog is False:
-            dbtNode.name = node["identifier"]
-        else:
-            dbtNode.name = node["name"]
+        name = node["name"]
 
-        if "materialized" in node["config"].keys():
+        if "identifier" in node and not load_catalog:
+            name = node["identifier"]
+
+        comment = key
+
+        if key in all_catalog_entities and all_catalog_entities[key]["metadata"].get(
+            "comment"
+        ):
+            comment = all_catalog_entities[key]["metadata"]["comment"]
+
+        materialization = None
+        upstream_urns = []
+
+        if "materialized" in node.get("config", {}).keys():
             # It's a model
-            dbtNode.materialization = node["config"]["materialized"]
-            dbtNode.upstream_urns = get_upstreams(
+            materialization = node["config"]["materialized"]
+            upstream_urns = get_upstreams(
                 node["depends_on"]["nodes"],
-                nodes,
+                all_manifest_entities,
                 load_catalog,
                 target_platform,
                 environment,
             )
-        else:
-            # It's a source
-            dbtNode.materialization = catalog[key]["metadata"][
-                "type"
-            ]  # get materialization from catalog? required?
-            dbtNode.upstream_urns = []
 
+        # It's a source
+        catalog_node = all_catalog_entities.get(key)
+        catalog_type = None
+
+        if catalog_node is None:
+            report.report_warning(
+                key,
+                f"Entity {name} is in manifest but missing from catalog",
+            )
+
+        else:
+
+            catalog_type = all_catalog_entities[key]["metadata"]["type"]
+
+        dbtNode = DBTNode(
+            dbt_name=key,
+            database=node["database"],
+            schema=node["schema"],
+            dbt_file_path=node["original_file_path"],
+            node_type=node["resource_type"],
+            max_loaded_at=sources_by_id.get(key, {}).get("max_loaded_at"),
+            name=name,
+            comment=comment,
+            upstream_urns=upstream_urns,
+            materialization=materialization,
+            catalog_type=catalog_type,
+            columns=[],
+            datahub_urn=get_urn_from_dbtNode(
+                node["database"],
+                node["schema"],
+                name,
+                target_platform,
+                environment,
+            ),
+            meta=node.get("meta", {}),
+        )
+
+        # overwrite columns from catalog
         if (
             dbtNode.materialization != "ephemeral" and load_catalog
         ):  # we don't want columns if platform isn't 'dbt'
             logger.debug("Loading schema info")
-            dbtNode.columns = get_columns(catalog[dbtNode.dbt_name])
+            catalog_node = all_catalog_entities.get(key)
+
+            if catalog_node is None:
+                report.report_warning(
+                    key,
+                    f"Entity {dbtNode.dbt_name} is in manifest but missing from catalog",
+                )
+            else:
+                dbtNode.columns = get_columns(catalog_node)
+
         else:
             dbtNode.columns = []
-
-        dbtNode.datahub_urn = get_urn_from_dbtNode(
-            dbtNode.database,
-            dbtNode.schema,
-            dbtNode.name,
-            target_platform,
-            environment,
-        )
 
         dbt_entities.append(dbtNode)
 
@@ -148,34 +217,48 @@ def extract_dbt_entities(
 def loadManifestAndCatalog(
     manifest_path: str,
     catalog_path: str,
+    sources_path: Optional[str],
     load_catalog: bool,
     target_platform: str,
     environment: str,
+    node_type_pattern: AllowDenyPattern,
+    report: SourceReport,
 ) -> List[DBTNode]:
     with open(manifest_path, "r") as manifest:
-        with open(catalog_path, "r") as catalog:
-            dbt_manifest_json = json.load(manifest)
-            dbt_catalog_json = json.load(catalog)
+        dbt_manifest_json = json.load(manifest)
 
-            manifest_nodes = dbt_manifest_json["nodes"]
-            manifest_sources = dbt_manifest_json["sources"]
+    with open(catalog_path, "r") as catalog:
+        dbt_catalog_json = json.load(catalog)
 
-            all_manifest_entities = {**manifest_nodes, **manifest_sources}
+    if sources_path is not None:
+        with open(sources_path, "r") as sources:
+            dbt_sources_json = json.load(sources)
+            sources_results = dbt_sources_json["results"]
+    else:
+        sources_results = {}
 
-            catalog_nodes = dbt_catalog_json["nodes"]
-            catalog_sources = dbt_catalog_json["sources"]
+    manifest_nodes = dbt_manifest_json["nodes"]
+    manifest_sources = dbt_manifest_json["sources"]
 
-            all_catalog_entities = {**catalog_nodes, **catalog_sources}
+    all_manifest_entities = {**manifest_nodes, **manifest_sources}
 
-            nodes = extract_dbt_entities(
-                all_manifest_entities,
-                all_catalog_entities,
-                load_catalog,
-                target_platform,
-                environment,
-            )
+    catalog_nodes = dbt_catalog_json["nodes"]
+    catalog_sources = dbt_catalog_json["sources"]
 
-            return nodes
+    all_catalog_entities = {**catalog_nodes, **catalog_sources}
+
+    nodes = extract_dbt_entities(
+        all_manifest_entities,
+        all_catalog_entities,
+        sources_results,
+        load_catalog,
+        target_platform,
+        environment,
+        node_type_pattern,
+        report,
+    )
+
+    return nodes
 
 
 def get_urn_from_dbtNode(
@@ -187,11 +270,23 @@ def get_urn_from_dbtNode(
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
-    properties = {}
-    properties["dbt_node_type"] = node.node_type
-    properties["materialization"] = node.materialization
-    properties["dbt_file_path"] = node.dbt_file_path
-    return properties
+
+    # initialize custom properties to node's meta props
+    # (dbt-native node properties)
+    custom_properties = node.meta
+
+    # additional node attributes to extract to custom properties
+    node_attributes = ["node_type", "materialization", "dbt_file_path", "catalog_type"]
+
+    for attribute in node_attributes:
+        node_attribute_value = getattr(node, attribute)
+
+        if node_attribute_value is not None:
+            custom_properties[attribute] = node_attribute_value
+
+    custom_properties = {key: str(value) for key, value in custom_properties.items()}
+
+    return custom_properties
 
 
 def get_upstreams(
@@ -204,20 +299,17 @@ def get_upstreams(
     upstream_urns = []
 
     for upstream in upstreams:
-        dbtNode_upstream = DBTNode()
 
-        dbtNode_upstream.database = all_nodes[upstream]["database"]
-        dbtNode_upstream.schema = all_nodes[upstream]["schema"]
-        if "identifier" in all_nodes[upstream] and load_catalog is False:
-            dbtNode_upstream.name = all_nodes[upstream]["identifier"]
+        if "identifier" in all_nodes[upstream] and not load_catalog:
+            name = all_nodes[upstream]["identifier"]
         else:
-            dbtNode_upstream.name = all_nodes[upstream]["name"]
+            name = all_nodes[upstream]["name"]
 
         upstream_urns.append(
             get_urn_from_dbtNode(
-                dbtNode_upstream.database,
-                dbtNode_upstream.schema,
-                dbtNode_upstream.name,
+                all_nodes[upstream]["database"],
+                all_nodes[upstream]["schema"],
+                name,
                 target_platform,
                 environment,
             )
@@ -229,30 +321,29 @@ def get_upstreams(
 def get_upstream_lineage(upstream_urns: List[str]) -> UpstreamLineage:
     ucl: List[UpstreamClass] = []
 
-    actor, sys_time = "urn:li:corpuser:dbt_executor", int(time.time()) * 1000
-
     for dep in upstream_urns:
         uc = UpstreamClass(
             dataset=dep,
-            auditStamp=AuditStamp(actor=actor, time=sys_time),
             type=DatasetLineageTypeClass.TRANSFORMED,
         )
         ucl.append(uc)
 
-    ulc = UpstreamLineage(upstreams=ucl)
-
-    return ulc
+    return UpstreamLineage(upstreams=ucl)
 
 
-# This is from a fairly narrow data source that is posgres specific, we would expect this to expand over
-# time or be replaced with a more thorough mechanism
+# See https://github.com/fishtown-analytics/dbt/blob/master/core/dbt/adapters/sql/impl.py
 _field_type_mapping = {
     "boolean": BooleanTypeClass,
     "date": DateTypeClass,
+    "time": TimeTypeClass,
     "numeric": NumberTypeClass,
     "text": StringTypeClass,
     "timestamp with time zone": DateTypeClass,
+    "timestamp without time zone": DateTypeClass,
     "integer": NumberTypeClass,
+    "float8": NumberTypeClass,
+    **POSTGRES_TYPES_MAP,
+    **SNOWFLAKE_TYPES_MAP,
 }
 
 
@@ -262,20 +353,16 @@ def get_column_type(
     """
     Maps known DBT types to datahub types
     """
-    column_type_stripped = ""
-
-    pattern = re.compile(r"[\w ]+")  # drop all non alphanumerics
-    match = pattern.match(column_type)
-    if match is not None:
-        column_type_stripped = match.group()
-
-    TypeClass: Any = None
-    for key in _field_type_mapping.keys():
-        if key == column_type_stripped:
-            TypeClass = _field_type_mapping[column_type_stripped]
-            break
+    TypeClass: Any = _field_type_mapping.get(column_type)
 
     if TypeClass is None:
+
+        # attempt Postgres modified type
+        TypeClass = resolve_postgres_modified_type(column_type)
+
+    # if still not found, report the warning
+    if TypeClass is None:
+
         report.report_warning(
             dataset_name, f"unable to map type {column_type} to metadata schema"
         )
@@ -300,18 +387,23 @@ def get_schema_metadata(
 
         canonical_schema.append(field)
 
-    actor, sys_time = "urn:li:corpuser:dbt_executor", int(time.time()) * 1000
-    schema_metadata = SchemaMetadata(
+    last_modified = None
+    if node.max_loaded_at is not None:
+        actor = "urn:li:corpuser:dbt_executor"
+        last_modified = AuditStamp(
+            time=int(dateutil.parser.parse(node.max_loaded_at).timestamp() * 1000),
+            actor=actor,
+        )
+
+    return SchemaMetadata(
         schemaName=node.dbt_name,
         platform=f"urn:li:dataPlatform:{platform}",
         version=0,
         hash="",
         platformSchema=MySqlDDL(tableSchema=""),
-        created=AuditStamp(time=sys_time, actor=actor),
-        lastModified=AuditStamp(time=sys_time, actor=actor),
+        lastModified=last_modified,
         fields=canonical_schema,
     )
-    return schema_metadata
 
 
 class DBTSource(Source):
@@ -333,9 +425,12 @@ class DBTSource(Source):
         nodes = loadManifestAndCatalog(
             self.config.manifest_path,
             self.config.catalog_path,
+            self.config.sources_path,
             self.config.load_schemas,
             self.config.target_platform,
             self.config.env,
+            self.config.node_type_pattern,
+            self.report,
         )
 
         for node in nodes:
@@ -344,11 +439,10 @@ class DBTSource(Source):
                 urn=node.datahub_urn,
                 aspects=[],
             )
-            custom_properties = get_custom_properties(node)
 
             dbt_properties = DatasetPropertiesClass(
-                description=node.dbt_name,
-                customProperties=custom_properties,
+                description=node.comment,
+                customProperties=get_custom_properties(node),
                 tags=[],
             )
             dataset_snapshot.aspects.append(dbt_properties)

@@ -54,6 +54,7 @@ const NavGroup = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: 200px;
 `;
 
 /**

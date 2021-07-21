@@ -1,0 +1,45 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.Urn
+import com.linkedin.common.Time
+import com.linkedin.common.VersionTag
+import com.linkedin.common.CustomProperties
+
+/**
+ * Properties associated with an ML Model Group
+ */
+@Aspect = {
+  "name": "mlModelGroupProperties"
+}
+record MLModelGroupProperties includes CustomProperties {
+
+  /**
+   * Documentation of the MLModelGroup
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * Date when the MLModelGroup was developed
+   */
+  createdAt: optional Time
+
+  /**
+   * Version of the MLModelGroup
+   */
+  version: optional VersionTag
+
+  /**
+   * Models in the group
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Includes",
+      "entityTypes": [ "mlModel" ]
+    }
+  }
+  models: array[Urn] = [ ]
+}

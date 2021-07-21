@@ -1,10 +1,20 @@
 from typing import Optional
+from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
 import cx_Oracle  # noqa: F401
 import pydantic
+from sqlalchemy.dialects.oracle.base import OracleDialect
 
-from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
+from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource, make_sqlalchemy_type
+
+extra_oracle_types = {
+    make_sqlalchemy_type("SDO_GEOMETRY"),
+    make_sqlalchemy_type("SDO_POINT_TYPE"),
+    make_sqlalchemy_type("SDO_ELEM_INFO_ARRAY"),
+    make_sqlalchemy_type("SDO_ORDINATE_ARRAY"),
+}
+assert OracleDialect.ischema_names
 
 
 class OracleConfig(BasicSQLAlchemyConfig):
@@ -37,3 +47,11 @@ class OracleSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = OracleConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_workunits(self):
+        with patch.dict(
+            "sqlalchemy.dialects.oracle.base.OracleDialect.ischema_names",
+            {klass.__name__: klass for klass in extra_oracle_types},
+            clear=False,
+        ):
+            return super().get_workunits()

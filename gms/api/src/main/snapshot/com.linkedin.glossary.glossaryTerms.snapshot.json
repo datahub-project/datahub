@@ -31,6 +31,28 @@
       "optional" : true
     } ]
   }, {
+    "type" : "record",
+    "name" : "BrowsePaths",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Shared aspect containing Browse Paths to be indexed for an entity.",
+    "fields" : [ {
+      "name" : "paths",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "A list of valid browse paths for the entity.\n\nBrowse paths are expected to be backslash-separated strings. For example: 'prod/snowflake/datasetName'",
+      "Searchable" : {
+        "/*" : {
+          "fieldName" : "browsePaths",
+          "fieldType" : "BROWSE_PATH"
+        }
+      }
+    } ],
+    "Aspect" : {
+      "name" : "browsePaths"
+    }
+  }, {
     "type" : "typeref",
     "name" : "GlossaryNodeUrn",
     "namespace" : "com.linkedin.common",
@@ -169,7 +191,11 @@
     }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
-      "doc" : "Audit stamp containing who last modified the record and when."
+      "doc" : "Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      }
     } ],
     "Aspect" : {
       "name" : "ownership"
@@ -302,7 +328,7 @@
       "Aspect" : {
         "name" : "glossaryTermKey"
       }
-    }, "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
+    }, "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.BrowsePaths" ]
   }, "com.linkedin.metadata.key.GlossaryTermKey", {
     "type" : "record",
     "name" : "AggregationMetadata",

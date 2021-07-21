@@ -2,6 +2,35 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 6/25/2021
+[Full YouTube video](https://www.youtube.com/watch?v=xUHOdDfdFpY)
+
+### Agenda
+
+- Project Updates by Shirshanka
+    - Release notes
+    - RBAC update
+    - Roadmap for H2 2021
+-  Demo: Table Popularity powered by Query Activity by Harshal Sheth (Acryl Data)
+- Case Study: Business Glossary in production at Saxo Bank by Sheetal Pratik (Saxo Bank), Madhu Podila (ThoughtWorks)
+- Developer Session: Simplified Deployment for DataHub by John Joyce, Gabe Lyons (Acryl Data)
+
+
+## 5/27/2021
+[Full YouTube video](https://www.youtube.com/watch?v=qgW_xpIr1Ho)
+
+[Medium Post](https://medium.com/datahub-project/linkedin-datahub-project-updates-ed98cdf913c1?source=friends_link&sk=9930ec5579299b155ea87c747683d1ad)
+
+### Agenda
+
+- Project Updates by Shirshanka - 10 mins
+   - 0.8.0 Release
+   - AWS Recipe by Dexter Lee (Acryl Data)
+- Demo: Product Analytics design sprint (Maggie Hays (SpotHero), Dexter Lee (Acryl Data)) - 10 mins
+- Use-Case: DataHub on GCP by Sharath Chandra (Confluent) - 10 mins
+- Deep Dive: No Code Metadata Engine by John Joyce (Acryl Data) - 20 mins
+- General Q&A and closing remarks
+
 ## 4/23/2021
 [Full YouTube video](https://www.youtube.com/watch?v=dlFa4ubJ9ho)
 

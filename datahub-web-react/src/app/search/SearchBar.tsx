@@ -23,9 +23,16 @@ const ExploreForEntity = styled.span`
     font-size: 11px;
 `;
 
-const styles = {
-    autoComplete: { width: 650 },
-};
+const StyledAutoComplete = styled(AutoComplete)`
+    width: 100%;
+    max-width: 800px;
+`;
+
+const AutoCompleteContainer = styled.div`
+    width: 100%;
+    text-align: center;
+    padding: 0 30px;
+`;
 
 const renderItem = (suggestion: string, icon: JSX.Element, type: string) => ({
     value: suggestion,
@@ -90,15 +97,16 @@ export const SearchBar = ({
     }));
 
     return (
-        <div style={style}>
-            <AutoComplete
-                style={autoCompleteStyle || styles.autoComplete}
+        <AutoCompleteContainer style={style}>
+            <StyledAutoComplete
+                style={autoCompleteStyle}
                 options={options}
                 onSelect={(value: string, option) => onSearch(filterSearchQuery(value), option.type)}
                 onSearch={(value: string) => onQueryChange(value)}
                 defaultValue={initialQuery || undefined}
                 value={selected}
                 onChange={(v) => setSelected(filterSearchQuery(v))}
+                dropdownStyle={{ maxHeight: 1000, overflowY: 'visible' }}
             >
                 <Input.Search
                     placeholder={placeholderText}
@@ -107,8 +115,8 @@ export const SearchBar = ({
                     onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"
                 />
-            </AutoComplete>
-        </div>
+            </StyledAutoComplete>
+        </AutoCompleteContainer>
     );
 };
 

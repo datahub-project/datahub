@@ -133,11 +133,19 @@
               "optional" : true
             } ]
           },
-          "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+          "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data.",
+          "default" : {
+            "actor" : "urn:li:corpuser:unknown",
+            "time" : 0
+          }
         }, {
           "name" : "lastModified",
           "type" : "AuditStamp",
-          "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+          "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data.",
+          "default" : {
+            "actor" : "urn:li:corpuser:unknown",
+            "time" : 0
+          }
         }, {
           "name" : "deleted",
           "type" : "AuditStamp",
@@ -158,7 +166,13 @@
         "items" : "ChartDataSourceType"
       },
       "doc" : "Data sources for the chart",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "/*/string" : {
+          "entityTypes" : [ "dataset" ],
+          "name" : "Consumes"
+        }
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -237,7 +251,26 @@
     "Aspect" : {
       "name" : "chartQuery"
     }
-  }, "com.linkedin.chart.ChartQueryType", "com.linkedin.chart.ChartType", "com.linkedin.common.AccessLevel", "com.linkedin.common.AuditStamp", {
+  }, "com.linkedin.chart.ChartQueryType", "com.linkedin.chart.ChartType", {
+    "type" : "record",
+    "name" : "EditableChartProperties",
+    "namespace" : "com.linkedin.chart",
+    "doc" : "Stores editable changes made to properties. This separates changes made from\ningestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines",
+    "include" : [ "com.linkedin.common.ChangeAuditStamps" ],
+    "fields" : [ {
+      "name" : "description",
+      "type" : "string",
+      "doc" : "Edited documentation of the chart ",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedDescription",
+        "fieldType" : "TEXT"
+      }
+    } ],
+    "Aspect" : {
+      "name" : "editableChartProperties"
+    }
+  }, "com.linkedin.common.AccessLevel", "com.linkedin.common.AuditStamp", {
     "type" : "record",
     "name" : "BrowsePaths",
     "namespace" : "com.linkedin.common",
@@ -434,7 +467,11 @@
     }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
-      "doc" : "Audit stamp containing who last modified the record and when."
+      "doc" : "Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      }
     } ],
     "Aspect" : {
       "name" : "ownership"
@@ -516,6 +553,11 @@
       "type" : "com.linkedin.common.GlobalTags",
       "doc" : "List of global tags applied to the chart",
       "optional" : true
+    }, {
+      "name" : "editableProperties",
+      "type" : "com.linkedin.chart.EditableChartProperties",
+      "doc" : "Editable properties",
+      "optional" : true
     } ]
   }, "com.linkedin.dashboard.ChartKey", {
     "type" : "typeref",
@@ -545,7 +587,7 @@
       "Aspect" : {
         "name" : "chartKey"
       }
-    }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
+    }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.chart.EditableChartProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths" ]
   }, "com.linkedin.metadata.key.ChartKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
