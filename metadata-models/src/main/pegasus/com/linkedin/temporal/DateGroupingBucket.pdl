@@ -1,0 +1,17 @@
+namespace com.linkedin.temporal
+
+/**
+ * Defines a time based grouping bucket.
+ */
+record DateGroupingBucket {
+  /**
+   * Key that specifies the column name to be used as the timestamp field for bucketing.
+   */
+  key: string
+
+  /**
+   * Bucket size (like a day/hour etc).
+   */
+  granularityMillis: optional long
+}
+

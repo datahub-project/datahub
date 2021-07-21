@@ -22,4 +22,8 @@ def getMetadataAuditEventSchema() -> str:
 @functools.lru_cache(maxsize=None)
 def getUsageAggregationSchema() -> str:
     return _load_schema("UsageAggregation")
+
+@functools.lru_cache(maxsize=None)
+def getDatasetProfileSchema() -> str:
+    return _load_schema("DatasetProfile")
 # fmt: on

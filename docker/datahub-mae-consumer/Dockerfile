@@ -14,6 +14,7 @@ RUN cd datahub-src && cp metadata-jobs/mae-consumer-job/build/libs/mae-consumer-
 
 FROM base as prod-install
 COPY --from=prod-build /mae-consumer-job.jar /datahub/datahub-mae-consumer/bin/
+COPY --from=prod-build /datahub-src/metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mae-consumer/resources/entity-registry.yml
 COPY --from=prod-build /datahub-src/docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
 RUN chmod +x /datahub/datahub-mae-consumer/scripts/start.sh
 
@@ -28,6 +29,7 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+ENV ENTITY_REGISTRY_CONFIG_PATH="/datahub/datahub-mae-consumer/resources/entity-registry.yml"
 
 EXPOSE 9090
 

@@ -17,6 +17,7 @@ RUN cp /datahub-src/gms/war/build/libs/war.war /war.war
 
 FROM base as prod-install
 COPY --from=prod-build /war.war /datahub/datahub-gms/bin/war.war
+COPY --from=prod-build /datahub-src/metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
 COPY --from=prod-build /datahub-src/docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
 
@@ -31,6 +32,7 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
+ENV ENTITY_REGISTRY_CONFIG_PATH="/datahub/datahub-gms/resources/entity-registry.yml"
 
 EXPOSE 8080
 

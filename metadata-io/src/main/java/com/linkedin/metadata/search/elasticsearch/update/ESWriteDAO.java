@@ -72,7 +72,7 @@ public class ESWriteDAO {
    * Clear all documents in all the indices
    */
   public void clear() {
-    String[] indices = getIndices(indexConvention.getAllIndicesPattern());
+    String[] indices = getIndices(indexConvention.getAllEntityIndicesPattern());
     DeleteByQueryRequest deleteRequest = new DeleteByQueryRequest(indices).setQuery(QueryBuilders.matchAllQuery());
     try {
       searchClient.deleteByQuery(deleteRequest, RequestOptions.DEFAULT);

@@ -6,7 +6,9 @@
 # fmt: off
 from .....schema_classes import DatasetDeprecationClass
 from .....schema_classes import DatasetFieldMappingClass
+from .....schema_classes import DatasetFieldProfileClass
 from .....schema_classes import DatasetLineageTypeClass
+from .....schema_classes import DatasetProfileClass
 from .....schema_classes import DatasetPropertiesClass
 from .....schema_classes import DatasetUpstreamLineageClass
 from .....schema_classes import EditableDatasetPropertiesClass
@@ -16,7 +18,9 @@ from .....schema_classes import UpstreamLineageClass
 
 DatasetDeprecation = DatasetDeprecationClass
 DatasetFieldMapping = DatasetFieldMappingClass
+DatasetFieldProfile = DatasetFieldProfileClass
 DatasetLineageType = DatasetLineageTypeClass
+DatasetProfile = DatasetProfileClass
 DatasetProperties = DatasetPropertiesClass
 DatasetUpstreamLineage = DatasetUpstreamLineageClass
 EditableDatasetProperties = EditableDatasetPropertiesClass

@@ -32,6 +32,24 @@ public interface TopicConvention {
   String getFailedMetadataChangeEventTopicName();
 
   /**
+   * The name of the generic metadata change event kafka topic.
+   */
+  @Nonnull
+  String getGenericMetadataChangeEventTopicName();
+
+  /**
+   * The name of the generic metadata audit event kafka topic.
+   */
+  @Nonnull
+  String getGenericMetadataAuditEventTopicName();
+
+  /**
+   * The name of the generic failed metadata change event kafka topic.
+   */
+  @Nonnull
+  String getGenericFailedMetadataChangeEventTopicName();
+
+  /**
    * Returns the name of the metadata change event (v5) kafka topic.
    *
    * @param urn the urn of the entity being updated

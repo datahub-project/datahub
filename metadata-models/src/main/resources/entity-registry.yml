@@ -1,0 +1,5 @@
+entities:
+  - name: dataset
+    keyAspect: datasetKey
+    aspects:
+      - datasetProfile

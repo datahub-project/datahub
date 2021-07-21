@@ -2,11 +2,13 @@ package com.linkedin.metadata.resources.entity;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
@@ -15,7 +17,10 @@ import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
+import com.linkedin.mxe.GenericMetadataChangeEvent;
 import com.linkedin.parseq.Task;
+import com.linkedin.pegasus2avro.common.Ownership;
+import com.linkedin.restli.internal.server.util.DataMapUtils;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
@@ -36,6 +41,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Schema;
 
 import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
@@ -67,6 +73,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
   private static final String PARAM_VALUE = "value";
+  private static final String ACTION_ASPECT_INGEST = "aspectIngest";
+  private static final String PARAM_GENERIC_CHANGE_EVENT = "genericChangeEvent";
 
   private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
   private final Clock _clock = Clock.systemUTC();
@@ -78,6 +86,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("searchService")
   private SearchService _searchService;
+
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -136,6 +145,19 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
     return RestliUtils.toTask(() -> {
       _entityService.ingestEntity(entity, auditStamp);
+      return null;
+    });
+  }
+
+  @Action(name = ACTION_ASPECT_INGEST)
+  @Nonnull
+  public Task<Void> ingestAspect(@ActionParam(PARAM_GENERIC_CHANGE_EVENT) @Nonnull GenericMetadataChangeEvent metadataChangeEvent) throws URISyntaxException
+  {
+    final AuditStamp auditStamp =
+            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+    return RestliUtils.toTask(() -> {
+      log.warn(metadataChangeEvent.toString());
+      _entityService.ingestGenericAspect(metadataChangeEvent, auditStamp);
       return null;
     });
   }

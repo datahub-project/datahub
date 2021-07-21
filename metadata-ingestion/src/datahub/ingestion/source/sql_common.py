@@ -96,15 +96,18 @@ class SQLAlchemyConfig(ConfigModel):
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     include_views: Optional[bool] = True
     include_tables: Optional[bool] = True
+    profile_tables: Optional[bool] = False
 
     @abstractmethod
     def get_sql_alchemy_url(self):
         pass
 
     def get_identifier(self, schema: str, table: str) -> str:
+        # TODO: move this to the source itself
         return f"{schema}.{table}"
 
     def standardize_schema_table_names(

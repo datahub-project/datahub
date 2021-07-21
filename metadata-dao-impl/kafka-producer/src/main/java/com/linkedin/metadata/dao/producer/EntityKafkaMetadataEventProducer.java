@@ -2,13 +2,20 @@ package com.linkedin.metadata.dao.producer;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.util.AspectDeserializationUtil;
 import com.linkedin.mxe.Configs;
+import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.GenericMetadataAuditEvent;
+import com.linkedin.mxe.GenericMetadataChangeEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
@@ -93,6 +100,53 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
           _callback.get());
     } else {
       _producer.send(new ProducerRecord(_topicConvention.getMetadataAuditEventTopicName(), urn.toString(), record));
+    }
+  }
+
+  @Override
+  public void produceGenericMetadataAuditEvent(
+      @Nonnull final Urn urn,
+      @Nonnull final String entityName,
+      @Nonnull final ChangeType changeType,
+      @Nullable final String aspectName,
+      @Nullable final RecordTemplate oldAspect,
+      @Nullable final RecordTemplate newAspect) {
+
+    final GenericMetadataAuditEvent metadataAuditEvent = new GenericMetadataAuditEvent();
+    metadataAuditEvent.setEntityType(entityName);
+    metadataAuditEvent.setEntityKey(GenericMetadataChangeEvent.EntityKey.create(urn));
+    metadataAuditEvent.setChangeType(changeType);
+    if (aspectName != null) {
+      metadataAuditEvent.setAspectName(aspectName);
+    }
+    if(oldAspect != null) {
+      GenericAspect oldGenericAspect = new GenericAspect();
+      oldGenericAspect.setValue(ByteString.copy(RecordUtils.toJsonString(oldAspect).getBytes()));
+      oldGenericAspect.setContentType(AspectDeserializationUtil.JSON);
+      metadataAuditEvent.setPreviousAspectValue(oldGenericAspect);
+    }
+    if(newAspect != null) {
+      GenericAspect newGenericAspect = new GenericAspect();
+      newGenericAspect.setValue(ByteString.copy(RecordUtils.toJsonString(newAspect).getBytes()));
+      newGenericAspect.setContentType(AspectDeserializationUtil.JSON);
+      metadataAuditEvent.setAspect(newGenericAspect);
+    }
+
+    GenericRecord record;
+    try {
+      log.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn),
+          metadataAuditEvent.toString()));
+      record = EventUtils.pegasusToAvroGenericMAE(metadataAuditEvent);
+    } catch (IOException e) {
+      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()));
+      throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
+    }
+
+    if (_callback.isPresent()) {
+      _producer.send(new ProducerRecord(_topicConvention.getGenericMetadataAuditEventTopicName(), urn.toString(), record),
+          _callback.get());
+    } else {
+      _producer.send(new ProducerRecord(_topicConvention.getGenericMetadataAuditEventTopicName(), urn.toString(), record));
     }
   }
 

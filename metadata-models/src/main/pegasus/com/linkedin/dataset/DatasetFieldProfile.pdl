@@ -1,0 +1,39 @@
+namespace com.linkedin.dataset
+
+/**
+ * Stats corresponding to fields in a dataset
+ */
+record DatasetFieldProfile {
+	fieldPath: string
+
+	@TemporalStat = {}
+	uniqueCount: optional long
+
+	@TemporalStat = {}
+	uniqueProportion: optional float
+
+	@TemporalStat = {}
+	nullCount: optional long
+
+	@TemporalStat = {}
+	nullProportion: optional float
+
+	// maybe int/long - need to figure that out for all of these
+	@TemporalStat = {}
+	min: optional float
+
+	@TemporalStat = {}
+	max: optional float
+
+	@TemporalStat = {}
+	mean: optional float
+
+	@TemporalStat = {}
+	median: optional float
+
+	@TemporalStat = {}
+	stdev: optional float
+
+	@TemporalStat = {}
+	partial_example_values: optional array[string]
+}

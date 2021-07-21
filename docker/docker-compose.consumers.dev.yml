@@ -9,6 +9,7 @@ services:
         APP_ENV: dev
     volumes:
       - ./datahub-mae-consumer/start.sh:/datahub/datahub-mae-consumer/scripts/start.sh
+      - ../metadata-models/src/main/resources/:/datahub/datahub-mae-consumer/resources
       - ../metadata-jobs/mae-consumer-job/build/libs/:/datahub/datahub-mae-consumer/bin/
 
   datahub-mce-consumer:

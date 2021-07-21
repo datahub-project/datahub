@@ -4,9 +4,11 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
@@ -17,6 +19,7 @@ import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.GenericMetadataChangeEvent;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
@@ -27,7 +30,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.PegasusUtils.*;
+import static com.linkedin.metadata.PegasusUtils.getDataTemplateClassFromSchema;
+import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -175,8 +179,7 @@ public abstract class EntityService {
    * Default implementations. Subclasses should feel free to override if it's more efficient to do so.
    */
   public Entity getEntity(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
-    return getEntities(Collections.singleton(urn), aspectNames).entrySet().stream()
-        .map(Map.Entry::getValue)
+    return getEntities(Collections.singleton(urn), aspectNames).values().stream()
         .findFirst()
         .orElse(null);
   }
@@ -219,6 +222,27 @@ public abstract class EntityService {
     if (_emitAspectSpecificAuditEvent) {
       _producer.produceAspectSpecificMetadataAuditEvent(urn, oldAspectValue, newAspectValue);
     }
+  }
+
+  /**
+   * Produces a {@link com.linkedin.mxe.GenericMetadataAuditEvent} from a
+   * new & previous aspect.
+   *
+   * @param urn the urn associated with the entity changed
+   * @param entityName name of the entity
+   * @param changeType type of change that is being applied
+   * @param aspectName name of the aspect
+   * @param oldAspect a {@link RecordTemplate} corresponding to the old aspect.
+   * @param newAspect a {@link RecordTemplate} corresponding to the new aspect.
+   */
+  public void produceGenericMetadataAuditEvent(
+      @Nonnull final Urn urn,
+      @Nonnull final String entityName,
+      @Nonnull final ChangeType changeType,
+      @Nullable final String aspectName,
+      @Nullable final RecordTemplate oldAspect,
+      @Nullable final RecordTemplate newAspect) {
+    _producer.produceGenericMetadataAuditEvent(urn, entityName, changeType, aspectName, oldAspect, newAspect);
   }
 
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {
@@ -317,6 +341,12 @@ public abstract class EntityService {
       @Nonnull final Urn urn,
       @Nonnull final RecordTemplate aspectRecord) {
     final EntitySpec entitySpec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
+    final TyperefDataSchema aspectSchema = entitySpec.getAspectTyperefSchema();
+    if (aspectSchema == null) {
+      throw new RuntimeException(
+          String.format("Aspect schema for %s is null: v4 operation is not supported on this entity registry",
+              entitySpec.getName()));
+    }
     return com.linkedin.metadata.dao.utils.ModelUtils.newAspectUnion(
         getDataTemplateClassFromSchema(entitySpec.getAspectTyperefSchema(), UnionTemplate.class),
         aspectRecord
@@ -334,7 +364,7 @@ public abstract class EntityService {
 
   private Map<String, Set<String>> buildEntityToValidAspects(final EntityRegistry entityRegistry) {
     return entityRegistry.getEntitySpecs()
-        .stream()
+            .values().stream()
         .collect(Collectors.toMap(EntitySpec::getName,
             entry -> entry.getAspectSpecs().stream()
                 .map(AspectSpec::getName)
@@ -363,4 +393,6 @@ public abstract class EntityService {
   }
 
   public abstract void setWritable(boolean canWrite);
+
+  public abstract void ingestGenericAspect(GenericMetadataChangeEvent metadataChangeEvent, AuditStamp auditStamp);
 }

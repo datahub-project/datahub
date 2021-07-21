@@ -1,7 +1,9 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.EntitiesDoAspectIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
+import com.linkedin.mxe.GenericMetadataChangeEvent;
 import com.linkedin.restli.client.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -212,6 +214,14 @@ public class EntityClient {
         final Request request = builder.build();
 
         sendClientRequest(request);
+    }
+
+    public void ingestAspect(@Nonnull final GenericMetadataChangeEvent genericMetadataChangeEvent)
+        throws RemoteInvocationException {
+        final EntitiesDoAspectIngestRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionAspectIngest()
+            .genericChangeEventParam(genericMetadataChangeEvent);
+
+        sendClientRequest(requestBuilder.build());
     }
 
     /**

@@ -5,20 +5,29 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.ByteString;
 import com.linkedin.data.template.DataTemplateUtil;
+import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataset.DatasetProfile;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.Aspect;
-import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
+import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.GenericAspect;
+import com.linkedin.mxe.GenericMetadataChangeEvent;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
 import io.ebean.config.ServerConfig;
@@ -32,8 +41,13 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 
 public class EbeanEntityServiceTest {
@@ -43,6 +57,11 @@ public class EbeanEntityServiceTest {
   private EbeanAspectDao _aspectDao;
   private EbeanServer _server;
   private EntityEventProducer _mockProducer;
+  private final EntityRegistry _snapshotEntityRegistry = new TestEntityRegistry();
+  private final EntityRegistry _configEntityRegistry =
+      new ConfigEntityRegistry(Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+  private final EntityRegistry _testEntityRegistry =
+      new MergedEntityRegistry(_snapshotEntityRegistry, _configEntityRegistry);
 
   @BeforeMethod
   public void setupTest() {
@@ -53,7 +72,7 @@ public class EbeanEntityServiceTest {
     _entityService = new EbeanEntityService(
         _aspectDao,
         _mockProducer,
-        new TestEntityRegistry());
+        _testEntityRegistry);
   }
 
   @Test
@@ -214,6 +233,28 @@ public class EbeanEntityServiceTest {
     ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 2, 2);
     assertEquals(1, batch2.getValues().size());
     assertTrue(DataTemplateUtil.areEqual(writeAspect3,  batch2.getValues().get(0)));
+  }
+
+  @Test
+  public void testIngestTemporalAspect() throws Exception {
+    Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+    DatasetProfile datasetProfile = new DatasetProfile();
+    datasetProfile.setRowCount(1000);
+    datasetProfile.setColumnCount(15);
+    GenericMetadataChangeEvent gmce = new GenericMetadataChangeEvent();
+    GenericMetadataChangeEvent.EntityKey entityKey = new GenericMetadataChangeEvent.EntityKey();
+    entityKey.setUrn(entityUrn);
+    gmce.setEntityKey(entityKey);
+    gmce.setChangeType(ChangeType.CREATE);
+    gmce.setEntityType("dataset");
+    gmce.setAspectName("datasetProfile");
+    JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
+    byte[] datasetProfileSerialized = _dataTemplateCodec.dataTemplateToBytes(datasetProfile);
+    GenericAspect genericAspect = new GenericAspect();
+    genericAspect.setValue(ByteString.unsafeWrap(datasetProfileSerialized));
+    genericAspect.setContentType("application/json");
+    gmce.setAspect(genericAspect);
+    _entityService.ingestGenericAspect(gmce, TEST_AUDIT_STAMP);
   }
 
   @Test

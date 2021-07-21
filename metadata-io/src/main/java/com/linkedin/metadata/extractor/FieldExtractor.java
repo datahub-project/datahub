@@ -76,4 +76,48 @@ public class FieldExtractor {
         .forEach(spec -> fieldSpecToValues.put(spec, ImmutableList.of()));
     return fieldSpecToValues;
   }
+
+  // Extract the value of each field in the field specs from the input record
+  public static <T extends FieldSpec> Map<T, Object> extractFields(RecordTemplate record, List<T> fieldSpecs) {
+    final ObjectIterator iterator = new ObjectIterator(record.data(), record.schema(), IterationOrder.PRE_ORDER);
+    final Map<T, Object> extractedFields = new HashMap<>();
+    for (DataElement dataElement = iterator.next(); dataElement != null; dataElement = iterator.next()) {
+      final PathSpec pathSpec = dataElement.getSchemaPathSpec();
+      Optional<T> matchingSpec = fieldSpecs.stream().filter(spec -> spec.getPath().equals(pathSpec)).findFirst();
+      if (matchingSpec.isPresent()) {
+        extractedFields.put(matchingSpec.get(), dataElement.getValue());
+      }
+    }
+    return extractedFields;
+  }
+
+  // Extract the value of each field in the field specs from the input record
+  public static <T extends FieldSpec> Map<T, List<Object>> extractFieldArrays(RecordTemplate record,
+      List<T> fieldSpecs) {
+    final ObjectIterator iterator = new ObjectIterator(record.data(), record.schema(), IterationOrder.PRE_ORDER);
+    final Map<T, List<Object>> extractedFieldArrays = new HashMap<>();
+    for (DataElement dataElement = iterator.next(); dataElement != null; dataElement = iterator.next()) {
+      final PathSpec pathSpec = dataElement.getSchemaPathSpec();
+      Optional<T> matchingSpec = fieldSpecs.stream().filter(spec -> spec.getPath().equals(pathSpec)).findFirst();
+      if (matchingSpec.isPresent()) {
+        List<Object> matchingSpecValues =
+            extractedFieldArrays.computeIfAbsent(matchingSpec.get(), (key) -> new ArrayList<>());
+        matchingSpecValues.add(dataElement.getValue());
+        extractedFieldArrays.put(matchingSpec.get(), matchingSpecValues);
+      }
+    }
+    return extractedFieldArrays;
+  }
+
+  // Extract the value of the field that matches the input path from the input record
+  public static Optional<Object> extractField(RecordTemplate record, PathSpec path) {
+    final ObjectIterator iterator = new ObjectIterator(record.data(), record.schema(), IterationOrder.PRE_ORDER);
+    for (DataElement dataElement = iterator.next(); dataElement != null; dataElement = iterator.next()) {
+      final PathSpec elementPath = dataElement.getSchemaPathSpec();
+      if (path.equals(elementPath)) {
+        return Optional.of(dataElement.getValue());
+      }
+    }
+    return Optional.empty();
+  }
 }

@@ -3,14 +3,22 @@ package com.linkedin.metadata.entity.ebean;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DataTemplateUtil;
+import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntityKeyUtils;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.util.AspectDeserializationUtil;
+import com.linkedin.mxe.GenericMetadataChangeEvent;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,6 +49,8 @@ public class EbeanEntityService extends EntityService {
   private final EbeanAspectDao _entityDao;
 
   private Boolean _alwaysEmitAuditEvent = false;
+  private JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
+
 
   public EbeanEntityService(
       @Nonnull final EbeanAspectDao entityDao,
@@ -190,7 +200,7 @@ public class EbeanEntityService extends EntityService {
       @Nonnull final String aspectName,
       @Nonnull final RecordTemplate newValue,
       @Nonnull final AuditStamp auditStamp) {
-    log.debug(String.format("Invoked ingestAspect with urn: %s, aspectName: %s, newValue: %s", urn, aspectName, newValue));
+    log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
     return ingestAspect(urn, aspectName, ignored -> newValue, auditStamp, DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
@@ -334,5 +344,68 @@ public class EbeanEntityService extends EntityService {
   public void setWritable(boolean canWrite) {
     log.debug("Enabling writes");
     _entityDao.setWritable(canWrite);
+  }
+
+  @Override
+  public void ingestGenericAspect(GenericMetadataChangeEvent metadataChangeEvent, AuditStamp auditStamp) {
+    log.debug("entity type = {}", metadataChangeEvent.getEntityType());
+    EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeEvent.getEntityType());
+    log.debug("entity spec = {}", entitySpec);
+
+    if (metadataChangeEvent.getEntityKey().isGenericAspect()) {
+      log.error("Key as struct is not yet supported");
+      return;
+    }
+
+    // Validate Key
+    try {
+      if (metadataChangeEvent.getEntityKey().isUrn()) {
+        RecordTemplate entityKey = EntityKeyUtils.convertUrnToEntityKey(metadataChangeEvent.getEntityKey().getUrn(),
+            entitySpec.getKeyAspectSpec().getPegasusSchema());
+      }
+    } catch (RuntimeException re) {
+      log.warn("Failed to validate key {}", metadataChangeEvent.getEntityKey().getUrn());
+      throw new RuntimeException("Failed to validate key", re);
+    }
+
+    if (metadataChangeEvent.getChangeType() == ChangeType.DELETE) {
+      log.error("Delete operation is not yet supported");
+      return;
+    }
+
+    if (!metadataChangeEvent.hasAspectName() || !metadataChangeEvent.hasAspect()) {
+      log.error("Aspect and aspect name is required for create and update operations");
+      return;
+    }
+
+    Urn entityUrn = metadataChangeEvent.getEntityKey().getUrn();
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(metadataChangeEvent.getAspectName());
+
+    if (aspectSpec == null) {
+      log.error("Unknown aspect {} for entity {}", metadataChangeEvent.getAspectName(),
+          metadataChangeEvent.getEntityType());
+      return;
+    }
+    log.debug("aspect spec = {}", aspectSpec);
+
+    if (!aspectSpec.isTemporal()) {
+      log.error("Non-temporal aspects are not yet supported");
+      return;
+    }
+
+    RecordTemplate aspect;
+    try {
+      aspect = AspectDeserializationUtil.deserializeAspect(metadataChangeEvent.getAspect().getValue(),
+          metadataChangeEvent.getAspect().getContentType(), aspectSpec);
+    } catch (ModelConversionException e) {
+      log.error("Could not deserialize {} for aspect {}", metadataChangeEvent.getAspect().getValue(),
+          metadataChangeEvent.getAspectName());
+      return;
+    }
+    log.debug("aspect = {}", aspect);
+
+    // Since only temporal aspect are ingested as of now, simply produce mae event for it
+    produceGenericMetadataAuditEvent(entityUrn, metadataChangeEvent.getEntityType(),
+        metadataChangeEvent.getChangeType(), metadataChangeEvent.getAspectName(), null, aspect);
   }
 }

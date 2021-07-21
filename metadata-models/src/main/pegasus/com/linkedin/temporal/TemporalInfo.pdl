@@ -1,0 +1,18 @@
+namespace com.linkedin.temporal
+
+record TemporalInfo {
+  /**
+   * The event timestamp field as epoch at UTC in milli seconds.
+   */
+  eventTimestampMillis: long
+
+  /**
+   * Granularity of the event if applicable
+   */
+  eventGranularityMillis: optional long
+
+  /**
+   * The optional partition specification.
+   */
+  partitionSpec: optional PartitionSpec
+}

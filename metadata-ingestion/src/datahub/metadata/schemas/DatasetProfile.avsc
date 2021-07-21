@@ -1,0 +1,215 @@
+{
+  "type": "record",
+  "name": "DatasetProfile",
+  "namespace": "com.linkedin.pegasus2avro.dataset",
+  "doc": "Stats corresponding to datasets",
+  "fields": [
+    {
+      "name": "temporalInfo",
+      "type": {
+        "type": "record",
+        "name": "TemporalInfo",
+        "namespace": "com.linkedin.pegasus2avro.temporal",
+        "fields": [
+          {
+            "name": "eventTimestampMillis",
+            "type": "long",
+            "doc": "The event timestamp field as epoch at UTC in milli seconds."
+          },
+          {
+            "name": "eventGranularityMillis",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "Granularity of the event if applicable",
+            "default": null
+          },
+          {
+            "name": "partitionSpec",
+            "type": [
+              "null",
+              {
+                "type": "record",
+                "name": "PartitionSpec",
+                "doc": "Defines how the data is partitioned",
+                "fields": [
+                  {
+                    "name": "partition",
+                    "type": "string",
+                    "doc": "String representation of the partition"
+                  },
+                  {
+                    "name": "timePartition",
+                    "type": [
+                      "null",
+                      {
+                        "type": "record",
+                        "name": "TimeWindow",
+                        "fields": [
+                          {
+                            "name": "startTimeMillis",
+                            "type": "long",
+                            "doc": "Start time as epoch at UTC."
+                          },
+                          {
+                            "name": "durationMillis",
+                            "type": "long",
+                            "doc": "End time as epoch at UTC."
+                          }
+                        ]
+                      }
+                    ],
+                    "doc": "Time window of the partition if applicable",
+                    "default": null
+                  }
+                ]
+              }
+            ],
+            "doc": "The optional partition specification.",
+            "default": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "rowCount",
+      "type": [
+        "null",
+        "long"
+      ],
+      "default": null,
+      "TemporalStat": {}
+    },
+    {
+      "name": "columnCount",
+      "type": [
+        "null",
+        "long"
+      ],
+      "default": null,
+      "TemporalStat": {}
+    },
+    {
+      "name": "fieldProfiles",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "DatasetFieldProfile",
+            "doc": "Stats corresponding to fields in a dataset",
+            "fields": [
+              {
+                "name": "fieldPath",
+                "type": "string"
+              },
+              {
+                "name": "uniqueCount",
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "default": null,
+                "TemporalStat": {}
+              },
+              {
+                "name": "uniqueProportion",
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "default": null,
+                "TemporalStat": {}
+              },
+              {
+                "name": "nullCount",
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "default": null,
+                "TemporalStat": {}
+              },
+              {
+                "name": "nullProportion",
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "default": null,
+                "TemporalStat": {}
+              },
+              {
+                "name": "min",
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "default": null,
+                "TemporalStat": {}
+              },
+              {
+                "name": "max",
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "default": null,
+                "TemporalStat": {}
+              },
+              {
+                "name": "mean",
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "default": null,
+                "TemporalStat": {}
+              },
+              {
+                "name": "median",
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "default": null,
+                "TemporalStat": {}
+              },
+              {
+                "name": "stdev",
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "default": null,
+                "TemporalStat": {}
+              },
+              {
+                "name": "partial_example_values",
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": "string"
+                  }
+                ],
+                "default": null,
+                "TemporalStat": {}
+              }
+            ]
+          }
+        }
+      ],
+      "default": null,
+      "TemporalStatCollection": {
+        "key": "fieldPath"
+      }
+    }
+  ],
+  "Aspect": {
+    "name": "datasetProfile",
+    "type": "temporal"
+  }
+}

@@ -2592,6 +2592,179 @@ class DatasetFieldMappingClass(DictWrapper):
         self._inner_dict['destinationField'] = value
     
     
+class DatasetFieldProfileClass(DictWrapper):
+    """Stats corresponding to fields in a dataset"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetFieldProfile")
+    def __init__(self,
+        fieldPath: str,
+        uniqueCount: Union[None, int]=None,
+        uniqueProportion: Union[None, float]=None,
+        nullCount: Union[None, int]=None,
+        nullProportion: Union[None, float]=None,
+        min: Union[None, float]=None,
+        max: Union[None, float]=None,
+        mean: Union[None, float]=None,
+        median: Union[None, float]=None,
+        stdev: Union[None, float]=None,
+        partial_example_values: Union[None, List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.fieldPath = fieldPath
+        self.uniqueCount = uniqueCount
+        self.uniqueProportion = uniqueProportion
+        self.nullCount = nullCount
+        self.nullProportion = nullProportion
+        self.min = min
+        self.max = max
+        self.mean = mean
+        self.median = median
+        self.stdev = stdev
+        self.partial_example_values = partial_example_values
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "DatasetFieldProfileClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.fieldPath = str()
+        self.uniqueCount = self.RECORD_SCHEMA.field_map["uniqueCount"].default
+        self.uniqueProportion = self.RECORD_SCHEMA.field_map["uniqueProportion"].default
+        self.nullCount = self.RECORD_SCHEMA.field_map["nullCount"].default
+        self.nullProportion = self.RECORD_SCHEMA.field_map["nullProportion"].default
+        self.min = self.RECORD_SCHEMA.field_map["min"].default
+        self.max = self.RECORD_SCHEMA.field_map["max"].default
+        self.mean = self.RECORD_SCHEMA.field_map["mean"].default
+        self.median = self.RECORD_SCHEMA.field_map["median"].default
+        self.stdev = self.RECORD_SCHEMA.field_map["stdev"].default
+        self.partial_example_values = self.RECORD_SCHEMA.field_map["partial_example_values"].default
+    
+    
+    @property
+    def fieldPath(self) -> str:
+        # No docs available.
+        return self._inner_dict.get('fieldPath')  # type: ignore
+    
+    @fieldPath.setter
+    def fieldPath(self, value: str) -> None:
+        # No docs available.
+        self._inner_dict['fieldPath'] = value
+    
+    
+    @property
+    def uniqueCount(self) -> Union[None, int]:
+        # No docs available.
+        return self._inner_dict.get('uniqueCount')  # type: ignore
+    
+    @uniqueCount.setter
+    def uniqueCount(self, value: Union[None, int]) -> None:
+        # No docs available.
+        self._inner_dict['uniqueCount'] = value
+    
+    
+    @property
+    def uniqueProportion(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('uniqueProportion')  # type: ignore
+    
+    @uniqueProportion.setter
+    def uniqueProportion(self, value: Union[None, float]) -> None:
+        # No docs available.
+        self._inner_dict['uniqueProportion'] = value
+    
+    
+    @property
+    def nullCount(self) -> Union[None, int]:
+        # No docs available.
+        return self._inner_dict.get('nullCount')  # type: ignore
+    
+    @nullCount.setter
+    def nullCount(self, value: Union[None, int]) -> None:
+        # No docs available.
+        self._inner_dict['nullCount'] = value
+    
+    
+    @property
+    def nullProportion(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('nullProportion')  # type: ignore
+    
+    @nullProportion.setter
+    def nullProportion(self, value: Union[None, float]) -> None:
+        # No docs available.
+        self._inner_dict['nullProportion'] = value
+    
+    
+    @property
+    def min(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('min')  # type: ignore
+    
+    @min.setter
+    def min(self, value: Union[None, float]) -> None:
+        # No docs available.
+        self._inner_dict['min'] = value
+    
+    
+    @property
+    def max(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('max')  # type: ignore
+    
+    @max.setter
+    def max(self, value: Union[None, float]) -> None:
+        # No docs available.
+        self._inner_dict['max'] = value
+    
+    
+    @property
+    def mean(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('mean')  # type: ignore
+    
+    @mean.setter
+    def mean(self, value: Union[None, float]) -> None:
+        # No docs available.
+        self._inner_dict['mean'] = value
+    
+    
+    @property
+    def median(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('median')  # type: ignore
+    
+    @median.setter
+    def median(self, value: Union[None, float]) -> None:
+        # No docs available.
+        self._inner_dict['median'] = value
+    
+    
+    @property
+    def stdev(self) -> Union[None, float]:
+        # No docs available.
+        return self._inner_dict.get('stdev')  # type: ignore
+    
+    @stdev.setter
+    def stdev(self, value: Union[None, float]) -> None:
+        # No docs available.
+        self._inner_dict['stdev'] = value
+    
+    
+    @property
+    def partial_example_values(self) -> Union[None, List[str]]:
+        # No docs available.
+        return self._inner_dict.get('partial_example_values')  # type: ignore
+    
+    @partial_example_values.setter
+    def partial_example_values(self, value: Union[None, List[str]]) -> None:
+        # No docs available.
+        self._inner_dict['partial_example_values'] = value
+    
+    
 class DatasetLineageTypeClass(object):
     """The various types of supported dataset lineage"""
     
@@ -2604,6 +2777,81 @@ class DatasetLineageTypeClass(object):
     
     """Represents a view defined on the sources e.g. Hive view defined on underlying hive tables or a Hive table pointing to a HDFS dataset or DALI view defined on multiple sources"""
     VIEW = "VIEW"
+    
+    
+class DatasetProfileClass(DictWrapper):
+    """Stats corresponding to datasets"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetProfile")
+    def __init__(self,
+        temporalInfo: "TemporalInfoClass",
+        rowCount: Union[None, int]=None,
+        columnCount: Union[None, int]=None,
+        fieldProfiles: Union[None, List["DatasetFieldProfileClass"]]=None,
+    ):
+        super().__init__()
+        
+        self.temporalInfo = temporalInfo
+        self.rowCount = rowCount
+        self.columnCount = columnCount
+        self.fieldProfiles = fieldProfiles
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "DatasetProfileClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.temporalInfo = TemporalInfoClass.construct_with_defaults()
+        self.rowCount = self.RECORD_SCHEMA.field_map["rowCount"].default
+        self.columnCount = self.RECORD_SCHEMA.field_map["columnCount"].default
+        self.fieldProfiles = self.RECORD_SCHEMA.field_map["fieldProfiles"].default
+    
+    
+    @property
+    def temporalInfo(self) -> "TemporalInfoClass":
+        # No docs available.
+        return self._inner_dict.get('temporalInfo')  # type: ignore
+    
+    @temporalInfo.setter
+    def temporalInfo(self, value: "TemporalInfoClass") -> None:
+        # No docs available.
+        self._inner_dict['temporalInfo'] = value
+    
+    
+    @property
+    def rowCount(self) -> Union[None, int]:
+        # No docs available.
+        return self._inner_dict.get('rowCount')  # type: ignore
+    
+    @rowCount.setter
+    def rowCount(self, value: Union[None, int]) -> None:
+        # No docs available.
+        self._inner_dict['rowCount'] = value
+    
+    
+    @property
+    def columnCount(self) -> Union[None, int]:
+        # No docs available.
+        return self._inner_dict.get('columnCount')  # type: ignore
+    
+    @columnCount.setter
+    def columnCount(self, value: Union[None, int]) -> None:
+        # No docs available.
+        self._inner_dict['columnCount'] = value
+    
+    
+    @property
+    def fieldProfiles(self) -> Union[None, List["DatasetFieldProfileClass"]]:
+        # No docs available.
+        return self._inner_dict.get('fieldProfiles')  # type: ignore
+    
+    @fieldProfiles.setter
+    def fieldProfiles(self, value: Union[None, List["DatasetFieldProfileClass"]]) -> None:
+        # No docs available.
+        self._inner_dict['fieldProfiles'] = value
     
     
 class DatasetPropertiesClass(DictWrapper):
@@ -7931,6 +8179,161 @@ class TagPropertiesClass(DictWrapper):
         self._inner_dict['description'] = value
     
     
+class PartitionSpecClass(DictWrapper):
+    """Defines how the data is partitioned"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.temporal.PartitionSpec")
+    def __init__(self,
+        partition: str,
+        timePartition: Union[None, "TimeWindowClass"]=None,
+    ):
+        super().__init__()
+        
+        self.partition = partition
+        self.timePartition = timePartition
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "PartitionSpecClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.partition = str()
+        self.timePartition = self.RECORD_SCHEMA.field_map["timePartition"].default
+    
+    
+    @property
+    def partition(self) -> str:
+        """Getter: String representation of the partition"""
+        return self._inner_dict.get('partition')  # type: ignore
+    
+    @partition.setter
+    def partition(self, value: str) -> None:
+        """Setter: String representation of the partition"""
+        self._inner_dict['partition'] = value
+    
+    
+    @property
+    def timePartition(self) -> Union[None, "TimeWindowClass"]:
+        """Getter: Time window of the partition if applicable"""
+        return self._inner_dict.get('timePartition')  # type: ignore
+    
+    @timePartition.setter
+    def timePartition(self, value: Union[None, "TimeWindowClass"]) -> None:
+        """Setter: Time window of the partition if applicable"""
+        self._inner_dict['timePartition'] = value
+    
+    
+class TemporalInfoClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.temporal.TemporalInfo")
+    def __init__(self,
+        eventTimestampMillis: int,
+        eventGranularityMillis: Union[None, int]=None,
+        partitionSpec: Union[None, "PartitionSpecClass"]=None,
+    ):
+        super().__init__()
+        
+        self.eventTimestampMillis = eventTimestampMillis
+        self.eventGranularityMillis = eventGranularityMillis
+        self.partitionSpec = partitionSpec
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "TemporalInfoClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.eventTimestampMillis = int()
+        self.eventGranularityMillis = self.RECORD_SCHEMA.field_map["eventGranularityMillis"].default
+        self.partitionSpec = self.RECORD_SCHEMA.field_map["partitionSpec"].default
+    
+    
+    @property
+    def eventTimestampMillis(self) -> int:
+        """Getter: The event timestamp field as epoch at UTC in milli seconds."""
+        return self._inner_dict.get('eventTimestampMillis')  # type: ignore
+    
+    @eventTimestampMillis.setter
+    def eventTimestampMillis(self, value: int) -> None:
+        """Setter: The event timestamp field as epoch at UTC in milli seconds."""
+        self._inner_dict['eventTimestampMillis'] = value
+    
+    
+    @property
+    def eventGranularityMillis(self) -> Union[None, int]:
+        """Getter: Granularity of the event if applicable"""
+        return self._inner_dict.get('eventGranularityMillis')  # type: ignore
+    
+    @eventGranularityMillis.setter
+    def eventGranularityMillis(self, value: Union[None, int]) -> None:
+        """Setter: Granularity of the event if applicable"""
+        self._inner_dict['eventGranularityMillis'] = value
+    
+    
+    @property
+    def partitionSpec(self) -> Union[None, "PartitionSpecClass"]:
+        """Getter: The optional partition specification."""
+        return self._inner_dict.get('partitionSpec')  # type: ignore
+    
+    @partitionSpec.setter
+    def partitionSpec(self, value: Union[None, "PartitionSpecClass"]) -> None:
+        """Setter: The optional partition specification."""
+        self._inner_dict['partitionSpec'] = value
+    
+    
+class TimeWindowClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.temporal.TimeWindow")
+    def __init__(self,
+        startTimeMillis: int,
+        durationMillis: int,
+    ):
+        super().__init__()
+        
+        self.startTimeMillis = startTimeMillis
+        self.durationMillis = durationMillis
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "TimeWindowClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.startTimeMillis = int()
+        self.durationMillis = int()
+    
+    
+    @property
+    def startTimeMillis(self) -> int:
+        """Getter: Start time as epoch at UTC."""
+        return self._inner_dict.get('startTimeMillis')  # type: ignore
+    
+    @startTimeMillis.setter
+    def startTimeMillis(self, value: int) -> None:
+        """Setter: Start time as epoch at UTC."""
+        self._inner_dict['startTimeMillis'] = value
+    
+    
+    @property
+    def durationMillis(self) -> int:
+        """Getter: End time as epoch at UTC."""
+        return self._inner_dict.get('durationMillis')  # type: ignore
+    
+    @durationMillis.setter
+    def durationMillis(self, value: int) -> None:
+        """Setter: End time as epoch at UTC."""
+        self._inner_dict['durationMillis'] = value
+    
+    
 class FieldUsageCountsClass(DictWrapper):
     """ Records field-level usage counts for a given resource """
     
@@ -8252,7 +8655,9 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataprocess.DataProcessInfo': DataProcessInfoClass,
     'com.linkedin.pegasus2avro.dataset.DatasetDeprecation': DatasetDeprecationClass,
     'com.linkedin.pegasus2avro.dataset.DatasetFieldMapping': DatasetFieldMappingClass,
+    'com.linkedin.pegasus2avro.dataset.DatasetFieldProfile': DatasetFieldProfileClass,
     'com.linkedin.pegasus2avro.dataset.DatasetLineageType': DatasetLineageTypeClass,
+    'com.linkedin.pegasus2avro.dataset.DatasetProfile': DatasetProfileClass,
     'com.linkedin.pegasus2avro.dataset.DatasetProperties': DatasetPropertiesClass,
     'com.linkedin.pegasus2avro.dataset.DatasetUpstreamLineage': DatasetUpstreamLineageClass,
     'com.linkedin.pegasus2avro.dataset.EditableDatasetProperties': EditableDatasetPropertiesClass,
@@ -8355,6 +8760,9 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.schema.UnionType': UnionTypeClass,
     'com.linkedin.pegasus2avro.schema.UrnForeignKey': UrnForeignKeyClass,
     'com.linkedin.pegasus2avro.tag.TagProperties': TagPropertiesClass,
+    'com.linkedin.pegasus2avro.temporal.PartitionSpec': PartitionSpecClass,
+    'com.linkedin.pegasus2avro.temporal.TemporalInfo': TemporalInfoClass,
+    'com.linkedin.pegasus2avro.temporal.TimeWindow': TimeWindowClass,
     'com.linkedin.pegasus2avro.usage.FieldUsageCounts': FieldUsageCountsClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregation': UsageAggregationClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregationMetrics': UsageAggregationMetricsClass,
@@ -8406,7 +8814,9 @@ __SCHEMA_TYPES = {
     'DataProcessInfo': DataProcessInfoClass,
     'DatasetDeprecation': DatasetDeprecationClass,
     'DatasetFieldMapping': DatasetFieldMappingClass,
+    'DatasetFieldProfile': DatasetFieldProfileClass,
     'DatasetLineageType': DatasetLineageTypeClass,
+    'DatasetProfile': DatasetProfileClass,
     'DatasetProperties': DatasetPropertiesClass,
     'DatasetUpstreamLineage': DatasetUpstreamLineageClass,
     'EditableDatasetProperties': EditableDatasetPropertiesClass,
@@ -8509,6 +8919,9 @@ __SCHEMA_TYPES = {
     'UnionType': UnionTypeClass,
     'UrnForeignKey': UrnForeignKeyClass,
     'TagProperties': TagPropertiesClass,
+    'PartitionSpec': PartitionSpecClass,
+    'TemporalInfo': TemporalInfoClass,
+    'TimeWindow': TimeWindowClass,
     'FieldUsageCounts': FieldUsageCountsClass,
     'UsageAggregation': UsageAggregationClass,
     'UsageAggregationMetrics': UsageAggregationMetricsClass,

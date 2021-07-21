@@ -20,6 +20,7 @@ import com.linkedin.usage.UsageAggregation;
 import com.linkedin.usage.UsageAggregationMetrics;
 import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
+import java.util.Collections;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -85,8 +86,7 @@ public class ElasticUsageService implements UsageService {
         try {
             new IndexBuilder(elasticClient,
                     indexConvention.getIndexName(USAGE_STATS_BASE_INDEX_NAME),
-                    this.getMappings(),
-                    SettingsBuilder.getSettings()).buildIndex();
+                    this.getMappings(), Collections.emptyMap()).buildIndex();
         } catch (IOException e) {
             e.printStackTrace();
         }

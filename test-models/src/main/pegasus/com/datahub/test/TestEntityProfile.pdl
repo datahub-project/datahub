@@ -1,0 +1,35 @@
+namespace com.datahub.test
+
+import com.linkedin.temporal.TemporalAspectBase
+
+/**
+ * Profile of test entity (temporal aspect sample)
+ */
+@Aspect = {
+  "name": "testEntityProfile"
+  "type": "temporal"
+}
+record TestEntityProfile includes TemporalAspectBase {
+
+  @TemporalStat = {}
+  stat1: long
+
+  @TemporalStat = {
+    "name": "overrideStat2"
+  }
+  stat2: double
+
+  @TemporalStat = {}
+  strStat: string
+
+  @TemporalStatCollection = {
+    "key": "key"
+  }
+  componentProfiles: array[TestEntityComponentProfile]
+
+  @TemporalStatCollection = {
+    "name": "overrideComponentProfiles2"
+    "key": "key"
+  }
+  componentProfiles2: array[TestEntityComponentProfile]
+}

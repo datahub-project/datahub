@@ -1,0 +1,14 @@
+{
+  "genericChangeEvent": 
+   {
+      "entityType": "dataset",
+      "changeType": "CREATE",
+      "entityKey": {"string": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"},
+      "aspectName": "ownership",
+      "aspect": { 
+            "value": "{\"owners\":[{\"owner\":\"urn:li:corpuser:fbar\",\"type\":\"DATAOWNER\"}],\"lastModified\":{\"time\":0,\"actor\":\"urn:li:corpuser:fbar\"}}",
+            "contentType": "application/json"
+      }
+   }
+}
+

@@ -5,6 +5,7 @@ dependencies {
   compile project(':gms:impl')
   compile project(path: ':gms:api', configuration: 'restClient')
   compile project(':metadata-dao-impl:restli-dao')
+  compile project(':metadata-events:mxe-schemas')
 
   dataModel project(':li-utils')
 

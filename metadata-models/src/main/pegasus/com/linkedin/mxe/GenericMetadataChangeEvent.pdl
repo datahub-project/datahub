@@ -1,0 +1,46 @@
+namespace com.linkedin.mxe
+
+import com.linkedin.avro2pegasus.events.KafkaAuditHeader
+import com.linkedin.common.Urn
+import com.linkedin.events.metadata.ChangeType
+
+/**
+ * Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.
+ */
+record GenericMetadataChangeEvent {
+
+  /**
+   * Kafka audit header. See go/kafkaauditheader for more info.
+   */
+  auditHeader: optional KafkaAuditHeader
+
+  /**
+   * Type of the entity being written to
+   */
+  entityType: string
+
+  /**
+   * Urn or serialized key Aspect of the entity being written to
+   **/
+
+  entityKey: union [Urn, GenericAspect]
+
+  changeType: ChangeType
+
+  /**
+   * Aspect of the entity being written to
+   * Not filling this out implies that the writer wants to affect the entire entity
+   * Note: This is only valid for CREATE and DELETE operations.
+   **/
+  aspectName: optional string
+
+  aspect: optional GenericAspect
+
+  /**
+   * A string->string map of custom properties that one might want to attach to an event
+   **/
+
+  systemMetadata: optional map[string, string]
+
+
+}

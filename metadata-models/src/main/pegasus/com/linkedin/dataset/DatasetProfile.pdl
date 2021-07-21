@@ -1,0 +1,23 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.temporal.TemporalAspectBase
+
+/**
+ * Stats corresponding to datasets
+ */
+@Aspect = {
+  "name": "datasetProfile",
+	"type": "temporal",
+}
+record DatasetProfile includes TemporalAspectBase {
+	@TemporalStat = {}
+	rowCount: optional long
+
+	@TemporalStat = {}
+	columnCount: optional long  // not strictly necessary, but nice to have
+
+	@TemporalStatCollection = {
+		 "key": "fieldPath"
+  }
+	fieldProfiles: optional array[DatasetFieldProfile]
+}

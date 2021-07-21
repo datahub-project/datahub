@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.common;
 
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
+import com.linkedin.mxe.Topics;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,18 +17,28 @@ import org.springframework.context.annotation.Configuration;
 public class TopicConventionFactory {
   public static final String TOPIC_CONVENTION_BEAN = "metadataKafkaTopicConvention";
 
-  @Value("${METADATA_CHANGE_EVENT_NAME:" + TopicConventionImpl.DEFAULT_METADATA_CHANGE_EVENT_NAME + "}")
+  @Value("${METADATA_CHANGE_EVENT_NAME:" + Topics.METADATA_CHANGE_EVENT + "}")
   private String metadataChangeEventName;
 
-  @Value("${METADATA_AUDIT_EVENT_NAME:" + TopicConventionImpl.DEFAULT_METADATA_AUDIT_EVENT_NAME + "}")
+  @Value("${METADATA_AUDIT_EVENT_NAME:" + Topics.METADATA_AUDIT_EVENT + "}")
   private String metadataAuditEventName;
 
-  @Value("${FAILED_METADATA_CHANGE_EVENT_NAME:" + TopicConventionImpl.DEFAULT_FAILED_METADATA_CHANGE_EVENT_NAME + "}")
+  @Value("${FAILED_METADATA_CHANGE_EVENT_NAME:" + Topics.FAILED_METADATA_CHANGE_EVENT + "}")
   private String failedMetadataChangeEventName;
+
+  @Value("${GENERIC_METADATA_CHANGE_EVENT_NAME:" + Topics.GENERIC_METADATA_CHANGE_EVENT + "}")
+  private String genericMetadataChangeEventName;
+
+  @Value("${GENERIC_METADATA_AUDIT_EVENT_NAME:" + Topics.GENERIC_METADATA_AUDIT_EVENT + "}")
+  private String genericMetadataAuditEventName;
+
+  @Value("${GENERIC_FAILED_METADATA_CHANGE_EVENT_NAME:" + Topics.GENERIC_FAILED_METADATA_CHANGE_EVENT + "}")
+  private String genericFailedMetadataChangeEventName;
 
   @Bean(name = TOPIC_CONVENTION_BEAN)
   protected TopicConvention createInstance() {
     return new TopicConventionImpl(metadataChangeEventName, metadataAuditEventName, failedMetadataChangeEventName,
+        genericMetadataChangeEventName, genericMetadataAuditEventName, genericFailedMetadataChangeEventName,
         // TODO once we start rolling out v5 add support for changing the new event names.
         TopicConventionImpl.DEFAULT_EVENT_PATTERN);
   }
