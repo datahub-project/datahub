@@ -14,8 +14,8 @@
                 "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
               ],
-              "hasOffline": null,
-              "hasOnline": null
+              "hasOffline": true,
+              "hasOnline": true
             }
           }
         ]
@@ -38,8 +38,8 @@
                 "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
               ],
-              "hasOffline": null,
-              "hasOnline": null
+              "hasOffline": true,
+              "hasOnline": true
             }
           }
         ]
@@ -62,8 +62,8 @@
                 "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
               ],
-              "hasOffline": null,
-              "hasOnline": null
+              "hasOffline": true,
+              "hasOnline": true
             }
           }
         ]
@@ -118,8 +118,8 @@
               "dataType": "TEXT",
               "version": null,
               "sources": [],
-              "hasOffline": null,
-              "hasOnline": null
+              "hasOffline": true,
+              "hasOnline": true
             }
           }
         ]
@@ -139,8 +139,8 @@
               "dataType": "ORDINAL",
               "version": null,
               "sources": [],
-              "hasOffline": null,
-              "hasOnline": null
+              "hasOffline": true,
+              "hasOnline": true
             }
           }
         ]
@@ -160,8 +160,8 @@
               "dataType": "CONTINUOUS",
               "version": null,
               "sources": [],
-              "hasOffline": null,
-              "hasOnline": null
+              "hasOffline": true,
+              "hasOnline": true
             }
           }
         ]
@@ -181,8 +181,8 @@
               "dataType": "TEXT",
               "version": null,
               "sources": [],
-              "hasOffline": null,
-              "hasOnline": null
+              "hasOffline": true,
+              "hasOnline": true
             }
           }
         ]
@@ -238,8 +238,8 @@
               "dataType": "TEXT",
               "version": null,
               "sources": [],
-              "hasOffline": null,
-              "hasOnline": null
+              "hasOffline": true,
+              "hasOnline": true
             }
           }
         ]
@@ -259,8 +259,8 @@
               "dataType": "ORDINAL",
               "version": null,
               "sources": [],
-              "hasOffline": null,
-              "hasOnline": null
+              "hasOffline": true,
+              "hasOnline": true
             }
           }
         ]
@@ -280,8 +280,8 @@
               "dataType": "CONTINUOUS",
               "version": null,
               "sources": [],
-              "hasOffline": null,
-              "hasOnline": null
+              "hasOffline": true,
+              "hasOnline": true
             }
           }
         ]

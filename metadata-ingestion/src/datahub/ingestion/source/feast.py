@@ -123,7 +123,10 @@ class FeastSource(Source):
 
         entity_sources = []
 
-        if ingest_entity["batch_source"] is not None:
+        has_offline = ingest_entity["batch_source"] is not None
+        has_online = ingest_entity["stream_source"] is not None
+
+        if has_offline:
             entity_sources.append(
                 builder.make_dataset_urn(
                     ingest_entity["batch_source_platform"],
@@ -132,7 +135,7 @@ class FeastSource(Source):
                 )
             )
 
-        if ingest_entity["stream_source"] is not None:
+        if has_online:
             entity_sources.append(
                 builder.make_dataset_urn(
                     ingest_entity["stream_source_platform"],
@@ -149,6 +152,8 @@ class FeastSource(Source):
                     ingest_entity["type"], ingest_entity["name"]
                 ),
                 sources=entity_sources,
+                hasOffline=has_offline,
+                hasOnline=has_online,
             )
         )
 
@@ -178,7 +183,10 @@ class FeastSource(Source):
 
         feature_sources = []
 
-        if ingest_feature["batch_source"] is not None:
+        has_offline = ingest_feature["batch_source"] is not None
+        has_online = ingest_feature["stream_source"] is not None
+
+        if has_offline:
             feature_sources.append(
                 builder.make_dataset_urn(
                     ingest_feature["batch_source_platform"],
@@ -187,7 +195,7 @@ class FeastSource(Source):
                 )
             )
 
-        if ingest_feature["stream_source"] is not None:
+        if has_online:
             feature_sources.append(
                 builder.make_dataset_urn(
                     ingest_feature["stream_source_platform"],
@@ -203,6 +211,8 @@ class FeastSource(Source):
                     ingest_feature["type"], ingest_feature["name"]
                 ),
                 sources=feature_sources,
+                hasOffline=has_offline,
+                hasOnline=has_online,
             )
         )
 

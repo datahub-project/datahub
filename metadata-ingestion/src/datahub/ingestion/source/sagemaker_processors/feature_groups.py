@@ -216,6 +216,10 @@ class FeatureGroupProcessor:
                             feature["FeatureType"], feature["FeatureName"]
                         ),
                         sources=feature_sources,
+                        hasOffline=True,
+                        hasOnline=feature_group_details.get(
+                            "OnlineStoreConfig", {}
+                        ).get("EnableOnlineStore", False),
                     ),
                 ],
             )
@@ -235,6 +239,10 @@ class FeatureGroupProcessor:
                             feature["FeatureType"], feature["FeatureName"]
                         ),
                         sources=feature_sources,
+                        hasOffline=True,
+                        hasOnline=feature_group_details.get(
+                            "OnlineStoreConfig", {}
+                        ).get("EnableOnlineStore", False),
                     )
                 ],
             )
