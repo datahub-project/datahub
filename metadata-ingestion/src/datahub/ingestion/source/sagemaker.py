@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import DefaultDict, Iterable, Set
+from typing import DefaultDict, Dict, Iterable
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source
@@ -11,7 +11,11 @@ from datahub.ingestion.source.sagemaker_processors.common import (
 from datahub.ingestion.source.sagemaker_processors.feature_groups import (
     FeatureGroupProcessor,
 )
-from datahub.ingestion.source.sagemaker_processors.jobs import JobProcessor, ModelJob
+from datahub.ingestion.source.sagemaker_processors.jobs import (
+    JobKey,
+    JobProcessor,
+    ModelJob,
+)
 from datahub.ingestion.source.sagemaker_processors.lineage import LineageProcessor
 from datahub.ingestion.source.sagemaker_processors.models import ModelProcessor
 
@@ -48,8 +52,10 @@ class SagemakerSource(Source):
             )
             yield from feature_group_processor.get_workunits()
 
-        model_image_to_jobs: DefaultDict[str, Set[ModelJob]] = defaultdict(set)
-        model_name_to_jobs: DefaultDict[str, Set[ModelJob]] = defaultdict(set)
+        model_image_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = defaultdict(
+            dict
+        )
+        model_name_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = defaultdict(dict)
 
         # extract jobs if specified
         if self.source_config.extract_jobs is not False:
