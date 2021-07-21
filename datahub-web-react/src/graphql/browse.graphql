@@ -122,6 +122,18 @@ query getBrowseResults($input: BrowseInput!) {
                     ...ownershipFields
                 }
             }
+            ... on MLModel {
+                name
+                origin
+                description
+                tags
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+            }
         }
         start
         count

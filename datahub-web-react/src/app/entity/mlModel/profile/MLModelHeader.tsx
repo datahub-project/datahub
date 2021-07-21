@@ -1,34 +1,34 @@
-import { Row, Space } from 'antd';
+import { Image, Row, Space, Typography } from 'antd';
 import React from 'react';
-// import styled from 'styled-components';
+import styled from 'styled-components';
 import { MlModel } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CompactContext from '../../../shared/CompactContext';
 import { AvatarsGroup } from '../../../shared/avatar';
 import MarkdownViewer from '../../shared/MarkdownViewer';
 
-// const HeaderInfoItem = styled.div`
-//     display: inline-block;
-//     text-align: left;
-//     width: 125px;
-//     vertical-align: top;
-// `;
+const HeaderInfoItem = styled.div`
+    display: inline-block;
+    text-align: left;
+    width: 125px;
+    vertical-align: top;
+`;
 
-// const PlatformName = styled(Typography.Text)`
-//     font-size: 16px;
-// `;
-// const PreviewImage = styled(Image)`
-//     max-height: 20px;
-//     padding-top: 3px;
-//     width: auto;
-//     object-fit: contain;
-// `;
+const PlatformName = styled(Typography.Text)`
+    font-size: 16px;
+`;
+const PreviewImage = styled(Image)`
+    max-height: 20px;
+    padding-top: 3px;
+    width: auto;
+    object-fit: contain;
+`;
 
 export type Props = {
     mlModel: MlModel;
 };
 
-export default function MLFeatureTableHeader({ mlModel: { description, ownership } }: Props) {
+export default function MLFeatureTableHeader({ mlModel: { description, ownership, platform } }: Props) {
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
 
@@ -36,7 +36,7 @@ export default function MLFeatureTableHeader({ mlModel: { description, ownership
         <>
             <Space direction="vertical" size="middle">
                 <Row justify="space-between">
-                    {/* {platform ? (
+                    {platform ? (
                         <HeaderInfoItem>
                             <div>
                                 <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
@@ -55,7 +55,7 @@ export default function MLFeatureTableHeader({ mlModel: { description, ownership
                                 <PlatformName>{platform.name}</PlatformName>
                             </Space>
                         </HeaderInfoItem>
-                    ) : null} */}
+                    ) : null}
                 </Row>
                 <MarkdownViewer isCompact={isCompact} source={description || ''} />
                 <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />

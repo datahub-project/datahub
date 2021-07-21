@@ -2069,6 +2069,11 @@ type MLModel implements Entity {
     name: String!
 
     """
+    Standardized platform urn where the MLModel is defined
+    """
+    platform: DataPlatform
+
+    """
     Fabric type where mlmodel belongs to or where it was generated
     """
     origin: FabricType!

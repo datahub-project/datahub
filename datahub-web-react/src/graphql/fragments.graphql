@@ -469,6 +469,13 @@ fragment nonRecursiveMLModel on MLModel {
     name
     description
     origin
+    platform {
+        name
+        info {
+            displayName
+            logoUrl
+        }
+    }
     tags
     globalTags {
         ...globalTagsFields

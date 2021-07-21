@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLFeatureTableProperties;
 import com.linkedin.datahub.graphql.generated.MLFeature;
@@ -622,6 +623,13 @@ public class GmsGraphQLEngine {
                                         (env) -> ((MLPrimaryKeyProperties) env.getSource()).getSources().stream()
                                                 .map(Dataset::getUrn)
                                                 .collect(Collectors.toList())))
+                        )
+                )
+                .type("MLModel", typeWiring -> typeWiring
+                        .dataFetcher("platform", new AuthenticatedResolver<>(
+                                new LoadableTypeResolver<>(
+                                        DATA_PLATFORM_TYPE,
+                                        (env) -> ((MLModel) env.getSource()).getPlatform().getUrn()))
                         )
                 );
     }

@@ -7,6 +7,7 @@ import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModel;
@@ -29,6 +30,7 @@ import com.linkedin.ml.metadata.MLModelProperties;
 import com.linkedin.ml.metadata.Metrics;
 import com.linkedin.ml.metadata.QuantitativeAnalyses;
 import com.linkedin.ml.metadata.TrainingData;
+import com.linkedin.metadata.key.MLModelKey;
 
 import java.util.ArrayList;
 import java.util.stream.Collectors;
@@ -60,6 +62,13 @@ public class MLModelSnapshotMapper implements ModelMapper<MLModelSnapshot, MLMod
             if (aspect instanceof Ownership) {
                 Ownership ownership = Ownership.class.cast(aspect);
                 result.setOwnership(OwnershipMapper.map(ownership));
+            } else if (aspect instanceof MLModelKey) {
+                MLModelKey mlModelKey = MLModelKey.class.cast(aspect);
+                result.setName(mlModelKey.getName());
+                result.setOrigin(FabricType.valueOf(mlModelKey.getOrigin().toString()));
+                DataPlatform partialPlatform = new DataPlatform();
+                partialPlatform.setUrn(mlModelKey.getPlatform().toString());
+                result.setPlatform(partialPlatform);
             } else if (aspect instanceof MLModelProperties) {
                 MLModelProperties modelProperties = MLModelProperties.class.cast(aspect);
                 result.setProperties(MLModelPropertiesMapper.map(modelProperties));

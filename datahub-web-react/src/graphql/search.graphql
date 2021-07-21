@@ -198,6 +198,14 @@ query getSearchResults($input: SearchInput!) {
                         ...ownershipFields
                     }
                 }
+                ... on MLModel {
+                    name
+                    description
+                    origin
+                    ownership {
+                        ...ownershipFields
+                    }
+                }
             }
             matchedFields {
                 name
