@@ -1,9 +1,0 @@
-namespace com.linkedin.temporal
-
-/**
- * Defines the group by bucket definitions for time series requests.
- */
-typeref GroupingBucket = union[
-   DateGroupingBucket,
-   StringGroupingBucket
-]

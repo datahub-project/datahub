@@ -1,10 +1,10 @@
-package com.linkedin.metadata.temporal.elastic;
+package com.linkedin.metadata.timeseries.elastic;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
-import com.linkedin.metadata.temporal.TemporalAspectService;
-import com.linkedin.metadata.temporal.elastic.indexbuilder.TemporalAspectIndexBuilders;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -20,15 +20,15 @@ import org.elasticsearch.common.xcontent.XContentType;
 
 
 @Slf4j
-public class ElasticSearchTemporalAspectService implements TemporalAspectService {
+public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectService {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private final IndexConvention _indexConvention;
   private final BulkProcessor _bulkProcessor;
-  private final TemporalAspectIndexBuilders _indexBuilders;
+  private final TimeseriesAspectIndexBuilders _indexBuilders;
   private final RestHighLevelClient _searchClient;
 
-  public ElasticSearchTemporalAspectService(@Nonnull RestHighLevelClient searchClient,
-      @Nonnull IndexConvention indexConvention, @Nonnull TemporalAspectIndexBuilders indexBuilders,
+  public ElasticSearchTimeseriesAspectService(@Nonnull RestHighLevelClient searchClient,
+      @Nonnull IndexConvention indexConvention, @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
       int bulkRequestsLimit, int bulkFlushPeriod, int numRetries, long retryInterval) {
     _indexConvention = indexConvention;
     _indexBuilders = indexBuilders;
@@ -49,7 +49,7 @@ public class ElasticSearchTemporalAspectService implements TemporalAspectService
 
   @Override
   public void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull String document) {
-    String indexName = _indexConvention.getTemporalAspectIndexName(entityName, aspectName);
+    String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
     String docId;
     try {
       docId = toDocId(document);

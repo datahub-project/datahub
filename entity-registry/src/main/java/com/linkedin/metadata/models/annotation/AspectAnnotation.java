@@ -17,10 +17,10 @@ public class AspectAnnotation {
   public static final String NAME_FIELD = "name";
   private static final String TYPE_FIELD = "type";
   private static final String IS_KEY_FIELD = "isKey";
-  private static final String TEMPORAL_TYPE = "temporal";
+  private static final String TIMESERIES_TYPE = "timeseries";
 
   String name;
-  boolean isTemporal;
+  boolean isTimeseries;
 
   @Nonnull
   public static AspectAnnotation fromSchemaProperty(
@@ -47,8 +47,8 @@ public class AspectAnnotation {
     }
 
     final Optional<String> type = AnnotationUtils.getField(map, TYPE_FIELD, String.class);
-    boolean isTemporal = type.isPresent() && type.get().equals(TEMPORAL_TYPE);
+    boolean isTimeseries = type.isPresent() && type.get().equals(TIMESERIES_TYPE);
 
-    return new AspectAnnotation(name.get(), isTemporal);
+    return new AspectAnnotation(name.get(), isTimeseries);
   }
 }

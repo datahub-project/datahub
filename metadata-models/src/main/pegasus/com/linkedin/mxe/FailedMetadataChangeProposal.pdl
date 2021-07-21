@@ -5,7 +5,7 @@ import com.linkedin.avro2pegasus.events.KafkaAuditHeader
 /**
  * Kafka event for capturing a failure to process a specific MetadataChangeEvent.
  */
-record GenericFailedMetadataChangeEvent {
+record FailedMetadataChangeProposal {
 
   /**
    * Kafka audit header. See go/kafkaauditheader for more info.
@@ -15,7 +15,7 @@ record GenericFailedMetadataChangeEvent {
   /**
    * The even that failed to be processed.
    */
-  metadataChangeEvent: GenericMetadataChangeEvent
+  metadataChangeProposal: MetadataChangeProposal
 
   /**
    * The error message or the stacktrace for the failure.

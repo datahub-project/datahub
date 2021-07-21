@@ -1,6 +1,5 @@
 package com.linkedin.metadata.models;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
@@ -14,8 +13,6 @@ import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.models.annotation.TemporalStatAnnotation;
-import com.linkedin.metadata.models.annotation.TemporalStatCollectionAnnotation;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -31,17 +28,12 @@ public class EntitySpecBuilder {
 
   private static final String URN_FIELD_NAME = "urn";
   private static final String ASPECTS_FIELD_NAME = "aspects";
-  private static final String TEMPORAL_INFO_FIELD_NAME = "temporalInfo";
-  private static final String TEMPORAL_INFO_TYPE = "TemporalInfo";
+  private static final String TIMESTAMP_FIELD_NAME = "timestampMillis";
 
   public static SchemaAnnotationHandler _searchHandler =
       new PegasusSchemaAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _relationshipHandler =
       new PegasusSchemaAnnotationHandlerImpl(RelationshipAnnotation.ANNOTATION_NAME);
-  public static SchemaAnnotationHandler _temporalStatHandler =
-      new PegasusSchemaAnnotationHandlerImpl(TemporalStatAnnotation.ANNOTATION_NAME);
-  public static SchemaAnnotationHandler _temporalStatCollectionHandler =
-      new PegasusSchemaAnnotationHandlerImpl(TemporalStatCollectionAnnotation.ANNOTATION_NAME);
 
   private final AnnotationExtractionMode _extractionMode;
   private final Set<String> _entityNames = new HashSet<>();
@@ -173,8 +165,7 @@ public class EntitySpecBuilder {
 
       if (AnnotationExtractionMode.IGNORE_ASPECT_FIELDS.equals(_extractionMode)) {
         // Short Circuit.
-        return new AspectSpec(aspectAnnotation, Collections.emptyList(), Collections.emptyList(),
-            Collections.emptyList(), Collections.emptyList(), aspectRecordSchema);
+        return new AspectSpec(aspectAnnotation, Collections.emptyList(), Collections.emptyList(), aspectRecordSchema);
       }
 
       final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSearchResult =
@@ -200,19 +191,8 @@ public class EntitySpecBuilder {
       // Capture the list of entity names from relationships extracted.
       _relationshipFieldSpecs.addAll(relationshipFieldSpecExtractor.getSpecs());
 
-      final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedTemporalStatResult =
-          SchemaAnnotationProcessor.process(ImmutableList.of(_temporalStatHandler, _temporalStatCollectionHandler),
-              aspectRecordSchema, new SchemaAnnotationProcessor.AnnotationProcessOption());
-
-      // Extract Temporal Stat / Stat Collection Field Specs
-      final TemporalStatFieldSpecExtractor temporalStatFieldSpecExtractor = new TemporalStatFieldSpecExtractor();
-      final DataSchemaRichContextTraverser temporalStatFieldSpecTraverser =
-          new DataSchemaRichContextTraverser(temporalStatFieldSpecExtractor);
-      temporalStatFieldSpecTraverser.traverse(processedTemporalStatResult.getResultSchema());
-
       return new AspectSpec(aspectAnnotation, searchableFieldSpecExtractor.getSpecs(),
-          relationshipFieldSpecExtractor.getSpecs(), temporalStatFieldSpecExtractor.getTemporalStatFieldSpecs(),
-          temporalStatFieldSpecExtractor.getTemporalStatCollectionFieldSpecs(), aspectRecordSchema);
+          relationshipFieldSpecExtractor.getSpecs(), aspectRecordSchema);
     }
 
     failValidation(String.format("Could not build aspect spec for aspect with name %s. Missing @Aspect annotation.",
@@ -254,22 +234,11 @@ public class EntitySpecBuilder {
   }
 
   private void validateAspect(final AspectSpec aspectSpec) {
-    if (!aspectSpec.isTemporal()) {
-      if (!aspectSpec.getTemporalStatCollectionFieldSpecMap().isEmpty() || !aspectSpec.getTemporalStatFieldSpecMap()
-          .isEmpty()) {
-        failValidation(String.format("Aspect %s is not of type temporal but has fields with temporal stat annotation",
-            aspectSpec.getName()));
-      }
-    } else {
-      if (!aspectSpec.getSearchableFieldSpecMap().isEmpty() || !aspectSpec.getRelationshipFieldSpecMap().isEmpty()) {
-        failValidation(
-            String.format("Aspect %s is of type temporal but has fields with searchable and relationship annotation",
-                aspectSpec.getName()));
-      }
-      if (aspectSpec.getPegasusSchema().contains(TEMPORAL_INFO_FIELD_NAME)) {
-        DataSchema temporalInfoType = aspectSpec.getPegasusSchema().getField(TEMPORAL_INFO_FIELD_NAME).getType();
-        if (temporalInfoType.getType() == DataSchema.Type.RECORD && ((RecordDataSchema) temporalInfoType).getName()
-            .equals(TEMPORAL_INFO_TYPE)) {
+    if (aspectSpec.isTimeseries()) {
+      if (aspectSpec.getPegasusSchema().contains(TIMESTAMP_FIELD_NAME)) {
+        DataSchema timstamp = aspectSpec.getPegasusSchema().getField(TIMESTAMP_FIELD_NAME).getType();
+        if (timstamp.getType() == DataSchema.Type.LONG && ((RecordDataSchema) timstamp).getName()
+            .equals(TIMESTAMP_FIELD_NAME)) {
           return;
         }
       }

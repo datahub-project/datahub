@@ -5,9 +5,9 @@ import com.linkedin.common.Urn
 import com.linkedin.events.metadata.ChangeType
 
 /**
- * Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.
+ * Kafka event for proposing a metadata change for an entity. A corresponding MetadataChangeLog is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeProposal will be emitted instead.
  */
-record GenericMetadataChangeEvent {
+record MetadataChangeProposal {
 
   /**
    * Kafka audit header. See go/kafkaauditheader for more info.
@@ -39,8 +39,6 @@ record GenericMetadataChangeEvent {
   /**
    * A string->string map of custom properties that one might want to attach to an event
    **/
-
   systemMetadata: optional map[string, string]
-
 
 }

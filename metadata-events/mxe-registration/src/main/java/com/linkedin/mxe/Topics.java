@@ -8,9 +8,9 @@ public class Topics {
   public static final String METADATA_GRAPH_EVENT = "MetadataGraphEvent_v4";
   public static final String METADATA_SEARCH_EVENT = "MetadataSearchEvent_v4";
 
-  public static final String GENERIC_METADATA_AUDIT_EVENT = "GenericMetadataAuditEvent_v1";
-  public static final String GENERIC_METADATA_CHANGE_EVENT = "GenericMetadataChangeEvent_v1";
-  public static final String GENERIC_FAILED_METADATA_CHANGE_EVENT = "GenericFailedMetadataChangeEvent_v1";
+  public static final String METADATA_CHANGE_LOG = "MetadataChangeLog_v1";
+  public static final String METADATA_CHANGE_PROPOSAL = "MetadataChangeProposal_v1";
+  public static final String FAILED_METADATA_CHANGE_PROPOSAL = "FailedMetadataChangeProposal_v1";
 
   public static final String DEV_METADATA_AUDIT_EVENT = "MetadataAuditEvent_v4_dev";
   public static final String DEV_METADATA_CHANGE_EVENT = "MetadataChangeEvent_v4_dev";

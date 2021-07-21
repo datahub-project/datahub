@@ -1,0 +1,12 @@
+namespace com.linkedin.mxe
+
+/**
+ * Enveloped record for
+ **/
+record EnvelopedAspect {
+
+    aspect: GenericAspect
+
+    systemMetadata: map[string, string]
+
+}

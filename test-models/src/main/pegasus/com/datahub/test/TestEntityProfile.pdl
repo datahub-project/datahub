@@ -1,35 +1,18 @@
 namespace com.datahub.test
 
-import com.linkedin.temporal.TemporalAspectBase
+import com.linkedin.timeseries.TimeseriesAspectBase
 
 /**
- * Profile of test entity (temporal aspect sample)
+ * Profile of test entity (timeseries aspect sample)
  */
 @Aspect = {
   "name": "testEntityProfile"
-  "type": "temporal"
+  "type": "timeseries"
 }
-record TestEntityProfile includes TemporalAspectBase {
+record TestEntityProfile includes TimeseriesAspectBase {
+  stat: long
 
-  @TemporalStat = {}
-  stat1: long
-
-  @TemporalStat = {
-    "name": "overrideStat2"
-  }
-  stat2: double
-
-  @TemporalStat = {}
   strStat: string
 
-  @TemporalStatCollection = {
-    "key": "key"
-  }
   componentProfiles: array[TestEntityComponentProfile]
-
-  @TemporalStatCollection = {
-    "name": "overrideComponentProfiles2"
-    "key": "key"
-  }
-  componentProfiles2: array[TestEntityComponentProfile]
 }

@@ -14,8 +14,8 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.util.AspectDeserializationUtil;
 import com.linkedin.mxe.Configs;
 import com.linkedin.mxe.GenericAspect;
-import com.linkedin.mxe.GenericMetadataAuditEvent;
-import com.linkedin.mxe.GenericMetadataChangeEvent;
+import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
@@ -104,7 +104,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
   }
 
   @Override
-  public void produceGenericMetadataAuditEvent(
+  public void produceMetadataChangeLog(
       @Nonnull final Urn urn,
       @Nonnull final String entityName,
       @Nonnull final ChangeType changeType,
@@ -112,9 +112,9 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
       @Nullable final RecordTemplate oldAspect,
       @Nullable final RecordTemplate newAspect) {
 
-    final GenericMetadataAuditEvent metadataAuditEvent = new GenericMetadataAuditEvent();
+    final MetadataChangeLog metadataAuditEvent = new MetadataChangeLog();
     metadataAuditEvent.setEntityType(entityName);
-    metadataAuditEvent.setEntityKey(GenericMetadataChangeEvent.EntityKey.create(urn));
+    metadataAuditEvent.setEntityKey(MetadataChangeProposal.EntityKey.create(urn));
     metadataAuditEvent.setChangeType(changeType);
     if (aspectName != null) {
       metadataAuditEvent.setAspectName(aspectName);
@@ -136,17 +136,17 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
     try {
       log.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn),
           metadataAuditEvent.toString()));
-      record = EventUtils.pegasusToAvroGenericMAE(metadataAuditEvent);
+      record = EventUtils.pegasusToAvroMCL(metadataAuditEvent);
     } catch (IOException e) {
       log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()));
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 
     if (_callback.isPresent()) {
-      _producer.send(new ProducerRecord(_topicConvention.getGenericMetadataAuditEventTopicName(), urn.toString(), record),
+      _producer.send(new ProducerRecord(_topicConvention.getMetadataChangeLogTopicName(), urn.toString(), record),
           _callback.get());
     } else {
-      _producer.send(new ProducerRecord(_topicConvention.getGenericMetadataAuditEventTopicName(), urn.toString(), record));
+      _producer.send(new ProducerRecord(_topicConvention.getMetadataChangeLogTopicName(), urn.toString(), record));
     }
   }
 

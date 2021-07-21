@@ -32,22 +32,22 @@ public interface TopicConvention {
   String getFailedMetadataChangeEventTopicName();
 
   /**
-   * The name of the generic metadata change event kafka topic.
+   * The name of the metadata change proposal kafka topic.
    */
   @Nonnull
-  String getGenericMetadataChangeEventTopicName();
+  String getMetadataChangeProposalTopicName();
 
   /**
-   * The name of the generic metadata audit event kafka topic.
+   * The name of the metadata change log kafka topic.
    */
   @Nonnull
-  String getGenericMetadataAuditEventTopicName();
+  String getMetadataChangeLogTopicName();
 
   /**
-   * The name of the generic failed metadata change event kafka topic.
+   * The name of the failed metadata change proposal kafka topic.
    */
   @Nonnull
-  String getGenericFailedMetadataChangeEventTopicName();
+  String getFailedMetadataChangeProposalTopicName();
 
   /**
    * Returns the name of the metadata change event (v5) kafka topic.

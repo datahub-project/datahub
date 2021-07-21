@@ -60,7 +60,7 @@ public class IndexConventionImpl implements IndexConvention {
 
   @Nonnull
   @Override
-  public String getTemporalAspectIndexName(String entityName, String aspectName) {
+  public String getTimeseriesAspectIndexName(String entityName, String aspectName) {
     return this.getIndexName(entityName + "_" + aspectName) + TEMPORAL_STATS_ENTITY_INDEX_SUFFIX + "_"
         + TEMPORAL_STATS_INDEX_VERSION;
   }
@@ -73,7 +73,7 @@ public class IndexConventionImpl implements IndexConvention {
 
   @Nonnull
   @Override
-  public String getAllTemporalAspectIndicesPattern() {
+  public String getAllTimeseriesAspectIndicesPattern() {
     return _getAllTemporalStatIndicesPattern;
   }
 }

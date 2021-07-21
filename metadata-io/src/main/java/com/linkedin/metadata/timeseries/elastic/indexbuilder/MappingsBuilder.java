@@ -1,9 +1,7 @@
-package com.linkedin.metadata.temporal.elastic.indexbuilder;
+package com.linkedin.metadata.timeseries.elastic.indexbuilder;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.TemporalStatCollectionFieldSpec;
-import com.linkedin.metadata.models.TemporalStatFieldSpec;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -15,7 +13,7 @@ public class MappingsBuilder {
   }
 
   public static Map<String, Object> getMappings(@Nonnull final AspectSpec aspectSpec) {
-    if (!aspectSpec.isTemporal()) {
+    if (!aspectSpec.isTimeseries()) {
       throw new IllegalArgumentException(
           String.format("Cannot apply temporal stats indexing for a non-temporal aspect %s", aspectSpec.getName()));
     }

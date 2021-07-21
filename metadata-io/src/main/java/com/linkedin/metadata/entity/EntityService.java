@@ -19,7 +19,7 @@ import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.mxe.GenericMetadataChangeEvent;
+import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
@@ -225,7 +225,7 @@ public abstract class EntityService {
   }
 
   /**
-   * Produces a {@link com.linkedin.mxe.GenericMetadataAuditEvent} from a
+   * Produces a {@link com.linkedin.mxe.MetadataChangeLog} from a
    * new & previous aspect.
    *
    * @param urn the urn associated with the entity changed
@@ -235,14 +235,14 @@ public abstract class EntityService {
    * @param oldAspect a {@link RecordTemplate} corresponding to the old aspect.
    * @param newAspect a {@link RecordTemplate} corresponding to the new aspect.
    */
-  public void produceGenericMetadataAuditEvent(
+  public void produceMetadataChangeLog(
       @Nonnull final Urn urn,
       @Nonnull final String entityName,
       @Nonnull final ChangeType changeType,
       @Nullable final String aspectName,
       @Nullable final RecordTemplate oldAspect,
       @Nullable final RecordTemplate newAspect) {
-    _producer.produceGenericMetadataAuditEvent(urn, entityName, changeType, aspectName, oldAspect, newAspect);
+    _producer.produceMetadataChangeLog(urn, entityName, changeType, aspectName, oldAspect, newAspect);
   }
 
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {
@@ -394,5 +394,5 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
-  public abstract void ingestGenericAspect(GenericMetadataChangeEvent metadataChangeEvent, AuditStamp auditStamp);
+  public abstract void ingestGenericAspect(MetadataChangeProposal metadataChangeEvent, AuditStamp auditStamp);
 }

@@ -1,5 +1,0 @@
-namespace com.linkedin.temporal
-
-record TemporalAspectBase {
-  temporalInfo: TemporalInfo
-}

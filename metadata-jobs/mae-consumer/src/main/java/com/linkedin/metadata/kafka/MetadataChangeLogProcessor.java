@@ -3,18 +3,18 @@ package com.linkedin.metadata.kafka;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.gms.factory.entityregistry.ConfigEntityRegistryFactory;
-import com.linkedin.gms.factory.temporal.TemporalAspectServiceFactory;
+import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataAuditEventsProcessorCondition;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
-import com.linkedin.metadata.temporal.TemporalAspectService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.util.AspectDeserializationUtil;
-import com.linkedin.mxe.GenericMetadataAuditEvent;
+import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
-import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -29,32 +29,31 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(MetadataAuditEventsProcessorCondition.class)
-@Import({TemporalAspectServiceFactory.class, ConfigEntityRegistryFactory.class})
+@Import({TimeseriesAspectServiceFactory.class, EntityRegistryFactory.class})
 @EnableKafka
-public class GenericMetadataAuditEventsProcessor {
+public class MetadataChangeLogProcessor {
 
-  private final TemporalAspectService _temporalAspectService;
-  private final ConfigEntityRegistry _configEntityRegistry;
+  private final TimeseriesAspectService _timeseriesAspectService;
+  private final EntityRegistry _entityRegistry;
 
   @Autowired
-  public GenericMetadataAuditEventsProcessor(TemporalAspectService temporalAspectService,
-      ConfigEntityRegistry configEntityRegistry) {
-    _temporalAspectService = temporalAspectService;
-    _configEntityRegistry = configEntityRegistry;
+  public MetadataChangeLogProcessor(TimeseriesAspectService timeseriesAspectService, EntityRegistry entityRegistry) {
+    _timeseriesAspectService = timeseriesAspectService;
+    _entityRegistry = entityRegistry;
 
-    _temporalAspectService.configure();
+    _timeseriesAspectService.configure();
   }
 
   @KafkaListener(id = "${GENERIC_METADATA_AUDIT_EVENT_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics =
-      "${GENERIC_METADATA_AUDIT_EVENT_NAME:" + Topics.GENERIC_METADATA_AUDIT_EVENT
+      "${GENERIC_METADATA_AUDIT_EVENT_NAME:" + Topics.METADATA_CHANGE_LOG
           + "}", containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     log.debug("Got Generic MAE");
 
-    GenericMetadataAuditEvent event;
+    MetadataChangeLog event;
     try {
-      event = EventUtils.avroToPegasusGenericMAE(record);
+      event = EventUtils.avroToPegasusMCL(record);
     } catch (Exception e) {
       log.error("Error deserializing message: {}", e.toString());
       log.error("Message: {}", record.toString());
@@ -64,7 +63,7 @@ public class GenericMetadataAuditEventsProcessor {
     if (event.getChangeType() == ChangeType.CREATE || event.getChangeType() == ChangeType.UPDATE) {
       EntitySpec entitySpec;
       try {
-        entitySpec = _configEntityRegistry.getEntitySpec(event.getEntityType());
+        entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
       } catch (IllegalArgumentException e) {
         log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
         return;

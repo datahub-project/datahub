@@ -1,9 +1,9 @@
-package com.linkedin.metadata.temporal;
+package com.linkedin.metadata.timeseries;
 
 import javax.annotation.Nonnull;
 
 
-public interface TemporalAspectService {
+public interface TimeseriesAspectService {
 
   void configure();
 

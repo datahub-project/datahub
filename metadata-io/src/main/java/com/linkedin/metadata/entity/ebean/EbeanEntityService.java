@@ -18,7 +18,7 @@ import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.util.AspectDeserializationUtil;
-import com.linkedin.mxe.GenericMetadataChangeEvent;
+import com.linkedin.mxe.MetadataChangeProposal;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -347,7 +347,7 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Override
-  public void ingestGenericAspect(GenericMetadataChangeEvent metadataChangeEvent, AuditStamp auditStamp) {
+  public void ingestGenericAspect(MetadataChangeProposal metadataChangeEvent, AuditStamp auditStamp) {
     log.debug("entity type = {}", metadataChangeEvent.getEntityType());
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeEvent.getEntityType());
     log.debug("entity spec = {}", entitySpec);
@@ -388,7 +388,7 @@ public class EbeanEntityService extends EntityService {
     }
     log.debug("aspect spec = {}", aspectSpec);
 
-    if (!aspectSpec.isTemporal()) {
+    if (!aspectSpec.isTimeseries()) {
       log.error("Non-temporal aspects are not yet supported");
       return;
     }
@@ -405,7 +405,7 @@ public class EbeanEntityService extends EntityService {
     log.debug("aspect = {}", aspect);
 
     // Since only temporal aspect are ingested as of now, simply produce mae event for it
-    produceGenericMetadataAuditEvent(entityUrn, metadataChangeEvent.getEntityType(),
+    produceMetadataChangeLog(entityUrn, metadataChangeEvent.getEntityType(),
         metadataChangeEvent.getChangeType(), metadataChangeEvent.getAspectName(), null, aspect);
   }
 }

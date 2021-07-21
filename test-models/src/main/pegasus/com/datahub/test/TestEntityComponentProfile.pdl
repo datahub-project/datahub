@@ -6,18 +6,9 @@ namespace com.datahub.test
 record TestEntityComponentProfile {
   key: string
 
-  @TemporalStat = {}
-  stat1: long
+  stat: long
 
-  @TemporalStat = {
-    "name": "overrideStat2"
-  }
-  stat2: double
-
-  @TemporalStat = {}
   strStat: string
 
-  @TemporalStat = {}
   arrayStat: array[long]
-
 }

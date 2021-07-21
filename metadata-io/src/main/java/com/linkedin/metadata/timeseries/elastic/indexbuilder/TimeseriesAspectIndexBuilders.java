@@ -1,4 +1,4 @@
-package com.linkedin.metadata.temporal.elastic.indexbuilder;
+package com.linkedin.metadata.timeseries.elastic.indexbuilder;
 
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -14,7 +14,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 
 @Slf4j
 @RequiredArgsConstructor
-public class TemporalAspectIndexBuilders {
+public class TimeseriesAspectIndexBuilders {
   private final EntityRegistry _entityRegistry;
   private final RestHighLevelClient _searchClient;
   private final IndexConvention _indexConvention;
@@ -22,10 +22,10 @@ public class TemporalAspectIndexBuilders {
   public void buildAll() {
     for (EntitySpec entitySpec : _entityRegistry.getEntitySpecs().values()) {
       for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
-        if (aspectSpec.isTemporal()) {
+        if (aspectSpec.isTimeseries()) {
           try {
             new IndexBuilder(_searchClient,
-                _indexConvention.getTemporalAspectIndexName(entitySpec.getName(), aspectSpec.getName()),
+                _indexConvention.getTimeseriesAspectIndexName(entitySpec.getName(), aspectSpec.getName()),
                 MappingsBuilder.getMappings(aspectSpec), Collections.emptyMap()).buildIndex();
           } catch (IOException e) {
             log.error("Issue while building temporal stats index for entity {} aspect {}", entitySpec.getName(),

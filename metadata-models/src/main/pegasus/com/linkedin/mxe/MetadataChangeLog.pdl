@@ -5,7 +5,7 @@ import com.linkedin.avro2pegasus.events.KafkaAuditHeader
 /**
  * Kafka event for capturing update made to an entity's metadata.
  */
-record GenericMetadataAuditEvent includes GenericMetadataChangeEvent {
+record MetadataChangeLog includes MetadataChangeProposal {
 
   previousAspectValue: optional GenericAspect
 

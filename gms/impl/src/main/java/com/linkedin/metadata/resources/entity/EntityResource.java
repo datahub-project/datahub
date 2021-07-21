@@ -17,7 +17,7 @@ import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
-import com.linkedin.mxe.GenericMetadataChangeEvent;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
 import com.linkedin.pegasus2avro.common.Ownership;
 import com.linkedin.restli.internal.server.util.DataMapUtils;
@@ -151,7 +151,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = ACTION_ASPECT_INGEST)
   @Nonnull
-  public Task<Void> ingestAspect(@ActionParam(PARAM_GENERIC_CHANGE_EVENT) @Nonnull GenericMetadataChangeEvent metadataChangeEvent) throws URISyntaxException
+  public Task<Void> ingestAspect(@ActionParam(PARAM_GENERIC_CHANGE_EVENT) @Nonnull MetadataChangeProposal metadataChangeEvent) throws URISyntaxException
   {
     final AuditStamp auditStamp =
             new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));

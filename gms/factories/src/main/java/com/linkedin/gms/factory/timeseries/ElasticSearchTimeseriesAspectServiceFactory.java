@@ -1,11 +1,11 @@
-package com.linkedin.gms.factory.temporal;
+package com.linkedin.gms.factory.timeseries;
 
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.temporal.elastic.ElasticSearchTemporalAspectService;
-import com.linkedin.metadata.temporal.elastic.indexbuilder.TemporalAspectIndexBuilders;
+import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
+import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Import;
 
 @Configuration
 @Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, EntityRegistryFactory.class})
-public class ElasticSearchTemporalAspectServiceFactory {
+public class ElasticSearchTimeseriesAspectServiceFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
   private RestHighLevelClient searchClient;
@@ -44,11 +44,11 @@ public class ElasticSearchTemporalAspectServiceFactory {
   @Value("${ES_BULK_RETRY_INTERVAL:1}")
   private Long retryInterval;
 
-  @Bean(name = "elasticSearchTemporalAspectService")
+  @Bean(name = "elasticSearchTimeseriesAspectService")
   @Nonnull
-  protected ElasticSearchTemporalAspectService getInstance() {
-    return new ElasticSearchTemporalAspectService(searchClient, indexConvention,
-        new TemporalAspectIndexBuilders(entityRegistry, searchClient, indexConvention), bulkRequestsLimit,
+  protected ElasticSearchTimeseriesAspectService getInstance() {
+    return new ElasticSearchTimeseriesAspectService(searchClient, indexConvention,
+        new TimeseriesAspectIndexBuilders(entityRegistry, searchClient, indexConvention), bulkRequestsLimit,
         bulkFlushPeriod, numRetries, retryInterval);
   }
 }

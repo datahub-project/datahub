@@ -27,7 +27,7 @@ public interface EntityEventProducer {
       @Nonnull final Snapshot newSnapshot);
 
   /**
-   * Produces a {@link com.linkedin.mxe.GenericMetadataAuditEvent} from a
+   * Produces a {@link com.linkedin.mxe.MetadataChangeLog} from a
    * new & previous aspect.
    *
    * @param urn the urn associated with the entity changed
@@ -37,7 +37,7 @@ public interface EntityEventProducer {
    * @param oldAspect a {@link RecordTemplate} corresponding to the old aspect.
    * @param newAspect a {@link RecordTemplate} corresponding to the new aspect.
    */
-  void produceGenericMetadataAuditEvent(
+  void produceMetadataChangeLog(
       @Nonnull final Urn urn,
       @Nonnull final String entityName,
       @Nonnull final ChangeType changeType,
