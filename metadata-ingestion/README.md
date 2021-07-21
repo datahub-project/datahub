@@ -552,7 +552,6 @@ source:
     # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
     # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
     work_group: athena_workgroup # "primary"
-    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
 
