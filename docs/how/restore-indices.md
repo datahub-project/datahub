@@ -36,7 +36,7 @@ If not, deploy latest helm charts to use this functionality.
 Once restore indices job template has been deployed, run the following command to start a job that restores indices.
 
 ```
-kubectl create job --from=cronjob/datahub-datahub-restore-indices-job-template restore-indices-adhoc
+kubectl create job --from=cronjob/datahub-datahub-restore-indices-job-template datahub-restore-indices-adhoc
 ```
 
 Once the job completes, your indices will have been restored. 
