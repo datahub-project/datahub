@@ -4,6 +4,7 @@ source:
   config:
     manifest_path: "./tests/integration/dbt/dbt_manifest.json"
     catalog_path: "./tests/integration/dbt/dbt_catalog.json"
+    sources_path: "./tests/integration/dbt/dbt_sources.json"
     target_platform: "dbt"
     load_schemas: True # or False
 sink:
