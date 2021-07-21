@@ -40,7 +40,7 @@
                                             "com.linkedin.pegasus2avro.schema.StringType": {}
                                         }
                                     },
-                                    "nativeDataType": "",
+                                    "nativeDataType": "string",
                                     "recursive": false,
                                     "globalTags": null,
                                     "glossaryTerms": null
@@ -55,7 +55,7 @@
                                             "com.linkedin.pegasus2avro.schema.NumberType": {}
                                         }
                                     },
-                                    "nativeDataType": "",
+                                    "nativeDataType": "num",
                                     "recursive": false,
                                     "globalTags": null,
                                     "glossaryTerms": null
