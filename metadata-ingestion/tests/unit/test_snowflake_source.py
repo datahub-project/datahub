@@ -1,7 +1,10 @@
-from datahub.ingestion.source.snowflake import SnowflakeConfig
+import pytest
 
 
+@pytest.mark.integration
 def test_snowflake_uri():
+    from datahub.ingestion.source.snowflake import SnowflakeConfig
+
     config = SnowflakeConfig.parse_obj(
         {
             "username": "user",
