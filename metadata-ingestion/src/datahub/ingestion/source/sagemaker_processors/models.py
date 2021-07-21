@@ -6,7 +6,11 @@ from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Set, Tuple
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
-from datahub.ingestion.source.sagemaker_processors.jobs import JobDirection, ModelJob
+from datahub.ingestion.source.sagemaker_processors.jobs import (
+    JobDirection,
+    JobKey,
+    ModelJob,
+)
 from datahub.ingestion.source.sagemaker_processors.lineage import LineageInfo
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     MLModelDeploymentSnapshot,
@@ -48,13 +52,13 @@ class ModelProcessor:
     aws_region: str
 
     # map from model image file path to jobs referencing the model
-    model_image_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
-        default_factory=lambda: defaultdict(set)
+    model_image_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = field(
+        default_factory=lambda: defaultdict(dict)
     )
 
     # map from model name to jobs referencing the model
-    model_name_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
-        default_factory=lambda: defaultdict(set)
+    model_name_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = field(
+        default_factory=lambda: defaultdict(dict)
     )
 
     # map from model uri to model name
@@ -235,28 +239,28 @@ class ModelProcessor:
 
         for model_data_url in model_data_urls:
 
-            data_url_matched_jobs = self.model_image_to_jobs.get(model_data_url, set())
+            data_url_matched_jobs = self.model_image_to_jobs.get(model_data_url, dict())
             # extend set of training jobs
             model_training_jobs = model_training_jobs.union(
                 {
-                    job.job_urn
-                    for job in data_url_matched_jobs
-                    if job.job_direction == JobDirection.TRAINING
+                    job_urn
+                    for job_urn, job_direction in data_url_matched_jobs.keys()
+                    if job_direction == JobDirection.TRAINING
                 }
             )
             # extend set of downstream jobs
             model_downstream_jobs = model_downstream_jobs.union(
                 {
-                    job.job_urn
-                    for job in data_url_matched_jobs
-                    if job.job_direction == JobDirection.DOWNSTREAM
+                    job_urn
+                    for job_urn, job_direction in data_url_matched_jobs.keys()
+                    if job_direction == JobDirection.DOWNSTREAM
                 }
             )
 
-            for job in data_url_matched_jobs:
-                if job.job_direction == JobDirection.TRAINING:
-                    model_hyperparams_raw.update(job.hyperparameters)
-                    model_metrics_raw.update(job.metrics)
+            for job_key, job_info in data_url_matched_jobs.items():
+                if job_key.job_direction == JobDirection.TRAINING:
+                    model_hyperparams_raw.update(job_info.hyperparameters)
+                    model_metrics_raw.update(job_info.metrics)
 
         def strip_quotes(string: str) -> str:
             if string.startswith('"') or string.startswith("'"):
@@ -280,23 +284,21 @@ class ModelProcessor:
         model_metrics = sorted(model_metrics, key=lambda x: x.name)
 
         # get jobs referencing the model by name
-        name_matched_jobs = self.model_name_to_jobs.get(
-            model_details["ModelName"], set()
-        )
+        name_matched_jobs = self.model_name_to_jobs.get(model_details["ModelName"], {})
         # extend set of training jobs
         model_training_jobs = model_training_jobs.union(
             {
-                job.job_urn
-                for job in name_matched_jobs
-                if job.job_direction == JobDirection.TRAINING
+                job_urn
+                for job_urn, job_direction in name_matched_jobs.keys()
+                if job_direction == JobDirection.TRAINING
             }
         )
         # extend set of downstream jobs
         model_downstream_jobs = model_downstream_jobs.union(
             {
-                job.job_urn
-                for job in name_matched_jobs
-                if job.job_direction == JobDirection.DOWNSTREAM
+                job_urn
+                for job_urn, job_direction in name_matched_jobs.keys()
+                if job_direction == JobDirection.DOWNSTREAM
             }
         )
 

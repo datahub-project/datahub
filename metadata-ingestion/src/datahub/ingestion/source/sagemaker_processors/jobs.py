@@ -1,7 +1,18 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    DefaultDict,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -255,19 +266,23 @@ class JobDirection(Enum):
     DOWNSTREAM = "downstream"
 
 
+class JobKey(NamedTuple):
+    job_urn: str
+    job_direction: JobDirection
+
+
 @dataclass()
 class ModelJob:
     """
     Intermediate representation of a job's related models. Subsequently used by the SageMaker jobs ingestion framework.
     """
 
-    job_urn: str
-    job_direction: JobDirection
     hyperparameters: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
 
-    def __hash__(self):
-        return hash((self.job_urn, self.job_direction))
+    def update(self, hyperparameters: Dict[str, Any], metrics: Dict[str, Any]) -> None:
+        self.hyperparameters.update(hyperparameters)
+        self.metrics.update(metrics)
 
 
 @dataclass
@@ -289,14 +304,50 @@ class JobProcessor:
     name_to_arn: Dict[Tuple[str, str], str] = field(default_factory=dict)
 
     # map from model image file path to jobs referencing the model
-    model_image_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
-        default_factory=lambda: defaultdict(set)
+    model_image_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = field(
+        default_factory=lambda: defaultdict(dict)
     )
 
     # map from model name to jobs referencing the model
-    model_name_to_jobs: DefaultDict[str, Set[ModelJob]] = field(
-        default_factory=lambda: defaultdict(set)
+    model_name_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = field(
+        default_factory=lambda: defaultdict(dict)
     )
+
+    def update_model_image_jobs(
+        self,
+        model_data_url: str,
+        job_key: JobKey,
+        metrics: Dict[str, Any] = {},
+        hyperparameters: Dict[str, Any] = {},
+    ):
+
+        model_jobs = self.model_image_to_jobs[model_data_url]
+
+        # if model doesn't have job yet, init
+        if job_key in model_jobs:
+
+            model_jobs[job_key].update(hyperparameters, metrics)
+
+        else:
+            model_jobs[job_key] = ModelJob(hyperparameters, metrics)
+
+    def update_model_name_jobs(
+        self,
+        model_name: str,
+        job_key: JobKey,
+        metrics: Dict[str, Any] = {},
+        hyperparameters: Dict[str, Any] = {},
+    ):
+
+        model_jobs = self.model_name_to_jobs[model_name]
+
+        # if model doesn't have job yet, init
+        if job_key in model_jobs:
+
+            model_jobs[job_key].update(hyperparameters, metrics)
+
+        else:
+            model_jobs[job_key] = ModelJob(hyperparameters, metrics)
 
     def get_all_jobs(
         self,
@@ -544,11 +595,10 @@ class JobProcessor:
             model_data_url = model_container.get("ModelDataUrl")
 
             if model_data_url is not None:
-                self.model_image_to_jobs[model_data_url].add(
-                    ModelJob(
-                        job_urn=job_snapshot.urn, job_direction=JobDirection.TRAINING
-                    )
-                )
+
+                job_key = JobKey(job_snapshot.urn, JobDirection.TRAINING)
+
+                self.update_model_image_jobs(model_data_url, job_key)
 
         return SageMakerJob(
             job_name=job_name,
@@ -676,11 +726,10 @@ class JobProcessor:
         )
 
         if job.get("ModelName") is not None:
-            self.model_name_to_jobs[job["ModelName"]].add(
-                ModelJob(
-                    job_urn=job_snapshot.urn, job_direction=JobDirection.DOWNSTREAM
-                )
-            )
+
+            job_key = JobKey(job_snapshot.urn, JobDirection.DOWNSTREAM)
+
+            self.update_model_name_jobs(job["ModelName"], job_key)
 
         return SageMakerJob(
             job_name=job_name,
@@ -1019,13 +1068,14 @@ class JobProcessor:
         )
 
         if model_data_url is not None:
-            self.model_image_to_jobs[model_data_url].add(
-                ModelJob(
-                    job_urn=job_snapshot.urn,
-                    job_direction=JobDirection.TRAINING,
-                    hyperparameters=job.get("HyperParameters", {}),
-                    metrics=metrics,
-                )
+
+            job_key = JobKey(job_snapshot.urn, JobDirection.TRAINING)
+
+            self.update_model_image_jobs(
+                model_data_url,
+                job_key,
+                metrics,
+                job.get("HyperParameters", {}),
             )
 
         return SageMakerJob(
@@ -1108,10 +1158,11 @@ class JobProcessor:
         )
 
         if job.get("ModelName") is not None:
-            self.model_name_to_jobs[job["ModelName"]].add(
-                ModelJob(
-                    job_urn=job_snapshot.urn, job_direction=JobDirection.DOWNSTREAM
-                )
+            job_key = JobKey(job_snapshot.urn, JobDirection.DOWNSTREAM)
+
+            self.update_model_name_jobs(
+                job["ModelName"],
+                job_key,
             )
 
         return SageMakerJob(
