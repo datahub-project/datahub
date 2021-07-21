@@ -45,6 +45,7 @@ export const JsonForm = () => {
             if (jsonValue.hasOwnProperty('type')) {
                 const paths = JsonPointer.decode(p);
                 // if path length is 0 (root)
+                /*
                 if (paths.length === 0) {
                     fields.push({
                         field_name: 'root',
@@ -52,13 +53,14 @@ export const JsonForm = () => {
                         field_description: jsonValue.description,
                     });
                 }
+                */
                 if (paths.length > 0) {
                     // contain field information
                     if (typeof jsonValue === 'object') {
                         const lineage = new JsonPointer(paths.slice(0, paths.length - 1)).path;
                         const parent = lineage[lineage.length - 1];
 
-                        let fieldName = 'root';
+                        let fieldName = '';
                         if (parent === 'properties') {
                             // use of reduce() method to check for previous item 'properties'
                             lineage.reduce((previous, current) => {
