@@ -798,7 +798,7 @@ Note: when `load_schemas` is False, models that use [identifiers](https://docs.g
 - Fetch a list of tables and columns accessed
 - Aggregate these statistics into buckets, by day or hour granularity
 
-Note: the client must have one of the following OAuth scopes:
+Note: the client must have one of the following OAuth scopes, and should be authorized on all projects you'd like to ingest usage stats from.
 
 - https://www.googleapis.com/auth/logging.read
 - https://www.googleapis.com/auth/logging.admin
@@ -809,7 +809,9 @@ Note: the client must have one of the following OAuth scopes:
 source:
   type: bigquery-usage
   config:
-    project_id: project # optional - can autodetect from environment
+    projects: # optional - can autodetect a single project from the environment
+      - project_id_1
+      - project_id_2
     options:
       # See https://googleapis.dev/python/logging/latest/client.html for details.
       credentials: ~ # optional - see docs
