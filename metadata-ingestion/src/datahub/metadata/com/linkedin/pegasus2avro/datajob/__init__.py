@@ -7,9 +7,15 @@
 from .....schema_classes import DataFlowInfoClass
 from .....schema_classes import DataJobInfoClass
 from .....schema_classes import DataJobInputOutputClass
+from .....schema_classes import EditableDataFlowPropertiesClass
+from .....schema_classes import EditableDataJobPropertiesClass
+from .....schema_classes import JobStatusClass
 
 
 DataFlowInfo = DataFlowInfoClass
 DataJobInfo = DataJobInfoClass
 DataJobInputOutput = DataJobInputOutputClass
+EditableDataFlowProperties = EditableDataFlowPropertiesClass
+EditableDataJobProperties = EditableDataJobPropertiesClass
+JobStatus = JobStatusClass
 # fmt: on

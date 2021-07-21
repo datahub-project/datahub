@@ -19,7 +19,6 @@ The folks over at [Acryl Data](https://www.acryl.io/) maintain a PyPI package fo
 ```shell
 # Requires Python 3.6+
 python3 -m pip install --upgrade pip wheel setuptools
-python3 -m pip uninstall datahub acryl-datahub || true  # sanity check - ok if it fails
 python3 -m pip install --upgrade acryl-datahub
 datahub version
 # If you see "command not found", try running this instead: python3 -m datahub version
@@ -31,32 +30,35 @@ If you run into an error, try checking the [_common setup issues_](./developing.
 
 We use a plugin architecture so that you can install only the dependencies you actually need.
 
-| Plugin Name   | Install Command                                            | Provides                            |
-| ------------- | ---------------------------------------------------------- | ----------------------------------- |
-| file          | _included by default_                                      | File source and sink                |
-| console       | _included by default_                                      | Console sink                        |
-| athena        | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
-| bigquery      | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
-| feast         | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
-| glue          | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
-| hive          | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
-| mssql         | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
-| mysql         | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
-| oracle        | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
-| postgres      | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
-| redshift      | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
-| sqlalchemy    | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
-| snowflake     | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
-| superset      | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
-| mongodb       | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
-| ldap          | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
-| looker        | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
-| lookml        | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
-| kafka         | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
-| druid         | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| dbt           | _no additional dependencies_                               | dbt source                          |
-| datahub-rest  | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API          |
-| datahub-kafka | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka             |
+| Plugin Name     | Install Command                                            | Provides                            |
+| --------------- | ---------------------------------------------------------- | ----------------------------------- |
+| file            | _included by default_                                      | File source and sink                |
+| console         | _included by default_                                      | Console sink                        |
+| athena          | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
+| bigquery        | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| bigquery-usage  | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
+| feast           | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
+| glue            | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
+| hive            | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
+| mssql           | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
+| mysql           | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
+| oracle          | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
+| postgres        | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
+| redshift        | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
+| sagemaker       | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
+| sqlalchemy      | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
+| snowflake       | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
+| snowflake-usage | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
+| superset        | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
+| mongodb         | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
+| ldap            | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
+| looker          | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
+| lookml          | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
+| kafka           | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
+| druid           | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
+| dbt             | _no additional dependencies_                               | dbt source                          |
+| datahub-rest    | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API          |
+| datahub-kafka   | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka             |
 
 These plugins can be mixed and matched as desired. For example:
 
@@ -150,12 +152,14 @@ source:
   config:
     connection:
       bootstrap: "broker:9092"
-      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serde-consumer
+      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.DeserializingConsumer
       schema_registry_url: http://localhost:8081
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
 
-For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka_to_console.yml).
+The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.
+
+For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka.yml).
 
 ### MySQL Metadata `mysql`
 
@@ -206,7 +210,7 @@ source:
     password: pass
     host_port: localhost:1433
     database: DemoDatabase
-    include_views: True
+    include_views: True # whether to include views, defaults to True
     table_pattern:
       deny:
         - "^.*\\.sys_.*" # deny all tables that start with sys_
@@ -243,6 +247,7 @@ source:
     password: pass
     host_port: localhost:1433
     database: DemoDatabase
+    include_views: True # whether to include views, defaults to True
     uri_args:
       # See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15
       driver: "ODBC Driver 17 for SQL Server"
@@ -308,6 +313,7 @@ Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
 - Also supports PostGIS extensions
+- database_alias (optional) can be used to change the name of database to be ingested
 
 ```yml
 source:
@@ -317,6 +323,8 @@ source:
     password: pass
     host_port: localhost:5432
     database: DemoDatabase
+    database_alias: DatabaseNameToBeIngested
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -337,8 +345,63 @@ source:
     password: pass
     host_port: example.something.us-west-2.redshift.amazonaws.com:5439
     database: DemoDatabase
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
+```
+
+<details>
+  <summary>Extra options when running Redshift behind a proxy</summary>
+
+This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
+See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+
+```yml
+source:
+  type: redshift
+  config:
+    # username, password, database, etc are all the same as above
+    host_port: my-proxy-hostname:5439
+    options:
+      connect_args:
+        sslmode: "prefer" # or "require" or "verify-ca"
+        sslrootcert: ~ # needed to unpin the AWS Redshift certificate
+```
+
+</details>
+
+### AWS SageMaker `sagemaker`
+
+Extracts:
+
+- Feature groups
+- Models, jobs, and lineage between the two (e.g. when jobs output a model or a model is used by a job)
+
+```yml
+source:
+  type: sagemaker
+  config:
+    aws_region: # aws_region_name, i.e. "eu-west-1"
+    env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
+
+    # Credentials. If not specified here, these are picked up according to boto3 rules.
+    # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
+    aws_access_key_id: # Optional.
+    aws_secret_access_key: # Optional.
+    aws_session_token: # Optional.
+    aws_role: # Optional (Role chaining supported by using a sorted list).
+
+    extract_feature_groups: True # if feature groups should be ingested, default True
+    extract_models: True # if models should be ingested, default True
+    extract_jobs: # if jobs should be ingested, default True for all
+      auto_ml: True
+      compilation: True
+      edge_packaging: True
+      hyper_parameter_tuning: True
+      labeling: True
+      processing: True
+      training: True
+      transform: True
 ```
 
 ### Snowflake `snowflake`
@@ -355,12 +418,25 @@ source:
     username: user
     password: pass
     host_port: account_name
-    database: db_name
+    database_pattern:
+      allow:
+        - ^regex$
+        - ^another_regex$
+      deny:
+        - ^SNOWFLAKE$
+        - ^SNOWFLAKE_SAMPLE_DATA$
     warehouse: "COMPUTE_WH" # optional
     role: "sysadmin" # optional
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
+
+:::tip
+
+You can also get fine-grained usage statistics for Snowflake using the `snowflake-usage` source.
+
+:::
 
 ### Superset `superset`
 
@@ -402,6 +478,7 @@ source:
     host_port: localhost:5432
     database: dbname
     service_name: svc # omit database if using this option
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -412,7 +489,9 @@ source:
 
 Extracts:
 
-- List of feature tables (modeled as `MLFeatureTable`s), features (`MLFeature`s), and entities (`MLPrimaryKey`s)
+- List of feature tables (modeled as [`MLFeatureTable`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureTableProperties.pdl)s),
+  features ([`MLFeature`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureProperties.pdl)s),
+  and entities ([`MLPrimaryKey`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLPrimaryKeyProperties.pdl)s)
 - Column types associated with each feature and entity
 
 Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then
@@ -442,8 +521,15 @@ source:
     options: # options is same as above
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
       credentials_path: "/path/to/keyfile.json" # optional
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
+
+:::tip
+
+You can also get fine-grained usage statistics for BigQuery using the `bigquery-usage` source.
+
+:::
 
 ### AWS Athena `athena`
 
@@ -466,30 +552,39 @@ source:
     # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
     # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
     work_group: athena_workgroup # "primary"
+    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
 
 ### AWS Glue `glue`
+
+Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](./s3-ingestion.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
 
 Extracts:
 
 - List of tables
 - Column types associated with each table
 - Table metadata, such as owner, description and parameters
+- Jobs and their component transformations, data sources, and data sinks
 
 ```yml
 source:
   type: glue
   config:
-    aws_region: aws_region_name # i.e. "eu-west-1"
-    env: environment used for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". # Optional, defaults to "PROD".
+    aws_region: # aws_region_name, i.e. "eu-west-1"
+    extract_transforms: True # whether to ingest Glue jobs, defaults to True
+    env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
+
+    # Filtering patterns for databases and tables to scan
     database_pattern: # Optional, to filter databases scanned, same as schema_pattern above.
     table_pattern: # Optional, to filter tables scanned, same as table_pattern above.
-    aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules.
-    # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-    aws_secret_access_key # Optional.
-    aws_session_token # Optional.
-    aws_role # Optional (Role chaining supported by using a sorted list).
+
+    # Credentials. If not specified here, these are picked up according to boto3 rules.
+    # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
+    aws_access_key_id: # Optional.
+    aws_secret_access_key: # Optional.
+    aws_session_token: # Optional.
+    aws_role: # Optional (Role chaining supported by using a sorted list).
 ```
 
 ### Druid `druid`
@@ -535,6 +630,7 @@ source:
     options: {} # same as above
     schema_pattern: {} # same as above
     table_pattern: {} # same as above
+    include_views: True # whether to include views, defaults to True
 ```
 
 ### MongoDB `mongodb`
@@ -545,6 +641,7 @@ Extracts:
 - List of collections in each database and infers schemas for each collection
 
 By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
+Moreover, setting `useRandomSampling: False` will sample the first documents found without random selection, which may be faster for large collections.
 
 Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
 
@@ -564,6 +661,7 @@ source:
     collection_pattern: {}
     enableSchemaInference: True
     schemaSamplingSize: 1000
+    useRandomSampling: True # whether to randomly sample docs for schema or just use the first ones, True by default
     # database_pattern/collection_pattern are similar to schema_pattern/table_pattern from above
 ```
 
@@ -604,20 +702,20 @@ Extracts:
 source:
   type: "lookml"
   config:
-    base_folder: /path/to/model/files # Where the *.model.lkml and *.view.lkml files are stored.
-    connection_to_platform_map: # mapping between connection names in the model files to platform names.
-      my_snowflake_conn: snowflake
-    platform_name: looker_views # Optional, default is "looker_views"
-    actor: "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
+    base_folder: /path/to/model/files # where the *.model.lkml and *.view.lkml files are stored
+    connection_to_platform_map: # mappings between connection names in the model files to platform names
+      connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
+    platform_name: "looker" # optional, default is "looker"
+    actor: "urn:li:corpuser:etl" # optional, default is "urn:li:corpuser:etl"
     model_pattern: {}
     view_pattern: {}
-    env: "PROD" # Optional, default is "PROD"
-    parse_table_names_from_sql: False # See note below.
+    env: "PROD" # optional, default is "PROD"
+    parse_table_names_from_sql: False # see note below
 ```
 
 Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
 views depends on. As these SQL's can be complicated, and the package doesn't official support all the SQL dialects that
-Looker support, the result might not be correct. This parsing is disables by default, but can be enabled by setting
+Looker supports, the result might not be correct. This parsing is disabled by default, but can be enabled by setting
 `parse_table_names_from_sql: True`.
 
 ### Looker dashboards `looker`
@@ -664,11 +762,17 @@ Pull metadata from dbt artifacts files:
 - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
   - This file contains schema data.
   - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
+- [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
+  - This file contains metadata for sources with freshness checks.
+  - We transfer dbt's freshness checks to DataHub's last-modified fields.
+  - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
 - target_platform:
   - The data platform you are enriching with dbt metadata.
   - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
 - load_schemas:
   - Load schemas from dbt catalog file, not necessary when the underlying data platform already has this data.
+- node_type_pattern:
+  - Use this filter to exclude and include node types using allow or deny method
 
 ```yml
 source:
@@ -676,11 +780,86 @@ source:
   config:
     manifest_path: "./path/dbt/manifest_file.json"
     catalog_path: "./path/dbt/catalog_file.json"
+    sources_path: "./path/dbt/sources_file.json" # (optional, used for freshness checks)
     target_platform: "postgres" # optional, eg "postgres", "snowflake", etc.
     load_schemas: True or False
+    node_type_pattern: # optional
+      deny:
+        - ^test.*
+      allow:
+        - ^.*
 ```
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
+
+### Google BigQuery Usage Stats `bigquery-usage`
+
+- Fetch a list of queries issued
+- Fetch a list of tables and columns accessed
+- Aggregate these statistics into buckets, by day or hour granularity
+
+Note: the client must have one of the following OAuth scopes:
+
+- https://www.googleapis.com/auth/logging.read
+- https://www.googleapis.com/auth/logging.admin
+- https://www.googleapis.com/auth/cloud-platform.read-only
+- https://www.googleapis.com/auth/cloud-platform
+
+```yml
+source:
+  type: bigquery-usage
+  config:
+    project_id: project # optional - can autodetect from environment
+    options:
+      # See https://googleapis.dev/python/logging/latest/client.html for details.
+      credentials: ~ # optional - see docs
+    env: PROD
+
+    bucket_duration: "DAY"
+    start_time: ~ # defaults to the last full day in UTC (or hour)
+    end_time: ~ # defaults to the last full day in UTC (or hour)
+
+    top_n_queries: 10 # number of queries to save for each table
+```
+
+:::note
+
+This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` source.
+
+:::
+
+### Snowflake Usage Stats `snowflake-usage`
+
+- Fetch a list of queries issued
+- Fetch a list of tables and columns accessed (excludes views)
+- Aggregate these statistics into buckets, by day or hour granularity
+
+Note: the user/role must have access to the account usage table. The "accountadmin" role has this by default, and other roles can be [granted this permission](https://docs.snowflake.com/en/sql-reference/account-usage.html#enabling-account-usage-for-other-roles).
+
+Note: the underlying access history views that we use are only available in Snowflake's enterprise edition or higher.
+
+```yml
+source:
+  type: snowflake-usage
+  config:
+    username: user
+    password: pass
+    host_port: account_name
+    role: ACCOUNTADMIN
+    env: PROD
+
+    bucket_duration: "DAY"
+    start_time: ~ # defaults to the last full day in UTC (or hour)
+    end_time: ~ # defaults to the last full day in UTC (or hour)
+
+    top_n_queries: 10 # number of queries to save for each table
+```
+
+:::note
+
+This source only does usage statistics. To get the tables, views, and schemas in your Snowflake warehouse, ingest using the `snowflake` source.
+
+:::
 
 ### Kafka Connect `kafka-connect`
 
@@ -733,10 +912,14 @@ sink:
   config:
     connection:
       bootstrap: "localhost:9092"
-      producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
+      producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer
       schema_registry_url: "http://localhost:8081"
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
+
+The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
+
+For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka.yml).
 
 ### Console `console`
 
@@ -852,7 +1035,7 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
    airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
    ```
 
-2. Add the following lines to your `airflow.cfg` file. You might need to
+2. Add the following lines to your `airflow.cfg` file.
    ```ini
    [lineage]
    backend = datahub_provider.lineage.datahub.DatahubLineageBackend

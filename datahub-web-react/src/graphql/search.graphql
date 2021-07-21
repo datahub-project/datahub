@@ -165,6 +165,24 @@ query getSearchResults($input: SearchInput!) {
                         }
                     }
                 }
+                ... on MLFeatureTable {
+                    urn
+                    type
+                    name
+                    description
+                    featureTableProperties {
+                        description
+                        mlFeatures {
+                            urn
+                        }
+                        mlPrimaryKeys {
+                            urn
+                        }
+                    }
+                    ownership {
+                        ...ownershipFields
+                    }
+                }
             }
             matchedFields {
                 name

@@ -25,7 +25,7 @@ public class ElasticsearchUtil {
       .put("hive", '.')
       .put("kafka", '.')
       .put("kafka-lc", '.')
-      .put("mongo",  '.')
+      .put("mongodb",  '.')
       .put("mysql", '.')
       .put("oracle", '.')
       .put("pinot", '.')

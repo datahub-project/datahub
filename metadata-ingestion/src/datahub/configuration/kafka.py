@@ -14,7 +14,7 @@ class _KafkaConnectionConfig(ConfigModel):
 
     # Extra schema registry config.
     # These options will be passed into Kafka's SchemaRegistryClient.
-    # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html?highlight=schema%20registry#schemaregistryclient.
+    # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html?#schemaregistryclient
     schema_registry_config: dict = Field(default_factory=dict)
 
     @validator("bootstrap")
@@ -43,7 +43,7 @@ class KafkaConsumerConnectionConfig(_KafkaConnectionConfig):
 
     # Extra consumer config.
     # These options will be passed into Kafka's DeserializingConsumer.
-    # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#deserializingconsumer
+    # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#deserializingconsumer
     # and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md.
     consumer_config: dict = Field(default_factory=dict)
 
@@ -53,6 +53,6 @@ class KafkaProducerConnectionConfig(_KafkaConnectionConfig):
 
     # Extra producer config.
     # These options will be passed into Kafka's SerializingProducer.
-    # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/index.html#serializingproducer
+    # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serializingproducer
     # and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md.
     producer_config: dict = Field(default_factory=dict)

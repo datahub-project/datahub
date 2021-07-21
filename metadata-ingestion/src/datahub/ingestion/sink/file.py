@@ -44,8 +44,8 @@ class FileSink(Sink):
         record_envelope: RecordEnvelope[MetadataChangeEvent],
         write_callback: WriteCallback,
     ) -> None:
-        mce = record_envelope.record
-        obj = mce.to_obj()
+        record = record_envelope.record
+        obj = record.to_obj()
 
         if self.wrote_something:
             self.file.write(",\n")

@@ -66,6 +66,7 @@ const HeaderContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
 `;
 
 const NavGroup = styled.div`
@@ -114,8 +115,8 @@ export const HomePageHeader = () => {
     const [getAutoCompleteResultsForAll, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
     const themeConfig = useTheme();
 
-    const { data } = useIsAnalyticsEnabledQuery();
-    const isAnalyticsEnabled = data && data.isAnalyticsEnabled;
+    const { data } = useIsAnalyticsEnabledQuery({ fetchPolicy: 'no-cache' });
+    const isAnalyticsEnabled = (data && data.isAnalyticsEnabled) || false;
 
     const onSearch = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {

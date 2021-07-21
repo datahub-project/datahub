@@ -1,5 +1,4 @@
 import logging
-import time
 from dataclasses import dataclass, field
 from typing import Iterable, List
 
@@ -10,10 +9,11 @@ import datahub.ingestion.extractor.schema_util as schema_util
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class KafkaSourceConfig(ConfigModel):
-    env: str = "PROD"
+    env: str = DEFAULT_ENV
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
@@ -87,7 +87,6 @@ class KafkaSource(Source):
         logger.debug(f"topic = {topic}")
         platform = "kafka"
         dataset_name = topic
-        actor, sys_time = "urn:li:corpuser:etl", int(time.time() * 1000)
 
         dataset_snapshot = DatasetSnapshot(
             urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{dataset_name},{self.source_config.env})",
@@ -123,8 +122,6 @@ class KafkaSource(Source):
                 platform=f"urn:li:dataPlatform:{platform}",
                 platformSchema=KafkaSchema(documentSchema=schema.schema_str),
                 fields=fields,
-                created=AuditStamp(time=sys_time, actor=actor),
-                lastModified=AuditStamp(time=sys_time, actor=actor),
             )
             dataset_snapshot.aspects.append(schema_metadata)
 

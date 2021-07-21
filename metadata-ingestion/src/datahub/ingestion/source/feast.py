@@ -9,9 +9,10 @@ import docker
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     MLFeatureSnapshot,
@@ -20,6 +21,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
     MLFeaturePropertiesClass,
     MLFeatureTablePropertiesClass,
     MLPrimaryKeyPropertiesClass,
@@ -44,8 +46,6 @@ _field_type_mapping: Dict[str, str] = {
     "BOOL_LIST": MLFeatureDataType.SEQUENCE,
     "UNIX_TIMESTAMP_LIST": MLFeatureDataType.SEQUENCE,
 }
-
-DEFAULT_ENV = "PROD"
 
 # image to use for initial feast extraction
 HOSTED_FEAST_IMAGE = "acryldata/datahub-ingestion-feast-wrapper"
@@ -222,7 +222,9 @@ class FeastSource(Source):
 
         featuretable_snapshot = MLFeatureTableSnapshot(
             urn=builder.make_ml_feature_table_urn("feast", ingest_table["name"]),
-            aspects=[],
+            aspects=[
+                BrowsePathsClass(paths=[f"feast/{ingest_table['name']}"]),
+            ],
         )
 
         featuretable_snapshot.aspects.append(

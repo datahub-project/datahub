@@ -2,11 +2,6 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
-import com.linkedin.metadata.models.EntitySpec;
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
@@ -23,22 +18,24 @@ import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.ReindexRequest;
 
+import javax.annotation.Nonnull;
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
 
 @Slf4j
 @RequiredArgsConstructor
 public class IndexBuilder {
 
   private final RestHighLevelClient searchClient;
-  private final EntitySpec entitySpec;
   private final String indexName;
+  private final Map<String, Object> mappings;
+  private final Map<String, Object> settings;
 
   private static final int NUM_RETRIES = 3;
 
   public void buildIndex() throws IOException {
-    log.info("Setting up index: {}", indexName);
-    Map<String, Object> mappings = MappingsBuilder.getMappings(entitySpec);
-    Map<String, Object> settings = SettingsBuilder.getSettings();
-
     // Check if index exists
     boolean exists = searchClient.indices().exists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
 
@@ -102,9 +99,10 @@ public class IndexBuilder {
     }
 
     log.info("Reindex from {} to {} succeeded", indexName, tempIndexName);
+    String indexNamePattern = indexName + "_*";
     // Check if the original index is aliased or not
     GetAliasesResponse aliasesResponse =
-        searchClient.indices().getAlias(new GetAliasesRequest(indexName), RequestOptions.DEFAULT);
+        searchClient.indices().getAlias(new GetAliasesRequest(indexName).indices(indexNamePattern), RequestOptions.DEFAULT);
     // If not aliased, delete the original index
     if (aliasesResponse.getAliases().isEmpty()) {
       searchClient.indices().delete(new DeleteIndexRequest().indices(indexName), RequestOptions.DEFAULT);
@@ -115,7 +113,7 @@ public class IndexBuilder {
     }
 
     // Add alias for the new index
-    AliasActions removeAction = AliasActions.remove().alias(indexName).index("*");
+    AliasActions removeAction = AliasActions.remove().alias(indexName).index(indexNamePattern);
     AliasActions addAction = AliasActions.add().alias(indexName).index(tempIndexName);
     searchClient.indices()
         .updateAliases(new IndicesAliasesRequest().addAliasAction(removeAction).addAliasAction(addAction),

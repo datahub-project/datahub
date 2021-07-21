@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.types.dataplatform.mappers.DataPlatformMapper;
 import com.linkedin.dataplatform.client.DataPlatforms;
 
+import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +28,7 @@ public class DataPlatformType implements EntityType<DataPlatform> {
     }
 
     @Override
-    public List<DataPlatform> batchLoad(final List<String> urns, final QueryContext context) {
+    public List<DataFetcherResult<DataPlatform>> batchLoad(final List<String> urns, final QueryContext context) {
         try {
             if (_urnToPlatform == null) {
                 _urnToPlatform = _dataPlatformsClient.getAllPlatforms().stream()
@@ -36,6 +37,7 @@ public class DataPlatformType implements EntityType<DataPlatform> {
             }
             return urns.stream()
                     .map(key -> _urnToPlatform.containsKey(key) ? _urnToPlatform.get(key) : getUnknownDataPlatform(key))
+                .map(dataPlatform -> DataFetcherResult.<DataPlatform>newResult().data(dataPlatform).build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load DataPlatforms", e);

@@ -22,7 +22,7 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 ```shell
 ../gradlew :metadata-ingestion:installDev
 source venv/bin/activate
-datahub version  # check that it works
+datahub version  # should print "version: unavailable (installed via git)"
 ```
 
 ### Common setup issues
@@ -94,10 +94,10 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 pip install -e '.[dev]'
 
 # Run unit tests.
-pytest tests/unit
+pytest -m 'not integration'
 
-# Run integration tests. Note that the integration tests require docker.
-pytest tests/integration
+# Run Docker-based integration tests.
+pytest -m 'integration'
 ```
 
 ### Sanity check code before committing
@@ -111,5 +111,6 @@ mypy .
 pytest
 
 # These steps are all included in the gradle build:
+../gradlew :metadata-ingestion:lintFix
 ../gradlew :metadata-ingestion:check
 ```

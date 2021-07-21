@@ -58,9 +58,13 @@ class DatahubKafkaSink(Sink):
         record_envelope: RecordEnvelope[MetadataChangeEvent],
         write_callback: WriteCallback,
     ) -> None:
-        mce = record_envelope.record
+        record = record_envelope.record
+        if not isinstance(record, MetadataChangeEvent):
+            raise ValueError(
+                f"The datahub-kafka sink only supports MetadataChangeEvents, not {type(record)}"
+            )
         self.emitter.emit_mce_async(
-            mce,
+            record,
             callback=_KafkaCallback(
                 self.report, record_envelope, write_callback
             ).kafka_callback,

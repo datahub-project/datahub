@@ -117,7 +117,7 @@ public class Neo4jGraphServiceTest {
 
     assertEquals(relatedUrns.size(), 1);
 
-    _client.removeEdgeTypesFromNode(Urn.createFromString(
+    _client.removeEdgesFromNode(Urn.createFromString(
         "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
         edgeTypes,
         relationshipFilter);

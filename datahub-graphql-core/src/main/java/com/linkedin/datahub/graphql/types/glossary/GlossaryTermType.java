@@ -22,10 +22,12 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 
+import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -58,7 +60,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
     }
 
     @Override
-    public List<GlossaryTerm> batchLoad(final List<String> urns, final QueryContext context) {
+    public List<DataFetcherResult<GlossaryTerm>> batchLoad(final List<String> urns, final QueryContext context) {
         final List<GlossaryTermUrn> glossaryTermUrns = urns.stream()
                 .map(GlossaryTermUtils::getGlossaryTermUrn)
                 .collect(Collectors.toList());
@@ -76,7 +78,10 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
             return gmsResults.stream()
                     .map(gmsGlossaryTerm ->
                         gmsGlossaryTerm == null ? null
-                            : GlossaryTermSnapshotMapper.map(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
+                            : DataFetcherResult.<GlossaryTerm>newResult()
+                                .data(GlossaryTermSnapshotMapper.map(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
+                                .localContext(SnapshotToAspectMap.extractAspectMap(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
+                                .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load GlossaryTerms", e);
@@ -122,7 +127,8 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                 start,
                 count);
         final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<GlossaryTerm> glossaryTerms = batchLoad(urns, context);
+        final List<GlossaryTerm> glossaryTerms = batchLoad(urns, context).stream().map(term -> term.getData()).collect(
+            Collectors.toList());
         final BrowseResults browseResults = new BrowseResults();
         browseResults.setStart(result.getFrom());
         browseResults.setCount(result.getPageSize());

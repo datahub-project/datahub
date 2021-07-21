@@ -1,10 +1,11 @@
 """Convenience functions for creating MCEs"""
-
 import time
-from typing import List, Optional, Type, TypeVar
+from typing import List, Optional, Type, TypeVar, get_type_hints
+
+import typing_inspect
+from avrogen.dict_wrapper import DictWrapper
 
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -14,11 +15,11 @@ from datahub.metadata.schema_classes import (
 
 DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
-
-T = TypeVar("T")
+UNKNOWN_USER = "urn:li:corpuser:unknown"
 
 
 def get_sys_time() -> int:
+    # TODO deprecate this
     return int(time.time() * 1000)
 
 
@@ -72,14 +73,25 @@ def make_ml_feature_table_urn(platform: str, feature_table_name: str) -> str:
     )
 
 
+def make_ml_model_urn(platform: str, model_name: str, env: str) -> str:
+
+    return f"urn:li:mlModel:(urn:li:dataPlatform:{platform},{model_name},{env})"
+
+
+def make_ml_model_deployment_urn(platform: str, deployment_name: str, env: str) -> str:
+    return f"urn:li:mlModelDeployment:({platform},{deployment_name},{env})"
+
+
+def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
+
+    return f"urn:li:mlModelGroup:(urn:li:dataPlatform:{platform},{group_name},{env})"
+
+
 def make_lineage_mce(
     upstream_urns: List[str],
     downstream_urn: str,
-    actor: str = make_user_urn("datahub"),
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED,
 ) -> MetadataChangeEventClass:
-    sys_time = get_sys_time()
-
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
             urn=downstream_urn,
@@ -87,10 +99,6 @@ def make_lineage_mce(
                 UpstreamLineageClass(
                     upstreams=[
                         UpstreamClass(
-                            auditStamp=AuditStampClass(
-                                time=sys_time,
-                                actor=actor,
-                            ),
                             dataset=upstream_urn,
                             type=lineage_type,
                         )
@@ -103,22 +111,44 @@ def make_lineage_mce(
     return mce
 
 
+# This bound isn't tight, but it's better than nothing.
+Aspect = TypeVar("Aspect", bound=DictWrapper)
+
+
+def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
+    SnapshotType = type(mce.proposedSnapshot)
+
+    constructor_annotations = get_type_hints(SnapshotType.__init__)
+    aspect_list_union = constructor_annotations["aspects"]
+    supported_aspect_types = typing_inspect.get_args(
+        typing_inspect.get_args(aspect_list_union)[0]
+    )
+
+    return issubclass(AspectType, supported_aspect_types)
+
+
 def get_aspect_if_available(
-    mce: MetadataChangeEventClass, type: Type[T]
-) -> Optional[T]:
+    mce: MetadataChangeEventClass, AspectType: Type[Aspect]
+) -> Optional[Aspect]:
+    assert can_add_aspect(mce, AspectType)
+
     all_aspects = mce.proposedSnapshot.aspects
-    aspects: List[T] = [aspect for aspect in all_aspects if isinstance(aspect, type)]
+    aspects: List[Aspect] = [
+        aspect for aspect in all_aspects if isinstance(aspect, AspectType)
+    ]
 
     if len(aspects) > 1:
-        raise ValueError(f"MCE contains multiple aspects of type {type}: {aspects}")
+        raise ValueError(
+            f"MCE contains multiple aspects of type {AspectType}: {aspects}"
+        )
     if aspects:
         return aspects[0]
     return None
 
 
-def get_or_add_aspect(mce: MetadataChangeEventClass, default: T) -> T:
+def get_or_add_aspect(mce: MetadataChangeEventClass, default: Aspect) -> Aspect:
     existing = get_aspect_if_available(mce, type(default))
     if existing is not None:
         return existing
-    mce.proposedSnapshot.aspects.append(default)
+    mce.proposedSnapshot.aspects.append(default)  # type: ignore
     return default

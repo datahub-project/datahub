@@ -32,12 +32,13 @@ module.exports = {
   overviewSidebar: {
     DataHub: [
       "README",
-      "docs/faq",
+      // "docs/faq", // hide from sidebar: out of date
       "docs/features",
       "docs/roadmap",
       "docs/CONTRIBUTING",
       "docs/demo",
       "docs/saas",
+      "releases",
     ],
     "Getting Started": [
       // Serves as user guides.
@@ -71,6 +72,7 @@ module.exports = {
       "docs/developers",
       "docs/docker/development",
       "metadata-ingestion/adding-source",
+      "metadata-ingestion/s3-ingestion",
       //"docs/what/graph",
       //"docs/what/search-index",
       //"docs/how/add-new-aspect",
@@ -82,10 +84,12 @@ module.exports = {
       //"docs/demo/graph-onboarding",
       //"docs/how/search-onboarding",
       //"docs/how/search-over-new-field",
-      //"docs/how/configure-oidc-react",
-      //"docs/how/sso/configure-oidc-react-google",
-      //"docs/how/sso/configure-oidc-react-okta",
-      //"datahub-web-react/src/app/analytics/README",
+      "docs/how/auth/jaas",
+      "docs/how/auth/sso/configure-oidc-react",
+      "docs/how/auth/sso/configure-oidc-react-google",
+      "docs/how/auth/sso/configure-oidc-react-okta",
+      "docs/how/restore-indices",
+      "datahub-web-react/src/app/analytics/README",
     ],
     Components: [
       "datahub-web-react/README",
@@ -105,6 +109,7 @@ module.exports = {
       "docs/advanced/high-cardinality",
       "docs/how/scsi-onboarding-guide",
       "docs/advanced/no-code-upgrade",
+      "docs/how/migrating-graph-service-implementation",
       // WIP "docs/advanced/backfilling",
       // WIP "docs/advanced/derived-aspects",
       // WIP "docs/advanced/entity-hierarchy",
@@ -114,9 +119,10 @@ module.exports = {
     Deployment: [
       "docs/how/kafka-config",
       "docker/README",
-      "datahub-kubernetes/README",
+      "docs/deploy/kubernetes",
       "docker/datahub-upgrade/README",
       "docs/deploy/aws",
+      "docs/deploy/gcp",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms-graphql-service/README",

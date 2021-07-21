@@ -50,25 +50,3 @@ services:
         APP_ENV: dev
     volumes:
       - ../datahub-frontend/build/stage/datahub-frontend:/datahub-frontend
-
-  datahub-mae-consumer:
-    image: linkedin/datahub-mae-consumer:debug
-    build:
-      context: datahub-mae-consumer
-      dockerfile: Dockerfile
-      args:
-        APP_ENV: dev
-    volumes:
-      - ./datahub-mae-consumer/start.sh:/datahub/datahub-mae-consumer/scripts/start.sh
-      - ../metadata-jobs/mae-consumer-job/build/libs/:/datahub/datahub-mae-consumer/bin/
-
-  datahub-mce-consumer:
-    image: linkedin/datahub-mce-consumer:debug
-    build:
-      context: datahub-mce-consumer
-      dockerfile: Dockerfile
-      args:
-        APP_ENV: dev
-    volumes:
-      - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
-      - ../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin

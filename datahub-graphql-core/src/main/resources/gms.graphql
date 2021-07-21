@@ -21,6 +21,10 @@ interface Entity {
     type: EntityType!
 }
 
+interface Aspect {
+    aspectVersion: Long
+}
+
 interface EntityWithRelationships implements Entity {
     """
     GMS Entity urn
@@ -80,6 +84,18 @@ enum EntityType {
     """
     MLMODEL
     """
+    The MLFEATURETable Entity
+    """
+    MLFEATURE_TABLE
+    """
+    The MLFeature Entity
+    """
+    MLFEATURE
+    """
+    The MLPRIMARYKEY Entity
+    """
+    MLPRIMARY_KEY
+    """
     The DATA_FLOW Entity
     """
     DATA_FLOW
@@ -128,6 +144,21 @@ type Query {
     Fetch a MLModel by primary key
     """
     mlModel(urn: String!): MLModel
+
+    """
+    Fetch a MLFeature by primary key
+    """
+    mlFeature(urn: String!): MLFeature
+
+    """
+    Fetch a MLFeatureTable by primary key
+    """
+    mlFeatureTable(urn: String!): MLFeatureTable
+
+    """
+    Fetch a MLPrimaryKey by primary key
+    """
+    mlPrimaryKey(urn: String!): MLPrimaryKey
 
     """
     Fetch a DataFlow by primary key
@@ -243,6 +274,11 @@ type Dataset implements EntityWithRelationships & Entity {
     properties: [StringMapEntry!]
 
     """
+    A list of editable platform-specific metadata tuples
+    """
+    editableProperties: DatasetEditableProperties
+
+    """
     External URL associated with the Dataset
     """
     externalUrl: String
@@ -265,7 +301,12 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     Schema metadata of the dataset
     """
-    schema: Schema
+    schema: Schema @deprecated(reason: "Use `schemaMetadata`")
+
+    """
+    Schema metadata of the dataset
+    """
+    schemaMetadata(version: Long): SchemaMetadata
 
     """
     Editable schema metadata of the dataset
@@ -296,6 +337,8 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured glossary terms associated with the dataset
     """
     glossaryTerms: GlossaryTerms
+
+    usageStats(resource: String!, range: TimeRange): UsageQueryResult
 }
 
 type GlossaryTerm implements Entity {
@@ -465,6 +508,26 @@ enum FabricType {
     CORP
 }
 
+enum MLFeatureDataType {
+    USELESS
+    NOMINAL
+    ORDINAL
+    BINARY
+    COUNT
+    TIME
+    INTERVAL
+    IMAGE
+    VIDEO
+    AUDIO
+    TEXT
+    MAP
+    SEQUENCE
+    SET
+    CONTINUOUS
+    BYTE
+    UNKNOWN
+}
+
 type DatasetDeprecation {
     """
     Whether the dataset has been deprecated by owner
@@ -514,6 +577,53 @@ type InstitutionalMemoryMetadata {
     An AuditStamp corresponding to the creation of this resource
     """
     created: AuditStamp!
+}
+
+type SchemaMetadata implements Aspect {
+    aspectVersion: Long
+    createdAt: Long
+    """
+    Dataset this schema metadata is associated with
+    """
+    datasetUrn: String
+
+    """
+    Schema name
+    """
+    name: String!
+
+    """
+    Platform this schema metadata is associated with
+    """
+    platformUrn: String!
+
+    """
+    The version of the GMS Schema metadata
+    """
+    version: Long!
+
+    """
+    The cluster this schema metadata is derived from
+    """
+    cluster: String
+
+    """
+    The SHA1 hash of the schema content
+    """
+    hash: String!
+
+    """
+    The native schema in the datasets platform, schemaless if it was not provided
+    """
+    platformSchema: PlatformSchema
+    """
+    Client provided a list of fields from value schema
+    """
+    fields: [SchemaField!]!
+    """
+    Client provided list of fields that define primary keys to access record
+    """
+    primaryKeys: [String!]
 }
 
 type Schema {
@@ -655,6 +765,36 @@ enum SchemaFieldDataType {
     ARRAY
     UNION
     STRUCT
+}
+type DatasetEditableProperties {
+    """
+    Description
+    """
+    description: String
+}
+type ChartEditableProperties {
+    """
+    Description
+    """
+    description: String
+}
+type DashboardEditableProperties {
+    """
+    Description
+    """
+    description: String
+}
+type DataJobEditableProperties {
+    """
+    Description
+    """
+    description: String
+}
+type DataFlowEditableProperties {
+    """
+    Description
+    """
+    description: String
 }
 
 type EntityRelationship {
@@ -1056,6 +1196,10 @@ type GlobalTags {
     tags: [TagAssociation!]
 }
 
+type VersionTag {
+    versionTag: String
+}
+
 type GlossaryTerms {
     terms: [GlossaryTermAssociation!]
 }
@@ -1342,78 +1486,98 @@ type BrowsePath {
 }
 
 input ChartUpdateInput {
-   """
-   The chart urn
-   """
-   urn: String!
+    """
+    The chart urn
+    """
+    urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+    """
+    Update to global tags
+    """
+    globalTags: GlobalTagsUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: ChartEditablePropertiesUpdate
 }
 
 input DashboardUpdateInput {
-   """
-   The dashboard urn
-   """
-   urn: String!
+    """
+    The dashboard urn
+    """
+    urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+    """
+    Update to global tags
+    """
+    globalTags: GlobalTagsUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: DashboardEditablePropertiesUpdate
 }
 
 input DataFlowUpdateInput {
-   """
-   The dataFlow urn
-   """
-   urn: String!
+    """
+    The dataFlow urn
+    """
+    urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+    """
+    Update to global tags
+    """
+    globalTags: GlobalTagsUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: DataFlowEditablePropertiesUpdate
 }
 
 input DataJobUpdateInput {
-   """
-   The dataJob urn
-   """
-   urn: String!
+    """
+    The dataJob urn
+    """
+    urn: String!
 
-   """
-   Update to ownership
-   """
-   ownership: OwnershipUpdate
+    """
+    Update to ownership
+    """
+    ownership: OwnershipUpdate
 
-   """
-   Update to global tags
-   """
-   globalTags: GlobalTagsUpdate
+    """
+    Update to global tags
+    """
+    globalTags: GlobalTagsUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: DataJobEditablePropertiesUpdate
 }
 
 input DatasetUpdateInput {
     """
     The dataset urn
     """
-   urn: String!
+    urn: String!
 
     """
     Update to ownership
@@ -1439,6 +1603,11 @@ input DatasetUpdateInput {
     Update to editable schema metadata of the dataset
     """
     editableSchemaMetadata: EditableSchemaMetadataUpdate
+
+    """
+    Update to editable properties
+    """
+    editableProperties: DatasetEditablePropertiesUpdate
 }
 
 input EditableSchemaMetadataUpdate {
@@ -1460,6 +1629,41 @@ input EditableSchemaFieldInfoUpdate {
     Tags associated with the field
     """
     globalTags: GlobalTagsUpdate
+}
+
+input DatasetEditablePropertiesUpdate {
+    """
+    Description
+    """
+    description: String!
+}
+
+input ChartEditablePropertiesUpdate {
+    """
+    Description
+    """
+    description: String!
+}
+
+input DashboardEditablePropertiesUpdate {
+    """
+    Description
+    """
+    description: String!
+}
+
+input DataJobEditablePropertiesUpdate {
+    """
+    Description
+    """
+    description: String!
+}
+
+input DataFlowEditablePropertiesUpdate {
+    """
+    Description
+    """
+    description: String!
 }
 
 input GlobalTagsUpdate {
@@ -1601,6 +1805,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     Entities downstream of the given entity
     """
     downstreamLineage: DownstreamEntityRelationships
+
+    """
+    Editable properties
+    """
+    editableProperties: DashboardEditableProperties
 }
 
 type DashboardInfo {
@@ -1722,6 +1931,11 @@ type Chart implements EntityWithRelationships & Entity {
     Entities downstream of the given entity
     """
     downstreamLineage: DownstreamEntityRelationships
+
+    """
+    Editable properties
+    """
+    editableProperties: ChartEditableProperties
 }
 
 type ChartInfo {
@@ -1945,6 +2159,64 @@ type MLModel implements Entity {
     deprecation: Deprecation
 }
 
+type MLFeature implements Entity {
+
+    """
+    The unique MLFeature URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    MLFeature name
+    """
+    name: String!
+
+    """
+    MLFeature featureNamespace
+    """
+    featureNamespace: String!
+
+    """
+    MLFeature description
+    """
+    description: String
+
+    """
+    MLFeature data type
+    """
+    dataType: MLFeatureDataType
+
+    """
+    Ownership metadata of the MLFeature
+    """
+    ownership: Ownership
+
+    """
+    ModelProperties metadata of the MLFeature
+    """
+    featureProperties: MLFeatureProperties
+
+    """
+    References to internal resources related to the MLFeature
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Status metadata of the MLFeature
+    """
+    status: Status
+
+    """
+    Deprecation
+    """
+    deprecation: Deprecation
+}
+
 type MLModelProperties {
 
     description: String
@@ -1960,6 +2232,148 @@ type MLModelProperties {
     mlFeatures: [String!]
 
     tags: [String!]
+}
+
+type MLFeatureProperties {
+
+    description: String
+
+    dataType: MLFeatureDataType
+
+    version: VersionTag
+
+    sources: [Dataset]
+}
+
+type MLPrimaryKey implements Entity {
+
+    """
+    The unique MLPrimaryKey URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    MLPrimaryKey name
+    """
+    name: String!
+
+    """
+    MLPrimaryKey featureNamespace
+    """
+    featureNamespace: String!
+
+    """
+    MLPrimaryKey description
+    """
+    description: String
+
+    """
+    MLPrimaryKey data type
+    """
+    dataType: MLFeatureDataType
+
+    """
+    MLPrimaryKeyProperties
+    """
+    primaryKeyProperties: MLPrimaryKeyProperties
+
+    """
+    Ownership metadata of the MLPrimaryKey
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the MLPrimaryKey
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Status metadata of the MLPrimaryKey
+    """
+    status: Status
+
+    """
+    Deprecation
+    """
+    deprecation: Deprecation
+}
+
+type MLPrimaryKeyProperties {
+
+    description: String
+
+    dataType: MLFeatureDataType
+
+    version: VersionTag
+
+    sources: [Dataset]
+}
+
+type MLFeatureTable implements Entity {
+
+    """
+    The unique MLFeatureTable URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    MLFeatureTable name
+    """
+    name: String!
+
+    """
+    Standardized platform urn where the MLFeatureTable is defined
+    """
+    platform: DataPlatform
+
+    """
+    MLFeatureTable description
+    """
+    description: String
+
+    """
+    Ownership metadata of the MLFeatureTable
+    """
+    ownership: Ownership
+
+    """
+    ModelProperties metadata of the MLFeature
+    """
+    featureTableProperties: MLFeatureTableProperties
+
+    """
+    References to internal resources related to the MLFeature
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Status metadata of the MLFeatureTable
+    """
+    status: Status
+
+    """
+    Deprecation
+    """
+    deprecation: Deprecation
+}
+
+type MLFeatureTableProperties {
+
+    description: String
+
+    mlFeatures: [MLFeature]
+
+    mlPrimaryKeys: [MLPrimaryKey]
 }
 
 type HyperParameterMap {
@@ -2305,6 +2719,11 @@ type DataFlow implements Entity {
     DataJobs
     """
     dataJobs: DataFlowDataJobsRelationships
+
+    """
+    Editable properties
+    """
+    editableProperties: DataFlowEditableProperties
 }
 
 type DataFlowInfo {
@@ -2390,6 +2809,10 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     status: Status
 
+    """
+    Editable properties
+    """
+    editableProperties: DataJobEditableProperties
 }
 
 type DataJobInfo {
@@ -2430,4 +2853,58 @@ type DataJobInputOutput {
     """
     inputDatajobs: [DataJob!]
 
+}
+
+type UserUsageCounts {
+    user: CorpUser
+    count: Int
+    userEmail: String
+}
+
+type UsageQueryResult {
+    buckets: [UsageAggregation]
+    aggregations: UsageQueryResultAggregations
+}
+
+type UsageQueryResultAggregations {
+    uniqueUserCount: Int
+    users: [UserUsageCounts]
+    fields: [FieldUsageCounts]
+    totalSqlQueries: Int
+}
+
+type UsageAggregationMetrics {
+    uniqueUserCount: Int
+    users: [UserUsageCounts]
+    totalSqlQueries: Int
+    topSqlQueries: [String]
+    fields: [FieldUsageCounts]
+}
+
+type UsageAggregation {
+    bucket: Long
+    duration: WindowDuration
+    resource: String
+    metrics: UsageAggregationMetrics
+}
+
+type FieldUsageCounts {
+    fieldName: String
+    count: Int
+}
+
+enum WindowDuration {
+    DAY
+    WEEK
+    MONTH
+    YEAR
+}
+
+enum TimeRange {
+    DAY
+    WEEK
+    MONTH
+    QUARTER
+    YEAR
+    ALL
 }

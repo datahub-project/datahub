@@ -37,9 +37,10 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.5.0",
+    "avro-gen3==0.5.3",
     "avro-python3>=1.8.2",
     "python-dateutil",
+    "stackprinter",
 }
 
 kafka_common = {
@@ -57,6 +58,11 @@ sql_common = {
     "sqlalchemy==1.3.24",
 }
 
+aws_common = {
+    # AWS Python SDK
+    "boto3"
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -70,19 +76,20 @@ plugins: Dict[str, Set[str]] = {
     "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
+    "bigquery-usage": {"google-cloud-logging", "cachetools"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
-    "glue": {"boto3"},
+    "glue": aws_common,
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.7"
+        "acryl-pyhive[hive]>=0.6.10"
     },
     "kudu": {"impyla>=0.16.3", "krbcontext>=0.10"},
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
-    "lookml": {"lkml>=1.1.0", "sql-metadata==1.12.0"},
+    "lookml": {"lkml>=1.1.0", "sql-metadata==2.2.1"},
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -90,7 +97,9 @@ plugins: Dict[str, Set[str]] = {
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
-    "snowflake": sql_common | {"snowflake-sqlalchemy"},
+    "sagemaker": aws_common,
+    "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
+    "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "superset": {"requests"},
 }
 
@@ -111,6 +120,7 @@ mypy_stubs = {
     "types-PyMySQL",
     "types-PyYAML",
     "types-freezegun",
+    "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
 }
@@ -126,11 +136,12 @@ base_dev_requirements = {
     "mypy>=0.901",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
-    "pytest-docker",
+    "pytest-docker>=0.10.3",
     "tox",
     "deepdiff",
     "requests-mock",
     "freezegun",
+    "jsonpickle",
     "build",
     "twine",
     "mock-alchemy",
@@ -138,16 +149,14 @@ base_dev_requirements = {
         dependency
         for plugin in [
             "bigquery",
-            "mysql",
-            "mssql",
-            "mongodb",
-            "feast",
-            "ldap",
+            "bigquery-usage",
             "looker",
             "glue",
             "hive",
             "kudu",
             "oracle",
+            "postgres",
+            "sagemaker",
             "datahub-kafka",
             "datahub-rest",
             # airflow is added below
@@ -164,27 +173,44 @@ if is_py37_or_newer:
 
 dev_requirements = {
     *base_dev_requirements,
-    "apache-airflow==1.10.15",
-    "apache-airflow-backport-providers-snowflake",  # Used in the example DAGs.
+    "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
 }
-dev_requirements_airflow_2 = {
+dev_requirements_airflow_1 = {
     *base_dev_requirements,
-    "apache-airflow>=2.0.2",
-    "apache-airflow-providers-snowflake",
+    "apache-airflow==1.10.15",
+    "apache-airflow-backport-providers-snowflake",
 }
 
+full_test_dev_requirements = {
+    *list(
+        dependency
+        for plugin in [
+            "druid",
+            "feast",
+            "hive",
+            "ldap",
+            "mongodb",
+            "mssql",
+            "mysql",
+            "snowflake",
+        ]
+        for dependency in plugins[plugin]
+    ),
+}
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
-        "file = datahub.ingestion.source.mce_file:MetadataFileSource",
+        "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.athena:AthenaSource",
         "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
+        "bigquery-usage = datahub.ingestion.source.bigquery_usage:BigQueryUsageSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.druid:DruidSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.glue:GlueSource",
+        "sagemaker = datahub.ingestion.source.sagemaker:SagemakerSource",
         "hive = datahub.ingestion.source.hive:HiveSource",
         "kudu = datahub.ingestion.source.kudu:KuduSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
@@ -199,6 +225,7 @@ entry_points = {
         "postgres = datahub.ingestion.source.postgres:PostgresSource",
         "redshift = datahub.ingestion.source.redshift:RedshiftSource",
         "snowflake = datahub.ingestion.source.snowflake:SnowflakeSource",
+        "snowflake-usage = datahub.ingestion.source.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
     ],
     "datahub.ingestion.sink.plugins": [
@@ -221,7 +248,6 @@ setuptools.setup(
         "Source": "https://github.com/linkedin/datahub",
         "Changelog": "https://github.com/linkedin/datahub/releases",
     },
-    author="DataHub Committers",
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",
     long_description=get_long_description(),
@@ -254,6 +280,7 @@ setuptools.setup(
     package_data={
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
+        "datahub.metadata.schemas": ["*.avsc"],
     },
     entry_points=entry_points,
     # Dependencies.
@@ -274,6 +301,7 @@ setuptools.setup(
             )
         ),
         "dev": list(dev_requirements),
-        "dev-airflow2": list(dev_requirements_airflow_2),
+        "dev-airflow1": list(dev_requirements_airflow_1),
+        "integration-tests": list(full_test_dev_requirements),
     },
 )

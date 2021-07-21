@@ -64,7 +64,9 @@ export const AllEntitiesSearchResults = ({ query }: Props) => {
             {Object.keys(allSearchResultsByType).map((type: any) => {
                 const searchResults = allSearchResultsByType[type].data?.search?.searchResults;
                 if (searchResults && searchResults.length > 0) {
-                    return <EntityGroupSearchResults type={type} query={query} searchResults={searchResults} />;
+                    return (
+                        <EntityGroupSearchResults key={type} type={type} query={query} searchResults={searchResults} />
+                    );
                 }
                 return null;
             })}
