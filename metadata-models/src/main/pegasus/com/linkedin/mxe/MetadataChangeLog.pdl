@@ -9,6 +9,6 @@ record MetadataChangeLog includes MetadataChangeProposal {
 
   previousAspectValue: optional GenericAspect
 
-  previousSystemMetadata: optional map[string, string]
+  previousSystemMetadata: optional SystemMetadata
 
 }

@@ -30,8 +30,8 @@ public class MergedEntityRegistry implements EntityRegistry {
   private EntitySpec mergeEntitySpecs(EntitySpec entitySpec1, EntitySpec entitySpec2) {
     Map<String, AspectSpec> aspectSpecMap = new HashMap<>(entitySpec1.getAspectSpecMap());
     aspectSpecMap.putAll(entitySpec2.getAspectSpecMap());
-    return new DefaultEntitySpec(aspectSpecMap.values(), entitySpec2.getEntityAnnotation(),
-        entitySpec2.getSnapshotSchema(), entitySpec2.getAspectTyperefSchema());
+    return new DefaultEntitySpec(aspectSpecMap.values(), entitySpec1.getEntityAnnotation(),
+        entitySpec1.getSnapshotSchema(), entitySpec1.getAspectTyperefSchema());
   }
 
   @Nonnull

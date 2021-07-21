@@ -4,6 +4,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -31,19 +33,11 @@ public interface EntityEventProducer {
    * new & previous aspect.
    *
    * @param urn the urn associated with the entity changed
-   * @param entityName name of the entity
-   * @param changeType type of change that is being applied
-   * @param aspectName name of the aspect
-   * @param oldAspect a {@link RecordTemplate} corresponding to the old aspect.
-   * @param newAspect a {@link RecordTemplate} corresponding to the new aspect.
+   * @param metadataChangeLog metadata change log to push into MCL kafka topic
    */
   void produceMetadataChangeLog(
       @Nonnull final Urn urn,
-      @Nonnull final String entityName,
-      @Nonnull final ChangeType changeType,
-      @Nullable final String aspectName,
-      @Nullable final RecordTemplate oldAspect,
-      @Nullable final RecordTemplate newAspect);
+      @Nonnull final MetadataChangeLog metadataChangeLog);
 
   /**
    * Produces an aspect-specific {@link com.linkedin.mxe.MetadataChangeEvent} from a

@@ -19,7 +19,9 @@ import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
@@ -229,20 +231,12 @@ public abstract class EntityService {
    * new & previous aspect.
    *
    * @param urn the urn associated with the entity changed
-   * @param entityName name of the entity
-   * @param changeType type of change that is being applied
-   * @param aspectName name of the aspect
-   * @param oldAspect a {@link RecordTemplate} corresponding to the old aspect.
-   * @param newAspect a {@link RecordTemplate} corresponding to the new aspect.
+   * @param metadataChangeLog metadata change log to push into MCL kafka topic
    */
   public void produceMetadataChangeLog(
       @Nonnull final Urn urn,
-      @Nonnull final String entityName,
-      @Nonnull final ChangeType changeType,
-      @Nullable final String aspectName,
-      @Nullable final RecordTemplate oldAspect,
-      @Nullable final RecordTemplate newAspect) {
-    _producer.produceMetadataChangeLog(urn, entityName, changeType, aspectName, oldAspect, newAspect);
+      @Nonnull final MetadataChangeLog metadataChangeLog) {
+    _producer.produceMetadataChangeLog(urn, metadataChangeLog);
   }
 
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {

@@ -39,6 +39,6 @@ record MetadataChangeProposal {
   /**
    * A string->string map of custom properties that one might want to attach to an event
    **/
-  systemMetadata: optional map[string, string]
+  systemMetadata: optional SystemMetadata
 
 }
