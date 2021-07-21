@@ -32,11 +32,9 @@ export const JsonForm = () => {
     const printErrorMsg = (error) => {
         message.error(error, 3).then();
     };
-    const onSchemaChange = useRef((data) => {
-        setTimeout(() => {
-            setSchema(data);
-        }, 0);
-    }).current;
+    const onSchemaChange = (data) => {
+        setSchema(data);
+    };
     const flattenSchema = (schemaStr) => {
         const fields: Array<{ field_name: string; field_type: string; field_description: string }> = [];
         // use json pointer to get all fields and its parent
