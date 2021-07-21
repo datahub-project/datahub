@@ -1,6 +1,7 @@
+import contextlib
 import dataclasses
 import unittest.mock
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
@@ -55,21 +56,43 @@ class DatasetProfile:
     fieldProfiles: Optional[List[DatasetFieldProfile]] = None
 
 
+@contextlib.contextmanager
+def _properly_init_datasource(engine):
+    underlying_datasource_init = SqlAlchemyDatasource.__init__
+
+    def sqlalchemy_datasource_init(
+        self: SqlAlchemyDatasource, *args: Any, **kwargs: Any
+    ) -> None:
+        underlying_datasource_init(self, *args, **kwargs, engine=engine)
+        self.drivername = engine.name
+        del self._datasource_config["engine"]
+
+    with unittest.mock.patch(
+        "great_expectations.datasource.sqlalchemy_datasource.SqlAlchemyDatasource.__init__",
+        sqlalchemy_datasource_init,
+    ):
+        yield
+
+
 @dataclasses.dataclass
 class DatahubGEProfiler:
-    data_context: BaseDataContext = dataclasses.field(init=False)
+    data_context: BaseDataContext
 
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     datasource_name: str = "my_sqlalchemy_datasource"
 
     def __init__(self, engine):
+        self.engine = engine
+
         data_context_config = DataContextConfig(
             datasources={
                 self.datasource_name: DatasourceConfig(
                     class_name="SqlAlchemyDatasource",
                     credentials={
-                        "engine": None,
-                        "url": f"{engine.name}://",  # dummy to fix GE
+                        # This isn't actually used since we pass the engine in directly,
+                        # but GE parses it to change some of its behavior so it's useful to emulate that
+                        # here.
+                        "url": engine.url,
                     },
                 )
             },
@@ -80,26 +103,17 @@ class DatahubGEProfiler:
             },
         )
 
-        underlying_datasource_init = SqlAlchemyDatasource.__init__
-
-        def sqlalchemy_datasource_init(*args, **kwargs):
-            underlying_datasource_init(*args, **kwargs, engine=engine)
-            args[0].dialect = engine.name
-            breakpoint()
-
-        with unittest.mock.patch(
-            "great_expectations.datasource.sqlalchemy_datasource.SqlAlchemyDatasource.__init__",
-            sqlalchemy_datasource_init,
-        ):
+        with _properly_init_datasource(engine):
             self.data_context = BaseDataContext(project_config=data_context_config)
 
     def generate_profile(self, schema: str, table: str) -> DatasetProfile:
-        evrs = self._profile_data_asset(
-            {
-                "schema": schema,
-                "table": table,
-            }
-        )
+        with _properly_init_datasource(self.engine):
+            evrs = self._profile_data_asset(
+                {
+                    "schema": schema,
+                    "table": table,
+                }
+            )
 
         profile = self._convert_evrs_to_profile(evrs)
 

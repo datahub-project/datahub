@@ -1,8 +1,7 @@
-import functools
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 from urllib.parse import quote_plus
 
 import pydantic
@@ -34,6 +33,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import DatasetPropertiesClass
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine.base import Engine
+
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -280,6 +284,9 @@ class SQLAlchemySource(Source):
             sql_config.options["echo"] = True
 
         for inspector in self.get_inspectors():
+            if sql_config.profile_tables:
+                profiler = self._get_profiler_instance(inspector.engine)
+
             for schema in inspector.get_schema_names():
                 if not sql_config.schema_pattern.allowed(schema):
                     self.report.report_dropped(f"{schema}.*")
@@ -292,7 +299,9 @@ class SQLAlchemySource(Source):
                     yield from self.loop_views(inspector, schema, sql_config)
 
                 if sql_config.profile_tables:
-                    yield from self.run_profiler(inspector, schema, sql_config)
+                    yield from self.run_profiler(
+                        inspector, profiler, schema, sql_config
+                    )
 
     def loop_tables(
         self,
@@ -423,27 +432,29 @@ class SQLAlchemySource(Source):
             self.report.report_workunit(wu)
             yield wu
 
-    @functools.lru_cache(maxsize=None)
-    def _get_profiler_instance(self):
+    def _get_profiler_instance(self, engine: "Engine") -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
-        pass
+        return DatahubGEProfiler(engine=engine)
 
     def run_profiler(
         self,
         inspector: Inspector,
+        profiler: "DatahubGEProfiler",
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[SqlWorkUnit]:
         for table in inspector.get_table_names(schema):
             schema, table = sql_config.standardize_schema_table_names(schema, table)
             dataset_name = sql_config.get_identifier(schema, table)
+            self.report.report_entity_scanned(f"profile of {dataset_name}")
 
             if not sql_config.profile_pattern.allowed(dataset_name):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
 
-            pass
+            breakpoint()
+            yield from []
 
     def get_report(self):
         return self.report
