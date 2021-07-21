@@ -1,7 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.EntitiesDoIngestAspectRequestBuilder;
+import com.linkedin.entity.EntitiesDoIngestProposalRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.restli.client.Response;
@@ -216,10 +216,10 @@ public class EntityClient {
         sendClientRequest(request);
     }
 
-    public void ingestAspect(@Nonnull final MetadataChangeProposal MetadataChangeProposal)
+    public void ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal)
         throws RemoteInvocationException {
-        final EntitiesDoIngestAspectRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionIngestAspect()
-            .genericChangeEventParam(MetadataChangeProposal);
+        final EntitiesDoIngestProposalRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionIngestProposal()
+            .proposalParam(metadataChangeProposal);
 
         sendClientRequest(requestBuilder.build());
     }

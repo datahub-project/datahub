@@ -49,7 +49,7 @@ public class MetadataChangeProposalsProcessor {
     try {
       event = EventUtils.avroToPegasusMCP(record);
       log.debug("MetadataChangeEvent {}", event);
-      entityClient.ingestAspect(event);
+      entityClient.ingestProposal(event);
     } catch (Throwable throwable) {
       log.error("MCE Processor Error", throwable);
       log.error("Message: {}", record);
