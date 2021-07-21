@@ -2602,12 +2602,15 @@ class DatasetFieldProfileClass(DictWrapper):
         uniqueProportion: Union[None, float]=None,
         nullCount: Union[None, int]=None,
         nullProportion: Union[None, float]=None,
-        min: Union[None, float]=None,
-        max: Union[None, float]=None,
-        mean: Union[None, float]=None,
-        median: Union[None, float]=None,
-        stdev: Union[None, float]=None,
-        partial_example_values: Union[None, List[str]]=None,
+        min: Union[None, str]=None,
+        max: Union[None, str]=None,
+        mean: Union[None, str]=None,
+        median: Union[None, str]=None,
+        stdev: Union[None, str]=None,
+        quantiles: Union[None, List["QuantileClass"]]=None,
+        distinctValueFrequencies: Union[None, List["ValueFrequencyClass"]]=None,
+        histogram: Union[None, "HistogramClass"]=None,
+        sampleValues: Union[None, List[str]]=None,
     ):
         super().__init__()
         
@@ -2621,7 +2624,10 @@ class DatasetFieldProfileClass(DictWrapper):
         self.mean = mean
         self.median = median
         self.stdev = stdev
-        self.partial_example_values = partial_example_values
+        self.quantiles = quantiles
+        self.distinctValueFrequencies = distinctValueFrequencies
+        self.histogram = histogram
+        self.sampleValues = sampleValues
     
     @classmethod
     def construct_with_defaults(cls) -> "DatasetFieldProfileClass":
@@ -2641,7 +2647,10 @@ class DatasetFieldProfileClass(DictWrapper):
         self.mean = self.RECORD_SCHEMA.field_map["mean"].default
         self.median = self.RECORD_SCHEMA.field_map["median"].default
         self.stdev = self.RECORD_SCHEMA.field_map["stdev"].default
-        self.partial_example_values = self.RECORD_SCHEMA.field_map["partial_example_values"].default
+        self.quantiles = self.RECORD_SCHEMA.field_map["quantiles"].default
+        self.distinctValueFrequencies = self.RECORD_SCHEMA.field_map["distinctValueFrequencies"].default
+        self.histogram = self.RECORD_SCHEMA.field_map["histogram"].default
+        self.sampleValues = self.RECORD_SCHEMA.field_map["sampleValues"].default
     
     
     @property
@@ -2700,69 +2709,102 @@ class DatasetFieldProfileClass(DictWrapper):
     
     
     @property
-    def min(self) -> Union[None, float]:
+    def min(self) -> Union[None, str]:
         # No docs available.
         return self._inner_dict.get('min')  # type: ignore
     
     @min.setter
-    def min(self, value: Union[None, float]) -> None:
+    def min(self, value: Union[None, str]) -> None:
         # No docs available.
         self._inner_dict['min'] = value
     
     
     @property
-    def max(self) -> Union[None, float]:
+    def max(self) -> Union[None, str]:
         # No docs available.
         return self._inner_dict.get('max')  # type: ignore
     
     @max.setter
-    def max(self, value: Union[None, float]) -> None:
+    def max(self, value: Union[None, str]) -> None:
         # No docs available.
         self._inner_dict['max'] = value
     
     
     @property
-    def mean(self) -> Union[None, float]:
+    def mean(self) -> Union[None, str]:
         # No docs available.
         return self._inner_dict.get('mean')  # type: ignore
     
     @mean.setter
-    def mean(self, value: Union[None, float]) -> None:
+    def mean(self, value: Union[None, str]) -> None:
         # No docs available.
         self._inner_dict['mean'] = value
     
     
     @property
-    def median(self) -> Union[None, float]:
+    def median(self) -> Union[None, str]:
         # No docs available.
         return self._inner_dict.get('median')  # type: ignore
     
     @median.setter
-    def median(self, value: Union[None, float]) -> None:
+    def median(self, value: Union[None, str]) -> None:
         # No docs available.
         self._inner_dict['median'] = value
     
     
     @property
-    def stdev(self) -> Union[None, float]:
+    def stdev(self) -> Union[None, str]:
         # No docs available.
         return self._inner_dict.get('stdev')  # type: ignore
     
     @stdev.setter
-    def stdev(self, value: Union[None, float]) -> None:
+    def stdev(self, value: Union[None, str]) -> None:
         # No docs available.
         self._inner_dict['stdev'] = value
     
     
     @property
-    def partial_example_values(self) -> Union[None, List[str]]:
+    def quantiles(self) -> Union[None, List["QuantileClass"]]:
         # No docs available.
-        return self._inner_dict.get('partial_example_values')  # type: ignore
+        return self._inner_dict.get('quantiles')  # type: ignore
     
-    @partial_example_values.setter
-    def partial_example_values(self, value: Union[None, List[str]]) -> None:
+    @quantiles.setter
+    def quantiles(self, value: Union[None, List["QuantileClass"]]) -> None:
         # No docs available.
-        self._inner_dict['partial_example_values'] = value
+        self._inner_dict['quantiles'] = value
+    
+    
+    @property
+    def distinctValueFrequencies(self) -> Union[None, List["ValueFrequencyClass"]]:
+        # No docs available.
+        return self._inner_dict.get('distinctValueFrequencies')  # type: ignore
+    
+    @distinctValueFrequencies.setter
+    def distinctValueFrequencies(self, value: Union[None, List["ValueFrequencyClass"]]) -> None:
+        # No docs available.
+        self._inner_dict['distinctValueFrequencies'] = value
+    
+    
+    @property
+    def histogram(self) -> Union[None, "HistogramClass"]:
+        # No docs available.
+        return self._inner_dict.get('histogram')  # type: ignore
+    
+    @histogram.setter
+    def histogram(self, value: Union[None, "HistogramClass"]) -> None:
+        # No docs available.
+        self._inner_dict['histogram'] = value
+    
+    
+    @property
+    def sampleValues(self) -> Union[None, List[str]]:
+        # No docs available.
+        return self._inner_dict.get('sampleValues')  # type: ignore
+    
+    @sampleValues.setter
+    def sampleValues(self, value: Union[None, List[str]]) -> None:
+        # No docs available.
+        self._inner_dict['sampleValues'] = value
     
     
 class DatasetLineageTypeClass(object):
@@ -2784,14 +2826,14 @@ class DatasetProfileClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetProfile")
     def __init__(self,
-        temporalInfo: "TemporalInfoClass",
+        timestampMillis: int,
         rowCount: Union[None, int]=None,
         columnCount: Union[None, int]=None,
         fieldProfiles: Union[None, List["DatasetFieldProfileClass"]]=None,
     ):
         super().__init__()
         
-        self.temporalInfo = temporalInfo
+        self.timestampMillis = timestampMillis
         self.rowCount = rowCount
         self.columnCount = columnCount
         self.fieldProfiles = fieldProfiles
@@ -2804,21 +2846,21 @@ class DatasetProfileClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.temporalInfo = TemporalInfoClass.construct_with_defaults()
+        self.timestampMillis = int()
         self.rowCount = self.RECORD_SCHEMA.field_map["rowCount"].default
         self.columnCount = self.RECORD_SCHEMA.field_map["columnCount"].default
         self.fieldProfiles = self.RECORD_SCHEMA.field_map["fieldProfiles"].default
     
     
     @property
-    def temporalInfo(self) -> "TemporalInfoClass":
+    def timestampMillis(self) -> int:
         # No docs available.
-        return self._inner_dict.get('temporalInfo')  # type: ignore
+        return self._inner_dict.get('timestampMillis')  # type: ignore
     
-    @temporalInfo.setter
-    def temporalInfo(self, value: "TemporalInfoClass") -> None:
+    @timestampMillis.setter
+    def timestampMillis(self, value: int) -> None:
         # No docs available.
-        self._inner_dict['temporalInfo'] = value
+        self._inner_dict['timestampMillis'] = value
     
     
     @property
@@ -3068,6 +3110,100 @@ class EditableDatasetPropertiesClass(DictWrapper):
         self._inner_dict['description'] = value
     
     
+class HistogramClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.Histogram")
+    def __init__(self,
+        boundaries: List[str],
+        heights: List[float],
+    ):
+        super().__init__()
+        
+        self.boundaries = boundaries
+        self.heights = heights
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "HistogramClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.boundaries = list()
+        self.heights = list()
+    
+    
+    @property
+    def boundaries(self) -> List[str]:
+        # No docs available.
+        return self._inner_dict.get('boundaries')  # type: ignore
+    
+    @boundaries.setter
+    def boundaries(self, value: List[str]) -> None:
+        # No docs available.
+        self._inner_dict['boundaries'] = value
+    
+    
+    @property
+    def heights(self) -> List[float]:
+        # No docs available.
+        return self._inner_dict.get('heights')  # type: ignore
+    
+    @heights.setter
+    def heights(self, value: List[float]) -> None:
+        # No docs available.
+        self._inner_dict['heights'] = value
+    
+    
+class QuantileClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.Quantile")
+    def __init__(self,
+        quantile: str,
+        value: str,
+    ):
+        super().__init__()
+        
+        self.quantile = quantile
+        self.value = value
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "QuantileClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.quantile = str()
+        self.value = str()
+    
+    
+    @property
+    def quantile(self) -> str:
+        # No docs available.
+        return self._inner_dict.get('quantile')  # type: ignore
+    
+    @quantile.setter
+    def quantile(self, value: str) -> None:
+        # No docs available.
+        self._inner_dict['quantile'] = value
+    
+    
+    @property
+    def value(self) -> str:
+        # No docs available.
+        return self._inner_dict.get('value')  # type: ignore
+    
+    @value.setter
+    def value(self, value: str) -> None:
+        # No docs available.
+        self._inner_dict['value'] = value
+    
+    
 class UpstreamClass(DictWrapper):
     """Upstream lineage information about a dataset including the source reporting the lineage"""
     
@@ -3166,6 +3302,53 @@ class UpstreamLineageClass(DictWrapper):
     def upstreams(self, value: List["UpstreamClass"]) -> None:
         """Setter: List of upstream dataset lineage information"""
         self._inner_dict['upstreams'] = value
+    
+    
+class ValueFrequencyClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.ValueFrequency")
+    def __init__(self,
+        value: str,
+        frequency: int,
+    ):
+        super().__init__()
+        
+        self.value = value
+        self.frequency = frequency
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "ValueFrequencyClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.value = str()
+        self.frequency = int()
+    
+    
+    @property
+    def value(self) -> str:
+        # No docs available.
+        return self._inner_dict.get('value')  # type: ignore
+    
+    @value.setter
+    def value(self, value: str) -> None:
+        # No docs available.
+        self._inner_dict['value'] = value
+    
+    
+    @property
+    def frequency(self) -> int:
+        # No docs available.
+        return self._inner_dict.get('frequency')  # type: ignore
+    
+    @frequency.setter
+    def frequency(self, value: int) -> None:
+        # No docs available.
+        self._inner_dict['frequency'] = value
     
     
 class GlossaryNodeInfoClass(DictWrapper):
@@ -8179,161 +8362,6 @@ class TagPropertiesClass(DictWrapper):
         self._inner_dict['description'] = value
     
     
-class PartitionSpecClass(DictWrapper):
-    """Defines how the data is partitioned"""
-    
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.temporal.PartitionSpec")
-    def __init__(self,
-        partition: str,
-        timePartition: Union[None, "TimeWindowClass"]=None,
-    ):
-        super().__init__()
-        
-        self.partition = partition
-        self.timePartition = timePartition
-    
-    @classmethod
-    def construct_with_defaults(cls) -> "PartitionSpecClass":
-        self = cls.construct({})
-        self._restore_defaults()
-        
-        return self
-    
-    def _restore_defaults(self) -> None:
-        self.partition = str()
-        self.timePartition = self.RECORD_SCHEMA.field_map["timePartition"].default
-    
-    
-    @property
-    def partition(self) -> str:
-        """Getter: String representation of the partition"""
-        return self._inner_dict.get('partition')  # type: ignore
-    
-    @partition.setter
-    def partition(self, value: str) -> None:
-        """Setter: String representation of the partition"""
-        self._inner_dict['partition'] = value
-    
-    
-    @property
-    def timePartition(self) -> Union[None, "TimeWindowClass"]:
-        """Getter: Time window of the partition if applicable"""
-        return self._inner_dict.get('timePartition')  # type: ignore
-    
-    @timePartition.setter
-    def timePartition(self, value: Union[None, "TimeWindowClass"]) -> None:
-        """Setter: Time window of the partition if applicable"""
-        self._inner_dict['timePartition'] = value
-    
-    
-class TemporalInfoClass(DictWrapper):
-    # No docs available.
-    
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.temporal.TemporalInfo")
-    def __init__(self,
-        eventTimestampMillis: int,
-        eventGranularityMillis: Union[None, int]=None,
-        partitionSpec: Union[None, "PartitionSpecClass"]=None,
-    ):
-        super().__init__()
-        
-        self.eventTimestampMillis = eventTimestampMillis
-        self.eventGranularityMillis = eventGranularityMillis
-        self.partitionSpec = partitionSpec
-    
-    @classmethod
-    def construct_with_defaults(cls) -> "TemporalInfoClass":
-        self = cls.construct({})
-        self._restore_defaults()
-        
-        return self
-    
-    def _restore_defaults(self) -> None:
-        self.eventTimestampMillis = int()
-        self.eventGranularityMillis = self.RECORD_SCHEMA.field_map["eventGranularityMillis"].default
-        self.partitionSpec = self.RECORD_SCHEMA.field_map["partitionSpec"].default
-    
-    
-    @property
-    def eventTimestampMillis(self) -> int:
-        """Getter: The event timestamp field as epoch at UTC in milli seconds."""
-        return self._inner_dict.get('eventTimestampMillis')  # type: ignore
-    
-    @eventTimestampMillis.setter
-    def eventTimestampMillis(self, value: int) -> None:
-        """Setter: The event timestamp field as epoch at UTC in milli seconds."""
-        self._inner_dict['eventTimestampMillis'] = value
-    
-    
-    @property
-    def eventGranularityMillis(self) -> Union[None, int]:
-        """Getter: Granularity of the event if applicable"""
-        return self._inner_dict.get('eventGranularityMillis')  # type: ignore
-    
-    @eventGranularityMillis.setter
-    def eventGranularityMillis(self, value: Union[None, int]) -> None:
-        """Setter: Granularity of the event if applicable"""
-        self._inner_dict['eventGranularityMillis'] = value
-    
-    
-    @property
-    def partitionSpec(self) -> Union[None, "PartitionSpecClass"]:
-        """Getter: The optional partition specification."""
-        return self._inner_dict.get('partitionSpec')  # type: ignore
-    
-    @partitionSpec.setter
-    def partitionSpec(self, value: Union[None, "PartitionSpecClass"]) -> None:
-        """Setter: The optional partition specification."""
-        self._inner_dict['partitionSpec'] = value
-    
-    
-class TimeWindowClass(DictWrapper):
-    # No docs available.
-    
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.temporal.TimeWindow")
-    def __init__(self,
-        startTimeMillis: int,
-        durationMillis: int,
-    ):
-        super().__init__()
-        
-        self.startTimeMillis = startTimeMillis
-        self.durationMillis = durationMillis
-    
-    @classmethod
-    def construct_with_defaults(cls) -> "TimeWindowClass":
-        self = cls.construct({})
-        self._restore_defaults()
-        
-        return self
-    
-    def _restore_defaults(self) -> None:
-        self.startTimeMillis = int()
-        self.durationMillis = int()
-    
-    
-    @property
-    def startTimeMillis(self) -> int:
-        """Getter: Start time as epoch at UTC."""
-        return self._inner_dict.get('startTimeMillis')  # type: ignore
-    
-    @startTimeMillis.setter
-    def startTimeMillis(self, value: int) -> None:
-        """Setter: Start time as epoch at UTC."""
-        self._inner_dict['startTimeMillis'] = value
-    
-    
-    @property
-    def durationMillis(self) -> int:
-        """Getter: End time as epoch at UTC."""
-        return self._inner_dict.get('durationMillis')  # type: ignore
-    
-    @durationMillis.setter
-    def durationMillis(self, value: int) -> None:
-        """Setter: End time as epoch at UTC."""
-        self._inner_dict['durationMillis'] = value
-    
-    
 class FieldUsageCountsClass(DictWrapper):
     """ Records field-level usage counts for a given resource """
     
@@ -8661,8 +8689,11 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataset.DatasetProperties': DatasetPropertiesClass,
     'com.linkedin.pegasus2avro.dataset.DatasetUpstreamLineage': DatasetUpstreamLineageClass,
     'com.linkedin.pegasus2avro.dataset.EditableDatasetProperties': EditableDatasetPropertiesClass,
+    'com.linkedin.pegasus2avro.dataset.Histogram': HistogramClass,
+    'com.linkedin.pegasus2avro.dataset.Quantile': QuantileClass,
     'com.linkedin.pegasus2avro.dataset.Upstream': UpstreamClass,
     'com.linkedin.pegasus2avro.dataset.UpstreamLineage': UpstreamLineageClass,
+    'com.linkedin.pegasus2avro.dataset.ValueFrequency': ValueFrequencyClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo': GlossaryNodeInfoClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryTermInfo': GlossaryTermInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpGroupInfo': CorpGroupInfoClass,
@@ -8760,9 +8791,6 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.schema.UnionType': UnionTypeClass,
     'com.linkedin.pegasus2avro.schema.UrnForeignKey': UrnForeignKeyClass,
     'com.linkedin.pegasus2avro.tag.TagProperties': TagPropertiesClass,
-    'com.linkedin.pegasus2avro.temporal.PartitionSpec': PartitionSpecClass,
-    'com.linkedin.pegasus2avro.temporal.TemporalInfo': TemporalInfoClass,
-    'com.linkedin.pegasus2avro.temporal.TimeWindow': TimeWindowClass,
     'com.linkedin.pegasus2avro.usage.FieldUsageCounts': FieldUsageCountsClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregation': UsageAggregationClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregationMetrics': UsageAggregationMetricsClass,
@@ -8820,8 +8848,11 @@ __SCHEMA_TYPES = {
     'DatasetProperties': DatasetPropertiesClass,
     'DatasetUpstreamLineage': DatasetUpstreamLineageClass,
     'EditableDatasetProperties': EditableDatasetPropertiesClass,
+    'Histogram': HistogramClass,
+    'Quantile': QuantileClass,
     'Upstream': UpstreamClass,
     'UpstreamLineage': UpstreamLineageClass,
+    'ValueFrequency': ValueFrequencyClass,
     'GlossaryNodeInfo': GlossaryNodeInfoClass,
     'GlossaryTermInfo': GlossaryTermInfoClass,
     'CorpGroupInfo': CorpGroupInfoClass,
@@ -8919,9 +8950,6 @@ __SCHEMA_TYPES = {
     'UnionType': UnionTypeClass,
     'UrnForeignKey': UrnForeignKeyClass,
     'TagProperties': TagPropertiesClass,
-    'PartitionSpec': PartitionSpecClass,
-    'TemporalInfo': TemporalInfoClass,
-    'TimeWindow': TimeWindowClass,
     'FieldUsageCounts': FieldUsageCountsClass,
     'UsageAggregation': UsageAggregationClass,
     'UsageAggregationMetrics': UsageAggregationMetricsClass,

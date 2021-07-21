@@ -394,5 +394,5 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
-  public abstract void ingestGenericAspect(MetadataChangeProposal metadataChangeEvent, AuditStamp auditStamp);
+  public abstract void ingestProposal(MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp);
 }

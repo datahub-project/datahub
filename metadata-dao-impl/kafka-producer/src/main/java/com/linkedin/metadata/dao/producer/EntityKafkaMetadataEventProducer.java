@@ -112,33 +112,33 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
       @Nullable final RecordTemplate oldAspect,
       @Nullable final RecordTemplate newAspect) {
 
-    final MetadataChangeLog metadataAuditEvent = new MetadataChangeLog();
-    metadataAuditEvent.setEntityType(entityName);
-    metadataAuditEvent.setEntityKey(MetadataChangeProposal.EntityKey.create(urn));
-    metadataAuditEvent.setChangeType(changeType);
+    final MetadataChangeLog metadataAuditLog = new MetadataChangeLog();
+    metadataAuditLog.setEntityType(entityName);
+    metadataAuditLog.setEntityKey(MetadataChangeProposal.EntityKey.create(urn));
+    metadataAuditLog.setChangeType(changeType);
     if (aspectName != null) {
-      metadataAuditEvent.setAspectName(aspectName);
+      metadataAuditLog.setAspectName(aspectName);
     }
-    if(oldAspect != null) {
+    if (oldAspect != null) {
       GenericAspect oldGenericAspect = new GenericAspect();
       oldGenericAspect.setValue(ByteString.copy(RecordUtils.toJsonString(oldAspect).getBytes()));
       oldGenericAspect.setContentType(AspectDeserializationUtil.JSON);
-      metadataAuditEvent.setPreviousAspectValue(oldGenericAspect);
+      metadataAuditLog.setPreviousAspectValue(oldGenericAspect);
     }
-    if(newAspect != null) {
+    if (newAspect != null) {
       GenericAspect newGenericAspect = new GenericAspect();
       newGenericAspect.setValue(ByteString.copy(RecordUtils.toJsonString(newAspect).getBytes()));
       newGenericAspect.setContentType(AspectDeserializationUtil.JSON);
-      metadataAuditEvent.setAspect(newGenericAspect);
+      metadataAuditLog.setAspect(newGenericAspect);
     }
 
     GenericRecord record;
     try {
       log.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn),
-          metadataAuditEvent.toString()));
-      record = EventUtils.pegasusToAvroMCL(metadataAuditEvent);
+          metadataAuditLog.toString()));
+      record = EventUtils.pegasusToAvroMCL(metadataAuditLog);
     } catch (IOException e) {
-      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()));
+      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditLog.toString()));
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 

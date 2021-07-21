@@ -12,8 +12,11 @@ from .....schema_classes import DatasetProfileClass
 from .....schema_classes import DatasetPropertiesClass
 from .....schema_classes import DatasetUpstreamLineageClass
 from .....schema_classes import EditableDatasetPropertiesClass
+from .....schema_classes import HistogramClass
+from .....schema_classes import QuantileClass
 from .....schema_classes import UpstreamClass
 from .....schema_classes import UpstreamLineageClass
+from .....schema_classes import ValueFrequencyClass
 
 
 DatasetDeprecation = DatasetDeprecationClass
@@ -24,6 +27,9 @@ DatasetProfile = DatasetProfileClass
 DatasetProperties = DatasetPropertiesClass
 DatasetUpstreamLineage = DatasetUpstreamLineageClass
 EditableDatasetProperties = EditableDatasetPropertiesClass
+Histogram = HistogramClass
+Quantile = QuantileClass
 Upstream = UpstreamClass
 UpstreamLineage = UpstreamLineageClass
+ValueFrequency = ValueFrequencyClass
 # fmt: on

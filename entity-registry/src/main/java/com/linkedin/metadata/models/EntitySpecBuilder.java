@@ -237,8 +237,7 @@ public class EntitySpecBuilder {
     if (aspectSpec.isTimeseries()) {
       if (aspectSpec.getPegasusSchema().contains(TIMESTAMP_FIELD_NAME)) {
         DataSchema timstamp = aspectSpec.getPegasusSchema().getField(TIMESTAMP_FIELD_NAME).getType();
-        if (timstamp.getType() == DataSchema.Type.LONG && ((RecordDataSchema) timstamp).getName()
-            .equals(TIMESTAMP_FIELD_NAME)) {
+        if (timstamp.getType() == DataSchema.Type.LONG) {
           return;
         }
       }

@@ -347,43 +347,43 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Override
-  public void ingestGenericAspect(MetadataChangeProposal metadataChangeEvent, AuditStamp auditStamp) {
-    log.debug("entity type = {}", metadataChangeEvent.getEntityType());
-    EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeEvent.getEntityType());
+  public void ingestProposal(MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp) {
+    log.debug("entity type = {}", metadataChangeProposal.getEntityType());
+    EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
     log.debug("entity spec = {}", entitySpec);
 
-    if (metadataChangeEvent.getEntityKey().isGenericAspect()) {
+    if (metadataChangeProposal.getEntityKey().isGenericAspect()) {
       log.error("Key as struct is not yet supported");
       return;
     }
 
     // Validate Key
     try {
-      if (metadataChangeEvent.getEntityKey().isUrn()) {
-        RecordTemplate entityKey = EntityKeyUtils.convertUrnToEntityKey(metadataChangeEvent.getEntityKey().getUrn(),
+      if (metadataChangeProposal.getEntityKey().isUrn()) {
+        RecordTemplate entityKey = EntityKeyUtils.convertUrnToEntityKey(metadataChangeProposal.getEntityKey().getUrn(),
             entitySpec.getKeyAspectSpec().getPegasusSchema());
       }
     } catch (RuntimeException re) {
-      log.warn("Failed to validate key {}", metadataChangeEvent.getEntityKey().getUrn());
+      log.warn("Failed to validate key {}", metadataChangeProposal.getEntityKey().getUrn());
       throw new RuntimeException("Failed to validate key", re);
     }
 
-    if (metadataChangeEvent.getChangeType() == ChangeType.DELETE) {
+    if (metadataChangeProposal.getChangeType() == ChangeType.DELETE) {
       log.error("Delete operation is not yet supported");
       return;
     }
 
-    if (!metadataChangeEvent.hasAspectName() || !metadataChangeEvent.hasAspect()) {
+    if (!metadataChangeProposal.hasAspectName() || !metadataChangeProposal.hasAspect()) {
       log.error("Aspect and aspect name is required for create and update operations");
       return;
     }
 
-    Urn entityUrn = metadataChangeEvent.getEntityKey().getUrn();
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(metadataChangeEvent.getAspectName());
+    Urn entityUrn = metadataChangeProposal.getEntityKey().getUrn();
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(metadataChangeProposal.getAspectName());
 
     if (aspectSpec == null) {
-      log.error("Unknown aspect {} for entity {}", metadataChangeEvent.getAspectName(),
-          metadataChangeEvent.getEntityType());
+      log.error("Unknown aspect {} for entity {}", metadataChangeProposal.getAspectName(),
+          metadataChangeProposal.getEntityType());
       return;
     }
     log.debug("aspect spec = {}", aspectSpec);
@@ -395,17 +395,17 @@ public class EbeanEntityService extends EntityService {
 
     RecordTemplate aspect;
     try {
-      aspect = AspectDeserializationUtil.deserializeAspect(metadataChangeEvent.getAspect().getValue(),
-          metadataChangeEvent.getAspect().getContentType(), aspectSpec);
+      aspect = AspectDeserializationUtil.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
+          metadataChangeProposal.getAspect().getContentType(), aspectSpec);
     } catch (ModelConversionException e) {
-      log.error("Could not deserialize {} for aspect {}", metadataChangeEvent.getAspect().getValue(),
-          metadataChangeEvent.getAspectName());
+      log.error("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
+          metadataChangeProposal.getAspectName());
       return;
     }
     log.debug("aspect = {}", aspect);
 
     // Since only temporal aspect are ingested as of now, simply produce mae event for it
-    produceMetadataChangeLog(entityUrn, metadataChangeEvent.getEntityType(),
-        metadataChangeEvent.getChangeType(), metadataChangeEvent.getAspectName(), null, aspect);
+    produceMetadataChangeLog(entityUrn, metadataChangeProposal.getEntityType(),
+        metadataChangeProposal.getChangeType(), metadataChangeProposal.getAspectName(), null, aspect);
   }
 }

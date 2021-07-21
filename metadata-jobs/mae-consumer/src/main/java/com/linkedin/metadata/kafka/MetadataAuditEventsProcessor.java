@@ -12,7 +12,7 @@ import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.kafka.config.MetadataAuditEventsProcessorCondition;
+import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -49,7 +49,7 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 
 @Slf4j
 @Component
-@Conditional(MetadataAuditEventsProcessorCondition.class)
+@Conditional(MetadataChangeLogProcessorCondition.class)
 @Import({GraphServiceFactory.class, SearchServiceFactory.class, UsageServiceFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {

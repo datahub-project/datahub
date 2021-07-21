@@ -146,13 +146,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = ACTION_INGEST_PROPOSAL)
   @Nonnull
-  public Task<Void> ingestProposal(@ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal) throws URISyntaxException
-  {
+  public Task<Void> ingestProposal(@ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal)
+      throws URISyntaxException {
     final AuditStamp auditStamp =
-            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+        new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
     return RestliUtils.toTask(() -> {
-      log.warn(metadataChangeProposal.toString());
-      _entityService.ingestGenericAspect(metadataChangeProposal, auditStamp);
+      log.debug("Proposal: {}", metadataChangeProposal.toString());
+      _entityService.ingestProposal(metadataChangeProposal, auditStamp);
       return null;
     });
   }

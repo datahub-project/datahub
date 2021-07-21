@@ -9,7 +9,6 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;

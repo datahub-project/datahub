@@ -248,13 +248,13 @@ public class EbeanEntityServiceTest {
     gmce.setChangeType(ChangeType.CREATE);
     gmce.setEntityType("dataset");
     gmce.setAspectName("datasetProfile");
-    JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
-    byte[] datasetProfileSerialized = _dataTemplateCodec.dataTemplateToBytes(datasetProfile);
+    JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+    byte[] datasetProfileSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProfile);
     GenericAspect genericAspect = new GenericAspect();
     genericAspect.setValue(ByteString.unsafeWrap(datasetProfileSerialized));
     genericAspect.setContentType("application/json");
     gmce.setAspect(genericAspect);
-    _entityService.ingestGenericAspect(gmce, TEST_AUDIT_STAMP);
+    _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP);
   }
 
   @Test

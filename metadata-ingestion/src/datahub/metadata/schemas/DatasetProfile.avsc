@@ -5,72 +5,8 @@
   "doc": "Stats corresponding to datasets",
   "fields": [
     {
-      "name": "temporalInfo",
-      "type": {
-        "type": "record",
-        "name": "TemporalInfo",
-        "namespace": "com.linkedin.pegasus2avro.temporal",
-        "fields": [
-          {
-            "name": "eventTimestampMillis",
-            "type": "long",
-            "doc": "The event timestamp field as epoch at UTC in milli seconds."
-          },
-          {
-            "name": "eventGranularityMillis",
-            "type": [
-              "null",
-              "long"
-            ],
-            "doc": "Granularity of the event if applicable",
-            "default": null
-          },
-          {
-            "name": "partitionSpec",
-            "type": [
-              "null",
-              {
-                "type": "record",
-                "name": "PartitionSpec",
-                "doc": "Defines how the data is partitioned",
-                "fields": [
-                  {
-                    "name": "partition",
-                    "type": "string",
-                    "doc": "String representation of the partition"
-                  },
-                  {
-                    "name": "timePartition",
-                    "type": [
-                      "null",
-                      {
-                        "type": "record",
-                        "name": "TimeWindow",
-                        "fields": [
-                          {
-                            "name": "startTimeMillis",
-                            "type": "long",
-                            "doc": "Start time as epoch at UTC."
-                          },
-                          {
-                            "name": "durationMillis",
-                            "type": "long",
-                            "doc": "End time as epoch at UTC."
-                          }
-                        ]
-                      }
-                    ],
-                    "doc": "Time window of the partition if applicable",
-                    "default": null
-                  }
-                ]
-              }
-            ],
-            "doc": "The optional partition specification.",
-            "default": null
-          }
-        ]
-      }
+      "name": "timestampMillis",
+      "type": "long"
     },
     {
       "name": "rowCount",
@@ -78,8 +14,7 @@
         "null",
         "long"
       ],
-      "default": null,
-      "TemporalStat": {}
+      "default": null
     },
     {
       "name": "columnCount",
@@ -87,8 +22,7 @@
         "null",
         "long"
       ],
-      "default": null,
-      "TemporalStat": {}
+      "default": null
     },
     {
       "name": "fieldProfiles",
@@ -111,8 +45,7 @@
                   "null",
                   "long"
                 ],
-                "default": null,
-                "TemporalStat": {}
+                "default": null
               },
               {
                 "name": "uniqueProportion",
@@ -120,8 +53,7 @@
                   "null",
                   "float"
                 ],
-                "default": null,
-                "TemporalStat": {}
+                "default": null
               },
               {
                 "name": "nullCount",
@@ -129,8 +61,7 @@
                   "null",
                   "long"
                 ],
-                "default": null,
-                "TemporalStat": {}
+                "default": null
               },
               {
                 "name": "nullProportion",
@@ -138,56 +69,125 @@
                   "null",
                   "float"
                 ],
-                "default": null,
-                "TemporalStat": {}
+                "default": null
               },
               {
                 "name": "min",
                 "type": [
                   "null",
-                  "float"
+                  "string"
                 ],
-                "default": null,
-                "TemporalStat": {}
+                "default": null
               },
               {
                 "name": "max",
                 "type": [
                   "null",
-                  "float"
+                  "string"
                 ],
-                "default": null,
-                "TemporalStat": {}
+                "default": null
               },
               {
                 "name": "mean",
                 "type": [
                   "null",
-                  "float"
+                  "string"
                 ],
-                "default": null,
-                "TemporalStat": {}
+                "default": null
               },
               {
                 "name": "median",
                 "type": [
                   "null",
-                  "float"
+                  "string"
                 ],
-                "default": null,
-                "TemporalStat": {}
+                "default": null
               },
               {
                 "name": "stdev",
                 "type": [
                   "null",
-                  "float"
+                  "string"
                 ],
-                "default": null,
-                "TemporalStat": {}
+                "default": null
               },
               {
-                "name": "partial_example_values",
+                "name": "quantiles",
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "record",
+                      "name": "Quantile",
+                      "fields": [
+                        {
+                          "name": "quantile",
+                          "type": "string"
+                        },
+                        {
+                          "name": "value",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "default": null
+              },
+              {
+                "name": "distinctValueFrequencies",
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "record",
+                      "name": "ValueFrequency",
+                      "fields": [
+                        {
+                          "name": "value",
+                          "type": "string"
+                        },
+                        {
+                          "name": "frequency",
+                          "type": "long"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "default": null
+              },
+              {
+                "name": "histogram",
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "Histogram",
+                    "fields": [
+                      {
+                        "name": "boundaries",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        }
+                      },
+                      {
+                        "name": "heights",
+                        "type": {
+                          "type": "array",
+                          "items": "float"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "default": null
+              },
+              {
+                "name": "sampleValues",
                 "type": [
                   "null",
                   {
@@ -195,21 +195,17 @@
                     "items": "string"
                   }
                 ],
-                "default": null,
-                "TemporalStat": {}
+                "default": null
               }
             ]
           }
         }
       ],
-      "default": null,
-      "TemporalStatCollection": {
-        "key": "fieldPath"
-      }
+      "default": null
     }
   ],
   "Aspect": {
     "name": "datasetProfile",
-    "type": "temporal"
+    "type": "timeseries"
   }
 }

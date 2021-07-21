@@ -6,13 +6,12 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.kafka.config.MetadataAuditEventsProcessorCondition;
+import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.util.AspectDeserializationUtil;
-import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +27,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Conditional(MetadataAuditEventsProcessorCondition.class)
+@Conditional(MetadataChangeLogProcessorCondition.class)
 @Import({TimeseriesAspectServiceFactory.class, EntityRegistryFactory.class})
 @EnableKafka
 public class MetadataChangeLogProcessor {
@@ -44,12 +43,12 @@ public class MetadataChangeLogProcessor {
     _timeseriesAspectService.configure();
   }
 
-  @KafkaListener(id = "${GENERIC_METADATA_AUDIT_EVENT_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics =
-      "${GENERIC_METADATA_AUDIT_EVENT_NAME:" + Topics.METADATA_CHANGE_LOG
+  @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics =
+      "${METADATA_CHANGE_LOG_NAME:" + Topics.METADATA_CHANGE_LOG
           + "}", containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
-    log.debug("Got Generic MAE");
+    log.debug("Got Generic MCL");
 
     MetadataChangeLog event;
     try {

@@ -2,7 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.kafka.config.MetadataChangeEventsProcessorCondition;
+import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.Topics;
@@ -22,15 +22,15 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Conditional(MetadataChangeEventsProcessorCondition.class)
+@Conditional(MetadataChangeProposalProcessorCondition.class)
 @EnableKafka
 public class MetadataChangeProposalsProcessor {
 
   private EntityClient entityClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
-  @Value("${GENERIC_FAILED_METADATA_CHANGE_EVENT_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
-  private String fmceTopicName;
+  @Value("${FAILED_METADATA_CHANGE_PROPOSAL_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
+  private String fmcpTopicName;
 
   public MetadataChangeProposalsProcessor(@Nonnull final EntityClient entityClient,
       @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
@@ -38,8 +38,8 @@ public class MetadataChangeProposalsProcessor {
     this.kafkaTemplate = kafkaTemplate;
   }
 
-  @KafkaListener(id = "${GENERIC_METADATA_CHANGE_EVENT_KAFKA_CONSUMER_GROUP_ID:generic-mce-consumer-job-client}", topics =
-      "${GENERIC_METADATA_CHANGE_EVENT_NAME:" + Topics.METADATA_CHANGE_PROPOSAL
+  @KafkaListener(id = "${METADATA_CHANGE_PROPOSAL_KAFKA_CONSUMER_GROUP_ID:generic-mce-consumer-job-client}", topics =
+      "${METADATA_CHANGE_PROPOSAL_NAME:" + Topics.METADATA_CHANGE_PROPOSAL
           + "}", containerFactory = "mceKafkaContainerFactory")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
@@ -48,30 +48,30 @@ public class MetadataChangeProposalsProcessor {
     MetadataChangeProposal event = new MetadataChangeProposal();
     try {
       event = EventUtils.avroToPegasusMCP(record);
-      log.debug("MetadataChangeEvent {}", event);
+      log.debug("MetadataChangeProposal {}", event);
       entityClient.ingestProposal(event);
     } catch (Throwable throwable) {
-      log.error("MCE Processor Error", throwable);
+      log.error("MCP Processor Error", throwable);
       log.error("Message: {}", record);
-      sendFailedMCE(event, throwable);
+      sendFailedMCP(event, throwable);
     }
   }
 
-  private void sendFailedMCE(@Nonnull MetadataChangeProposal event, @Nonnull Throwable throwable) {
-    final FailedMetadataChangeProposal failedMetadataChangeEvent = createFailedMCEEvent(event, throwable);
+  private void sendFailedMCP(@Nonnull MetadataChangeProposal event, @Nonnull Throwable throwable) {
+    final FailedMetadataChangeProposal failedMetadataChangeProposal = createFailedMCPEvent(event, throwable);
     try {
-      final GenericRecord genericFailedMCERecord = EventUtils.pegasusToAvroFailedMCP(failedMetadataChangeEvent);
-      log.debug("Sending FailedMessages to topic - {}", fmceTopicName);
-      log.info("Error while processing generic MCE: FailedMetadataChangeProposal - {}", failedMetadataChangeEvent);
-      this.kafkaTemplate.send(fmceTopicName, genericFailedMCERecord);
+      final GenericRecord genericFailedMCERecord = EventUtils.pegasusToAvroFailedMCP(failedMetadataChangeProposal);
+      log.debug("Sending FailedMessages to topic - {}", fmcpTopicName);
+      log.info("Error while processing FMCP: FailedMetadataChangeProposal - {}", failedMetadataChangeProposal);
+      this.kafkaTemplate.send(fmcpTopicName, genericFailedMCERecord);
     } catch (IOException e) {
-      log.error("Error while sending FailedMetadataChangeEvent: Exception  - {}, FailedMetadataChangeEvent - {}",
-          e.getStackTrace(), failedMetadataChangeEvent);
+      log.error("Error while sending FailedMetadataChangeProposal: Exception  - {}, FailedMetadataChangeProposal - {}",
+          e.getStackTrace(), failedMetadataChangeProposal);
     }
   }
 
   @Nonnull
-  private FailedMetadataChangeProposal createFailedMCEEvent(@Nonnull MetadataChangeProposal event,
+  private FailedMetadataChangeProposal createFailedMCPEvent(@Nonnull MetadataChangeProposal event,
       @Nonnull Throwable throwable) {
     final FailedMetadataChangeProposal fmcp = new FailedMetadataChangeProposal();
     fmcp.setError(ExceptionUtils.getStackTrace(throwable));
