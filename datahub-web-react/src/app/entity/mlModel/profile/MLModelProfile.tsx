@@ -8,12 +8,16 @@ import { Message } from '../../../shared/Message';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType } from '../../../analytics';
+// import MLModelSummary from './summary/MLModelSummary';
 // import { notEmpty } from '../../shared/utils';
+
 // import MlFeatureTableFeatures from './features/MlFeatureTableFeatures';
 
 export enum TabType {
+    Summary = 'Summary',
+    Versions = 'Versions',
+    Deployments = 'Deployments',
     Features = 'Features',
-    Sources = 'Sources',
     Ownership = 'Ownership',
 }
 
@@ -32,14 +36,24 @@ export const MLModelProfile = ({ urn }: { urn: string }): JSX.Element => {
     const getTabs = ({ ownership }: MlModel) => {
         return [
             // {
+            //     name: TabType.Summary,
+            //     path: TabType.Summary.toLowerCase(),
+            //     content: <MLModelSummary features={features} />,
+            // },
+            // {
+            //     name: TabType.Versions,
+            //     path: TabType.Versions.toLowerCase(),
+            //     content: <SourcesView features={features} />,
+            // },
+            // {
+            //     name: TabType.Deployments,
+            //     path: TabType.Deployments.toLowerCase(),
+            //     content: <SourcesView features={features} />,
+            // },
+            // {
             //     name: TabType.Features,
             //     path: TabType.Features.toLowerCase(),
             //     content: <MlFeatureTableFeatures features={features} />,
-            // },
-            // {
-            //     name: TabType.Sources,
-            //     path: TabType.Sources.toLowerCase(),
-            //     content: <SourcesView features={features} />,
             // },
             {
                 name: TabType.Ownership,
