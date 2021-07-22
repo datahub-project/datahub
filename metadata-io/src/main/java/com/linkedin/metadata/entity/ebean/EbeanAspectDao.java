@@ -105,6 +105,10 @@ public class EbeanAspectDao {
     }
   }
 
+  public boolean isNew(@Nonnull final String urn) {
+    return _server.find(EbeanAspectV2.class).where().eq(EbeanAspectV2.URN_COLUMN, urn).exists();
+  }
+
   public long saveLatestAspect(
       @Nonnull final String urn,
       @Nonnull final String aspectName,

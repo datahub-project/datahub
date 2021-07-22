@@ -4,11 +4,10 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.element.DataElement;
 import com.linkedin.data.it.IterationOrder;
 import com.linkedin.data.it.ObjectIterator;
-import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
-import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.FieldSpec;
 import java.util.HashMap;
@@ -50,20 +49,9 @@ public class AspectExtractor {
   }
 
   public static Map<String, RecordTemplate> extractAspectRecords(RecordTemplate snapshot) {
-    RecordDataSchema.Field aspectField = snapshot.schema().getField(ASPECT_FIELD);
-    if (aspectField == null || aspectField.getType().getType() != DataSchema.Type.ARRAY) {
-      throw new IllegalArgumentException("Cannot extract aspects from a non-snapshot object (requires aspects field)");
-    }
-    return snapshot.data()
-        .getDataList(ASPECT_FIELD)
+    return ModelUtils.getAspectsFromSnapshot(snapshot)
         .stream()
-        .map(unionMember -> extractAspectFromUnion((DataMap) unionMember))
         .collect(
             Collectors.toMap(record -> PegasusUtils.getAspectNameFromSchema(record.schema()), Function.identity()));
-  }
-
-  public static RecordTemplate extractAspectFromUnion(DataMap unionMember) {
-    String recordType = unionMember.keySet().stream().findFirst().get();
-    return RecordUtils.toRecordTemplate(recordType, unionMember.getDataMap(recordType));
   }
 }

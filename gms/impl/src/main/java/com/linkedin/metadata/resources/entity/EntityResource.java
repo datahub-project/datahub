@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
