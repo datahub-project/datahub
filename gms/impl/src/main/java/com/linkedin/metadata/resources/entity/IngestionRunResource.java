@@ -2,6 +2,7 @@ package com.linkedin.metadata.resources.entity;
 
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
@@ -68,17 +69,21 @@ public class IngestionRunResource extends CollectionResourceTaskTemplate<String,
       }
 
       log.info("deleting...");
-      List<AspectRowSummary> deletedRows = _entityService.rollbackRun(aspectRowsToDelete, runId);
+      EbeanEntityService.RollbackResult rollbackResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
+      List<AspectRowSummary> deletedRows = rollbackResult.getRowsRolledBack();
+      Integer rowsDeletedFromEntityDeletion = rollbackResult.getRowsDeletedFromEntityDeletion();
       while (aspectRowsToDelete.size() >= ELASTIC_MAX_PAGE_SIZE) {
         sleep(5);
         aspectRowsToDelete = _systemMetadataService.findByRunId(runId);
         log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
         log.info("deleting...");
-        deletedRows.addAll(_entityService.rollbackRun(aspectRowsToDelete, runId));
+        rollbackResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
+        deletedRows.addAll(rollbackResult.getRowsRolledBack());
+        rowsDeletedFromEntityDeletion += rollbackResult.getRowsDeletedFromEntityDeletion();
       }
 
       log.info("finished deleting {} rows", deletedRows.size());
-      response.setAspectsAffected(deletedRows.size());
+      response.setAspectsAffected(deletedRows.size() + rowsDeletedFromEntityDeletion);
       response.setEntitiesAffected(deletedRows.stream().filter(row -> row.isKeyAspect()).count());
       response.setAspectRowSummaries(
           new AspectRowSummaryArray(deletedRows.subList(0, Math.min(100, deletedRows.size())))
