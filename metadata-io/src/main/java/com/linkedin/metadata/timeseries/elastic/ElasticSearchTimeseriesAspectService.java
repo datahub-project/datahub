@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeseries.elastic;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.dao.exception.ESQueryException;
@@ -32,6 +33,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -96,12 +98,13 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public List<EnvelopedAspect> getAspect(@Nonnull String entityName, @Nonnull String aspectName,
-      @Nullable Filter filter, @Nullable Long limit) {
-
+  public List<EnvelopedAspect> getAspect(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
+      @Nullable Filter filter, int limit) {
     final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter);
+    filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQueryBuilder);
+    searchSourceBuilder.size(limit);
 
     final SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(searchSourceBuilder);

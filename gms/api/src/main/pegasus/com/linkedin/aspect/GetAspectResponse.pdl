@@ -26,7 +26,7 @@ record GetAspectResponse {
   /**
    * The limit on the number of values requested.
    */
-   limit: optional long
+  limit: optional long
 
   /**
    * The enveloped values returned by the getAspect API.

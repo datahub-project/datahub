@@ -32,7 +32,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.PegasusUtils.*;
+import static com.linkedin.metadata.PegasusUtils.getDataTemplateClassFromSchema;
+import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -358,6 +359,6 @@ public abstract class EntityService {
 
   public abstract void ingestProposal(MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp);
 
-  public abstract List<EnvelopedAspect> getAspect(@Nonnull String entityName, @Nonnull String aspectName,
-      @Nullable Filter filter, @Nullable Long limit);
+  public abstract List<EnvelopedAspect> getAspect(@Nonnull final Urn urn, @Nonnull String entityName,
+      @Nonnull String aspectName, @Nullable Filter filter, int limit);
 }

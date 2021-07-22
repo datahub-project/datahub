@@ -376,9 +376,9 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Override
-  public List<EnvelopedAspect> getAspect(@Nonnull String entityName, @Nonnull String aspectName,
-      @Nullable Filter filter, @Nullable Long limit) {
-    return _timeseriesAspectService.getAspect(entityName, aspectName, filter, limit);
+  public List<EnvelopedAspect> getAspect(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
+      @Nullable Filter filter, int limit) {
+    return _timeseriesAspectService.getAspect(urn, entityName, aspectName, filter, limit);
   }
 
   @Value

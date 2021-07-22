@@ -22,7 +22,9 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.restli.RestliConstants.*;
+import static com.linkedin.metadata.restli.RestliConstants.FINDER_FILTER;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_LIMIT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
 
 
 /**
@@ -60,18 +62,21 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
   @Action(name = ACTION_GET_ASPECT)
   @Nonnull
-  public Task<GetAspectResponse> getAspect(@ActionParam(PARAM_URN) @Nonnull String entityName,
-      @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
-      @ActionParam(FINDER_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_LIMIT) @Optional long limit) {
+  public Task<GetAspectResponse> getAspect(@ActionParam(PARAM_URN) @Nonnull String urnStr,
+      @ActionParam(PARAM_ENTITY) @Nonnull String entityName, @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
+      @ActionParam(FINDER_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_LIMIT) @Optional("10000") int limit) throws URISyntaxException {
     log.info("Get Aspect values for aspect {} for entity {} with filter {} and limit {}.", aspectName, entityName,
         filter, limit);
+    final Urn urn = Urn.createFromString(urnStr);
     return RestliUtils.toTask(() -> {
       GetAspectResponse response = new GetAspectResponse();
       response.setEntityName(entityName);
       response.setAspectName(aspectName);
       response.setFilter(filter);
       response.setLimit(limit);
-      response.setValues(new EnvelopedAspectArray(_entityService.getAspect(entityName, aspectName, filter, limit)));
+      response.setValues(
+          new EnvelopedAspectArray(_entityService.getAspect(urn, entityName, aspectName, filter, limit)));
       return response;
     });
   }
