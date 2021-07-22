@@ -236,7 +236,7 @@ class ModelProcessor:
         if group_details.get("CreatedBy", {}).get("UserProfileName") is not None:
             owners.append(
                 OwnerClass(
-                    owner=group_details["CreatedBy"]["UserProfileName"],
+                    owner=f"urn:li:corpuser:{group_details['CreatedBy']['UserProfileName']}",
                     type=OwnershipTypeClass.DATAOWNER,
                 )
             )
@@ -257,7 +257,7 @@ class ModelProcessor:
                     },
                 ),
                 OwnershipClass(owners),
-                BrowsePathsClass(paths=[f"sagemaker/{group_name}"]),
+                BrowsePathsClass(paths=[f"/sagemaker/{group_name}"]),
             ],
         )
 
@@ -399,12 +399,12 @@ class ModelProcessor:
         ]
 
         model_browsepaths = [
-            f"sagemaker/{x}/{model_details['ModelName']}" for x in model_group_names
+            f"/sagemaker/{x}/{model_details['ModelName']}" for x in model_group_names
         ]
 
         # if model is not in any groups, set a single browsepath with the model as the first entity
         if not model_browsepaths:
-            model_browsepaths.append(f"sagemaker/{model_details['ModelName']}")
+            model_browsepaths.append(f"/sagemaker/{model_details['ModelName']}")
 
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
