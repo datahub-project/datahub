@@ -1585,6 +1585,13 @@
                 "impersonator": null
               }
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "sagemaker/a-model-package-group"
+              ]
+            }
           }
         ]
       }
@@ -1658,6 +1665,13 @@
               "downstreamJobs": [],
               "groups": [
                 "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "sagemaker/a-model-package-group/the-first-model"
               ]
             }
           }
@@ -1736,6 +1750,13 @@
               ],
               "groups": [
                 "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "sagemaker/a-model-package-group/the-second-model"
               ]
             }
           }
