@@ -60,7 +60,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.monthly_billing_with_cust,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -109,7 +109,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_base,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -228,7 +228,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_base,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
