@@ -145,7 +145,6 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
         )
 
 
-@dataclass
 class SqlWorkUnit(MetadataWorkUnit):
     pass
 

@@ -5,7 +5,10 @@ from typing import Iterable, Iterator, Union
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
 from datahub.metadata.schema_classes import UsageAggregationClass
 
 
@@ -25,11 +28,15 @@ def iterate_mce_file(path: str) -> Iterator[MetadataChangeEvent]:
 
 def iterate_generic_file(
     path: str,
-) -> Iterator[Union[MetadataChangeEvent, UsageAggregationClass]]:
+) -> Iterator[
+    Union[MetadataChangeEvent, MetadataChangeProposal, UsageAggregationClass]
+]:
     for obj in _iterate_file(path):
         if "proposedSnapshot" in obj:
             mce: MetadataChangeEvent = MetadataChangeEvent.from_obj(obj)
             yield mce
+        elif "aspect" in obj:
+            yield MetadataChangeProposal.from_obj(obj)
         else:
             bucket: UsageAggregationClass = UsageAggregationClass.from_obj(obj)
             yield bucket
@@ -57,8 +64,10 @@ class GenericFileSource(Source):
             wu: Union[MetadataWorkUnit, UsageStatsWorkUnit]
             if isinstance(obj, UsageAggregationClass):
                 wu = UsageStatsWorkUnit(f"file://{self.config.filename}:{i}", obj)
+            elif isinstance(obj, MetadataChangeProposal):
+                wu = MetadataWorkUnit(f"file://{self.config.filename}:{i}", mcp_raw=obj)
             else:
-                wu = MetadataWorkUnit(f"file://{self.config.filename}:{i}", obj)
+                wu = MetadataWorkUnit(f"file://{self.config.filename}:{i}", mce=obj)
             self.report.report_workunit(wu)
             yield wu
 
