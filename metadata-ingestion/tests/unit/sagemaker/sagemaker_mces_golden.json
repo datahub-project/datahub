@@ -936,7 +936,7 @@
                 "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
                 "jobType": "compilation"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/compilation-jobs/a-compilation-job",
               "name": "a-compilation-job",
               "description": null,
               "type": {
@@ -1017,7 +1017,7 @@
                 "PresetDeploymentOutput": "{'Type': 'GreengrassV2Component', 'Artifact': 'arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/some-artifact', 'Status': 'COMPLETED', 'StatusMessage': 'string'}",
                 "jobType": "edge_packaging"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/edge-packaging-jobs/an-edge-packaging-job",
               "name": "an-edge-packaging-job",
               "description": null,
               "type": {
@@ -1095,7 +1095,7 @@
                 "FailureReason": "string",
                 "jobType": "hyper_parameter_tuning"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/hyper-tuning-jobs/a-hyper-parameter-tuning-job",
               "name": "a-hyper-parameter-tuning-job",
               "description": null,
               "type": {
@@ -1173,7 +1173,7 @@
                 "LabelingJobOutput": "{'OutputDatasetS3Uri': 's3://labeling-job/output-dataset.tar.gz', 'FinalActiveLearningModelArn': 'arn:aws:sagemaker:us-west-2:123412341234:labeling-job/final-active-learning-model'}",
                 "jobType": "labeling"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/labeling-jobs/a-labeling-job",
               "name": "a-labeling-job",
               "description": null,
               "type": {
@@ -1260,7 +1260,7 @@
                 "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job",
                 "jobType": "processing"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/processing-jobs/a-processing-job",
               "name": "a-processing-job",
               "description": null,
               "type": {
@@ -1332,7 +1332,7 @@
                 "TrainingJobStatus": "InProgress",
                 "SecondaryStatus": "Starting",
                 "FailureReason": "string",
-                "HyperParameters": "{'string': 'string'}",
+                "HyperParameters": "{'parameter-1': 'some-value', 'parameter-2': 'another-value'}",
                 "AlgorithmSpecification": "{'TrainingImage': 'string', 'AlgorithmName': 'string', 'TrainingInputMode': 'Pipe', 'MetricDefinitions': [{'Name': 'string', 'Regex': 'string'}], 'EnableSageMakerMetricsTimeSeries': True}",
                 "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
                 "InputDataConfig": "[{'ChannelName': 'string', 'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://training-job/input-dataset.tar.gz', 'S3DataDistributionType': 'FullyReplicated', 'AttributeNames': ['string']}, 'FileSystemDataSource': {'FileSystemId': 'abcdefgihjklmnopqrstuvwxyz', 'FileSystemAccessMode': 'rw', 'FileSystemType': 'EFS', 'DirectoryPath': 'string'}}, 'ContentType': 'string', 'CompressionType': 'None', 'RecordWrapperType': 'None', 'InputMode': 'Pipe', 'ShuffleConfig': {'Seed': 123}}]",
@@ -1345,7 +1345,7 @@
                 "TrainingEndTime": "2015-01-01 00:00:00+00:00",
                 "LastModifiedTime": "2015-01-01 00:00:00+00:00",
                 "SecondaryStatusTransitions": "[{'Status': 'Starting', 'StartTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'EndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'StatusMessage': 'string'}]",
-                "FinalMetricDataList": "[{'MetricName': 'string', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
+                "FinalMetricDataList": "[{'MetricName': 'some-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}, {'MetricName': 'another-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}, {'MetricName': 'some-metric', 'Value': 0.0, 'Timestamp': datetime.datetime(2014, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
                 "EnableNetworkIsolation": "True",
                 "EnableInterContainerTrafficEncryption": "True",
                 "EnableManagedSpotTraining": "True",
@@ -1365,7 +1365,7 @@
                 "Environment": "{'string': 'string'}",
                 "jobType": "training"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/jobs/a-training-job",
               "name": "a-training-job",
               "description": null,
               "type": {
@@ -1455,7 +1455,7 @@
                 "ExperimentConfig": "{'ExperimentName': 'string', 'TrialName': 'string', 'TrialComponentDisplayName': 'string'}",
                 "jobType": "transform"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/transform-jobs/a-transform-job",
               "name": "a-transform-job",
               "description": null,
               "type": {
@@ -1509,6 +1509,7 @@
                 "LastModifiedTime": "2015-01-01 00:00:00+00:00",
                 "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
               },
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/endpoints/the-first-endpoint",
               "description": null,
               "createdAt": 1420070400000,
               "version": null,
@@ -1538,6 +1539,7 @@
                 "LastModifiedTime": "2015-01-01 00:00:00+00:00",
                 "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
               },
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/endpoints/the-second-endpoint",
               "description": null,
               "createdAt": 1420070400000,
               "version": null,
@@ -1566,11 +1568,45 @@
                 "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
                 "EnableNetworkIsolation": "True"
               },
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-first-model",
               "description": null,
               "date": 1420070400000,
               "version": null,
               "type": null,
               "hyperParameters": null,
+              "hyperParams": [
+                {
+                  "name": "parameter-1",
+                  "description": null,
+                  "value": "some-value",
+                  "createdAt": null,
+                  "version": null
+                },
+                {
+                  "name": "parameter-2",
+                  "description": null,
+                  "value": "another-value",
+                  "createdAt": null,
+                  "version": null
+                }
+              ],
+              "trainingMetrics": [
+                {
+                  "name": "another-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "createdAt": null,
+                  "version": null
+                },
+                {
+                  "name": "some-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "createdAt": null,
+                  "version": null
+                }
+              ],
+              "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],
               "deployments": [
@@ -1604,11 +1640,45 @@
                 "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
                 "EnableNetworkIsolation": "False"
               },
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-second-model",
               "description": null,
               "date": 1420070400000,
               "version": null,
               "type": null,
               "hyperParameters": null,
+              "hyperParams": [
+                {
+                  "name": "parameter-1",
+                  "description": null,
+                  "value": "some-value",
+                  "createdAt": null,
+                  "version": null
+                },
+                {
+                  "name": "parameter-2",
+                  "description": null,
+                  "value": "another-value",
+                  "createdAt": null,
+                  "version": null
+                }
+              ],
+              "trainingMetrics": [
+                {
+                  "name": "another-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "createdAt": null,
+                  "version": null
+                },
+                {
+                  "name": "some-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "createdAt": null,
+                  "version": null
+                }
+              ],
+              "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],
               "deployments": [

@@ -3,6 +3,7 @@ namespace com.linkedin.ml.metadata
 import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
 import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Properties associated with an ML Model Deployment
@@ -10,7 +11,7 @@ import com.linkedin.common.CustomProperties
 @Aspect = {
   "name": "mlModelDeploymentProperties"
 }
-record MLModelDeploymentProperties includes CustomProperties {
+record MLModelDeploymentProperties includes CustomProperties, ExternalReference {
 
   /**
    * Documentation of the MLModelDeployment
