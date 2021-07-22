@@ -1,7 +1,18 @@
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 from urllib.parse import quote_plus
 
 import pydantic
@@ -282,7 +293,7 @@ class SQLAlchemySource(Source):
             inspector = inspect(conn)
             yield inspector
 
-    def get_workunits(self) -> Iterable[SqlWorkUnit]:
+    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
@@ -458,7 +469,7 @@ class SQLAlchemySource(Source):
         profiler: "DatahubGEProfiler",
         schema: str,
         sql_config: SQLAlchemyConfig,
-    ) -> Iterable[SqlWorkUnit]:
+    ) -> Iterable[MetadataWorkUnit]:
         for table in inspector.get_table_names(schema):
             schema, table = sql_config.standardize_schema_table_names(schema, table)
             dataset_name = sql_config.get_identifier(schema, table)
