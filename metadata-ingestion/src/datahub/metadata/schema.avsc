@@ -3608,6 +3608,26 @@
                           "name": "downstreamJobs",
                           "default": null,
                           "doc": "List of jobs (if any) that use the model"
+                        },
+                        {
+                          "Relationship": {
+                            "/*": {
+                              "entityTypes": [
+                                "mlModelGroup"
+                              ],
+                              "name": "MemberOf"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "string"
+                            }
+                          ],
+                          "name": "groups",
+                          "default": null,
+                          "doc": "Groups the model belongs to"
                         }
                       ],
                       "doc": "Properties associated with a ML Model"
@@ -4902,23 +4922,6 @@
                           "name": "version",
                           "default": null,
                           "doc": "Version of the MLModelGroup"
-                        },
-                        {
-                          "Relationship": {
-                            "/*": {
-                              "entityTypes": [
-                                "mlModel"
-                              ],
-                              "name": "Includes"
-                            }
-                          },
-                          "type": {
-                            "type": "array",
-                            "items": "string"
-                          },
-                          "name": "models",
-                          "default": [],
-                          "doc": "Models in the group"
                         }
                       ],
                       "doc": "Properties associated with an ML Model Group"

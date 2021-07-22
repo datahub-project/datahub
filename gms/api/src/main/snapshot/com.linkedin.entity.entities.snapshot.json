@@ -2998,6 +2998,20 @@
                         "name" : "UsedBy"
                       }
                     }
+                  }, {
+                    "name" : "groups",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "Groups the model belongs to",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "mlModelGroup" ],
+                        "name" : "MemberOf"
+                      }
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "mlModelProperties"
@@ -3794,20 +3808,6 @@
                     "type" : "com.linkedin.common.VersionTag",
                     "doc" : "Version of the MLModelGroup",
                     "optional" : true
-                  }, {
-                    "name" : "models",
-                    "type" : {
-                      "type" : "array",
-                      "items" : "com.linkedin.common.Urn"
-                    },
-                    "doc" : "Models in the group",
-                    "default" : [ ],
-                    "Relationship" : {
-                      "/*" : {
-                        "entityTypes" : [ "mlModel" ],
-                        "name" : "Includes"
-                      }
-                    }
                   } ],
                   "Aspect" : {
                     "name" : "mlModelGroupProperties"

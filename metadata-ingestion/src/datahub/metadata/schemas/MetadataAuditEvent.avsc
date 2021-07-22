@@ -3558,6 +3558,26 @@
                             "name": "UsedBy"
                           }
                         }
+                      },
+                      {
+                        "name": "groups",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Groups the model belongs to",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlModelGroup"
+                            ],
+                            "name": "MemberOf"
+                          }
+                        }
                       }
                     ],
                     "Aspect": {
@@ -4841,23 +4861,6 @@
                         ],
                         "doc": "Version of the MLModelGroup",
                         "default": null
-                      },
-                      {
-                        "name": "models",
-                        "type": {
-                          "type": "array",
-                          "items": "string"
-                        },
-                        "doc": "Models in the group",
-                        "default": [],
-                        "Relationship": {
-                          "/*": {
-                            "entityTypes": [
-                              "mlModel"
-                            ],
-                            "name": "Includes"
-                          }
-                        }
                       }
                     ],
                     "Aspect": {

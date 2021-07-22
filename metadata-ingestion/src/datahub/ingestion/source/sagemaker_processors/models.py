@@ -19,6 +19,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
     DeploymentStatusClass,
     MLHyperParamClass,
     MLMetricClass,
@@ -65,6 +66,8 @@ class ModelProcessor:
     model_uri_to_name: Dict[str, str] = field(default_factory=dict)
     # map from model image path to model name
     model_image_to_name: Dict[str, str] = field(default_factory=dict)
+
+    group_arn_to_name: Dict[str, str] = field(default_factory=dict)
 
     def get_all_models(self) -> List[Dict[str, Any]]:
         """
@@ -215,6 +218,54 @@ class ModelProcessor:
 
         return model_endpoints_sorted
 
+    def get_group_wu(self, group_details: Dict[str, Any]) -> MetadataWorkUnit:
+        """
+        Get a workunit for a model group.
+        """
+
+        # params to remove since we extract them
+        redundant_fields = {"ModelPackageGroupName", "CreationTime"}
+
+        group_arn = group_details["ModelPackageGroupArn"]
+        group_name = group_details["ModelPackageGroupName"]
+
+        self.group_arn_to_name[group_arn] = group_name
+
+        owners = []
+
+        if group_details.get("CreatedBy", {}).get("UserProfileName") is not None:
+            owners.append(
+                OwnerClass(
+                    owner=group_details["CreatedBy"]["UserProfileName"],
+                    type=OwnershipTypeClass.DATAOWNER,
+                )
+            )
+
+        group_snapshot = MLModelGroupSnapshot(
+            urn=builder.make_ml_model_group_urn("sagemaker", group_name, self.env),
+            aspects=[
+                MLModelGroupPropertiesClass(
+                    createdAt=int(
+                        group_details.get("CreationTime", datetime.now()).timestamp()
+                        * 1000
+                    ),
+                    description=group_details.get("ModelPackageGroupDescription"),
+                    customProperties={
+                        key: str(value)
+                        for key, value in group_details.items()
+                        if key not in redundant_fields
+                    },
+                ),
+                OwnershipClass(owners),
+                BrowsePathsClass(paths=[f"sagemaker/{group_name}"]),
+            ],
+        )
+
+        # make the MCE and workunit
+        mce = MetadataChangeEvent(proposedSnapshot=group_snapshot)
+
+        return MetadataWorkUnit(id=group_name, mce=mce)
+
     def match_model_jobs(
         self, model_details: Dict[str, Any]
     ) -> Tuple[Set[str], Set[str], List[MLHyperParamClass], List[MLMetricClass]]:
@@ -333,6 +384,28 @@ class ModelProcessor:
             model_metrics,
         ) = self.match_model_jobs(model_details)
 
+        # resolve groups that the model is a part of
+        model_uri_groups = self.lineage.model_uri_to_groups.get(model_uri, set())
+        model_image_groups = self.lineage.model_image_to_groups.get(model_image, set())
+
+        model_group_arns = model_uri_groups | model_image_groups
+
+        model_group_names = sorted(
+            [self.group_arn_to_name[x] for x in model_group_arns]
+        )
+        model_group_urns = [
+            builder.make_ml_model_group_urn("sagemaker", x, self.env)
+            for x in model_group_names
+        ]
+
+        model_browsepaths = [
+            f"sagemaker/{x}/{model_details['ModelName']}" for x in model_group_names
+        ]
+
+        # if model is not in any groups, set a single browsepath with the model as the first entity
+        if not model_browsepaths:
+            model_browsepaths.append(f"sagemaker/{model_details['ModelName']}")
+
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
                 "sagemaker", model_details["ModelName"], self.env
@@ -359,7 +432,9 @@ class ModelProcessor:
                     externalUrl=f"https://{self.aws_region}.console.aws.amazon.com/sagemaker/home?region={self.aws_region}#/models/{model_details['ModelName']}",
                     hyperParams=model_hyperparams,
                     trainingMetrics=model_metrics,
-                )
+                    groups=model_group_urns,
+                ),
+                BrowsePathsClass(paths=model_browsepaths),
             ],
         )
 
@@ -370,76 +445,6 @@ class ModelProcessor:
             id=f'{model_details["ModelName"]}',
             mce=mce,
         )
-
-    def get_group_wu(self, group_details: Dict[str, Any]) -> MetadataWorkUnit:
-        """
-        Get a workunit for a model group.
-        """
-
-        # params to remove since we extract them
-        redundant_fields = {"ModelPackageGroupName", "CreationTime"}
-
-        group_arn = group_details["ModelPackageGroupArn"]
-
-        group_model_names = set()
-
-        if group_arn in self.lineage.group_model_uris:
-            model_uris = self.lineage.group_model_uris[group_arn]
-            group_model_names |= {
-                self.model_uri_to_name[x]
-                for x in model_uris
-                if x in self.model_uri_to_name
-            }
-
-        if group_arn in self.lineage.group_model_images:
-            model_images = self.lineage.group_model_images[group_arn]
-            group_model_names |= {
-                self.model_image_to_name[x]
-                for x in model_images
-                if x in self.model_uri_to_name
-            }
-
-        owners = []
-
-        if group_details.get("CreatedBy", {}).get("UserProfileName") is not None:
-            owners.append(
-                OwnerClass(
-                    owner=group_details["CreatedBy"]["UserProfileName"],
-                    type=OwnershipTypeClass.DATAOWNER,
-                )
-            )
-
-        group_snapshot = MLModelGroupSnapshot(
-            urn=builder.make_ml_model_group_urn(
-                "sagemaker", group_details["ModelPackageGroupName"], self.env
-            ),
-            aspects=[
-                MLModelGroupPropertiesClass(
-                    createdAt=int(
-                        group_details.get("CreationTime", datetime.now()).timestamp()
-                        * 1000
-                    ),
-                    description=group_details.get("ModelPackageGroupDescription"),
-                    customProperties={
-                        key: str(value)
-                        for key, value in group_details.items()
-                        if key not in redundant_fields
-                    },
-                    models=sorted(
-                        [
-                            builder.make_ml_model_urn("sagemaker", model_name, self.env)
-                            for model_name in group_model_names
-                        ]
-                    ),
-                ),
-                OwnershipClass(owners),
-            ],
-        )
-
-        # make the MCE and workunit
-        mce = MetadataChangeEvent(proposedSnapshot=group_snapshot)
-
-        return MetadataWorkUnit(id=f'{group_details["ModelPackageGroupName"]}', mce=mce)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
@@ -463,19 +468,6 @@ class ModelProcessor:
             self.report.report_workunit(wu)
             yield wu
 
-        models = self.get_all_models()
-        # sort models for consistency
-        models = sorted(models, key=lambda x: x["ModelArn"])
-
-        for model in models:
-
-            model_details = self.get_model_details(model["ModelName"])
-
-            self.report.report_model_scanned()
-            wu = self.get_model_wu(model_details, endpoint_arn_to_name)
-            self.report.report_workunit(wu)
-            yield wu
-
         groups = self.get_all_groups()
         # sort groups for consistency
         groups = sorted(groups, key=lambda x: x["ModelPackageGroupName"])
@@ -487,5 +479,18 @@ class ModelProcessor:
 
             self.report.report_group_scanned()
             wu = self.get_group_wu(group_details)
+            self.report.report_workunit(wu)
+            yield wu
+
+        models = self.get_all_models()
+        # sort models for consistency
+        models = sorted(models, key=lambda x: x["ModelArn"])
+
+        for model in models:
+
+            model_details = self.get_model_details(model["ModelName"])
+
+            self.report.report_model_scanned()
+            wu = self.get_model_wu(model_details, endpoint_arn_to_name)
             self.report.report_workunit(wu)
             yield wu
