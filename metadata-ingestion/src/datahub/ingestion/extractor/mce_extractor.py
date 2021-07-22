@@ -5,7 +5,10 @@ from datahub.ingestion.api import RecordEnvelope
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Extractor, WorkUnit
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
 from datahub.metadata.schema_classes import UsageAggregationClass
 
 
@@ -21,6 +24,7 @@ class WorkUnitRecordExtractor(Extractor):
         RecordEnvelope[
             Union[
                 MetadataChangeEvent,
+                MetadataChangeProposal,
                 MetadataChangeProposalWrapper,
                 UsageAggregationClass,
             ]
