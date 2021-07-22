@@ -3351,6 +3351,20 @@ class ValueFrequencyClass(DictWrapper):
         self._inner_dict['frequency'] = value
     
     
+class ChangeTypeClass(object):
+    """Descriptor for a change action"""
+    
+    
+    """create action"""
+    CREATE = "CREATE"
+    
+    """delete action"""
+    DELETE = "DELETE"
+    
+    """update action"""
+    UPDATE = "UPDATE"
+    
+    
 class GlossaryNodeInfoClass(DictWrapper):
     """Properties associated with a GlossaryNode"""
     
@@ -6868,65 +6882,52 @@ class TrainingDataClass(DictWrapper):
         self._inner_dict['trainingData'] = value
     
     
-class MetadataAuditEventClass(DictWrapper):
-    """Kafka event for capturing update made to an entity's metadata."""
+class GenericAspectClass(DictWrapper):
+    """Generic record structure for serializing an Aspect
+    """
     
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataAuditEvent")
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.GenericAspect")
     def __init__(self,
-        newSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
-        auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
-        oldSnapshot: Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]=None,
+        value: bytes,
+        contentType: str,
     ):
         super().__init__()
         
-        self.auditHeader = auditHeader
-        self.oldSnapshot = oldSnapshot
-        self.newSnapshot = newSnapshot
+        self.value = value
+        self.contentType = contentType
     
     @classmethod
-    def construct_with_defaults(cls) -> "MetadataAuditEventClass":
+    def construct_with_defaults(cls) -> "GenericAspectClass":
         self = cls.construct({})
         self._restore_defaults()
         
         return self
     
     def _restore_defaults(self) -> None:
-        self.auditHeader = self.RECORD_SCHEMA.field_map["auditHeader"].default
-        self.oldSnapshot = self.RECORD_SCHEMA.field_map["oldSnapshot"].default
-        self.newSnapshot = ChartSnapshotClass.construct_with_defaults()
+        self.value = bytes()
+        self.contentType = str()
     
     
     @property
-    def auditHeader(self) -> Union[None, "KafkaAuditHeaderClass"]:
-        """Getter: Kafka audit header. See go/kafkaauditheader for more info."""
-        return self._inner_dict.get('auditHeader')  # type: ignore
+    def value(self) -> bytes:
+        # No docs available.
+        return self._inner_dict.get('value')  # type: ignore
     
-    @auditHeader.setter
-    def auditHeader(self, value: Union[None, "KafkaAuditHeaderClass"]) -> None:
-        """Setter: Kafka audit header. See go/kafkaauditheader for more info."""
-        self._inner_dict['auditHeader'] = value
-    
-    
-    @property
-    def oldSnapshot(self) -> Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
-        """Getter: Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot."""
-        return self._inner_dict.get('oldSnapshot')  # type: ignore
-    
-    @oldSnapshot.setter
-    def oldSnapshot(self, value: Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
-        """Setter: Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot."""
-        self._inner_dict['oldSnapshot'] = value
+    @value.setter
+    def value(self, value: bytes) -> None:
+        # No docs available.
+        self._inner_dict['value'] = value
     
     
     @property
-    def newSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
-        """Getter: Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."""
-        return self._inner_dict.get('newSnapshot')  # type: ignore
+    def contentType(self) -> str:
+        # No docs available.
+        return self._inner_dict.get('contentType')  # type: ignore
     
-    @newSnapshot.setter
-    def newSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
-        """Setter: Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."""
-        self._inner_dict['newSnapshot'] = value
+    @contentType.setter
+    def contentType(self, value: str) -> None:
+        # No docs available.
+        self._inner_dict['contentType'] = value
     
     
 class MetadataChangeEventClass(DictWrapper):
@@ -6988,6 +6989,194 @@ class MetadataChangeEventClass(DictWrapper):
     def proposedDelta(self, value: None) -> None:
         """Setter: Delta of the proposed metadata partial update."""
         self._inner_dict['proposedDelta'] = value
+    
+    
+class MetadataChangeProposalClass(DictWrapper):
+    """Kafka event for proposing a metadata change for an entity. A corresponding MetadataChangeLog is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeProposal will be emitted instead."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataChangeProposal")
+    def __init__(self,
+        entityType: str,
+        entityKey: Union[str, "GenericAspectClass"],
+        changeType: Union[str, "ChangeTypeClass"],
+        auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
+        aspectName: Union[None, str]=None,
+        aspect: Union[None, "GenericAspectClass"]=None,
+        systemMetadata: Union[None, "SystemMetadataClass"]=None,
+    ):
+        super().__init__()
+        
+        self.auditHeader = auditHeader
+        self.entityType = entityType
+        self.entityKey = entityKey
+        self.changeType = changeType
+        self.aspectName = aspectName
+        self.aspect = aspect
+        self.systemMetadata = systemMetadata
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MetadataChangeProposalClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.auditHeader = self.RECORD_SCHEMA.field_map["auditHeader"].default
+        self.entityType = str()
+        self.entityKey = str()
+        self.changeType = ChangeTypeClass.CREATE
+        self.aspectName = self.RECORD_SCHEMA.field_map["aspectName"].default
+        self.aspect = self.RECORD_SCHEMA.field_map["aspect"].default
+        self.systemMetadata = self.RECORD_SCHEMA.field_map["systemMetadata"].default
+    
+    
+    @property
+    def auditHeader(self) -> Union[None, "KafkaAuditHeaderClass"]:
+        """Getter: Kafka audit header. See go/kafkaauditheader for more info."""
+        return self._inner_dict.get('auditHeader')  # type: ignore
+    
+    @auditHeader.setter
+    def auditHeader(self, value: Union[None, "KafkaAuditHeaderClass"]) -> None:
+        """Setter: Kafka audit header. See go/kafkaauditheader for more info."""
+        self._inner_dict['auditHeader'] = value
+    
+    
+    @property
+    def entityType(self) -> str:
+        """Getter: Type of the entity being written to"""
+        return self._inner_dict.get('entityType')  # type: ignore
+    
+    @entityType.setter
+    def entityType(self, value: str) -> None:
+        """Setter: Type of the entity being written to"""
+        self._inner_dict['entityType'] = value
+    
+    
+    @property
+    def entityKey(self) -> Union[str, "GenericAspectClass"]:
+        """Getter: Urn or serialized key Aspect of the entity being written to
+    """
+        return self._inner_dict.get('entityKey')  # type: ignore
+    
+    @entityKey.setter
+    def entityKey(self, value: Union[str, "GenericAspectClass"]) -> None:
+        """Setter: Urn or serialized key Aspect of the entity being written to
+    """
+        self._inner_dict['entityKey'] = value
+    
+    
+    @property
+    def changeType(self) -> Union[str, "ChangeTypeClass"]:
+        # No docs available.
+        return self._inner_dict.get('changeType')  # type: ignore
+    
+    @changeType.setter
+    def changeType(self, value: Union[str, "ChangeTypeClass"]) -> None:
+        # No docs available.
+        self._inner_dict['changeType'] = value
+    
+    
+    @property
+    def aspectName(self) -> Union[None, str]:
+        """Getter: Aspect of the entity being written to
+    Not filling this out implies that the writer wants to affect the entire entity
+    Note: This is only valid for CREATE and DELETE operations.
+    """
+        return self._inner_dict.get('aspectName')  # type: ignore
+    
+    @aspectName.setter
+    def aspectName(self, value: Union[None, str]) -> None:
+        """Setter: Aspect of the entity being written to
+    Not filling this out implies that the writer wants to affect the entire entity
+    Note: This is only valid for CREATE and DELETE operations.
+    """
+        self._inner_dict['aspectName'] = value
+    
+    
+    @property
+    def aspect(self) -> Union[None, "GenericAspectClass"]:
+        # No docs available.
+        return self._inner_dict.get('aspect')  # type: ignore
+    
+    @aspect.setter
+    def aspect(self, value: Union[None, "GenericAspectClass"]) -> None:
+        # No docs available.
+        self._inner_dict['aspect'] = value
+    
+    
+    @property
+    def systemMetadata(self) -> Union[None, "SystemMetadataClass"]:
+        """Getter: A string->string map of custom properties that one might want to attach to an event
+    """
+        return self._inner_dict.get('systemMetadata')  # type: ignore
+    
+    @systemMetadata.setter
+    def systemMetadata(self, value: Union[None, "SystemMetadataClass"]) -> None:
+        """Setter: A string->string map of custom properties that one might want to attach to an event
+    """
+        self._inner_dict['systemMetadata'] = value
+    
+    
+class SystemMetadataClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.SystemMetadata")
+    def __init__(self,
+        lastObserved: Union[None, int]=None,
+        runId: Union[None, str]=None,
+        properties: Union[None, Dict[str, str]]=None,
+    ):
+        super().__init__()
+        
+        self.lastObserved = lastObserved
+        self.runId = runId
+        self.properties = properties
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "SystemMetadataClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.lastObserved = self.RECORD_SCHEMA.field_map["lastObserved"].default
+        self.runId = self.RECORD_SCHEMA.field_map["runId"].default
+        self.properties = self.RECORD_SCHEMA.field_map["properties"].default
+    
+    
+    @property
+    def lastObserved(self) -> Union[None, int]:
+        """Getter: The timestamp the metadata was observed at"""
+        return self._inner_dict.get('lastObserved')  # type: ignore
+    
+    @lastObserved.setter
+    def lastObserved(self, value: Union[None, int]) -> None:
+        """Setter: The timestamp the metadata was observed at"""
+        self._inner_dict['lastObserved'] = value
+    
+    
+    @property
+    def runId(self) -> Union[None, str]:
+        """Getter: The timestamp the metadata was observed at"""
+        return self._inner_dict.get('runId')  # type: ignore
+    
+    @runId.setter
+    def runId(self, value: Union[None, str]) -> None:
+        """Setter: The timestamp the metadata was observed at"""
+        self._inner_dict['runId'] = value
+    
+    
+    @property
+    def properties(self) -> Union[None, Dict[str, str]]:
+        """Getter: Additional properties"""
+        return self._inner_dict.get('properties')  # type: ignore
+    
+    @properties.setter
+    def properties(self, value: Union[None, Dict[str, str]]) -> None:
+        """Setter: Additional properties"""
+        self._inner_dict['properties'] = value
     
     
 class ArrayTypeClass(DictWrapper):
@@ -8694,6 +8883,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataset.Upstream': UpstreamClass,
     'com.linkedin.pegasus2avro.dataset.UpstreamLineage': UpstreamLineageClass,
     'com.linkedin.pegasus2avro.dataset.ValueFrequency': ValueFrequencyClass,
+    'com.linkedin.pegasus2avro.events.metadata.ChangeType': ChangeTypeClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo': GlossaryNodeInfoClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryTermInfo': GlossaryTermInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpGroupInfo': CorpGroupInfoClass,
@@ -8757,8 +8947,10 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.ml.metadata.SourceCodeUrl': SourceCodeUrlClass,
     'com.linkedin.pegasus2avro.ml.metadata.SourceCodeUrlType': SourceCodeUrlTypeClass,
     'com.linkedin.pegasus2avro.ml.metadata.TrainingData': TrainingDataClass,
-    'com.linkedin.pegasus2avro.mxe.MetadataAuditEvent': MetadataAuditEventClass,
+    'com.linkedin.pegasus2avro.mxe.GenericAspect': GenericAspectClass,
     'com.linkedin.pegasus2avro.mxe.MetadataChangeEvent': MetadataChangeEventClass,
+    'com.linkedin.pegasus2avro.mxe.MetadataChangeProposal': MetadataChangeProposalClass,
+    'com.linkedin.pegasus2avro.mxe.SystemMetadata': SystemMetadataClass,
     'com.linkedin.pegasus2avro.schema.ArrayType': ArrayTypeClass,
     'com.linkedin.pegasus2avro.schema.BinaryJsonSchema': BinaryJsonSchemaClass,
     'com.linkedin.pegasus2avro.schema.BooleanType': BooleanTypeClass,
@@ -8853,6 +9045,7 @@ __SCHEMA_TYPES = {
     'Upstream': UpstreamClass,
     'UpstreamLineage': UpstreamLineageClass,
     'ValueFrequency': ValueFrequencyClass,
+    'ChangeType': ChangeTypeClass,
     'GlossaryNodeInfo': GlossaryNodeInfoClass,
     'GlossaryTermInfo': GlossaryTermInfoClass,
     'CorpGroupInfo': CorpGroupInfoClass,
@@ -8916,8 +9109,10 @@ __SCHEMA_TYPES = {
     'SourceCodeUrl': SourceCodeUrlClass,
     'SourceCodeUrlType': SourceCodeUrlTypeClass,
     'TrainingData': TrainingDataClass,
-    'MetadataAuditEvent': MetadataAuditEventClass,
+    'GenericAspect': GenericAspectClass,
     'MetadataChangeEvent': MetadataChangeEventClass,
+    'MetadataChangeProposal': MetadataChangeProposalClass,
+    'SystemMetadata': SystemMetadataClass,
     'ArrayType': ArrayTypeClass,
     'BinaryJsonSchema': BinaryJsonSchemaClass,
     'BooleanType': BooleanTypeClass,
