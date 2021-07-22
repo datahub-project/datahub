@@ -71,9 +71,7 @@ class DatahubRestEmitter:
     ) -> None:
         if isinstance(item, UsageAggregation):
             return self.emit_usage(item)
-        elif isinstance(item, MetadataChangeProposalWrapper):
-            return self.emit_mcp(item.make_mcp())
-        elif isinstance(item, MetadataChangeProposal):
+        elif isinstance(item, (MetadataChangeProposal, MetadataChangeProposalWrapper)):
             return self.emit_mcp(item)
         else:
             return self.emit_mce(item)
@@ -91,7 +89,9 @@ class DatahubRestEmitter:
 
         self._emit_generic(url, payload)
 
-    def emit_mcp(self, mcp: MetadataChangeProposal) -> None:
+    def emit_mcp(
+        self, mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
+    ) -> None:
         url = f"{self._gms_server}/entities?action=ingestProposal"
 
         mcp_obj = pre_json_transform(mcp.to_obj())

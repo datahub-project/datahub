@@ -57,10 +57,7 @@ class FileSink(Sink):
         ],
         write_callback: WriteCallback,
     ) -> None:
-        if isinstance(record_envelope.record, MetadataChangeProposalWrapper):
-            record = record_envelope.record.make_mcp()
-        else:
-            record = record_envelope.record
+        record = record_envelope.record
         obj = record.to_obj()
 
         if self.wrote_something:
