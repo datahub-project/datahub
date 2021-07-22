@@ -4,16 +4,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.extractor.FieldExtractor;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -26,18 +27,26 @@ public class SearchDocumentTransformer {
   private SearchDocumentTransformer() {
   }
 
-  public static Optional<String> transform(final RecordTemplate snapshot, final EntitySpec entitySpec) {
-    final Map<String, List<SearchableFieldSpec>> searchableFieldSpecsPerAspect = entitySpec.getAspectSpecMap()
-        .entrySet()
-        .stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getSearchableFieldSpecs()));
+  public static Optional<String> transformSnapshot(final RecordTemplate snapshot, final EntitySpec entitySpec) {
     final Map<SearchableFieldSpec, List<Object>> extractedFields =
-        FieldExtractor.extractFields(snapshot, searchableFieldSpecsPerAspect);
+        FieldExtractor.extractFieldsFromSnapshot(snapshot, entitySpec, AspectSpec::getSearchableFieldSpecs);
     if (extractedFields.isEmpty()) {
       return Optional.empty();
     }
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     searchDocument.put("urn", snapshot.data().get("urn").toString());
+    extractedFields.forEach((key, value) -> setValue(key, value, searchDocument));
+    return Optional.of(searchDocument.toString());
+  }
+
+  public static Optional<String> transformAspect(final Urn urn, final RecordTemplate aspect, final AspectSpec aspectSpec) {
+    final Map<SearchableFieldSpec, List<Object>> extractedFields =
+        FieldExtractor.extractFields(aspect, aspectSpec.getSearchableFieldSpecs());
+    if (extractedFields.isEmpty()) {
+      return Optional.empty();
+    }
+    final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+    searchDocument.put("urn", urn.toString());
     extractedFields.forEach((key, value) -> setValue(key, value, searchDocument));
     return Optional.of(searchDocument.toString());
   }

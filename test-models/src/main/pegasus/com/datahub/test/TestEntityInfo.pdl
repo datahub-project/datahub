@@ -22,7 +22,7 @@ record TestEntityInfo {
     "fieldType": "TEXT_PARTIAL"
    }
   }
-  textArrayField: array[string]
+  textArrayField: optional array[string]
 
   @Relationship = {
     "name": "foreignKey",
@@ -39,13 +39,13 @@ record TestEntityInfo {
       "entityTypes": []
     }
   }
-  foreignKeyArray: array[Urn]
+  foreignKeyArray: optional array[Urn]
 
-  nestedRecordField: record SimpleNestedRecord1 {
+  nestedRecordField: optional record SimpleNestedRecord1 {
     @Searchable = {
       "fieldType": "COUNT"
     }
-    nestedIntegerField: int
+    nestedIntegerField: optional int
 
     @Relationship = {
       "name": "nestedForeignKey",
@@ -54,19 +54,24 @@ record TestEntityInfo {
     @Searchable = {
       "fieldType": "URN_PARTIAL"
     }
-    nestedForeignKey: Urn
+    nestedForeignKey: optional Urn
   }
 
-  nestedRecordArrayField: array[record SimpleNestedRecord2 {
+  nestedRecordArrayField: optional array[record SimpleNestedRecord2 {
     @Searchable = {
      "fieldType": "TEXT"
     }
-    nestedArrayStringField: string
+    nestedArrayStringField: optional string
 
     @Relationship = {
       "name": "nestedArrayForeignKey",
       "entityTypes": []
     }
-    nestedArrayForeignKey: Urn
+    nestedArrayForeignKey: optional Urn
+
+    @Searchable = {
+      "/*": {}
+    }
+    nestedArrayArrayField: optional array[string]
   }]
 }

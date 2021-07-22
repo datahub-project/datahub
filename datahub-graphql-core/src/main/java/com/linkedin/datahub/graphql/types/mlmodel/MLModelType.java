@@ -6,7 +6,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelSnapshotMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.SearchResult;
 import graphql.execution.DataFetcherResult;
 import java.util.List;
@@ -69,7 +69,7 @@ public class MLModelType implements SearchableEntityType<MLModel> {
                 .map(gmsMlModel -> gmsMlModel == null ? null
                     : DataFetcherResult.<MLModel>newResult()
                         .data(MLModelSnapshotMapper.map(gmsMlModel.getValue().getMLModelSnapshot()))
-                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsMlModel.getValue().getMLModelSnapshot()))
+                        .localContext(AspectExtractor.extractAspects(gmsMlModel.getValue().getMLModelSnapshot()))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {

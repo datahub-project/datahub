@@ -8,7 +8,6 @@ import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
@@ -21,7 +20,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
@@ -251,7 +249,7 @@ public abstract class EntityService {
     }
   }
 
-  public  void ingestEntity(@Nonnull final Entity entity, @Nonnull final AuditStamp auditStamp) {
+  public void ingestEntity(@Nonnull final Entity entity, @Nonnull final AuditStamp auditStamp) {
     log.debug(String.format("Invoked ingestEntity with entity %s, audit stamp %s", entity, auditStamp));
     ingestSnapshotUnion(entity.getValue(), auditStamp);
   }

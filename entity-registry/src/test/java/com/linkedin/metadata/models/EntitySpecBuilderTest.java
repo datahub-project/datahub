@@ -114,7 +114,7 @@ public class EntitySpecBuilderTest {
     assertEquals(new TestEntityInfo().schema().getFullName(), testEntityInfo.getPegasusSchema().getFullName());
 
     // Assert on Searchable Fields
-    assertEquals(6, testEntityInfo.getSearchableFieldSpecs().size());
+    assertEquals(7, testEntityInfo.getSearchableFieldSpecs().size());
     assertEquals("textFieldOverride", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("textField").toString()).getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.TEXT, testEntityInfo.getSearchableFieldSpecMap().get(
@@ -135,6 +135,12 @@ public class EntitySpecBuilderTest {
         .getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.TEXT, testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("nestedRecordArrayField", "*", "nestedArrayStringField").toString())
+        .getSearchableAnnotation().getFieldType());
+    assertEquals("nestedArrayArrayField", testEntityInfo.getSearchableFieldSpecMap().get(
+        new PathSpec("nestedRecordArrayField", "*", "nestedArrayArrayField", "*").toString())
+        .getSearchableAnnotation().getFieldName());
+    assertEquals(SearchableAnnotation.FieldType.TEXT, testEntityInfo.getSearchableFieldSpecMap().get(
+        new PathSpec("nestedRecordArrayField", "*", "nestedArrayArrayField", "*").toString())
         .getSearchableAnnotation().getFieldType());
 
     // Assert on Relationship Fields
