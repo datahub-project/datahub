@@ -3298,6 +3298,19 @@
                           "doc": "Custom property bag."
                         },
                         {
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.url.Url",
+                            "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                          },
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "externalUrl",
+                          "default": null,
+                          "doc": "URL where the reference exist"
+                        },
+                        {
                           "Searchable": {
                             "fieldType": "TEXT",
                             "hasValuesFieldName": "hasDescription"
@@ -3371,7 +3384,145 @@
                           ],
                           "name": "hyperParameters",
                           "default": null,
-                          "doc": "Hyper Parameters of the MLModel"
+                          "doc": "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "record",
+                                "Aspect": {
+                                  "name": "mlHyperParam"
+                                },
+                                "name": "MLHyperParam",
+                                "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                                "fields": [
+                                  {
+                                    "type": "string",
+                                    "name": "name",
+                                    "doc": "Name of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "description",
+                                    "default": null,
+                                    "doc": "Documentation of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "value",
+                                    "default": null,
+                                    "doc": "The value of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "long"
+                                    ],
+                                    "name": "createdAt",
+                                    "default": null,
+                                    "doc": "Date when the MLHyperParam was developed"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "com.linkedin.pegasus2avro.common.VersionTag"
+                                    ],
+                                    "name": "version",
+                                    "default": null,
+                                    "doc": "Version of the MLHyperParam"
+                                  }
+                                ],
+                                "doc": "Properties associated with an ML Hyper Param"
+                              }
+                            }
+                          ],
+                          "name": "hyperParams",
+                          "default": null,
+                          "doc": "Hyperparameters of the MLModel"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "record",
+                                "Aspect": {
+                                  "name": "mlMetric"
+                                },
+                                "name": "MLMetric",
+                                "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                                "fields": [
+                                  {
+                                    "type": "string",
+                                    "name": "name",
+                                    "doc": "Name of the mlMetric"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "description",
+                                    "default": null,
+                                    "doc": "Documentation of the mlMetric"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "value",
+                                    "default": null,
+                                    "doc": "The value of the mlMetric"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "long"
+                                    ],
+                                    "name": "createdAt",
+                                    "default": null,
+                                    "doc": "Date when the mlMetric was developed"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "com.linkedin.pegasus2avro.common.VersionTag"
+                                    ],
+                                    "name": "version",
+                                    "default": null,
+                                    "doc": "Version of the mlMetric"
+                                  }
+                                ],
+                                "doc": "Properties associated with an ML Metric"
+                              }
+                            }
+                          ],
+                          "name": "trainingMetrics",
+                          "default": null,
+                          "doc": "Metrics of the MLModel used in training"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "com.linkedin.pegasus2avro.ml.metadata.MLMetric"
+                            }
+                          ],
+                          "name": "onlineMetrics",
+                          "default": null,
+                          "doc": "Metrics of the MLModel used in production"
                         },
                         {
                           "type": [
@@ -4545,6 +4696,19 @@
                           "name": "customProperties",
                           "default": {},
                           "doc": "Custom property bag."
+                        },
+                        {
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.url.Url",
+                            "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                          },
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "externalUrl",
+                          "default": null,
+                          "doc": "URL where the reference exist"
                         },
                         {
                           "Searchable": {

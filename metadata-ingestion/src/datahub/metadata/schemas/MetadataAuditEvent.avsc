@@ -3250,6 +3250,19 @@
                         "default": {}
                       },
                       {
+                        "name": "externalUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL where the reference exist",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
                         "name": "description",
                         "type": [
                           "null",
@@ -3322,7 +3335,143 @@
                             ]
                           }
                         ],
-                        "doc": "Hyper Parameters of the MLModel",
+                        "doc": "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
+                        "default": null
+                      },
+                      {
+                        "name": "hyperParams",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "MLHyperParam",
+                              "doc": "Properties associated with an ML Hyper Param",
+                              "fields": [
+                                {
+                                  "name": "name",
+                                  "type": "string",
+                                  "doc": "Name of the MLHyperParam"
+                                },
+                                {
+                                  "name": "description",
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "doc": "Documentation of the MLHyperParam",
+                                  "default": null
+                                },
+                                {
+                                  "name": "value",
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "doc": "The value of the MLHyperParam",
+                                  "default": null
+                                },
+                                {
+                                  "name": "createdAt",
+                                  "type": [
+                                    "null",
+                                    "long"
+                                  ],
+                                  "doc": "Date when the MLHyperParam was developed",
+                                  "default": null
+                                },
+                                {
+                                  "name": "version",
+                                  "type": [
+                                    "null",
+                                    "com.linkedin.pegasus2avro.common.VersionTag"
+                                  ],
+                                  "doc": "Version of the MLHyperParam",
+                                  "default": null
+                                }
+                              ],
+                              "Aspect": {
+                                "name": "mlHyperParam"
+                              }
+                            }
+                          }
+                        ],
+                        "doc": "Hyperparameters of the MLModel",
+                        "default": null
+                      },
+                      {
+                        "name": "trainingMetrics",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "MLMetric",
+                              "doc": "Properties associated with an ML Metric",
+                              "fields": [
+                                {
+                                  "name": "name",
+                                  "type": "string",
+                                  "doc": "Name of the mlMetric"
+                                },
+                                {
+                                  "name": "description",
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "doc": "Documentation of the mlMetric",
+                                  "default": null
+                                },
+                                {
+                                  "name": "value",
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "doc": "The value of the mlMetric",
+                                  "default": null
+                                },
+                                {
+                                  "name": "createdAt",
+                                  "type": [
+                                    "null",
+                                    "long"
+                                  ],
+                                  "doc": "Date when the mlMetric was developed",
+                                  "default": null
+                                },
+                                {
+                                  "name": "version",
+                                  "type": [
+                                    "null",
+                                    "com.linkedin.pegasus2avro.common.VersionTag"
+                                  ],
+                                  "doc": "Version of the mlMetric",
+                                  "default": null
+                                }
+                              ],
+                              "Aspect": {
+                                "name": "mlMetric"
+                              }
+                            }
+                          }
+                        ],
+                        "doc": "Metrics of the MLModel used in training",
+                        "default": null
+                      },
+                      {
+                        "name": "onlineMetrics",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "MLMetric"
+                          }
+                        ],
+                        "doc": "Metrics of the MLModel used in production",
                         "default": null
                       },
                       {
@@ -4487,6 +4636,19 @@
                         },
                         "doc": "Custom property bag.",
                         "default": {}
+                      },
+                      {
+                        "name": "externalUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL where the reference exist",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
                       },
                       {
                         "name": "description",

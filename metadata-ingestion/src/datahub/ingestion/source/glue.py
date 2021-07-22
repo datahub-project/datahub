@@ -287,6 +287,9 @@ class GlueSource(Source):
             job:
                 Job object from get_all_jobs()
         """
+
+        region = self.source_config.aws_region
+
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
                 urn=flow_urn,
@@ -294,6 +297,7 @@ class GlueSource(Source):
                     DataFlowInfoClass(
                         name=job["Name"],
                         description=job["Description"],
+                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
                         # specify a few Glue-specific properties
                         customProperties={
                             "role": job["Role"],
@@ -321,6 +325,9 @@ class GlueSource(Source):
             job:
                 Job object from get_all_jobs()
         """
+
+        region = self.source_config.aws_region
+
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataJobSnapshotClass(
                 urn=node["urn"],
@@ -328,6 +335,8 @@ class GlueSource(Source):
                     DataJobInfoClass(
                         name=f"{job['Name']}:{node['NodeType']}-{node['Id']}",
                         type="GLUE",
+                        # there's no way to view an individual job node by link, so just show the graph
+                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
                         customProperties={
                             **{x["Name"]: x["Value"] for x in node["Args"]},
                             "transformType": node["NodeType"],
