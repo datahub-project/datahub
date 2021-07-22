@@ -80,7 +80,7 @@ export const MLModelProfile = ({ urn }: { urn: string }): JSX.Element => {
                     onTabChange={(tab: string) => {
                         analytics.event({
                             type: EventType.EntitySectionViewEvent,
-                            entityType: EntityType.Mlmodel,
+                            entityType: EntityType.MlfeatureTable,
                             entityUrn: urn,
                             section: tab,
                         });

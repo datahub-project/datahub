@@ -27,6 +27,7 @@ import { MLFeatureEntity } from './app/entity/mlFeature/MLFeatureEntity';
 import { MLPrimaryKeyEntity } from './app/entity/mlPrimaryKey/MLPrimaryKeyEntity';
 import { MLFeatureTableEntity } from './app/entity/mlFeatureTable/MLFeatureTableEntity';
 import { MLModelEntity } from './app/entity/mlModel/MLModelEntity';
+import { MLModelGroupEntity } from './app/entity/mlModelGroup/MLModelGroupEntity';
 
 /*
     Construct Apollo Client
@@ -110,6 +111,7 @@ const App: React.VFC = () => {
         register.register(new MLPrimaryKeyEntity());
         register.register(new MLFeatureTableEntity());
         register.register(new MLModelEntity());
+        register.register(new MLModelGroupEntity());
         return register;
     }, []);
 

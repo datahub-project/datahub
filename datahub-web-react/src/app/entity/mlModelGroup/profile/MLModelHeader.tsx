@@ -28,7 +28,7 @@ export type Props = {
     mlModel: MlModel;
 };
 
-export default function MLModelHeader({ mlModel: { description, ownership, platform } }: Props) {
+export default function MLFeatureTableHeader({ mlModel: { description, ownership, platform } }: Props) {
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
 

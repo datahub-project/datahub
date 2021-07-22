@@ -15,6 +15,7 @@ import defaultThemeConfig from '../../conf/theme/theme_light.config.json';
 import { GlossaryTermEntity } from '../../app/entity/glossaryTerm/GlossaryTermEntity';
 import { MLFeatureTableEntity } from '../../app/entity/mlFeatureTable/MLFeatureTableEntity';
 import { MLModelEntity } from '../../app/entity/mlModel/MLModelEntity';
+import { MLModelGroupEntity } from '../../app/entity/mlModelGroup/MLModelGroupEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -32,6 +33,7 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new GlossaryTermEntity());
     entityRegistry.register(new MLFeatureTableEntity());
     entityRegistry.register(new MLModelEntity());
+    entityRegistry.register(new MLModelGroupEntity());
     return entityRegistry;
 }
 

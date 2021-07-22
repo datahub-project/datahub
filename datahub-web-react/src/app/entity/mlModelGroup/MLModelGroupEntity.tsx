@@ -1,15 +1,15 @@
 import * as React from 'react';
 import { CodeSandboxOutlined } from '@ant-design/icons';
-import { MlModel, EntityType, SearchResult } from '../../../types.generated';
+import { MlModelGroup, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { MLModelProfile } from './profile/MLModelProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 
 /**
- * Definition of the DataHub MlModel entity.
+ * Definition of the DataHub MlModelGroup entity.
  */
-export class MLModelEntity implements Entity<MlModel> {
-    type: EntityType = EntityType.Mlmodel;
+export class MLModelGroupEntity implements Entity<MlModelGroup> {
+    type: EntityType = EntityType.MlmodelGroup;
 
     icon = (fontSize: number, styleType: IconStyleType) => {
         if (styleType === IconStyleType.TAB_VIEW) {
@@ -38,13 +38,13 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getAutoCompleteFieldName = () => 'name';
 
-    getPathName = () => 'mlModels';
+    getPathName = () => 'mlModelGroup';
 
-    getCollectionName = () => 'ML Models';
+    getCollectionName = () => 'ML Groups';
 
     renderProfile = (urn: string) => <MLModelProfile urn={urn} />;
 
-    renderPreview = (_: PreviewType, data: MlModel) => {
+    renderPreview = (_: PreviewType, data: MlModelGroup) => {
         return (
             <Preview
                 urn={data.urn}
@@ -56,7 +56,7 @@ export class MLModelEntity implements Entity<MlModel> {
     };
 
     renderSearch = (result: SearchResult) => {
-        const data = result.entity as MlModel;
+        const data = result.entity as MlModelGroup;
         return (
             <Preview
                 urn={data.urn}
