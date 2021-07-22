@@ -182,7 +182,7 @@ class TestRequest {
             ImmutableList.of(new Quantile().setQuantile("p50").setValue(String.valueOf(index)),
                 new Quantile().setQuantile("p90").setValue(String.valueOf(index))))));
     datasetProfile.setFieldProfiles(fieldProfiles);
-    DateTime now = new DateTime(2021, 1, 1, 0, 0, 0).plusDays(index);
+    DateTime now = new DateTime(2021, 6 , 1, 0, 0, 0).plusDays(index);
     datasetProfile.setTimestampMillis(now.getMillis());
     byte[] datasetProfileSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProfile);
     genericAspect.setValue(ByteString.unsafeWrap(datasetProfileSerialized));
@@ -195,19 +195,8 @@ class TestRequest {
 
     TestRequest harness = new TestRequest();
     EntityClient entityClient = new EntityClient(harness._client);
-    {
-      long startTime = System.nanoTime();
-      entityClient.ingestProposal(getPropertiesProposal(1));
-      entityClient.ingestProposal(getOwnershipProposal(1));
-      entityClient.ingestProposal(getTimeseriesProposal(1));
-//      entityClient.update(new com.linkedin.entity.Entity().setValue(getSnapshot(1)));
-      long endTime = System.nanoTime();
-      long durationInMillis = (long) ((endTime - startTime) / 1000000.0);
-      System.out.println("Duration of one call was: " + durationInMillis);
-    }
-
     ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(100);
-    int numRequests = 20;
+    int numRequests = 30;
     if (numRequests > 0) {
       CountDownLatch latch = new CountDownLatch(numRequests);
       AtomicInteger failedRequests = new AtomicInteger(0);
@@ -221,9 +210,10 @@ class TestRequest {
 //            Response<Void> response =
 //                entityClient.update(new com.linkedin.entity.Entity().setValue(getSnapshot(index)));
             Response<Void> response = entityClient.ingestProposal(getTimeseriesProposal(index));
-//            Response<Void> response = entityClient.ingestProposal(getPropertiesProposal(index));
-//            Preconditions.checkState(response.getStatus() == 200);
-//            response = entityClient.ingestProposal(getOwnershipProposal(index));
+            Preconditions.checkState(response.getStatus() == 200);
+            response = entityClient.ingestProposal(getPropertiesProposal(index));
+            Preconditions.checkState(response.getStatus() == 200);
+            response = entityClient.ingestProposal(getOwnershipProposal(index));
             Preconditions.checkState(response.getStatus() == 200);
             successfulRequests.incrementAndGet();
           } catch (RemoteInvocationException e) {
