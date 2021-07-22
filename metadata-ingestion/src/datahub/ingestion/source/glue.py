@@ -134,7 +134,7 @@ class GlueSource(Source):
                 f"Error parsing DAG for Glue job. The script {script_path} cannot be processed by Glue (this usually occurs when it has been user-modified): {e}",
             )
 
-            return
+            return None
 
     def get_dataflow_s3_names(
         self, dataflow_graph: Dict[str, Any]
