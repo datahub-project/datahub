@@ -2,7 +2,6 @@ package com.linkedin.metadata.entity.ebean;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
@@ -14,7 +13,6 @@ import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
-import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
@@ -27,10 +25,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.NonNull;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -340,7 +336,7 @@ public class EbeanEntityService extends EntityService {
       log.debug(String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.", aspectName, urn));
     }
 
-    if (result.keyAdded) {
+    if (result.keyAffected) {
       produceMetadataAuditEventForKey(
           urn,
           result.getNewSystemMetadata()
@@ -452,7 +448,7 @@ public class EbeanEntityService extends EntityService {
     SystemMetadata oldSystemMetadata;
     SystemMetadata newSystemMetadata;
     MetadataAuditOperation operation;
-    Boolean keyAdded;
+    Boolean keyAffected;
   }
 
   public void setWritable(boolean canWrite) {
@@ -460,18 +456,8 @@ public class EbeanEntityService extends EntityService {
     _entityDao.setWritable(canWrite);
   }
 
-  public List<IngestionRunSummary> listRuns(
-      final Integer minRunSize,
-      final Integer maxRunSize,
-      final Integer pageOffset,
-      final Integer pageSize) {
-    return _entityDao.listRuns(minRunSize, maxRunSize, pageOffset, pageSize);
-  }
-
   @Override
   public List<AspectRowSummary> rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
-    List<EbeanAspectV2> relatedAspects = _entityDao.listAspectsRelatedToRun(runId);
-
     List<AspectRowSummary> removedAspects = new ArrayList<>();
 
     aspectRows.forEach(aspectToRemove -> {
@@ -506,6 +492,14 @@ public class EbeanEntityService extends EntityService {
 
 
         // 4. Update the mysql table
+        Boolean isKeyAspect = false;
+        try {
+          isKeyAspect =
+              getKeyAspectName(Urn.createFromString(aspectToRemove.getUrn())).equals(aspectToRemove.getAspectName());
+        } catch (URISyntaxException e) {
+          e.printStackTrace();
+        }
+
         if (previousAspect != null) {
           // if there was a previous aspect, delete it and them write it to version 0
           latest.setMetadata(previousAspect.getMetadata());
@@ -516,12 +510,8 @@ public class EbeanEntityService extends EntityService {
           // if there was not a previous aspect, just delete the latest one
           _entityDao.deleteAspect(latest);
           // if this is the key aspect, we also want to delete the entity entirely
-          try {
-            if (getKeyAspectName(Urn.createFromString(aspectToRemove.getUrn())).equals(aspectToRemove.getAspectName())) {
-              _entityDao.deleteUrn(aspectToRemove.getUrn());
-            }
-          } catch (URISyntaxException e) {
-            e.printStackTrace();
+          if (isKeyAspect) {
+            _entityDao.deleteUrn(aspectToRemove.getUrn());
           }
         }
 
@@ -552,7 +542,7 @@ public class EbeanEntityService extends EntityService {
               latestSystemMetadata,
               previousValue == null ? null : parseSystemMetadata(previousAspect.getSystemMetadata()),
               previousAspect == null ? MetadataAuditOperation.DELETE : MetadataAuditOperation.UPDATE,
-              false
+              isKeyAspect
           );
 
         } catch (URISyntaxException e) {

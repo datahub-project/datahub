@@ -457,11 +457,5 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
-  public abstract List<IngestionRunSummary> listRuns(
-      final Integer minRunSize,
-      final Integer maxRunSize,
-      final Integer pageOffset,
-      final Integer pageSize);
-
   public abstract List<AspectRowSummary> rollbackRun(List<AspectRowSummary> aspectRows, String runId);
 }

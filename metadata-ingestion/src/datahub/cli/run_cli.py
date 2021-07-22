@@ -158,7 +158,8 @@ def post_run_endpoint(payload_obj: dict):
 
     summary = parse_run_restli_response(response)
     rows = summary.get("aspectRowSummaries")
-    total = summary.get("total")
+    entities_affected = summary.get("entitiesAffected")
+    aspects_affected = summary.get("aspectsAffected")
 
     if len(rows) == 0:
         click.echo("No entities touched by this run. Double check your run id?")
@@ -169,7 +170,7 @@ def post_run_endpoint(payload_obj: dict):
         datetime.utcfromtimestamp(row.get("timestamp") / 1000).strftime('%Y-%m-%d %H:%M:%S')
     ] for row in rows]
 
-    return structured_rows, total
+    return structured_rows, entities_affected, aspects_affected
 
 
 @run.command()
@@ -179,9 +180,12 @@ def show(run_id: str) -> None:
         "runId": run_id,
         "dryRun": True
     }
-    structured_rows, total = post_run_endpoint(payload_obj)
+    structured_rows, entities_affected, aspects_affected = post_run_endpoint(payload_obj)
 
-    click.echo(f"showing first {len(structured_rows)} of {total} aspects touched by this run")
+    click.echo(f"this run created {entities_affected} new entities and updated {aspects_affected} aspects")
+    click.echo(f"rolling back will delete the entities created and revert the updated aspects")
+    click.echo()
+    click.echo(f"showing first {len(structured_rows)} of {aspects_affected} aspects touched by this run")
     click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
 
 
@@ -192,7 +196,9 @@ def rollback(run_id: str) -> None:
         "runId": run_id,
         "dryRun": False
     }
-    structured_rows, total = post_run_endpoint(payload_obj)
+    structured_rows, entities_affected, aspects_affected = post_run_endpoint(payload_obj)
 
-    click.echo(f"showing first {len(structured_rows)} of {total} aspects deleted by this run")
+    click.echo(f"rolling back deletes the entities created by a run and reverts the updated aspects")
+    click.echo(f"this rollback deleted {entities_affected} entities and rolled back {aspects_affected} aspects")
+    click.echo(f"showing first {len(structured_rows)} of {aspects_affected} aspects reverted by this run")
     click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
