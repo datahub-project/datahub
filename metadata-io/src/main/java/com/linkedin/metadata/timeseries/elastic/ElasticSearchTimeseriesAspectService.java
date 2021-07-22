@@ -6,8 +6,6 @@ import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.dao.utils.ESUtils;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -45,16 +43,13 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   private final BulkProcessor _bulkProcessor;
   private final TimeseriesAspectIndexBuilders _indexBuilders;
   private final RestHighLevelClient _searchClient;
-  private final EntityRegistry _entityRegistry;
 
   public ElasticSearchTimeseriesAspectService(@Nonnull RestHighLevelClient searchClient,
       @Nonnull IndexConvention indexConvention, @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
-      @Nonnull EntityRegistry entityRegistry, int bulkRequestsLimit, int bulkFlushPeriod, int numRetries,
-      long retryInterval) {
+      int bulkRequestsLimit, int bulkFlushPeriod, int numRetries, long retryInterval) {
     _indexConvention = indexConvention;
     _indexBuilders = indexBuilders;
     _searchClient = searchClient;
-    _entityRegistry = entityRegistry;
     _bulkProcessor = BulkProcessor.builder(
         (request, bulkListener) -> searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener),
         BulkListener.getInstance())
@@ -64,7 +59,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
         .build();
   }
 
-  private static EnvelopedAspect parseDocument(@Nonnull SearchHit doc, @Nonnull AspectSpec aspectSpec) {
+  private static EnvelopedAspect parseDocument(@Nonnull SearchHit doc) {
     Map<String, Object> docFields = doc.getSourceAsMap();
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
     Object event = docFields.get("event");
@@ -119,9 +114,10 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     try {
       final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       final SearchHits hits = searchResponse.getHits();
-      final AspectSpec aspectSpec = _entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
 
-      return Arrays.stream(hits.getHits()).map(t -> parseDocument(t, aspectSpec)).collect(Collectors.toList());
+      return Arrays.stream(hits.getHits())
+          .map(ElasticSearchTimeseriesAspectService::parseDocument)
+          .collect(Collectors.toList());
     } catch (Exception e) {
       log.error("Search query failed:" + e.getMessage());
       throw new ESQueryException("Search query failed:", e);
