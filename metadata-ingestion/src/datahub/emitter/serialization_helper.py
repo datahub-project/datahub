@@ -23,4 +23,6 @@ def pre_json_transform(obj: Any) -> Any:
     elif isinstance(obj, list):
         new_obj = [pre_json_transform(item) for item in obj]
         return new_obj
+    elif isinstance(obj, bytes):
+        return obj.decode()
     return obj

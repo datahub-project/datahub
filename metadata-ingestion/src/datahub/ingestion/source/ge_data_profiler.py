@@ -1,7 +1,7 @@
 import contextlib
 import dataclasses
 import unittest.mock
-from typing import Any, Iterable, List, Optional, Tuple, Union
+from typing import Any, Iterable, Optional
 
 from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
@@ -15,47 +15,16 @@ from great_expectations.data_context.types.base import (
 )
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
 
+from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.api.source import SourceReport
+from datahub.metadata.schema_classes import (
+    DatasetFieldProfileClass,
+    DatasetProfileClass,
+    HistogramClass,
+    QuantileClass,
+    ValueFrequencyClass,
+)
 from datahub.utilities.groupby import groupby_unsorted
-
-NumericColumnValue = Union[int, float]
-ColumnValue = Union[int, float, str]
-
-
-@dataclasses.dataclass
-class DatasetFieldProfile:
-    fieldPath: str
-
-    uniqueCount: Optional[int] = None
-    uniqueProportion: Optional[float] = None
-
-    nullCount: Optional[int] = None
-    nullProportion: Optional[float] = None
-
-    min: Optional[ColumnValue] = None
-    max: Optional[ColumnValue] = None
-    mean: Optional[NumericColumnValue] = None
-    median: Optional[NumericColumnValue] = None
-    stdev: Optional[NumericColumnValue] = None
-
-    quantiles: Optional[
-        List[Tuple[float, NumericColumnValue]]
-    ] = None  # render as a table or boxplot: list of (quantile, value) e.g. (.95, 50403) for 95th percentile
-    distinct_value_frequencies: Optional[
-        List[Tuple[ColumnValue, int]]
-    ] = None  # render as a bar chart
-    histogram: Optional[
-        Tuple[List[NumericColumnValue], List[float]]
-    ] = None  # render as a histogram: (k bin boundaries, k+1 frequencies); first+last frequency values are tail weights; sum(frequencies) = 1
-    partial_example_values: Optional[List[ColumnValue]] = None  # render as a list
-
-
-@dataclasses.dataclass
-class DatasetProfile:
-    rowCount: Optional[int] = None
-    columnCount: Optional[int] = None
-    fieldProfiles: Optional[List[DatasetFieldProfile]] = None
-
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
 # the config structures were generated directly from YML and further assumes that
@@ -125,7 +94,7 @@ class DatahubGEProfiler:
 
     def generate_profile(
         self, pretty_name: str, schema: str = None, table: str = None, **kwargs: Any
-    ) -> DatasetProfile:
+    ) -> DatasetProfileClass:
         with _properly_init_datasource(self.conn):
             evrs = self._profile_data_asset(
                 {
@@ -172,8 +141,8 @@ class DatahubGEProfiler:
 
     def _convert_evrs_to_profile(
         self, evrs: ExpectationSuiteValidationResult, pretty_name: str
-    ) -> DatasetProfile:
-        profile = DatasetProfile()
+    ) -> DatasetProfileClass:
+        profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
         for col, evrs_for_col in groupby_unsorted(
             evrs.results, key=self._get_column_from_evr
@@ -191,7 +160,7 @@ class DatahubGEProfiler:
 
     def _handle_convert_table_evrs(
         self,
-        profile: DatasetProfile,
+        profile: DatasetProfileClass,
         table_evrs: Iterable[ExpectationValidationResult],
         pretty_name: str,
     ) -> None:
@@ -212,13 +181,13 @@ class DatahubGEProfiler:
 
     def _handle_convert_column_evrs(  # noqa: C901 (complexity)
         self,
-        profile: DatasetProfile,
+        profile: DatasetProfileClass,
         column: str,
         col_evrs: Iterable[ExpectationValidationResult],
         pretty_name: str,
     ) -> None:
         # This method mutates the profile directly.
-        column_profile = DatasetFieldProfile(fieldPath=column)
+        column_profile = DatasetFieldProfileClass(fieldPath=column)
 
         profile.fieldProfiles = profile.fieldProfiles or []
         profile.fieldProfiles.append(column_profile)
@@ -238,28 +207,31 @@ class DatahubGEProfiler:
                 # ignore; generally used for whitespace checks using regex r"^\s+|\s+$"
                 pass
             elif exp == "expect_column_mean_to_be_between":
-                column_profile.mean = res["observed_value"]
+                column_profile.mean = str(res["observed_value"])
             elif exp == "expect_column_min_to_be_between":
-                column_profile.min = res["observed_value"]
+                column_profile.min = str(res["observed_value"])
             elif exp == "expect_column_max_to_be_between":
-                column_profile.max = res["observed_value"]
+                column_profile.max = str(res["observed_value"])
             elif exp == "expect_column_median_to_be_between":
-                column_profile.median = res["observed_value"]
+                column_profile.median = str(res["observed_value"])
             elif exp == "expect_column_stdev_to_be_between":
-                column_profile.stdev = res["observed_value"]
+                column_profile.stdev = str(res["observed_value"])
             elif exp == "expect_column_quantile_values_to_be_between":
-                column_profile.quantiles = list(
-                    zip(
+                column_profile.quantiles = [
+                    QuantileClass(quantile=str(quantile), value=str(value))
+                    for quantile, value in zip(
                         res["observed_value"]["quantiles"],
                         res["observed_value"]["values"],
                     )
-                )
+                ]
             elif exp == "expect_column_values_to_be_in_set":
-                column_profile.partial_example_values = res["partial_unexpected_list"]
+                column_profile.sampleValues = [
+                    str(v) for v in res["partial_unexpected_list"]
+                ]
             elif exp == "expect_column_kl_divergence_to_be_less_than":
                 partition = res["details"]["observed_partition"]
-                column_profile.histogram = (
-                    partition["bins"],
+                column_profile.histogram = HistogramClass(
+                    [str(v) for v in partition["bins"]],
                     [
                         partition["tail_weights"][0],
                         *partition["weights"],
@@ -270,9 +242,10 @@ class DatahubGEProfiler:
                 # This can be used to produce a bar chart since it includes values and frequencies.
                 # As such, it is handled differently from expect_column_values_to_be_in_set, which
                 # is nonexhaustive.
-                column_profile.distinct_value_frequencies = list(
-                    res["details"]["value_counts"].items()
-                )
+                column_profile.distinctValueFrequencies = [
+                    ValueFrequencyClass(value=str(value), frequency=count)
+                    for value, count in res["details"]["value_counts"].items()
+                ]
             elif exp == "expect_column_values_to_be_in_type_list":
                 # ignore; we already know the types for each column via ingestion
                 pass

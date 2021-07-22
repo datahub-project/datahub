@@ -31,7 +31,7 @@ class MetadataChangeProposalWrapper:
     aspect: Union[None, DictWrapper] = None
     systemMetadata: Union[None, SystemMetadataClass] = None
 
-    def make_mcp(self):
+    def make_mcp(self) -> MetadataChangeProposalClass:
         serializedEntityKey: Union[str, GenericAspectClass]
         if isinstance(self.entityKey, DictWrapper):
             serializedEntityKey = _make_generic_aspect(self.entityKey)

@@ -1,7 +1,18 @@
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 from urllib.parse import quote_plus
 
 import pydantic
@@ -16,6 +27,7 @@ from datahub.configuration.common import (
     ConfigurationError,
 )
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -37,7 +49,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     TimeTypeClass,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
@@ -282,7 +294,7 @@ class SQLAlchemySource(Source):
             inspector = inspect(conn)
             yield inspector
 
-    def get_workunits(self) -> Iterable[SqlWorkUnit]:
+    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
@@ -458,7 +470,7 @@ class SQLAlchemySource(Source):
         profiler: "DatahubGEProfiler",
         schema: str,
         sql_config: SQLAlchemyConfig,
-    ) -> Iterable[SqlWorkUnit]:
+    ) -> Iterable[MetadataWorkUnit]:
         for table in inspector.get_table_names(schema):
             schema, table = sql_config.standardize_schema_table_names(schema, table)
             dataset_name = sql_config.get_identifier(schema, table)
@@ -473,8 +485,18 @@ class SQLAlchemySource(Source):
                 pretty_name=dataset_name,
                 **self.prepare_profiler_args(schema=schema, table=table),
             )
-            print(profile)
-            yield from []
+            logger.debug(f"Finished profiling {dataset_name}")
+
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                entityKey=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
+                changeType=ChangeTypeClass.UPDATE,
+                aspectName="datasetProfile",
+                aspect=profile,
+            )
+            wu = MetadataWorkUnit(id=dataset_name, mcp=mcp)
+            self.report.report_workunit(wu)
+            yield wu
 
     def prepare_profiler_args(self, schema: str, table: str) -> dict:
         return dict(
