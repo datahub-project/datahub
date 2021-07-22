@@ -96,8 +96,7 @@ class PerfHarness {
   }
 
   @SneakyThrows
-  public static Snapshot getRandomSnapshot() {
-    int index = Math.abs(random.nextInt());
+  public static Snapshot getSnapshot(int index) {
     DatasetSnapshot datasetSnapshot = new DatasetSnapshot();
     datasetSnapshot.setUrn(DatasetUrn.createFromUrn(generateUrn(index)));
     DatasetAspectArray datasetAspects = new DatasetAspectArray();
@@ -108,8 +107,7 @@ class PerfHarness {
   }
 
   @SneakyThrows
-  public static MetadataChangeProposal getPropertiesProposal() {
-    int index = Math.abs(random.nextInt());
+  public static MetadataChangeProposal getPropertiesProposal(int index) {
     MetadataChangeProposal gmce = new MetadataChangeProposal();
     gmce.setEntityType("dataset");
     gmce.setAspectName("datasetProperties");
@@ -126,8 +124,7 @@ class PerfHarness {
   }
 
   @SneakyThrows
-  public static MetadataChangeProposal getOwnershipProposal() {
-    int index = Math.abs(random.nextInt());
+  public static MetadataChangeProposal getOwnershipProposal(int index) {
     MetadataChangeProposal gmce = new MetadataChangeProposal();
     gmce.setEntityType("dataset");
     gmce.setAspectName("ownership");
@@ -143,8 +140,7 @@ class PerfHarness {
   }
 
   @SneakyThrows
-  public static MetadataChangeProposal getTimeseriesProposal() {
-    int index = Math.abs(random.nextInt());
+  public static MetadataChangeProposal getTimeseriesProposal(int index) {
     MetadataChangeProposal gmce = new MetadataChangeProposal();
     gmce.setEntityType("dataset");
     gmce.setAspectName("datasetProfile");
@@ -168,9 +164,10 @@ class PerfHarness {
     PerfHarness harness = new PerfHarness();
     EntityClient entityClient = new EntityClient(harness._client);
     {
+      int index = Math.abs(random.nextInt());
       long startTime = System.nanoTime();
-      entityClient.ingestProposal(getPropertiesProposal());
-      entityClient.ingestProposal(getOwnershipProposal());
+      entityClient.ingestProposal(getPropertiesProposal(index));
+      entityClient.ingestProposal(getOwnershipProposal(index));
 //      entityClient.update(new com.linkedin.entity.Entity().setValue(getRandomSnapshot()));
       long endTime = System.nanoTime();
       long durationInMillis = (long) ((endTime - startTime) / 1000000.0);
@@ -178,7 +175,7 @@ class PerfHarness {
     }
 
     ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
-    int numRequests = 1000;
+    int numRequests = 10000;
     if (numRequests > 0) {
       CountDownLatch latch = new CountDownLatch(numRequests);
       AtomicInteger failedRequests = new AtomicInteger(0);
@@ -186,13 +183,14 @@ class PerfHarness {
 
       long startTime = System.nanoTime();
       for (int i = 0; i < numRequests; ++i) {
+        int index = Math.abs(random.nextInt());
         executor.execute(() -> {
           try {
 
-//            Response<Void> response = entityClient.update(new com.linkedin.entity.Entity().setValue(getRandomSnapshot()));
-              Response<Void> response = entityClient.ingestProposal(getPropertiesProposal());
+//            Response<Void> response = entityClient.update(new com.linkedin.entity.Entity().setValue(getSnapshot(index)));
+            Response<Void> response = entityClient.ingestProposal(getPropertiesProposal(index));
             Preconditions.checkState(response.getStatus() == 200);
-              response = entityClient.ingestProposal(getOwnershipProposal());
+            response = entityClient.ingestProposal(getOwnershipProposal(index));
             Preconditions.checkState(response.getStatus() == 200);
             successfulRequests.incrementAndGet();
           } catch (RemoteInvocationException e) {

@@ -25,6 +25,7 @@ import com.linkedin.metadata.util.AspectDeserializationUtil;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -299,7 +300,6 @@ public class EbeanEntityService extends EntityService {
     log.debug("entity type = {}", metadataChangeProposal.getEntityType());
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
     log.debug("entity spec = {}", entitySpec);
-
     if (metadataChangeProposal.getEntityKey().isGenericAspect()) {
       log.error("Key as struct is not yet supported");
       return;
@@ -327,6 +327,9 @@ public class EbeanEntityService extends EntityService {
     }
 
     Urn entityUrn = metadataChangeProposal.getEntityKey().getUrn();
+
+    _entityDao.isNew(entityUrn.toString());
+
     AspectSpec aspectSpec = entitySpec.getAspectSpec(metadataChangeProposal.getAspectName());
 
     if (aspectSpec == null) {
@@ -365,13 +368,15 @@ public class EbeanEntityService extends EntityService {
       final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(metadataChangeProposal.data());
       if (oldAspect != null) {
         GenericAspect oldGenericAspect = new GenericAspect();
-        oldGenericAspect.setValue(ByteString.copy(RecordUtils.toJsonString(oldAspect).getBytes()));
+        oldGenericAspect.setValue(
+            ByteString.unsafeWrap(RecordUtils.toJsonString(oldAspect).getBytes(StandardCharsets.UTF_8)));
         oldGenericAspect.setContentType(AspectDeserializationUtil.JSON);
         metadataChangeLog.setPreviousAspectValue(oldGenericAspect);
       }
       if (newAspect != null) {
         GenericAspect newGenericAspect = new GenericAspect();
-        newGenericAspect.setValue(ByteString.copy(RecordUtils.toJsonString(newAspect).getBytes()));
+        newGenericAspect.setValue(
+            ByteString.unsafeWrap(RecordUtils.toJsonString(newAspect).getBytes(StandardCharsets.UTF_8)));
         newGenericAspect.setContentType(AspectDeserializationUtil.JSON);
         metadataChangeLog.setAspect(newGenericAspect);
       }
