@@ -27,6 +27,7 @@ from datahub.configuration.common import (
     ConfigurationError,
 )
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -48,7 +49,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     TimeTypeClass,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
@@ -484,8 +485,18 @@ class SQLAlchemySource(Source):
                 pretty_name=dataset_name,
                 **self.prepare_profiler_args(schema=schema, table=table),
             )
-            print(profile)
-            yield from []
+            logger.debug(f"Finished profiling {dataset_name}")
+
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                entityKey=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
+                changeType=ChangeTypeClass.UPDATE,
+                aspectName="datasetProfile",
+                aspect=profile,
+            )
+            wu = MetadataWorkUnit(id=dataset_name, mcp=mcp)
+            self.report.report_workunit(wu)
+            yield wu
 
     def prepare_profiler_args(self, schema: str, table: str) -> dict:
         return dict(
