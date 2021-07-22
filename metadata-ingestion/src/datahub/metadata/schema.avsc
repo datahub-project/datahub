@@ -2738,6 +2738,10 @@
                                               "namespace": "com.linkedin.pegasus2avro.common",
                                               "fields": [
                                                 {
+                                                  "Searchable": {
+                                                    "fieldName": "glossaryTerms",
+                                                    "fieldType": "TEXT_PARTIAL"
+                                                  },
                                                   "java": {
                                                     "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
                                                   },
