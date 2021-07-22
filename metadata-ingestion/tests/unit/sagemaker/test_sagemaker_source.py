@@ -186,6 +186,18 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         )
 
         sagemaker_stubber.add_response(
+            "list_model_package_groups",
+            list_groups_response,
+            {},
+        )
+
+        sagemaker_stubber.add_response(
+            "describe_model_package_group",
+            describe_group_response,
+            {"ModelPackageGroupName": "a-model-package-group"},
+        )
+
+        sagemaker_stubber.add_response(
             "list_models",
             list_models_response,
             {},
@@ -201,18 +213,6 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             "describe_model",
             describe_model_response_2,
             {"ModelName": "the-second-model"},
-        )
-
-        sagemaker_stubber.add_response(
-            "list_model_package_groups",
-            list_groups_response,
-            {},
-        )
-
-        sagemaker_stubber.add_response(
-            "describe_model_package_group",
-            describe_group_response,
-            {"ModelPackageGroupName": "a-model-package-group"},
         )
 
         mce_objects = [
