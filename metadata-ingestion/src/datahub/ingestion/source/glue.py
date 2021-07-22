@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
+
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
