@@ -117,6 +117,8 @@ class LookerModel:
             outputs = glob.glob(glob_expr) + glob.glob(f"{glob_expr}.lkml")
             if "*" not in inc and not outputs:
                 raise ValueError(f"cannot resolve include {inc} (in {path})")
+            elif not outputs:
+                logger.warning("did not resolve anything for * include")
 
             # Filter out dashboards - we get those through the looker source.
             outputs = [
