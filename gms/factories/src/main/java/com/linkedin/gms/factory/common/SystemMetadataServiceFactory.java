@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.metadata.systemMetadata.ElasticSearchSystemMetadataService;
-import com.linkedin.metadata.systemMetadata.SystemMetadataService;
+import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

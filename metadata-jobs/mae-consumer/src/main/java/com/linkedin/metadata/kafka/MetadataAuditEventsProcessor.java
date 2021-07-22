@@ -24,7 +24,7 @@ import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import com.linkedin.metadata.systemMetadata.SystemMetadataService;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
@@ -161,8 +161,7 @@ public class MetadataAuditEventsProcessor {
       oldAspects.keySet().forEach(aspect -> {
         if (!aspect.equals(entitySpec.getKeyAspectName())) {
           _systemMetadataService.delete(finalOldUrn, aspect);
-        }
-        else if (aspect.equals(entitySpec.getKeyAspectName()) && oldAspects.keySet().size() == 1) {
+        } else if (aspect.equals(entitySpec.getKeyAspectName()) && oldAspects.keySet().size() == 1) {
           _systemMetadataService.deleteUrn(finalOldUrn);
         }
       });

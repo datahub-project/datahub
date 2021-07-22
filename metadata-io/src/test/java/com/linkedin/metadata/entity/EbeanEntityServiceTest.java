@@ -19,6 +19,7 @@ import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
@@ -85,10 +86,10 @@ public class EbeanEntityServiceTest {
         readEntity.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey()
     )); // Key + Info aspect.
 
-    verify(_mockProducer, times(1)).produceMetadataAuditEvent(
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(
         Mockito.eq(entityUrn),
         Mockito.eq(null),
-        Mockito.any(), null, null, null);
+        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
     verifyNoMoreInteractions(_mockProducer);
   }
 
@@ -146,15 +147,15 @@ public class EbeanEntityServiceTest {
         readEntity2.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey()
     )); // Key + Info aspect.
 
-    verify(_mockProducer, times(1)).produceMetadataAuditEvent(
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(
         Mockito.eq(entityUrn1),
         Mockito.eq(null),
-        Mockito.any(), null, null, null);
+        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
-    verify(_mockProducer, times(1)).produceMetadataAuditEvent(
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(
         Mockito.eq(entityUrn2),
         Mockito.eq(null),
-        Mockito.any(), null, null, null);
+        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -184,15 +185,15 @@ public class EbeanEntityServiceTest {
     RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName);
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
 
-    verify(_mockProducer, times(1)).produceMetadataAuditEvent(
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(
         Mockito.eq(entityUrn),
         Mockito.eq(null),
-        Mockito.any(), null, null, null);
+        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(
         Mockito.eq(entityUrn),
         Mockito.notNull(),
-        Mockito.any(), null, null, null);
+        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
     verifyNoMoreInteractions(_mockProducer);
   }
@@ -256,7 +257,7 @@ public class EbeanEntityServiceTest {
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(
         Mockito.eq(entityUrn),
         Mockito.eq(null),
-        Mockito.any(), null, null, null);
+        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
     // Ingest CorpUserInfo Aspect #2
     writeAspect.setEmail("newemail@test.com");
 
@@ -290,7 +291,7 @@ public class EbeanEntityServiceTest {
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(
         Mockito.eq(entityUrn),
         Mockito.eq(null),
-        Mockito.any(), null, null, null);
+        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
     VersionedAspect readAspect2 = _entityService.getVersionedAspect(entityUrn, aspectName, -1);
     assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspect2));

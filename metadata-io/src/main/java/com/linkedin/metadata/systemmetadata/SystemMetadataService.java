@@ -1,4 +1,4 @@
-package com.linkedin.metadata.systemMetadata;
+package com.linkedin.metadata.systemmetadata;
 
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;

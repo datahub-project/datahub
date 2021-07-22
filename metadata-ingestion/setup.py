@@ -123,6 +123,7 @@ mypy_stubs = {
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
     "boto3-stubs[s3,glue,sagemaker]",
+    "types-tabulate",
 }
 
 base_dev_requirements = {

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.systemMetadata;
+package com.linkedin.metadata.systemmetadata;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;

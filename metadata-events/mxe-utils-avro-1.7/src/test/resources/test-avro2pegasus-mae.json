@@ -2,7 +2,6 @@
   "auditHeader": null,
   "oldSnapshot": null,
   "oldSystemMetadata": null,
-  "oldVersion": null,
   "newSnapshot": {
     "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
       "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,baz)",
@@ -27,5 +26,5 @@
     }
   },
   "newSystemMetadata": null,
-  "newVersion": null
+  "operation": null
 }

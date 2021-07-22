@@ -1,4 +1,4 @@
-package com.linkedin.metadata.systemMetadata;
+package com.linkedin.metadata.systemmetadata;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
@@ -30,7 +30,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
-import static com.linkedin.metadata.systemMetadata.ElasticSearchSystemMetadataService.*;
+import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.*;
 
 
 @Slf4j

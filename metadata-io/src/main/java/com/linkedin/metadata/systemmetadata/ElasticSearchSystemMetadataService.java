@@ -1,11 +1,10 @@
-package com.linkedin.metadata.systemMetadata;
+package com.linkedin.metadata.systemmetadata;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
@@ -140,7 +139,6 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
       CreateIndexRequest createIndexRequest = new CreateIndexRequest(_indexConvention.getIndexName(INDEX_NAME));
 
       createIndexRequest.mapping(SystemMetadataMappingsBuilder.getMappings());
-      createIndexRequest.settings(SettingsBuilder.getSettings());
 
       try {
         searchClient.indices().create(createIndexRequest, RequestOptions.DEFAULT);

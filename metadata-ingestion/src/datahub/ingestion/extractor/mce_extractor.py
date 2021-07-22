@@ -1,13 +1,16 @@
+import time as t
 from typing import Iterable, Union
 
 from datahub.ingestion.api import RecordEnvelope
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Extractor, WorkUnit
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent, SystemMetadata
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    SystemMetadata,
+)
 from datahub.metadata.schema_classes import UsageAggregationClass
-import time as t
+
 
 def current_milli_time():
     return round(t.time() * 1000)
@@ -27,8 +30,7 @@ class WorkUnitRecordExtractor(Extractor):
         if isinstance(workunit, MetadataWorkUnit):
 
             system_metadata = SystemMetadata(
-                lastObserved=current_milli_time(),
-                runId=self.ctx.run_id
+                lastObserved=current_milli_time(), runId=self.ctx.run_id
             )
 
             workunit.mce.systemMetadata = system_metadata
