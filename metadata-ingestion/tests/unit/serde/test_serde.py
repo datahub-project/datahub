@@ -1,6 +1,7 @@
 import io
 import json
 import pathlib
+from freezegun import freeze_time
 
 import fastavro
 import pytest
@@ -15,7 +16,9 @@ from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.type_helpers import PytestConfig
 
+FROZEN_TIME = "2021-07-22 18:54:06"
 
+@freeze_time(FROZEN_TIME)
 @pytest.mark.parametrize(
     "json_filename",
     [
@@ -56,6 +59,7 @@ def test_serde_to_json(
         "tests/unit/serde/test_serde_chart_snapshot.json",
     ],
 )
+@freeze_time(FROZEN_TIME)
 def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
     # In this test, we want to read in from JSON -> MCE object.
     # Next we serialize from MCE to Avro and then deserialize back to MCE.
@@ -98,6 +102,7 @@ def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
         "examples/mce_files/bootstrap_mce.json",
     ],
 )
+@freeze_time(FROZEN_TIME)
 def test_check_mce_schema(pytestconfig: PytestConfig, json_filename: str) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
