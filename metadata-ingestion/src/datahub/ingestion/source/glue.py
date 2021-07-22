@@ -560,15 +560,25 @@ def get_column_type(
         "varchar": StringTypeClass,
     }
 
+    field_starts_type_mapping = {
+        "array": ArrayTypeClass,
+        "set": ArrayTypeClass,
+        "map": MapTypeClass,
+        "struct": MapTypeClass,
+        "varchar": StringTypeClass,
+        "decimal": NumberTypeClass,
+    }
+
+    type_class = None
     if field_type in field_type_mapping.keys():
         type_class = field_type_mapping[field_type]
-    elif field_type.startswith("array"):
-        type_class = ArrayTypeClass
-    elif field_type.startswith("map") or field_type.startswith("struct"):
-        type_class = MapTypeClass
-    elif field_type.startswith("set"):
-        type_class = ArrayTypeClass
     else:
+        for key in field_starts_type_mapping.keys():
+            if field_type.startswith(key):
+                type_class = field_starts_type_mapping[key]
+                break
+
+    if type_class is None:
         glue_source.report.report_warning(
             field_type,
             f"The type '{field_type}' is not recognised for field '{field_name}' in table '{table_name}', setting as StringTypeClass.",
