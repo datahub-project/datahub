@@ -13,6 +13,7 @@ import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
@@ -456,5 +457,5 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
-  public abstract List<AspectRowSummary> rollbackRun(List<AspectRowSummary> aspectRows, String runId);
+  public abstract EbeanEntityService.RollbackResult rollbackRun(List<AspectRowSummary> aspectRows, String runId);
 }

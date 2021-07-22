@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -452,14 +453,21 @@ public class EbeanEntityService extends EntityService {
     Boolean keyAffected;
   }
 
+  @Value
+  public static class RollbackResult {
+    List<AspectRowSummary> rowsRolledBack;
+    Integer rowsDeletedFromEntityDeletion;
+  }
+
   public void setWritable(boolean canWrite) {
     log.debug("Enabling writes");
     _entityDao.setWritable(canWrite);
   }
 
   @Override
-  public List<AspectRowSummary> rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
+  public RollbackResult rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
+    AtomicReference<Integer> rowsDeletedFromEntityDeletion = new AtomicReference<>(0);
 
     aspectRows.forEach(aspectToRemove -> {
 
@@ -512,7 +520,7 @@ public class EbeanEntityService extends EntityService {
           _entityDao.deleteAspect(latest);
           // if this is the key aspect, we also want to delete the entity entirely
           if (isKeyAspect) {
-            _entityDao.deleteUrn(aspectToRemove.getUrn());
+            rowsDeletedFromEntityDeletion.updateAndGet(v -> v + _entityDao.deleteUrn(aspectToRemove.getUrn()));
           }
         }
 
@@ -566,6 +574,6 @@ public class EbeanEntityService extends EntityService {
       }
     });
 
-    return removedAspects;
+    return new RollbackResult(removedAspects, rowsDeletedFromEntityDeletion.get());
   }
 }
