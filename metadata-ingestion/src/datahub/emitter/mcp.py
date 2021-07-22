@@ -63,3 +63,6 @@ class MetadataChangeProposalWrapper:
 
     def to_obj(self, tuples: bool = False) -> dict:
         return self.make_mcp().to_obj(tuples=tuples)
+
+    # TODO: add a from_obj method. Implementing this would require us to
+    # inspect the aspectName field to determine which class to deserialize into.
