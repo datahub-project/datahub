@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
 import { BrowserRouter as Router } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
@@ -61,5 +61,4 @@ describe('AdHocPage', () => {
             screen.getByText('Click here to parse your file header (CSV or delimited text file only)'),
         ).toBeInTheDocument();
     });
-
 });

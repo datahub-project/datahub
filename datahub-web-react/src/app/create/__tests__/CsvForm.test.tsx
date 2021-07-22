@@ -7,7 +7,6 @@ import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
 import { CsvForm } from '../Components/CsvForm';
 
 describe('CsvForm', () => {
-
     it('test reset button', async () => {
         render(
             <MockedProvider mocks={mocks} addTypename={false}>

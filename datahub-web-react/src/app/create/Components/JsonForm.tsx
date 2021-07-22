@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import JsonSchemaEditor from '@optum/json-schema-editor';
 import { JsonPointer } from 'json-ptr';
 import { JSONSchema7 } from '@optum/json-schema-editor/dist/JsonSchemaEditor.types';

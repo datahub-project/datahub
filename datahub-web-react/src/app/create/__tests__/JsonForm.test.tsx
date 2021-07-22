@@ -2,13 +2,12 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
 import userEvent from '@testing-library/user-event';
+import axios from 'axios';
 import { mocks } from '../../../Mocks';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
 import { JsonForm } from '../Components/JsonForm';
-import axios from 'axios';
 
 describe('JsonForm', () => {
-
     it('test reset button', async () => {
         render(
             <MockedProvider mocks={mocks} addTypename={false}>
@@ -37,10 +36,9 @@ describe('JsonForm', () => {
             </MockedProvider>,
         );
 
-        const select = screen.getByTestId("jsonschema-editor").children[2].children[0];
-
         // set option to object value
-        fireEvent.change(select, { target: { value: "object" } });
+        const select = screen.getByTestId('jsonschema-editor').children[2].children[0];
+        fireEvent.change(select, { target: { value: 'object' } });
         expect(screen.getByLabelText('Add Child Node')).toBeInTheDocument();
 
         // click on add child node
@@ -54,8 +52,7 @@ describe('JsonForm', () => {
         expect(screen.queryByLabelText('Remove Node')).not.toBeInTheDocument();
     });
 
-    it('test submit button - ok status', async () => {
-
+    it('test submit button', async () => {
         render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
@@ -64,9 +61,14 @@ describe('JsonForm', () => {
             </MockedProvider>,
         );
 
-        let mockPost: jest.SpyInstance;
+        // create mock axios to test post request
         jest.mock('axios');
-        mockPost = jest.spyOn(axios, 'post')
+        const mockPost: jest.SpyInstance = jest.spyOn(axios, 'post');
+        mockPost.mockImplementation(() =>
+            Promise.resolve({
+                status: 'ok',
+            }),
+        );
 
         // need to input required fields like dataset name, field_name, field_type
         userEvent.type(screen.getByLabelText('Dataset Name'), 'test dataset name');
@@ -74,10 +76,10 @@ describe('JsonForm', () => {
 
         const submitButton = screen.getByRole('button', { name: 'Submit' });
 
-        const select = screen.getByTestId("jsonschema-editor").children[2].children[0];
+        const select = screen.getByTestId('jsonschema-editor').children[2].children[0];
 
         // set option to object value
-        fireEvent.change(select, { target: { value: "object" } });
+        fireEvent.change(select, { target: { value: 'object' } });
 
         userEvent.type(screen.getByPlaceholderText('Add Title'), 'test root title');
         expect(screen.getByDisplayValue('test root title')).toBeInTheDocument();
@@ -85,14 +87,8 @@ describe('JsonForm', () => {
         userEvent.type(screen.getByPlaceholderText('Add Description'), 'test root description');
         expect(screen.getByDisplayValue('test root description')).toBeInTheDocument();
 
-        // need to key in select option for field type to pass validation rule
+        // click submit to trigger form submission to backend api
         fireEvent.click(submitButton);
-        mockPost.mockImplementation(() => Promise.resolve({
-            status: 'ok'
-        }));
-        await waitFor(() =>
-            expect(screen.getByText('Status:ok - Request submitted successfully')),
-        );
+        await waitFor(() => expect(screen.getByText('Status:ok - Request submitted successfully')));
     });
-
 });
