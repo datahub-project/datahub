@@ -59,7 +59,8 @@ public class IngestionRunResource extends CollectionResourceTaskTemplate<String,
 
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       if (dryRun) {
-        response.setTotal(aspectRowsToDelete.size());
+        response.setAspectsAffected(aspectRowsToDelete.size());
+        response.setEntitiesAffected(aspectRowsToDelete.stream().filter(row -> row.isKeyAspect()).count());
         response.setAspectRowSummaries(
             new AspectRowSummaryArray(aspectRowsToDelete.subList(0, Math.min(100, aspectRowsToDelete.size())))
         );
@@ -77,7 +78,8 @@ public class IngestionRunResource extends CollectionResourceTaskTemplate<String,
       }
 
       log.info("finished deleting {} rows", deletedRows.size());
-      response.setTotal(deletedRows.size());
+      response.setAspectsAffected(deletedRows.size());
+      response.setEntitiesAffected(deletedRows.stream().filter(row -> row.isKeyAspect()).count());
       response.setAspectRowSummaries(
           new AspectRowSummaryArray(deletedRows.subList(0, Math.min(100, deletedRows.size())))
       );

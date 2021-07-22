@@ -30,7 +30,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
-import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
+import static com.linkedin.metadata.systemMetadata.ElasticSearchSystemMetadataService.*;
 
 
 @Slf4j

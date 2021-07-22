@@ -14,7 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -39,14 +38,12 @@ import org.elasticsearch.search.aggregations.metrics.ParsedMax;
 @RequiredArgsConstructor
 public class ElasticSearchSystemMetadataService implements SystemMetadataService {
 
-  private static final int MAX_ELASTIC_RESULT = 10000;
   private final RestHighLevelClient searchClient;
   private final IndexConvention _indexConvention;
   private final ESSystemMetadataDAO _esDAO;
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "system_metadata_service_v1";
-  private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
 
   private String toDocument(SystemMetadata systemMetadata, String urn, String aspect) {
     final ObjectNode document = JsonNodeFactory.instance.objectNode();
@@ -103,6 +100,7 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
       summary.setAspectName((String) values.get("aspect"));
       summary.setUrn((String) values.get("urn"));
       summary.setTimestamp((Long) values.get("lastUpdated"));
+      summary.setKeyAspect(((String) values.get("aspect")).endsWith("Key"));
       return summary;
     }).collect(Collectors.toList());
 
@@ -125,7 +123,7 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
 
   @Override
   public void configure() {
-    log.info("Setting up elastic graph index");
+    log.info("Setting up system metadata index");
     boolean exists = false;
     try {
       exists = searchClient.indices().exists(

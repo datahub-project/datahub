@@ -2,5 +2,6 @@ namespace com.linkedin.metadata.run
 
 record RollbackResponse {
     aspectRowSummaries: array[AspectRowSummary]
-    total: long
+    entitiesAffected: long
+    aspectsAffected: long
 }

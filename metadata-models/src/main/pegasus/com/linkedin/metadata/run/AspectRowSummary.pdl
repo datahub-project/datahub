@@ -7,4 +7,5 @@ record AspectRowSummary {
     timestamp: long
     metadata: string
     version: long
+    keyAspect: boolean
 }
