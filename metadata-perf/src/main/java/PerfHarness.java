@@ -169,15 +169,16 @@ class PerfHarness {
     EntityClient entityClient = new EntityClient(harness._client);
     {
       long startTime = System.nanoTime();
-//      entityClient.ingestProposal(getRandomMCP());
-      entityClient.update(new com.linkedin.entity.Entity().setValue(getRandomSnapshot()));
+      entityClient.ingestProposal(getPropertiesProposal());
+      entityClient.ingestProposal(getOwnershipProposal());
+//      entityClient.update(new com.linkedin.entity.Entity().setValue(getRandomSnapshot()));
       long endTime = System.nanoTime();
       long durationInMillis = (long) ((endTime - startTime) / 1000000.0);
       System.out.println("Duration of one call was: " + durationInMillis);
     }
 
     ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
-    int numRequests = 100000;
+    int numRequests = 1000;
     if (numRequests > 0) {
       CountDownLatch latch = new CountDownLatch(numRequests);
       AtomicInteger failedRequests = new AtomicInteger(0);
@@ -188,8 +189,10 @@ class PerfHarness {
         executor.execute(() -> {
           try {
 
-            Response<Void> response = entityClient.update(new com.linkedin.entity.Entity().setValue(getRandomSnapshot()));
-//              Response<Void> response = entityClient.ingestProposal(getRandomMCP());
+//            Response<Void> response = entityClient.update(new com.linkedin.entity.Entity().setValue(getRandomSnapshot()));
+              Response<Void> response = entityClient.ingestProposal(getPropertiesProposal());
+            Preconditions.checkState(response.getStatus() == 200);
+              response = entityClient.ingestProposal(getOwnershipProposal());
             Preconditions.checkState(response.getStatus() == 200);
             successfulRequests.incrementAndGet();
           } catch (RemoteInvocationException e) {
