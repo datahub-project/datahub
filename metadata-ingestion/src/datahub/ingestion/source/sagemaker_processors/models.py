@@ -26,6 +26,7 @@ from datahub.metadata.schema_classes import (
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
     OwnerClass,
+    BrowsePathsClass,
     OwnershipClass,
     OwnershipTypeClass,
 )
@@ -256,6 +257,7 @@ class ModelProcessor:
                     },
                 ),
                 OwnershipClass(owners),
+                BrowsePathsClass(paths=[f"sagemaker/{group_name}"]),
             ],
         )
 
@@ -396,6 +398,10 @@ class ModelProcessor:
             for x in model_group_names
         ]
 
+        model_browsepaths = [
+            f"sagemaker/{x}/{model_details['ModelName']}" for x in model_group_names
+        ]
+
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
                 "sagemaker", model_details["ModelName"], self.env
@@ -423,7 +429,8 @@ class ModelProcessor:
                     hyperParams=model_hyperparams,
                     trainingMetrics=model_metrics,
                     groups=model_group_urns,
-                )
+                ),
+                BrowsePathsClass(paths=model_browsepaths),
             ],
         )
 
