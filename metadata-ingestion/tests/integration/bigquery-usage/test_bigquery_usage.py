@@ -67,7 +67,11 @@ def test_bq_usage_source(pytestconfig, tmp_path):
                 "run_id": "test-bigquery-usage",
                 "source": {
                     "type": "bigquery-usage",
-                    "config": {"projects": ["sample-bigquery-project-1234"]},
+                    "config": {
+                        "projects": ["sample-bigquery-project-1234"],
+                        "start_time": "2021-01-01T00:00Z",
+                        "end_time": "2021-07-01T00:00Z",
+                    },
                 },
                 "sink": {
                     "type": "file",
