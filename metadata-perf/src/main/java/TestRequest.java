@@ -221,9 +221,10 @@ class TestRequest {
 //            Response<Void> response =
 //                entityClient.update(new com.linkedin.entity.Entity().setValue(getSnapshot(index)));
             Response<Void> response = entityClient.ingestProposal(getTimeseriesProposal(index));
-//            Response<Void> response = entityClient.ingestProposal(getPropertiesProposal(index));
-//            Preconditions.checkState(response.getStatus() == 200);
-//            response = entityClient.ingestProposal(getOwnershipProposal(index));
+            Preconditions.checkState(response.getStatus() == 200);
+            Response<Void> response = entityClient.ingestProposal(getPropertiesProposal(index));
+            Preconditions.checkState(response.getStatus() == 200);
+            response = entityClient.ingestProposal(getOwnershipProposal(index));
             Preconditions.checkState(response.getStatus() == 200);
             successfulRequests.incrementAndGet();
           } catch (RemoteInvocationException e) {
