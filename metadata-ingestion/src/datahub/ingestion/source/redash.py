@@ -32,67 +32,48 @@ logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 25
 
+DEFAULT_DATA_SOURCE_PLATFORM = "external"
+DEFAULT_DATA_BASE_NAME = "default"
+
 # TODO: update Datahub registered platform name. Currently we use external for unmapped platform
-# Data source list from REDASH_BASE_URL/api/data_sources/types or https://redash.io/integrations/
-DATA_SOURCE_TO_PLATFORM_MAP = {
-    "athena": {"name": "Amazon Athena", "platform": "athena"},
-    "aws_es": {"name": "Amazon Elasticsearch Service", "platform": "external"},
-    "drill": {"name": "Apache Drill", "platform": "external"},
-    "axibasetsd": {"name": "Axibase Time Series Database", "platform": "external"},
-    "azure_kusto": {"name": "Azure Data Explorer (Kusto)", "platform": "kusto"},
-    "bigquery": {
-        "name": "BigQuery",
-        "platform": "bigquery",
-        "database_name_key": "projectId",
-    },
-    "Cassandra": {"name": "Cassandra", "platform": "external"},
-    "clickhouse": {"name": "ClickHouse", "platform": "external"},
-    "cockroach": {"name": "CockroachDB", "platform": "external"},
-    "couchbase": {"name": "Couchbase", "platform": "couchbase"},
-    "db2": {"name": "DB2", "platform": "external"},
-    "databricks": {"name": "Databricks", "platform": "external"},
-    "dgraph": {"name": "Dgraph", "platform": "external"},
-    "druid": {"name": "Druid", "platform": "druid"},
-    "dynamodb_sql": {"name": "DynamoDB (with DQL)", "platform": "external"},
-    "elasticsearch": {"name": "Elasticsearch", "platform": "external"},
-    "google_analytics": {"name": "Google Analytics", "platform": "external"},
-    "google_spreadsheets": {"name": "Google Sheets", "platform": "external"},
-    "graphite": {"name": "Graphite", "platform": "external"},
-    "hive": {"name": "Hive", "platform": "hive"},
-    "hive_http": {"name": "Hive (HTTP)", "platform": "hive"},
-    "impala": {"name": "Impala", "platform": "external"},
-    "influxdb": {"name": "InfluxDB", "platform": "external"},
-    "jirajql": {"name": "JIRA (JQL)", "platform": "external"},
-    "json": {"name": "JSON", "platform": "external"},
-    "kibana": {"name": "Kibana", "platform": "external"},
-    "kylin": {"name": "Kylin", "platform": "external"},
-    "mapd": {"name": "Mapd", "platform": "external"},
-    "mssql": {"name": "Microsoft SQL Server", "platform": "mssql"},
-    "mongodb": {"name": "MongoDB", "platform": "mongodb"},
-    "mysql": {"name": "MySQL", "platform": "mysql"},
-    "rds_mysql": {"name": "MySQL (Amazon RDS)", "platform": "mysql"},
-    "phoenix": {"name": "Phoenix", "platform": "external"},
-    "pg": {"name": "PostgreSQL", "platform": "postgres"},
-    "presto": {"name": "Presto", "platform": "presto"},
-    "prometheus": {"name": "Prometheus", "platform": "external"},
-    "qubole": {"name": "Qubole", "platform": "external"},
-    "results": {"name": "Query Results", "platform": "external"},
-    "redshift": {"name": "Redshift", "platform": "redshift"},
-    "rockset": {"name": "Rockset", "platform": "external"},
-    "salesforce": {"name": "Salesforce", "platform": "external"},
-    "scylla": {"name": "ScyllaDB", "platform": "external"},
-    "snowflake": {"name": "Snowflake", "platform": "snowflake"},
-    "sqlite": {"name": "Sqlite", "platform": "sqlite"},
-    "treasuredata": {"name": "TreasureData", "platform": "external"},
-    "uptycs": {"name": "Uptycs", "platform": "external"},
-    "vertica": {"name": "Vertica", "platform": "vertica"},
-    "yandex_appmetrika": {"name": "Yandex AppMetrica", "platform": "external"},
-    "yandex_metrika": {"name": "Yandex Metrica", "platform": "external"},
-    "external": {"name": "External Source", "platform": "external"},
+# Supported data source list from REDASH_BASE_URL/api/data_sources/types or https://redash.io/integrations/
+# Not all data source is supported on Datahub
+# We also get the database name from connection options https://github.com/getredash/redash/tree/master/redash/query_runner
+REDASH_DATA_SOURCE_TO_DATAHUB_MAP = {
+    "athena": {"platform": "athena", "db_name_key": "schema"},
+    "azure_kusto": {"platform": "kusto", "db_name_key": "database"},
+    "bigquery": {"platform": "bigquery", "db_name_key": "projectId"},
+    "Cassandra": {"platform": "external", "db_name_key": "keyspace"},
+    "clickhouse": {"platform": "external", "db_name_key": "dbname"},
+    "cockroach": {"platform": "external", "db_name_key": "db"},
+    "couchbase": {"platform": "couchbase"},
+    "db2": {"platform": "external", "db_name_key": "dbname"},
+    "drill": {"platform": "external", "db_name_key": "dbname"},
+    "druid": {"platform": "druid"},
+    "hive_http": {"platform": "hive"},
+    "hive": {"platform": "hive"},
+    "impala": {"platform": "external", "db_name_key": "database"},
+    "mapd": {"platform": "external", "db_name_key": "database"},
+    "mongodb": {"platform": "mongodb", "db_name_key": "dbName"},
+    "mssql": {"platform": "mssql", "db_name_key": "db"},
+    "mysql": {"platform": "mysql", "db_name_key": "db"},
+    "pg": {"platform": "postgres", "db_name_key": "dbname"},
+    "phoenix": {"platform": "external", "db_name_key": "db"},
+    "presto": {"platform": "presto", "db_name_key": "schema"},
+    "qubole": {"platform": "external", "db_name_key": "cluster"},
+    "rds_mysql": {"platform": "mysql", "db_name_key": "db"},
+    "redshift": {"platform": "redshift", "db_name_key": "dbname"},
+    "scylla": {"platform": "external", "db_name_key": "keyspace"},
+    "snowflake": {"platform": "snowflake", "db_name_key": "database"},
+    "sqlite": {"platform": "sqlite", "db_name_key": "db"},
+    "treasuredata": {"platform": "external", "db_name_key": "db"},
+    "vertica": {"platform": "vertica", "db_name_key": "database"},
+    "results": {"platform": "external", "db_name_key": "name"},
 }
 
 
-DEFAULT_VISUALIZATION_TYPE = None
+# We assume the default chart type is TABLE
+DEFAULT_VISUALIZATION_TYPE = ChartTypeClass.TABLE
 
 # https://github.com/getredash/redash/tree/master/viz-lib/src/visualizations
 # TODO: add more mapping on ChartTypeClass
@@ -186,10 +167,10 @@ class RedashSource(Source):
             pass
 
             # # Only for getting data source types available in Redash
-            # # We use this as source for `DATA_SOURCE_TO_PLATFORM_MAP` variable
+            # # We use this as source for `REDASH_DATA_SOURCE_TO_DATAHUB_MAP` variable
             # data_source_types = self.client._get(f"/api/data_sources/types").json()
             # for dst in data_source_types:
-            #     print(f'\'{dst["type"]}\'', ":", {"name": dst["name"], "platform": None, }, ",")
+            #     print(f'\'{dst["type"]}\'', ":", {"platform": None, }, ",")
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
@@ -206,25 +187,34 @@ class RedashSource(Source):
     def _get_datasource_urn_from_data_source_id(self, data_source_id):
         data_source = self._get_chart_data_source(data_source_id)
         data_source_type = data_source.get("type")
+        data_source_name = data_source.get("name")
+        data_source_options = data_source.get("options", {})
 
         if data_source_type:
-            platform = DATA_SOURCE_TO_PLATFORM_MAP.get(
-                data_source_type, {"platform": "external"}
-            ).get("platform")
+            map = REDASH_DATA_SOURCE_TO_DATAHUB_MAP.get(
+                data_source_type, {"platform": DEFAULT_DATA_SOURCE_PLATFORM}
+            )
+            platform = map.get("platform")
             platform_urn = f"urn:li:dataPlatform:{platform}"
 
-            database_name_key = DATA_SOURCE_TO_PLATFORM_MAP.get(
-                data_source_type, {}
-            ).get("database_name_key", "db")
-            database_name = data_source.get("options", {}).get(database_name_key, "")
+            db_name_key = map.get("db_name_key", "db")
+            db_name = data_source_options.get(db_name_key, DEFAULT_DATA_BASE_NAME)
 
-            dataset_urn = (
-                f"urn:li:dataset:("
-                f"{platform_urn},{database_name + '' if database_name else ''}"
-                f",{self.config.env})"
-            )
-            return dataset_urn
-        return None
+            # Redash Query Results
+            if data_source_type == "results":
+                dataset_urn = (
+                    f"urn:li:dataset:("
+                    f"{platform_urn},{data_source_name},{self.config.env})"
+                )
+                return data_source_type, dataset_urn
+
+            # Other Redash supported data source as in REDASH_DATA_SOURCE_TO_DATAHUB_MAP
+            if db_name:
+                dataset_urn = (
+                    f"urn:li:dataset:(" f"{platform_urn},{db_name},{self.config.env})"
+                )
+                return data_source_type, dataset_urn
+        return data_source_type, None
 
     def _get_dashboard_description_from_widgets(
         self, dashboard_widgets: List[Dict]
@@ -320,6 +310,8 @@ class RedashSource(Source):
             total_dashboards = dashboards_response.get("count") or 0
             current_dashboards_page += 1
 
+            logger.info(f"/api/dashboards on page {current_dashboards_page}")
+
             for dashboard_response in dashboards_response["results"]:
 
                 dashboard_name = dashboard_response["name"]
@@ -363,6 +355,7 @@ class RedashSource(Source):
                 )
 
         chart_type = VISUALIZATION_TYPE_MAP.get(viz_type, DEFAULT_VISUALIZATION_TYPE)
+
         if not chart_type:
             self.report.report_warning(
                 key=report_key,
@@ -372,7 +365,8 @@ class RedashSource(Source):
         return chart_type
 
     def _get_chart_snapshot(self, query_data, viz_data):
-        chart_urn = f"urn:li:chart:({self.platform},{viz_data['id']})"
+        viz_id = viz_data["id"]
+        chart_urn = f"urn:li:chart:({self.platform},{viz_id})"
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
@@ -391,17 +385,22 @@ class RedashSource(Source):
 
         # Getting chart type
         chart_type = self._get_chart_type_from_viz_data(viz_data)
-        chart_url = f"{self.config.connect_uri}/queries/{query_data.get('id')}#{viz_data.get('id', '')}"
+        chart_url = f"{self.config.connect_uri}/queries/{query_data.get('id')}#{viz_id}"
         description = viz_data.get("description") if viz_data.get("description") else ""
+        data_source_id = query_data.get("data_source_id")
 
         # TODO: Getting table lineage from SQL parsing
         # Currently we only get database level source from `data_source_id` which returns database name or Bigquery's projectId
         # query = query_data.get("query", "")
+        data_source_type, datasource_urn = self._get_datasource_urn_from_data_source_id(
+            data_source_id
+        )
 
-        data_source_id = query_data.get("data_source_id")
-        datasource_urns = [
-            self._get_datasource_urn_from_data_source_id(data_source_id),
-        ]
+        if not datasource_urn:
+            self.report.report_warning(
+                key=f"redash-chart-{viz_id}",
+                reason=f"data_source_type={data_source_type} not yet implemented. Setting inputs to None",
+            )
 
         chart_info = ChartInfoClass(
             type=chart_type,
@@ -409,7 +408,11 @@ class RedashSource(Source):
             title=title,
             lastModified=last_modified,
             chartUrl=chart_url,
-            inputs=datasource_urns if datasource_urns else None,
+            inputs=[
+                datasource_urn,
+            ]
+            if datasource_urn
+            else None,
         )
         chart_snapshot.aspects.append(chart_info)
 
@@ -430,6 +433,7 @@ class RedashSource(Source):
                 page=current_queries_page + 1, page_size=PAGE_SIZE
             )
             current_queries_page += 1
+            logger.info(f"/api/queries on page {current_queries_page}")
 
             total_queries = queries_response["count"]
             for query_response in queries_response["results"]:
