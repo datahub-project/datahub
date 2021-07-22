@@ -451,7 +451,7 @@ class SQLAlchemySource(Source):
     def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
-        return DatahubGEProfiler(conn=inspector.bind)
+        return DatahubGEProfiler(conn=inspector.bind, report=self.report)
 
     def run_profiler(
         self,
@@ -469,9 +469,10 @@ class SQLAlchemySource(Source):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
 
-            breakpoint()
+            logger.info(f"Profiling {dataset_name}")
             profile = profiler.generate_profile(
-                **self.prepare_profiler_args(schema=schema, table=table)
+                pretty_name=dataset_name,
+                **self.prepare_profiler_args(schema=schema, table=table),
             )
             print(profile)
             yield from []

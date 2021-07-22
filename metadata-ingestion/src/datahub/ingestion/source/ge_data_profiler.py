@@ -15,6 +15,7 @@ from great_expectations.data_context.types.base import (
 )
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
 
+from datahub.ingestion.api.source import SourceReport
 from datahub.utilities.groupby import groupby_unsorted
 
 NumericColumnValue = Union[int, float]
@@ -77,12 +78,14 @@ def _properly_init_datasource(conn):
 @dataclasses.dataclass
 class DatahubGEProfiler:
     data_context: BaseDataContext
+    report: SourceReport
 
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     datasource_name: str = "my_sqlalchemy_datasource"
 
-    def __init__(self, conn):
+    def __init__(self, conn, report):
         self.conn = conn
+        self.report = report
 
         data_context_config = DataContextConfig(
             datasources={
@@ -107,7 +110,7 @@ class DatahubGEProfiler:
             self.data_context = BaseDataContext(project_config=data_context_config)
 
     def generate_profile(
-        self, schema: str = None, table: str = None, **kwargs: Any
+        self, pretty_name: str, schema: str = None, table: str = None, **kwargs: Any
     ) -> DatasetProfile:
         with _properly_init_datasource(self.conn):
             evrs = self._profile_data_asset(
@@ -115,15 +118,18 @@ class DatahubGEProfiler:
                     "schema": schema,
                     "table": table,
                     **kwargs,
-                }
+                },
+                pretty_name=pretty_name,
             )
 
-        profile = self._convert_evrs_to_profile(evrs)
+        profile = self._convert_evrs_to_profile(evrs, pretty_name=pretty_name)
 
         return profile
 
     def _profile_data_asset(
-        self, batch_kwargs: dict
+        self,
+        batch_kwargs: dict,
+        pretty_name: str,
     ) -> ExpectationSuiteValidationResult:
         # Internally, this uses the GE dataset profiler:
         # great_expectations.profile.basic_dataset_profiler.BasicDatasetProfiler
@@ -151,7 +157,7 @@ class DatahubGEProfiler:
     # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/profile/basic_dataset_profiler.py
 
     def _convert_evrs_to_profile(
-        self, evrs: ExpectationSuiteValidationResult
+        self, evrs: ExpectationSuiteValidationResult, pretty_name: str
     ) -> DatasetProfile:
         profile = DatasetProfile()
 
@@ -159,14 +165,21 @@ class DatahubGEProfiler:
             evrs.results, key=self._get_column_from_evr
         ):
             if col is None:
-                self._handle_convert_table_evrs(profile, evrs_for_col)
+                self._handle_convert_table_evrs(
+                    profile, evrs_for_col, pretty_name=pretty_name
+                )
             else:
-                self._handle_convert_column_evrs(profile, col, evrs_for_col)
+                self._handle_convert_column_evrs(
+                    profile, col, evrs_for_col, pretty_name=pretty_name
+                )
 
         return profile
 
     def _handle_convert_table_evrs(
-        self, profile: DatasetProfile, table_evrs: Iterable[ExpectationValidationResult]
+        self,
+        profile: DatasetProfile,
+        table_evrs: Iterable[ExpectationValidationResult],
+        pretty_name: str,
     ) -> None:
         # This method mutates the profile directly.
 
@@ -179,13 +192,16 @@ class DatahubGEProfiler:
             elif exp == "expect_table_columns_to_match_ordered_list":
                 profile.columnCount = len(res["observed_value"])
             else:
-                print(f"warning: unknown table mapper {exp}")
+                self.report.report_warning(
+                    f"profile of {pretty_name}", f"unknown table mapper {exp}"
+                )
 
     def _handle_convert_column_evrs(  # noqa: C901 (complexity)
         self,
         profile: DatasetProfile,
         column: str,
         col_evrs: Iterable[ExpectationValidationResult],
+        pretty_name: str,
     ) -> None:
         # This method mutates the profile directly.
         column_profile = DatasetFieldProfile(fieldPath=column)
@@ -250,4 +266,7 @@ class DatahubGEProfiler:
                 # ignore; this is generally covered by the unique value count test
                 pass
             else:
-                print(f"warning: unknown column mapper {exp} in col {column}")
+                self.report.report_warning(
+                    f"profile of {pretty_name}",
+                    f"warning: unknown column mapper {exp} in col {column}",
+                )
