@@ -35,6 +35,9 @@ query getSearchResults($input: SearchInput!) {
                             logoUrl
                         }
                     }
+                    editableProperties {
+                        description
+                    }
                     platformNativeType
                     tags
                     properties {
@@ -85,6 +88,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    editableProperties {
+                        description
+                    }
                 }
                 ... on Chart {
                     urn
@@ -107,6 +113,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    editableProperties {
+                        description
+                    }
                 }
                 ... on DataFlow {
                     urn
@@ -124,6 +133,9 @@ query getSearchResults($input: SearchInput!) {
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                    editableProperties {
+                        description
                     }
                 }
                 ... on DataJob {
@@ -150,6 +162,9 @@ query getSearchResults($input: SearchInput!) {
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                    editableProperties {
+                        description
                     }
                 }
                 ... on GlossaryTerm {
