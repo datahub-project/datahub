@@ -5,6 +5,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.AspectSpec;
+import java.nio.charset.StandardCharsets;
 import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 

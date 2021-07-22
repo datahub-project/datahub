@@ -2,10 +2,8 @@ package com.linkedin.metadata.event;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataChangeLog;
-import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
