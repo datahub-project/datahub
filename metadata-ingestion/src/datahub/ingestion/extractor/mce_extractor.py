@@ -31,15 +31,11 @@ class WorkUnitRecordExtractor(Extractor):
                 runId=self.ctx.run_id
             )
 
-            default_status = Status(removed=False)
-
             workunit.mce.systemMetadata = system_metadata
             if len(workunit.mce.proposedSnapshot.aspects) == 0:
                 raise AttributeError("every mce must have at least one aspect")
             if not workunit.mce.validate():
                 raise ValueError(f"source produced an invalid MCE: {workunit.mce}")
-
-            workunit.mce.proposedSnapshot.aspects.append(default_status)
 
             yield RecordEnvelope(
                 workunit.mce,

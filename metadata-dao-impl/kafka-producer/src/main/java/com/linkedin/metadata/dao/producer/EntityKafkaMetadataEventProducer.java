@@ -10,6 +10,8 @@ import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.Configs;
 import com.linkedin.mxe.MetadataAuditEvent;
+import com.linkedin.mxe.MetadataAuditOperation;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
 import com.linkedin.mxe.Topics;
@@ -68,15 +70,23 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
   }
 
   @Override
-  public void produceMetadataAuditEvent(
-      @Nonnull final Urn urn,
-      @Nullable final Snapshot oldSnapshot,
-      @Nonnull final Snapshot newSnapshot) {
-
+  public void produceMetadataAuditEvent(@Nonnull Urn urn, @Nullable Snapshot oldSnapshot, @Nonnull Snapshot newSnapshot,
+      SystemMetadata oldSystemMetadata, SystemMetadata newSystemMetadata, MetadataAuditOperation operation) {
     final MetadataAuditEvent metadataAuditEvent = new MetadataAuditEvent();
-    metadataAuditEvent.setNewSnapshot(newSnapshot);
+    if (newSnapshot != null) {
+      metadataAuditEvent.setNewSnapshot(newSnapshot);
+    }
     if (oldSnapshot != null) {
       metadataAuditEvent.setOldSnapshot(oldSnapshot);
+    }
+    if (oldSystemMetadata != null) {
+      metadataAuditEvent.setOldSystemMetadata(oldSystemMetadata);
+    }
+    if (newSystemMetadata != null) {
+      metadataAuditEvent.setNewSystemMetadata(newSystemMetadata);
+    }
+    if (operation != null) {
+      metadataAuditEvent.setOperation(operation);
     }
 
     GenericRecord record;
@@ -100,7 +110,11 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
   public void produceAspectSpecificMetadataAuditEvent(
       @Nonnull final Urn urn,
       @Nullable final RecordTemplate oldValue,
-      @Nonnull final RecordTemplate newValue) {
+      @Nonnull final RecordTemplate newValue,
+      @Nullable final SystemMetadata oldSystemMetadata,
+      @Nullable final SystemMetadata newSystemMetadata,
+      @Nonnull final MetadataAuditOperation operation
+  ) {
     // TODO switch to convention once versions are annotated in the schema
     final String topicKey = ModelUtils.getAspectSpecificMAETopicName(urn, newValue);
     if (!isValidAspectSpecificTopic(topicKey)) {

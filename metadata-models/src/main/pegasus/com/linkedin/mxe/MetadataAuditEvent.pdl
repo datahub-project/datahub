@@ -19,7 +19,19 @@ record MetadataAuditEvent {
   oldSnapshot: optional Snapshot
 
   /**
+   * Metadata around how the old snapshot was produced.
+   */
+  oldSystemMetadata: optional SystemMetadata
+
+  /**
    * Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot.
    */
   newSnapshot: Snapshot
+
+  /**
+   * Metadata around how the new snapshot was produced.
+   */
+  newSystemMetadata: optional SystemMetadata
+
+  operation: optional MetadataAuditOperation
 }

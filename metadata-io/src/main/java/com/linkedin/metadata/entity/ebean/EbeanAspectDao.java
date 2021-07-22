@@ -19,7 +19,6 @@ import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
-import com.linkedin.mxe.SystemMetadata;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
@@ -220,6 +219,10 @@ public class EbeanAspectDao {
     return _server.delete(aspect);
   }
 
+  @Nullable
+  public int deleteUrn(@Nonnull final String urn) {
+    return _server.createQuery(EbeanAspectV2.class).where().eq("urn", urn).delete();
+  }
 
   @Nonnull
   public Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGet(@Nonnull final Set<EbeanAspectV2.PrimaryKey> keys) {

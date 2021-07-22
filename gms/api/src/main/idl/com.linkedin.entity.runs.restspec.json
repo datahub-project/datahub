@@ -3,7 +3,7 @@
   "namespace" : "com.linkedin.entity",
   "path" : "/runs",
   "schema" : "com.linkedin.metadata.aspect.VersionedAspect",
-  "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.IngestionRunResource",
+  "doc" : "resource for showing information and rolling back runs\n\ngenerated from: com.linkedin.metadata.resources.entity.IngestionRunResource",
   "collection" : {
     "identifier" : {
       "name" : "runsId",
@@ -11,29 +11,9 @@
     },
     "supports" : [ ],
     "actions" : [ {
-      "name" : "ghost",
-      "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
-      "parameters" : [ {
-        "name" : "runId",
-        "type" : "string"
-      }, {
-        "name" : "dryRun",
-        "type" : "boolean",
-        "optional" : true
-      } ],
-      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
-    }, {
       "name" : "list",
       "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
       "parameters" : [ {
-        "name" : "minRunSize",
-        "type" : "int",
-        "optional" : true
-      }, {
-        "name" : "maxRunSize",
-        "type" : "int",
-        "optional" : true
-      }, {
         "name" : "pageOffset",
         "type" : "int",
         "optional" : true
@@ -54,7 +34,7 @@
         "type" : "boolean",
         "optional" : true
       } ],
-      "returns" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.run.AspectRowSummary\" }"
+      "returns" : "com.linkedin.metadata.run.RollbackResponse"
     } ],
     "entity" : {
       "path" : "/runs/{runsId}"
