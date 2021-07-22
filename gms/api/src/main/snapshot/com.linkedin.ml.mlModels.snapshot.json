@@ -734,6 +734,20 @@
             "name" : "UsedBy"
           }
         }
+      }, {
+        "name" : "groups",
+        "type" : {
+          "type" : "array",
+          "items" : "com.linkedin.common.Urn"
+        },
+        "doc" : "Groups the model belongs to",
+        "optional" : true,
+        "Relationship" : {
+          "/*" : {
+            "entityTypes" : [ "mlModelGroup" ],
+            "name" : "MemberOf"
+          }
+        }
       } ],
       "Aspect" : {
         "name" : "mlModelProperties"
