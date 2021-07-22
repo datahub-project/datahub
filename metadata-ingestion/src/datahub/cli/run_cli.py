@@ -6,6 +6,8 @@ import yaml
 import click
 import os.path
 
+
+ELASTIC_MAX_PAGE_SIZE = 10000
 CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
 DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
 
@@ -182,7 +184,10 @@ def show(run_id: str) -> None:
     }
     structured_rows, entities_affected, aspects_affected = post_run_endpoint(payload_obj)
 
-    click.echo(f"this run created {entities_affected} new entities and updated {aspects_affected} aspects")
+    if aspects_affected >= ELASTIC_MAX_PAGE_SIZE:
+        click.echo(f"this run created at least {entities_affected} new entities and updated at least {aspects_affected} aspects")
+    else:
+        click.echo(f"this run created {entities_affected} new entities and updated {aspects_affected} aspects")
     click.echo(f"rolling back will delete the entities created and revert the updated aspects")
     click.echo()
     click.echo(f"showing first {len(structured_rows)} of {aspects_affected} aspects touched by this run")
