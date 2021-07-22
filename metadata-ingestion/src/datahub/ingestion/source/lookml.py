@@ -570,20 +570,28 @@ class LookMLSource(Source):
                 is_view_seen = viewfile_loader.is_view_seen(include)
                 if is_view_seen:
                     continue
-                logger.debug(f"Attempting to load view: {include}")
+
+                logger.debug(f"Attempting to load view file: {include}")
                 looker_viewfile = viewfile_loader.load_viewfile(
                     include, model.connection
                 )
                 if looker_viewfile is not None:
                     for raw_view in looker_viewfile.views:
                         self.reporter.report_views_scanned()
-                        maybe_looker_view = LookerView.from_looker_dict(
-                            raw_view,
-                            model.connection,
-                            looker_viewfile,
-                            viewfile_loader,
-                            self.source_config.parse_table_names_from_sql,
-                        )
+                        try:
+                            maybe_looker_view = LookerView.from_looker_dict(
+                                raw_view,
+                                model.connection,
+                                looker_viewfile,
+                                viewfile_loader,
+                                self.source_config.parse_table_names_from_sql,
+                            )
+                        except Exception as e:
+                            self.reporter.report_warning(
+                                include,
+                                f"unable to load Looker view {raw_view}: {repr(e)}",
+                            )
+                            continue
                         if maybe_looker_view:
                             if self.source_config.view_pattern.allowed(
                                 maybe_looker_view.view_name
