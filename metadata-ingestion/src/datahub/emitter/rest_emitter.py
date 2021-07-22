@@ -92,8 +92,12 @@ class DatahubRestEmitter:
         self._emit_generic(url, payload)
 
     def emit_mcp(self, mcp: MetadataChangeProposal) -> None:
-        # TODO this
-        pass
+        url = f"{self._gms_server}/entities?action=ingestProposal"
+
+        mcp_obj = pre_json_transform(mcp.to_obj())
+        payload = json.dumps({"proposal": mcp_obj})
+
+        self._emit_generic(url, payload)
 
     def emit_usage(self, usageStats: UsageAggregation) -> None:
         url = f"{self._gms_server}/usageStats?action=batchIngest"
