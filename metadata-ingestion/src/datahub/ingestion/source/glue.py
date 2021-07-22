@@ -566,7 +566,7 @@ def get_column_type(
         "map": MapTypeClass,
         "struct": MapTypeClass,
         "varchar": StringTypeClass,
-        "decimal": NumberTypeClass
+        "decimal": NumberTypeClass,
     }
 
     type_class = None
