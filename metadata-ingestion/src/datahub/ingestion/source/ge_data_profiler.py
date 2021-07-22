@@ -1,5 +1,7 @@
+import contextlib
 import dataclasses
-from typing import Iterable, List, Optional, Tuple, Union
+import unittest.mock
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
@@ -11,7 +13,9 @@ from great_expectations.data_context.types.base import (
     DatasourceConfig,
     InMemoryStoreBackendDefaults,
 )
+from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
 
+from datahub.ingestion.api.source import SourceReport
 from datahub.utilities.groupby import groupby_unsorted
 
 NumericColumnValue = Union[int, float]
@@ -53,31 +57,59 @@ class DatasetProfile:
     fieldProfiles: Optional[List[DatasetFieldProfile]] = None
 
 
+# The reason for this wacky structure is quite fun. GE basically assumes that
+# the config structures were generated directly from YML and further assumes that
+# they can be `deepcopy`'d without issue. The SQLAlchemy engine and connection
+# objects, however, cannot be copied. Despite the fact that the SqlAlchemyDatasource
+# class accepts an `engine` argument (which can actually be an Engine or Connection
+# object), we cannot use it because of the config loading system. As such, we instead
+# pass a "dummy" config into the DatasourceConfig, but then dynamically add the
+# engine parameter when the SqlAlchemyDatasource is actually set up, and then remove
+# it from the cached config object to avoid those same copying mechanisms. While
+# you might expect that this is sufficient because GE caches the Datasource objects
+# that it constructs, it actually occassionally bypasses this cache (likely a bug
+# in GE), and so we need to wrap every call to GE with the below context manager.
+
+
+@contextlib.contextmanager
+def _properly_init_datasource(conn):
+    underlying_datasource_init = SqlAlchemyDatasource.__init__
+
+    def sqlalchemy_datasource_init(
+        self: SqlAlchemyDatasource, *args: Any, **kwargs: Any
+    ) -> None:
+        underlying_datasource_init(self, *args, **kwargs, engine=conn)
+        self.drivername = conn.dialect.name
+        del self._datasource_config["engine"]
+
+    with unittest.mock.patch(
+        "great_expectations.datasource.sqlalchemy_datasource.SqlAlchemyDatasource.__init__",
+        sqlalchemy_datasource_init,
+    ):
+        yield
+
+
 @dataclasses.dataclass
 class DatahubGEProfiler:
-    sqlalchemy_uri: str
-    sqlalchemy_options: dict
-
-    data_context: BaseDataContext = dataclasses.field(init=False)
+    data_context: BaseDataContext
+    report: SourceReport
 
     # The actual value doesn't matter, it just matters that we use it consistently throughout.
     datasource_name: str = "my_sqlalchemy_datasource"
 
-    def __post_init__(self):
-        self.data_context = self._make_data_context(
-            self.sqlalchemy_uri, self.sqlalchemy_options
-        )
+    def __init__(self, conn, report):
+        self.conn = conn
+        self.report = report
 
-    def _make_data_context(
-        self, sqlalchemy_uri: str, sqlalchemy_options: dict
-    ) -> BaseDataContext:
         data_context_config = DataContextConfig(
             datasources={
                 self.datasource_name: DatasourceConfig(
                     class_name="SqlAlchemyDatasource",
                     credentials={
-                        "url": sqlalchemy_uri,
-                        **sqlalchemy_options,
+                        # This isn't actually used since we pass the engine in directly,
+                        # but GE parses it to change some of its behavior so it's useful
+                        # to emulate that here.
+                        "url": self.conn.engine.url,
                     },
                 )
             },
@@ -88,23 +120,30 @@ class DatahubGEProfiler:
             },
         )
 
-        context = BaseDataContext(project_config=data_context_config)
-        return context
+        with _properly_init_datasource(self.conn):
+            self.data_context = BaseDataContext(project_config=data_context_config)
 
-    def generate_profile(self, schema: str, table: str) -> DatasetProfile:
-        evrs = self._profile_data_asset(
-            {
-                "schema": schema,
-                "table": table,
-            }
-        )
+    def generate_profile(
+        self, pretty_name: str, schema: str = None, table: str = None, **kwargs: Any
+    ) -> DatasetProfile:
+        with _properly_init_datasource(self.conn):
+            evrs = self._profile_data_asset(
+                {
+                    "schema": schema,
+                    "table": table,
+                    **kwargs,
+                },
+                pretty_name=pretty_name,
+            )
 
-        profile = self._convert_evrs_to_profile(evrs)
+        profile = self._convert_evrs_to_profile(evrs, pretty_name=pretty_name)
 
         return profile
 
     def _profile_data_asset(
-        self, batch_kwargs: dict
+        self,
+        batch_kwargs: dict,
+        pretty_name: str,
     ) -> ExpectationSuiteValidationResult:
         # Internally, this uses the GE dataset profiler:
         # great_expectations.profile.basic_dataset_profiler.BasicDatasetProfiler
@@ -132,7 +171,7 @@ class DatahubGEProfiler:
     # - https://github.com/great-expectations/great_expectations/blob/71e9c1eae433a31416a38de1688e2793e9778299/great_expectations/profile/basic_dataset_profiler.py
 
     def _convert_evrs_to_profile(
-        self, evrs: ExpectationSuiteValidationResult
+        self, evrs: ExpectationSuiteValidationResult, pretty_name: str
     ) -> DatasetProfile:
         profile = DatasetProfile()
 
@@ -140,14 +179,21 @@ class DatahubGEProfiler:
             evrs.results, key=self._get_column_from_evr
         ):
             if col is None:
-                self._handle_convert_table_evrs(profile, evrs_for_col)
+                self._handle_convert_table_evrs(
+                    profile, evrs_for_col, pretty_name=pretty_name
+                )
             else:
-                self._handle_convert_column_evrs(profile, col, evrs_for_col)
+                self._handle_convert_column_evrs(
+                    profile, col, evrs_for_col, pretty_name=pretty_name
+                )
 
         return profile
 
     def _handle_convert_table_evrs(
-        self, profile: DatasetProfile, table_evrs: Iterable[ExpectationValidationResult]
+        self,
+        profile: DatasetProfile,
+        table_evrs: Iterable[ExpectationValidationResult],
+        pretty_name: str,
     ) -> None:
         # This method mutates the profile directly.
 
@@ -160,13 +206,16 @@ class DatahubGEProfiler:
             elif exp == "expect_table_columns_to_match_ordered_list":
                 profile.columnCount = len(res["observed_value"])
             else:
-                print(f"warning: unknown table mapper {exp}")
+                self.report.report_warning(
+                    f"profile of {pretty_name}", f"unknown table mapper {exp}"
+                )
 
     def _handle_convert_column_evrs(  # noqa: C901 (complexity)
         self,
         profile: DatasetProfile,
         column: str,
         col_evrs: Iterable[ExpectationValidationResult],
+        pretty_name: str,
     ) -> None:
         # This method mutates the profile directly.
         column_profile = DatasetFieldProfile(fieldPath=column)
@@ -231,4 +280,7 @@ class DatahubGEProfiler:
                 # ignore; this is generally covered by the unique value count test
                 pass
             else:
-                print(f"warning: unknown column mapper {exp} in col {column}")
+                self.report.report_warning(
+                    f"profile of {pretty_name}",
+                    f"warning: unknown column mapper {exp} in col {column}",
+                )
