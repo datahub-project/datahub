@@ -1,17 +1,22 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.generated.Aspect;
-import com.linkedin.datahub.graphql.generated.DataProfile;
-import com.linkedin.datahub.graphql.generated.DatasetFieldProfile;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.TimeRange;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
+import com.linkedin.entity.client.AspectClient;
+import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.query.Condition;
+import com.linkedin.metadata.query.Criterion;
+import com.linkedin.metadata.query.CriterionArray;
+import com.linkedin.metadata.query.Filter;
+import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 
 /**
@@ -20,86 +25,115 @@ import java.util.concurrent.CompletableFuture;
  *    1. Generating a single input AspectLoadKey.
  *    2. Resolving a single {@link Aspect}.
  *
+ *    TODO: This needs to call a "Type" that performs the mapping.
  */
 public class TimeSeriesAspectRangeResolver
     implements DataFetcher<CompletableFuture<List<TimeSeriesAspect>>> {
 
-  private final String _aspectName;
+  private static final String TIMESTAMP_FIELD_NAME = "timestampMillis";
 
-  public TimeSeriesAspectRangeResolver(final String aspectName) {
+  private final String _entityName;
+  private final String _aspectName;
+  private final AspectClient _client;
+
+  public TimeSeriesAspectRangeResolver(
+      final String entityName,
+      final String aspectName,
+      final AspectClient client) {
+    _entityName = entityName;
     _aspectName = aspectName;
+    _client = client;
   }
 
   @Override
   public CompletableFuture<List<TimeSeriesAspect>> get(DataFetchingEnvironment environment) {
+    return CompletableFuture.supplyAsync(() -> {
+      final String urn = ((Entity) environment.getSource()).getUrn();
 
-    final String urn = ((Entity) environment.getSource()).getUrn();
+      // TODO: Also support a start and end time. Or a time and count.
+      // Currently, we only support this less granular look-back window.
+      // For operability we'll likely want to permit a range.
 
-    // TODO: Also support a start and end time. Or a time and count.
-    // Currently, we only support this less granular look-back window.
-    // For operability we'll likely want to permit a range.
+      TimeRange range = null;
+      final String maybeTimeRange = environment.getArgumentOrDefault
+          ("range", null);
+      if (maybeTimeRange != null) {
+        range = TimeRange.valueOf(maybeTimeRange);
+      }
 
-    TimeRange range = null;
-    final String maybeTimeRange = environment.getArgumentOrDefault
-        ("range", null);
-    if (maybeTimeRange != null) {
-      range = TimeRange.valueOf(maybeTimeRange);
-    }
+      // Max number of aspects to return.
+      final Integer limit = environment.getArgumentOrDefault("count", null);
+      Filter filter = null;
 
-    // Max number of aspects to return.
-    final Integer limit = environment.getArgumentOrDefault("count", null);
+      if (range != null) {
+        filter = buildRangeFilter(range);
+      }
 
-    if (range != null) {
-      // Query for specific time range, not simply most recent.
-      // Then use another set of aspects.
-      final List<TimeSeriesAspect> dataProfileList = new ArrayList<>();
-      final DataProfile profile1 = new DataProfile();
-      profile1.setColumnCount(12);
-      profile1.setTimestampMillis(1626764400000L);
-      profile1.setRowCount(13);
-      dataProfileList.add(profile1);
+      List<EnvelopedAspect> aspects;
+      try {
+        // Step 1: Get profile aspects.
+        aspects = _client.getAspectValues(
+            urn,
+            _entityName,
+            _aspectName,
+            filter,
+            limit);
 
-      final DataProfile profile2 = new DataProfile();
-      profile2.setColumnCount(45);
-      profile2.setTimestampMillis(1626678000000L);
-      profile2.setRowCount(34);
-      dataProfileList.add(profile2);
-      return CompletableFuture.completedFuture(dataProfileList);
-    } else {
-      // No time bounds. Default to getting the latest.
-      final List<TimeSeriesAspect> dataProfileList = new ArrayList<>();
-      final DataProfile testProfile = new DataProfile();
-      testProfile.setColumnCount(124);
-      testProfile.setTimestampMillis(1626906097326L);
-      testProfile.setRowCount(123);
+        // Step 2: Bind profiles into GraphQL strong types.
+        return aspects.stream()
+            .map(DatasetProfileMapper::map)
+            .collect(Collectors.toList());
 
-      DatasetFieldProfile fieldProfile = new DatasetFieldProfile();
-      fieldProfile.setFieldPath("myColumnName");
-      fieldProfile.setMax(10.0);
-      fieldProfile.setMin(11.0);
-      fieldProfile.setNullCount(45L);
-      fieldProfile.setNullProportion(0.45);
-      fieldProfile.setUniqueCount(100L);
-      fieldProfile.setUniqueProportion(0.67);
-      fieldProfile.setStdev(0.1);
-      fieldProfile.setSampleValues(ImmutableList.of("value1", "value2", "value3", "value4"));
+      } catch (RemoteInvocationException e) {
+        // TODO:
+        throw new RuntimeException("Failed to retrieve aspects from GMS", e);
+      }
+    });
+  }
 
-      DatasetFieldProfile fieldProfile2 = new DatasetFieldProfile();
-      fieldProfile2.setFieldPath("myColumnName2");
-      fieldProfile2.setMax(14.0);
-      fieldProfile2.setMin(12.0);
-      fieldProfile2.setNullCount(12L);
-      fieldProfile2.setNullProportion(0.3);
-      fieldProfile2.setMean(12.0);
-      fieldProfile2.setMedian(4.0);
-      fieldProfile2.setUniqueCount(20L);
-      fieldProfile2.setUniqueProportion(0.67);
-      fieldProfile2.setStdev(0.1);
+  private Filter buildRangeFilter(TimeRange range) {
+    Filter filter = new Filter();
 
-      testProfile.setFieldProfiles(ImmutableList.of(fieldProfile, fieldProfile2));
+    CriterionArray criterionArray = new CriterionArray();
 
-      dataProfileList.add(testProfile);
-      return CompletableFuture.completedFuture(dataProfileList);
+    Long endTime = System.currentTimeMillis();
+    Long startTime = endTime - rangeToMillis(range);
+
+    Criterion endTimeCriterion = new Criterion();
+    endTimeCriterion.setField(TIMESTAMP_FIELD_NAME);
+    endTimeCriterion.setCondition(Condition.LESS_THAN_OR_EQUAL_TO);
+    endTimeCriterion.setValue(endTime.toString());
+
+    Criterion startTimeCriterion = new Criterion();
+    endTimeCriterion.setField(TIMESTAMP_FIELD_NAME);
+    endTimeCriterion.setCondition(Condition.GREATER_THAN_OR_EQUAL_TO);
+    endTimeCriterion.setValue(startTime.toString());
+
+    criterionArray.add(endTimeCriterion);
+    criterionArray.add(startTimeCriterion);
+
+    filter.setCriteria(criterionArray);
+    return filter;
+  }
+
+  private Long rangeToMillis(TimeRange range) {
+    final long oneHourMillis = 60 * 60 * 1000;
+    final long oneDayMillis = 24 * oneHourMillis;
+    switch (range) {
+      case DAY:
+        return (2 * oneDayMillis + 1);
+      case WEEK:
+        return (8 * oneDayMillis + 1);
+      case MONTH:
+        return (31 * oneDayMillis + 1);
+      case QUARTER:
+        return (92 * oneDayMillis + 1);
+      case YEAR:
+        return (366 * oneDayMillis + 1);
+      case ALL:
+        return System.currentTimeMillis();
+      default:
+        throw new RuntimeException(String.format("Unrecognized TimeRange %s provided to TimeSeriesAspectRangeResolver", range));
     }
   }
 }

@@ -62,8 +62,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
   @Action(name = ACTION_GET_ASPECT)
   @Nonnull
-  public Task<GetAspectResponse> getAspect(@ActionParam(PARAM_URN) @Nonnull String urnStr,
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName, @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
+  public Task<GetAspectResponse> getAspect(
+      @ActionParam(PARAM_URN) @Nonnull String urnStr,
+      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
       @ActionParam(FINDER_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_LIMIT) @Optional("10000") int limit) throws URISyntaxException {
     log.info("Get Aspect values for aspect {} for entity {} with filter {} and limit {}.", aspectName, entityName,

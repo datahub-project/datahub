@@ -1,34 +1,31 @@
-package com.linkedin.metadata.util;
+package com.linkedin.entity.client;
 
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
-import com.linkedin.metadata.models.AspectSpec;
 import java.nio.charset.StandardCharsets;
 import javax.annotation.Nonnull;
-import java.nio.charset.StandardCharsets;
 
 
-public class AspectDeserializationUtil {
+public class AspectUtil {
+
   public static final String JSON = "application/json";
 
-  private AspectDeserializationUtil() {
-  }
+  private AspectUtil() {}
 
-  /**
-   * Deserialize the given value into the aspect based on the input aspectSpec
-   */
+  // TODO: Consolidate with AspectDeserializationUtil.
   @Nonnull
-  public static RecordTemplate deserializeAspect(
+  public static <T extends RecordTemplate> T deserializeAspect(
       @Nonnull ByteString aspectValue,
       @Nonnull String contentType,
-      @Nonnull AspectSpec aspectSpec) {
+      @Nonnull Class<T> clazz) {
     if (!contentType.equals(JSON)) {
       throw new IllegalArgumentException(String.format("%s content type is not supported", contentType));
     }
     return RecordUtils.toRecordTemplate(
-        PegasusUtils.getDataTemplateClassFromSchema(aspectSpec.getPegasusSchema(), RecordTemplate.class),
+        clazz,
         aspectValue.asString(StandardCharsets.UTF_8));
   }
+
+
 }

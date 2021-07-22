@@ -388,6 +388,8 @@ public class EbeanEntityService extends EntityService {
   @Override
   public List<EnvelopedAspect> getAspect(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
       @Nullable Filter filter, int limit) {
+    // TODO: Also support fetching Sequence Versioned Aspects using this API.
+    // TODO: Ebean Entity Service should probably not host this logic in the current state.
     return _timeseriesAspectService.getAspect(urn, entityName, aspectName, filter, limit);
   }
 
