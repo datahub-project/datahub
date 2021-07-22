@@ -1,0 +1,5 @@
+query getMLFeatureTable($urn: String!) {
+    mlFeatureTable(urn: $urn) {
+        ...nonRecursiveMLFeatureTable
+    }
+}

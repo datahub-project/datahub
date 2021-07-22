@@ -97,8 +97,8 @@ plugins: Dict[str, Set[str]] = {
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
-    "snowflake": sql_common | {"snowflake-sqlalchemy"},
-    "snowflake-usage": sql_common | {"snowflake-sqlalchemy"},
+    "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
+    "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "sql-profiler": sql_common | {"great-expectations"},
     "superset": {"requests"},
 }
@@ -189,6 +189,7 @@ full_test_dev_requirements = {
             "mongodb",
             "mssql",
             "mysql",
+            "snowflake",
         ]
         for dependency in plugins[plugin]
     ),

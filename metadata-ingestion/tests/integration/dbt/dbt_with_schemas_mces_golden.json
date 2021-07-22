@@ -1551,6 +1551,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "an_array_property": "['alpha', 'beta', 'charlie']",
                             "model_maturity": "in prod",
                             "owner": "@charles",
                             "some_other_property": "test 3",

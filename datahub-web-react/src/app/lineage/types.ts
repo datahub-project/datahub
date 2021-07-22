@@ -1,4 +1,13 @@
-import { Chart, Dashboard, DataJob, Dataset, EntityType } from '../../types.generated';
+import {
+    Chart,
+    Dashboard,
+    DataJob,
+    Dataset,
+    EntityType,
+    MlFeatureTable,
+    MlPrimaryKey,
+    MlFeature,
+} from '../../types.generated';
 
 export type EntitySelectParams = {
     type: EntityType;
@@ -75,4 +84,16 @@ export type EntityAndType =
     | {
           type: EntityType.DataJob;
           entity: DataJob;
+      }
+    | {
+          type: EntityType.MlfeatureTable;
+          entity: MlFeatureTable;
+      }
+    | {
+          type: EntityType.Mlfeature;
+          entity: MlFeature;
+      }
+    | {
+          type: EntityType.MlprimaryKey;
+          entity: MlPrimaryKey;
       };

@@ -15,6 +15,16 @@ import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
+import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.CorpUserInfo;
+import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
+import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.MLFeatureTable;
+import com.linkedin.datahub.graphql.generated.MLFeatureTableProperties;
+import com.linkedin.datahub.graphql.generated.MLFeature;
+import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
+import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
+import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
@@ -34,10 +44,6 @@ import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
-import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.generated.CorpUserInfo;
-import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
-import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
@@ -50,6 +56,9 @@ import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import com.linkedin.datahub.graphql.types.lineage.DownstreamLineageType;
 import com.linkedin.datahub.graphql.types.lineage.UpstreamLineageType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
@@ -103,6 +112,9 @@ public class GmsGraphQLEngine {
     );
     public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getEntitiesClient());
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getEntitiesClient());
+    public static final MLFeatureType ML_FEATURE_TYPE = new MLFeatureType(GmsClientFactory.getEntitiesClient());
+    public static final MLFeatureTableType ML_FEATURE_TABLE_TYPE = new MLFeatureTableType(GmsClientFactory.getEntitiesClient());
+    public static final MLPrimaryKeyType ML_PRIMARY_KEY_TYPE = new MLPrimaryKeyType(GmsClientFactory.getEntitiesClient());
     public static final DataFlowType DATA_FLOW_TYPE = new DataFlowType(GmsClientFactory.getEntitiesClient());
     public static final DataJobType DATA_JOB_TYPE = new DataJobType(GmsClientFactory.getEntitiesClient());
     public static final DataFlowDataJobsRelationshipsType DATAFLOW_DATAJOBS_TYPE = new DataFlowDataJobsRelationshipsType(
@@ -124,6 +136,9 @@ public class GmsGraphQLEngine {
             DASHBOARD_TYPE,
             TAG_TYPE,
             ML_MODEL_TYPE,
+            ML_FEATURE_TYPE,
+            ML_FEATURE_TABLE_TYPE,
+            ML_PRIMARY_KEY_TYPE,
             DATA_FLOW_TYPE,
             DATA_JOB_TYPE,
             GLOSSARY_TERM_TYPE
@@ -204,6 +219,7 @@ public class GmsGraphQLEngine {
         configureTypeExtensions(builder);
         configureTagAssociationResolver(builder);
         configureDataJobResolvers(builder);
+        configureMLFeatureTableResolvers(builder);
     }
 
     public static GraphQLEngine.Builder builder() {
@@ -273,6 +289,18 @@ public class GmsGraphQLEngine {
             .dataFetcher("glossaryTerm", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(
                             GLOSSARY_TERM_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("mlFeatureTable", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            ML_FEATURE_TABLE_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("mlFeature", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            ML_FEATURE_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("mlPrimaryKey", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            ML_PRIMARY_KEY_TYPE,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }
@@ -544,6 +572,54 @@ public class GmsGraphQLEngine {
                                 .collect(Collectors.toList())))
                 )
             );
+    }
+
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.MLFeatureTable} type.
+     */
+    private static void configureMLFeatureTableResolvers(final RuntimeWiring.Builder builder) {
+        builder
+                .type("MLFeatureTable", typeWiring -> typeWiring
+                        .dataFetcher("platform", new AuthenticatedResolver<>(
+                                new LoadableTypeResolver<>(
+                                        DATA_PLATFORM_TYPE,
+                                        (env) -> ((MLFeatureTable) env.getSource()).getPlatform().getUrn()))
+                        )
+                )
+                .type("MLFeatureTableProperties", typeWiring -> typeWiring
+                        .dataFetcher("mlFeatures", new AuthenticatedResolver<>(
+                                        new LoadableTypeBatchResolver<>(
+                                                ML_FEATURE_TYPE,
+                                                (env) -> ((MLFeatureTableProperties) env.getSource()).getMlFeatures().stream()
+                                                .map(MLFeature::getUrn)
+                                                .collect(Collectors.toList())))
+                        )
+                        .dataFetcher("mlPrimaryKeys", new AuthenticatedResolver<>(
+                                        new LoadableTypeBatchResolver<>(
+                                                ML_PRIMARY_KEY_TYPE,
+                                                (env) -> ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys().stream()
+                                                .map(MLPrimaryKey::getUrn)
+                                                .collect(Collectors.toList())))
+                        )
+                )
+                .type("MLFeatureProperties", typeWiring -> typeWiring
+                        .dataFetcher("sources", new AuthenticatedResolver<>(
+                                new LoadableTypeBatchResolver<>(
+                                        DATASET_TYPE,
+                                        (env) -> ((MLFeatureProperties) env.getSource()).getSources().stream()
+                                                .map(Dataset::getUrn)
+                                                .collect(Collectors.toList())))
+                        )
+                )
+                .type("MLPrimaryKeyProperties", typeWiring -> typeWiring
+                        .dataFetcher("sources", new AuthenticatedResolver<>(
+                                new LoadableTypeBatchResolver<>(
+                                        DATASET_TYPE,
+                                        (env) -> ((MLPrimaryKeyProperties) env.getSource()).getSources().stream()
+                                                .map(Dataset::getUrn)
+                                                .collect(Collectors.toList())))
+                        )
+                );
     }
 
 

@@ -13,6 +13,7 @@ import { TagEntity } from '../../app/entity/tag/Tag';
 
 import defaultThemeConfig from '../../conf/theme/theme_light.config.json';
 import { GlossaryTermEntity } from '../../app/entity/glossaryTerm/GlossaryTermEntity';
+import { MLFeatureTableEntity } from '../../app/entity/mlFeatureTable/MLFeatureTableEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -28,6 +29,7 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new DataFlowEntity());
     entityRegistry.register(new DataJobEntity());
     entityRegistry.register(new GlossaryTermEntity());
+    entityRegistry.register(new MLFeatureTableEntity());
     return entityRegistry;
 }
 
