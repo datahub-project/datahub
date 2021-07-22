@@ -19,6 +19,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
     DeploymentStatusClass,
     MLHyperParamClass,
     MLMetricClass,
@@ -26,7 +27,6 @@ from datahub.metadata.schema_classes import (
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
     OwnerClass,
-    BrowsePathsClass,
     OwnershipClass,
     OwnershipTypeClass,
 )
