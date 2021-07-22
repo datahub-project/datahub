@@ -84,6 +84,10 @@ enum EntityType {
     """
     MLMODEL
     """
+    The MLModelGroup Entity
+    """
+    MLMODEL_GROUP
+    """
     The MLFEATURETable Entity
     """
     MLFEATURE_TABLE
@@ -144,6 +148,11 @@ type Query {
     Fetch a MLModel by primary key
     """
     mlModel(urn: String!): MLModel
+
+    """
+    Fetch a MLModel by primary key
+    """
+    mlModelGroup(urn: String!): MLModelGroup
 
     """
     Fetch a MLFeature by primary key
@@ -2168,6 +2177,65 @@ type MLModel implements Entity {
     deprecation: Deprecation
 }
 
+type MLModelGroup implements Entity {
+
+    """
+    The unique mlmodel URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    MLModelGroup name
+    """
+    name: String!
+
+    """
+    Standardized platform urn where the MLModelGroup is defined
+    """
+    platform: DataPlatform
+
+    """
+    Fabric type where MLModelGroup belongs to or where it was generated
+    """
+    origin: FabricType!
+
+    """
+    Human readable description for MLModelGroup
+    """
+    description: String
+
+    properties: MLModelGroupProperties
+
+    """
+    Ownership metadata of the MLModelGroup
+    """
+    ownership: Ownership
+
+    """
+    Status metadata of the MLFeature
+    """
+    status: Status
+
+    """
+    Deprecation
+    """
+    deprecation: Deprecation
+}
+type MLModelGroupProperties {
+
+    description: String
+
+    createdAt: Long
+
+    version: VersionTag
+
+    models: [String!]
+}
 type MLFeature implements Entity {
 
     """

@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.CorpUserInfo;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.MLModel;
+import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLFeatureTableProperties;
 import com.linkedin.datahub.graphql.generated.MLFeature;
@@ -62,6 +63,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsType;
@@ -113,6 +115,7 @@ public class GmsGraphQLEngine {
     );
     public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getEntitiesClient());
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getEntitiesClient());
+    public static final MLModelGroupType ML_MODEL_GROUP_TYPE = new MLModelGroupType(GmsClientFactory.getEntitiesClient());
     public static final MLFeatureType ML_FEATURE_TYPE = new MLFeatureType(GmsClientFactory.getEntitiesClient());
     public static final MLFeatureTableType ML_FEATURE_TABLE_TYPE = new MLFeatureTableType(GmsClientFactory.getEntitiesClient());
     public static final MLPrimaryKeyType ML_PRIMARY_KEY_TYPE = new MLPrimaryKeyType(GmsClientFactory.getEntitiesClient());
@@ -137,6 +140,7 @@ public class GmsGraphQLEngine {
             DASHBOARD_TYPE,
             TAG_TYPE,
             ML_MODEL_TYPE,
+            ML_MODEL_GROUP_TYPE,
             ML_FEATURE_TYPE,
             ML_FEATURE_TABLE_TYPE,
             ML_PRIMARY_KEY_TYPE,
@@ -306,6 +310,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("mlModel", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(
                             ML_MODEL_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("mlModelGroup", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            ML_MODEL_GROUP_TYPE,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }
@@ -630,6 +638,13 @@ public class GmsGraphQLEngine {
                                 new LoadableTypeResolver<>(
                                         DATA_PLATFORM_TYPE,
                                         (env) -> ((MLModel) env.getSource()).getPlatform().getUrn()))
+                        )
+                )
+                .type("MLModelGroup", typeWiring -> typeWiring
+                        .dataFetcher("platform", new AuthenticatedResolver<>(
+                                new LoadableTypeResolver<>(
+                                        DATA_PLATFORM_TYPE,
+                                        (env) -> ((MLModelGroup) env.getSource()).getPlatform().getUrn()))
                         )
                 );
     }
