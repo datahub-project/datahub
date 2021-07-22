@@ -4,6 +4,7 @@ import pytest
 import requests
 
 import datahub.metadata.schema_classes as models
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
@@ -240,6 +241,41 @@ basicAuditStamp = models.AuditStampClass(
                         },
                     }
                 ]
+            },
+        ),
+        (
+            MetadataChangeProposalWrapper(
+                entityType="dataset",
+                entityKey="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+                changeType=models.ChangeTypeClass.CREATE,
+                aspectName="ownership",
+                aspect=models.OwnershipClass(
+                    owners=[
+                        models.OwnerClass(
+                            owner="urn:li:corpuser:fbar",
+                            type=models.OwnershipTypeClass.DATAOWNER,
+                        )
+                    ],
+                    lastModified=models.AuditStampClass(
+                        time=0,
+                        actor="urn:li:corpuser:fbar",
+                    ),
+                ),
+            ),
+            "/entities?action=ingestProposal",
+            {
+                "proposal": {
+                    "entityType": "dataset",
+                    "entityKey": {
+                        "string": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"
+                    },
+                    "changeType": "CREATE",
+                    "aspectName": "ownership",
+                    "aspect": {
+                        "value": '{"owners": [{"owner": "urn:li:corpuser:fbar", "type": "DATAOWNER"}], "lastModified": {"time": 0, "actor": "urn:li:corpuser:fbar"}}',
+                        "contentType": "application/json",
+                    },
+                }
             },
         ),
     ],
