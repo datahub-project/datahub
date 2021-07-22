@@ -176,7 +176,7 @@ class PerfHarness {
       System.out.println("Duration of one call was: " + durationInMillis);
     }
 
-    ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(100);
+    ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
     int numRequests = 100000;
     if (numRequests > 0) {
       CountDownLatch latch = new CountDownLatch(numRequests);
