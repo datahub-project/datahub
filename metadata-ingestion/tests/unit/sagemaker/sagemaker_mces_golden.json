@@ -1495,7 +1495,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
-        "urn": "urn:li:mlModelDeployment:(sagemaker,the-first-endpoint,PROD)",
+        "urn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-first-endpoint,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
@@ -1525,7 +1525,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
-        "urn": "urn:li:mlModelDeployment:(sagemaker,the-second-endpoint,PROD)",
+        "urn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-second-endpoint,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
@@ -1610,7 +1610,7 @@
               "mlFeatures": null,
               "tags": [],
               "deployments": [
-                "urn:li:mlModelDeployment:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
+                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
               ],
               "trainingJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
@@ -1682,7 +1682,7 @@
               "mlFeatures": null,
               "tags": [],
               "deployments": [
-                "urn:li:mlModelDeployment:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
+                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
               ],
               "trainingJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
