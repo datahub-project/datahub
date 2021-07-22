@@ -10,6 +10,33 @@ mutation updateDataset($input: DatasetUpdateInput!) {
     }
 }
 
+query getDataProfiles($urn: String!, $count: Int, $range: TimeRange) {
+    dataset(urn: $urn) {
+        urn
+        dataProfiles(count: $count, range: $range) {
+            rowCount
+            columnCount
+            timestampMillis
+            partitionSpec {
+                partition
+            }
+            fieldProfiles {
+                fieldPath
+                uniqueCount
+                uniqueProportion
+                nullCount
+                nullProportion
+                min
+                max
+                mean
+                median
+                stdev
+                sampleValues
+            }
+        }
+    }
+}
+
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
         ...nonRecursiveDatasetFields
@@ -78,6 +105,27 @@ query getDataset($urn: String!) {
                     fieldName
                     count
                 }
+            }
+        }
+        dataProfiles(count: 1) {
+            rowCount
+            columnCount
+            timestampMillis
+            partitionSpec {
+                partition
+            }
+            fieldProfiles {
+                fieldPath
+                uniqueCount
+                uniqueProportion
+                nullCount
+                nullProportion
+                min
+                max
+                mean
+                median
+                stdev
+                sampleValues
             }
         }
     }

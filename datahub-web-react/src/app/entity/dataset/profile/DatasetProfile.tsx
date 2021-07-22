@@ -20,6 +20,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 import QueriesTab from './QueriesTab';
+import ProfilesView from './ProfilesView';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -28,6 +29,7 @@ export enum TabType {
     Properties = 'Properties',
     Documents = 'Documents',
     Queries = 'Queries',
+    Profile = 'Profile',
 }
 
 const EMPTY_ARR: never[] = [];
@@ -68,6 +70,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         upstreamLineage,
         downstreamLineage,
         properties,
+        dataProfiles,
         institutionalMemory,
         schema,
         schemaMetadata,
@@ -75,7 +78,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         editableSchemaMetadata,
         usageStats,
     }: Dataset & { previousSchemaMetadata: SchemaMetadata }) => {
-        return [
+        const tabs = [
             {
                 name: TabType.Schema,
                 path: TabType.Schema.toLowerCase(),
@@ -153,6 +156,20 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 ),
             },
         ];
+
+        if (dataProfiles) {
+            tabs.unshift({
+                name: TabType.Profile,
+                path: TabType.Profile.toLowerCase(),
+                content: (
+                    <ProfilesView
+                        urn={urn}
+                        profile={(dataProfiles && dataProfiles.length > 0 && dataProfiles[0]) || undefined}
+                    />
+                ),
+            });
+        }
+        return tabs;
     };
 
     return (

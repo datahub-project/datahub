@@ -285,6 +285,7 @@ export const dataset3 = {
     editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,
+    dataProfiles: null,
 } as Dataset;
 
 export const dataset4 = {
