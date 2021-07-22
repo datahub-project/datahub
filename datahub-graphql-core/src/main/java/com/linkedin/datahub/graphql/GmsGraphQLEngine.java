@@ -18,11 +18,13 @@ import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
+import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectRangeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -111,6 +113,7 @@ public class GmsGraphQLEngine {
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
     public static final AspectType ASPECT_TYPE = new AspectType(GmsClientFactory.getAspectsClient());
     public static final UsageType USAGE_TYPE = new UsageType(GmsClientFactory.getUsageClient());
+
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -309,10 +312,13 @@ public class GmsGraphQLEngine {
                                     UPSTREAM_LINEAGE_TYPE,
                                     (env) -> ((Entity) env.getSource()).getUrn()))
                     )
+                .dataFetcher("dataProfiles", new AuthenticatedResolver<>(
+                    new TimeSeriesAspectRangeResolver("datasetProfile")
+                ))
                 .dataFetcher("usageStats", new AuthenticatedResolver<>(new UsageTypeResolver()))
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
-                        new AspectResolver())
-                    )
+                    new AspectResolver())
+                )
             )
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new AuthenticatedResolver<>(
@@ -487,6 +493,7 @@ public class GmsGraphQLEngine {
                     .typeResolver(new HyperParameterValueTypeResolver())
             )
             .type("Aspect", typeWiring -> typeWiring.typeResolver(new AspectInterfaceTypeResolver()))
+            .type("TimeSeriesAspect", typeWiring -> typeWiring.typeResolver(new TimeSeriesAspectInterfaceTypeResolver()))
             .type("ResultsType", typeWiring -> typeWiring
                     .typeResolver(new ResultsTypeResolver()));
     }

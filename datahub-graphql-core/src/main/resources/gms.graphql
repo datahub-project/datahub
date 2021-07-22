@@ -25,6 +25,10 @@ interface Aspect {
     aspectVersion: Long
 }
 
+interface TimeSeriesAspect {
+    timestampMillis: Long!
+}
+
 interface EntityWithRelationships implements Entity {
     """
     GMS Entity urn
@@ -311,7 +315,15 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     glossaryTerms: GlossaryTerms
 
+    """
+    Statistics about how this Dataset is used
+    """
     usageStats(resource: String!, range: TimeRange): UsageQueryResult
+
+    """
+    Profile Stats resource. Get the events in a previous unit of time. Biased for recency.
+    """
+    dataProfiles(count: Int, range: TimeRange): [DataProfile!]
 }
 
 type GlossaryTerm implements Entity {
@@ -2657,3 +2669,36 @@ enum TimeRange {
     YEAR
     ALL
 }
+
+type DatasetFieldProfile {
+	fieldPath: String!
+	uniqueCount: Long
+	uniqueProportion: Float
+	nullCount: Long
+	nullProportion: Float
+	min: Float
+	max: Float
+	mean: Float
+	median: Float
+	stdev: Float
+	sampleValues: [String!]
+}
+
+type TimeWindow {
+  startTimeMillis: Long!
+  durationMillis: Long!
+}
+
+type PartitionSpec {
+  partition: String!
+  timePartition: TimeWindow
+}
+
+type DataProfile implements TimeSeriesAspect {
+  timestampMillis: Long!
+  rowCount: Int
+  columnCount: Int
+  fieldProfiles: [DatasetFieldProfile!]
+  partitionSpec: PartitionSpec
+}
+
