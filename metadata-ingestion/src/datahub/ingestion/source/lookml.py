@@ -92,11 +92,16 @@ class LookerModel:
 
     @staticmethod
     def from_looker_dict(
-        looker_model_dict: dict, base_folder: str, path: str
+        looker_model_dict: dict,
+        base_folder: str,
+        path: str,
+        reporter: LookMLSourceReport,
     ) -> "LookerModel":
         connection = looker_model_dict["connection"]
         includes = looker_model_dict["includes"]
-        resolved_includes = LookerModel.resolve_includes(includes, base_folder, path)
+        resolved_includes = LookerModel.resolve_includes(
+            includes, base_folder, path, reporter
+        )
 
         return LookerModel(
             connection=connection,
@@ -105,7 +110,9 @@ class LookerModel:
         )
 
     @staticmethod
-    def resolve_includes(includes: List[str], base_folder: str, path: str) -> List[str]:
+    def resolve_includes(
+        includes: List[str], base_folder: str, path: str, reporter: LookMLSourceReport
+    ) -> List[str]:
         resolved = []
         for inc in includes:
             # Filter out dashboards - we get those through the looker source.
@@ -124,9 +131,11 @@ class LookerModel:
                 glob_expr = str(pathlib.Path(path).parent / inc)
             outputs = glob.glob(glob_expr) + glob.glob(f"{glob_expr}.lkml")
             if "*" not in inc and not outputs:
-                raise ValueError(f"cannot resolve include {inc} (in {path})")
+                reporter.report_failure(path, f"cannot resolve include {inc}")
             elif not outputs:
-                logger.warning("did not resolve anything for * include")
+                reporter.report_failure(
+                    path, f"did not resolve anything for wildcard include {inc}"
+                )
 
             resolved.extend(outputs)
         return resolved
@@ -142,11 +151,14 @@ class LookerViewFile:
 
     @staticmethod
     def from_looker_dict(
-        absolute_file_path: str, looker_view_file_dict: dict, base_folder: str
+        absolute_file_path: str,
+        looker_view_file_dict: dict,
+        base_folder: str,
+        reporter: LookMLSourceReport,
     ) -> "LookerViewFile":
         includes = looker_view_file_dict.get("includes", [])
         resolved_includes = LookerModel.resolve_includes(
-            includes, base_folder, absolute_file_path
+            includes, base_folder, absolute_file_path, reporter
         )
         views = looker_view_file_dict.get("views", [])
 
@@ -173,7 +185,9 @@ class LookerViewFileLoader:
     def is_view_seen(self, path: str) -> bool:
         return path in self.viewfile_cache
 
-    def _load_viewfile(self, path: str) -> Optional[LookerViewFile]:
+    def _load_viewfile(
+        self, path: str, reporter: LookMLSourceReport
+    ) -> Optional[LookerViewFile]:
         if self.is_view_seen(path):
             return self.viewfile_cache[path]
 
@@ -181,7 +195,7 @@ class LookerViewFileLoader:
             with open(path, "r") as file:
                 parsed = lkml.load(file)
                 looker_viewfile = LookerViewFile.from_looker_dict(
-                    path, parsed, self._base_folder
+                    path, parsed, self._base_folder, reporter
                 )
                 self.viewfile_cache[path] = looker_viewfile
                 return looker_viewfile
@@ -189,8 +203,10 @@ class LookerViewFileLoader:
             self.reporter.report_failure(path, f"failed to load view file: {e}")
             return None
 
-    def load_viewfile(self, path: str, connection: str) -> Optional[LookerViewFile]:
-        viewfile = self._load_viewfile(path)
+    def load_viewfile(
+        self, path: str, connection: str, reporter: LookMLSourceReport
+    ) -> Optional[LookerViewFile]:
+        viewfile = self._load_viewfile(path, reporter)
         if viewfile is None:
             return None
 
@@ -256,6 +272,7 @@ class LookerView:
         connection: str,
         looker_viewfile: LookerViewFile,
         looker_viewfile_loader: LookerViewFileLoader,
+        reporter: LookMLSourceReport,
         parse_table_names_from_sql: bool = False,
     ) -> Optional["LookerView"]:
         view_name = looker_view["name"]
@@ -270,6 +287,7 @@ class LookerView:
             looker_viewfile,
             looker_viewfile_loader,
             "sql_table_name",
+            reporter,
         )
 
         # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
@@ -330,6 +348,7 @@ class LookerView:
         looker_viewfile: LookerViewFile,
         looker_viewfile_loader: LookerViewFileLoader,
         target_view_name: str,
+        reporter: LookMLSourceReport,
     ) -> Optional[dict]:
         # The view could live in the same file.
         for raw_view in looker_viewfile.views:
@@ -341,7 +360,7 @@ class LookerView:
         # lives in, so we try them all!
         for include in looker_viewfile.resolved_includes:
             included_looker_viewfile = looker_viewfile_loader.load_viewfile(
-                include, connection
+                include, connection, reporter
             )
             if not included_looker_viewfile:
                 logger.warning(
@@ -365,6 +384,7 @@ class LookerView:
         looker_viewfile: LookerViewFile,
         looker_viewfile_loader: LookerViewFileLoader,
         field: str,
+        reporter: LookMLSourceReport,
     ) -> Optional[Any]:
         extends = list(
             itertools.chain.from_iterable(
@@ -380,7 +400,7 @@ class LookerView:
         for extend in reversed(extends):
             assert extend != view_name, "a view cannot extend itself"
             extend_view = LookerView.resolve_extends_view_name(
-                connection, looker_viewfile, looker_viewfile_loader, extend
+                connection, looker_viewfile, looker_viewfile_loader, extend, reporter
             )
             if not extend_view:
                 raise NameError(
@@ -410,7 +430,7 @@ class LookMLSource(Source):
         with open(path, "r") as file:
             parsed = lkml.load(file)
             looker_model = LookerModel.from_looker_dict(
-                parsed, str(self.source_config.base_folder), path
+                parsed, str(self.source_config.base_folder), path, self.reporter
             )
         return looker_model
 
@@ -579,7 +599,7 @@ class LookMLSource(Source):
 
                 logger.debug(f"Attempting to load view file: {include}")
                 looker_viewfile = viewfile_loader.load_viewfile(
-                    include, model.connection
+                    include, model.connection, self.reporter
                 )
                 if looker_viewfile is not None:
                     for raw_view in looker_viewfile.views:
@@ -590,6 +610,7 @@ class LookMLSource(Source):
                                 model.connection,
                                 looker_viewfile,
                                 viewfile_loader,
+                                self.reporter,
                                 self.source_config.parse_table_names_from_sql,
                             )
                         except Exception as e:
