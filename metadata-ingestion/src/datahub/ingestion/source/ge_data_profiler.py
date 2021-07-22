@@ -57,6 +57,20 @@ class DatasetProfile:
     fieldProfiles: Optional[List[DatasetFieldProfile]] = None
 
 
+# The reason for this wacky structure is quite fun. GE basically assumes that
+# the config structures were generated directly from YML and further assumes that
+# they can be `deepcopy`'d without issue. The SQLAlchemy engine and connection
+# objects, however, cannot be copied. Despite the fact that the SqlAlchemyDatasource
+# class accepts an `engine` argument (which can actually be an Engine or Connection
+# object), we cannot use it because of the config loading system. As such, we instead
+# pass a "dummy" config into the DatasourceConfig, but then dynamically add the
+# engine parameter when the SqlAlchemyDatasource is actually set up, and then remove
+# it from the cached config object to avoid those same copying mechanisms. While
+# you might expect that this is sufficient because GE caches the Datasource objects
+# that it constructs, it actually occassionally bypasses this cache (likely a bug
+# in GE), and so we need to wrap every call to GE with the below context manager.
+
+
 @contextlib.contextmanager
 def _properly_init_datasource(conn):
     underlying_datasource_init = SqlAlchemyDatasource.__init__
