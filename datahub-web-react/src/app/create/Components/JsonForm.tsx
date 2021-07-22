@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import JsonSchemaEditor from '@optum/json-schema-editor';
 import { JsonPointer } from 'json-ptr';
 import { JSONSchema7 } from '@optum/json-schema-editor/dist/JsonSchemaEditor.types';
@@ -32,11 +32,9 @@ export const JsonForm = () => {
     const printErrorMsg = (error) => {
         message.error(error, 3).then();
     };
-    const onSchemaChange = useRef((data) => {
-        setTimeout(() => {
-            setSchema(data);
-        }, 0);
-    }).current;
+    const onSchemaChange = (data) => {
+        setSchema(data);
+    };
     const flattenSchema = (schemaStr) => {
         const fields: Array<{ field_name: string; field_type: string; field_description: string }> = [];
         // use json pointer to get all fields and its parent
@@ -45,6 +43,7 @@ export const JsonForm = () => {
             if (jsonValue.hasOwnProperty('type')) {
                 const paths = JsonPointer.decode(p);
                 // if path length is 0 (root)
+                /*
                 if (paths.length === 0) {
                     fields.push({
                         field_name: 'root',
@@ -52,13 +51,14 @@ export const JsonForm = () => {
                         field_description: jsonValue.description,
                     });
                 }
+                */
                 if (paths.length > 0) {
                     // contain field information
                     if (typeof jsonValue === 'object') {
                         const lineage = new JsonPointer(paths.slice(0, paths.length - 1)).path;
                         const parent = lineage[lineage.length - 1];
 
-                        let fieldName = 'root';
+                        let fieldName = '';
                         if (parent === 'properties') {
                             // use of reduce() method to check for previous item 'properties'
                             lineage.reduce((previous, current) => {
