@@ -108,6 +108,14 @@ class LookerModel:
     def resolve_includes(includes: List[str], base_folder: str, path: str) -> List[str]:
         resolved = []
         for inc in includes:
+            # Filter out dashboards - we get those through the looker source.
+            if (
+                inc.endswith(".dashboard")
+                or inc.endswith(".dashboard.lookml")
+                or inc.endswith(".dashboard.lkml")
+            ):
+                continue
+
             # Massage the looker include into a valid glob wildcard expression
             if inc.startswith("/"):
                 glob_expr = f"{base_folder}{inc}"
@@ -120,10 +128,6 @@ class LookerModel:
             elif not outputs:
                 logger.warning("did not resolve anything for * include")
 
-            # Filter out dashboards - we get those through the looker source.
-            outputs = [
-                output for output in outputs if not output.endswith(".dashboard.lookml")
-            ]
             resolved.extend(outputs)
         return resolved
 
