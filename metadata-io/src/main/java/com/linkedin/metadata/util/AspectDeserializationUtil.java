@@ -6,6 +6,7 @@ import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import javax.annotation.Nonnull;
+import java.nio.charset.StandardCharsets;
 
 
 public class AspectDeserializationUtil {
@@ -25,6 +26,6 @@ public class AspectDeserializationUtil {
     }
     return RecordUtils.toRecordTemplate(
         PegasusUtils.getDataTemplateClassFromSchema(aspectSpec.getPegasusSchema(), RecordTemplate.class),
-        aspectValue.toString());
+        aspectValue.asString(StandardCharsets.UTF_8));
   }
 }
