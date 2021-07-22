@@ -21,6 +21,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -59,7 +60,8 @@ import static com.linkedin.metadata.PegasusUtils.*;
  * of a given aspect + 1.
  *
  * Note that currently, implementations of this interface are responsible for producing Metadata Audit Events on
- * ingestion using {@link #produceMetadataAuditEvent(Urn, RecordTemplate, RecordTemplate)}.
+ * ingestion using {@link #produceMetadataAuditEvent(
+ * Urn, RecordTemplate, RecordTemplate, SystemMetadata, SystemMetadata, MetadataAuditOperation)}.
  *
  * TODO: Consider whether we can abstract away virtual versioning semantics to subclasses of this class.
  * TODO: Extract out a nested 'AspectService'.
@@ -217,8 +219,14 @@ public abstract class EntityService {
    * @param oldAspectValue Value of aspect before the update.
    * @param newAspectValue Value of aspect after the update
    */
-  public void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldAspectValue,
-      @Nonnull final RecordTemplate newAspectValue) {
+  public void produceMetadataAuditEvent(
+      @Nonnull final Urn urn,
+      @Nullable final RecordTemplate oldAspectValue,
+      @Nullable final RecordTemplate newAspectValue,
+      @Nullable final SystemMetadata oldSystemMetadata,
+      @Nullable final SystemMetadata newSystemMetadata,
+      @Nullable final MetadataAuditOperation operation
+  ) {
 
     final Snapshot newSnapshot = buildSnapshot(urn, newAspectValue);
     Snapshot oldSnapshot = null;
@@ -226,13 +234,38 @@ public abstract class EntityService {
       oldSnapshot = buildSnapshot(urn, oldAspectValue);
     }
 
-    _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot);
+    _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot, oldSystemMetadata, newSystemMetadata, operation);
 
     // 4.1 Produce aspect specific MAE after a successful update
     if (_emitAspectSpecificAuditEvent) {
-      _producer.produceAspectSpecificMetadataAuditEvent(urn, oldAspectValue, newAspectValue);
+      _producer.produceAspectSpecificMetadataAuditEvent(
+          urn,
+          oldAspectValue,
+          newAspectValue,
+          oldSystemMetadata,
+          newSystemMetadata,
+          operation
+      );
     }
   }
+
+  public void produceMetadataAuditEventForKey(
+      @Nonnull final Urn urn,
+      @Nullable final SystemMetadata newSystemMetadata
+  ) {
+
+    final Snapshot newSnapshot = buildKeySnapshot(urn);
+
+    _producer.produceMetadataAuditEvent(
+        urn,
+        null,
+        newSnapshot,
+        null,
+        newSystemMetadata,
+        MetadataAuditOperation.UPDATE
+    );
+  }
+
 
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {
     log.debug(String.format("Invoked getLatestAspect with urn %s, aspect %s", urn, aspectName));
@@ -307,6 +340,16 @@ public abstract class EntityService {
   }
 
   private Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue) {
+    // if the aspect value is the key, we do not need to include the key a second time
+    if (PegasusUtils.getAspectNameFromSchema(aspectValue.schema()).equals(getKeyAspectName(urn))) {
+      return toSnapshotUnion(
+          toSnapshotRecord(
+              urn,
+              ImmutableList.of(toAspectUnion(urn, aspectValue))
+          )
+      );
+    }
+
     final RecordTemplate keyAspectValue = buildKeyAspect(urn);
     return toSnapshotUnion(
         toSnapshotRecord(
@@ -316,11 +359,27 @@ public abstract class EntityService {
     );
   }
 
+  protected Snapshot buildKeySnapshot(@Nonnull final Urn urn) {
+    final RecordTemplate keyAspectValue = buildKeyAspect(urn);
+    return toSnapshotUnion(
+        toSnapshotRecord(
+            urn,
+            ImmutableList.of(toAspectUnion(urn, keyAspectValue))
+        )
+    );
+  }
+
   protected RecordTemplate buildKeyAspect(@Nonnull final Urn urn) {
     final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     final RecordDataSchema keySchema = keySpec.getPegasusSchema();
     return EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
+  }
+
+  public String getKeyAspectName(@Nonnull final Urn urn) {
+    final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
+    final AspectSpec keySpec = spec.getKeyAspectSpec();
+    return keySpec.getName();
   }
 
   protected Entity toEntity(@Nonnull final Snapshot snapshot) {
@@ -404,7 +463,5 @@ public abstract class EntityService {
       final Integer pageOffset,
       final Integer pageSize);
 
-  public abstract List<AspectRowSummary> rollbackRun(final String runId, Boolean dryRun);
-
-  public abstract List<String> ghostRun(final String runId, Boolean dryRun);
+  public abstract List<AspectRowSummary> rollbackRun(List<AspectRowSummary> aspectRows, String runId);
 }

@@ -16,12 +16,12 @@ DEFAULT_DATAHUB_CONFIG = {
     }
 }
 
-RUN_TABLE_COLUMNS = ["runId", "rows", "created at"]
-SHOW_URNS_COLUMNS = ["URN"]
+RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
+RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
 
-def get_runs_url(gms_host: str, rollback: bool):
-    return f"{gms_host}/runs?action={'rollback' if rollback else 'ghost'}"
+def get_runs_url(gms_host: str):
+    return f"{gms_host}/runs?action=rollback"
 
 
 @click.group()
@@ -47,6 +47,25 @@ def parse_restli_response(response):
         exit()
 
     return rows
+
+
+def parse_run_restli_response(response):
+    response_json = response.json()
+
+    if not isinstance(response_json, dict):
+        click.echo(f"Received error, please check your {CONDENSED_DATAHUB_CONFIG_PATH}")
+        click.echo()
+        click.echo(response_json)
+        exit()
+
+    summary = response_json.get('value')
+    if not isinstance(summary, dict):
+        click.echo(f"Received error, please check your {CONDENSED_DATAHUB_CONFIG_PATH}")
+        click.echo()
+        click.echo(response_json)
+        exit()
+
+    return summary
 
 
 def print_datahub_env_format_guide():
@@ -99,13 +118,9 @@ def get_session_and_host():
 
 
 @run.command()
-@click.argument("min_run_size", type=int, default=0)
-@click.argument("max_run_size", type=int, default=-1)
 @click.argument("page_offset", type=int, default=0)
 @click.argument("page_size", type=int, default=100)
 def ls(
-        min_run_size: int,
-        max_run_size: int,
         page_offset: int,
         page_size: int
 ) -> None:
@@ -114,13 +129,9 @@ def ls(
     url = f"{gms_host}/runs?action=list"
 
     payload_obj = {
-        "minRunSize": min_run_size,
         "pageOffset": page_offset,
         "pageSize": page_size,
     }
-
-    if max_run_size > 0:
-        payload_obj['maxRunSize'] = max_run_size
 
     payload = json.dumps(payload_obj)
 
@@ -134,33 +145,54 @@ def ls(
         datetime.utcfromtimestamp(row.get("timestamp") / 1000).strftime('%Y-%m-%d %H:%M:%S')
     ] for row in rows]
 
+    click.echo(tabulate(structured_rows, RUNS_TABLE_COLUMNS, tablefmt="grid"))
+
+
+def post_run_endpoint(payload_obj: dict):
+    session, gms_host = get_session_and_host()
+    url = get_runs_url(gms_host)
+
+    payload = json.dumps(payload_obj)
+
+    response = session.post(url, payload)
+
+    summary = parse_run_restli_response(response)
+    rows = summary.get("aspectRowSummaries")
+    total = summary.get("total")
+
+    if len(rows) == 0:
+        click.echo("No entities touched by this run. Double check your run id?")
+
+    structured_rows = [[
+        row.get("urn"),
+        row.get("aspectName"),
+        datetime.utcfromtimestamp(row.get("timestamp") / 1000).strftime('%Y-%m-%d %H:%M:%S')
+    ] for row in rows]
+
+    return structured_rows, total
+
+
+@run.command()
+@click.argument("run_id", type=str)
+def show(run_id: str) -> None:
+    payload_obj = {
+        "runId": run_id,
+        "dryRun": True
+    }
+    structured_rows, total = post_run_endpoint(payload_obj)
+
+    click.echo(f"showing first {len(structured_rows)} of {total} aspects touched by this run")
     click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
 
 
 @run.command()
 @click.argument("run_id", type=str)
-@click.option('--show-aspects/--show-urns', default=False)
-def show(
-        run_id: str,
-        show_aspects: bool
-) -> None:
-    session, gms_host = get_session_and_host()
-    url = get_runs_url(gms_host, show_aspects)
-
+def rollback(run_id: str) -> None:
     payload_obj = {
         "runId": run_id,
-        "dryRun": True
+        "dryRun": False
     }
-    payload = json.dumps(payload_obj)
+    structured_rows, total = post_run_endpoint(payload_obj)
 
-    response = session.post(url, payload)
-
-    rows = parse_restli_response(response)
-    if len(rows) == 0:
-        click.echo("No entities touched by this run. Double check your run id?")
-
-    if show_aspects:
-        click.echo(f"SHOWING FIRST {len(rows)} URNS TOUCHED BY THIS RUN")
-        click.echo(tabulate(rows, SHOW_URNS_COLUMNS, tablefmt="grid"))
-
-    click.echo(response.json())
+    click.echo(f"showing first {len(structured_rows)} of {total} aspects deleted by this run")
+    click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))

@@ -15,6 +15,7 @@ import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
+import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
@@ -33,8 +34,7 @@ import lombok.NonNull;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
 
 
 /**
@@ -97,6 +97,11 @@ public class EbeanEntityService extends EntityService {
     _entityDao.batchGet(dbKeys).forEach((key, aspectEntry) -> {
       final Urn urn = toUrn(key.getUrn());
       final String aspectName = key.getAspect();
+      // for now, don't add the key aspect here- we have already added it above
+      if (aspectName.equals(getKeyAspectName(urn))) {
+        return;
+      }
+
       final RecordTemplate aspectRecord =
           toAspectRecord(urn, aspectName, aspectEntry.getMetadata(), getEntityRegistry());
       urnToAspects.putIfAbsent(urn, new ArrayList<>());
@@ -214,9 +219,11 @@ public class EbeanEntityService extends EntityService {
       final int maxTransactionRetry) {
 
     final UpdateAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
+      Boolean keyAdded = false;
 
       // 1. Fetch the latest existing version of the aspect.
       final EbeanAspectV2 latest = _entityDao.getLatestAspect(urn.toString(), aspectName);
+      final EbeanAspectV2 keyAspect = _entityDao.getLatestAspect(urn.toString(), getKeyAspectName(urn));
 
       // 2. Compare the latest existing and new.
       final RecordTemplate oldValue =
@@ -226,17 +233,42 @@ public class EbeanEntityService extends EntityService {
       // 3. If there is no difference between existing and new, we just update
       // the lastObserved in system metadata. RunId should stay as the original runId
       if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
-        SystemMetadata latestSystemMetadata = RecordUtils.toRecordTemplate(
-            SystemMetadata.class,
-            latest.getSystemMetadata()
-        );
+        SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemMetadata());
         latestSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
 
         latest.setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
 
         _entityDao.saveAspect(latest, false);
 
-        return new UpdateAspectResult(urn, oldValue, oldValue);
+        // if there is no key aspect, create one
+        if (keyAspect == null) {
+          final RecordTemplate newKeyAspect = buildKeyAspect(urn);
+          _entityDao.saveLatestAspect(
+              urn.toString(),
+              getKeyAspectName(urn),
+              latest == null ? null : toJsonAspect(oldValue),
+              latest == null ? null : latest.getCreatedBy(),
+              latest == null ? null : latest.getCreatedFor(),
+              latest == null ? null : latest.getCreatedOn(),
+              latest == null ? null : latest.getSystemMetadata(),
+              toJsonAspect(newKeyAspect),
+              auditStamp.getActor().toString(),
+              auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
+              new Timestamp(auditStamp.getTime()),
+              toJsonAspect(providedSystemMetadata)
+          );
+          keyAdded = true;
+        }
+
+        return new UpdateAspectResult(
+            urn,
+            oldValue,
+            oldValue,
+            EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()),
+            latestSystemMetadata,
+            MetadataAuditOperation.UPDATE,
+            keyAdded
+        );
       }
 
       // 4. Save the newValue as the latest version
@@ -256,7 +288,37 @@ public class EbeanEntityService extends EntityService {
           toJsonAspect(providedSystemMetadata)
       );
 
-      return new UpdateAspectResult(urn, oldValue, newValue);
+      // if there is no key aspect, create one
+      if (keyAspect == null) {
+        final RecordTemplate newKeyAspect = buildKeyAspect(urn);
+        _entityDao.saveLatestAspect(
+            urn.toString(),
+            getKeyAspectName(urn),
+            latest == null ? null : toJsonAspect(oldValue),
+            latest == null ? null : latest.getCreatedBy(),
+            latest == null ? null : latest.getCreatedFor(),
+            latest == null ? null : latest.getCreatedOn(),
+            latest == null ? null : latest.getSystemMetadata(),
+            toJsonAspect(newKeyAspect),
+            auditStamp.getActor().toString(),
+            auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
+            new Timestamp(auditStamp.getTime()),
+            toJsonAspect(providedSystemMetadata)
+        );
+        keyAdded = true;
+      }
+
+
+
+      return new UpdateAspectResult(
+          urn,
+          oldValue,
+          newValue,
+          latest == null ? null : EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()),
+          providedSystemMetadata,
+          MetadataAuditOperation.UPDATE,
+          keyAdded
+      );
 
     }, maxTransactionRetry);
 
@@ -266,9 +328,23 @@ public class EbeanEntityService extends EntityService {
     // 5. Produce MAE after a successful update
     if (oldValue != newValue || _alwaysEmitAuditEvent) {
       log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
-      produceMetadataAuditEvent(urn, oldValue, newValue, providedSystemMetadata);
+      produceMetadataAuditEvent(
+          urn,
+          oldValue,
+          newValue,
+          result.getOldSystemMetadata(),
+          result.getNewSystemMetadata(),
+          MetadataAuditOperation.UPDATE
+      );
     } else {
       log.debug(String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.", aspectName, urn));
+    }
+
+    if (result.keyAdded) {
+      produceMetadataAuditEventForKey(
+          urn,
+          result.getNewSystemMetadata()
+      );
     }
 
     return newValue;
@@ -311,6 +387,10 @@ public class EbeanEntityService extends EntityService {
       final RecordTemplate oldValue = oldAspect == null ? null
           : toAspectRecord(urn, aspectName, oldAspect.getMetadata(), getEntityRegistry());
 
+      SystemMetadata oldSystemMetadata = RecordUtils.toRecordTemplate(SystemMetadata.class, oldAspect.getSystemMetadata());
+      SystemMetadata newSystemMetadata = RecordUtils.toRecordTemplate(SystemMetadata.class, oldAspect.getSystemMetadata());
+      newSystemMetadata.setLastObserved(System.currentTimeMillis());
+
       log.debug(String.format("Updating aspect with name %s, urn %s", aspectName, urn));
       _entityDao.saveAspect(
           urn.toString(),
@@ -319,12 +399,20 @@ public class EbeanEntityService extends EntityService {
           auditStamp.getActor().toString(),
           auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
           new Timestamp(auditStamp.getTime()),
-          oldAspect != null ? oldAspect.getSystemMetadata() : "{}",
+          toJsonAspect(newSystemMetadata),
           version,
           oldAspect == null
       );
 
-      return new UpdateAspectResult(urn, oldValue, value);
+      return new UpdateAspectResult(
+          urn,
+          oldValue,
+          value,
+          oldSystemMetadata,
+          newSystemMetadata,
+          MetadataAuditOperation.UPDATE,
+          false
+      );
 
     }, maxTransactionRetry);
 
@@ -333,7 +421,14 @@ public class EbeanEntityService extends EntityService {
 
     if (emitMae) {
       log.debug(String.format("Producing MetadataAuditEvent for updated aspect %s, urn %s", aspectName, urn));
-      produceMetadataAuditEvent(urn, oldValue, newValue);
+      produceMetadataAuditEvent(
+          urn,
+          oldValue,
+          newValue,
+          result.getOldSystemMetadata(),
+          result.getNewSystemMetadata(),
+          MetadataAuditOperation.UPDATE
+      );
     } else {
       log.debug(String.format("Skipped producing MetadataAuditEvent for updated aspect %s, urn %s. emitMAE is false.", aspectName, urn));
     }
@@ -354,6 +449,10 @@ public class EbeanEntityService extends EntityService {
     Urn urn;
     RecordTemplate oldValue;
     RecordTemplate newValue;
+    SystemMetadata oldSystemMetadata;
+    SystemMetadata newSystemMetadata;
+    MetadataAuditOperation operation;
+    Boolean keyAdded;
   }
 
   public void setWritable(boolean canWrite) {
@@ -370,59 +469,92 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Override
-  public List<AspectRowSummary> rollbackRun(String runId, Boolean dryRun) {
+  public List<AspectRowSummary> rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
     List<EbeanAspectV2> relatedAspects = _entityDao.listAspectsRelatedToRun(runId);
 
-    List<EbeanAspectV2> removedAspects = new ArrayList<>();
+    List<AspectRowSummary> removedAspects = new ArrayList<>();
 
-    relatedAspects.forEach(aspectToRemove -> {
+    aspectRows.forEach(aspectToRemove -> {
 
       final UpdateAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
 
         // 1. Fetch the latest existing version of the aspect.
         final EbeanAspectV2 latest =
-            _entityDao.getLatestAspect(aspectToRemove.getKey().getUrn(), aspectToRemove.getKey().getAspect());
+            _entityDao.getLatestAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName());
 
-        // 2. Compare the latest existing and new. If the aspect is not the latest, ignore
-        if (latest.getKey().getVersion() != aspectToRemove.getKey().getVersion()) {
+        // 1.1 If no latest exists, skip this aspect
+        if (latest == null) {
           return null;
         }
 
-        // 3. Fetch what precedes it
-        final EbeanAspectV2 previousAspect =
-            _entityDao.getAspect(aspectToRemove.getKey().getUrn(), aspectToRemove.getKey().getAspect(), -1);
+        // 2. Compare the latest run id. If the run id does not match this run, ignore.
+        SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemMetadata());
+        String latestMetadata = latest.getMetadata();
+        if (!latestSystemMetadata.getRunId().equals(runId)) {
+          return null;
+        }
 
-        // 4. Update the mysql table if not dry run
-        if (!dryRun) {
-          if (previousAspect != null) {
-            _entityDao.deleteAspect(previousAspect);
+        // 3. Fetch what precedes it, if there is another aspect
+        final long maxVersion = _entityDao.getMaxVersion(aspectToRemove.getUrn(), aspectToRemove.getAspectName());
+        EbeanAspectV2 previousAspect = null;
+        String previousMetadata = null;
+        if (maxVersion > 0) {
+          previousAspect =
+              _entityDao.getAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(), maxVersion);
+          previousMetadata = previousAspect.getMetadata();
+        }
 
-            EbeanAspectV2.@NonNull PrimaryKey updatedPreviousKey = new EbeanAspectV2.PrimaryKey(
-                previousAspect.getKey().getUrn(),
-                previousAspect.getKey().getAspect(),
-                0
-            );
 
-            previousAspect.setKey(updatedPreviousKey);
-
-            _entityDao.saveAspect(previousAspect, false);
-          } else {
-            _entityDao.deleteAspect(aspectToRemove);
+        // 4. Update the mysql table
+        if (previousAspect != null) {
+          // if there was a previous aspect, delete it and them write it to version 0
+          latest.setMetadata(previousAspect.getMetadata());
+          latest.setSystemMetadata(previousAspect.getSystemMetadata());
+          _entityDao.saveAspect(latest, false);
+          _entityDao.deleteAspect(previousAspect);
+        } else {
+          // if there was not a previous aspect, just delete the latest one
+          _entityDao.deleteAspect(latest);
+          // if this is the key aspect, we also want to delete the entity entirely
+          try {
+            if (getKeyAspectName(Urn.createFromString(aspectToRemove.getUrn())).equals(aspectToRemove.getAspectName())) {
+              _entityDao.deleteUrn(aspectToRemove.getUrn());
+            }
+          } catch (URISyntaxException e) {
+            e.printStackTrace();
           }
         }
 
         // 5. Emit the Update
         try {
           final RecordTemplate latestValue = latest == null ? null
-              : toAspectRecord(Urn.createFromString(latest.getKey().getUrn()), latest.getKey().getAspect(), latest.getMetadata(),
-                  getEntityRegistry());
+              : toAspectRecord(
+                  Urn.createFromString(latest.getKey().getUrn()),
+                  latest.getKey().getAspect(),
+                  latestMetadata,
+                  getEntityRegistry()
+              );
+
 
           final RecordTemplate previousValue = previousAspect == null ? null
-              : toAspectRecord(Urn.createFromString(previousAspect.getKey().getUrn()), previousAspect.getKey().getAspect(), previousAspect.getMetadata(),
-                  getEntityRegistry());
+              : toAspectRecord(
+                  Urn.createFromString(previousAspect.getKey().getUrn()),
+                  previousAspect.getKey().getAspect(),
+                  previousMetadata,
+                  getEntityRegistry()
+              );
 
-          return new UpdateAspectResult(Urn.createFromString(aspectToRemove.getKey().getUrn()), latestValue,
-              previousValue);
+
+          return new UpdateAspectResult(
+              Urn.createFromString(aspectToRemove.getUrn()),
+              latestValue,
+              previousValue == null ? latestValue : previousValue,
+              latestSystemMetadata,
+              previousValue == null ? null : parseSystemMetadata(previousAspect.getSystemMetadata()),
+              previousAspect == null ? MetadataAuditOperation.DELETE : MetadataAuditOperation.UPDATE,
+              false
+          );
+
         } catch (URISyntaxException e) {
           e.printStackTrace();
         }
@@ -432,62 +564,17 @@ public class EbeanEntityService extends EntityService {
 
       if (result != null) {
         removedAspects.add(aspectToRemove);
-        if (!dryRun) {
-          produceMetadataAuditEvent(result.getUrn(), result.getOldValue(), result.getNewValue());
-        }
+        produceMetadataAuditEvent(
+            result.getUrn(),
+            result.getOldValue(),
+            result.getNewValue(),
+            result.getOldSystemMetadata(),
+            result.getNewSystemMetadata(),
+            result.getOperation()
+        );
       }
     });
 
-    Stream<AspectRowSummary> results = removedAspects.stream().map(aspect -> {
-      AspectRowSummary result = new AspectRowSummary();
-      result.setAspectName(aspect.getKey().getAspect());
-      result.setRunId(aspect.getSystemMetadata());
-      result.setUrn(aspect.getKey().getUrn());
-      result.setTimestamp(aspect.getCreatedOn().getTime());
-      result.setMetadata(aspect.getMetadata());
-      result.setVersion(aspect.getKey().getVersion());
-      return result;
-    });
-
-    List<AspectRowSummary> response = results.collect(Collectors.toList());
-    return response;
-  }
-
-  @Override
-  public List<String> ghostRun(String runId, Boolean dryRun) {
-
-    List<String> urnsToDelete = _entityDao.fetchUrnsRelatedToRun(runId);
-
-    if (dryRun) {
-      return urnsToDelete;
-    }
-
-    Status deleteStatus = new Status();
-    deleteStatus.setRemoved(true);
-
-    AuditStamp deleteAuditStamp = new AuditStamp();
-
-    Urn deleteActor = null;
-    try {
-      deleteActor = Urn.createFromString("urn:li:principal:system");
-    } catch (URISyntaxException e) {
-      e.printStackTrace();
-    }
-
-    deleteAuditStamp.setActor(deleteActor);
-    deleteAuditStamp.setTime(System.currentTimeMillis());
-
-    SystemMetadata deleteSystemMetadata = new SystemMetadata();
-    deleteSystemMetadata.setRunId("revert-" + runId);
-
-    urnsToDelete.forEach(urn -> {
-      try {
-        ingestAspect(Urn.createFromString(urn), "status", deleteStatus, deleteAuditStamp, deleteSystemMetadata);
-      } catch (URISyntaxException e) {
-        e.printStackTrace();
-      }
-    });
-
-    return urnsToDelete;
+    return removedAspects;
   }
 }
