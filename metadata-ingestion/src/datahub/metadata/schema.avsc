@@ -3434,15 +3434,6 @@
                                     "name": "createdAt",
                                     "default": null,
                                     "doc": "Date when the MLHyperParam was developed"
-                                  },
-                                  {
-                                    "type": [
-                                      "null",
-                                      "com.linkedin.pegasus2avro.common.VersionTag"
-                                    ],
-                                    "name": "version",
-                                    "default": null,
-                                    "doc": "Version of the MLHyperParam"
                                   }
                                 ],
                                 "doc": "Properties associated with an ML Hyper Param"
@@ -3497,15 +3488,6 @@
                                     "name": "createdAt",
                                     "default": null,
                                     "doc": "Date when the mlMetric was developed"
-                                  },
-                                  {
-                                    "type": [
-                                      "null",
-                                      "com.linkedin.pegasus2avro.common.VersionTag"
-                                    ],
-                                    "name": "version",
-                                    "default": null,
-                                    "doc": "Version of the mlMetric"
                                   }
                                 ],
                                 "doc": "Properties associated with an ML Metric"

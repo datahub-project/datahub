@@ -1626,15 +1626,13 @@
                   "name": "parameter-1",
                   "description": null,
                   "value": "some-value",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 },
                 {
                   "name": "parameter-2",
                   "description": null,
                   "value": "another-value",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 }
               ],
               "trainingMetrics": [
@@ -1642,15 +1640,13 @@
                   "name": "another-metric",
                   "description": null,
                   "value": "1.0",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 },
                 {
                   "name": "some-metric",
                   "description": null,
                   "value": "1.0",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 }
               ],
               "onlineMetrics": null,
@@ -1708,15 +1704,13 @@
                   "name": "parameter-1",
                   "description": null,
                   "value": "some-value",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 },
                 {
                   "name": "parameter-2",
                   "description": null,
                   "value": "another-value",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 }
               ],
               "trainingMetrics": [
@@ -1724,15 +1718,13 @@
                   "name": "another-metric",
                   "description": null,
                   "value": "1.0",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 },
                 {
                   "name": "some-metric",
                   "description": null,
                   "value": "1.0",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 }
               ],
               "onlineMetrics": null,
