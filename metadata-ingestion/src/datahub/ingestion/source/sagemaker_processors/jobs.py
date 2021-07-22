@@ -546,7 +546,7 @@ class JobProcessor:
                         "jobType": job_type,
                     },
                 ),
-                BrowsePathsClass(paths=[f"{job_type}/{name}"]),
+                BrowsePathsClass(paths=[f"/{job_type}/{name}"]),
             ],
         )
 
