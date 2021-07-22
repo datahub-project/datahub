@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
+
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.mxe.SystemMetadata;
@@ -8,9 +9,6 @@ import com.linkedin.restli.client.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.linkedin.data.template.DataTemplateUtil;
-import com.linkedin.data.template.DynamicRecordMetadata;
-import com.linkedin.data.template.FieldDef;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
@@ -22,19 +20,12 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.ActionRequestBuilder;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
 
 import com.linkedin.restli.client.Request;
 import com.linkedin.restli.client.RestLiResponseException;
-import com.linkedin.restli.client.RestliRequestOptions;
-import com.linkedin.restli.common.EmptyRecord;
-import com.linkedin.restli.common.ResourceSpec;
-import com.linkedin.restli.common.ResourceSpecImpl;
-import java.util.Arrays;
-import java.util.Collections;
 import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
 import java.util.Collection;

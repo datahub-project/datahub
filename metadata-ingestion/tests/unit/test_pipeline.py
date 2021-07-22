@@ -8,6 +8,7 @@ from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetSnapshotClass,
@@ -98,7 +99,7 @@ class FakeSource(Source):
     def __init__(self):
         self.source_report = SourceReport()
         self.work_units: List[MetadataWorkUnit] = [
-            MetadataWorkUnit(id="workunit-1", mce=get_initial_mce())
+            MetadataWorkUnit(id="workunit-1", mce=get_initial_mce(0))
         ]
 
     @classmethod
@@ -116,7 +117,7 @@ class FakeSource(Source):
         pass
 
 
-def get_initial_mce() -> MetadataChangeEventClass:
+def get_initial_mce(mock_time) -> MetadataChangeEventClass:
     return MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:test_platform,test,PROD)",
@@ -125,7 +126,8 @@ def get_initial_mce() -> MetadataChangeEventClass:
                     description="test.description",
                 )
             ],
-        )
+        ),
+        systemMetadata=SystemMetadata(lastObserved=mock_time*1000)
     )
 
 

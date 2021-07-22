@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.metadata.systemMetadata.ESSystemMetadataDAO;
-import com.linkedin.metadata.systemMetadata.ElasticSearchSystemMetadataService;
+import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;

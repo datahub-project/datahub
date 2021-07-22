@@ -383,8 +383,9 @@ public class EbeanEntityService extends EntityService {
       final RecordTemplate oldValue = oldAspect == null ? null
           : toAspectRecord(urn, aspectName, oldAspect.getMetadata(), getEntityRegistry());
 
-      SystemMetadata oldSystemMetadata = RecordUtils.toRecordTemplate(SystemMetadata.class, oldAspect.getSystemMetadata());
-      SystemMetadata newSystemMetadata = RecordUtils.toRecordTemplate(SystemMetadata.class, oldAspect.getSystemMetadata());
+      SystemMetadata oldSystemMetadata = oldAspect == null ? new SystemMetadata() : EbeanUtils.parseSystemMetadata(oldAspect.getSystemMetadata());
+      // create a duplicate of the old system metadata to update and write back
+      SystemMetadata newSystemMetadata = oldAspect == null ? new SystemMetadata() : EbeanUtils.parseSystemMetadata(oldAspect.getSystemMetadata());
       newSystemMetadata.setLastObserved(System.currentTimeMillis());
 
       log.debug(String.format("Updating aspect with name %s, urn %s", aspectName, urn));

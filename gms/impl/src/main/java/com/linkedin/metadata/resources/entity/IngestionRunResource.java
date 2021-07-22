@@ -7,7 +7,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.IngestionRunSummaryArray;
 import com.linkedin.metadata.run.RollbackResponse;
-import com.linkedin.metadata.systemMetadata.SystemMetadataService;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;

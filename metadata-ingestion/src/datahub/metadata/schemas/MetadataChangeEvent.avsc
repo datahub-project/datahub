@@ -5175,7 +5175,19 @@
                 "null",
                 "string"
               ],
-              "doc": "The timestamp the metadata was observed at",
+              "doc": "The run id that produced the metadata",
+              "default": null
+            },
+            {
+              "name": "properties",
+              "type": [
+                "null",
+                {
+                  "type": "map",
+                  "values": "string"
+                }
+              ],
+              "doc": "Additional properties",
               "default": null
             }
           ]

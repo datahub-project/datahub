@@ -1,4 +1,4 @@
-package com.linkedin.metadata.systemMetadata;
+package com.linkedin.metadata.systemmetadata;
 
 import com.linkedin.mxe.SystemMetadata;
 import lombok.AllArgsConstructor;
