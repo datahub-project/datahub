@@ -15,7 +15,7 @@ from tests.test_helpers import mce_helpers
 WRITE_REFERENCE_FILE = False
 
 
-def test_config_time_defaults():
+def test_bq_usage_config():
     config = BigQueryUsageConfig.parse_obj(
         dict(
             project_id="sample-bigquery-project-name-1234",
@@ -23,6 +23,7 @@ def test_config_time_defaults():
         )
     )
     assert (config.end_time - config.start_time) == timedelta(hours=1)
+    assert config.projects == ["sample-bigquery-project-name-1234"]
 
 
 def test_bq_usage_source(pytestconfig, tmp_path):
@@ -36,12 +37,16 @@ def test_bq_usage_source(pytestconfig, tmp_path):
     if WRITE_REFERENCE_FILE:
         source = BigQueryUsageSource.create(
             dict(
-                project_id="harshal-playground-306419",
+                projects=[
+                    "harshal-playground-306419",
+                ],
                 start_time=datetime.now(tz=timezone.utc) - timedelta(days=25),
             ),
             PipelineContext(run_id="bq-usage-test"),
         )
-        entries = list(source._get_bigquery_log_entries())
+        entries = list(
+            source._get_bigquery_log_entries(source._make_bigquery_clients())
+        )
 
         entries = [entry._replace(logger=None) for entry in entries]
         log_entries = jsonpickle.encode(entries, indent=4)
@@ -62,7 +67,7 @@ def test_bq_usage_source(pytestconfig, tmp_path):
                 "run_id": "test-bigquery-usage",
                 "source": {
                     "type": "bigquery-usage",
-                    "config": {"project_id": "sample-bigquery-project-1234"},
+                    "config": {"projects": ["sample-bigquery-project-1234"]},
                 },
                 "sink": {
                     "type": "file",

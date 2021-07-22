@@ -12,7 +12,7 @@
     "supports" : [ "get" ],
     "methods" : [ {
       "method" : "get",
-      "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
+      "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.\n TODO: Get rid of this and migrate to getAspect.",
       "parameters" : [ {
         "name" : "aspect",
         "type" : "string",
@@ -22,6 +22,28 @@
         "type" : "long",
         "optional" : true
       } ]
+    } ],
+    "actions" : [ {
+      "name" : "getAspectValues",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "aspect",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      }, {
+        "name" : "limit",
+        "type" : "int",
+        "default" : "10000"
+      } ],
+      "returns" : "com.linkedin.aspect.GetAspectResponse"
     } ],
     "entity" : {
       "path" : "/aspects/{aspectsId}"

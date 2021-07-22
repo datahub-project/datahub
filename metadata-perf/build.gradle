@@ -1,0 +1,29 @@
+plugins {
+    id "application"
+}
+ext {
+   javaMainClass = "com.linkedin.metadata.performance.PerfHarness"
+}
+
+application {
+    mainClassName = javaMainClass
+}
+apply plugin: 'pegasus'
+apply plugin: 'java'
+
+dependencies {
+  compile project(':gms:api')
+  compile project(path: ':gms:api', configuration: 'restClient')
+  compile project(':gms:client')
+  compile project(':metadata-dao-impl:restli-dao')
+  compile project(':metadata-events:mxe-schemas')
+  compile project(':metadata-utils')
+
+  dataModel project(':li-utils')
+
+  compile externalDependency.gmaDaoApi
+  compile externalDependency.gmaRestliResources
+  annotationProcessor externalDependency.lombok
+
+  compile spec.product.pegasus.restliClient
+}

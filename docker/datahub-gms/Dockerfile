@@ -32,7 +32,6 @@ USER datahub
 
 ENV JMX_OPTS=""
 ENV JAVA_OPTS=""
-ENV ENTITY_REGISTRY_CONFIG_PATH="/datahub/datahub-gms/resources/entity-registry.yml"
 
 EXPOSE 8080
 

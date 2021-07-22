@@ -68,10 +68,11 @@ public class EntityClient {
         try {
             return _client.sendRequest(request).getResponse();
         } catch (RemoteInvocationException e) {
-            if (((RestLiResponseException) e).getStatus() == 404) {
-                _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
-                    + "Please update your gms to the latest Datahub release");
-                System.exit(1);
+            if ((e instanceof RestLiResponseException) && (((RestLiResponseException) e).getStatus() == 404))
+            {
+                    _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
+                            + "Please update your gms to the latest Datahub release");
+                    System.exit(1);
             } else {
                 throw e;
             }
@@ -190,7 +191,7 @@ public class EntityClient {
         return sendClientRequest(requestBuilder.build()).getEntity();
     }
 
-    public void update(@Nonnull final Entity entity) throws RemoteInvocationException {
+    public Response update(@Nonnull final Entity entity) throws RemoteInvocationException {
         // TODO: Replace with EntitiesDoIngestActionBuilder.
 
         final FieldDef<?> entityFieldDef = new FieldDef<>(PARAM_ENTITY, Entity.class, DataTemplateUtil.getSchema(String.class));
@@ -213,15 +214,15 @@ public class EntityClient {
 
         final Request request = builder.build();
 
-        sendClientRequest(request);
+        return sendClientRequest(request);
     }
 
-    public void ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal)
+    public Response<Void> ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal)
         throws RemoteInvocationException {
         final EntitiesDoIngestProposalRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionIngestProposal()
             .proposalParam(metadataChangeProposal);
 
-        sendClientRequest(requestBuilder.build());
+        return sendClientRequest(requestBuilder.build());
     }
 
     /**

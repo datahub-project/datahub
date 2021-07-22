@@ -1,0 +1,35 @@
+namespace com.linkedin.aspect
+
+import com.linkedin.metadata.query.Filter
+import com.linkedin.metadata.aspect.EnvelopedAspect
+
+/**
+ * The response structure of the getAspect API.
+ **/
+record GetAspectResponse {
+
+  /**
+   * The input entity name
+   **/
+  entityName: string
+
+  /**
+   * The input aspect name
+   **/
+  aspectName: string
+
+  /**
+   * The input filter used
+   **/
+  filter: optional Filter
+
+  /**
+   * The limit on the number of values requested.
+   */
+  limit: optional long
+
+  /**
+   * The enveloped values returned by the getAspect API.
+   **/
+  values: array[EnvelopedAspect]
+}

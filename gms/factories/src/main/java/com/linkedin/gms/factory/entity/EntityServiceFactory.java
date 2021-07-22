@@ -6,6 +6,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.TopicConvention;
 import javax.annotation.Nonnull;
 import org.apache.kafka.clients.producer.Producer;
@@ -31,6 +32,6 @@ public class EntityServiceFactory {
             applicationContext.getBean(TopicConvention.class));
 
     return new EbeanEntityService(applicationContext.getBean(EbeanAspectDao.class), producer,
-        applicationContext.getBean(EntityRegistry.class));
+        applicationContext.getBean(EntityRegistry.class), applicationContext.getBean(TimeseriesAspectService.class));
   }
 }

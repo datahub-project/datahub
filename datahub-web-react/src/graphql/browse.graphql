@@ -104,6 +104,24 @@ query getBrowseResults($input: BrowseInput!) {
                     ...globalTagsFields
                 }
             }
+            ... on MLFeatureTable {
+                urn
+                type
+                name
+                description
+                featureTableProperties {
+                    description
+                    mlFeatures {
+                        urn
+                    }
+                    mlPrimaryKeys {
+                        urn
+                    }
+                }
+                ownership {
+                    ...ownershipFields
+                }
+            }
         }
         start
         count

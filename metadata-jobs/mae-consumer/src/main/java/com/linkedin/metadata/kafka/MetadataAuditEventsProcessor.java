@@ -1,7 +1,6 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.common.urn.Urn;
-
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.search.SearchServiceFactory;
@@ -13,6 +12,7 @@ import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -59,7 +58,8 @@ public class MetadataAuditEventsProcessor {
   private final UsageService _usageService;
 
   @Autowired
-  public MetadataAuditEventsProcessor(GraphService graphService, SearchService searchService, UsageService usageService) {
+  public MetadataAuditEventsProcessor(GraphService graphService, SearchService searchService,
+      UsageService usageService) {
     _graphService = graphService;
     _searchService = searchService;
     _usageService = usageService;
@@ -94,7 +94,7 @@ public class MetadataAuditEventsProcessor {
   }
 
   /**
-   * Process snapshot and update Neo4j
+   * Process snapshot and update graph index
    *
    * @param snapshot Snapshot
    */
@@ -110,12 +110,8 @@ public class MetadataAuditEventsProcessor {
       return;
     }
 
-    Map<String, List<RelationshipFieldSpec>> relationshipFieldSpecsPerAspect = entitySpec.getAspectSpecMap()
-        .entrySet()
-        .stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getRelationshipFieldSpecs()));
     Map<RelationshipFieldSpec, List<Object>> extractedFields =
-        FieldExtractor.extractFields(snapshot, relationshipFieldSpecsPerAspect);
+        FieldExtractor.extractFieldsFromSnapshot(snapshot, entitySpec, AspectSpec::getRelationshipFieldSpecs);
 
     for (Map.Entry<RelationshipFieldSpec, List<Object>> entry : extractedFields.entrySet()) {
       relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
@@ -138,7 +134,7 @@ public class MetadataAuditEventsProcessor {
   }
 
   /**
-   * Process snapshot and update Elasticsearch
+   * Process snapshot and update search index
    *
    * @param snapshot Snapshot
    */
@@ -146,7 +142,7 @@ public class MetadataAuditEventsProcessor {
     String urn = snapshot.data().get("urn").toString();
     Optional<String> searchDocument;
     try {
-      searchDocument = SearchDocumentTransformer.transform(snapshot, entitySpec);
+      searchDocument = SearchDocumentTransformer.transformSnapshot(snapshot, entitySpec);
     } catch (Exception e) {
       log.error("Error in getting documents from snapshot: {} for snapshot {}", e, snapshot);
       return;

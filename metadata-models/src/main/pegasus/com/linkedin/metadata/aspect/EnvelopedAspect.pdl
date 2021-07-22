@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.mxe.SystemMetadata
+import com.linkedin.mxe.GenericAspect
+
+/**
+ * Enveloped record for an aspect.
+ **/
+record EnvelopedAspect {
+
+    aspect: GenericAspect
+
+    systemMetadata: SystemMetadata
+}
