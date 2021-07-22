@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -120,10 +121,11 @@ public class MetadataChangeLogProcessor {
       RecordTemplate aspect =
           AspectDeserializationUtil.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
               aspectSpec);
-      updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect);
-      updateGraphService(urn, aspectSpec, aspect);
       if (aspectSpec.isTimeseries()) {
         updateTemporalStats(event.getEntityType(), event.getAspectName(), urn, aspect, event.getSystemMetadata());
+      } else {
+        updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect);
+        updateGraphService(urn, aspectSpec, aspect);
       }
     }
   }
@@ -190,7 +192,13 @@ public class MetadataChangeLogProcessor {
    */
   private void updateTemporalStats(String entityType, String aspectName, Urn urn, RecordTemplate aspect,
       SystemMetadata systemMetadata) {
-    JsonNode document = TimeseriesAspectTransformer.transform(urn, aspect, systemMetadata);
+    JsonNode document;
+    try {
+      document = TimeseriesAspectTransformer.transform(urn, aspect, systemMetadata);
+    } catch (JsonProcessingException e) {
+      log.error("Failed to generate timeseries document from aspect: {}", e.toString());
+      return;
+    }
     _timeseriesAspectService.upsertDocument(entityType, aspectName, document);
   }
 }

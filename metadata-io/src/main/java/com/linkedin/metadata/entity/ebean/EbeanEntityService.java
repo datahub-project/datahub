@@ -39,7 +39,8 @@ import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
 
 
 /**
@@ -357,22 +358,31 @@ public class EbeanEntityService extends EntityService {
       newAspect = result.newValue;
     }
 
-    final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(metadataChangeProposal.data());
-    if (oldAspect != null) {
-      GenericAspect oldGenericAspect = new GenericAspect();
-      oldGenericAspect.setValue(ByteString.copy(RecordUtils.toJsonString(oldAspect).getBytes()));
-      oldGenericAspect.setContentType(AspectDeserializationUtil.JSON);
-      metadataChangeLog.setPreviousAspectValue(oldGenericAspect);
-    }
-    if (newAspect != null) {
-      GenericAspect newGenericAspect = new GenericAspect();
-      newGenericAspect.setValue(ByteString.copy(RecordUtils.toJsonString(newAspect).getBytes()));
-      newGenericAspect.setContentType(AspectDeserializationUtil.JSON);
-      metadataChangeLog.setAspect(newGenericAspect);
-    }
+    if (oldAspect != newAspect || _alwaysEmitAuditEvent) {
+      log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s",
+          metadataChangeProposal.getAspectName(), entityUrn));
 
-    // Since only temporal aspect are ingested as of now, simply produce mae event for it
-    produceMetadataChangeLog(entityUrn, metadataChangeLog);
+      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(metadataChangeProposal.data());
+      if (oldAspect != null) {
+        GenericAspect oldGenericAspect = new GenericAspect();
+        oldGenericAspect.setValue(ByteString.copy(RecordUtils.toJsonString(oldAspect).getBytes()));
+        oldGenericAspect.setContentType(AspectDeserializationUtil.JSON);
+        metadataChangeLog.setPreviousAspectValue(oldGenericAspect);
+      }
+      if (newAspect != null) {
+        GenericAspect newGenericAspect = new GenericAspect();
+        newGenericAspect.setValue(ByteString.copy(RecordUtils.toJsonString(newAspect).getBytes()));
+        newGenericAspect.setContentType(AspectDeserializationUtil.JSON);
+        metadataChangeLog.setAspect(newGenericAspect);
+      }
+
+      // Since only temporal aspect are ingested as of now, simply produce mae event for it
+      produceMetadataChangeLog(entityUrn, metadataChangeLog);
+    } else {
+      log.debug(
+          String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
+              metadataChangeProposal.getAspectName(), entityUrn));
+    }
   }
 
   @Override

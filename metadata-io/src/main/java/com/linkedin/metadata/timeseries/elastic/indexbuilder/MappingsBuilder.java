@@ -10,9 +10,10 @@ import javax.annotation.Nonnull;
 public class MappingsBuilder {
 
   public static final String URN_FIELD = "urn";
-  public static final String TIMESTAMP_FIELD = "timestampMillis";
+  public static final String TIMESTAMP_FIELD = "@timestamp";
+  public static final String TIMESTAMP_MILLIS_FIELD = "timestampMillis";
   public static final String EVENT_FIELD = "event";
-  public static final String SYSTEM_METADATA_FIELD = "event";
+  public static final String SYSTEM_METADATA_FIELD = "systemMetadata";
 
   private MappingsBuilder() {
   }
@@ -27,6 +28,7 @@ public class MappingsBuilder {
 
     mappings.put(URN_FIELD, ImmutableMap.of("type", "keyword"));
     mappings.put(TIMESTAMP_FIELD, ImmutableMap.of("type", "date"));
+    mappings.put(TIMESTAMP_MILLIS_FIELD, ImmutableMap.of("type", "date"));
     mappings.put(EVENT_FIELD, ImmutableMap.of("type", "object", "enabled", false));
     mappings.put(SYSTEM_METADATA_FIELD, ImmutableMap.of("type", "object", "enabled", false));
 

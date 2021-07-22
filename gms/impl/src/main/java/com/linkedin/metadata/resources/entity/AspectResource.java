@@ -73,7 +73,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       GetAspectResponse response = new GetAspectResponse();
       response.setEntityName(entityName);
       response.setAspectName(aspectName);
-      response.setFilter(filter);
+      if (filter != null) {
+        response.setFilter(filter);
+      }
       response.setLimit(limit);
       response.setValues(
           new EnvelopedAspectArray(_entityService.getAspect(urn, entityName, aspectName, filter, limit)));

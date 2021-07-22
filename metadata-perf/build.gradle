@@ -2,7 +2,7 @@ plugins {
     id "application"
 }
 ext {
-   javaMainClass = "com.linkedin.metadata.performance.TestRequest"
+   javaMainClass = "com.linkedin.metadata.performance.PerfHarness"
 }
 
 application {
