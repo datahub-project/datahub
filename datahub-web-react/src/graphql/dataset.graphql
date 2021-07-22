@@ -13,7 +13,7 @@ mutation updateDataset($input: DatasetUpdateInput!) {
 query getDataProfiles($urn: String!, $count: Int, $range: TimeRange) {
     dataset(urn: $urn) {
         urn
-        dataProfiles(count: $count, range: $range) {
+        profiles(count: $count, range: $range) {
             rowCount
             columnCount
             timestampMillis
@@ -107,7 +107,7 @@ query getDataset($urn: String!) {
                 }
             }
         }
-        dataProfiles(count: 1) {
+        profiles(count: 1) {
             rowCount
             columnCount
             timestampMillis

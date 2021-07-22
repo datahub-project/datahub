@@ -341,7 +341,10 @@ public class GmsGraphQLEngine {
                                     (env) -> ((Entity) env.getSource()).getUrn()))
                     )
                 .dataFetcher("dataProfiles", new AuthenticatedResolver<>(
-                    new TimeSeriesAspectRangeResolver("datasetProfile")
+                    new TimeSeriesAspectRangeResolver(
+                        "dataset",
+                        "datasetProfile",
+                        GmsClientFactory.getAspectsClient())
                 ))
                 .dataFetcher("usageStats", new AuthenticatedResolver<>(new UsageTypeResolver()))
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(

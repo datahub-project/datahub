@@ -19,6 +19,7 @@ public class AspectType {
   public AspectType(final AspectClient aspectClient) {
     _aspectClient = aspectClient;
   }
+
   /**
    * Retrieves an list of aspects given a list of {@link VersionedAspectKey} structs. The list returned is expected to
    * be of same length of the list of keys, where nulls are provided in place of an aspect object if an entity cannot be found.

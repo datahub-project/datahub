@@ -350,7 +350,7 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     Profile Stats resource. Get the events in a previous unit of time. Biased for recency.
     """
-    dataProfiles(count: Int, range: TimeRange): [DataProfile!]
+    profiles(count: Int, range: TimeRange): [DatasetProfile!]
 }
 
 type GlossaryTerm implements Entity {
@@ -2927,11 +2927,11 @@ type DatasetFieldProfile {
 	uniqueProportion: Float
 	nullCount: Long
 	nullProportion: Float
-	min: Float
-	max: Float
-	mean: Float
-	median: Float
-	stdev: Float
+	min: String
+	max: String
+	mean: String
+	median: String
+	stdev: String
 	sampleValues: [String!]
 }
 
@@ -2945,10 +2945,10 @@ type PartitionSpec {
   timePartition: TimeWindow
 }
 
-type DataProfile implements TimeSeriesAspect {
+type DatasetProfile implements TimeSeriesAspect {
   timestampMillis: Long!
-  rowCount: Int
-  columnCount: Int
+  rowCount: Long
+  columnCount: Long
   fieldProfiles: [DatasetFieldProfile!]
   partitionSpec: PartitionSpec
 }
