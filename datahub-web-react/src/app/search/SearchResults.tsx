@@ -11,7 +11,6 @@ interface Props {
 }
 
 export const SearchResults = ({ typeName, pageStart, pageSize, totalResults, results, onChangePage }: Props) => {
-    console.log('pageStart * pageSize + 1', pageStart * pageSize + 1);
     return (
         <Card
             title={<h1 style={{ marginBottom: '0px' }}>{typeName}</h1>}
