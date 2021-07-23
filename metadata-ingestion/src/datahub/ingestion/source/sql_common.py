@@ -494,7 +494,7 @@ class SQLAlchemySource(Source):
                 aspectName="datasetProfile",
                 aspect=profile,
             )
-            wu = MetadataWorkUnit(id=dataset_name, mcp=mcp)
+            wu = MetadataWorkUnit(id=f"profile-{dataset_name}", mcp=mcp)
             self.report.report_workunit(wu)
             yield wu
 
