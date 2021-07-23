@@ -1,4 +1,5 @@
-from typing import Iterable
+from collections import defaultdict
+from typing import DefaultDict, Dict, Iterable
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source
@@ -10,7 +11,12 @@ from datahub.ingestion.source.sagemaker_processors.common import (
 from datahub.ingestion.source.sagemaker_processors.feature_groups import (
     FeatureGroupProcessor,
 )
-from datahub.ingestion.source.sagemaker_processors.jobs import JobProcessor
+from datahub.ingestion.source.sagemaker_processors.jobs import (
+    JobKey,
+    JobProcessor,
+    ModelJob,
+)
+from datahub.ingestion.source.sagemaker_processors.lineage import LineageProcessor
 from datahub.ingestion.source.sagemaker_processors.models import ModelProcessor
 
 
@@ -32,6 +38,12 @@ class SagemakerSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
+        # get common lineage graph
+        lineage_processor = LineageProcessor(
+            sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
+        )
+        lineage = lineage_processor.get_lineage()
+
         # extract feature groups if specified
         if self.source_config.extract_feature_groups:
 
@@ -40,13 +52,10 @@ class SagemakerSource(Source):
             )
             yield from feature_group_processor.get_workunits()
 
-        # extract models if specified
-        if self.source_config.extract_models:
-
-            model_processor = ModelProcessor(
-                sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
-            )
-            yield from model_processor.get_workunits()
+        model_image_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = defaultdict(
+            dict
+        )
+        model_name_to_jobs: DefaultDict[str, Dict[JobKey, ModelJob]] = defaultdict(dict)
 
         # extract jobs if specified
         if self.source_config.extract_jobs is not False:
@@ -56,8 +65,26 @@ class SagemakerSource(Source):
                 env=self.env,
                 report=self.report,
                 job_type_filter=self.source_config.extract_jobs,
+                aws_region=self.source_config.aws_region,
             )
             yield from job_processor.get_workunits()
+
+            model_image_to_jobs = job_processor.model_image_to_jobs
+            model_name_to_jobs = job_processor.model_name_to_jobs
+
+        # extract models if specified
+        if self.source_config.extract_models:
+
+            model_processor = ModelProcessor(
+                sagemaker_client=self.sagemaker_client,
+                env=self.env,
+                report=self.report,
+                model_image_to_jobs=model_image_to_jobs,
+                model_name_to_jobs=model_name_to_jobs,
+                lineage=lineage,
+                aws_region=self.source_config.aws_region,
+            )
+            yield from model_processor.get_workunits()
 
     def get_report(self):
         return self.report

@@ -2449,5 +2449,211 @@
       }
     },
     "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+        "urn": "urn:li:mlPrimaryKey:(user_features,user_name)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+              "description": "User's user_name",
+              "dataType": "TEXT",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+        "urn": "urn:li:mlPrimaryKey:(user_features,user_id)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+              "description": "User's internal ID",
+              "dataType": "ORDINAL",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(user_features,regions)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "SEQUENCE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(user_features,is_premium_user)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "BINARY",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(user_features,number_of_visits)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "ORDINAL",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,user_features)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["feast/user_features"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+              "customProperties": {},
+              "description": null,
+              "mlFeatures": [
+                "urn:li:mlFeature:(user_features,regions)",
+                "urn:li:mlFeature:(user_features,is_premium_user)",
+                "urn:li:mlFeature:(user_features,number_of_visits)"
+              ],
+              "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(user_features,user_name)",
+                "urn:li:mlPrimaryKey:(user_features,user_id)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+        "urn": "urn:li:mlPrimaryKey:(user_analytics,user_name)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+              "description": "User's username",
+              "dataType": "TEXT",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+        "urn": "urn:li:mlFeature:(user_analytics,date_joined)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+              "description": null,
+              "dataType": "BYTE",
+              "version": null,
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,user_analytics)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["feast/user_analytics"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+              "customProperties": {},
+              "description": null,
+              "mlFeatures": [
+                "urn:li:mlFeature:(user_analytics,date_joined)"
+              ],
+              "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(user_analytics,user_name)"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
   }
 ]

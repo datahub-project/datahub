@@ -68,7 +68,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 urn={data.urn}
                 name={data.name}
                 origin={data.origin}
-                description={data.description}
+                description={data.editableProperties?.description || data.description}
                 platformName={data.platform.name}
                 platformLogo={data.platform.info?.logoUrl}
                 owners={data.ownership?.owners}
@@ -85,7 +85,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 urn={data.urn}
                 name={data.name}
                 origin={data.origin}
-                description={data.description}
+                description={data.editableProperties?.description || data.description}
                 platformName={data.platform.name}
                 platformLogo={data.platform.info?.logoUrl}
                 owners={data.ownership?.owners}

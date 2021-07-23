@@ -1,10 +1,11 @@
 import collections
 import dataclasses
+import heapq
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Counter, Dict, Iterable, List, Optional, Union
+from datetime import datetime, timedelta
+from typing import Any, Counter, Dict, Iterable, List, MutableMapping, Optional, Union
 
 import cachetools
 import pydantic
@@ -60,7 +61,7 @@ AND
 AND
 timestamp >= "{start_time}"
 AND
-timestamp <= "{end_time}"
+timestamp < "{end_time}"
 """.strip()
 
 
@@ -115,6 +116,11 @@ def _job_name_ref(project: str, jobId: str) -> str:
 
 @dataclass
 class ReadEvent:
+    """
+    A container class for data from a TableDataRead event.
+    See https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata#BigQueryAuditMetadata.TableDataRead.
+    """
+
     timestamp: datetime
     actor_email: str
 
@@ -144,6 +150,8 @@ class ReadEvent:
         readInfo = entry.payload["metadata"]["tableDataRead"]
 
         fields = readInfo.get("fields", [])
+
+        # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason
         readReason = readInfo.get("reason")
         jobName = None
         if readReason == "JOB":
@@ -163,6 +171,11 @@ class ReadEvent:
 
 @dataclass
 class QueryEvent:
+    """
+    A container class for a query job completion event.
+    See https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/AuditData#JobCompletedEvent.
+    """
+
     timestamp: datetime
     actor_email: str
 
@@ -214,11 +227,21 @@ class QueryEvent:
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
-    project_id: Optional[str] = None
+    projects: Optional[List[str]] = None
+    project_id: Optional[str] = None  # deprecated in favor of `projects`
     extra_client_options: dict = {}
     env: str = builder.DEFAULT_ENV
 
-    query_log_delay: pydantic.PositiveInt = 100
+    query_log_delay: Optional[pydantic.PositiveInt] = None
+    max_query_duration: timedelta = timedelta(minutes=15)
+
+    @pydantic.validator("project_id")
+    def note_project_id_deprecation(cls, v, values, **kwargs):
+        logger.warning(
+            "bigquery-usage project_id option is deprecated; use projects instead"
+        )
+        values["projects"] = [v]
+        return None
 
 
 @dataclass
@@ -233,20 +256,10 @@ class BigQueryUsageSource(Source):
     config: BigQueryUsageConfig
     report: BigQueryUsageSourceReport
 
-    client: GCPLoggingClient
-
     def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config = config
         self.report = BigQueryUsageSourceReport()
-
-        client_options = self.config.extra_client_options.copy()
-        if self.config.project_id is not None:
-            client_options["project"] = self.config.project_id
-
-        # See https://github.com/googleapis/google-cloud-python/issues/2674 for
-        # why we disable gRPC here.
-        self.client = GCPLoggingClient(**client_options, _use_grpc=False)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigQueryUsageSource":
@@ -254,7 +267,8 @@ class BigQueryUsageSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[UsageStatsWorkUnit]:
-        bigquery_log_entries = self._get_bigquery_log_entries()
+        clients = self._make_bigquery_clients()
+        bigquery_log_entries = self._get_bigquery_log_entries(clients)
         parsed_events = self._parse_bigquery_log_entries(bigquery_log_entries)
         hydrated_read_events = self._join_events_by_job_id(parsed_events)
         aggregated_info = self._aggregate_enriched_read_events(hydrated_read_events)
@@ -265,15 +279,49 @@ class BigQueryUsageSource(Source):
                 self.report.report_workunit(wu)
                 yield wu
 
-    def _get_bigquery_log_entries(self) -> Iterable[AuditLogEntry]:
+    def _make_bigquery_clients(self) -> List[GCPLoggingClient]:
+        # See https://github.com/googleapis/google-cloud-python/issues/2674 for
+        # why we disable gRPC here.
+        client_options = self.config.extra_client_options.copy()
+        client_options["_use_grpc"] = False
+        if self.config.projects is None:
+            return [
+                GCPLoggingClient(**client_options),
+            ]
+        else:
+            return [
+                GCPLoggingClient(**client_options, project=project_id)
+                for project_id in self.config.projects
+            ]
+
+    def _get_bigquery_log_entries(
+        self, clients: List[GCPLoggingClient]
+    ) -> Iterable[AuditLogEntry]:
+        # We adjust the filter values a bit, since we need to make sure that the join
+        # between query events and read events is complete. For example, this helps us
+        # handle the case where the read happens within our time range but the query
+        # completion event is delayed and happens after the configured end time.
         filter = BQ_FILTER_RULE_TEMPLATE.format(
-            start_time=self.config.start_time.strftime(BQ_DATETIME_FORMAT),
-            end_time=self.config.end_time.strftime(BQ_DATETIME_FORMAT),
+            start_time=(
+                self.config.start_time - self.config.max_query_duration
+            ).strftime(BQ_DATETIME_FORMAT),
+            end_time=(self.config.end_time + self.config.max_query_duration).strftime(
+                BQ_DATETIME_FORMAT
+            ),
         )
+
+        def get_entry_timestamp(entry: AuditLogEntry) -> datetime:
+            return entry.timestamp
 
         entry: AuditLogEntry
         for i, entry in enumerate(
-            self.client.list_entries(filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE)
+            heapq.merge(
+                *(
+                    client.list_entries(filter_=filter, page_size=GCP_LOGGING_PAGE_SIZE)
+                    for client in clients
+                ),
+                key=get_entry_timestamp,
+            )
         ):
             if i == 0:
                 logger.debug("starting log load from BigQuery")
@@ -300,11 +348,13 @@ class BigQueryUsageSource(Source):
     def _join_events_by_job_id(
         self, events: Iterable[Union[ReadEvent, QueryEvent]]
     ) -> Iterable[ReadEvent]:
-        # We only store the most recently used query events, which are used when
-        # resolving job information within the read events.
-        query_jobs: cachetools.LRUCache[str, QueryEvent] = cachetools.LRUCache(
-            maxsize=2 * self.config.query_log_delay
-        )
+        # If caching eviction is enabled, we only store the most recently used query events,
+        # which are used when resolving job information within the read events.
+        query_jobs: MutableMapping[str, QueryEvent]
+        if self.config.query_log_delay:
+            query_jobs = cachetools.LRUCache(maxsize=5 * self.config.query_log_delay)
+        else:
+            query_jobs = {}
 
         def event_processor(
             events: Iterable[Union[ReadEvent, QueryEvent]]
@@ -318,13 +368,20 @@ class BigQueryUsageSource(Source):
         # TRICKY: To account for the possibility that the query event arrives after
         # the read event in the audit logs, we wait for at least `query_log_delay`
         # additional events to be processed before attempting to resolve BigQuery
-        # job information from the logs.
+        # job information from the logs. If `query_log_delay` is None, it gets treated
+        # as an unlimited delay, which prioritizes correctness at the expense of memory usage.
         original_read_events = event_processor(events)
         delayed_read_events = delayed_iter(
             original_read_events, self.config.query_log_delay
         )
 
         for event in delayed_read_events:
+            if (
+                event.timestamp < self.config.start_time
+                or event.timestamp >= self.config.end_time
+            ):
+                continue
+
             if event.jobName:
                 if event.jobName in query_jobs:
                     # Join the query log event into the table read log event.
@@ -333,8 +390,8 @@ class BigQueryUsageSource(Source):
                     # TODO also join into the query itself for column references
                 else:
                     self.report.report_warning(
-                        "<general>",
-                        "failed to match table read event with job; try increasing `query_log_delay`",
+                        str(event.resource),
+                        "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
 
             yield event

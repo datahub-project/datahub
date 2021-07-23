@@ -97,8 +97,8 @@ plugins: Dict[str, Set[str]] = {
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
-    "snowflake": sql_common | {"snowflake-sqlalchemy"},
-    "snowflake-usage": sql_common | {"snowflake-sqlalchemy"},
+    "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
+    "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "superset": {"requests"},
 }
 
@@ -148,15 +148,10 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
-            "mysql",
-            "mssql",
-            "mongodb",
-            "feast",
-            "ldap",
             "looker",
             "glue",
-            "hive",
             "oracle",
+            "postgres",
             "sagemaker",
             "datahub-kafka",
             "datahub-rest",
@@ -174,15 +169,30 @@ if is_py37_or_newer:
 
 dev_requirements = {
     *base_dev_requirements,
-    "apache-airflow==1.10.15",
-    "apache-airflow-backport-providers-snowflake",  # Used in the example DAGs.
+    "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
 }
-dev_requirements_airflow_2 = {
+dev_requirements_airflow_1 = {
     *base_dev_requirements,
-    "apache-airflow>=2.0.2",
-    "apache-airflow-providers-snowflake",
+    "apache-airflow==1.10.15",
+    "apache-airflow-backport-providers-snowflake",
 }
 
+full_test_dev_requirements = {
+    *list(
+        dependency
+        for plugin in [
+            "druid",
+            "feast",
+            "hive",
+            "ldap",
+            "mongodb",
+            "mssql",
+            "mysql",
+            "snowflake",
+        ]
+        for dependency in plugins[plugin]
+    ),
+}
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
@@ -233,7 +243,6 @@ setuptools.setup(
         "Source": "https://github.com/linkedin/datahub",
         "Changelog": "https://github.com/linkedin/datahub/releases",
     },
-    author="DataHub Committers",
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",
     long_description=get_long_description(),
@@ -287,6 +296,7 @@ setuptools.setup(
             )
         ),
         "dev": list(dev_requirements),
-        "dev-airflow2": list(dev_requirements_airflow_2),
+        "dev-airflow1": list(dev_requirements_airflow_1),
+        "integration-tests": list(full_test_dev_requirements),
     },
 )

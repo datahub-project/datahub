@@ -172,7 +172,7 @@ services:
     - 2181:2181
     volumes:
     - zkdata:/var/opt/zookeeper
-version: '2'
+version: '2.3'
 volumes:
   esdata: null
   mysqldata: null

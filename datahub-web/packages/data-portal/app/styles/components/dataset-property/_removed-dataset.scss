@@ -1,9 +1,0 @@
-.removed-dataset {
-  @include tag(get-color(red8), get-color(white));
-  line-height: item-spacing(5);
-
-  &--small {
-    font-size: fs(small);
-    line-height: 18px;
-  }
-}

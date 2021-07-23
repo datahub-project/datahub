@@ -92,7 +92,8 @@ We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linke
 _Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly._
 
 ```shell
-./scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
+# Assumes the DataHub repo is cloned locally.
+./metadata-ingestion/scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
 
 ### Install from source
@@ -313,6 +314,7 @@ Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
 - Also supports PostGIS extensions
+- database_alias (optional) can be used to change the name of database to be ingested
 
 ```yml
 source:
@@ -322,6 +324,7 @@ source:
     password: pass
     host_port: localhost:5432
     database: DemoDatabase
+    database_alias: DatabaseNameToBeIngested
     include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
@@ -372,7 +375,8 @@ source:
 
 Extracts:
 
-- Feature groups (support for models, jobs, and more coming soon!)
+- Feature groups
+- Models, jobs, and lineage between the two (e.g. when jobs output a model or a model is used by a job)
 
 ```yml
 source:
@@ -549,7 +553,6 @@ source:
     # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
     # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
     work_group: athena_workgroup # "primary"
-    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
 
@@ -722,19 +725,20 @@ Extracts:
 - Looker dashboards and dashboard elements (charts)
 - Names, descriptions, URLs, chart types, input view for the charts
 
+See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
+
 ```yml
 source:
   type: "looker"
   config:
-    client_id: str # Your Looker API client ID. As your Looker admin
-    client_secret: str # Your Looker API client secret. As your Looker admin
+    client_id: str # Your Looker API3 client ID
+    client_secret: str # Your Looker API3 client secret
     base_url: str # The url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
-    platform_name: str = "looker" # Optional, default is "looker"
-    view_platform_name: str = "looker_views" # Optional, default is "looker_views". Should be the same `platform_name` in the `lookml` source, if that source is also run.
-    actor: str = "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
     dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    actor: str = "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
     env: str = "PROD" # Optional, default is "PROD"
+    platform_name: str = "looker" # Optional, default is "looker"
 ```
 
 ### File `file`
@@ -795,7 +799,7 @@ Note: when `load_schemas` is False, models that use [identifiers](https://docs.g
 - Fetch a list of tables and columns accessed
 - Aggregate these statistics into buckets, by day or hour granularity
 
-Note: the client must have one of the following OAuth scopes:
+Note: the client must have one of the following OAuth scopes, and should be authorized on all projects you'd like to ingest usage stats from.
 
 - https://www.googleapis.com/auth/logging.read
 - https://www.googleapis.com/auth/logging.admin
@@ -806,7 +810,9 @@ Note: the client must have one of the following OAuth scopes:
 source:
   type: bigquery-usage
   config:
-    project_id: project # optional - can autodetect from environment
+    projects: # optional - can autodetect a single project from the environment
+      - project_id_1
+      - project_id_2
     options:
       # See https://googleapis.dev/python/logging/latest/client.html for details.
       credentials: ~ # optional - see docs

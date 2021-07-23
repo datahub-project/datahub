@@ -68,6 +68,7 @@ class DBTNode:
     database: str
     schema: str
     name: str  # name, identifier
+    comment: str
 
     datahub_urn: str
 
@@ -82,6 +83,8 @@ class DBTNode:
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_urns: List[str] = field(default_factory=list)
+
+    meta: Dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self):
         fields = tuple("{}={}".format(k, v) for k, v in self.__dict__.items())
@@ -130,6 +133,16 @@ def extract_dbt_entities(
         if "identifier" in node and not load_catalog:
             name = node["identifier"]
 
+        if node.get("alias") is not None:
+            name = node["alias"]
+
+        comment = key
+
+        if key in all_catalog_entities and all_catalog_entities[key]["metadata"].get(
+            "comment"
+        ):
+            comment = all_catalog_entities[key]["metadata"]["comment"]
+
         materialization = None
         upstream_urns = []
 
@@ -151,7 +164,7 @@ def extract_dbt_entities(
         if catalog_node is None:
             report.report_warning(
                 key,
-                f"Entity {name} is in manifest but missing from catalog",
+                f"Entity {key} ({name}) is in manifest but missing from catalog",
             )
 
         else:
@@ -166,6 +179,7 @@ def extract_dbt_entities(
             node_type=node["resource_type"],
             max_loaded_at=sources_by_id.get(key, {}).get("max_loaded_at"),
             name=name,
+            comment=comment,
             upstream_urns=upstream_urns,
             materialization=materialization,
             catalog_type=catalog_type,
@@ -177,6 +191,7 @@ def extract_dbt_entities(
                 target_platform,
                 environment,
             ),
+            meta=node.get("meta", {}),
         )
 
         # overwrite columns from catalog
@@ -259,8 +274,11 @@ def get_urn_from_dbtNode(
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 
-    custom_properties = {}
+    # initialize custom properties to node's meta props
+    # (dbt-native node properties)
+    custom_properties = node.meta
 
+    # additional node attributes to extract to custom properties
     node_attributes = ["node_type", "materialization", "dbt_file_path", "catalog_type"]
 
     for attribute in node_attributes:
@@ -268,6 +286,8 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 
         if node_attribute_value is not None:
             custom_properties[attribute] = node_attribute_value
+
+    custom_properties = {key: str(value) for key, value in custom_properties.items()}
 
     return custom_properties
 
@@ -287,6 +307,9 @@ def get_upstreams(
             name = all_nodes[upstream]["identifier"]
         else:
             name = all_nodes[upstream]["name"]
+
+        if "alias" in all_nodes[upstream]:
+            name = all_nodes[upstream]["alias"]
 
         upstream_urns.append(
             get_urn_from_dbtNode(
@@ -424,7 +447,7 @@ class DBTSource(Source):
             )
 
             dbt_properties = DatasetPropertiesClass(
-                description=node.dbt_name,
+                description=node.comment,
                 customProperties=get_custom_properties(node),
                 tags=[],
             )

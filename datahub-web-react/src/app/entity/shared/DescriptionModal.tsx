@@ -29,7 +29,7 @@ type Props = {
 };
 
 export default function UpdateDescriptionModal({ title, description, original, onClose, onSubmit, isAddDesc }: Props) {
-    const [updatedDesc, setDesc] = useState(description || description === '' ? description : original);
+    const [updatedDesc, setDesc] = useState(description || original);
 
     return (
         <Modal
