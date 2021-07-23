@@ -27,7 +27,7 @@ def get_sys_time() -> int:
     return int(time.time() * 1000)
 
 
-def _check_data_platform_name(platform_name: str):
+def _check_data_platform_name(platform_name: str) -> None:
     if not platform_name.isalpha():
         logger.warning(f"improperly formatted data platform: {platform_name}")
 
