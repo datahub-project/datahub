@@ -73,69 +73,11 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @Override
   protected GraphService getGraphService() {
-    return new WaitOnWriteGraphService(_client, Duration.ofSeconds(5));
-  }
-}
-
-class WaitOnWriteGraphService implements GraphService {
-
-  private final GraphService _service;
-  private final Duration _duration;
-
-  public WaitOnWriteGraphService(GraphService service, Duration duration) {
-    _service = service;
-    _duration = duration;
-  }
-
-  private void waitDuration() {
-    try {
-      TimeUnit.SECONDS.sleep(_duration.getSeconds());
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
+    return _client;
   }
 
   @Override
-  public void addEdge(Edge edge) {
-    _service.addEdge(edge);
-    waitDuration();
-  }
-
-  @Nonnull
-  @Override
-  public List<String> findRelatedUrns(@Nullable String sourceType, @Nonnull Filter sourceEntityFilter,
-                                      @Nullable String destinationType, @Nonnull Filter destinationEntityFilter,
-                                      @Nonnull List<String> relationshipTypes, @Nonnull RelationshipFilter relationshipFilter,
-                                      int offset, int count) {
-    return _service.findRelatedUrns(
-            sourceType, sourceEntityFilter,
-            destinationType, destinationEntityFilter,
-            relationshipTypes, relationshipFilter,
-            offset, count
-    );
-  }
-
-  @Override
-  public void removeNode(@Nonnull Urn urn) {
-    _service.removeNode(urn);
-    waitDuration();
-  }
-
-  @Override
-  public void removeEdgesFromNode(@Nonnull Urn urn, @Nonnull List<String> relationshipTypes, @Nonnull RelationshipFilter relationshipFilter) {
-    _service.removeEdgesFromNode(urn, relationshipTypes, relationshipFilter);
-    waitDuration();
-  }
-
-  @Override
-  public void configure() {
-    _service.configure();
-    waitDuration();
-  }
-
-  @Override
-  public void clear() {
-    _service.clear();
-    waitDuration();
+  protected void syncAfterWrite() throws Exception {
+    TimeUnit.SECONDS.sleep(5);
   }
 }

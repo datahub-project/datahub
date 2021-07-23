@@ -29,4 +29,8 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   protected GraphService getGraphService() {
     return _client;
   }
+
+  @Override
+  protected void syncAfterWrite() { }
+
 }

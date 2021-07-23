@@ -15,7 +15,8 @@ import static org.testng.Assert.assertEquals;
 
 abstract public class GraphServiceTestBase {
 
-  abstract protected GraphService getGraphService();
+  abstract protected GraphService getGraphService() throws Exception;
+  abstract protected void syncAfterWrite() throws Exception;
 
   @Test
   public void testAddEdge() throws Exception {
@@ -27,6 +28,7 @@ abstract public class GraphServiceTestBase {
         "DownstreamOf");
 
     client.addEdge(edge1);
+    syncAfterWrite();
 
     List<String> edgeTypes = new ArrayList<>();
     edgeTypes.add("DownstreamOf");
@@ -57,6 +59,7 @@ abstract public class GraphServiceTestBase {
         "DownstreamOf");
 
     client.addEdge(edge1);
+    syncAfterWrite();
 
     List<String> edgeTypes = new ArrayList<>();
     edgeTypes.add("DownstreamOf");
@@ -87,6 +90,7 @@ abstract public class GraphServiceTestBase {
         "DownstreamOf");
 
     client.addEdge(edge1);
+    syncAfterWrite();
 
     List<String> edgeTypes = new ArrayList<>();
     edgeTypes.add("DownstreamOf");
@@ -110,6 +114,7 @@ abstract public class GraphServiceTestBase {
         "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
         edgeTypes,
         relationshipFilter);
+    syncAfterWrite();
 
     List<String> relatedUrnsPostDelete = client.findRelatedUrns(
         "",
