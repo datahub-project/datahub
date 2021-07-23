@@ -328,8 +328,6 @@ public class EbeanEntityService extends EntityService {
 
     Urn entityUrn = metadataChangeProposal.getEntityKey().getUrn();
 
-    _entityDao.isNew(entityUrn.toString());
-
     AspectSpec aspectSpec = entitySpec.getAspectSpec(metadataChangeProposal.getAspectName());
 
     if (aspectSpec == null) {

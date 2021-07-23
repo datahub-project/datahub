@@ -105,11 +105,6 @@ public class EbeanAspectDao {
     }
   }
 
-  public boolean isNew(@Nonnull final String urn) {
-    return !_server.createSqlQuery(String.format("select urn from metadata_aspect_v2 where urn = “%s” limit 1", urn)).findOneOrEmpty().isPresent();
-//    return !_server.find(EbeanAspectV2.class).where().eq(EbeanAspectV2.URN_COLUMN, urn).exists();
-  }
-
   public long saveLatestAspect(
       @Nonnull final String urn,
       @Nonnull final String aspectName,
