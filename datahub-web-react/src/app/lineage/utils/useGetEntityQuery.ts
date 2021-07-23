@@ -128,6 +128,7 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
                 break;
             case EntityType.MlmodelGroup:
                 returnData = allResults[EntityType.MlmodelGroup]?.data?.mlModelGroup;
+                console.log('test', returnData);
                 if (returnData) {
                     return {
                         entity: returnData,
