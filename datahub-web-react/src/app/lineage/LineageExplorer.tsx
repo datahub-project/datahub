@@ -42,7 +42,6 @@ export default function LineageExplorer({ urn, type }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const { loading, error, data } = useGetEntityQuery(urn, type);
-
     const { getAsyncEntity, asyncData } = useLazyGetEntityQuery();
 
     const [isDrawerVisible, setIsDrawVisible] = useState(false);
@@ -51,13 +50,9 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     const maybeAddAsyncLoadedEntity = useCallback(
         (entityAndType: EntityAndType) => {
-            console.log('maybeAdd', entityAndType);
             if (entityAndType?.entity.urn && !asyncEntities[entityAndType?.entity.urn]?.fullyFetched) {
                 // record that we have added this entity
                 let newAsyncEntities = extendAsyncEntities(asyncEntities, entityRegistry, entityAndType, true);
-                console.log('----');
-                console.log(getChildren(entityAndType, Direction.Downstream));
-                console.log(getChildren(entityAndType, Direction.Upstream));
 
                 // add the partially fetched downstream & upstream datasets
                 getChildren(entityAndType, Direction.Downstream).forEach((downstream) => {
@@ -84,8 +79,6 @@ export default function LineageExplorer({ urn, type }: Props) {
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
-
-    console.log(data);
 
     return (
         <>
