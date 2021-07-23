@@ -420,12 +420,13 @@ source:
     password: pass
     host_port: account_name
     database_pattern:
+      # The escaping of the $ symbol helps us skip the environment variable substitution.
       allow:
-        - ^regex$
-        - ^another_regex$
+        - ^MY_DEMO_DATA.*
+        - ^ANOTHER_DB_REGEX
       deny:
-        - ^SNOWFLAKE$
-        - ^SNOWFLAKE_SAMPLE_DATA$
+        - ^SNOWFLAKE\$
+        - ^SNOWFLAKE_SAMPLE_DATA\$
     warehouse: "COMPUTE_WH" # optional
     role: "sysadmin" # optional
     include_views: True # whether to include views, defaults to True
