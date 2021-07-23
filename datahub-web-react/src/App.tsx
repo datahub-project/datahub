@@ -70,9 +70,24 @@ const client = new ApolloClient({
             MLFeatureTable: {
                 keyFields: ['urn'],
             },
+            MLModel: {
+                keyFields: ['urn'],
+            },
+            MLModelGroup: {
+                keyFields: ['urn'],
+            },
         },
         possibleTypes: {
-            EntityWithRelationships: ['Dataset', 'Chart', 'Dashboard', 'DataJob', 'MLFeature', 'MLPrimaryKey'],
+            EntityWithRelationships: [
+                'Dataset',
+                'Chart',
+                'Dashboard',
+                'DataJob',
+                'MLFeature',
+                'MLPrimaryKey',
+                'MLModel',
+                'MLModelGroup',
+            ],
         },
     }),
     credentials: 'include',
