@@ -212,6 +212,20 @@ query getSearchResults($input: SearchInput!) {
                         }
                     }
                 }
+                ... on MLModelGroup {
+                    name
+                    origin
+                    description
+                    ownership {
+                        ...ownershipFields
+                    }
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
+                    }
+                }
             }
             matchedFields {
                 name
