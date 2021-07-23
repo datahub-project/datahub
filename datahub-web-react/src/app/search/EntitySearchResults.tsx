@@ -147,7 +147,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
             <Typography.Paragraph style={styles.resultSummary}>
                 Showing{' '}
                 <b>
-                    {(page - 1) * pageSize} - {lastResultIndex}
+                    {(page - 1) * pageSize + 1} - {lastResultIndex}
                 </b>{' '}
                 of <b>{totalResults}</b> results
             </Typography.Paragraph>

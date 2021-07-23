@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { Affix, Tabs } from 'antd';
@@ -48,6 +48,8 @@ export const SearchPage = () => {
     const entityRegistry = useEntityRegistry();
     const searchTypes = entityRegistry.getSearchEntityTypes();
 
+    const [resultCounts, setResultCounts] = useState<Record<string, number> | undefined>();
+
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = params.query ? (params.query as string) : '';
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
@@ -85,6 +87,11 @@ export const SearchPage = () => {
         navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history, entityRegistry });
     };
 
+    const filteredSearchTypes =
+        resultCounts && Object.keys(resultCounts).length > 0
+            ? searchTypes.filter((type) => !!resultCounts[type] && resultCounts[type] > 0)
+            : [];
+
     return (
         <SearchablePage initialQuery={query} onSearch={onSearch}>
             <Affix offsetTop={80}>
@@ -94,12 +101,14 @@ export const SearchPage = () => {
                     onChange={onChangeSearchType}
                 >
                     <Tabs.TabPane tab={<StyledTab>All</StyledTab>} key={ALL_ENTITIES_TAB_NAME} />
-                    {searchTypes.map((t) => (
+                    {filteredSearchTypes.map((t) => (
                         <Tabs.TabPane
                             tab={
                                 <>
                                     {entityRegistry.getIcon(t, 16, IconStyleType.TAB_VIEW)}
-                                    <StyledTab>{entityRegistry.getCollectionName(t)}</StyledTab>
+                                    <StyledTab>{`${entityRegistry.getCollectionName(t)}${
+                                        resultCounts ? ` (${resultCounts[t]})` : ''
+                                    }`}</StyledTab>
                                 </>
                             }
                             key={entityRegistry.getCollectionName(t)}
@@ -117,7 +126,7 @@ export const SearchPage = () => {
                     onChangePage={onChangePage}
                 />
             ) : (
-                <AllEntitiesSearchResults query={query} />
+                <AllEntitiesSearchResults query={query} setResultCounts={setResultCounts} />
             )}
         </SearchablePage>
     );

@@ -11,12 +11,13 @@ interface Props {
 }
 
 export const SearchResults = ({ typeName, pageStart, pageSize, totalResults, results, onChangePage }: Props) => {
+    console.log('pageStart * pageSize + 1', pageStart * pageSize + 1);
     return (
         <Card
             title={<h1 style={{ marginBottom: '0px' }}>{typeName}</h1>}
             extra={
                 <div style={{ color: 'grey' }}>
-                    Showing {pageStart * pageSize} - {pageStart * pageSize + pageSize} of {totalResults} results
+                    Showing {pageStart * pageSize + 1} - {pageStart * pageSize + pageSize} of {totalResults} results
                 </div>
             }
         >

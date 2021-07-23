@@ -4,14 +4,16 @@ import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAl
 import { Message } from '../shared/Message';
 import { EntityGroupSearchResults } from './EntityGroupSearchResults';
 import analytics, { EventType } from '../analytics';
+import { EntityType } from '../../types.generated';
 
 interface Props {
     query: string;
+    setResultCounts: (v: Record<string, number>) => void;
 }
 
 const RESULTS_PER_GROUP = 3;
 
-export const AllEntitiesSearchResults = ({ query }: Props) => {
+export const AllEntitiesSearchResults = ({ query, setResultCounts }: Props) => {
     const allSearchResultsByType = useGetAllEntitySearchResults({
         query,
         start: 0,
@@ -41,13 +43,17 @@ export const AllEntitiesSearchResults = ({ query }: Props) => {
     useEffect(() => {
         if (!loading) {
             let resultCount = 0;
+            const resultCounts: Record<string, number> = { [EntityType.Dataset]: 0 };
             Object.keys(allSearchResultsByType).forEach((key) => {
                 if (allSearchResultsByType[key].loading) {
                     resultCount += 0;
                 } else {
                     resultCount += allSearchResultsByType[key].data?.search?.total;
+                    resultCounts[key as EntityType] = allSearchResultsByType[key].data?.search?.total || 0;
                 }
             });
+
+            setResultCounts(resultCounts);
 
             analytics.event({
                 type: EventType.SearchResultsViewEvent,
@@ -55,7 +61,7 @@ export const AllEntitiesSearchResults = ({ query }: Props) => {
                 total: resultCount,
             });
         }
-    }, [query, allSearchResultsByType, loading]);
+    }, [query, allSearchResultsByType, loading, setResultCounts]);
 
     return (
         <>
