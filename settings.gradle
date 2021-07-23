@@ -37,5 +37,3 @@ include 'entity-registry'
 include 'datahub-upgrade'
 include 'test-models'
 include 'metadata-perf'
-
-startParameter.excludedTaskNames << ':datahub-web:build'
