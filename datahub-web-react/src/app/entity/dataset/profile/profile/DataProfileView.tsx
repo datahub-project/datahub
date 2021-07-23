@@ -18,10 +18,16 @@ export default function DataProfileView({ profile }: Props) {
                 max: doc.max,
                 mean: doc.mean,
                 median: doc.median,
-                nullCount: doc.nullCount && doc.nullCount.toString(),
-                nullPercentage: doc.nullProportion ? `${(doc.nullProportion * 100).toFixed()}%` : undefined,
-                distinctCount: (doc.uniqueCount && doc.uniqueCount.toString()) || undefined,
-                distinctPercentage: doc.uniqueProportion ? `${(doc.uniqueProportion * 100).toFixed()}%` : undefined,
+                nullCount: doc.nullCount !== undefined && doc.nullCount !== null && doc.nullCount.toString(),
+                nullPercentage:
+                    doc.nullProportion !== undefined && doc.nullProportion !== null
+                        ? `${(doc.nullProportion * 100).toFixed()}%`
+                        : undefined,
+                distinctCount: doc.uniqueCount !== undefined && doc.uniqueCount !== null && doc.uniqueCount.toString(),
+                distinctPercentage:
+                    doc.uniqueProportion !== undefined && doc.uniqueProportion !== null
+                        ? `${(doc.uniqueProportion * 100).toFixed()}%`
+                        : undefined,
                 sampleValues: doc.sampleValues || [],
             })),
         [profile],
