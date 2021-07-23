@@ -705,12 +705,12 @@ source:
     base_folder: /path/to/model/files # where the *.model.lkml and *.view.lkml files are stored
     connection_to_platform_map: # mappings between connection names in the model files to platform names
       connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
-    platform_name: "looker" # optional, default is "looker"
     actor: "urn:li:corpuser:etl" # optional, default is "urn:li:corpuser:etl"
     model_pattern: {}
     view_pattern: {}
     env: "PROD" # optional, default is "PROD"
     parse_table_names_from_sql: False # see note below
+    platform_name: "looker" # optional, default is "looker"
 ```
 
 Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
@@ -731,14 +731,14 @@ See the [Looker authentication docs](https://docs.looker.com/reference/api-and-i
 source:
   type: "looker"
   config:
-    client_id: str # Your Looker API3 client ID
-    client_secret: str # Your Looker API3 client secret
-    base_url: str # The url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
-    dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    actor: str = "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
-    env: str = "PROD" # Optional, default is "PROD"
-    platform_name: str = "looker" # Optional, default is "looker"
+    client_id: # Your Looker API3 client ID
+    client_secret: # Your Looker API3 client secret
+    base_url: # The url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
+    dashboard_pattern: # supports allow/deny regexes
+    chart_pattern: # supports allow/deny regexes
+    actor: urn:li:corpuser:etl # Optional, defaults to urn:li:corpuser:etl
+    env: "PROD" # Optional, default is "PROD"
+    platform_name: "looker" # Optional, default is "looker"
 ```
 
 ### File `file`
