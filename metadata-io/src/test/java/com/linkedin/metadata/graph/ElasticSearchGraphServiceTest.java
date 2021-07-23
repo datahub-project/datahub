@@ -1,19 +1,13 @@
 package com.linkedin.metadata.graph;
 
 import com.linkedin.common.urn.Urn;
-
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
-import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipFilter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import javax.annotation.Nonnull;
 import org.apache.http.HttpHost;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.elasticsearch.client.RestClient;
@@ -23,13 +17,15 @@ import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
-import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.*;
-import static org.testng.Assert.*;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.net.URISyntaxException;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-
-public class ElasticSearchGraphServiceTest {
+public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   private ElasticsearchContainer _elasticsearchContainer;
   private RestHighLevelClient _searchClient;
@@ -80,108 +76,63 @@ public class ElasticSearchGraphServiceTest {
     _elasticsearchContainer.stop();
   }
 
-  @Test
-  public void testAddEdge() throws Exception {
-    Edge edge1 = new Edge(
-        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"),
-        "DownstreamOf");
+  @Override
+  protected GraphService getGraphService() {
+    return new WaitOnWriteGraphService(_client, Duration.ofSeconds(5));
+  }
+}
 
-    _client.addEdge(edge1);
-    TimeUnit.SECONDS.sleep(5);
+class WaitOnWriteGraphService implements GraphService {
 
-    List<String> edgeTypes = new ArrayList<>();
-    edgeTypes.add("DownstreamOf");
-    RelationshipFilter relationshipFilter = new RelationshipFilter();
-    relationshipFilter.setDirection(RelationshipDirection.OUTGOING);
-    relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
+  private final GraphService _service;
+  private final Duration _duration;
 
-    List<String> relatedUrns = _client.findRelatedUrns(
-        "",
-        newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-        "",
-        EMPTY_FILTER,
-        edgeTypes,
-        relationshipFilter,
-        0,
-        10);
-
-    assertEquals(relatedUrns.size(), 1);
+  public WaitOnWriteGraphService(GraphService service, Duration duration) {
+    _service = service;
+    _duration = duration;
   }
 
-  @Test
-  public void testAddEdgeReverse() throws Exception {
-    Edge edge1 = new Edge(
-        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"),
-        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-        "DownstreamOf");
-
-    _client.addEdge(edge1);
-    TimeUnit.SECONDS.sleep(5);
-
-    List<String> edgeTypes = new ArrayList<>();
-    edgeTypes.add("DownstreamOf");
-    RelationshipFilter relationshipFilter = new RelationshipFilter();
-    relationshipFilter.setDirection(RelationshipDirection.INCOMING);
-    relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
-
-    List<String> relatedUrns = _client.findRelatedUrns(
-        "",
-        newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-        "",
-        EMPTY_FILTER,
-        edgeTypes,
-        relationshipFilter,
-        0,
-        10);
-
-    assertEquals(relatedUrns.size(), 1);
+  private void wait_duration() {
+    try {
+      TimeUnit.SECONDS.sleep(_duration.getSeconds());
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
   }
 
-  @Test
-  public void testRemoveEdgesFromNode() throws Exception {
-    Edge edge1 = new Edge(
-        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"),
-        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-        "DownstreamOf");
+  @Override
+  public void addEdge(Edge edge) {
+    _service.addEdge(edge);
+    wait_duration();
+  }
 
-    _client.addEdge(edge1);
-    TimeUnit.SECONDS.sleep(5);
+  @Nonnull
+  @Override
+  public List<String> findRelatedUrns(@Nullable String sourceType, @Nonnull Filter sourceEntityFilter, @Nullable String destinationType, @Nonnull Filter destinationEntityFilter, @Nonnull List<String> relationshipTypes, @Nonnull RelationshipFilter relationshipFilter, int offset, int count) {
+    return _service.findRelatedUrns(sourceType, sourceEntityFilter, destinationType, destinationEntityFilter, relationshipTypes, relationshipFilter, offset, count);
+  }
 
-    List<String> edgeTypes = new ArrayList<>();
-    edgeTypes.add("DownstreamOf");
-    RelationshipFilter relationshipFilter = new RelationshipFilter();
-    relationshipFilter.setDirection(RelationshipDirection.INCOMING);
-    relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
+  @Override
+  public void removeNode(@Nonnull Urn urn) {
+    _service.removeNode(urn);
+    wait_duration();
+  }
 
-    List<String> relatedUrns = _client.findRelatedUrns(
-        "",
-        newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-        "",
-        EMPTY_FILTER,
-        edgeTypes,
-        relationshipFilter,
-        0,
-        10);
+  @Override
+  public void removeEdgesFromNode(@Nonnull Urn urn, @Nonnull List<String> relationshipTypes, @Nonnull RelationshipFilter relationshipFilter) {
+    _service.removeEdgesFromNode(urn, relationshipTypes, relationshipFilter);
+    wait_duration();
+  }
 
-    assertEquals(relatedUrns.size(), 1);
+  @Override
+  public void configure() {
+    _service.configure();
+    wait_duration();
+  }
 
-    _client.removeEdgesFromNode(Urn.createFromString(
-        "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-        edgeTypes,
-        relationshipFilter);
-    TimeUnit.SECONDS.sleep(5);
-
-    List<String> relatedUrnsPostDelete = _client.findRelatedUrns(
-        "",
-        newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-        "",
-        EMPTY_FILTER,
-        edgeTypes,
-        relationshipFilter,
-        0,
-        10);
-
-    assertEquals(relatedUrnsPostDelete.size(), 0);
+  @Override
+  public void clear() {
+    _service.clear();
+    wait_duration();
   }
 }
