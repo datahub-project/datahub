@@ -1,10 +1,9 @@
 import * as React from 'react';
 import { DotChartOutlined } from '@ant-design/icons';
-import { MlFeatureTable, EntityType, SearchResult, MlFeature, MlPrimaryKey, Dataset } from '../../../types.generated';
+import { MlFeatureTable, EntityType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { MLFeatureTableProfile } from './profile/MLFeatureTableProfile';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { notEmpty } from '../shared/utils';
 
 /**
  * Definition of the DataHub MLFeatureTable entity.
@@ -69,41 +68,11 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
     };
 
     getLineageVizConfig = (entity: MlFeatureTable) => {
-        const features: Array<MlFeature | MlPrimaryKey> =
-            entity.featureTableProperties &&
-            (entity.featureTableProperties?.mlFeatures || entity.featureTableProperties?.mlPrimaryKeys)
-                ? [
-                      ...(entity.featureTableProperties?.mlPrimaryKeys || []),
-                      ...(entity.featureTableProperties?.mlFeatures || []),
-                  ].filter(notEmpty)
-                : [];
-
-        const sources = features?.reduce((accumulator: Array<Dataset>, feature: MlFeature | MlPrimaryKey) => {
-            if (feature.__typename === 'MLFeature' && feature.featureProperties?.sources) {
-                // eslint-disable-next-line array-callback-return
-                feature.featureProperties?.sources.map((source: Dataset | null) => {
-                    if (source && accumulator.findIndex((dataset) => dataset.urn === source?.urn) === -1) {
-                        accumulator.push(source);
-                    }
-                });
-            } else if (feature.__typename === 'MLPrimaryKey' && feature.primaryKeyProperties?.sources) {
-                // eslint-disable-next-line array-callback-return
-                feature.primaryKeyProperties?.sources.map((source: Dataset | null) => {
-                    if (source && accumulator.findIndex((dataset) => dataset.urn === source?.urn) === -1) {
-                        accumulator.push(source);
-                    }
-                });
-            }
-            return accumulator;
-        }, []);
-
-        console.log('sources', sources);
-
         return {
             urn: entity.urn,
             name: entity.name,
             type: EntityType.MlfeatureTable,
-            upstreamChildren: sources.map((source) => source.urn),
+            upstreamChildren: [],
             downstreamChildren: [],
             icon: entity.platform.info?.logoUrl || undefined,
             platform: entity.platform.name,

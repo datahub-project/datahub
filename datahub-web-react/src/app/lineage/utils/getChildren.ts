@@ -1,52 +1,14 @@
 import { Direction, EntityAndType } from '../types';
-import { Dataset, EntityType, MlFeature, MlPrimaryKey } from '../../../types.generated';
-import { notEmpty } from '../../entity/shared/utils';
+import { EntityType } from '../../../types.generated';
 
 export default function getChildren(entityAndType: EntityAndType, direction: Direction | null): Array<EntityAndType> {
     if (direction === Direction.Upstream) {
-        if (entityAndType.type === EntityType.Mlfeature || entityAndType.type === EntityType.MlprimaryKey) {
+        if (
+            entityAndType.type === EntityType.Mlfeature ||
+            entityAndType.type === EntityType.MlprimaryKey ||
+            entityAndType.type === EntityType.MlfeatureTable
+        ) {
             return [];
-        }
-
-        if (entityAndType.type === EntityType.MlfeatureTable) {
-            const { entity: featureTable } = entityAndType;
-            const features: Array<MlFeature | MlPrimaryKey> =
-                featureTable.featureTableProperties &&
-                (featureTable.featureTableProperties?.mlFeatures || featureTable.featureTableProperties?.mlPrimaryKeys)
-                    ? [
-                          ...(featureTable.featureTableProperties?.mlPrimaryKeys || []),
-                          ...(featureTable.featureTableProperties?.mlFeatures || []),
-                      ].filter(notEmpty)
-                    : [];
-
-            const sources = features?.reduce((accumulator: Array<Dataset>, feature: MlFeature | MlPrimaryKey) => {
-                if (feature.__typename === 'MLFeature' && feature.featureProperties?.sources) {
-                    // eslint-disable-next-line array-callback-return
-                    feature.featureProperties?.sources.map((source: Dataset | null) => {
-                        if (source && accumulator.findIndex((dataset) => dataset.urn === source?.urn) === -1) {
-                            accumulator.push(source);
-                        }
-                    });
-                } else if (feature.__typename === 'MLPrimaryKey' && feature.primaryKeyProperties?.sources) {
-                    // eslint-disable-next-line array-callback-return
-                    feature.primaryKeyProperties?.sources.map((source: Dataset | null) => {
-                        if (source && accumulator.findIndex((dataset) => dataset.urn === source?.urn) === -1) {
-                            accumulator.push(source);
-                        }
-                    });
-                }
-                return accumulator;
-            }, []);
-
-            return (
-                sources.map(
-                    (entity) =>
-                        ({
-                            type: entity?.type,
-                            entity,
-                        } as EntityAndType),
-                ) || []
-            );
         }
 
         return (

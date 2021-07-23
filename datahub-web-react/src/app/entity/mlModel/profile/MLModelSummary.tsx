@@ -7,8 +7,6 @@ export type Props = {
 };
 
 export default function MLModelSummary({ model }: Props) {
-    console.log(model?.properties);
-
     const propertyTableColumns = [
         {
             title: 'Name',
