@@ -166,7 +166,7 @@ class DatahubGEProfiler:
         table_evrs: Iterable[ExpectationValidationResult],
         pretty_name: str,
     ) -> None:
-        # This method mutates the profile directly.
+        # TRICKY: This method mutates the profile directly.
 
         for evr in table_evrs:
             exp: str = evr.expectation_config.expectation_type
@@ -188,7 +188,8 @@ class DatahubGEProfiler:
         col_evrs: Iterable[ExpectationValidationResult],
         pretty_name: str,
     ) -> None:
-        # This method mutates the profile directly.
+        # TRICKY: This method mutates the profile directly.
+
         column_profile = DatasetFieldProfileClass(fieldPath=column)
 
         profile.fieldProfiles = profile.fieldProfiles or []
