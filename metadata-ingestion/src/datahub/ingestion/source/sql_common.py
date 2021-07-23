@@ -127,7 +127,7 @@ class SQLAlchemyConfig(ConfigModel):
     include_views: Optional[bool] = True
     include_tables: Optional[bool] = True
 
-    profiling: GEProfilingConfig
+    profiling: GEProfilingConfig = GEProfilingConfig()
 
     @abstractmethod
     def get_sql_alchemy_url(self):
