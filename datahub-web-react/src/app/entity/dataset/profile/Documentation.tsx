@@ -194,7 +194,7 @@ export default function Documentation({
             <Typography.Title level={3}>Documentation</Typography.Title>
             <Typography.Paragraph>Keep track of documentation about this Dataset.</Typography.Paragraph>
             <Form form={form} component={false}>
-                <Table pagination={false} columns={tableColumns} dataSource={tableData} />
+                <Table bordered pagination={false} columns={tableColumns} dataSource={tableData} />
             </Form>
             {authenticatedUserUrn && authenticatedUserUsername && editingIndex < 0 && (
                 <Button type="link" onClick={() => onAdd(authenticatedUserUrn, authenticatedUserUsername)}>
