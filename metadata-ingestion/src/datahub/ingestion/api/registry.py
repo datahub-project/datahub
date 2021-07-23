@@ -19,7 +19,10 @@ def import_key(key: str) -> Any:
 
 
 class Registry(Generic[T]):
-    _mapping: Dict[str, Union[Type[T], Exception]] = {}
+    _mapping: Dict[str, Union[Type[T], Exception]]
+
+    def __init__(self) -> None:
+        self._mapping = {}
 
     def _get_registered_type(self) -> Type[T]:
         cls = typing_inspect.get_generic_type(self)
