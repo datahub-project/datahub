@@ -101,7 +101,7 @@ class GlueSource(Source):
 
         return jobs
 
-    def get_dataflow_graph(self, script_path: str) -> Dict[str, Any]:
+    def get_dataflow_graph(self, script_path: str) -> Optional[Dict[str, Any]]:
         """
         Get the DAG of transforms and data sources/sinks for a job.
 
@@ -121,9 +121,20 @@ class GlueSource(Source):
         obj = self.s3_client.get_object(Bucket=bucket, Key=key)
         script = obj["Body"].read().decode("utf-8")
 
-        # extract the job DAG from the script
-        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_dataflow_graph
-        return self.glue_client.get_dataflow_graph(PythonScript=script)
+        try:
+            # extract the job DAG from the script
+            # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_dataflow_graph
+            return self.glue_client.get_dataflow_graph(PythonScript=script)
+
+        # sometimes the Python script can be user-modified and the script is not valid for graph extraction
+        except self.glue_client.exceptions.InvalidInputException as e:
+
+            self.report.report_warning(
+                script_path,
+                f"Error parsing DAG for Glue job. The script {script_path} cannot be processed by Glue (this usually occurs when it has been user-modified): {e}",
+            )
+
+            return None
 
     def get_dataflow_s3_names(
         self, dataflow_graph: Dict[str, Any]
@@ -433,11 +444,15 @@ class GlueSource(Source):
             )
 
             for dag in dags.values():
-                for s3_name, extension in self.get_dataflow_s3_names(dag):
-                    s3_formats[s3_name].add(extension)
+                if dag is not None:
+                    for s3_name, extension in self.get_dataflow_s3_names(dag):
+                        s3_formats[s3_name].add(extension)
 
             # run second pass to generate node workunits
             for flow_urn, dag in dags.items():
+
+                if dag is None:
+                    continue
 
                 nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
                     dag, flow_urn, s3_formats
