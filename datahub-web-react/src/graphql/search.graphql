@@ -205,6 +205,12 @@ query getSearchResults($input: SearchInput!) {
                     ownership {
                         ...ownershipFields
                     }
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
+                    }
                 }
             }
             matchedFields {

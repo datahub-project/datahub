@@ -1,12 +1,9 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.MLModelGroupProperties;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import lombok.NonNull;
-
-import java.util.stream.Collectors;
 
 public class MLModelGroupPropertiesMapper implements ModelMapper<com.linkedin.ml.metadata.MLModelGroupProperties, MLModelGroupProperties> {
 
@@ -25,7 +22,6 @@ public class MLModelGroupPropertiesMapper implements ModelMapper<com.linkedin.ml
             result.setVersion(VersionTagMapper.map(mlModelGroupProperties.getVersion()));
         }
         result.setCreatedAt(mlModelGroupProperties.getCreatedAt());
-        result.setModels(mlModelGroupProperties.getModels().stream().map(Urn::toString).collect(Collectors.toList()));
 
         return result;
     }

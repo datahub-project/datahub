@@ -8,17 +8,19 @@ import { Message } from '../../../shared/Message';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType } from '../../../analytics';
-// import MLModelSummary from './summary/MLModelSummary';
-// import { notEmpty } from '../../shared/utils';
+import MLModelSummary from './MLModelSummary';
+import MLModelGroupsTab from './MLModelGroupsTab';
+import { Properties } from '../../shared/Properties';
 
-// import MlFeatureTableFeatures from './features/MlFeatureTableFeatures';
+const EMPTY_ARR: never[] = [];
 
 export enum TabType {
     Summary = 'Summary',
-    Versions = 'Versions',
+    Groups = 'Groups',
     Deployments = 'Deployments',
     Features = 'Features',
     Ownership = 'Ownership',
+    CustomProperties = 'Properties',
 }
 
 /**
@@ -33,35 +35,35 @@ export const MLModelProfile = ({ urn }: { urn: string }): JSX.Element => {
     }
     const getHeader = (mlModel: MlModel) => <MLModelHeader mlModel={mlModel} />;
 
-    const getTabs = ({ ownership }: MlModel) => {
+    const getTabs = (model: MlModel) => {
         return [
-            // {
-            //     name: TabType.Summary,
-            //     path: TabType.Summary.toLowerCase(),
-            //     content: <MLModelSummary features={features} />,
-            // },
-            // {
-            //     name: TabType.Versions,
-            //     path: TabType.Versions.toLowerCase(),
-            //     content: <SourcesView features={features} />,
-            // },
+            {
+                name: TabType.Summary,
+                path: TabType.Summary.toLowerCase(),
+                content: <MLModelSummary model={model} />,
+            },
+            {
+                name: TabType.Groups,
+                path: TabType.Groups.toLowerCase(),
+                content: <MLModelGroupsTab model={model} />,
+            },
+            {
+                name: TabType.CustomProperties,
+                path: TabType.CustomProperties.toLowerCase(),
+                content: <Properties properties={model?.properties?.customProperties || EMPTY_ARR} />,
+            },
             // {
             //     name: TabType.Deployments,
             //     path: TabType.Deployments.toLowerCase(),
             //     content: <SourcesView features={features} />,
-            // },
-            // {
-            //     name: TabType.Features,
-            //     path: TabType.Features.toLowerCase(),
-            //     content: <MlFeatureTableFeatures features={features} />,
             // },
             {
                 name: TabType.Ownership,
                 path: TabType.Ownership.toLowerCase(),
                 content: (
                     <OwnershipView
-                        owners={(ownership && ownership.owners) || []}
-                        lastModifiedAt={(ownership && ownership.lastModified?.time) || 0}
+                        owners={model?.ownership?.owners || []}
+                        lastModifiedAt={model?.ownership?.lastModified?.time || 0}
                     />
                 ),
             },

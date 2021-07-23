@@ -2060,8 +2060,7 @@ enum ChartQueryType {
     LOOKML
 }
 
-type MLModel implements Entity {
-
+type MLModel implements EntityWithRelationships & Entity {
     """
     The unique mlmodel URN
     """
@@ -2080,7 +2079,7 @@ type MLModel implements Entity {
     """
     Standardized platform urn where the MLModel is defined
     """
-    platform: DataPlatform
+    platform: DataPlatform!
 
     """
     Fabric type where mlmodel belongs to or where it was generated
@@ -2175,9 +2174,19 @@ type MLModel implements Entity {
     Deprecation
     """
     deprecation: Deprecation
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
 }
 
-type MLModelGroup implements Entity {
+type MLModelGroup implements EntityWithRelationships & Entity {
 
     """
     The unique mlmodel URN
@@ -2197,7 +2206,7 @@ type MLModelGroup implements Entity {
     """
     Standardized platform urn where the MLModelGroup is defined
     """
-    platform: DataPlatform
+    platform: DataPlatform!
 
     """
     Fabric type where MLModelGroup belongs to or where it was generated
@@ -2225,7 +2234,18 @@ type MLModelGroup implements Entity {
     Deprecation
     """
     deprecation: Deprecation
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
 }
+
 type MLModelGroupProperties {
 
     description: String
@@ -2233,9 +2253,8 @@ type MLModelGroupProperties {
     createdAt: Long
 
     version: VersionTag
-
-    models: [String!]
 }
+
 type MLFeature implements Entity {
 
     """
@@ -2294,6 +2313,26 @@ type MLFeature implements Entity {
     deprecation: Deprecation
 }
 
+type MLHyperParam {
+    name: String
+
+    description: String
+
+    value: String
+
+    createdAt: Long
+}
+
+type MLMetric {
+    name: String
+
+    description: String
+
+    value: String
+
+    createdAt: Long
+}
+
 type MLModelProperties {
 
     description: String
@@ -2306,14 +2345,22 @@ type MLModelProperties {
 
     hyperParameters: HyperParameterMap
 
+    hyperParams:  [MLHyperParam]
+
+    trainingMetrics: [MLMetric]
+
     mlFeatures: [String!]
 
     tags: [String!]
+
+    groups: [MLModelGroup]
+
+    customProperties: [StringMapEntry!]
 }
 
 type MLFeatureProperties {
 
-    description: String
+description: String
 
     dataType: MLFeatureDataType
 
@@ -2411,7 +2458,7 @@ type MLFeatureTable implements Entity {
     """
     Standardized platform urn where the MLFeatureTable is defined
     """
-    platform: DataPlatform
+    platform: DataPlatform!
 
     """
     MLFeatureTable description

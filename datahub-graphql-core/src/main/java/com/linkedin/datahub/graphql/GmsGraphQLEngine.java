@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
+import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
@@ -591,8 +592,17 @@ public class GmsGraphQLEngine {
      * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.MLFeatureTable} type.
      */
     private static void configureMLFeatureTableResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("MLModelProperties", typeWiring -> typeWiring
+            .dataFetcher("groups", new AuthenticatedResolver<>(
+                new LoadableTypeBatchResolver<>(
+                    ML_MODEL_GROUP_TYPE,
+                    (env) -> ((MLModelProperties) env.getSource()).getGroups().stream()
+                        .map(MLModelGroup::getUrn)
+                        .collect(Collectors.toList())))
+            )
+        );
         builder
-                .type("MLFeatureTable", typeWiring -> typeWiring
+            .type("MLFeatureTable", typeWiring -> typeWiring
                         .dataFetcher("platform", new AuthenticatedResolver<>(
                                 new LoadableTypeResolver<>(
                                         DATA_PLATFORM_TYPE,
@@ -645,6 +655,16 @@ public class GmsGraphQLEngine {
                                 new LoadableTypeResolver<>(
                                         DATA_PLATFORM_TYPE,
                                         (env) -> ((MLModelGroup) env.getSource()).getPlatform().getUrn()))
+                        )
+                        .dataFetcher("downstreamLineage", new AuthenticatedResolver<>(
+                            new LoadableTypeResolver<>(
+                                DOWNSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                        )
+                        .dataFetcher("upstreamLineage", new AuthenticatedResolver<>(
+                            new LoadableTypeResolver<>(
+                                UPSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
                         )
                 );
     }

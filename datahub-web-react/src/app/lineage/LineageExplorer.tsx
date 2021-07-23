@@ -42,6 +42,7 @@ export default function LineageExplorer({ urn, type }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const { loading, error, data } = useGetEntityQuery(urn, type);
+
     const { getAsyncEntity, asyncData } = useLazyGetEntityQuery();
 
     const [isDrawerVisible, setIsDrawVisible] = useState(false);

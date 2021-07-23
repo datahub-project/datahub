@@ -476,10 +476,6 @@ fragment nonRecursiveMLModel on MLModel {
             logoUrl
         }
     }
-    tags
-    globalTags {
-        ...globalTagsFields
-    }
     ownership {
         ...ownershipFields
     }
@@ -488,116 +484,46 @@ fragment nonRecursiveMLModel on MLModel {
         date
         version
         type
-        hyperParameters {
-            key
-            value {
-                ... on StringBox {
-                    stringValue
-                }
-                ... on IntBox {
-                    intValue
-                }
-                ... on FloatBox {
-                    floatValue
-                }
-                ... on BooleanBox {
-                    booleanValue
-                }
-            }
+        trainingMetrics {
+            name
+            description
+            value
+        }
+        hyperParams {
+            name
+            description
+            value
         }
         mlFeatures
-        tags
-    }
-    intendedUse {
-        primaryUses
-        primaryUsers
-        outOfScopeUses
-    }
-    factorPrompts {
-        relevantFactors {
-            groups
-            instrumentation
-            environment
-        }
-        evaluationFactors {
-            groups
-            instrumentation
-            environment
-        }
-    }
-    metrics {
-        performanceMeasures
-        decisionThreshold
-    }
-    evaluationData {
-        dataset
-        motivation
-        preProcessing
-    }
-    trainingData {
-        dataset
-        motivation
-        preProcessing
-    }
-    quantitativeAnalyses {
-        unitaryResults {
-            ... on StringBox {
-                stringValue
-            }
-        }
-        intersectionalResults {
-            ... on StringBox {
-                stringValue
-            }
-        }
-    }
-    ethicalConsiderations {
-        data
-        humanLife
-        mitigations
-        risksAndHarms
-        useCases
-    }
-    caveatsAndRecommendations {
-        caveats {
-            needsFurtherTesting
-            caveatDescription
-            groupsNotRepresented
-        }
-        recommendations
-        idealDatasetCharacteristics
-    }
-    institutionalMemory {
-        elements {
-            url
-            author {
-                urn
-                username
-            }
+        groups {
+            urn
+            name
             description
-            created {
-                actor
-                time
-            }
         }
-    }
-    sourceCode {
-        sourceCode {
-            type
-            sourceCodeUrl
-        }
-    }
-    status {
-        removed
-    }
-    cost {
-        costType
-        costValue {
-            costId
-            costCode
+        customProperties {
+            key
+            value
         }
     }
     globalTags {
         ...globalTagsFields
+    }
+}
+
+fragment nonRecursiveMLModelGroupFields on MLModelGroup {
+    urn
+    type
+    name
+    description
+    origin
+    platform {
+        name
+        info {
+            displayName
+            logoUrl
+        }
+    }
+    ownership {
+        ...ownershipFields
     }
 }

@@ -28,7 +28,7 @@ export type Props = {
     mlModel: MlModel;
 };
 
-export default function MLModelHeader({ mlModel: { description, ownership, platform } }: Props) {
+export default function MLModelHeader({ mlModel: { ownership, platform, properties } }: Props) {
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
 
@@ -57,7 +57,7 @@ export default function MLModelHeader({ mlModel: { description, ownership, platf
                         </HeaderInfoItem>
                     ) : null}
                 </Row>
-                <MarkdownViewer isCompact={isCompact} source={description || ''} />
+                <MarkdownViewer isCompact={isCompact} source={properties?.description || ''} />
                 <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
             </Space>
         </>

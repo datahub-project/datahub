@@ -8,6 +8,8 @@ import { useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
 import { useGetMlPrimaryKeyQuery } from '../../../graphql/mlPrimaryKey.generated';
 import { EntityType } from '../../../types.generated';
 import { EntityAndType } from '../types';
+import { useGetMlModelQuery } from '../../../graphql/mlModel.generated';
+import { useGetMlModelGroupQuery } from '../../../graphql/mlModelGroup.generated';
 
 export default function useGetEntityQuery(urn: string, entityType?: EntityType) {
     const allResults = {
@@ -38,6 +40,14 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         [EntityType.MlprimaryKey]: useGetMlPrimaryKeyQuery({
             variables: { urn },
             skip: entityType !== EntityType.MlprimaryKey,
+        }),
+        [EntityType.Mlmodel]: useGetMlModelQuery({
+            variables: { urn },
+            skip: entityType !== EntityType.Mlmodel,
+        }),
+        [EntityType.MlmodelGroup]: useGetMlModelGroupQuery({
+            variables: { urn },
+            skip: entityType !== EntityType.MlmodelGroup,
         }),
     };
 
@@ -107,6 +117,24 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
                     } as EntityAndType;
                 }
                 break;
+            case EntityType.Mlmodel:
+                returnData = allResults[EntityType.Mlmodel]?.data?.mlModel;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.Mlmodel,
+                    } as EntityAndType;
+                }
+                break;
+            case EntityType.MlmodelGroup:
+                returnData = allResults[EntityType.MlmodelGroup]?.data?.mlModelGroup;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.MlmodelGroup,
+                    } as EntityAndType;
+                }
+                break;
             default:
                 break;
         }
@@ -125,6 +153,10 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         allResults[EntityType.DataJob],
         // eslint-disable-next-line react-hooks/exhaustive-deps
         allResults[EntityType.MlfeatureTable],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.Mlmodel],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.MlmodelGroup],
     ]);
 
     const returnObject = useMemo(() => {
@@ -156,6 +188,10 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         allResults[EntityType.DataJob],
         // eslint-disable-next-line react-hooks/exhaustive-deps
         allResults[EntityType.MlfeatureTable],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.Mlmodel],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.MlmodelGroup],
     ]);
 
     return returnObject;

@@ -1,7 +1,7 @@
 import { Image, Row, Space, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { MlModel } from '../../../../types.generated';
+import { MlModelGroup } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CompactContext from '../../../shared/CompactContext';
 import { AvatarsGroup } from '../../../shared/avatar';
@@ -25,10 +25,10 @@ const PreviewImage = styled(Image)`
 `;
 
 export type Props = {
-    mlModel: MlModel;
+    mlModelGroup: MlModelGroup;
 };
 
-export default function MLFeatureTableHeader({ mlModel: { description, ownership, platform } }: Props) {
+export default function ModelGroupHeader({ mlModelGroup: { description, ownership, platform } }: Props) {
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
 
