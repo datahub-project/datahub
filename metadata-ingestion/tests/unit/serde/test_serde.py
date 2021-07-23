@@ -25,6 +25,8 @@ from tests.test_helpers.type_helpers import PytestConfig
         "tests/unit/serde/test_serde_chart_snapshot.json",
         # Check usage stats as well.
         "tests/unit/serde/test_serde_usage.json",
+        # And also check profiles with the MetadataChangeProposal format.
+        "tests/unit/serde/test_serde_profile.json",
     ],
 )
 def test_serde_to_json(
@@ -92,6 +94,8 @@ def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
         "tests/unit/serde/test_serde_backwards_compat.json",
         # Usage stats.
         "tests/unit/serde/test_serde_usage.json",
+        # Profiles with the MetadataChangeProposal format.
+        "tests/unit/serde/test_serde_profile.json",
         # Ensure sample MCE files are valid.
         "examples/mce_files/single_mce.json",
         "examples/mce_files/mce_list.json",

@@ -10,6 +10,8 @@ source:
     schema_pattern:
       allow:
         - "^metagalaxy"
+        - "^northwind"
+    profile_tables: true
 
 sink:
   type: file

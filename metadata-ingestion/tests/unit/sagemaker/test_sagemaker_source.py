@@ -216,8 +216,7 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         )
 
         mce_objects = [
-            wu.get_serializable().to_obj()
-            for wu in sagemaker_source_instance.get_workunits()
+            wu.metadata.to_obj() for wu in sagemaker_source_instance.get_workunits()
         ]
 
         with open(str(tmp_path / "sagemaker_mces.json"), "w") as f:

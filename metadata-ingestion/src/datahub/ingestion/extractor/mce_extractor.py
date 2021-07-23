@@ -35,8 +35,10 @@ class WorkUnitRecordExtractor(Extractor):
                 mce = workunit.metadata
                 if len(mce.proposedSnapshot.aspects) == 0:
                     raise AttributeError("every mce must have at least one aspect")
-                if not mce.validate():
-                    raise ValueError(f"source produced an invalid MCE: {mce}")
+            if not workunit.metadata.validate():
+                raise ValueError(
+                    f"source produced an invalid metadata work unit: {workunit.metadata}"
+                )
             yield RecordEnvelope(
                 workunit.metadata,
                 {

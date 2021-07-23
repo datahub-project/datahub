@@ -54,11 +54,6 @@ class MetadataWorkUnit(WorkUnit):
     def get_metadata(self):
         return {"metadata": self.metadata}
 
-    def get_serializable(self) -> Union[MetadataChangeEvent, MetadataChangeProposal]:
-        if isinstance(self.metadata, MetadataChangeProposalWrapper):
-            return self.metadata.make_mcp()
-        return self.metadata
-
 
 @dataclass
 class UsageStatsWorkUnit(WorkUnit):
