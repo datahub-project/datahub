@@ -424,6 +424,11 @@ type DataPlatform implements Entity {
     name: String!
 
     """
+    Display name of the data platform
+    """
+    displayName: String
+
+    """
     Metadata associated with a dataplatform
     """
     info: DataPlatformInfo

@@ -80,6 +80,7 @@ const dataset1 = {
         name: 'HDFS',
         type: EntityType.DataPlatform,
         info: {
+            displayName: 'HDFS',
             type: PlatformType.FileSystem,
             datasetNameDelimiter: '.',
             logoUrl: '',
@@ -149,6 +150,7 @@ const dataset2 = {
         urn: 'urn:li:dataPlatform:mysql',
         name: 'MySQL',
         info: {
+            displayName: 'MySQL',
             type: PlatformType.RelationalDb,
             datasetNameDelimiter: '.',
             logoUrl: '',
@@ -199,6 +201,7 @@ export const dataset3 = {
         urn: 'urn:li:dataPlatform:kafka',
         name: 'Kafka',
         info: {
+            displayName: 'Kafka',
             type: PlatformType.MessageBroker,
             datasetNameDelimiter: '.',
             logoUrl: '',
@@ -285,7 +288,7 @@ export const dataset3 = {
     editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,
-    dataProfiles: null,
+    profiles: null,
 } as Dataset;
 
 export const dataset4 = {
