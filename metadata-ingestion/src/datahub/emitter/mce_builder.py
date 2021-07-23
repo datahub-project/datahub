@@ -1,4 +1,5 @@
 """Convenience functions for creating MCEs"""
+import logging
 import time
 from typing import List, Optional, Type, TypeVar, get_type_hints
 
@@ -18,12 +19,23 @@ DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
 
 
+logger = logging.getLogger(__name__)
+
+
 def get_sys_time() -> int:
     # TODO deprecate this
     return int(time.time() * 1000)
 
 
+def _check_data_platform_name(platform_name: str) -> None:
+    if not platform_name.isalpha():
+        logger.warning(f"improperly formatted data platform: {platform_name}")
+
+
 def make_data_platform_urn(platform: str) -> str:
+    if platform.startswith("urn:li:dataPlatform:"):
+        return platform
+    _check_data_platform_name(platform)
     return f"urn:li:dataPlatform:{platform}"
 
 
@@ -55,6 +67,18 @@ def make_data_job_urn(
     return make_data_job_urn_with_flow(
         make_data_flow_urn(orchestrator, flow_id, cluster), job_id
     )
+
+
+def make_dashboard_urn(platform: str, name: str) -> str:
+    # FIXME: dashboards don't currently include data platform urn prefixes.
+    _check_data_platform_name(platform)
+    return f"urn:li:dashboard:({platform},{name})"
+
+
+def make_chart_urn(platform: str, name: str) -> str:
+    # FIXME: charts don't currently include data platform urn prefixes.
+    _check_data_platform_name(platform)
+    return f"urn:li:chart:({platform},{name})"
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:

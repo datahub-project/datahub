@@ -84,7 +84,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
 
     def get_identifier(self, schema: str, table: str) -> str:
         regular = super().get_identifier(schema, table)
-        return f"{self.database}.{regular}"
+        return f"{self.database.lower()}.{regular}"
 
 
 class SnowflakeSource(SQLAlchemySource):
