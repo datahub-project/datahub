@@ -124,6 +124,7 @@ export const SearchPage = () => {
                     filters={filters}
                     onChangeFilters={onChangeFilters}
                     onChangePage={onChangePage}
+                    setResultCounts={setResultCounts}
                 />
             ) : (
                 <AllEntitiesSearchResults query={query} setResultCounts={setResultCounts} />

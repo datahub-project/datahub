@@ -45,9 +45,18 @@ interface Props {
     filters: Array<FacetFilterInput>;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
+    setResultCounts: (v: Record<string, number>) => void;
 }
 
-export const EntitySearchResults = ({ type, query, page, filters, onChangeFilters, onChangePage }: Props) => {
+export const EntitySearchResults = ({
+    type,
+    query,
+    page,
+    filters,
+    onChangeFilters,
+    onChangePage,
+    setResultCounts,
+}: Props) => {
     const [isEditingFilters, setIsEditingFilters] = useState(false);
     const [selectedFilters, setSelectedFilters] = useState(filters);
     useEffect(() => {
@@ -71,8 +80,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
     const pageStart = data?.search?.start || 0;
     const pageSize = data?.search?.count || 0;
     const totalResults = data?.search?.total || 0;
-    const lastResultIndex =
-        pageStart * pageSize + pageSize > totalResults ? totalResults : pageStart * pageSize + pageSize;
+    const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize; // ToDo: need to confirm if fixes pagination issue
 
     useEffect(() => {
         if (!loading && !error) {
@@ -83,8 +91,9 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                 entityTypeFilter: type,
                 total: totalResults,
             });
+            setResultCounts({ [type]: data?.search?.total || 0 });
         }
-    }, [page, query, totalResults, type, loading, error, data]);
+    }, [page, query, totalResults, type, loading, error, data, setResultCounts]);
 
     const onFilterSelect = (selected: boolean, field: string, value: string) => {
         const newFilters = selected
@@ -147,7 +156,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
             <Typography.Paragraph style={styles.resultSummary}>
                 Showing{' '}
                 <b>
-                    {(page - 1) * pageSize + 1} - {lastResultIndex}
+                    {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
                 </b>{' '}
                 of <b>{totalResults}</b> results
             </Typography.Paragraph>
