@@ -706,7 +706,6 @@ source:
     connection_to_platform_map: # mappings between connection names in the model files to platform names
       connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
     platform_name: "looker" # optional, default is "looker"
-    actor: "urn:li:corpuser:etl" # optional, default is "urn:li:corpuser:etl"
     model_pattern: {}
     view_pattern: {}
     env: "PROD" # optional, default is "PROD"
