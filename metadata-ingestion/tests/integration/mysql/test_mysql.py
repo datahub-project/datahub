@@ -20,6 +20,7 @@ def test_mysql_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
         with fs_helpers.isolated_filesystem(tmp_path):
             config_file = (test_resources_dir / "mysql_to_file.yml").resolve()
             result = runner.invoke(datahub, ["ingest", "-c", f"{config_file}"])
+            breakpoint()
             assert result.exit_code == 0
 
             # Verify the output.
