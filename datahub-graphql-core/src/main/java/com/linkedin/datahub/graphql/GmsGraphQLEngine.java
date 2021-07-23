@@ -649,6 +649,16 @@ public class GmsGraphQLEngine {
                                         DATA_PLATFORM_TYPE,
                                         (env) -> ((MLModel) env.getSource()).getPlatform().getUrn()))
                         )
+                        .dataFetcher("downstreamLineage", new AuthenticatedResolver<>(
+                            new LoadableTypeResolver<>(
+                                DOWNSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                        )
+                        .dataFetcher("upstreamLineage", new AuthenticatedResolver<>(
+                            new LoadableTypeResolver<>(
+                                UPSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                        )
                 )
                 .type("MLModelGroup", typeWiring -> typeWiring
                         .dataFetcher("platform", new AuthenticatedResolver<>(

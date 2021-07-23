@@ -36,7 +36,7 @@ public class MLModelGroupSnapshotMapper implements ModelMapper<MLModelGroupSnaps
     public MLModelGroup apply(@Nonnull final MLModelGroupSnapshot mlModel) {
         final MLModelGroup result = new MLModelGroup();
         result.setUrn(mlModel.getUrn().toString());
-        result.setType(EntityType.MLMODEL);
+        result.setType(EntityType.MLMODEL_GROUP);
 
         ModelUtils.getAspectsFromSnapshot(mlModel).forEach(aspect -> {
             if (aspect instanceof Ownership) {
