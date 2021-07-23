@@ -11,10 +11,11 @@ source:
       allow:
         - "^metagalaxy"
         - "^northwind"
-    profile_tables: true
     profile_pattern:
       allow:
         - "^northwind.*\$"
+    profiling:
+      enabled: True
 
 sink:
   type: file
