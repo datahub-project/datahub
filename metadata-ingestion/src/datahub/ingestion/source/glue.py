@@ -403,7 +403,7 @@ class GlueSource(Source):
                 continue
 
             mce = self._extract_record(table, full_table_name)
-            workunit = MetadataWorkUnit(id=f"glue-{full_table_name}", mce=mce)
+            workunit = MetadataWorkUnit(full_table_name, mce=mce)
             self.report.report_workunit(workunit)
             yield workunit
 
