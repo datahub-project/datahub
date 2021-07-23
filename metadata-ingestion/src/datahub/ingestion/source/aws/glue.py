@@ -424,9 +424,7 @@ class GlueSource(Source):
 
             for job in self.get_all_jobs():
 
-                flow_urn = mce_builder.make_data_flow_urn(
-                    mce_builder.make_data_platform_urn("glue"), job["Name"], self.env
-                )
+                flow_urn = mce_builder.make_data_flow_urn("glue", job["Name"], self.env)
 
                 flow_wu = self.get_dataflow_wu(flow_urn, job)
                 self.report.report_workunit(flow_wu)
