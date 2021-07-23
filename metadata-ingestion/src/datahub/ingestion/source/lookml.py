@@ -18,9 +18,9 @@ else:
     raise ModuleNotFoundError("The lookml plugin requires Python 3.7 or newer.")
 from sql_metadata import Parser as SQLParser
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -57,10 +57,9 @@ class LookMLSourceConfig(ConfigModel):
     base_folder: pydantic.DirectoryPath
     connection_to_platform_map: Dict[str, str]
     platform_name: str = "looker"
-    actor: str = "urn:li:corpuser:etl"
     model_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    env: str = DEFAULT_ENV
+    env: str = builder.DEFAULT_ENV
     parse_table_names_from_sql: bool = False
 
 
@@ -242,6 +241,7 @@ class LookerView:
 
         # Remove quotes from table names
         sql_table_names = [t.replace('"', "") for t in sql_table_names]
+        sql_table_names = [t.replace("`", "") for t in sql_table_names]
 
         return sql_table_names
 
@@ -449,7 +449,9 @@ class LookMLSource(Source):
             platform_name = platform.lower()
             sql_table_name = sql_table_name.lower()
 
-        return f"urn:li:dataset:(urn:li:dataPlatform:{platform_name},{sql_table_name},{self.source_config.env})"
+        return builder.make_dataset_urn(
+            platform_name, sql_table_name, self.source_config.env
+        )
 
     def _get_platform_based_on_connection(self, connection: str) -> str:
         if connection in self.source_config.connection_to_platform_map:
@@ -555,8 +557,12 @@ class LookMLSource(Source):
         logger.debug(f"looker_view = {looker_view.view_name}")
         dataset_name = looker_view.view_name
 
+        # Sanitize the urn creation.
+        dataset_name = dataset_name.replace("`", "")
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.source_config.platform_name},{dataset_name},{self.source_config.env})",
+            urn=builder.make_dataset_urn(
+                self.source_config.platform_name, dataset_name, self.source_config.env
+            ),
             aspects=[],  # we append to this list later on
         )
         dataset_snapshot.aspects.append(Status(removed=False))

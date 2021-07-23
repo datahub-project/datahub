@@ -706,7 +706,6 @@ source:
     base_folder: /path/to/model/files # where the *.model.lkml and *.view.lkml files are stored
     connection_to_platform_map: # mappings between connection names in the model files to platform names
       connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
-    actor: "urn:li:corpuser:etl" # optional, default is "urn:li:corpuser:etl"
     model_pattern: {}
     view_pattern: {}
     env: "PROD" # optional, default is "PROD"
