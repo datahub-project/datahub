@@ -415,34 +415,6 @@
 },
 {
     "auditHeader": null,
-    "entityType": "dataset",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_aspect,PROD)"
-    },
-    "changeType": "UPDATE",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 2, \"columnCount\": 7, \"fieldProfiles\": [{\"fieldPath\": \"urn\", \"uniqueCount\": 1, \"uniqueProportion\": 0.5, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"urn:li:corpuser:datahub\", \"urn:li:corpuser:datahub\"]}, {\"fieldPath\": \"aspect\", \"uniqueCount\": 2, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"com.linkedin.identity.CorpUserEditableInfo\", \"com.linkedin.identity.CorpUserInfo\"]}, {\"fieldPath\": \"version\", \"uniqueCount\": 1, \"uniqueProportion\": 0.5, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"0\", \"max\": \"0\", \"mean\": \"0.0\", \"median\": \"0.0\", \"stdev\": \"0.0\", \"sampleValues\": [\"0\", \"0\"]}, {\"fieldPath\": \"metadata\", \"uniqueCount\": 2, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"{\\\"skills\\\":[],\\\"teams\\\":[],\\\"pictureLink\\\":\\\"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png\\\"}\", \"{\\\"displayName\\\":\\\"Data Hub\\\",\\\"active\\\":true,\\\"fullName\\\":\\\"Data Hub\\\",\\\"email\\\":\\\"datahub@linkedin.com\\\"}\"]}, {\"fieldPath\": \"createdon\", \"uniqueCount\": 1, \"uniqueProportion\": 0.5, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2021-07-23T00:15:07\", \"max\": \"2021-07-23T00:15:07\", \"sampleValues\": [\"2021-07-23 00:15:07\", \"2021-07-23 00:15:07\"]}, {\"fieldPath\": \"createdby\", \"uniqueCount\": 1, \"uniqueProportion\": 0.5, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"urn:li:principal:datahub\", \"urn:li:principal:datahub\"]}, {\"fieldPath\": \"createdfor\", \"uniqueCount\": 0, \"nullCount\": 2, \"nullProportion\": 100.0, \"sampleValues\": []}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": null
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)"
-    },
-    "changeType": "UPDATE",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"rowCount\": 0, \"columnCount\": 7, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"urn\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"aspect\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"path\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"longVal\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"stringVal\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"doubleVal\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": null
-},
-{
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",

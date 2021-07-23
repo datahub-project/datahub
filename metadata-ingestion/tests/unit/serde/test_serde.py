@@ -13,6 +13,7 @@ from datahub.ingestion.source.file import iterate_mce_file
 from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
+from tests.test_helpers.click_helpers import assert_result_ok
 from tests.test_helpers.type_helpers import PytestConfig
 
 
@@ -107,7 +108,7 @@ def test_check_mce_schema(pytestconfig: PytestConfig, json_filename: str) -> Non
 
     runner = CliRunner()
     result = runner.invoke(datahub, ["check", "mce-file", f"{json_file_path}"])
-    assert result.exit_code == 0
+    assert_result_ok(result)
 
 
 def test_field_discriminator() -> None:

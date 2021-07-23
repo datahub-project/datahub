@@ -83,3 +83,10 @@ class BigQuerySource(SQLAlchemySource):
             clear=False,
         ):
             return super().get_workunits()
+
+    def prepare_profiler_args(self, schema: str, table: str) -> dict:
+        self.config: BigQueryConfig
+        return dict(
+            schema=self.config.project_id,
+            table=f"{schema}.{table}",
+        )
