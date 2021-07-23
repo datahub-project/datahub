@@ -417,6 +417,41 @@ class LookerView:
         return None
 
 
+field_type_mapping = {
+    **POSTGRES_TYPES_MAP,
+    **SNOWFLAKE_TYPES_MAP,
+    "date": DateTypeClass,
+    "date_time": TimeTypeClass,
+    "distance": NumberTypeClass,
+    "duration": NumberTypeClass,
+    "location": UnionTypeClass,
+    "number": NumberTypeClass,
+    "string": StringTypeClass,
+    "tier": EnumTypeClass,
+    "time": TimeTypeClass,
+    "unquoted": StringTypeClass,
+    "yesno": BooleanTypeClass,
+    "zipcode": EnumTypeClass,
+    "int": NumberTypeClass,
+    "average": NumberTypeClass,
+    "average_distinct": NumberTypeClass,
+    "count": NumberTypeClass,
+    "count_distinct": NumberTypeClass,
+    "list": ArrayTypeClass,
+    "max": NumberTypeClass,
+    "median": NumberTypeClass,
+    "median_distinct": NumberTypeClass,
+    "min": NumberTypeClass,
+    "percent_of_previous": NumberTypeClass,
+    "percent_of_total": NumberTypeClass,
+    "percentile": NumberTypeClass,
+    "percentile_distinct": NumberTypeClass,
+    "running_total": NumberTypeClass,
+    "sum": NumberTypeClass,
+    "sum_distinct": NumberTypeClass,
+}
+
+
 class LookMLSource(Source):
     source_config: LookMLSourceConfig
     reporter: LookMLSourceReport
@@ -482,39 +517,6 @@ class LookMLSource(Source):
         return upstream_lineage
 
     def _get_field_type(self, native_type: str) -> SchemaFieldDataType:
-        field_type_mapping = {
-            **POSTGRES_TYPES_MAP,
-            **SNOWFLAKE_TYPES_MAP,
-            "date": DateTypeClass,
-            "date_time": TimeTypeClass,
-            "distance": NumberTypeClass,
-            "duration": NumberTypeClass,
-            "location": UnionTypeClass,
-            "number": NumberTypeClass,
-            "string": StringTypeClass,
-            "tier": EnumTypeClass,
-            "time": TimeTypeClass,
-            "unquoted": StringTypeClass,
-            "yesno": BooleanTypeClass,
-            "zipcode": EnumTypeClass,
-            "int": NumberTypeClass,
-            "average": NumberTypeClass,
-            "average_distinct": NumberTypeClass,
-            "count": NumberTypeClass,
-            "count_distinct": NumberTypeClass,
-            "list": ArrayTypeClass,
-            "max": NumberTypeClass,
-            "median": NumberTypeClass,
-            "median_distinct": NumberTypeClass,
-            "min": NumberTypeClass,
-            "percent_of_previous": NumberTypeClass,
-            "percent_of_total": NumberTypeClass,
-            "percentile": NumberTypeClass,
-            "percentile_distinct": NumberTypeClass,
-            "running_total": NumberTypeClass,
-            "sum": NumberTypeClass,
-            "sum_distinct": NumberTypeClass,
-        }
 
         type_class = field_type_mapping.get(native_type)
 
