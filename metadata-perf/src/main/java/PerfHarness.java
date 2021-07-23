@@ -33,6 +33,7 @@ import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -138,6 +139,16 @@ class PerfHarness {
     gmce.setAspect(genericAspect);
     return gmce;
   }
+  enum AspectType {
+    REGULAR,
+    TIMESERIES
+  }
+
+  enum EndPointType {
+    SNAPSHOT_INGEST,
+    GENERIC_INGEST
+  }
+
 
   @SneakyThrows
   public static MetadataChangeProposal getTimeseriesProposal(int index) {
@@ -158,24 +169,60 @@ class PerfHarness {
     return gmce;
   }
 
+  public static void warmup(EntityClient entityClient, AspectType aspectType, EndPointType endPointType, int numIterations) throws RemoteInvocationException {
+      int index = Math.abs(random.nextInt());
+      long startTime = System.nanoTime();
+      for (int i = 0; i < numIterations; ++i) {
+          executeOneRequest(entityClient, aspectType, endPointType, index);
+      }
+      reportStats("WarmUp Stats", startTime, numIterations, 0);
+  }
+
+
+  public static void executeOneRequest(EntityClient entityClient, AspectType aspectType, EndPointType endPointType, int index) throws RemoteInvocationException {
+    switch (aspectType) {
+      case REGULAR: {
+        switch (endPointType) {
+          case GENERIC_INGEST: {
+            Response<Void> response = entityClient.ingestProposal(getPropertiesProposal(index));
+            Preconditions.checkState(response.getStatus() == 200);
+            response = entityClient.ingestProposal(getOwnershipProposal(index));
+            Preconditions.checkState(response.getStatus() == 200);
+          } break;
+          case SNAPSHOT_INGEST: {
+            Response<Void> response = entityClient.update(new com.linkedin.entity.Entity().setValue(getSnapshot(index)));
+            Preconditions.checkState(response.getStatus() == 200);
+          } break;
+        }
+      } break;
+      case TIMESERIES: {
+        switch (endPointType) {
+          case GENERIC_INGEST: {
+            Response<Void> response = entityClient.ingestProposal(getTimeseriesProposal(index));
+            Preconditions.checkState(response.getStatus() == 200);
+          } break;
+          case SNAPSHOT_INGEST: {
+            throw new RuntimeException("Timeseries aspects cannot be sent to Snapshot endpoints");
+          }
+        }
+      }
+    }
+  }
+
   public static void main(String[] args)
       throws URISyntaxException, RemoteInvocationException, InterruptedException, IOException {
 
     PerfHarness harness = new PerfHarness();
-    EntityClient entityClient = new EntityClient(harness._client);
-    {
-      int index = Math.abs(random.nextInt());
-      long startTime = System.nanoTime();
-      entityClient.ingestProposal(getPropertiesProposal(index));
-      entityClient.ingestProposal(getOwnershipProposal(index));
-//      entityClient.update(new com.linkedin.entity.Entity().setValue(getRandomSnapshot()));
-      long endTime = System.nanoTime();
-      long durationInMillis = (long) ((endTime - startTime) / 1000000.0);
-      System.out.println("Duration of one call was: " + durationInMillis);
-    }
+    // Perf Scenario Definition
+    AspectType aspectType = AspectType.REGULAR;
+    EndPointType endPointType = EndPointType.GENERIC_INGEST;
+    int numRequests = 100000;
 
+
+
+    EntityClient entityClient = new EntityClient(harness._client);
+    warmup(entityClient, aspectType, endPointType, 100);
     ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
-    int numRequests = 10000;
     if (numRequests > 0) {
       CountDownLatch latch = new CountDownLatch(numRequests);
       AtomicInteger failedRequests = new AtomicInteger(0);
@@ -186,12 +233,7 @@ class PerfHarness {
         int index = Math.abs(random.nextInt());
         executor.execute(() -> {
           try {
-
-//            Response<Void> response = entityClient.update(new com.linkedin.entity.Entity().setValue(getSnapshot(index)));
-            Response<Void> response = entityClient.ingestProposal(getPropertiesProposal(index));
-            Preconditions.checkState(response.getStatus() == 200);
-            response = entityClient.ingestProposal(getOwnershipProposal(index));
-            Preconditions.checkState(response.getStatus() == 200);
+            executeOneRequest(entityClient, aspectType, endPointType, index);
             successfulRequests.incrementAndGet();
           } catch (RemoteInvocationException e) {
             e.printStackTrace();
@@ -200,14 +242,21 @@ class PerfHarness {
           latch.countDown();
         });
       }
-      latch.await();
-      long endTime = System.nanoTime();
-      long durationInMillis = (long) ((endTime - startTime) / 1000000.0);
-      long throughput = numRequests * 1000 / durationInMillis;
-      System.out.println("Processed " + numRequests + " requests in " + durationInMillis / 1000.0 + " seconds");
-      System.out.println("Successful = " + successfulRequests.get() + "; Failed = " + failedRequests.get());
-      System.out.println("Throughput = " + throughput + " requests/sec");
+      while (!latch.await(30, TimeUnit.SECONDS)) {
+        reportStats("Perf", startTime, successfulRequests.get(), failedRequests.get());
+      }
+      reportStats("Perf", startTime, successfulRequests.get(), failedRequests.get());
     }
     System.exit(0);
+  }
+
+  private static void reportStats(String context, long startTime, int successfulRequests, int failedRequests) {
+    long endTime = System.nanoTime();
+    long durationInMillis = (long) ((endTime - startTime) / 1000000.0);
+    long throughput = (successfulRequests + failedRequests) * 1000 / durationInMillis;
+    System.out.println(context + ":Processed " + (successfulRequests+failedRequests) + " requests in " + durationInMillis / 1000.0 + " seconds");
+    System.out.println(context + ":Successful = " + successfulRequests + "; Failed = " + failedRequests);
+    System.out.println(context + ":Aggregate Throughput = " + throughput + " requests/sec");
+    System.out.println("------------------------------------------------------------------");
   }
 }
