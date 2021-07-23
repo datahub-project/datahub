@@ -5,6 +5,8 @@ import org.neo4j.driver.GraphDatabase;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
+import javax.annotation.Nonnull;
+
 
 public class Neo4jGraphServiceTest extends GraphServiceTestBase {
 
@@ -26,7 +28,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Override
-  protected GraphService getGraphService() {
+  protected @Nonnull GraphService getGraphService() {
     return _client;
   }
 

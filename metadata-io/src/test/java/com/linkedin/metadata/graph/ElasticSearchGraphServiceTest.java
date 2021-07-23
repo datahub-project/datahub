@@ -72,7 +72,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Override
-  protected GraphService getGraphService() {
+  protected @Nonnull GraphService getGraphService() {
     return _client;
   }
 
