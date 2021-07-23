@@ -823,7 +823,7 @@ describe_training_job_response = {
     "TrainingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
     "SecondaryStatus": "Starting",  # 'Starting'|'LaunchingMLInstances'|'PreparingTrainingStack'|'Downloading'|'DownloadingTrainingImage'|'Training'|'Uploading'|'Stopping'|'Stopped'|'MaxRuntimeExceeded'|'Completed'|'Failed'|'Interrupted'|'MaxWaitTimeExceeded'|'Updating'|'Restarting'
     "FailureReason": "string",
-    "HyperParameters": {"string": "string"},
+    "HyperParameters": {"parameter-1": "some-value", "parameter-2": "another-value"},
     "AlgorithmSpecification": {
         "TrainingImage": "string",
         "AlgorithmName": "string",
@@ -893,9 +893,19 @@ describe_training_job_response = {
     ],
     "FinalMetricDataList": [
         {
-            "MetricName": "string",
+            "MetricName": "some-metric",
             "Value": 1.0,
             "Timestamp": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "MetricName": "another-metric",
+            "Value": 1.0,
+            "Timestamp": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "MetricName": "some-metric",
+            "Value": 0.0,
+            "Timestamp": datetime(2014, 1, 1, tzinfo=timezone.utc),
         },
     ],
     "EnableNetworkIsolation": True,  # True|False

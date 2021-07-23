@@ -1,11 +1,11 @@
 # DataHub Frontend
 DataHub frontend is a [Play](https://www.playframework.com/) service written in Java. It is served as a mid-tier
-between [DataHub GMS](../gms) which is the backend service and [DataHub Web](../datahub-web).
+between [DataHub GMS](../gms) which is the backend service and [DataHub Web](../datahub-web-react/README.md).
 
 ## Pre-requisites
-* You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 
+* You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html)
 installed on your machine to be able to build `DataHub Frontend`.
-* You need to have [Chrome](https://www.google.com/chrome/) web browser 
+* You need to have [Chrome](https://www.google.com/chrome/) web browser
 installed to be able to build because UI tests have a dependency on `Google Chrome`.
 
 ## Build
@@ -19,12 +19,12 @@ However, if you only want to build `DataHub Frontend` specifically:
 ```
 
 ## Dependencies
-Before starting `DataHub Frontend`, you need to make sure that [DataHub GMS](../gms) and 
+Before starting `DataHub Frontend`, you need to make sure that [DataHub GMS](../gms) and
 all its dependencies have already started and running.
 
 Also, user information should already be registered into the DB,
-otherwise user will not be able to sign in. 
-To do that, first create a file named `user.dat` containing below line and filling the parts `<<something>>` 
+otherwise user will not be able to sign in.
+To do that, first create a file named `user.dat` containing below line and filling the parts `<<something>>`
 with your information:
 ```
 {"auditHeader": None, "proposedSnapshot": ("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:<<username>>", "aspects": [{"active": True, "fullName": "<<Full Name>>", "email": "<<e-mail address>>"}, {}]}), "proposedDelta": None}
@@ -52,7 +52,7 @@ cd datahub-frontend/run && ./run-local-frontend
 ```
 
 ## Checking out DataHub UI
-After starting your application in one of the two ways mentioned above, you can connect to it by typing below 
+After starting your application in one of the two ways mentioned above, you can connect to it by typing below
 into your favorite web browser:
 ```
 http://localhost:9001
@@ -321,7 +321,7 @@ WHZ-Authentication {
 
 ### Authentication in React
 The React app supports both JAAS as described above and separately OIDC authentication. To learn about configuring OIDC for React,
-see the [OIDC in React](../docs/how/auth/sso/configure-oidc-react.md) document. 
+see the [OIDC in React](../docs/how/auth/sso/configure-oidc-react.md) document.
 
 
 ### API Debugging

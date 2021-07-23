@@ -4,7 +4,7 @@ import heapq
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Counter, Dict, Iterable, List, MutableMapping, Optional, Union
 
 import cachetools
@@ -61,7 +61,7 @@ AND
 AND
 timestamp >= "{start_time}"
 AND
-timestamp <= "{end_time}"
+timestamp < "{end_time}"
 """.strip()
 
 
@@ -116,6 +116,11 @@ def _job_name_ref(project: str, jobId: str) -> str:
 
 @dataclass
 class ReadEvent:
+    """
+    A container class for data from a TableDataRead event.
+    See https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata#BigQueryAuditMetadata.TableDataRead.
+    """
+
     timestamp: datetime
     actor_email: str
 
@@ -145,6 +150,8 @@ class ReadEvent:
         readInfo = entry.payload["metadata"]["tableDataRead"]
 
         fields = readInfo.get("fields", [])
+
+        # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason
         readReason = readInfo.get("reason")
         jobName = None
         if readReason == "JOB":
@@ -164,6 +171,11 @@ class ReadEvent:
 
 @dataclass
 class QueryEvent:
+    """
+    A container class for a query job completion event.
+    See https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/AuditData#JobCompletedEvent.
+    """
+
     timestamp: datetime
     actor_email: str
 
@@ -221,6 +233,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
     env: str = builder.DEFAULT_ENV
 
     query_log_delay: Optional[pydantic.PositiveInt] = None
+    max_query_duration: timedelta = timedelta(minutes=15)
 
     @pydantic.validator("project_id")
     def note_project_id_deprecation(cls, v, values, **kwargs):
@@ -284,9 +297,17 @@ class BigQueryUsageSource(Source):
     def _get_bigquery_log_entries(
         self, clients: List[GCPLoggingClient]
     ) -> Iterable[AuditLogEntry]:
+        # We adjust the filter values a bit, since we need to make sure that the join
+        # between query events and read events is complete. For example, this helps us
+        # handle the case where the read happens within our time range but the query
+        # completion event is delayed and happens after the configured end time.
         filter = BQ_FILTER_RULE_TEMPLATE.format(
-            start_time=self.config.start_time.strftime(BQ_DATETIME_FORMAT),
-            end_time=self.config.end_time.strftime(BQ_DATETIME_FORMAT),
+            start_time=(
+                self.config.start_time - self.config.max_query_duration
+            ).strftime(BQ_DATETIME_FORMAT),
+            end_time=(self.config.end_time + self.config.max_query_duration).strftime(
+                BQ_DATETIME_FORMAT
+            ),
         )
 
         def get_entry_timestamp(entry: AuditLogEntry) -> datetime:
@@ -355,6 +376,12 @@ class BigQueryUsageSource(Source):
         )
 
         for event in delayed_read_events:
+            if (
+                event.timestamp < self.config.start_time
+                or event.timestamp >= self.config.end_time
+            ):
+                continue
+
             if event.jobName:
                 if event.jobName in query_jobs:
                     # Join the query log event into the table read log event.
@@ -363,8 +390,8 @@ class BigQueryUsageSource(Source):
                     # TODO also join into the query itself for column references
                 else:
                     self.report.report_warning(
-                        "<general>",
-                        "failed to match table read event with job; try increasing `query_log_delay`",
+                        str(event.resource),
+                        "failed to match table read event with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
 
             yield event

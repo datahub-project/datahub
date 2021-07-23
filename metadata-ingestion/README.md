@@ -92,7 +92,8 @@ We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linke
 _Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly._
 
 ```shell
-./scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
+# Assumes the DataHub repo is cloned locally.
+./metadata-ingestion/scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
 
 ### Install from source
@@ -724,19 +725,20 @@ Extracts:
 - Looker dashboards and dashboard elements (charts)
 - Names, descriptions, URLs, chart types, input view for the charts
 
+See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
+
 ```yml
 source:
   type: "looker"
   config:
-    client_id: str # Your Looker API client ID. As your Looker admin
-    client_secret: str # Your Looker API client secret. As your Looker admin
+    client_id: str # Your Looker API3 client ID
+    client_secret: str # Your Looker API3 client secret
     base_url: str # The url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
-    platform_name: str = "looker" # Optional, default is "looker"
-    view_platform_name: str = "looker_views" # Optional, default is "looker_views". Should be the same `platform_name` in the `lookml` source, if that source is also run.
-    actor: str = "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
     dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    actor: str = "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
     env: str = "PROD" # Optional, default is "PROD"
+    platform_name: str = "looker" # Optional, default is "looker"
 ```
 
 ### File `file`

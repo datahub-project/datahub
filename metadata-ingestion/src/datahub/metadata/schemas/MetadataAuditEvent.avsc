@@ -1,8 +1,8 @@
 {
   "type": "record",
-  "name": "MetadataChangeEvent",
+  "name": "MetadataAuditEvent",
   "namespace": "com.linkedin.pegasus2avro.mxe",
-  "doc": "Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.",
+  "doc": "Kafka event for capturing update made to an entity's metadata.",
   "fields": [
     {
       "name": "auditHeader",
@@ -93,8 +93,9 @@
       "default": null
     },
     {
-      "name": "proposedSnapshot",
+      "name": "oldSnapshot",
       "type": [
+        "null",
         {
           "type": "record",
           "name": "ChartSnapshot",
@@ -5159,15 +5160,32 @@
           }
         }
       ],
-      "doc": "Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."
+      "doc": "Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot.",
+      "default": null
     },
     {
-      "name": "proposedDelta",
+      "name": "newSnapshot",
       "type": [
-        "null"
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataProcessSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot",
+        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot"
       ],
-      "doc": "Delta of the proposed metadata partial update.",
-      "default": null
+      "doc": "Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."
     }
   ]
 }

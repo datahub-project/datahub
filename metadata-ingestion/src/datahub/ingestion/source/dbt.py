@@ -133,6 +133,9 @@ def extract_dbt_entities(
         if "identifier" in node and not load_catalog:
             name = node["identifier"]
 
+        if node.get("alias") is not None:
+            name = node["alias"]
+
         comment = key
 
         if key in all_catalog_entities and all_catalog_entities[key]["metadata"].get(
@@ -161,7 +164,7 @@ def extract_dbt_entities(
         if catalog_node is None:
             report.report_warning(
                 key,
-                f"Entity {name} is in manifest but missing from catalog",
+                f"Entity {key} ({name}) is in manifest but missing from catalog",
             )
 
         else:
@@ -304,6 +307,9 @@ def get_upstreams(
             name = all_nodes[upstream]["identifier"]
         else:
             name = all_nodes[upstream]["name"]
+
+        if "alias" in all_nodes[upstream]:
+            name = all_nodes[upstream]["alias"]
 
         upstream_urns.append(
             get_urn_from_dbtNode(
