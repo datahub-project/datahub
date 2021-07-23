@@ -4,8 +4,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipFilter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.apache.http.HttpHost;
@@ -19,10 +17,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URISyntaxException;
-import java.time.Duration;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
@@ -92,7 +87,7 @@ class WaitOnWriteGraphService implements GraphService {
     _duration = duration;
   }
 
-  private void wait_duration() {
+  private void waitDuration() {
     try {
       TimeUnit.SECONDS.sleep(_duration.getSeconds());
     } catch (InterruptedException e) {
@@ -103,36 +98,44 @@ class WaitOnWriteGraphService implements GraphService {
   @Override
   public void addEdge(Edge edge) {
     _service.addEdge(edge);
-    wait_duration();
+    waitDuration();
   }
 
   @Nonnull
   @Override
-  public List<String> findRelatedUrns(@Nullable String sourceType, @Nonnull Filter sourceEntityFilter, @Nullable String destinationType, @Nonnull Filter destinationEntityFilter, @Nonnull List<String> relationshipTypes, @Nonnull RelationshipFilter relationshipFilter, int offset, int count) {
-    return _service.findRelatedUrns(sourceType, sourceEntityFilter, destinationType, destinationEntityFilter, relationshipTypes, relationshipFilter, offset, count);
+  public List<String> findRelatedUrns(@Nullable String sourceType, @Nonnull Filter sourceEntityFilter,
+                                      @Nullable String destinationType, @Nonnull Filter destinationEntityFilter,
+                                      @Nonnull List<String> relationshipTypes, @Nonnull RelationshipFilter relationshipFilter,
+                                      int offset, int count) {
+    return _service.findRelatedUrns(
+            sourceType, sourceEntityFilter,
+            destinationType, destinationEntityFilter,
+            relationshipTypes, relationshipFilter,
+            offset, count
+    );
   }
 
   @Override
   public void removeNode(@Nonnull Urn urn) {
     _service.removeNode(urn);
-    wait_duration();
+    waitDuration();
   }
 
   @Override
   public void removeEdgesFromNode(@Nonnull Urn urn, @Nonnull List<String> relationshipTypes, @Nonnull RelationshipFilter relationshipFilter) {
     _service.removeEdgesFromNode(urn, relationshipTypes, relationshipFilter);
-    wait_duration();
+    waitDuration();
   }
 
   @Override
   public void configure() {
     _service.configure();
-    wait_duration();
+    waitDuration();
   }
 
   @Override
   public void clear() {
     _service.clear();
-    wait_duration();
+    waitDuration();
   }
 }
