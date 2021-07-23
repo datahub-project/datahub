@@ -1935,6 +1935,26 @@
   {
     "auditHeader": null,
     "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:glue",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "glue",
+              "displayName": "Glue",
+              "type": "OTHERS",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/gluelogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
         "urn": "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_1)",
         "aspects": [
@@ -2643,9 +2663,7 @@
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
               "customProperties": {},
               "description": null,
-              "mlFeatures": [
-                "urn:li:mlFeature:(user_analytics,date_joined)"
-              ],
+              "mlFeatures": ["urn:li:mlFeature:(user_analytics,date_joined)"],
               "mlPrimaryKeys": [
                 "urn:li:mlPrimaryKey:(user_analytics,user_name)"
               ]
