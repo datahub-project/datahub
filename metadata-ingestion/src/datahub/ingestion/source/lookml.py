@@ -24,6 +24,11 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.sql_types import (
+    POSTGRES_TYPES_MAP,
+    SNOWFLAKE_TYPES_MAP,
+    resolve_postgres_modified_type,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -478,6 +483,8 @@ class LookMLSource(Source):
 
     def _get_field_type(self, native_type: str) -> SchemaFieldDataType:
         field_type_mapping = {
+            **POSTGRES_TYPES_MAP,
+            **SNOWFLAKE_TYPES_MAP,
             "date": DateTypeClass,
             "date_time": TimeTypeClass,
             "distance": NumberTypeClass,
@@ -509,14 +516,21 @@ class LookMLSource(Source):
             "sum_distinct": NumberTypeClass,
         }
 
-        if native_type in field_type_mapping:
-            type_class = field_type_mapping[native_type]
-        else:
+        type_class = field_type_mapping.get(native_type)
+
+        if type_class is None:
+
+            # attempt Postgres modified type
+            type_class = resolve_postgres_modified_type(native_type)
+
+        # if still not found, report a warning
+        if type_class is None:
             self.reporter.report_warning(
                 native_type,
                 f"The type '{native_type}' is not recognized for field type, setting as NullTypeClass.",
             )
             type_class = NullTypeClass
+
         data_type = SchemaFieldDataType(type=type_class())
         return data_type
 
