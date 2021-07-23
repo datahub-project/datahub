@@ -84,7 +84,10 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
 
     def get_identifier(self, schema: str, table: str) -> str:
         regular = super().get_identifier(schema, table)
-        return f"{self.database}.{regular}"
+        assert (
+            self.database is not None
+        )  # it is set by get_inspectors, so this will be true
+        return f"{self.database.lower()}.{regular}"
 
 
 class SnowflakeSource(SQLAlchemySource):

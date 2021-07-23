@@ -106,6 +106,12 @@ class SQLSourceReport(SourceReport):
         self.filtered.append(ent_name)
 
 
+class GEProfilingConfig(ConfigModel):
+    enabled: bool = False
+    limit: Optional[int] = None
+    offset: Optional[int] = None
+
+
 class SQLAlchemyConfig(ConfigModel):
     env: str = DEFAULT_ENV
     options: dict = {}
@@ -120,7 +126,8 @@ class SQLAlchemyConfig(ConfigModel):
 
     include_views: Optional[bool] = True
     include_tables: Optional[bool] = True
-    profile_tables: Optional[bool] = False
+
+    profiling: GEProfilingConfig = GEProfilingConfig()
 
     @abstractmethod
     def get_sql_alchemy_url(self):
@@ -277,7 +284,7 @@ class SQLAlchemySource(Source):
         self.platform = platform
         self.report = SQLSourceReport()
 
-        if self.config.profile_tables and not self._can_run_profiler():
+        if self.config.profiling.enabled and not self._can_run_profiler():
             raise ConfigurationError(
                 "Table profiles requested but profiler plugin is not enabled. "
                 f"Try running: pip install '{__package_name__}[sql-profiler]'"
@@ -301,7 +308,7 @@ class SQLAlchemySource(Source):
             sql_config.options.setdefault("echo", True)
 
         for inspector in self.get_inspectors():
-            if sql_config.profile_tables:
+            if sql_config.profiling.enabled:
                 profiler = self._get_profiler_instance(inspector)
 
             for schema in inspector.get_schema_names():
@@ -315,8 +322,8 @@ class SQLAlchemySource(Source):
                 if sql_config.include_views:
                     yield from self.loop_views(inspector, schema, sql_config)
 
-                if sql_config.profile_tables:
-                    yield from self.run_profiler(
+                if sql_config.profiling.enabled:
+                    yield from self.loop_profiler(
                         inspector, profiler, schema, sql_config
                     )
 
@@ -464,7 +471,7 @@ class SQLAlchemySource(Source):
 
         return DatahubGEProfiler(conn=inspector.bind, report=self.report)
 
-    def run_profiler(
+    def loop_profiler(
         self,
         inspector: Inspector,
         profiler: "DatahubGEProfiler",
@@ -480,7 +487,7 @@ class SQLAlchemySource(Source):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
 
-            logger.info(f"Profiling {dataset_name}")
+            logger.info(f"Profiling {dataset_name} (this may take a while)")
             profile = profiler.generate_profile(
                 pretty_name=dataset_name,
                 **self.prepare_profiler_args(schema=schema, table=table),
@@ -502,6 +509,8 @@ class SQLAlchemySource(Source):
         return dict(
             schema=schema,
             table=table,
+            limit=self.config.profiling.limit,
+            offset=self.config.profiling.offset,
         )
 
     def get_report(self):

@@ -77,7 +77,7 @@ class DatahubGEProfiler:
                 self.datasource_name: DatasourceConfig(
                     class_name="SqlAlchemyDatasource",
                     credentials={
-                        # This isn't actually used since we pass the engine in directly,
+                        # This isn't actually used since we pass the connection directly,
                         # but GE parses it to change some of its behavior so it's useful
                         # to emulate that here.
                         "url": self.conn.engine.url,
@@ -95,13 +95,21 @@ class DatahubGEProfiler:
             self.data_context = BaseDataContext(project_config=data_context_config)
 
     def generate_profile(
-        self, pretty_name: str, schema: str = None, table: str = None, **kwargs: Any
+        self,
+        pretty_name: str,
+        schema: str = None,
+        table: str = None,
+        limit: int = None,
+        offset: int = None,
+        **kwargs: Any,
     ) -> DatasetProfileClass:
         with _properly_init_datasource(self.conn):
             evrs = self._profile_data_asset(
                 {
                     "schema": schema,
                     "table": table,
+                    "limit": limit,
+                    "offset": offset,
                     **kwargs,
                 },
                 pretty_name=pretty_name,
@@ -166,7 +174,7 @@ class DatahubGEProfiler:
         table_evrs: Iterable[ExpectationValidationResult],
         pretty_name: str,
     ) -> None:
-        # This method mutates the profile directly.
+        # TRICKY: This method mutates the profile directly.
 
         for evr in table_evrs:
             exp: str = evr.expectation_config.expectation_type
@@ -188,7 +196,8 @@ class DatahubGEProfiler:
         col_evrs: Iterable[ExpectationValidationResult],
         pretty_name: str,
     ) -> None:
-        # This method mutates the profile directly.
+        # TRICKY: This method mutates the profile directly.
+
         column_profile = DatasetFieldProfileClass(fieldPath=column)
 
         profile.fieldProfiles = profile.fieldProfiles or []
