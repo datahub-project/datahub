@@ -340,7 +340,7 @@ public class GmsGraphQLEngine {
                                     UPSTREAM_LINEAGE_TYPE,
                                     (env) -> ((Entity) env.getSource()).getUrn()))
                     )
-                .dataFetcher("dataProfiles", new AuthenticatedResolver<>(
+                .dataFetcher("profiles", new AuthenticatedResolver<>(
                     new TimeSeriesAspectRangeResolver(
                         "dataset",
                         "datasetProfile",

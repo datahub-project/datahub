@@ -82,7 +82,7 @@ class TestRequest {
   private static PrimitiveIterator.OfInt random = new Random().ints().iterator();
 
   public static Urn generateUrn(int index) throws URISyntaxException {
-    String urnString = "urn:li:dataset:(urn:li:dataPlatform:foo,bar_" + index + ",PROD)";
+    String urnString = "urn:li:dataset:(urn:li:dataPlatform:kafka,bar_" + index + ",PROD)";
     return Urn.createFromString(urnString);
   }
 

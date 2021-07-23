@@ -105,9 +105,9 @@ public class TimeSeriesAspectRangeResolver
     endTimeCriterion.setValue(endTime.toString());
 
     Criterion startTimeCriterion = new Criterion();
-    endTimeCriterion.setField(TIMESTAMP_FIELD_NAME);
-    endTimeCriterion.setCondition(Condition.GREATER_THAN_OR_EQUAL_TO);
-    endTimeCriterion.setValue(startTime.toString());
+    startTimeCriterion.setField(TIMESTAMP_FIELD_NAME);
+    startTimeCriterion.setCondition(Condition.GREATER_THAN_OR_EQUAL_TO);
+    startTimeCriterion.setValue(startTime.toString());
 
     criterionArray.add(endTimeCriterion);
     criterionArray.add(startTimeCriterion);

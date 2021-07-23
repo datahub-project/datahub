@@ -15,6 +15,15 @@ type Props = {
     chartData: TimeSeriesChartType;
     width: number;
     height: number;
+    hideLegend?: boolean;
+    style?: {
+        axisColor?: string;
+        axisWidth?: number;
+        lineColor?: string;
+        lineWidth?: string;
+        crossHairLineColor?: string;
+    };
+    insertBlankPoints?: boolean;
 };
 
 const MARGIN_SIZE = 32;
@@ -40,7 +49,11 @@ function insertBlankAt(ts: number, newLine: Array<NumericDataPoint>) {
     newLine.push({ x: dateString, y: 0 });
 }
 
-function extrapolatedPoints(chartData: TimeSeriesChartType) {
+function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: boolean) {
+    if (!insertBlankPoints) {
+        return chartData.lines;
+    }
+
     const startDate = new Date(Number(chartData.dateRange.start));
     const endDate = new Date(Number(chartData.dateRange.end));
     const intervalMs = INTERVAL_TO_SECONDS[chartData.interval] * 1000;
@@ -84,17 +97,18 @@ function extrapolatedPoints(chartData: TimeSeriesChartType) {
     return returnLines;
 }
 
-export const TimeSeriesChart = ({ chartData, width, height }: Props) => {
+export const TimeSeriesChart = ({ chartData, width, height, hideLegend, style, insertBlankPoints }: Props) => {
     const ordinalColorScale = scaleOrdinal<string, string>({
         domain: chartData.lines.map((data) => data.name),
         range: lineColors.slice(0, chartData.lines.length),
     });
 
-    const extrapolatedData = useMemo(() => extrapolatedPoints(chartData), [chartData]);
+    const lines = useMemo(() => computeLines(chartData, insertBlankPoints || false), [chartData, insertBlankPoints]);
 
     return (
         <>
             <XYChart
+                eventTrigger="container"
                 ariaLabel={chartData.title}
                 width={width}
                 height={height}
@@ -107,20 +121,24 @@ export const TimeSeriesChart = ({ chartData, width, height }: Props) => {
                         <div>{datum.y}</div>
                     </div>
                 )}
-                snapTooltipToDataX
+                snapTooltipToDataX={false}
             >
-                <XAxis />
-                <YAxis />
-                {extrapolatedData.map((line, i) => (
+                <XAxis axisStyles={{ stroke: style && style.axisColor, strokeWidth: style && style.axisWidth }} />
+                <YAxis axisStyles={{ stroke: style && style.axisColor, strokeWidth: style && style.axisWidth }} />
+                {lines.map((line, i) => (
                     <LineSeries
                         showPoints
                         data={line.data.map((point) => ({ x: new Date(point.x).getTime().toString(), y: point.y }))}
-                        stroke={lineColors[i]}
+                        stroke={(style && style.lineColor) || lineColors[i]}
                     />
                 ))}
-                <CrossHair showHorizontalLine={false} fullHeight stroke="pink" />
+                <CrossHair
+                    showHorizontalLine={false}
+                    fullHeight
+                    stroke={(style && style.crossHairLineColor) || '#D8D8D8'}
+                />
             </XYChart>
-            <Legend ordinalScale={ordinalColorScale} />
+            {!hideLegend && <Legend ordinalScale={ordinalColorScale} />}
         </>
     );
 };

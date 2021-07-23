@@ -74,8 +74,9 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     Object event = docFields.get("event");
     GenericAspect genericAspect;
     try {
-      genericAspect = new GenericAspect().setValue(
-          ByteString.unsafeWrap(OBJECT_MAPPER.writeValueAsString(event).getBytes(StandardCharsets.UTF_8)));
+      genericAspect = new GenericAspect()
+          .setValue(ByteString.unsafeWrap(OBJECT_MAPPER.writeValueAsString(event)
+              .getBytes(StandardCharsets.UTF_8)));
     } catch (JsonProcessingException e) {
       throw new RuntimeException("Failed to deserialize event from the timeseries aspect index: " + e);
     }

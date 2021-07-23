@@ -57,17 +57,22 @@ public class AspectClient {
         @Nonnull String entity,
         @Nonnull String aspect,
         @Nullable Filter filter,
-        @Nonnull Integer limit)
+        @Nullable Integer limit)
         throws RemoteInvocationException {
 
         AspectsDoGetAspectValuesRequestBuilder requestBuilder = ASPECTS_REQUEST_BUILDERS.actionGetAspectValues()
             .urnParam(urn)
             .entityParam(entity)
-            .aspectParam(aspect)
-            .filterParam(filter)
-            .limitParam(limit);
+            .aspectParam(aspect);
+
+        if (filter != null) {
+            requestBuilder.filterParam(filter);
+        }
+
+        if (limit != null) {
+            requestBuilder.limitParam(limit);
+        }
 
         return _client.sendRequest(requestBuilder.build()).getResponse().getEntity().getValues();
-
     }
 }
