@@ -54,6 +54,8 @@ def _properly_init_datasource(conn):
     with unittest.mock.patch(
         "great_expectations.datasource.sqlalchemy_datasource.SqlAlchemyDatasource.__init__",
         sqlalchemy_datasource_init,
+    ), unittest.mock.patch(
+        "great_expectations.data_context.store.validations_store.ValidationsStore.set"
     ):
         yield
 
@@ -195,6 +197,11 @@ class DatahubGEProfiler:
         for evr in col_evrs:
             exp: str = evr.expectation_config.expectation_type
             res: dict = evr.result
+            if not res:
+                self.report.report_warning(
+                    f"profile of {pretty_name}", f"{exp} did not yield any results"
+                )
+                continue
 
             if exp == "expect_column_unique_value_count_to_be_between":
                 column_profile.uniqueCount = res["observed_value"]
