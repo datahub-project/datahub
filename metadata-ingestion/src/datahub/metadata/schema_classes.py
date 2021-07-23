@@ -5671,7 +5671,6 @@ class MLHyperParamClass(DictWrapper):
         description: Union[None, str]=None,
         value: Union[None, str]=None,
         createdAt: Union[None, int]=None,
-        version: Union[None, "VersionTagClass"]=None,
     ):
         super().__init__()
         
@@ -5679,7 +5678,6 @@ class MLHyperParamClass(DictWrapper):
         self.description = description
         self.value = value
         self.createdAt = createdAt
-        self.version = version
     
     @classmethod
     def construct_with_defaults(cls) -> "MLHyperParamClass":
@@ -5693,7 +5691,6 @@ class MLHyperParamClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.value = self.RECORD_SCHEMA.field_map["value"].default
         self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
-        self.version = self.RECORD_SCHEMA.field_map["version"].default
     
     
     @property
@@ -5740,17 +5737,6 @@ class MLHyperParamClass(DictWrapper):
         self._inner_dict['createdAt'] = value
     
     
-    @property
-    def version(self) -> Union[None, "VersionTagClass"]:
-        """Getter: Version of the MLHyperParam"""
-        return self._inner_dict.get('version')  # type: ignore
-    
-    @version.setter
-    def version(self, value: Union[None, "VersionTagClass"]) -> None:
-        """Setter: Version of the MLHyperParam"""
-        self._inner_dict['version'] = value
-    
-    
 class MLMetricClass(DictWrapper):
     """Properties associated with an ML Metric"""
     
@@ -5760,7 +5746,6 @@ class MLMetricClass(DictWrapper):
         description: Union[None, str]=None,
         value: Union[None, str]=None,
         createdAt: Union[None, int]=None,
-        version: Union[None, "VersionTagClass"]=None,
     ):
         super().__init__()
         
@@ -5768,7 +5753,6 @@ class MLMetricClass(DictWrapper):
         self.description = description
         self.value = value
         self.createdAt = createdAt
-        self.version = version
     
     @classmethod
     def construct_with_defaults(cls) -> "MLMetricClass":
@@ -5782,7 +5766,6 @@ class MLMetricClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.value = self.RECORD_SCHEMA.field_map["value"].default
         self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
-        self.version = self.RECORD_SCHEMA.field_map["version"].default
     
     
     @property
@@ -5827,17 +5810,6 @@ class MLMetricClass(DictWrapper):
     def createdAt(self, value: Union[None, int]) -> None:
         """Setter: Date when the mlMetric was developed"""
         self._inner_dict['createdAt'] = value
-    
-    
-    @property
-    def version(self) -> Union[None, "VersionTagClass"]:
-        """Getter: Version of the mlMetric"""
-        return self._inner_dict.get('version')  # type: ignore
-    
-    @version.setter
-    def version(self, value: Union[None, "VersionTagClass"]) -> None:
-        """Setter: Version of the mlMetric"""
-        self._inner_dict['version'] = value
     
     
 class MLModelDeploymentPropertiesClass(DictWrapper):

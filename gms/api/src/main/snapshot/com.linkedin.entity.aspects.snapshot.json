@@ -595,7 +595,11 @@
           }
         }
       },
-      "doc" : "Urn of the applied glossary term"
+      "doc" : "Urn of the applied glossary term",
+      "Searchable" : {
+        "fieldName" : "glossaryTerms",
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
     "type" : "record",
@@ -2479,11 +2483,6 @@
               "type" : "com.linkedin.common.Time",
               "doc" : "Date when the MLHyperParam was developed",
               "optional" : true
-            }, {
-              "name" : "version",
-              "type" : "com.linkedin.common.VersionTag",
-              "doc" : "Version of the MLHyperParam",
-              "optional" : true
             } ],
             "Aspect" : {
               "name" : "mlHyperParam"
@@ -2518,11 +2517,6 @@
               "name" : "createdAt",
               "type" : "com.linkedin.common.Time",
               "doc" : "Date when the mlMetric was developed",
-              "optional" : true
-            }, {
-              "name" : "version",
-              "type" : "com.linkedin.common.VersionTag",
-              "doc" : "Version of the mlMetric",
               "optional" : true
             } ],
             "Aspect" : {

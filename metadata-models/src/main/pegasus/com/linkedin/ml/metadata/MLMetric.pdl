@@ -31,9 +31,4 @@ record MLMetric {
    * Date when the mlMetric was developed
    */
   createdAt: optional Time
-
-  /**
-   * Version of the mlMetric
-   */
-  version: optional VersionTag
 }
