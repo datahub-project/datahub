@@ -135,7 +135,7 @@ export default function ProfilesView({ urn, profile }: Props) {
     return (
         <>
             <Space direction="vertical" style={{ marginTop: 20, width: '100%' }} size={40}>
-                <Affix offsetTop={80}>
+                <Affix offsetTop={127}>
                     <Row
                         style={{ paddingTop: 12, paddingBottom: 16, backgroundColor: 'white' }}
                         justify="space-between"
