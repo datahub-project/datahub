@@ -51,12 +51,12 @@ public class DatasetProfileMapper implements ModelMapper<EnvelopedAspect, com.li
     result.setMedian(gmsProfile.getMedian());
     result.setMean(gmsProfile.getMean());
     if (gmsProfile.hasUniqueProportion()) {
-      result.setUniqueProportion(gmsProfile.getUniqueProportion().doubleValue());
+      result.setUniqueProportion(gmsProfile.getUniqueProportion());
     }
     result.setUniqueCount(gmsProfile.getUniqueCount());
     result.setNullCount(gmsProfile.getNullCount());
     if (gmsProfile.hasNullProportion()) {
-      result.setNullProportion(gmsProfile.getNullProportion().doubleValue());
+      result.setNullProportion(gmsProfile.getNullProportion());
     }
     result.setSampleValues(gmsProfile.getSampleValues());
     return result;

@@ -150,34 +150,54 @@ class TestRequest {
     MetadataChangeProposal gmce = new MetadataChangeProposal();
     gmce.setEntityType("dataset");
     gmce.setAspectName("datasetProfile");
-    MetadataChangeProposal.EntityKey key = MetadataChangeProposal.EntityKey.create(generateUrn(0));
+    MetadataChangeProposal.EntityKey key = MetadataChangeProposal.EntityKey.create(
+        Urn.createFromString(
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,global_dev.larxynx_carcinoma_data_2020,PROD)"));
     gmce.setEntityKey(key);
     gmce.setChangeType(ChangeType.UPDATE);
     GenericAspect genericAspect = new GenericAspect();
     genericAspect.setContentType("application/json");
     DatasetProfile datasetProfile = new DatasetProfile();
-    datasetProfile.setRowCount(index);
+    datasetProfile.setRowCount(index*4+123);
     datasetProfile.setColumnCount(100);
     DatasetFieldProfileArray fieldProfiles = new DatasetFieldProfileArray();
-    fieldProfiles.add(new DatasetFieldProfile().setFieldPath("field1")
-        .setMin(String.valueOf(index))
-        .setMax(String.valueOf(index))
-        .setMean(String.valueOf(index))
-        .setMedian(String.valueOf(index))
+    fieldProfiles.add(new DatasetFieldProfile().setFieldPath("patient_gender")
         .setNullCount(index / 2)
-        .setNullProportion(0.5f)
-        .setSampleValues(new StringArray(ImmutableList.of("1", "2")))
+        .setNullProportion(0.5f*index/index)
+        .setUniqueProportion(0.001f/(index+1))
+        .setUniqueCount(2)
+        .setSampleValues(new StringArray(ImmutableList.of("male", "female")))
         .setQuantiles(new QuantileArray(
             ImmutableList.of(new Quantile().setQuantile("p50").setValue(String.valueOf(index)),
                 new Quantile().setQuantile("p90").setValue(String.valueOf(index))))));
-    fieldProfiles.add(new DatasetFieldProfile().setFieldPath("field2")
-        .setMin(String.valueOf(index))
-        .setMax(String.valueOf(index))
-        .setMean(String.valueOf(index))
-        .setMedian(String.valueOf(index))
-        .setNullCount(index / 2)
-        .setNullProportion(0.5f)
-        .setSampleValues(new StringArray(ImmutableList.of("1", "2")))
+    fieldProfiles.add(new DatasetFieldProfile().setFieldPath("patient_age")
+        .setMin(String.valueOf(1))
+        .setMax(String.valueOf(index+43))
+        .setMean(String.valueOf(index/2))
+        .setMedian(String.valueOf(index/2-1))
+        .setNullCount(index / 3)
+        .setNullProportion(0.8f)
+        .setUniqueProportion(0.67f)
+        .setUniqueCount(index/2)
+        .setSampleValues(new StringArray(ImmutableList.of("14", "26", "45")))
+        .setQuantiles(new QuantileArray(
+            ImmutableList.of(new Quantile().setQuantile("p50").setValue(String.valueOf(index)),
+                new Quantile().setQuantile("p90").setValue(String.valueOf(index))))));
+    fieldProfiles.add(new DatasetFieldProfile().setFieldPath("id")
+        .setNullCount(0)
+        .setNullProportion(0.0f)
+        .setUniqueProportion(1.0f)
+        .setUniqueCount(index*4+123)
+        .setSampleValues(new StringArray(ImmutableList.of("2342iudfb123", "1231bqwelkna")))
+        .setQuantiles(new QuantileArray(
+            ImmutableList.of(new Quantile().setQuantile("p50").setValue(String.valueOf(index)),
+                new Quantile().setQuantile("p90").setValue(String.valueOf(index))))));
+    fieldProfiles.add(new DatasetFieldProfile().setFieldPath("diagnosed_diabetic")
+        .setNullCount(index*2)
+        .setNullProportion(1.0f/((index+1)^2))
+        .setUniqueProportion((index*4+123)/2.0f)
+        .setUniqueCount(2)
+        .setSampleValues(new StringArray(ImmutableList.of("true", "false")))
         .setQuantiles(new QuantileArray(
             ImmutableList.of(new Quantile().setQuantile("p50").setValue(String.valueOf(index)),
                 new Quantile().setQuantile("p90").setValue(String.valueOf(index))))));

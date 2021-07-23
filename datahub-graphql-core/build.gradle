@@ -27,6 +27,7 @@ graphqlCodegen {
     modelValidationAnnotation = "@javax.annotation.Nonnull"
     customTypesMapping = [
             Long: "Long",
+            Float: "Float"
     ]
 }
 

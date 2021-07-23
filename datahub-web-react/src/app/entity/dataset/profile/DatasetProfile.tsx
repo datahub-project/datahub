@@ -157,7 +157,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             },
         ];
 
-        if (profiles) {
+        if (profiles && profiles.length) {
             tabs.unshift({
                 name: TabType.Profile,
                 path: TabType.Profile.toLowerCase(),
