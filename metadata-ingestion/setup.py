@@ -190,6 +190,7 @@ full_test_dev_requirements = {
             "mssql",
             "mysql",
             "snowflake",
+            "sql-profiler",
         ]
         for dependency in plugins[plugin]
     ),
