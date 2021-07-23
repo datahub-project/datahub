@@ -7,7 +7,7 @@ import com.linkedin.timeseries.TimeseriesAspectBase
  */
 @Aspect = {
   "name": "datasetProfile",
-	"type": "timeseries",
+  "type": "timeseries",
 }
 record DatasetProfile includes TimeseriesAspectBase {
 	rowCount: optional long
