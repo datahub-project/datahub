@@ -66,11 +66,13 @@ def make_data_job_urn(
 
 
 def make_dashboard_urn(platform: str, name: str) -> str:
-    return f"urn:li:dashboard:({make_data_platform_urn(platform)},{name})"
+    # FIXME: dashboards don't currently include data platform urn prefixes.
+    return f"urn:li:dashboard:({platform},{name})"
 
 
 def make_chart_urn(platform: str, name: str) -> str:
-    return f"urn:li:chart:({make_data_platform_urn(platform)},{name})"
+    # FIXME: charts don't currently include data platform urn prefixes.
+    return f"urn:li:chart:({platform},{name})"
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
