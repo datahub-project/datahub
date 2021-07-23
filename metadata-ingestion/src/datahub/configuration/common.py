@@ -1,6 +1,6 @@
 import re
 from abc import ABC, abstractmethod
-from typing import IO, Any, List, Optional
+from typing import IO, Any, List, Optional, Pattern
 
 from pydantic import BaseModel
 
@@ -57,7 +57,7 @@ class AllowDenyPattern(ConfigModel):
     alphabet: str = "[A-Za-z0-9 _.-]"
 
     @property
-    def alphabet_pattern(self) -> re.Pattern:
+    def alphabet_pattern(self) -> Pattern:
         return re.compile(f"^{self.alphabet}+$")
 
     @classmethod
