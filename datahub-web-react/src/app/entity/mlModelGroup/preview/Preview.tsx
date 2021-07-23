@@ -1,27 +1,23 @@
 import React from 'react';
-import { EntityType, Owner } from '../../../../types.generated';
+import { EntityType, MlModelGroup } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
+import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 
-export const Preview = ({
-    urn,
-    name,
-    description,
-    owners,
-}: {
-    urn: string;
-    name: string;
-    description?: string | null;
-    owners?: Array<Owner> | null;
-}): JSX.Element => {
+export const Preview = ({ group }: { group: MlModelGroup }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const capitalPlatformName = capitalizeFirstLetter(group?.platform?.name || '');
+
     return (
         <DefaultPreviewCard
-            url={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, urn)}
-            name={name}
-            description={description || ''}
-            type="MLFeature Table"
-            owners={owners}
+            url={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, group.urn)}
+            name={group?.name || ''}
+            description={group?.description || ''}
+            type="MLModel Group"
+            logoUrl={group?.platform?.info?.logoUrl || ''}
+            platform={capitalPlatformName}
+            qualifier={group?.origin}
+            owners={group?.ownership?.owners}
         />
     );
 };

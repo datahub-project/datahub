@@ -47,26 +47,12 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     renderProfile = (urn: string) => <MLModelGroupProfile urn={urn} />;
 
     renderPreview = (_: PreviewType, data: MlModelGroup) => {
-        return (
-            <Preview
-                urn={data.urn}
-                name={data.name || ''}
-                description={data.description}
-                owners={data.ownership?.owners}
-            />
-        );
+        return <Preview group={data} />;
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as MlModelGroup;
-        return (
-            <Preview
-                urn={data.urn}
-                name={data.name || ''}
-                description={data.description || ''}
-                owners={data.ownership?.owners}
-            />
-        );
+        return <Preview group={data} />;
     };
 
     getLineageVizConfig = (entity: MlModelGroup) => {
