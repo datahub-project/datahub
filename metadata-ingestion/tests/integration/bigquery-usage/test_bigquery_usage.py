@@ -6,7 +6,7 @@ import jsonpickle
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.bigquery_usage import (
+from datahub.ingestion.source.usage.bigquery_usage import (
     BigQueryUsageConfig,
     BigQueryUsageSource,
 )
@@ -54,7 +54,7 @@ def test_bq_usage_source(pytestconfig, tmp_path):
             logs.write(log_entries)
 
     with unittest.mock.patch(
-        "datahub.ingestion.source.bigquery_usage.GCPLoggingClient", autospec=True
+        "datahub.ingestion.source.usage.bigquery_usage.GCPLoggingClient", autospec=True
     ) as MockClient:
         # Add mock BigQuery API responses.
         with bigquery_reference_logs_path.open() as logs:

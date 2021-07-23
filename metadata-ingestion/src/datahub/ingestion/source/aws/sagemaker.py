@@ -4,20 +4,20 @@ from typing import DefaultDict, Dict, Iterable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sagemaker_processors.common import (
+from datahub.ingestion.source.aws.sagemaker_processors.common import (
     SagemakerSourceConfig,
     SagemakerSourceReport,
 )
-from datahub.ingestion.source.sagemaker_processors.feature_groups import (
+from datahub.ingestion.source.aws.sagemaker_processors.feature_groups import (
     FeatureGroupProcessor,
 )
-from datahub.ingestion.source.sagemaker_processors.jobs import (
+from datahub.ingestion.source.aws.sagemaker_processors.jobs import (
     JobKey,
     JobProcessor,
     ModelJob,
 )
-from datahub.ingestion.source.sagemaker_processors.lineage import LineageProcessor
-from datahub.ingestion.source.sagemaker_processors.models import ModelProcessor
+from datahub.ingestion.source.aws.sagemaker_processors.lineage import LineageProcessor
+from datahub.ingestion.source.aws.sagemaker_processors.models import ModelProcessor
 
 
 class SagemakerSource(Source):

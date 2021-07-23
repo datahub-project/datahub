@@ -10,7 +10,7 @@ from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws_common import AwsSourceConfig, make_s3_urn
+from datahub.ingestion.source.aws.aws_common import AwsSourceConfig, make_s3_urn
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -424,7 +424,9 @@ class GlueSource(Source):
 
             for job in self.get_all_jobs():
 
-                flow_urn = mce_builder.make_data_flow_urn("glue", job["Name"], self.env)
+                flow_urn = mce_builder.make_data_flow_urn(
+                    mce_builder.make_data_platform_urn("glue"), job["Name"], self.env
+                )
 
                 flow_wu = self.get_dataflow_wu(flow_urn, job)
                 self.report.report_workunit(flow_wu)
