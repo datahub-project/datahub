@@ -10,6 +10,11 @@ source:
     schema_pattern:
       allow:
         - "^metagalaxy"
+        - "^northwind"
+    profile_tables: true
+    profile_pattern:
+      allow:
+        - "^northwind.*\$"
 
 sink:
   type: file

@@ -6,6 +6,7 @@ import { GlobalTags, Owner, GlossaryTerms } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
+import MarkdownViewer from '../entity/shared/MarkdownViewer';
 
 interface Props {
     name: string;
@@ -24,6 +25,13 @@ interface Props {
 }
 
 const DescriptionParagraph = styled(Typography.Paragraph)`
+    &&& {
+        margin-bottom: 0px;
+        padding-left: 8px;
+    }
+`;
+
+const DescriptionMarkdownViewer = styled(MarkdownViewer)`
     &&& {
         margin-bottom: 0px;
         padding-left: 8px;
@@ -88,7 +96,7 @@ export default function DefaultPreviewCard({
                     {description.length === 0 ? (
                         <DescriptionParagraph type="secondary">No description</DescriptionParagraph>
                     ) : (
-                        <DescriptionParagraph>{description}</DescriptionParagraph>
+                        <DescriptionMarkdownViewer source={description} />
                     )}
                     {snippet}
                 </div>

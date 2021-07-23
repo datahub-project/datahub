@@ -3351,6 +3351,20 @@ class ValueFrequencyClass(DictWrapper):
         self._inner_dict['frequency'] = value
     
     
+class ChangeTypeClass(object):
+    """Descriptor for a change action"""
+    
+    
+    """create action"""
+    CREATE = "CREATE"
+    
+    """delete action"""
+    DELETE = "DELETE"
+    
+    """update action"""
+    UPDATE = "UPDATE"
+    
+    
 class GlossaryNodeInfoClass(DictWrapper):
     """Properties associated with a GlossaryNode"""
     
@@ -6093,12 +6107,191 @@ class MLFeatureTablePropertiesClass(DictWrapper):
         self._inner_dict['mlPrimaryKeys'] = value
     
     
+class MLHyperParamClass(DictWrapper):
+    """Properties associated with an ML Hyper Param"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLHyperParam")
+    def __init__(self,
+        name: str,
+        description: Union[None, str]=None,
+        value: Union[None, str]=None,
+        createdAt: Union[None, int]=None,
+        version: Union[None, "VersionTagClass"]=None,
+    ):
+        super().__init__()
+        
+        self.name = name
+        self.description = description
+        self.value = value
+        self.createdAt = createdAt
+        self.version = version
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MLHyperParamClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.name = str()
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
+        self.value = self.RECORD_SCHEMA.field_map["value"].default
+        self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
+        self.version = self.RECORD_SCHEMA.field_map["version"].default
+    
+    
+    @property
+    def name(self) -> str:
+        """Getter: Name of the MLHyperParam"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        """Setter: Name of the MLHyperParam"""
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Getter: Documentation of the MLHyperParam"""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        """Setter: Documentation of the MLHyperParam"""
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def value(self) -> Union[None, str]:
+        """Getter: The value of the MLHyperParam"""
+        return self._inner_dict.get('value')  # type: ignore
+    
+    @value.setter
+    def value(self, value: Union[None, str]) -> None:
+        """Setter: The value of the MLHyperParam"""
+        self._inner_dict['value'] = value
+    
+    
+    @property
+    def createdAt(self) -> Union[None, int]:
+        """Getter: Date when the MLHyperParam was developed"""
+        return self._inner_dict.get('createdAt')  # type: ignore
+    
+    @createdAt.setter
+    def createdAt(self, value: Union[None, int]) -> None:
+        """Setter: Date when the MLHyperParam was developed"""
+        self._inner_dict['createdAt'] = value
+    
+    
+    @property
+    def version(self) -> Union[None, "VersionTagClass"]:
+        """Getter: Version of the MLHyperParam"""
+        return self._inner_dict.get('version')  # type: ignore
+    
+    @version.setter
+    def version(self, value: Union[None, "VersionTagClass"]) -> None:
+        """Setter: Version of the MLHyperParam"""
+        self._inner_dict['version'] = value
+    
+    
+class MLMetricClass(DictWrapper):
+    """Properties associated with an ML Metric"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLMetric")
+    def __init__(self,
+        name: str,
+        description: Union[None, str]=None,
+        value: Union[None, str]=None,
+        createdAt: Union[None, int]=None,
+        version: Union[None, "VersionTagClass"]=None,
+    ):
+        super().__init__()
+        
+        self.name = name
+        self.description = description
+        self.value = value
+        self.createdAt = createdAt
+        self.version = version
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MLMetricClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.name = str()
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
+        self.value = self.RECORD_SCHEMA.field_map["value"].default
+        self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
+        self.version = self.RECORD_SCHEMA.field_map["version"].default
+    
+    
+    @property
+    def name(self) -> str:
+        """Getter: Name of the mlMetric"""
+        return self._inner_dict.get('name')  # type: ignore
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        """Setter: Name of the mlMetric"""
+        self._inner_dict['name'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Getter: Documentation of the mlMetric"""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        """Setter: Documentation of the mlMetric"""
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def value(self) -> Union[None, str]:
+        """Getter: The value of the mlMetric"""
+        return self._inner_dict.get('value')  # type: ignore
+    
+    @value.setter
+    def value(self, value: Union[None, str]) -> None:
+        """Setter: The value of the mlMetric"""
+        self._inner_dict['value'] = value
+    
+    
+    @property
+    def createdAt(self) -> Union[None, int]:
+        """Getter: Date when the mlMetric was developed"""
+        return self._inner_dict.get('createdAt')  # type: ignore
+    
+    @createdAt.setter
+    def createdAt(self, value: Union[None, int]) -> None:
+        """Setter: Date when the mlMetric was developed"""
+        self._inner_dict['createdAt'] = value
+    
+    
+    @property
+    def version(self) -> Union[None, "VersionTagClass"]:
+        """Getter: Version of the mlMetric"""
+        return self._inner_dict.get('version')  # type: ignore
+    
+    @version.setter
+    def version(self, value: Union[None, "VersionTagClass"]) -> None:
+        """Setter: Version of the mlMetric"""
+        self._inner_dict['version'] = value
+    
+    
 class MLModelDeploymentPropertiesClass(DictWrapper):
     """Properties associated with an ML Model Deployment"""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties")
     def __init__(self,
         customProperties: Optional[Dict[str, str]]=None,
+        externalUrl: Union[None, str]=None,
         description: Union[None, str]=None,
         createdAt: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
@@ -6111,6 +6304,7 @@ class MLModelDeploymentPropertiesClass(DictWrapper):
             self.customProperties = dict()
         else:
             self.customProperties = customProperties
+        self.externalUrl = externalUrl
         self.description = description
         self.createdAt = createdAt
         self.version = version
@@ -6125,6 +6319,7 @@ class MLModelDeploymentPropertiesClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.customProperties = dict()
+        self.externalUrl = self.RECORD_SCHEMA.field_map["externalUrl"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
@@ -6140,6 +6335,17 @@ class MLModelDeploymentPropertiesClass(DictWrapper):
     def customProperties(self, value: Dict[str, str]) -> None:
         """Setter: Custom property bag."""
         self._inner_dict['customProperties'] = value
+    
+    
+    @property
+    def externalUrl(self) -> Union[None, str]:
+        """Getter: URL where the reference exist"""
+        return self._inner_dict.get('externalUrl')  # type: ignore
+    
+    @externalUrl.setter
+    def externalUrl(self, value: Union[None, str]) -> None:
+        """Setter: URL where the reference exist"""
+        self._inner_dict['externalUrl'] = value
     
     
     @property
@@ -6309,7 +6515,6 @@ class MLModelGroupPropertiesClass(DictWrapper):
         description: Union[None, str]=None,
         createdAt: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
-        models: Optional[List[str]]=None,
     ):
         super().__init__()
         
@@ -6321,11 +6526,6 @@ class MLModelGroupPropertiesClass(DictWrapper):
         self.description = description
         self.createdAt = createdAt
         self.version = version
-        if models is None:
-            # default: []
-            self.models = list()
-        else:
-            self.models = models
     
     @classmethod
     def construct_with_defaults(cls) -> "MLModelGroupPropertiesClass":
@@ -6339,7 +6539,6 @@ class MLModelGroupPropertiesClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.models = list()
     
     
     @property
@@ -6386,33 +6585,27 @@ class MLModelGroupPropertiesClass(DictWrapper):
         self._inner_dict['version'] = value
     
     
-    @property
-    def models(self) -> List[str]:
-        """Getter: Models in the group"""
-        return self._inner_dict.get('models')  # type: ignore
-    
-    @models.setter
-    def models(self, value: List[str]) -> None:
-        """Setter: Models in the group"""
-        self._inner_dict['models'] = value
-    
-    
 class MLModelPropertiesClass(DictWrapper):
     """Properties associated with a ML Model"""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.ml.metadata.MLModelProperties")
     def __init__(self,
         customProperties: Optional[Dict[str, str]]=None,
+        externalUrl: Union[None, str]=None,
         description: Union[None, str]=None,
         date: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
         type: Union[None, str]=None,
         hyperParameters: Union[None, Dict[str, Union[str, int, float, float, bool]]]=None,
+        hyperParams: Union[None, List["MLHyperParamClass"]]=None,
+        trainingMetrics: Union[None, List["MLMetricClass"]]=None,
+        onlineMetrics: Union[None, List["MLMetricClass"]]=None,
         mlFeatures: Union[None, List[str]]=None,
         tags: Optional[List[str]]=None,
         deployments: Union[None, List[str]]=None,
         trainingJobs: Union[None, List[str]]=None,
         downstreamJobs: Union[None, List[str]]=None,
+        groups: Union[None, List[str]]=None,
     ):
         super().__init__()
         
@@ -6421,11 +6614,15 @@ class MLModelPropertiesClass(DictWrapper):
             self.customProperties = dict()
         else:
             self.customProperties = customProperties
+        self.externalUrl = externalUrl
         self.description = description
         self.date = date
         self.version = version
         self.type = type
         self.hyperParameters = hyperParameters
+        self.hyperParams = hyperParams
+        self.trainingMetrics = trainingMetrics
+        self.onlineMetrics = onlineMetrics
         self.mlFeatures = mlFeatures
         if tags is None:
             # default: []
@@ -6435,6 +6632,7 @@ class MLModelPropertiesClass(DictWrapper):
         self.deployments = deployments
         self.trainingJobs = trainingJobs
         self.downstreamJobs = downstreamJobs
+        self.groups = groups
     
     @classmethod
     def construct_with_defaults(cls) -> "MLModelPropertiesClass":
@@ -6445,16 +6643,21 @@ class MLModelPropertiesClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.customProperties = dict()
+        self.externalUrl = self.RECORD_SCHEMA.field_map["externalUrl"].default
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.date = self.RECORD_SCHEMA.field_map["date"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
         self.type = self.RECORD_SCHEMA.field_map["type"].default
         self.hyperParameters = self.RECORD_SCHEMA.field_map["hyperParameters"].default
+        self.hyperParams = self.RECORD_SCHEMA.field_map["hyperParams"].default
+        self.trainingMetrics = self.RECORD_SCHEMA.field_map["trainingMetrics"].default
+        self.onlineMetrics = self.RECORD_SCHEMA.field_map["onlineMetrics"].default
         self.mlFeatures = self.RECORD_SCHEMA.field_map["mlFeatures"].default
         self.tags = list()
         self.deployments = self.RECORD_SCHEMA.field_map["deployments"].default
         self.trainingJobs = self.RECORD_SCHEMA.field_map["trainingJobs"].default
         self.downstreamJobs = self.RECORD_SCHEMA.field_map["downstreamJobs"].default
+        self.groups = self.RECORD_SCHEMA.field_map["groups"].default
     
     
     @property
@@ -6466,6 +6669,17 @@ class MLModelPropertiesClass(DictWrapper):
     def customProperties(self, value: Dict[str, str]) -> None:
         """Setter: Custom property bag."""
         self._inner_dict['customProperties'] = value
+    
+    
+    @property
+    def externalUrl(self) -> Union[None, str]:
+        """Getter: URL where the reference exist"""
+        return self._inner_dict.get('externalUrl')  # type: ignore
+    
+    @externalUrl.setter
+    def externalUrl(self, value: Union[None, str]) -> None:
+        """Setter: URL where the reference exist"""
+        self._inner_dict['externalUrl'] = value
     
     
     @property
@@ -6514,13 +6728,50 @@ class MLModelPropertiesClass(DictWrapper):
     
     @property
     def hyperParameters(self) -> Union[None, Dict[str, Union[str, int, float, float, bool]]]:
-        """Getter: Hyper Parameters of the MLModel"""
+        """Getter: Hyper Parameters of the MLModel
+    
+    NOTE: these are deprecated in favor of hyperParams"""
         return self._inner_dict.get('hyperParameters')  # type: ignore
     
     @hyperParameters.setter
     def hyperParameters(self, value: Union[None, Dict[str, Union[str, int, float, float, bool]]]) -> None:
-        """Setter: Hyper Parameters of the MLModel"""
+        """Setter: Hyper Parameters of the MLModel
+    
+    NOTE: these are deprecated in favor of hyperParams"""
         self._inner_dict['hyperParameters'] = value
+    
+    
+    @property
+    def hyperParams(self) -> Union[None, List["MLHyperParamClass"]]:
+        """Getter: Hyperparameters of the MLModel"""
+        return self._inner_dict.get('hyperParams')  # type: ignore
+    
+    @hyperParams.setter
+    def hyperParams(self, value: Union[None, List["MLHyperParamClass"]]) -> None:
+        """Setter: Hyperparameters of the MLModel"""
+        self._inner_dict['hyperParams'] = value
+    
+    
+    @property
+    def trainingMetrics(self) -> Union[None, List["MLMetricClass"]]:
+        """Getter: Metrics of the MLModel used in training"""
+        return self._inner_dict.get('trainingMetrics')  # type: ignore
+    
+    @trainingMetrics.setter
+    def trainingMetrics(self, value: Union[None, List["MLMetricClass"]]) -> None:
+        """Setter: Metrics of the MLModel used in training"""
+        self._inner_dict['trainingMetrics'] = value
+    
+    
+    @property
+    def onlineMetrics(self) -> Union[None, List["MLMetricClass"]]:
+        """Getter: Metrics of the MLModel used in production"""
+        return self._inner_dict.get('onlineMetrics')  # type: ignore
+    
+    @onlineMetrics.setter
+    def onlineMetrics(self, value: Union[None, List["MLMetricClass"]]) -> None:
+        """Setter: Metrics of the MLModel used in production"""
+        self._inner_dict['onlineMetrics'] = value
     
     
     @property
@@ -6576,6 +6827,17 @@ class MLModelPropertiesClass(DictWrapper):
     def downstreamJobs(self, value: Union[None, List[str]]) -> None:
         """Setter: List of jobs (if any) that use the model"""
         self._inner_dict['downstreamJobs'] = value
+    
+    
+    @property
+    def groups(self) -> Union[None, List[str]]:
+        """Getter: Groups the model belongs to"""
+        return self._inner_dict.get('groups')  # type: ignore
+    
+    @groups.setter
+    def groups(self, value: Union[None, List[str]]) -> None:
+        """Setter: Groups the model belongs to"""
+        self._inner_dict['groups'] = value
     
     
 class MLPrimaryKeyPropertiesClass(DictWrapper):
@@ -6868,65 +7130,52 @@ class TrainingDataClass(DictWrapper):
         self._inner_dict['trainingData'] = value
     
     
-class MetadataAuditEventClass(DictWrapper):
-    """Kafka event for capturing update made to an entity's metadata."""
+class GenericAspectClass(DictWrapper):
+    """Generic record structure for serializing an Aspect
+    """
     
-    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataAuditEvent")
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.GenericAspect")
     def __init__(self,
-        newSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
-        auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
-        oldSnapshot: Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]=None,
+        value: bytes,
+        contentType: str,
     ):
         super().__init__()
         
-        self.auditHeader = auditHeader
-        self.oldSnapshot = oldSnapshot
-        self.newSnapshot = newSnapshot
+        self.value = value
+        self.contentType = contentType
     
     @classmethod
-    def construct_with_defaults(cls) -> "MetadataAuditEventClass":
+    def construct_with_defaults(cls) -> "GenericAspectClass":
         self = cls.construct({})
         self._restore_defaults()
         
         return self
     
     def _restore_defaults(self) -> None:
-        self.auditHeader = self.RECORD_SCHEMA.field_map["auditHeader"].default
-        self.oldSnapshot = self.RECORD_SCHEMA.field_map["oldSnapshot"].default
-        self.newSnapshot = ChartSnapshotClass.construct_with_defaults()
+        self.value = bytes()
+        self.contentType = str()
     
     
     @property
-    def auditHeader(self) -> Union[None, "KafkaAuditHeaderClass"]:
-        """Getter: Kafka audit header. See go/kafkaauditheader for more info."""
-        return self._inner_dict.get('auditHeader')  # type: ignore
+    def value(self) -> bytes:
+        # No docs available.
+        return self._inner_dict.get('value')  # type: ignore
     
-    @auditHeader.setter
-    def auditHeader(self, value: Union[None, "KafkaAuditHeaderClass"]) -> None:
-        """Setter: Kafka audit header. See go/kafkaauditheader for more info."""
-        self._inner_dict['auditHeader'] = value
-    
-    
-    @property
-    def oldSnapshot(self) -> Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
-        """Getter: Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot."""
-        return self._inner_dict.get('oldSnapshot')  # type: ignore
-    
-    @oldSnapshot.setter
-    def oldSnapshot(self, value: Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
-        """Setter: Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot."""
-        self._inner_dict['oldSnapshot'] = value
+    @value.setter
+    def value(self, value: bytes) -> None:
+        # No docs available.
+        self._inner_dict['value'] = value
     
     
     @property
-    def newSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
-        """Getter: Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."""
-        return self._inner_dict.get('newSnapshot')  # type: ignore
+    def contentType(self) -> str:
+        # No docs available.
+        return self._inner_dict.get('contentType')  # type: ignore
     
-    @newSnapshot.setter
-    def newSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
-        """Setter: Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."""
-        self._inner_dict['newSnapshot'] = value
+    @contentType.setter
+    def contentType(self, value: str) -> None:
+        # No docs available.
+        self._inner_dict['contentType'] = value
     
     
 class MetadataChangeEventClass(DictWrapper):
@@ -6988,6 +7237,194 @@ class MetadataChangeEventClass(DictWrapper):
     def proposedDelta(self, value: None) -> None:
         """Setter: Delta of the proposed metadata partial update."""
         self._inner_dict['proposedDelta'] = value
+    
+    
+class MetadataChangeProposalClass(DictWrapper):
+    """Kafka event for proposing a metadata change for an entity. A corresponding MetadataChangeLog is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeProposal will be emitted instead."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataChangeProposal")
+    def __init__(self,
+        entityType: str,
+        entityKey: Union[str, "GenericAspectClass"],
+        changeType: Union[str, "ChangeTypeClass"],
+        auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
+        aspectName: Union[None, str]=None,
+        aspect: Union[None, "GenericAspectClass"]=None,
+        systemMetadata: Union[None, "SystemMetadataClass"]=None,
+    ):
+        super().__init__()
+        
+        self.auditHeader = auditHeader
+        self.entityType = entityType
+        self.entityKey = entityKey
+        self.changeType = changeType
+        self.aspectName = aspectName
+        self.aspect = aspect
+        self.systemMetadata = systemMetadata
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "MetadataChangeProposalClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.auditHeader = self.RECORD_SCHEMA.field_map["auditHeader"].default
+        self.entityType = str()
+        self.entityKey = str()
+        self.changeType = ChangeTypeClass.CREATE
+        self.aspectName = self.RECORD_SCHEMA.field_map["aspectName"].default
+        self.aspect = self.RECORD_SCHEMA.field_map["aspect"].default
+        self.systemMetadata = self.RECORD_SCHEMA.field_map["systemMetadata"].default
+    
+    
+    @property
+    def auditHeader(self) -> Union[None, "KafkaAuditHeaderClass"]:
+        """Getter: Kafka audit header. See go/kafkaauditheader for more info."""
+        return self._inner_dict.get('auditHeader')  # type: ignore
+    
+    @auditHeader.setter
+    def auditHeader(self, value: Union[None, "KafkaAuditHeaderClass"]) -> None:
+        """Setter: Kafka audit header. See go/kafkaauditheader for more info."""
+        self._inner_dict['auditHeader'] = value
+    
+    
+    @property
+    def entityType(self) -> str:
+        """Getter: Type of the entity being written to"""
+        return self._inner_dict.get('entityType')  # type: ignore
+    
+    @entityType.setter
+    def entityType(self, value: str) -> None:
+        """Setter: Type of the entity being written to"""
+        self._inner_dict['entityType'] = value
+    
+    
+    @property
+    def entityKey(self) -> Union[str, "GenericAspectClass"]:
+        """Getter: Urn or serialized key Aspect of the entity being written to
+    """
+        return self._inner_dict.get('entityKey')  # type: ignore
+    
+    @entityKey.setter
+    def entityKey(self, value: Union[str, "GenericAspectClass"]) -> None:
+        """Setter: Urn or serialized key Aspect of the entity being written to
+    """
+        self._inner_dict['entityKey'] = value
+    
+    
+    @property
+    def changeType(self) -> Union[str, "ChangeTypeClass"]:
+        # No docs available.
+        return self._inner_dict.get('changeType')  # type: ignore
+    
+    @changeType.setter
+    def changeType(self, value: Union[str, "ChangeTypeClass"]) -> None:
+        # No docs available.
+        self._inner_dict['changeType'] = value
+    
+    
+    @property
+    def aspectName(self) -> Union[None, str]:
+        """Getter: Aspect of the entity being written to
+    Not filling this out implies that the writer wants to affect the entire entity
+    Note: This is only valid for CREATE and DELETE operations.
+    """
+        return self._inner_dict.get('aspectName')  # type: ignore
+    
+    @aspectName.setter
+    def aspectName(self, value: Union[None, str]) -> None:
+        """Setter: Aspect of the entity being written to
+    Not filling this out implies that the writer wants to affect the entire entity
+    Note: This is only valid for CREATE and DELETE operations.
+    """
+        self._inner_dict['aspectName'] = value
+    
+    
+    @property
+    def aspect(self) -> Union[None, "GenericAspectClass"]:
+        # No docs available.
+        return self._inner_dict.get('aspect')  # type: ignore
+    
+    @aspect.setter
+    def aspect(self, value: Union[None, "GenericAspectClass"]) -> None:
+        # No docs available.
+        self._inner_dict['aspect'] = value
+    
+    
+    @property
+    def systemMetadata(self) -> Union[None, "SystemMetadataClass"]:
+        """Getter: A string->string map of custom properties that one might want to attach to an event
+    """
+        return self._inner_dict.get('systemMetadata')  # type: ignore
+    
+    @systemMetadata.setter
+    def systemMetadata(self, value: Union[None, "SystemMetadataClass"]) -> None:
+        """Setter: A string->string map of custom properties that one might want to attach to an event
+    """
+        self._inner_dict['systemMetadata'] = value
+    
+    
+class SystemMetadataClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.SystemMetadata")
+    def __init__(self,
+        lastObserved: Union[None, int]=None,
+        runId: Union[None, str]=None,
+        properties: Union[None, Dict[str, str]]=None,
+    ):
+        super().__init__()
+        
+        self.lastObserved = lastObserved
+        self.runId = runId
+        self.properties = properties
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "SystemMetadataClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.lastObserved = self.RECORD_SCHEMA.field_map["lastObserved"].default
+        self.runId = self.RECORD_SCHEMA.field_map["runId"].default
+        self.properties = self.RECORD_SCHEMA.field_map["properties"].default
+    
+    
+    @property
+    def lastObserved(self) -> Union[None, int]:
+        """Getter: The timestamp the metadata was observed at"""
+        return self._inner_dict.get('lastObserved')  # type: ignore
+    
+    @lastObserved.setter
+    def lastObserved(self, value: Union[None, int]) -> None:
+        """Setter: The timestamp the metadata was observed at"""
+        self._inner_dict['lastObserved'] = value
+    
+    
+    @property
+    def runId(self) -> Union[None, str]:
+        """Getter: The timestamp the metadata was observed at"""
+        return self._inner_dict.get('runId')  # type: ignore
+    
+    @runId.setter
+    def runId(self, value: Union[None, str]) -> None:
+        """Setter: The timestamp the metadata was observed at"""
+        self._inner_dict['runId'] = value
+    
+    
+    @property
+    def properties(self) -> Union[None, Dict[str, str]]:
+        """Getter: Additional properties"""
+        return self._inner_dict.get('properties')  # type: ignore
+    
+    @properties.setter
+    def properties(self, value: Union[None, Dict[str, str]]) -> None:
+        """Setter: Additional properties"""
+        self._inner_dict['properties'] = value
     
     
 class ArrayTypeClass(DictWrapper):
@@ -8694,6 +9131,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataset.Upstream': UpstreamClass,
     'com.linkedin.pegasus2avro.dataset.UpstreamLineage': UpstreamLineageClass,
     'com.linkedin.pegasus2avro.dataset.ValueFrequency': ValueFrequencyClass,
+    'com.linkedin.pegasus2avro.events.metadata.ChangeType': ChangeTypeClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo': GlossaryNodeInfoClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryTermInfo': GlossaryTermInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpGroupInfo': CorpGroupInfoClass,
@@ -8745,6 +9183,8 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.ml.metadata.IntendedUserType': IntendedUserTypeClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties': MLFeaturePropertiesClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties': MLFeatureTablePropertiesClass,
+    'com.linkedin.pegasus2avro.ml.metadata.MLHyperParam': MLHyperParamClass,
+    'com.linkedin.pegasus2avro.ml.metadata.MLMetric': MLMetricClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties': MLModelDeploymentPropertiesClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelFactorPrompts': MLModelFactorPromptsClass,
     'com.linkedin.pegasus2avro.ml.metadata.MLModelFactors': MLModelFactorsClass,
@@ -8757,8 +9197,10 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.ml.metadata.SourceCodeUrl': SourceCodeUrlClass,
     'com.linkedin.pegasus2avro.ml.metadata.SourceCodeUrlType': SourceCodeUrlTypeClass,
     'com.linkedin.pegasus2avro.ml.metadata.TrainingData': TrainingDataClass,
-    'com.linkedin.pegasus2avro.mxe.MetadataAuditEvent': MetadataAuditEventClass,
+    'com.linkedin.pegasus2avro.mxe.GenericAspect': GenericAspectClass,
     'com.linkedin.pegasus2avro.mxe.MetadataChangeEvent': MetadataChangeEventClass,
+    'com.linkedin.pegasus2avro.mxe.MetadataChangeProposal': MetadataChangeProposalClass,
+    'com.linkedin.pegasus2avro.mxe.SystemMetadata': SystemMetadataClass,
     'com.linkedin.pegasus2avro.schema.ArrayType': ArrayTypeClass,
     'com.linkedin.pegasus2avro.schema.BinaryJsonSchema': BinaryJsonSchemaClass,
     'com.linkedin.pegasus2avro.schema.BooleanType': BooleanTypeClass,
@@ -8853,6 +9295,7 @@ __SCHEMA_TYPES = {
     'Upstream': UpstreamClass,
     'UpstreamLineage': UpstreamLineageClass,
     'ValueFrequency': ValueFrequencyClass,
+    'ChangeType': ChangeTypeClass,
     'GlossaryNodeInfo': GlossaryNodeInfoClass,
     'GlossaryTermInfo': GlossaryTermInfoClass,
     'CorpGroupInfo': CorpGroupInfoClass,
@@ -8904,6 +9347,8 @@ __SCHEMA_TYPES = {
     'IntendedUserType': IntendedUserTypeClass,
     'MLFeatureProperties': MLFeaturePropertiesClass,
     'MLFeatureTableProperties': MLFeatureTablePropertiesClass,
+    'MLHyperParam': MLHyperParamClass,
+    'MLMetric': MLMetricClass,
     'MLModelDeploymentProperties': MLModelDeploymentPropertiesClass,
     'MLModelFactorPrompts': MLModelFactorPromptsClass,
     'MLModelFactors': MLModelFactorsClass,
@@ -8916,8 +9361,10 @@ __SCHEMA_TYPES = {
     'SourceCodeUrl': SourceCodeUrlClass,
     'SourceCodeUrlType': SourceCodeUrlTypeClass,
     'TrainingData': TrainingDataClass,
-    'MetadataAuditEvent': MetadataAuditEventClass,
+    'GenericAspect': GenericAspectClass,
     'MetadataChangeEvent': MetadataChangeEventClass,
+    'MetadataChangeProposal': MetadataChangeProposalClass,
+    'SystemMetadata': SystemMetadataClass,
     'ArrayType': ArrayTypeClass,
     'BinaryJsonSchema': BinaryJsonSchemaClass,
     'BooleanType': BooleanTypeClass,

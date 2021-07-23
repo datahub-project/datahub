@@ -13,6 +13,7 @@ from datahub.ingestion.source.file import iterate_mce_file
 from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
+from tests.test_helpers.click_helpers import assert_result_ok
 from tests.test_helpers.type_helpers import PytestConfig
 
 
@@ -25,6 +26,8 @@ from tests.test_helpers.type_helpers import PytestConfig
         "tests/unit/serde/test_serde_chart_snapshot.json",
         # Check usage stats as well.
         "tests/unit/serde/test_serde_usage.json",
+        # And also check profiles with the MetadataChangeProposal format.
+        "tests/unit/serde/test_serde_profile.json",
     ],
 )
 def test_serde_to_json(
@@ -92,6 +95,8 @@ def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
         "tests/unit/serde/test_serde_backwards_compat.json",
         # Usage stats.
         "tests/unit/serde/test_serde_usage.json",
+        # Profiles with the MetadataChangeProposal format.
+        "tests/unit/serde/test_serde_profile.json",
         # Ensure sample MCE files are valid.
         "examples/mce_files/single_mce.json",
         "examples/mce_files/mce_list.json",
@@ -103,7 +108,7 @@ def test_check_mce_schema(pytestconfig: PytestConfig, json_filename: str) -> Non
 
     runner = CliRunner()
     result = runner.invoke(datahub, ["check", "mce-file", f"{json_file_path}"])
-    assert result.exit_code == 0
+    assert_result_ok(result)
 
 
 def test_field_discriminator() -> None:

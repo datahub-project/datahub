@@ -287,6 +287,9 @@ class GlueSource(Source):
             job:
                 Job object from get_all_jobs()
         """
+
+        region = self.source_config.aws_region
+
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
                 urn=flow_urn,
@@ -294,6 +297,7 @@ class GlueSource(Source):
                     DataFlowInfoClass(
                         name=job["Name"],
                         description=job["Description"],
+                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
                         # specify a few Glue-specific properties
                         customProperties={
                             "role": job["Role"],
@@ -321,6 +325,9 @@ class GlueSource(Source):
             job:
                 Job object from get_all_jobs()
         """
+
+        region = self.source_config.aws_region
+
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataJobSnapshotClass(
                 urn=node["urn"],
@@ -328,6 +335,8 @@ class GlueSource(Source):
                     DataJobInfoClass(
                         name=f"{job['Name']}:{node['NodeType']}-{node['Id']}",
                         type="GLUE",
+                        # there's no way to view an individual job node by link, so just show the graph
+                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
                         customProperties={
                             **{x["Name"]: x["Value"] for x in node["Args"]},
                             "transformType": node["NodeType"],
@@ -394,7 +403,7 @@ class GlueSource(Source):
                 continue
 
             mce = self._extract_record(table, full_table_name)
-            workunit = MetadataWorkUnit(id=f"glue-{full_table_name}", mce=mce)
+            workunit = MetadataWorkUnit(full_table_name, mce=mce)
             self.report.report_workunit(workunit)
             yield workunit
 
@@ -551,15 +560,25 @@ def get_column_type(
         "varchar": StringTypeClass,
     }
 
+    field_starts_type_mapping = {
+        "array": ArrayTypeClass,
+        "set": ArrayTypeClass,
+        "map": MapTypeClass,
+        "struct": MapTypeClass,
+        "varchar": StringTypeClass,
+        "decimal": NumberTypeClass,
+    }
+
+    type_class = None
     if field_type in field_type_mapping.keys():
         type_class = field_type_mapping[field_type]
-    elif field_type.startswith("array"):
-        type_class = ArrayTypeClass
-    elif field_type.startswith("map") or field_type.startswith("struct"):
-        type_class = MapTypeClass
-    elif field_type.startswith("set"):
-        type_class = ArrayTypeClass
     else:
+        for key in field_starts_type_mapping.keys():
+            if field_type.startswith(key):
+                type_class = field_starts_type_mapping[key]
+                break
+
+    if type_class is None:
         glue_source.report.report_warning(
             field_type,
             f"The type '{field_type}' is not recognised for field '{field_name}' in table '{table_name}', setting as StringTypeClass.",

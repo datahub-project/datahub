@@ -21,11 +21,11 @@ class LineageInfo:
     )
 
     # map from group ARNs to model URIs
-    group_model_uris: DefaultDict[str, Set[str]] = field(
+    model_uri_to_groups: DefaultDict[str, Set[str]] = field(
         default_factory=lambda: defaultdict(set)
     )
     # map from group ARNs to model images
-    group_model_images: DefaultDict[str, Set[str]] = field(
+    model_image_to_groups: DefaultDict[str, Set[str]] = field(
         default_factory=lambda: defaultdict(set)
     )
 
@@ -203,8 +203,8 @@ class LineageProcessor:
                         and source_uri is not None
                     ):
 
-                        self.lineage_info.group_model_uris[model_group_arn].add(
-                            source_uri
+                        self.lineage_info.model_uri_to_groups[source_uri].add(
+                            model_group_arn
                         )
 
                     # add model_group_arn -> model_image mapping
@@ -213,8 +213,8 @@ class LineageProcessor:
                         and source_uri is not None
                     ):
 
-                        self.lineage_info.group_model_images[model_group_arn].add(
-                            source_uri
+                        self.lineage_info.model_image_to_groups[source_uri].add(
+                            model_group_arn
                         )
 
     def get_lineage(self) -> LineageInfo:

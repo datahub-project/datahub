@@ -29,7 +29,7 @@ class KafkaSourceTest(unittest.TestCase):
         )
         workunits = list(kafka_source.get_workunits())
 
-        first_mce = workunits[0].mce
+        first_mce = workunits[0].metadata
         assert isinstance(first_mce, MetadataChangeEvent)
         mock_kafka.assert_called_once()
         mock_kafka_instance.list_topics.assert_called_once()

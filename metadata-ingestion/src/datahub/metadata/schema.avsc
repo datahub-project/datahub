@@ -2738,6 +2738,10 @@
                                               "namespace": "com.linkedin.pegasus2avro.common",
                                               "fields": [
                                                 {
+                                                  "Searchable": {
+                                                    "fieldName": "glossaryTerms",
+                                                    "fieldType": "TEXT_PARTIAL"
+                                                  },
                                                   "java": {
                                                     "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
                                                   },
@@ -3298,6 +3302,19 @@
                           "doc": "Custom property bag."
                         },
                         {
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.url.Url",
+                            "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                          },
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "externalUrl",
+                          "default": null,
+                          "doc": "URL where the reference exist"
+                        },
+                        {
                           "Searchable": {
                             "fieldType": "TEXT",
                             "hasValuesFieldName": "hasDescription"
@@ -3371,7 +3388,145 @@
                           ],
                           "name": "hyperParameters",
                           "default": null,
-                          "doc": "Hyper Parameters of the MLModel"
+                          "doc": "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "record",
+                                "Aspect": {
+                                  "name": "mlHyperParam"
+                                },
+                                "name": "MLHyperParam",
+                                "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                                "fields": [
+                                  {
+                                    "type": "string",
+                                    "name": "name",
+                                    "doc": "Name of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "description",
+                                    "default": null,
+                                    "doc": "Documentation of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "value",
+                                    "default": null,
+                                    "doc": "The value of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "long"
+                                    ],
+                                    "name": "createdAt",
+                                    "default": null,
+                                    "doc": "Date when the MLHyperParam was developed"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "com.linkedin.pegasus2avro.common.VersionTag"
+                                    ],
+                                    "name": "version",
+                                    "default": null,
+                                    "doc": "Version of the MLHyperParam"
+                                  }
+                                ],
+                                "doc": "Properties associated with an ML Hyper Param"
+                              }
+                            }
+                          ],
+                          "name": "hyperParams",
+                          "default": null,
+                          "doc": "Hyperparameters of the MLModel"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "record",
+                                "Aspect": {
+                                  "name": "mlMetric"
+                                },
+                                "name": "MLMetric",
+                                "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                                "fields": [
+                                  {
+                                    "type": "string",
+                                    "name": "name",
+                                    "doc": "Name of the mlMetric"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "description",
+                                    "default": null,
+                                    "doc": "Documentation of the mlMetric"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "value",
+                                    "default": null,
+                                    "doc": "The value of the mlMetric"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "long"
+                                    ],
+                                    "name": "createdAt",
+                                    "default": null,
+                                    "doc": "Date when the mlMetric was developed"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "com.linkedin.pegasus2avro.common.VersionTag"
+                                    ],
+                                    "name": "version",
+                                    "default": null,
+                                    "doc": "Version of the mlMetric"
+                                  }
+                                ],
+                                "doc": "Properties associated with an ML Metric"
+                              }
+                            }
+                          ],
+                          "name": "trainingMetrics",
+                          "default": null,
+                          "doc": "Metrics of the MLModel used in training"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "com.linkedin.pegasus2avro.ml.metadata.MLMetric"
+                            }
+                          ],
+                          "name": "onlineMetrics",
+                          "default": null,
+                          "doc": "Metrics of the MLModel used in production"
                         },
                         {
                           "type": [
@@ -3453,6 +3608,26 @@
                           "name": "downstreamJobs",
                           "default": null,
                           "doc": "List of jobs (if any) that use the model"
+                        },
+                        {
+                          "Relationship": {
+                            "/*": {
+                              "entityTypes": [
+                                "mlModelGroup"
+                              ],
+                              "name": "MemberOf"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "string"
+                            }
+                          ],
+                          "name": "groups",
+                          "default": null,
+                          "doc": "Groups the model belongs to"
                         }
                       ],
                       "doc": "Properties associated with a ML Model"
@@ -4547,6 +4722,19 @@
                           "doc": "Custom property bag."
                         },
                         {
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.url.Url",
+                            "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                          },
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "externalUrl",
+                          "default": null,
+                          "doc": "URL where the reference exist"
+                        },
+                        {
                           "Searchable": {
                             "fieldType": "TEXT",
                             "hasValuesFieldName": "hasDescription"
@@ -4734,23 +4922,6 @@
                           "name": "version",
                           "default": null,
                           "doc": "Version of the MLModelGroup"
-                        },
-                        {
-                          "Relationship": {
-                            "/*": {
-                              "entityTypes": [
-                                "mlModel"
-                              ],
-                              "name": "Includes"
-                            }
-                          },
-                          "type": {
-                            "type": "array",
-                            "items": "string"
-                          },
-                          "name": "models",
-                          "default": [],
-                          "doc": "Models in the group"
                         }
                       ],
                       "doc": "Properties associated with an ML Model Group"
@@ -5061,7 +5232,7 @@
   },
   {
     "type": "record",
-    "name": "MetadataAuditEvent",
+    "name": "MetadataChangeProposal",
     "namespace": "com.linkedin.pegasus2avro.mxe",
     "fields": [
       {
@@ -5074,57 +5245,116 @@
         "doc": "Kafka audit header. See go/kafkaauditheader for more info."
       },
       {
-        "type": [
-          "null",
-          "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataProcessSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot"
-        ],
-        "name": "oldSnapshot",
-        "default": null,
-        "doc": "Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot."
+        "type": "string",
+        "name": "entityType",
+        "doc": "Type of the entity being written to"
       },
       {
         "type": [
-          "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataProcessSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot"
+          "string",
+          {
+            "type": "record",
+            "name": "GenericAspect",
+            "namespace": "com.linkedin.pegasus2avro.mxe",
+            "fields": [
+              {
+                "type": "bytes",
+                "name": "value"
+              },
+              {
+                "type": "string",
+                "name": "contentType"
+              }
+            ],
+            "doc": "Generic record structure for serializing an Aspect\n"
+          }
         ],
-        "name": "newSnapshot",
-        "doc": "Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."
+        "name": "entityKey",
+        "doc": "Urn or serialized key Aspect of the entity being written to\n"
+      },
+      {
+        "type": {
+          "type": "enum",
+          "symbolDocs": {
+            "CREATE": "create action",
+            "DELETE": "delete action",
+            "UPDATE": "update action"
+          },
+          "name": "ChangeType",
+          "namespace": "com.linkedin.pegasus2avro.events.metadata",
+          "symbols": [
+            "CREATE",
+            "DELETE",
+            "UPDATE"
+          ],
+          "doc": "Descriptor for a change action"
+        },
+        "name": "changeType"
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "aspectName",
+        "default": null,
+        "doc": "Aspect of the entity being written to\nNot filling this out implies that the writer wants to affect the entire entity\nNote: This is only valid for CREATE and DELETE operations.\n"
+      },
+      {
+        "type": [
+          "null",
+          "com.linkedin.pegasus2avro.mxe.GenericAspect"
+        ],
+        "name": "aspect",
+        "default": null
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "SystemMetadata",
+            "namespace": "com.linkedin.pegasus2avro.mxe",
+            "fields": [
+              {
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "name": "lastObserved",
+                "default": null,
+                "doc": "The timestamp the metadata was observed at"
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "runId",
+                "default": null,
+                "doc": "The timestamp the metadata was observed at"
+              },
+              {
+                "type": [
+                  "null",
+                  {
+                    "type": "map",
+                    "values": "string"
+                  }
+                ],
+                "name": "properties",
+                "default": null,
+                "doc": "Additional properties"
+              }
+            ]
+          }
+        ],
+        "name": "systemMetadata",
+        "default": null,
+        "doc": "A string->string map of custom properties that one might want to attach to an event\n"
       }
     ],
-    "doc": "Kafka event for capturing update made to an entity's metadata."
+    "doc": "Kafka event for proposing a metadata change for an entity. A corresponding MetadataChangeLog is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeProposal will be emitted instead."
   },
   {
     "type": "record",

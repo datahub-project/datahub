@@ -191,7 +191,7 @@ public class EntityClient {
         return sendClientRequest(requestBuilder.build()).getEntity();
     }
 
-    public Response update(@Nonnull final Entity entity) throws RemoteInvocationException {
+    public Response<Void> update(@Nonnull final Entity entity) throws RemoteInvocationException {
         // TODO: Replace with EntitiesDoIngestActionBuilder.
 
         final FieldDef<?> entityFieldDef = new FieldDef<>(PARAM_ENTITY, Entity.class, DataTemplateUtil.getSchema(String.class));

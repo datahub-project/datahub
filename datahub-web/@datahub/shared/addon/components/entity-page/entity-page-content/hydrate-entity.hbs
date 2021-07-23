@@ -1,7 +1,0 @@
-<ConcurrencyTaskStateHandler @task={{this.hydrateEntityTask}}>
-  {{#if @options.component}}
-    {{component @options.component.name options=@options.component.options entity=this.hydratedEntity}}
-  {{else}}
-    {{yield this.hydratedEntity}}
-  {{/if}}
-</ConcurrencyTaskStateHandler>
