@@ -585,10 +585,10 @@ def get_column_type(
     }
 
     type_class = None
-    if field_type in field_type_mapping.keys():
+    if field_type in field_type_mapping:
         type_class = field_type_mapping[field_type]
     else:
-        for key in field_starts_type_mapping.keys():
+        for key in field_starts_type_mapping:
             if field_type.startswith(key):
                 type_class = field_starts_type_mapping[key]
                 break
