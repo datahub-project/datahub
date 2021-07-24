@@ -404,7 +404,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.customer",
+                        "description": "Customers table (postgres comment)",
                         "uri": null,
                         "tags": []
                     }

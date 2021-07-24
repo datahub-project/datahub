@@ -1198,7 +1198,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.customer",
+                        "description": "Customers table (postgres comment)",
                         "uri": null,
                         "tags": []
                     }
@@ -1297,7 +1297,7 @@
                                 "fieldPath": "customer_id",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
+                                "description": "Customer ID (postgres comment)",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1327,7 +1327,7 @@
                                 "fieldPath": "first_name",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
+                                "description": "Customer first name (postgres comment)",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
