@@ -2882,7 +2882,7 @@
         } ]
       } ],
       "actions" : [ {
-        "name" : "getAspectValues",
+        "name" : "getTimeseriesAspectValues",
         "parameters" : [ {
           "name" : "urn",
           "type" : "string"
