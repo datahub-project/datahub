@@ -3335,7 +3335,32 @@
   "selectors": {},
   "sources": {
     "source.sample_dbt.pagila.actor": {
-      "columns": {},
+      "columns": {
+        "first_name": {
+          "data_type": null,
+          "description": "description for first_name (dbt side)",
+          "meta": {},
+          "name": "first_name",
+          "quote": null,
+          "tags": []
+        },
+        "last_name": {
+          "data_type": null,
+          "description": "description for last_name (dbt side)",
+          "meta": {},
+          "name": "last_name",
+          "quote": null,
+          "tags": []
+        },
+        "last_update": {
+          "data_type": null,
+          "description": "description for last_update (dbt side)",
+          "meta": {},
+          "name": "last_update",
+          "quote": null,
+          "tags": []
+        }
+      },
       "config": {
         "enabled": true
       },

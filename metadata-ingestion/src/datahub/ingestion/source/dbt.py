@@ -55,6 +55,7 @@ class DBTConfig(ConfigModel):
 class DBTColumn:
     name: str
     comment: str
+    description: str
     index: int
     data_type: str
 
@@ -69,6 +70,7 @@ class DBTNode:
     schema: str
     name: str  # name, identifier
     comment: str
+    description: str
 
     datahub_urn: str
 
@@ -101,6 +103,7 @@ def get_columns(catalog_node: dict) -> List[DBTColumn]:
 
         dbtCol = DBTColumn(
             comment=raw_column["comment"],
+            description=raw_column.get("description", ""),
             data_type=raw_column["type"],
             index=raw_column["index"],
             name=raw_column["name"],
@@ -180,6 +183,7 @@ def extract_dbt_entities(
             max_loaded_at=sources_by_id.get(key, {}).get("max_loaded_at"),
             name=name,
             comment=comment,
+            description=node.get("description", ""),
             upstream_urns=upstream_urns,
             materialization=materialization,
             catalog_type=catalog_type,
@@ -382,6 +386,7 @@ def get_schema_metadata(
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
     for column in node.columns:
+
         field = SchemaField(
             fieldPath=column.name,
             nativeDataType=column.data_type,
