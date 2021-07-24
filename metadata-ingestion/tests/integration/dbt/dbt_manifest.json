@@ -3394,7 +3394,7 @@
         "enabled": true
       },
       "database": "pagila",
-      "description": "",
+      "description": "a user's address",
       "external": null,
       "fqn": [
         "sample_dbt",
@@ -3444,7 +3444,7 @@
         "enabled": true
       },
       "database": "pagila",
-      "description": "",
+      "description": "a user's category",
       "external": null,
       "fqn": [
         "sample_dbt",
@@ -3857,7 +3857,7 @@
         "enabled": true
       },
       "database": "pagila",
-      "description": "",
+      "description": "a payment",
       "external": null,
       "fqn": [
         "sample_dbt",
