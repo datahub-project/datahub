@@ -13,7 +13,7 @@
                             "dbt_file_path": "models/transform/customer_details.sql"
                         },
                         "externalUrl": null,
-                        "description": "model.sample_dbt.customer_details",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -100,7 +100,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "model.sample_dbt.monthly_billing_with_cust",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -239,7 +239,7 @@
                             "catalog_type": "VIEW"
                         },
                         "externalUrl": null,
-                        "description": "model.sample_dbt.payments_base",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -453,7 +453,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "model.sample_dbt.payments_by_customer_by_month",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -570,7 +570,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.actor",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -624,7 +624,7 @@
                                 "fieldPath": "first_name",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
+                                "description": "description for first_name (dbt side)",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -639,7 +639,7 @@
                                 "fieldPath": "last_name",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
+                                "description": "description for last_name (dbt side)",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -654,7 +654,7 @@
                                 "fieldPath": "last_update",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
+                                "description": "description for last_update (dbt side)",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -689,7 +689,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.address",
+                        "description": "a user's address",
                         "uri": null,
                         "tags": []
                     }
@@ -868,7 +868,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.category",
+                        "description": "a user's category",
                         "uri": null,
                         "tags": []
                     }
@@ -972,7 +972,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.city",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -1094,7 +1094,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.country",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -1297,7 +1297,7 @@
                                 "fieldPath": "customer_id",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "Customer ID (postgres comment)",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1327,7 +1327,7 @@
                                 "fieldPath": "first_name",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": "Customer first name (postgres comment)",
+                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1407,7 +1407,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_01",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -1560,7 +1560,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_02",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -1709,7 +1709,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_03",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -1858,7 +1858,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_04",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -2007,7 +2007,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_05",
+                        "description": "a payment",
                         "uri": null,
                         "tags": []
                     }
@@ -2156,7 +2156,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_06",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
