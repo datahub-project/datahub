@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { QueryResult } from '@apollo/client';
 import { FilterOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { Alert, Button, Card, Divider, Drawer, List, Pagination, Row, Typography } from 'antd';
 import { ListProps } from 'antd/lib/list';
 import { SearchCfg } from '../../conf';
-import { useGetSearchResultsQuery } from '../../graphql/search.generated';
-import { EntityType, FacetFilterInput, SearchResult } from '../../types.generated';
+import { useGetSearchResultsQuery, GetSearchResultsQuery } from '../../graphql/search.generated';
+import { EntityType, FacetFilterInput, SearchResult, Exact, SearchInput } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -45,7 +46,7 @@ interface Props {
     filters: Array<FacetFilterInput>;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
-    setResultCounts: (v: Record<string, number>) => void;
+    searchResult: QueryResult<GetSearchResultsQuery, Exact<{ input: SearchInput }>>;
 }
 
 export const EntitySearchResults = ({
@@ -55,7 +56,7 @@ export const EntitySearchResults = ({
     filters,
     onChangeFilters,
     onChangePage,
-    setResultCounts,
+    searchResult,
 }: Props) => {
     const [isEditingFilters, setIsEditingFilters] = useState(false);
     const [selectedFilters, setSelectedFilters] = useState(filters);
@@ -78,7 +79,7 @@ export const EntitySearchResults = ({
 
     const results = data?.search?.searchResults || [];
     const pageStart = data?.search?.start || 0;
-    const pageSize = data?.search?.count || 0;
+    const pageSize = data?.search?.count || searchResult.data?.search?.count || 0;
     const totalResults = data?.search?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize; // ToDo: need to confirm if fixes pagination issue
 
@@ -91,9 +92,8 @@ export const EntitySearchResults = ({
                 entityTypeFilter: type,
                 total: totalResults,
             });
-            setResultCounts({ [type]: data?.search?.total || 0 });
         }
-    }, [page, query, totalResults, type, loading, error, data, setResultCounts]);
+    }, [page, query, totalResults, type, loading, error, data]);
 
     const onFilterSelect = (selected: boolean, field: string, value: string) => {
         const newFilters = selected
@@ -168,10 +168,10 @@ export const EntitySearchResults = ({
                 }
                 dataSource={results}
                 split={false}
-                renderItem={(searchResult, index) => (
+                renderItem={(item, index) => (
                     <>
-                        <List.Item onClick={() => onResultClick(searchResult, index)}>
-                            {entityRegistry.renderSearchResult(type, searchResult)}
+                        <List.Item onClick={() => onResultClick(item, index)}>
+                            {entityRegistry.renderSearchResult(type, item)}
                         </List.Item>
                         {index < results.length - 1 && <Divider />}
                     </>

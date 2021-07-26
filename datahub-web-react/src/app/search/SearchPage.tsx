@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { Affix, Tabs } from 'antd';
@@ -8,6 +8,7 @@ import { SearchablePage } from './SearchablePage';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { FacetFilterInput, EntityType } from '../../types.generated';
 import useFilters from './utils/useFilters';
+import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { EntitySearchResults } from './EntitySearchResults';
 import { IconStyleType } from '../entity/Entity';
@@ -38,6 +39,8 @@ type SearchPageParams = {
     type?: string;
 };
 
+const RESULTS_PER_GROUP = 3; // Results limit per entities
+
 /**
  * A search results page.
  */
@@ -55,6 +58,47 @@ export const SearchPage = () => {
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);
+
+    const allSearchResultsByType = useGetAllEntitySearchResults({
+        query,
+        start: 0,
+        count: RESULTS_PER_GROUP,
+        filters: null,
+    });
+
+    const loading = Object.keys(allSearchResultsByType).some((type) => {
+        return allSearchResultsByType[type].loading;
+    });
+
+    const noResults = Object.keys(allSearchResultsByType).every((type) => {
+        return (
+            !allSearchResultsByType[type].loading &&
+            allSearchResultsByType[type].data?.search?.searchResults.length === 0
+        );
+    });
+
+    useEffect(() => {
+        if (!loading) {
+            let resultCount = 0;
+            const counts: Record<string, number> = { [EntityType.Dataset]: 0 };
+            Object.keys(allSearchResultsByType).forEach((key) => {
+                if (allSearchResultsByType[key].loading) {
+                    resultCount += 0;
+                } else {
+                    resultCount += allSearchResultsByType[key].data?.search?.total;
+                    counts[key as EntityType] = allSearchResultsByType[key].data?.search?.total || 0;
+                }
+            });
+
+            setResultCounts(counts);
+
+            analytics.event({
+                type: EventType.SearchResultsViewEvent,
+                query,
+                total: resultCount,
+            });
+        }
+    }, [query, allSearchResultsByType, setResultCounts, loading]);
 
     const onSearch = (q: string, type?: EntityType) => {
         if (q.trim().length === 0) {
@@ -124,10 +168,15 @@ export const SearchPage = () => {
                     filters={filters}
                     onChangeFilters={onChangeFilters}
                     onChangePage={onChangePage}
-                    setResultCounts={setResultCounts}
+                    searchResult={allSearchResultsByType[activeType]}
                 />
             ) : (
-                <AllEntitiesSearchResults query={query} setResultCounts={setResultCounts} />
+                <AllEntitiesSearchResults
+                    query={query}
+                    allSearchResultsByType={allSearchResultsByType}
+                    loading={loading}
+                    noResults={noResults}
+                />
             )}
         </SearchablePage>
     );
