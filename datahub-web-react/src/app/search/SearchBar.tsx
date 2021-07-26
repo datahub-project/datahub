@@ -106,7 +106,7 @@ export const SearchBar = ({
                 defaultValue={initialQuery || undefined}
                 value={selected}
                 onChange={(v) => setSelected(filterSearchQuery(v))}
-                dropdownStyle={{ maxHeight: 1000, overflowY: 'visible' }}
+                dropdownStyle={{ maxHeight: 1000, overflowY: 'visible', position: 'fixed' }}
             >
                 <Input.Search
                     placeholder={placeholderText}
