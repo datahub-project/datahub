@@ -29,20 +29,19 @@ services:
     - DATAHUB_SECRET=YouKnowNothing
     - DATAHUB_APP_VERSION=1.0
     - DATAHUB_PLAY_MEM_BUFFER_SIZE=10MB
+    - JAVA_OPTS=-Xms256m -Xmx256m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf
+      -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml
+      -Dlogback.debug=false -Dpidfile.path=/dev/null
     - AUTH_OIDC_ENABLED=true
     - AUTH_OIDC_CLIENT_ID=datahub
     - AUTH_OIDC_CLIENT_SECRET=fce0f244-e64a-43fe-aab2-6e4c0c1d07c5
     - AUTH_OIDC_DISCOVERY_URI=http://172.19.0.1:8088/auth/realms/app/.well-known/openid-configuration
     - AUTH_OIDC_BASE_URL=http://172.19.0.1:9002/
     - AUTH_JAAS_ENABLED=false
-    - JAVA_OPTS=-Xms256m -Xmx256m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf
-      -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml
-      -Dlogback.debug=false -Dpidfile.path=/dev/null
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - DATAHUB_TRACKING_TOPIC=DataHubUsageEvent_v1
     - ELASTIC_CLIENT_HOST=elasticsearch
     - ELASTIC_CLIENT_PORT=9200
-
     hostname: datahub-frontend-react
     image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     mem_limit: 512m
