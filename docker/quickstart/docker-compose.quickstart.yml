@@ -187,6 +187,7 @@ services:
     - zkdata:/var/opt/zookeeper
 version: '2.3'
 volumes:
+  apidata: null
   esdata: null
   mysqldata: null
   neo4jdata: null

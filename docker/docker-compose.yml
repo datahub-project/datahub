@@ -131,6 +131,7 @@ networks:
     name: datahub_network
 
 volumes:
+  apidata:
   esdata:
   neo4jdata:
   zkdata:
