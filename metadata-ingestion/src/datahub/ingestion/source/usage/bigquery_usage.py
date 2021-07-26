@@ -15,7 +15,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import UsageStatsWorkUnit
-from datahub.ingestion.source.usage_common import (
+from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
     get_time_bucket,
