@@ -5,6 +5,6 @@ COPY ./metadata-ingestion/ /app/metadata-ingestion
 RUN pip install ./metadata-ingestion/. 
 COPY ./ingest-api/ /app/ingest-api
 WORKDIR /app/ingest-api/ingest_api
-RUN pip install -r requirements.txt
+RUN pip install -r ../requirements.txt
 CMD ["python", "main.py"]
 
