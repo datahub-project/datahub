@@ -1,6 +1,8 @@
 import unittest
+
 from typing import Iterable, List, cast
 from unittest.mock import patch
+from freezegun import freeze_time
 
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.source import Source, SourceReport
@@ -16,10 +18,13 @@ from datahub.metadata.schema_classes import (
 )
 from tests.test_helpers.sink_helpers import RecordingSinkReport
 
+FROZEN_TIME = "2020-04-14 07:00:00"
+
 
 class PipelineTest(unittest.TestCase):
     @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
     @patch("datahub.ingestion.sink.console.ConsoleSink.close", autospec=True)
+    @freeze_time(FROZEN_TIME)
     def test_configure(self, mock_sink, mock_source):
         pipeline = Pipeline.create(
             {
@@ -36,8 +41,8 @@ class PipelineTest(unittest.TestCase):
         mock_source.assert_called_once()
         mock_sink.assert_called_once()
 
+    @freeze_time(FROZEN_TIME)
     def test_run_including_fake_transformation(self):
-
         pipeline = Pipeline.create(
             {
                 "source": {"type": "tests.unit.test_pipeline.FakeSource"},
@@ -45,6 +50,7 @@ class PipelineTest(unittest.TestCase):
                     {"type": "tests.unit.test_pipeline.AddStatusRemovedTransformer"}
                 ],
                 "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
+                "run_id": "pipeline_test",
             }
         )
         pipeline.run()
@@ -62,6 +68,7 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(len(sink_report.received_records), 1)
         self.assertEqual(expected_mce, sink_report.received_records[0].record)
 
+    @freeze_time(FROZEN_TIME)
     def test_run_including_registered_transformation(self):
         # This is not testing functionality, but just the transformer registration system.
 
@@ -86,7 +93,7 @@ class AddStatusRemovedTransformer(Transformer):
         return cls()
 
     def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
+            self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         for record_envelope in record_envelopes:
             record_envelope.record.proposedSnapshot.aspects.append(
@@ -99,7 +106,7 @@ class FakeSource(Source):
     def __init__(self):
         self.source_report = SourceReport()
         self.work_units: List[MetadataWorkUnit] = [
-            MetadataWorkUnit(id="workunit-1", mce=get_initial_mce(0))
+            MetadataWorkUnit(id="workunit-1", mce=get_initial_mce())
         ]
 
     @classmethod
@@ -117,7 +124,7 @@ class FakeSource(Source):
         pass
 
 
-def get_initial_mce(mock_time) -> MetadataChangeEventClass:
+def get_initial_mce() -> MetadataChangeEventClass:
     return MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:test_platform,test,PROD)",
@@ -127,7 +134,7 @@ def get_initial_mce(mock_time) -> MetadataChangeEventClass:
                 )
             ],
         ),
-        systemMetadata=SystemMetadata(lastObserved=mock_time*1000)
+        systemMetadata=SystemMetadata(lastObserved=1586847600000, runId="pipeline_test")
     )
 
 

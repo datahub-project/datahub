@@ -43,6 +43,7 @@ def test_serde_to_json(
         {
             "source": {"type": "file", "config": {"filename": str(golden_file)}},
             "sink": {"type": "file", "config": {"filename": str(output_file)}},
+            "run_id": "serde_test"
         }
     )
     pipeline.run()
