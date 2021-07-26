@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 public class DataPlatformType implements EntityType<DataPlatform> {
 
     private final DataPlatforms _dataPlatformsClient;
+    private Map<String, DataPlatform> _urnToPlatform;
 
     public DataPlatformType(final DataPlatforms dataPlatformsClient) {
         _dataPlatformsClient = dataPlatformsClient;
@@ -29,12 +30,13 @@ public class DataPlatformType implements EntityType<DataPlatform> {
     @Override
     public List<DataFetcherResult<DataPlatform>> batchLoad(final List<String> urns, final QueryContext context) {
         try {
-            Map<String, DataPlatform> urnToPlatform = _dataPlatformsClient.getAllPlatforms()
-                .stream()
-                .map(DataPlatformMapper::map)
-                .collect(Collectors.toMap(DataPlatform::getUrn, platform -> platform));
+            if (_urnToPlatform == null) {
+                _urnToPlatform = _dataPlatformsClient.getAllPlatforms().stream()
+                        .map(DataPlatformMapper::map)
+                        .collect(Collectors.toMap(DataPlatform::getUrn, platform -> platform));
+            }
             return urns.stream()
-                    .map(key -> urnToPlatform.containsKey(key) ? urnToPlatform.get(key) : getUnknownDataPlatform(key))
+                    .map(key -> _urnToPlatform.containsKey(key) ? _urnToPlatform.get(key) : getUnknownDataPlatform(key))
                 .map(dataPlatform -> DataFetcherResult.<DataPlatform>newResult().data(dataPlatform).build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
