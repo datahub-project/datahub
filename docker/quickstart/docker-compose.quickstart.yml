@@ -105,6 +105,13 @@ services:
     - ELASTICSEARCH_PROTOCOL=http
     hostname: elasticsearch-setup
     image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
+  ingest-api:
+    container_name: ingest-api
+    hostname: ingest-api
+    ports:
+    - 8001:80
+    volumes:
+    - apidata:/app/ingest-api/ingest_api/log
   kafka-setup:
     container_name: kafka-setup
     depends_on:
