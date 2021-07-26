@@ -112,6 +112,11 @@ class LookerModel:
     def resolve_includes(
         includes: List[str], base_folder: str, path: str, reporter: LookMLSourceReport
     ) -> List[str]:
+        """Resolve ``include`` statements in LookML model files to a list of ``.lkml`` files.
+
+        For rules on how LookML ``include`` statements are written, see
+            https://docs.looker.com/data-modeling/getting-started/ide-folders#wildcard_examples
+        """
         resolved = []
         for inc in includes:
             # Filter out dashboards - we get those through the looker source.
@@ -128,7 +133,10 @@ class LookerModel:
             else:
                 # Need to handle a relative path.
                 glob_expr = str(pathlib.Path(path).parent / inc)
-            outputs = glob.glob(glob_expr) + glob.glob(f"{glob_expr}.lkml")
+            # "**" matches an arbitrary number of directories in LookML
+            outputs = glob.glob(glob_expr, recursive=True) + glob.glob(
+                f"{glob_expr}.lkml", recursive=True
+            )
             if "*" not in inc and not outputs:
                 reporter.report_failure(path, f"cannot resolve include {inc}")
             elif not outputs:
