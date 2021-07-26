@@ -1,6 +1,6 @@
 import re
 from abc import ABC, abstractmethod
-from typing import IO, Any, List, Optional
+from typing import IO, Any, List, Optional, Pattern
 
 from pydantic import BaseModel
 
@@ -57,11 +57,11 @@ class AllowDenyPattern(ConfigModel):
     alphabet: str = "[A-Za-z0-9 _.-]"
 
     @property
-    def alphabet_pattern(self):
+    def alphabet_pattern(self) -> Pattern:
         return re.compile(f"^{self.alphabet}+$")
 
     @classmethod
-    def allow_all(cls):
+    def allow_all(cls) -> "AllowDenyPattern":
         return AllowDenyPattern()
 
     def allowed(self, string: str) -> bool:
@@ -87,7 +87,7 @@ class AllowDenyPattern(ConfigModel):
                 return False
         return True
 
-    def get_allowed_list(self):
+    def get_allowed_list(self) -> List[str]:
         """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
         assert self.is_fully_specified_allow_list()
         return [a for a in self.allow if self.allowed(a)]
