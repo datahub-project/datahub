@@ -169,6 +169,7 @@ def test_hook_airflow_ui(hook):
 def test_lineage_backend(mock_emit, inlets, outlets):
     DEFAULT_DATE = days_ago(2)
 
+    # Using autospec on xcom_pull and xcom_push methods fails on Python 3.6.
     with mock.patch.dict(
         os.environ,
         {
@@ -178,8 +179,8 @@ def test_lineage_backend(mock_emit, inlets, outlets):
                 {"graceful_exceptions": False}
             ),
         },
-    ), mock.patch("airflow.models.BaseOperator.xcom_pull", autospec=True), mock.patch(
-        "airflow.models.BaseOperator.xcom_push", autospec=True
+    ), mock.patch("airflow.models.BaseOperator.xcom_pull"), mock.patch(
+        "airflow.models.BaseOperator.xcom_push"
     ), patch_airflow_connection(
         datahub_rest_connection_config
     ):

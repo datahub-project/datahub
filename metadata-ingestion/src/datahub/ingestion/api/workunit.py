@@ -9,7 +9,7 @@ from datahub.metadata.schema_classes import UsageAggregationClass
 class MetadataWorkUnit(WorkUnit):
     mce: MetadataChangeEvent
 
-    def get_metadata(self):
+    def get_metadata(self) -> dict:
         return {"mce": self.mce}
 
 
@@ -17,5 +17,5 @@ class MetadataWorkUnit(WorkUnit):
 class UsageStatsWorkUnit(WorkUnit):
     usageStats: UsageAggregationClass
 
-    def get_metadata(self):
+    def get_metadata(self) -> dict:
         return {"usage": self.usageStats}
