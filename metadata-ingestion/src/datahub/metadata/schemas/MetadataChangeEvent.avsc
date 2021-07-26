@@ -3383,15 +3383,6 @@
                                   ],
                                   "doc": "Date when the MLHyperParam was developed",
                                   "default": null
-                                },
-                                {
-                                  "name": "version",
-                                  "type": [
-                                    "null",
-                                    "com.linkedin.pegasus2avro.common.VersionTag"
-                                  ],
-                                  "doc": "Version of the MLHyperParam",
-                                  "default": null
                                 }
                               ],
                               "Aspect": {
@@ -3444,15 +3435,6 @@
                                     "long"
                                   ],
                                   "doc": "Date when the mlMetric was developed",
-                                  "default": null
-                                },
-                                {
-                                  "name": "version",
-                                  "type": [
-                                    "null",
-                                    "com.linkedin.pegasus2avro.common.VersionTag"
-                                  ],
-                                  "doc": "Version of the mlMetric",
                                   "default": null
                                 }
                               ],

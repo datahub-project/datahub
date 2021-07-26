@@ -51,7 +51,6 @@ class MetadataWorkUnit(WorkUnit):
         elif mcp and not mce:
             self.metadata = mcp
 
-    def get_metadata(self):
         return {"metadata": self.metadata}
 
 
@@ -59,5 +58,5 @@ class MetadataWorkUnit(WorkUnit):
 class UsageStatsWorkUnit(WorkUnit):
     usageStats: UsageAggregationClass
 
-    def get_metadata(self):
+    def get_metadata(self) -> dict:
         return {"usage": self.usageStats}
