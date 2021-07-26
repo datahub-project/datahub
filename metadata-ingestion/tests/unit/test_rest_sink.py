@@ -262,7 +262,7 @@ basicAuditStamp = models.AuditStampClass(
                     ),
                 ),
             ),
-            "/entities?action=ingestProposal",
+            "/aspects?action=ingestProposal",
             {
                 "proposal": {
                     "entityType": "dataset",

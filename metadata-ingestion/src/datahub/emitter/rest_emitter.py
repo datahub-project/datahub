@@ -102,7 +102,7 @@ class DatahubRestEmitter:
     def emit_mcp(
         self, mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper]
     ) -> None:
-        url = f"{self._gms_server}/entities?action=ingestProposal"
+        url = f"{self._gms_server}/aspects?action=ingestProposal"
 
         mcp_obj = pre_json_transform(mcp.to_obj())
         payload = json.dumps({"proposal": mcp_obj})
