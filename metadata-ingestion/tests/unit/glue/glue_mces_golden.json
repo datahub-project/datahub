@@ -20,8 +20,8 @@
                 }
               ],
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               }
             }
@@ -62,13 +62,13 @@
               "platform": "urn:li:dataPlatform:glue",
               "version": 0,
               "created": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "deleted": null,
@@ -217,8 +217,8 @@
                 }
               ],
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               }
             }
@@ -258,13 +258,13 @@
               "platform": "urn:li:dataPlatform:glue",
               "version": 0,
               "created": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "deleted": null,
@@ -325,8 +325,8 @@
                 }
               ],
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               }
             }
@@ -366,13 +366,13 @@
               "platform": "urn:li:dataPlatform:glue",
               "version": 0,
               "created": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:etl",
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
                 "impersonator": null
               },
               "deleted": null,
@@ -469,7 +469,7 @@
                 "modified": "2021-06-10 16:55:35.307000",
                 "command": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-1.py"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
               "name": "test-job-1",
               "description": "The first test job",
               "project": null
@@ -494,7 +494,7 @@
                 "modified": "2021-06-10 16:58:32.469000",
                 "command": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-2.py"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2",
               "description": "The second test job",
               "project": null
@@ -519,13 +519,14 @@
                 "transformType": "Filter",
                 "nodeId": "Transform0"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:Filter-Transform0",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
-              "flowUrn": null
+              "flowUrn": null,
+              "status": null
             }
           },
           {
@@ -556,13 +557,14 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform1"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform1",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
-              "flowUrn": null
+              "flowUrn": null,
+              "status": null
             }
           },
           {
@@ -593,13 +595,14 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform2"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform2",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
-              "flowUrn": null
+              "flowUrn": null,
+              "status": null
             }
           },
           {
@@ -631,13 +634,14 @@
                 "transformType": "Join",
                 "nodeId": "Transform3"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:Join-Transform3",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
-              "flowUrn": null
+              "flowUrn": null,
+              "status": null
             }
           },
           {
@@ -668,13 +672,14 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform4"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform4",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
-              "flowUrn": null
+              "flowUrn": null,
+              "status": null
             }
           },
           {
@@ -703,13 +708,14 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform5"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform5",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
-              "flowUrn": null
+              "flowUrn": null,
+              "status": null
             }
           },
           {
@@ -733,16 +739,6 @@
           {
             "com.linkedin.pegasus2avro.common.Status": {
               "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
             }
           },
           {
@@ -780,13 +776,14 @@
                 "transformType": "SplitFields",
                 "nodeId": "Transform0"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:SplitFields-Transform0",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
-              "flowUrn": null
+              "flowUrn": null,
+              "status": null
             }
           },
           {
@@ -817,13 +814,14 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform1"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform1",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
-              "flowUrn": null
+              "flowUrn": null,
+              "status": null
             }
           },
           {
@@ -854,13 +852,14 @@
                 "transformType": "FillMissingValues",
                 "nodeId": "Transform2"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:FillMissingValues-Transform2",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
-              "flowUrn": null
+              "flowUrn": null,
+              "status": null
             }
           },
           {
@@ -891,13 +890,14 @@
                 "transformType": "SelectFields",
                 "nodeId": "Transform3"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:SelectFields-Transform3",
               "description": null,
               "type": {
-                "com.linkedin.pegasus2avro.datajob.azkaban.AzkabanJobType": "GLUE"
+                "string": "GLUE"
               },
-              "flowUrn": null
+              "flowUrn": null,
+              "status": null
             }
           },
           {
@@ -925,16 +925,6 @@
           {
             "com.linkedin.pegasus2avro.common.Status": {
               "removed": false
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [],
-              "lastModified": {
-                "time": 1586847600000,
-                "actor": "urn:li:corpuser:datahub",
-                "impersonator": null
-              }
             }
           },
           {

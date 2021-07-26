@@ -1,8 +1,11 @@
 namespace com.linkedin.ml.metadata
 
+import com.linkedin.common.Urn
 import com.linkedin.common.MLFeatureUrn
 import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
 
 /**
  * Properties associated with a ML Model
@@ -10,7 +13,7 @@ import com.linkedin.common.VersionTag
 @Aspect = {
   "name": "mlModelProperties"
 }
-record MLModelProperties {
+record MLModelProperties includes CustomProperties, ExternalReference {
 
   /**
    * Documentation of the MLModel
@@ -41,8 +44,25 @@ record MLModelProperties {
 
   /**
    * Hyper Parameters of the MLModel
+   * 
+   * NOTE: these are deprecated in favor of hyperParams
    */
   hyperParameters: optional map[string, HyperParameterValueType]
+
+  /**
+   * Hyperparameters of the MLModel
+   */
+  hyperParams: optional array[MLHyperParam]
+
+  /**
+   * Metrics of the MLModel used in training
+   */
+  trainingMetrics: optional array[MLMetric]
+
+  /**
+   * Metrics of the MLModel used in production
+   */
+  onlineMetrics: optional array[MLMetric]
 
   /**
    * List of features used for MLModel training
@@ -53,4 +73,48 @@ record MLModelProperties {
    * Tags for the MLModel
    */
   tags: array[string] = [ ]
+
+  /**
+   * Deployments for the MLModel
+   */
+  @Relationship = {
+    "/*": {
+      "name": "DeployedTo",
+      "entityTypes": [ "mlModelDeployment" ]
+    }
+  }
+  deployments: optional array[Urn]
+
+  /**
+   * List of jobs (if any) used to train the model
+   */
+  @Relationship = {
+    "/*": {
+      "name": "TrainedBy",
+      "entityTypes": [ "dataJob" ]
+    }
+  }
+  trainingJobs: optional array[Urn]
+
+  /**
+   * List of jobs (if any) that use the model
+   */
+  @Relationship = {
+    "/*": {
+      "name": "UsedBy",
+      "entityTypes": [ "dataJob" ]
+    }
+  }
+  downstreamJobs: optional array[Urn]
+
+  /**
+   * Groups the model belongs to
+   */
+  @Relationship = {
+    "/*": {
+      "name": "MemberOf",
+      "entityTypes": [ "mlModelGroup" ]
+    }
+  }
+  groups: optional array[Urn]
 }

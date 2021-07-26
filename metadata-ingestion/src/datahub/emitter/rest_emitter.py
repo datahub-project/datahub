@@ -9,6 +9,7 @@ from typing import Any, List, Optional, Union
 import requests
 from requests.exceptions import HTTPError, RequestException
 
+from datahub import __package_name__
 from datahub.configuration.common import OperationalError
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
@@ -65,7 +66,7 @@ class DatahubRestEmitter:
 
     def __init__(self, gms_server: str, token: Optional[str] = None):
         if ":9002" in gms_server:
-            logger.warn(
+            logger.warning(
                 "the rest emitter should connect to GMS (usually port 8080) instead of frontend"
             )
         self._gms_server = gms_server
@@ -80,6 +81,15 @@ class DatahubRestEmitter:
         )
         if token:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
+
+    def test_connection(self) -> None:
+        response = self._session.get(f"{self._gms_server}/config")
+        response.raise_for_status()
+        config: dict = response.json()
+        if config.get("noCode") != "true":
+            raise ValueError(
+                f"This version of {__package_name__} requires GMS v0.8.0 or higher"
+            )
 
     def emit(self, item: Union[MetadataChangeEvent, UsageAggregation]) -> None:
         if isinstance(item, UsageAggregation):

@@ -18,11 +18,14 @@
     "@docusaurus/core": "^2.0.0-beta.2",
     "@docusaurus/plugin-ideal-image": "^2.0.0-beta.2",
     "@docusaurus/preset-classic": "^2.0.0-beta.2",
+    "@octokit/plugin-retry": "^3.0.9",
+    "@octokit/plugin-throttling": "^3.5.1",
     "@octokit/rest": "^18.6.2",
     "clsx": "^1.1.1",
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
     "react-slick": "^0.28.1",
+    "react-youtube": "^7.13.1",
     "slick-carousel": "^1.8.1"
   },
   "browserslist": {

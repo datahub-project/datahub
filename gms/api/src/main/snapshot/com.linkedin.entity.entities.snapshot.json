@@ -133,11 +133,19 @@
               "optional" : true
             } ]
           },
-          "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+          "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data.",
+          "default" : {
+            "actor" : "urn:li:corpuser:unknown",
+            "time" : 0
+          }
         }, {
           "name" : "lastModified",
           "type" : "AuditStamp",
-          "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+          "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data.",
+          "default" : {
+            "actor" : "urn:li:corpuser:unknown",
+            "time" : 0
+          }
         }, {
           "name" : "deleted",
           "type" : "AuditStamp",
@@ -807,7 +815,11 @@
           }
         }
       },
-      "doc" : "Urn of the applied glossary term"
+      "doc" : "Urn of the applied glossary term",
+      "Searchable" : {
+        "fieldName" : "glossaryTerms",
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
     "type" : "record",
@@ -1040,7 +1052,11 @@
     }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
-      "doc" : "Audit stamp containing who last modified the record and when."
+      "doc" : "Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      }
     } ],
     "Aspect" : {
       "name" : "ownership"
@@ -1241,8 +1257,8 @@
           "PIG" : "Pig type is for running Pig jobs.",
           "SQL" : "SQL is for running Presto, mysql queries etc"
         }
-      } ],
-      "doc" : "Datajob type"
+      }, "string" ],
+      "doc" : "Datajob type\n**NOTE**: AzkabanJobType is deprecated. Please use strings instead."
     }, {
       "name" : "flowUrn",
       "type" : "com.linkedin.common.DataFlowUrn",
@@ -1252,6 +1268,25 @@
         "entityTypes" : [ "dataFlow" ],
         "name" : "IsPartOf"
       }
+    }, {
+      "name" : "status",
+      "type" : {
+        "type" : "enum",
+        "name" : "JobStatus",
+        "doc" : "Job statuses",
+        "symbols" : [ "STARTING", "IN_PROGRESS", "STOPPING", "STOPPED", "COMPLETED", "FAILED", "UNKNOWN" ],
+        "symbolDocs" : {
+          "COMPLETED" : "Jobs with successful completion.",
+          "FAILED" : "Jobs that have failed.",
+          "IN_PROGRESS" : "Jobs currently running.",
+          "STARTING" : "Jobs being initialized.",
+          "STOPPED" : "Jobs that have stopped.",
+          "STOPPING" : "Jobs being stopped.",
+          "UNKNOWN" : "Jobs with unknown status (either unmappable or unavailable)"
+        }
+      },
+      "doc" : "Status of the job",
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "dataJobInfo"
@@ -1359,7 +1394,7 @@
     "Aspect" : {
       "name" : "editableDataJobProperties"
     }
-  }, "com.linkedin.datajob.azkaban.AzkabanJobType", {
+  }, "com.linkedin.datajob.JobStatus", "com.linkedin.datajob.azkaban.AzkabanJobType", {
     "type" : "record",
     "name" : "DataPlatformInfo",
     "namespace" : "com.linkedin.dataplatform",
@@ -1612,7 +1647,12 @@
     "fields" : [ {
       "name" : "auditStamp",
       "type" : "com.linkedin.common.AuditStamp",
-      "doc" : "Audit stamp containing who reported the lineage and when"
+      "doc" : "Audit stamp containing who reported the lineage and when.\nWARNING: this field is deprecated and may be removed in a future release.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      },
+      "deprecated" : "we no longer associate a timestamp per upstream edge"
     }, {
       "name" : "dataset",
       "type" : "com.linkedin.common.DatasetUrn",
@@ -2775,6 +2815,7 @@
                   "name" : "MLModelProperties",
                   "namespace" : "com.linkedin.ml.metadata",
                   "doc" : "Properties associated with a ML Model",
+                  "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
                   "fields" : [ {
                     "name" : "description",
                     "type" : "string",
@@ -2813,7 +2854,85 @@
                         "ref" : [ "string", "int", "float", "double", "boolean" ]
                       }
                     },
-                    "doc" : "Hyper Parameters of the MLModel",
+                    "doc" : "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
+                    "optional" : true
+                  }, {
+                    "name" : "hyperParams",
+                    "type" : {
+                      "type" : "array",
+                      "items" : {
+                        "type" : "record",
+                        "name" : "MLHyperParam",
+                        "doc" : "Properties associated with an ML Hyper Param",
+                        "fields" : [ {
+                          "name" : "name",
+                          "type" : "string",
+                          "doc" : "Name of the MLHyperParam"
+                        }, {
+                          "name" : "description",
+                          "type" : "string",
+                          "doc" : "Documentation of the MLHyperParam",
+                          "optional" : true
+                        }, {
+                          "name" : "value",
+                          "type" : "string",
+                          "doc" : "The value of the MLHyperParam",
+                          "optional" : true
+                        }, {
+                          "name" : "createdAt",
+                          "type" : "com.linkedin.common.Time",
+                          "doc" : "Date when the MLHyperParam was developed",
+                          "optional" : true
+                        } ],
+                        "Aspect" : {
+                          "name" : "mlHyperParam"
+                        }
+                      }
+                    },
+                    "doc" : "Hyperparameters of the MLModel",
+                    "optional" : true
+                  }, {
+                    "name" : "trainingMetrics",
+                    "type" : {
+                      "type" : "array",
+                      "items" : {
+                        "type" : "record",
+                        "name" : "MLMetric",
+                        "doc" : "Properties associated with an ML Metric",
+                        "fields" : [ {
+                          "name" : "name",
+                          "type" : "string",
+                          "doc" : "Name of the mlMetric"
+                        }, {
+                          "name" : "description",
+                          "type" : "string",
+                          "doc" : "Documentation of the mlMetric",
+                          "optional" : true
+                        }, {
+                          "name" : "value",
+                          "type" : "string",
+                          "doc" : "The value of the mlMetric",
+                          "optional" : true
+                        }, {
+                          "name" : "createdAt",
+                          "type" : "com.linkedin.common.Time",
+                          "doc" : "Date when the mlMetric was developed",
+                          "optional" : true
+                        } ],
+                        "Aspect" : {
+                          "name" : "mlMetric"
+                        }
+                      }
+                    },
+                    "doc" : "Metrics of the MLModel used in training",
+                    "optional" : true
+                  }, {
+                    "name" : "onlineMetrics",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "MLMetric"
+                    },
+                    "doc" : "Metrics of the MLModel used in production",
                     "optional" : true
                   }, {
                     "name" : "mlFeatures",
@@ -2831,6 +2950,62 @@
                     },
                     "doc" : "Tags for the MLModel",
                     "default" : [ ]
+                  }, {
+                    "name" : "deployments",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "Deployments for the MLModel",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "mlModelDeployment" ],
+                        "name" : "DeployedTo"
+                      }
+                    }
+                  }, {
+                    "name" : "trainingJobs",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "List of jobs (if any) used to train the model",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "dataJob" ],
+                        "name" : "TrainedBy"
+                      }
+                    }
+                  }, {
+                    "name" : "downstreamJobs",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "List of jobs (if any) that use the model",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "dataJob" ],
+                        "name" : "UsedBy"
+                      }
+                    }
+                  }, {
+                    "name" : "groups",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "Groups the model belongs to",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "mlModelGroup" ],
+                        "name" : "MemberOf"
+                      }
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "mlModelProperties"
@@ -3435,7 +3610,7 @@
                   "Aspect" : {
                     "name" : "mlFeatureTableProperties"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3443,6 +3618,202 @@
           "Entity" : {
             "keyAspect" : "mlFeatureTableKey",
             "name" : "mlFeatureTable"
+          }
+        }, {
+          "type" : "record",
+          "name" : "MLModelDeploymentSnapshot",
+          "fields" : [ {
+            "name" : "urn",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "URN for the entity the metadata snapshot is associated with."
+          }, {
+            "name" : "aspects",
+            "type" : {
+              "type" : "array",
+              "items" : {
+                "type" : "typeref",
+                "name" : "MLModelDeploymentAspect",
+                "namespace" : "com.linkedin.metadata.aspect",
+                "doc" : "A union of all supported metadata aspects for a MLModelDeployment",
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "MLModelDeploymentKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for an ML model deployment",
+                  "fields" : [ {
+                    "name" : "platform",
+                    "type" : "com.linkedin.common.Urn",
+                    "doc" : "Standardized platform urn for the model Deployment",
+                    "Searchable" : {
+                      "addToFilters" : true,
+                      "fieldType" : "URN"
+                    }
+                  }, {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Name of the MLModelDeployment",
+                    "Searchable" : {
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_PARTIAL"
+                    }
+                  }, {
+                    "name" : "origin",
+                    "type" : "com.linkedin.common.FabricType",
+                    "doc" : "Fabric type where model Deployment belongs to or where it was generated",
+                    "Searchable" : {
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : false
+                    }
+                  } ],
+                  "Aspect" : {
+                    "name" : "mlModelDeploymentKey"
+                  }
+                }, {
+                  "type" : "record",
+                  "name" : "MLModelDeploymentProperties",
+                  "namespace" : "com.linkedin.ml.metadata",
+                  "doc" : "Properties associated with an ML Model Deployment",
+                  "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
+                  "fields" : [ {
+                    "name" : "description",
+                    "type" : "string",
+                    "doc" : "Documentation of the MLModelDeployment",
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "TEXT",
+                      "hasValuesFieldName" : "hasDescription"
+                    }
+                  }, {
+                    "name" : "createdAt",
+                    "type" : "com.linkedin.common.Time",
+                    "doc" : "Date when the MLModelDeployment was developed",
+                    "optional" : true
+                  }, {
+                    "name" : "version",
+                    "type" : "com.linkedin.common.VersionTag",
+                    "doc" : "Version of the MLModelDeployment",
+                    "optional" : true
+                  }, {
+                    "name" : "status",
+                    "type" : {
+                      "type" : "enum",
+                      "name" : "DeploymentStatus",
+                      "doc" : "Model endpoint statuses",
+                      "symbols" : [ "OUT_OF_SERVICE", "CREATING", "UPDATING", "ROLLING_BACK", "IN_SERVICE", "DELETING", "FAILED", "UNKNOWN" ],
+                      "symbolDocs" : {
+                        "CREATING" : "Deployments being created.",
+                        "DELETING" : "Deployments being deleted.",
+                        "FAILED" : "Deployments with an error state.",
+                        "IN_SERVICE" : "Deployments that are active.",
+                        "OUT_OF_SERVICE" : "Deployments out of service.",
+                        "ROLLING_BACK" : "Deployments being reverted to a previous version.",
+                        "UNKNOWN" : "Deployments with unknown/unmappable state.",
+                        "UPDATING" : "Deployments being updated."
+                      }
+                    },
+                    "doc" : "Status of the deployment",
+                    "optional" : true
+                  } ],
+                  "Aspect" : {
+                    "name" : "mlModelDeploymentProperties"
+                  }
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.Deprecation" ]
+              }
+            },
+            "doc" : "The list of metadata aspects associated with the MLModelDeployment. Depending on the use case, this can either be all, or a selection, of supported aspects."
+          } ],
+          "Entity" : {
+            "keyAspect" : "mlModelDeploymentKey",
+            "name" : "mlModelDeployment"
+          }
+        }, {
+          "type" : "record",
+          "name" : "MLModelGroupSnapshot",
+          "fields" : [ {
+            "name" : "urn",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "URN for the entity the metadata snapshot is associated with."
+          }, {
+            "name" : "aspects",
+            "type" : {
+              "type" : "array",
+              "items" : {
+                "type" : "typeref",
+                "name" : "MLModelGroupAspect",
+                "namespace" : "com.linkedin.metadata.aspect",
+                "doc" : "A union of all supported metadata aspects for a MLModelGroup",
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "MLModelGroupKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for an ML model group",
+                  "fields" : [ {
+                    "name" : "platform",
+                    "type" : "com.linkedin.common.Urn",
+                    "doc" : "Standardized platform urn for the model group",
+                    "Searchable" : {
+                      "addToFilters" : true,
+                      "fieldType" : "URN"
+                    }
+                  }, {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Name of the MLModelGroup",
+                    "Searchable" : {
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_PARTIAL"
+                    }
+                  }, {
+                    "name" : "origin",
+                    "type" : "com.linkedin.common.FabricType",
+                    "doc" : "Fabric type where model group belongs to or where it was generated",
+                    "Searchable" : {
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : false
+                    }
+                  } ],
+                  "Aspect" : {
+                    "name" : "mlModelGroupKey"
+                  }
+                }, {
+                  "type" : "record",
+                  "name" : "MLModelGroupProperties",
+                  "namespace" : "com.linkedin.ml.metadata",
+                  "doc" : "Properties associated with an ML Model Group",
+                  "include" : [ "com.linkedin.common.CustomProperties" ],
+                  "fields" : [ {
+                    "name" : "description",
+                    "type" : "string",
+                    "doc" : "Documentation of the MLModelGroup",
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "TEXT",
+                      "hasValuesFieldName" : "hasDescription"
+                    }
+                  }, {
+                    "name" : "createdAt",
+                    "type" : "com.linkedin.common.Time",
+                    "doc" : "Date when the MLModelGroup was developed",
+                    "optional" : true
+                  }, {
+                    "name" : "version",
+                    "type" : "com.linkedin.common.VersionTag",
+                    "doc" : "Version of the MLModelGroup",
+                    "optional" : true
+                  } ],
+                  "Aspect" : {
+                    "name" : "mlModelGroupProperties"
+                  }
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths" ]
+              }
+            },
+            "doc" : "The list of metadata aspects associated with the MLModelGroup. Depending on the use case, this can either be all, or a selection, of supported aspects."
+          } ],
+          "Entity" : {
+            "keyAspect" : "mlModelGroupKey",
+            "name" : "mlModelGroup"
           }
         }, {
           "type" : "record",
@@ -3586,7 +3957,7 @@
                   "Aspect" : {
                     "name" : "glossaryTermInfo"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.BrowsePaths" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3659,7 +4030,7 @@
         } ]
       }
     } ]
-  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLFeatureTableKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.MLPrimaryKeyKey", "com.linkedin.metadata.key.TagKey", {
+  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLFeatureTableKey", "com.linkedin.metadata.key.MLModelDeploymentKey", "com.linkedin.metadata.key.MLModelGroupKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.MLPrimaryKeyKey", "com.linkedin.metadata.key.TagKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -3919,7 +4290,7 @@
       },
       "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
     } ]
-  }, "com.linkedin.metadata.query.SortOrder", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.metadata.query.SortOrder", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "entities",
     "namespace" : "com.linkedin.entity",

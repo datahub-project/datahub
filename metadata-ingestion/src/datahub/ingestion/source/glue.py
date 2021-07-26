@@ -10,8 +10,8 @@ from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws_common import AwsSourceConfig
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp, Status
+from datahub.ingestion.source.aws_common import AwsSourceConfig, make_s3_urn
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -30,7 +30,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     UnionTypeClass,
 )
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     DataJobInfoClass,
@@ -102,7 +101,7 @@ class GlueSource(Source):
 
         return jobs
 
-    def get_dataflow_graph(self, script_path: str) -> Dict[str, Any]:
+    def get_dataflow_graph(self, script_path: str) -> Optional[Dict[str, Any]]:
         """
         Get the DAG of transforms and data sources/sinks for a job.
 
@@ -122,9 +121,20 @@ class GlueSource(Source):
         obj = self.s3_client.get_object(Bucket=bucket, Key=key)
         script = obj["Body"].read().decode("utf-8")
 
-        # extract the job DAG from the script
-        # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_dataflow_graph
-        return self.glue_client.get_dataflow_graph(PythonScript=script)
+        try:
+            # extract the job DAG from the script
+            # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_dataflow_graph
+            return self.glue_client.get_dataflow_graph(PythonScript=script)
+
+        # sometimes the Python script can be user-modified and the script is not valid for graph extraction
+        except self.glue_client.exceptions.InvalidInputException as e:
+
+            self.report.report_warning(
+                script_path,
+                f"Error parsing DAG for Glue job. The script {script_path} cannot be processed by Glue (this usually occurs when it has been user-modified): {e}",
+            )
+
+            return None
 
     def get_dataflow_s3_names(
         self, dataflow_graph: Dict[str, Any]
@@ -143,15 +153,11 @@ class GlueSource(Source):
                 # if data object is S3 bucket
                 if node_args.get("connection_type") == "s3":
 
-                    # remove S3 prefix (s3://)
-                    s3_name = node_args["connection_options"]["path"][5:]
-
-                    if s3_name.endswith("/"):
-                        s3_name = s3_name[:-1]
+                    s3_uri = node_args["connection_options"]["path"]
 
                     extension = node_args.get("format")
 
-                    yield s3_name, extension
+                    yield s3_uri, extension
 
     def process_dataflow_node(
         self,
@@ -180,20 +186,18 @@ class GlueSource(Source):
             # if data object is S3 bucket
             elif node_args.get("connection_type") == "s3":
 
-                # remove S3 prefix (s3://)
-                s3_name = node_args["connection_options"]["path"][5:]
-
-                if s3_name.endswith("/"):
-                    s3_name = s3_name[:-1]
+                s3_uri = node_args["connection_options"]["path"]
 
                 # append S3 format if different ones exist
-                if len(s3_formats[s3_name]) > 1:
-                    node_urn = f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name}_{node_args.get('format')},{self.env})"
+                if len(s3_formats[s3_uri]) > 1:
+                    node_urn = make_s3_urn(
+                        s3_uri,
+                        self.env,
+                        suffix=node_args.get("format"),
+                    )
 
                 else:
-                    node_urn = (
-                        f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{self.env})"
-                    )
+                    node_urn = make_s3_urn(s3_uri, self.env)
 
                 dataset_snapshot = DatasetSnapshot(
                     urn=node_urn,
@@ -201,15 +205,6 @@ class GlueSource(Source):
                 )
 
                 dataset_snapshot.aspects.append(Status(removed=False))
-                dataset_snapshot.aspects.append(
-                    OwnershipClass(
-                        owners=[],
-                        lastModified=AuditStampClass(
-                            time=mce_builder.get_sys_time(),
-                            actor="urn:li:corpuser:datahub",
-                        ),
-                    )
-                )
                 dataset_snapshot.aspects.append(
                     DatasetPropertiesClass(
                         customProperties={k: str(v) for k, v in node_args.items()},
@@ -245,7 +240,7 @@ class GlueSource(Source):
         self,
         dataflow_graph: Dict[str, Any],
         flow_urn: str,
-        s3_names: typing.DefaultDict[str, Set[Union[str, None]]],
+        s3_formats: typing.DefaultDict[str, Set[Union[str, None]]],
     ) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[MetadataChangeEvent]]:
         """
         Prepare a job's DAG for ingestion.
@@ -255,6 +250,8 @@ class GlueSource(Source):
                 Job DAG returned from get_dataflow_graph()
             flow_urn:
                 URN of the flow (i.e. the AWS Glue job itself).
+            s3_formats:
+                Map from s3 URIs to formats used (for deduplication purposes)
         """
 
         new_dataset_ids: List[str] = []
@@ -266,7 +263,7 @@ class GlueSource(Source):
         for node in dataflow_graph["DagNodes"]:
 
             nodes[node["Id"]] = self.process_dataflow_node(
-                node, flow_urn, new_dataset_ids, new_dataset_mces, s3_names
+                node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
             )
 
         # traverse edges to fill in node properties
@@ -301,6 +298,9 @@ class GlueSource(Source):
             job:
                 Job object from get_all_jobs()
         """
+
+        region = self.source_config.aws_region
+
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
                 urn=flow_urn,
@@ -308,6 +308,7 @@ class GlueSource(Source):
                     DataFlowInfoClass(
                         name=job["Name"],
                         description=job["Description"],
+                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
                         # specify a few Glue-specific properties
                         customProperties={
                             "role": job["Role"],
@@ -335,6 +336,9 @@ class GlueSource(Source):
             job:
                 Job object from get_all_jobs()
         """
+
+        region = self.source_config.aws_region
+
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataJobSnapshotClass(
                 urn=node["urn"],
@@ -342,6 +346,8 @@ class GlueSource(Source):
                     DataJobInfoClass(
                         name=f"{job['Name']}:{node['NodeType']}-{node['Id']}",
                         type="GLUE",
+                        # there's no way to view an individual job node by link, so just show the graph
+                        externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
                         customProperties={
                             **{x["Name"]: x["Value"] for x in node["Args"]},
                             "transformType": node["NodeType"],
@@ -408,7 +414,7 @@ class GlueSource(Source):
                 continue
 
             mce = self._extract_record(table, full_table_name)
-            workunit = MetadataWorkUnit(id=f"glue-{full_table_name}", mce=mce)
+            workunit = MetadataWorkUnit(full_table_name, mce=mce)
             self.report.report_workunit(workunit)
             yield workunit
 
@@ -438,11 +444,15 @@ class GlueSource(Source):
             )
 
             for dag in dags.values():
-                for s3_name, extension in self.get_dataflow_s3_names(dag):
-                    s3_formats[s3_name].add(extension)
+                if dag is not None:
+                    for s3_name, extension in self.get_dataflow_s3_names(dag):
+                        s3_formats[s3_name].add(extension)
 
             # run second pass to generate node workunits
             for flow_urn, dag in dags.items():
+
+                if dag is None:
+                    continue
 
                 nodes, new_dataset_ids, new_dataset_mces = self.process_dataflow_graph(
                     dag, flow_urn, s3_formats
@@ -462,7 +472,7 @@ class GlueSource(Source):
                     yield dataset_wu
 
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
-        def get_owner(time: int) -> OwnershipClass:
+        def get_owner() -> OwnershipClass:
             owner = table.get("Owner")
             if owner:
                 owners = [
@@ -475,10 +485,6 @@ class GlueSource(Source):
                 owners = []
             return OwnershipClass(
                 owners=owners,
-                lastModified=AuditStampClass(
-                    time=time,
-                    actor="urn:li:corpuser:datahub",
-                ),
             )
 
         def get_dataset_properties() -> DatasetPropertiesClass:
@@ -516,20 +522,17 @@ class GlueSource(Source):
                 version=0,
                 fields=fields,
                 platform="urn:li:dataPlatform:glue",
-                created=AuditStamp(time=sys_time, actor="urn:li:corpuser:etl"),
-                lastModified=AuditStamp(time=sys_time, actor="urn:li:corpuser:etl"),
                 hash="",
                 platformSchema=MySqlDDL(tableSchema=""),
             )
 
-        sys_time = mce_builder.get_sys_time()
         dataset_snapshot = DatasetSnapshot(
             urn=f"urn:li:dataset:(urn:li:dataPlatform:glue,{table_name},{self.env})",
             aspects=[],
         )
 
         dataset_snapshot.aspects.append(Status(removed=False))
-        dataset_snapshot.aspects.append(get_owner(sys_time))
+        dataset_snapshot.aspects.append(get_owner())
         dataset_snapshot.aspects.append(get_dataset_properties())
         dataset_snapshot.aspects.append(get_schema_metadata(self))
 
@@ -572,15 +575,25 @@ def get_column_type(
         "varchar": StringTypeClass,
     }
 
-    if field_type in field_type_mapping.keys():
+    field_starts_type_mapping = {
+        "array": ArrayTypeClass,
+        "set": ArrayTypeClass,
+        "map": MapTypeClass,
+        "struct": MapTypeClass,
+        "varchar": StringTypeClass,
+        "decimal": NumberTypeClass,
+    }
+
+    type_class = None
+    if field_type in field_type_mapping:
         type_class = field_type_mapping[field_type]
-    elif field_type.startswith("array"):
-        type_class = ArrayTypeClass
-    elif field_type.startswith("map") or field_type.startswith("struct"):
-        type_class = MapTypeClass
-    elif field_type.startswith("set"):
-        type_class = ArrayTypeClass
     else:
+        for key in field_starts_type_mapping:
+            if field_type.startswith(key):
+                type_class = field_starts_type_mapping[key]
+                break
+
+    if type_class is None:
         glue_source.report.report_warning(
             field_type,
             f"The type '{field_type}' is not recognised for field '{field_name}' in table '{table_name}', setting as StringTypeClass.",

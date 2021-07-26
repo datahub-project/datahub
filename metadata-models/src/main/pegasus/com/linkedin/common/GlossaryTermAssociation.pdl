@@ -7,5 +7,9 @@ record GlossaryTermAssociation {
    /**
     * Urn of the applied glossary term
     */
+    @Searchable = {
+        "fieldName": "glossaryTerms",
+        "fieldType": "TEXT_PARTIAL"
+    }
     urn: GlossaryTermUrn
 }

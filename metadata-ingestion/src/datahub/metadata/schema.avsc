@@ -230,12 +230,22 @@
                                   "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
                                 },
                                 "name": "created",
-                                "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                                "default": {
+                                  "actor": "urn:li:corpuser:unknown",
+                                  "impersonator": null,
+                                  "time": 0
+                                },
+                                "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                               },
                               {
                                 "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                                 "name": "lastModified",
-                                "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                                "default": {
+                                  "actor": "urn:li:corpuser:unknown",
+                                  "impersonator": null,
+                                  "time": 0
+                                },
+                                "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                               },
                               {
                                 "type": [
@@ -409,12 +419,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -568,7 +588,12 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "Audit stamp containing who last modified the record and when."
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data."
                         }
                       ],
                       "doc": "Ownership information of an entity."
@@ -1199,12 +1224,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -1380,12 +1415,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -1562,10 +1607,11 @@
                                 "GLUE"
                               ],
                               "doc": "The various types of support azkaban jobs"
-                            }
+                            },
+                            "string"
                           ],
                           "name": "type",
-                          "doc": "Datajob type"
+                          "doc": "Datajob type\n**NOTE**: AzkabanJobType is deprecated. Please use strings instead."
                         },
                         {
                           "Relationship": {
@@ -1584,6 +1630,38 @@
                           "name": "flowUrn",
                           "default": null,
                           "doc": "DataFlow urn that this job is part of"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "enum",
+                              "symbolDocs": {
+                                "COMPLETED": "Jobs with successful completion.",
+                                "FAILED": "Jobs that have failed.",
+                                "IN_PROGRESS": "Jobs currently running.",
+                                "STARTING": "Jobs being initialized.",
+                                "STOPPED": "Jobs that have stopped.",
+                                "STOPPING": "Jobs being stopped.",
+                                "UNKNOWN": "Jobs with unknown status (either unmappable or unavailable)"
+                              },
+                              "name": "JobStatus",
+                              "namespace": "com.linkedin.pegasus2avro.datajob",
+                              "symbols": [
+                                "STARTING",
+                                "IN_PROGRESS",
+                                "STOPPING",
+                                "STOPPED",
+                                "COMPLETED",
+                                "FAILED",
+                                "UNKNOWN"
+                              ],
+                              "doc": "Job statuses"
+                            }
+                          ],
+                          "name": "status",
+                          "default": null,
+                          "doc": "Status of the job"
                         }
                       ],
                       "doc": "Information about a Data processing job"
@@ -1678,12 +1756,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -1881,12 +1969,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -2060,9 +2158,15 @@
                               "namespace": "com.linkedin.pegasus2avro.dataset",
                               "fields": [
                                 {
+                                  "deprecated": "we no longer associate a timestamp per upstream edge",
                                   "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                                   "name": "auditStamp",
-                                  "doc": "Audit stamp containing who reported the lineage and when"
+                                  "default": {
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null,
+                                    "time": 0
+                                  },
+                                  "doc": "Audit stamp containing who reported the lineage and when.\nWARNING: this field is deprecated and may be removed in a future release."
                                 },
                                 {
                                   "Relationship": {
@@ -2195,12 +2299,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -2624,6 +2738,10 @@
                                               "namespace": "com.linkedin.pegasus2avro.common",
                                               "fields": [
                                                 {
+                                                  "Searchable": {
+                                                    "fieldName": "glossaryTerms",
+                                                    "fieldType": "TEXT_PARTIAL"
+                                                  },
                                                   "java": {
                                                     "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
                                                   },
@@ -2751,12 +2869,22 @@
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "created",
-                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": "com.linkedin.pegasus2avro.common.AuditStamp",
                           "name": "lastModified",
-                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+                          "default": {
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null,
+                            "time": 0
+                          },
+                          "doc": "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data."
                         },
                         {
                           "type": [
@@ -3165,6 +3293,28 @@
                       "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                       "fields": [
                         {
+                          "type": {
+                            "type": "map",
+                            "values": "string"
+                          },
+                          "name": "customProperties",
+                          "default": {},
+                          "doc": "Custom property bag."
+                        },
+                        {
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.url.Url",
+                            "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                          },
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "externalUrl",
+                          "default": null,
+                          "doc": "URL where the reference exist"
+                        },
+                        {
                           "Searchable": {
                             "fieldType": "TEXT",
                             "hasValuesFieldName": "hasDescription"
@@ -3238,7 +3388,127 @@
                           ],
                           "name": "hyperParameters",
                           "default": null,
-                          "doc": "Hyper Parameters of the MLModel"
+                          "doc": "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "record",
+                                "Aspect": {
+                                  "name": "mlHyperParam"
+                                },
+                                "name": "MLHyperParam",
+                                "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                                "fields": [
+                                  {
+                                    "type": "string",
+                                    "name": "name",
+                                    "doc": "Name of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "description",
+                                    "default": null,
+                                    "doc": "Documentation of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "value",
+                                    "default": null,
+                                    "doc": "The value of the MLHyperParam"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "long"
+                                    ],
+                                    "name": "createdAt",
+                                    "default": null,
+                                    "doc": "Date when the MLHyperParam was developed"
+                                  }
+                                ],
+                                "doc": "Properties associated with an ML Hyper Param"
+                              }
+                            }
+                          ],
+                          "name": "hyperParams",
+                          "default": null,
+                          "doc": "Hyperparameters of the MLModel"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "record",
+                                "Aspect": {
+                                  "name": "mlMetric"
+                                },
+                                "name": "MLMetric",
+                                "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                                "fields": [
+                                  {
+                                    "type": "string",
+                                    "name": "name",
+                                    "doc": "Name of the mlMetric"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "description",
+                                    "default": null,
+                                    "doc": "Documentation of the mlMetric"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "string"
+                                    ],
+                                    "name": "value",
+                                    "default": null,
+                                    "doc": "The value of the mlMetric"
+                                  },
+                                  {
+                                    "type": [
+                                      "null",
+                                      "long"
+                                    ],
+                                    "name": "createdAt",
+                                    "default": null,
+                                    "doc": "Date when the mlMetric was developed"
+                                  }
+                                ],
+                                "doc": "Properties associated with an ML Metric"
+                              }
+                            }
+                          ],
+                          "name": "trainingMetrics",
+                          "default": null,
+                          "doc": "Metrics of the MLModel used in training"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "com.linkedin.pegasus2avro.ml.metadata.MLMetric"
+                            }
+                          ],
+                          "name": "onlineMetrics",
+                          "default": null,
+                          "doc": "Metrics of the MLModel used in production"
                         },
                         {
                           "type": [
@@ -3260,6 +3530,86 @@
                           "name": "tags",
                           "default": [],
                           "doc": "Tags for the MLModel"
+                        },
+                        {
+                          "Relationship": {
+                            "/*": {
+                              "entityTypes": [
+                                "mlModelDeployment"
+                              ],
+                              "name": "DeployedTo"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "string"
+                            }
+                          ],
+                          "name": "deployments",
+                          "default": null,
+                          "doc": "Deployments for the MLModel"
+                        },
+                        {
+                          "Relationship": {
+                            "/*": {
+                              "entityTypes": [
+                                "dataJob"
+                              ],
+                              "name": "TrainedBy"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "string"
+                            }
+                          ],
+                          "name": "trainingJobs",
+                          "default": null,
+                          "doc": "List of jobs (if any) used to train the model"
+                        },
+                        {
+                          "Relationship": {
+                            "/*": {
+                              "entityTypes": [
+                                "dataJob"
+                              ],
+                              "name": "UsedBy"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "string"
+                            }
+                          ],
+                          "name": "downstreamJobs",
+                          "default": null,
+                          "doc": "List of jobs (if any) that use the model"
+                        },
+                        {
+                          "Relationship": {
+                            "/*": {
+                              "entityTypes": [
+                                "mlModelGroup"
+                              ],
+                              "name": "MemberOf"
+                            }
+                          },
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items": "string"
+                            }
+                          ],
+                          "name": "groups",
+                          "default": null,
+                          "doc": "Groups the model belongs to"
                         }
                       ],
                       "doc": "Properties associated with a ML Model"
@@ -4264,11 +4614,308 @@
                     "com.linkedin.pegasus2avro.common.Ownership",
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory",
                     "com.linkedin.pegasus2avro.common.Status",
-                    "com.linkedin.pegasus2avro.common.Deprecation"
+                    "com.linkedin.pegasus2avro.common.Deprecation",
+                    "com.linkedin.pegasus2avro.common.BrowsePaths"
                   ]
                 },
                 "name": "aspects",
                 "doc": "The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."
+              }
+            ]
+          },
+          {
+            "type": "record",
+            "Entity": {
+              "keyAspect": "mlModelDeploymentKey",
+              "name": "mlModelDeployment"
+            },
+            "name": "MLModelDeploymentSnapshot",
+            "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+            "fields": [
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "type": "string",
+                "name": "urn",
+                "doc": "URN for the entity the metadata snapshot is associated with."
+              },
+              {
+                "type": {
+                  "type": "array",
+                  "items": [
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "mlModelDeploymentKey"
+                      },
+                      "name": "MLModelDeploymentKey",
+                      "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                      "fields": [
+                        {
+                          "Searchable": {
+                            "addToFilters": true,
+                            "fieldType": "URN"
+                          },
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                          },
+                          "type": "string",
+                          "name": "platform",
+                          "doc": "Standardized platform urn for the model Deployment"
+                        },
+                        {
+                          "Searchable": {
+                            "boostScore": 10.0,
+                            "enableAutocomplete": true,
+                            "fieldType": "TEXT_PARTIAL"
+                          },
+                          "type": "string",
+                          "name": "name",
+                          "doc": "Name of the MLModelDeployment"
+                        },
+                        {
+                          "Searchable": {
+                            "fieldType": "TEXT_PARTIAL",
+                            "queryByDefault": false
+                          },
+                          "type": "com.linkedin.pegasus2avro.common.FabricType",
+                          "name": "origin",
+                          "doc": "Fabric type where model Deployment belongs to or where it was generated"
+                        }
+                      ],
+                      "doc": "Key for an ML model deployment"
+                    },
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "mlModelDeploymentProperties"
+                      },
+                      "name": "MLModelDeploymentProperties",
+                      "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                      "fields": [
+                        {
+                          "type": {
+                            "type": "map",
+                            "values": "string"
+                          },
+                          "name": "customProperties",
+                          "default": {},
+                          "doc": "Custom property bag."
+                        },
+                        {
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.url.Url",
+                            "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                          },
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "externalUrl",
+                          "default": null,
+                          "doc": "URL where the reference exist"
+                        },
+                        {
+                          "Searchable": {
+                            "fieldType": "TEXT",
+                            "hasValuesFieldName": "hasDescription"
+                          },
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "description",
+                          "default": null,
+                          "doc": "Documentation of the MLModelDeployment"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "long"
+                          ],
+                          "name": "createdAt",
+                          "default": null,
+                          "doc": "Date when the MLModelDeployment was developed"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "com.linkedin.pegasus2avro.common.VersionTag"
+                          ],
+                          "name": "version",
+                          "default": null,
+                          "doc": "Version of the MLModelDeployment"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            {
+                              "type": "enum",
+                              "symbolDocs": {
+                                "CREATING": "Deployments being created.",
+                                "DELETING": "Deployments being deleted.",
+                                "FAILED": "Deployments with an error state.",
+                                "IN_SERVICE": "Deployments that are active.",
+                                "OUT_OF_SERVICE": "Deployments out of service.",
+                                "ROLLING_BACK": "Deployments being reverted to a previous version.",
+                                "UNKNOWN": "Deployments with unknown/unmappable state.",
+                                "UPDATING": "Deployments being updated."
+                              },
+                              "name": "DeploymentStatus",
+                              "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                              "symbols": [
+                                "OUT_OF_SERVICE",
+                                "CREATING",
+                                "UPDATING",
+                                "ROLLING_BACK",
+                                "IN_SERVICE",
+                                "DELETING",
+                                "FAILED",
+                                "UNKNOWN"
+                              ],
+                              "doc": "Model endpoint statuses"
+                            }
+                          ],
+                          "name": "status",
+                          "default": null,
+                          "doc": "Status of the deployment"
+                        }
+                      ],
+                      "doc": "Properties associated with an ML Model Deployment"
+                    },
+                    "com.linkedin.pegasus2avro.common.Ownership",
+                    "com.linkedin.pegasus2avro.common.Status",
+                    "com.linkedin.pegasus2avro.common.Deprecation"
+                  ]
+                },
+                "name": "aspects",
+                "doc": "The list of metadata aspects associated with the MLModelDeployment. Depending on the use case, this can either be all, or a selection, of supported aspects."
+              }
+            ]
+          },
+          {
+            "type": "record",
+            "Entity": {
+              "keyAspect": "mlModelGroupKey",
+              "name": "mlModelGroup"
+            },
+            "name": "MLModelGroupSnapshot",
+            "namespace": "com.linkedin.pegasus2avro.metadata.snapshot",
+            "fields": [
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "type": "string",
+                "name": "urn",
+                "doc": "URN for the entity the metadata snapshot is associated with."
+              },
+              {
+                "type": {
+                  "type": "array",
+                  "items": [
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "mlModelGroupKey"
+                      },
+                      "name": "MLModelGroupKey",
+                      "namespace": "com.linkedin.pegasus2avro.metadata.key",
+                      "fields": [
+                        {
+                          "Searchable": {
+                            "addToFilters": true,
+                            "fieldType": "URN"
+                          },
+                          "java": {
+                            "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                          },
+                          "type": "string",
+                          "name": "platform",
+                          "doc": "Standardized platform urn for the model group"
+                        },
+                        {
+                          "Searchable": {
+                            "boostScore": 10.0,
+                            "enableAutocomplete": true,
+                            "fieldType": "TEXT_PARTIAL"
+                          },
+                          "type": "string",
+                          "name": "name",
+                          "doc": "Name of the MLModelGroup"
+                        },
+                        {
+                          "Searchable": {
+                            "fieldType": "TEXT_PARTIAL",
+                            "queryByDefault": false
+                          },
+                          "type": "com.linkedin.pegasus2avro.common.FabricType",
+                          "name": "origin",
+                          "doc": "Fabric type where model group belongs to or where it was generated"
+                        }
+                      ],
+                      "doc": "Key for an ML model group"
+                    },
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "mlModelGroupProperties"
+                      },
+                      "name": "MLModelGroupProperties",
+                      "namespace": "com.linkedin.pegasus2avro.ml.metadata",
+                      "fields": [
+                        {
+                          "type": {
+                            "type": "map",
+                            "values": "string"
+                          },
+                          "name": "customProperties",
+                          "default": {},
+                          "doc": "Custom property bag."
+                        },
+                        {
+                          "Searchable": {
+                            "fieldType": "TEXT",
+                            "hasValuesFieldName": "hasDescription"
+                          },
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "description",
+                          "default": null,
+                          "doc": "Documentation of the MLModelGroup"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "long"
+                          ],
+                          "name": "createdAt",
+                          "default": null,
+                          "doc": "Date when the MLModelGroup was developed"
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "com.linkedin.pegasus2avro.common.VersionTag"
+                          ],
+                          "name": "version",
+                          "default": null,
+                          "doc": "Version of the MLModelGroup"
+                        }
+                      ],
+                      "doc": "Properties associated with an ML Model Group"
+                    },
+                    "com.linkedin.pegasus2avro.common.Ownership",
+                    "com.linkedin.pegasus2avro.common.Status",
+                    "com.linkedin.pegasus2avro.common.Deprecation",
+                    "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  ]
+                },
+                "name": "aspects",
+                "doc": "The list of metadata aspects associated with the MLModelGroup. Depending on the use case, this can either be all, or a selection, of supported aspects."
               }
             ]
           },
@@ -4461,7 +5108,8 @@
                       "doc": "Properties associated with a GlossaryTerm"
                     },
                     "com.linkedin.pegasus2avro.common.Ownership",
-                    "com.linkedin.pegasus2avro.common.Status"
+                    "com.linkedin.pegasus2avro.common.Status",
+                    "com.linkedin.pegasus2avro.common.BrowsePaths"
                   ]
                 },
                 "name": "aspects",
@@ -4594,6 +5242,8 @@
           "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot",
           "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot",
           "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot",
+          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot",
+          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot",
           "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot",
           "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot",
           "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot"
@@ -4617,6 +5267,8 @@
           "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot",
           "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot",
           "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot",
+          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot",
+          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot",
           "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot",
           "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot",
           "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot"

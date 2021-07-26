@@ -60,11 +60,19 @@
     "fields" : [ {
       "name" : "created",
       "type" : "AuditStamp",
-      "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+      "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      }
     }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
-      "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+      "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created. A value of 0 for time indicates missing data.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      }
     }, {
       "name" : "deleted",
       "type" : "AuditStamp",
@@ -133,6 +141,20 @@
       "name" : "cost"
     }
   }, "com.linkedin.common.CostType", "com.linkedin.common.CostValue", {
+    "type" : "record",
+    "name" : "CustomProperties",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Misc. properties about an entity.",
+    "fields" : [ {
+      "name" : "customProperties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "Custom property bag.",
+      "default" : { }
+    } ]
+  }, {
     "type" : "typeref",
     "name" : "DataPlatformUrn",
     "namespace" : "com.linkedin.common",
@@ -229,6 +251,25 @@
       "name" : "deprecation"
     }
   }, {
+    "type" : "record",
+    "name" : "ExternalReference",
+    "namespace" : "com.linkedin.common",
+    "doc" : "A reference to an external platform.",
+    "fields" : [ {
+      "name" : "externalUrl",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Url",
+        "ref" : "string",
+        "java" : {
+          "class" : "com.linkedin.common.url.Url",
+          "coercerClass" : "com.linkedin.common.url.UrlCoercer"
+        }
+      },
+      "doc" : "URL where the reference exist",
+      "optional" : true
+    } ]
+  }, {
     "type" : "enum",
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
@@ -255,15 +296,7 @@
           "doc" : "Metadata corresponding to a record of institutional memory.",
           "fields" : [ {
             "name" : "url",
-            "type" : {
-              "type" : "typeref",
-              "name" : "Url",
-              "ref" : "string",
-              "java" : {
-                "class" : "com.linkedin.common.url.Url",
-                "coercerClass" : "com.linkedin.common.url.UrlCoercer"
-              }
-            },
+            "type" : "Url",
             "doc" : "Link to an engineering design document or a wiki page."
           }, {
             "name" : "description",
@@ -434,7 +467,11 @@
     }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
-      "doc" : "Audit stamp containing who last modified the record and when."
+      "doc" : "Audit stamp containing who last modified the record and when. A value of 0 in the time field indicates missing data.",
+      "default" : {
+        "actor" : "urn:li:corpuser:unknown",
+        "time" : 0
+      }
     } ],
     "Aspect" : {
       "name" : "ownership"
@@ -510,6 +547,7 @@
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
       "doc" : "Properties associated with a ML Model",
+      "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
       "fields" : [ {
         "name" : "description",
         "type" : "string",
@@ -548,7 +586,85 @@
             "ref" : [ "string", "int", "float", "double", "boolean" ]
           }
         },
-        "doc" : "Hyper Parameters of the MLModel",
+        "doc" : "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
+        "optional" : true
+      }, {
+        "name" : "hyperParams",
+        "type" : {
+          "type" : "array",
+          "items" : {
+            "type" : "record",
+            "name" : "MLHyperParam",
+            "doc" : "Properties associated with an ML Hyper Param",
+            "fields" : [ {
+              "name" : "name",
+              "type" : "string",
+              "doc" : "Name of the MLHyperParam"
+            }, {
+              "name" : "description",
+              "type" : "string",
+              "doc" : "Documentation of the MLHyperParam",
+              "optional" : true
+            }, {
+              "name" : "value",
+              "type" : "string",
+              "doc" : "The value of the MLHyperParam",
+              "optional" : true
+            }, {
+              "name" : "createdAt",
+              "type" : "com.linkedin.common.Time",
+              "doc" : "Date when the MLHyperParam was developed",
+              "optional" : true
+            } ],
+            "Aspect" : {
+              "name" : "mlHyperParam"
+            }
+          }
+        },
+        "doc" : "Hyperparameters of the MLModel",
+        "optional" : true
+      }, {
+        "name" : "trainingMetrics",
+        "type" : {
+          "type" : "array",
+          "items" : {
+            "type" : "record",
+            "name" : "MLMetric",
+            "doc" : "Properties associated with an ML Metric",
+            "fields" : [ {
+              "name" : "name",
+              "type" : "string",
+              "doc" : "Name of the mlMetric"
+            }, {
+              "name" : "description",
+              "type" : "string",
+              "doc" : "Documentation of the mlMetric",
+              "optional" : true
+            }, {
+              "name" : "value",
+              "type" : "string",
+              "doc" : "The value of the mlMetric",
+              "optional" : true
+            }, {
+              "name" : "createdAt",
+              "type" : "com.linkedin.common.Time",
+              "doc" : "Date when the mlMetric was developed",
+              "optional" : true
+            } ],
+            "Aspect" : {
+              "name" : "mlMetric"
+            }
+          }
+        },
+        "doc" : "Metrics of the MLModel used in training",
+        "optional" : true
+      }, {
+        "name" : "onlineMetrics",
+        "type" : {
+          "type" : "array",
+          "items" : "MLMetric"
+        },
+        "doc" : "Metrics of the MLModel used in production",
         "optional" : true
       }, {
         "name" : "mlFeatures",
@@ -566,6 +682,62 @@
         },
         "doc" : "Tags for the MLModel",
         "default" : [ ]
+      }, {
+        "name" : "deployments",
+        "type" : {
+          "type" : "array",
+          "items" : "com.linkedin.common.Urn"
+        },
+        "doc" : "Deployments for the MLModel",
+        "optional" : true,
+        "Relationship" : {
+          "/*" : {
+            "entityTypes" : [ "mlModelDeployment" ],
+            "name" : "DeployedTo"
+          }
+        }
+      }, {
+        "name" : "trainingJobs",
+        "type" : {
+          "type" : "array",
+          "items" : "com.linkedin.common.Urn"
+        },
+        "doc" : "List of jobs (if any) used to train the model",
+        "optional" : true,
+        "Relationship" : {
+          "/*" : {
+            "entityTypes" : [ "dataJob" ],
+            "name" : "TrainedBy"
+          }
+        }
+      }, {
+        "name" : "downstreamJobs",
+        "type" : {
+          "type" : "array",
+          "items" : "com.linkedin.common.Urn"
+        },
+        "doc" : "List of jobs (if any) that use the model",
+        "optional" : true,
+        "Relationship" : {
+          "/*" : {
+            "entityTypes" : [ "dataJob" ],
+            "name" : "UsedBy"
+          }
+        }
+      }, {
+        "name" : "groups",
+        "type" : {
+          "type" : "array",
+          "items" : "com.linkedin.common.Urn"
+        },
+        "doc" : "Groups the model belongs to",
+        "optional" : true,
+        "Relationship" : {
+          "/*" : {
+            "entityTypes" : [ "mlModelGroup" ],
+            "name" : "MemberOf"
+          }
+        }
       } ],
       "Aspect" : {
         "name" : "mlModelProperties"
@@ -1237,7 +1409,7 @@
       "doc" : "Deprecation",
       "optional" : true
     } ]
-  }, "com.linkedin.ml.MLModelKey", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
+  }, "com.linkedin.ml.MLModelKey", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
     "type" : "record",
     "name" : "EmptyRecord",
     "namespace" : "com.linkedin.restli.common",

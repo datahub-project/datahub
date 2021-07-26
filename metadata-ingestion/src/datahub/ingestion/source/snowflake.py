@@ -14,6 +14,7 @@ from sqlalchemy.sql.elements import quoted_name
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 
 from .sql_common import (
+    RecordTypeClass,
     SQLAlchemyConfig,
     SQLAlchemySource,
     TimeTypeClass,
@@ -24,7 +25,7 @@ from .sql_common import (
 register_custom_type(custom_types.TIMESTAMP_TZ, TimeTypeClass)
 register_custom_type(custom_types.TIMESTAMP_LTZ, TimeTypeClass)
 register_custom_type(custom_types.TIMESTAMP_NTZ, TimeTypeClass)
-register_custom_type(custom_types.VARIANT)
+register_custom_type(custom_types.VARIANT, RecordTypeClass)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
 
     @pydantic.validator("database")
     def note_database_opt_deprecation(cls, v, values, **kwargs):
-        logger.warn(
+        logger.warning(
             "snowflake's `database` option has been deprecated; use database_pattern instead"
         )
         values["database_pattern"].allow = f"^{v}$"
@@ -83,7 +84,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
 
     def get_identifier(self, schema: str, table: str) -> str:
         regular = super().get_identifier(schema, table)
-        return f"{self.database}.{regular}"
+        return f"{self.database.lower()}.{regular}"
 
 
 class SnowflakeSource(SQLAlchemySource):

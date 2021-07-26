@@ -24,7 +24,14 @@ const ExploreForEntity = styled.span`
 `;
 
 const StyledAutoComplete = styled(AutoComplete)`
-    width: 650px;
+    width: 100%;
+    max-width: 800px;
+`;
+
+const AutoCompleteContainer = styled.div`
+    width: 100%;
+    text-align: center;
+    padding: 0 30px;
 `;
 
 const renderItem = (suggestion: string, icon: JSX.Element, type: string) => ({
@@ -90,7 +97,7 @@ export const SearchBar = ({
     }));
 
     return (
-        <div style={style}>
+        <AutoCompleteContainer style={style}>
             <StyledAutoComplete
                 style={autoCompleteStyle}
                 options={options}
@@ -109,7 +116,7 @@ export const SearchBar = ({
                     data-testid="search-input"
                 />
             </StyledAutoComplete>
-        </div>
+        </AutoCompleteContainer>
     );
 };
 

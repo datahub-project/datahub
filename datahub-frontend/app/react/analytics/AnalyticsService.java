@@ -42,8 +42,8 @@ public class AnalyticsService {
   private final Logger _logger = LoggerFactory.getLogger(AnalyticsService.class.getName());
 
   private final RestHighLevelClient _elasticClient;
+  private final Optional<String> _indexPrefix;
 
-  private static final String INDEX_NAME = "datahub_usage_event";
   private static final String FILTERED = "filtered";
   private static final String DATE_HISTOGRAM = "date_histogram";
   private static final String UNIQUE = "unique";
@@ -58,17 +58,24 @@ public class AnalyticsService {
   public static final String DATA_JOB_INDEX = "datajobindex_v2";
   public static final String DATASET_INDEX = "datasetindex_v2";
 
-  public AnalyticsService(final RestHighLevelClient elasticClient) {
+  public AnalyticsService(final RestHighLevelClient elasticClient, final Optional<String> indexPrefix) {
     _elasticClient = elasticClient;
+    _indexPrefix = indexPrefix;
+  }
+
+  private String getIndexName(String baseIndexName) {
+    return _indexPrefix.map(p -> p + "_").orElse("") + baseIndexName;
   }
 
   public List<NamedLine> getTimeseriesChart(String indexName, DateRange dateRange, DateInterval granularity,
       Optional<String> dimension, // Length 1 for now
       Map<String, List<String>> filters, Optional<String> uniqueOn) {
+
+    String finalIndexName = getIndexName(indexName);
     _logger.debug(
         String.format("Invoked getTimeseriesChart with indexName: %s, dateRange: %s, granularity: %s, dimension: %s,",
-            indexName, dateRange, granularity, dimension)
-        + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+            finalIndexName, dateRange, granularity, dimension) + String.format("filters: %s, uniqueOn: %s", filters,
+            uniqueOn));
 
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, ImmutableMap.of(), Optional.of(dateRange));
 
@@ -84,7 +91,7 @@ public class AnalyticsService {
       filteredAgg.subAggregation(dateHistogram);
     }
 
-    SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
+    SearchRequest searchRequest = constructSearchRequest(finalIndexName, filteredAgg);
     Aggregations aggregationResult = executeAndExtract(searchRequest).getAggregations();
     try {
       if (dimension.isPresent()) {
@@ -117,10 +124,10 @@ public class AnalyticsService {
   public List<NamedBar> getBarChart(String indexName, Optional<DateRange> dateRange, List<String> dimensions,
       // Length 1 or 2
       Map<String, List<String>> filters, Optional<String> uniqueOn) {
+    String finalIndexName = getIndexName(indexName);
     _logger.debug(
-        String.format("Invoked getBarChart with indexName: %s, dateRange: %s, dimensions: %s,",
-            indexName, dateRange, dimensions)
-            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        String.format("Invoked getBarChart with indexName: %s, dateRange: %s, dimensions: %s,", finalIndexName,
+            dateRange, dimensions) + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
     assert (dimensions.size() == 1 || dimensions.size() == 2);
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, ImmutableMap.of(), dateRange);
@@ -136,7 +143,7 @@ public class AnalyticsService {
     }
     filteredAgg.subAggregation(termAgg);
 
-    SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
+    SearchRequest searchRequest = constructSearchRequest(finalIndexName, filteredAgg);
     Aggregations aggregationResult = executeAndExtract(searchRequest).getAggregations();
 
     try {
@@ -169,10 +176,10 @@ public class AnalyticsService {
 
   public List<Row> getTopNTableChart(String indexName, Optional<DateRange> dateRange, String groupBy,
       Map<String, List<String>> filters, Optional<String> uniqueOn, int maxRows) {
+    String finalIndexName = getIndexName(indexName);
     _logger.debug(
-        String.format("Invoked getTopNTableChart with indexName: %s, dateRange: %s, groupBy: %s",
-            indexName, dateRange, groupBy)
-            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        String.format("Invoked getTopNTableChart with indexName: %s, dateRange: %s, groupBy: %s", finalIndexName,
+            dateRange, groupBy) + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, ImmutableMap.of(), dateRange);
 
@@ -183,7 +190,7 @@ public class AnalyticsService {
     }
     filteredAgg.subAggregation(termAgg);
 
-    SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
+    SearchRequest searchRequest = constructSearchRequest(finalIndexName, filteredAgg);
     Aggregations aggregationResult = executeAndExtract(searchRequest).getAggregations();
 
     try {
@@ -200,10 +207,14 @@ public class AnalyticsService {
 
   public int getHighlights(String indexName, Optional<DateRange> dateRange, Map<String, List<String>> filters,
       Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn) {
+    String finalIndexName = getIndexName(indexName);
+    _logger.debug(String.format("Invoked getHighlights with indexName: %s, dateRange: %s", finalIndexName, dateRange)
+        + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
     uniqueOn.ifPresent(s -> filteredAgg.subAggregation(getUniqueQuery(s)));
 
-    SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
+    SearchRequest searchRequest = constructSearchRequest(finalIndexName, filteredAgg);
     Filter aggregationResult = executeAndExtract(searchRequest);
     try {
       if (uniqueOn.isPresent()) {
