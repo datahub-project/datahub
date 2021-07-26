@@ -3,7 +3,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.customer_details,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -13,7 +13,7 @@
                             "dbt_file_path": "models/transform/customer_details.sql"
                         },
                         "externalUrl": null,
-                        "description": "model.sample_dbt.customer_details",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -27,7 +27,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -36,7 +36,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -45,7 +45,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -54,7 +54,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "model.sample_dbt.customer_details",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -89,7 +89,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -100,7 +100,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "model.sample_dbt.monthly_billing_with_cust",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -114,7 +114,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -123,7 +123,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.customer_details,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -132,7 +132,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "model.sample_dbt.monthly_billing_with_cust",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -228,7 +228,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -239,7 +239,7 @@
                             "catalog_type": "VIEW"
                         },
                         "externalUrl": null,
-                        "description": "model.sample_dbt.payments_base",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -253,7 +253,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_01,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -262,7 +262,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_02,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -271,7 +271,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_02,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -280,7 +280,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_03,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -289,7 +289,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_04,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -298,7 +298,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
                                 "type": "TRANSFORMED"
                             },
                             {
@@ -307,7 +307,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -316,7 +316,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "model.sample_dbt.payments_base",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -442,7 +442,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -453,7 +453,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "model.sample_dbt.payments_by_customer_by_month",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -467,7 +467,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ]
@@ -476,7 +476,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "model.sample_dbt.payments_by_customer_by_month",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -557,7 +557,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -570,7 +570,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.actor",
+                        "description": "postgres comment: Actors table \u2013 from postgres\n\ndbt model description: description for actor table from dbt",
                         "uri": null,
                         "tags": []
                     }
@@ -583,7 +583,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.actor",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -624,7 +624,7 @@
                                 "fieldPath": "first_name",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
+                                "description": "postgres comment: Actors column \u2013 from postgres\n\ndbt model description: description for first_name from dbt",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -639,7 +639,7 @@
                                 "fieldPath": "last_name",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
+                                "description": "description for last_name from dbt",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -654,7 +654,7 @@
                                 "fieldPath": "last_update",
                                 "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
+                                "description": "description for last_update from dbt",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -679,7 +679,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.address,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -689,7 +689,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.address",
+                        "description": "a user's address",
                         "uri": null,
                         "tags": []
                     }
@@ -702,7 +702,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.address",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -858,7 +858,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.category,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -868,7 +868,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.category",
+                        "description": "a user's category",
                         "uri": null,
                         "tags": []
                     }
@@ -881,7 +881,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.category",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -962,7 +962,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.city,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -972,7 +972,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.city",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -985,7 +985,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.city",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1081,7 +1081,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.country,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1094,7 +1094,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.country",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -1107,7 +1107,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.country",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1188,7 +1188,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1198,7 +1198,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.customer",
+                        "description": "description for customer table from dbt",
                         "uri": null,
                         "tags": []
                     }
@@ -1211,7 +1211,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.customer",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1397,7 +1397,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_01,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1407,7 +1407,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_01",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -1420,7 +1420,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_01",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1546,7 +1546,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_02,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1560,7 +1560,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_02",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -1573,7 +1573,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_02",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1699,7 +1699,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_03,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1709,7 +1709,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_03",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -1722,7 +1722,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_03",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1848,7 +1848,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_04,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -1858,7 +1858,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_04",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -1871,7 +1871,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_04",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -1997,7 +1997,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_05,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -2007,7 +2007,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_05",
+                        "description": "a payment",
                         "uri": null,
                         "tags": []
                     }
@@ -2020,7 +2020,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_05",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
@@ -2146,7 +2146,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payment_p2020_06,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -2156,7 +2156,7 @@
                             "catalog_type": "BASE TABLE"
                         },
                         "externalUrl": null,
-                        "description": "source.sample_dbt.pagila.payment_p2020_06",
+                        "description": null,
                         "uri": null,
                         "tags": []
                     }
@@ -2169,7 +2169,7 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "source.sample_dbt.pagila.payment_p2020_06",
-                        "platform": "urn:li:dataPlatform:dbt",
+                        "platform": "urn:li:dataPlatform:postgres",
                         "version": 0,
                         "created": {
                             "time": 0,
