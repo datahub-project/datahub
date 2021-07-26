@@ -3338,7 +3338,7 @@
       "columns": {
         "first_name": {
           "data_type": null,
-          "description": "description for first_name (dbt side)",
+          "description": "description for first_name from dbt",
           "meta": {},
           "name": "first_name",
           "quote": null,
@@ -3346,7 +3346,7 @@
         },
         "last_name": {
           "data_type": null,
-          "description": "description for last_name (dbt side)",
+          "description": "description for last_name from dbt",
           "meta": {},
           "name": "last_name",
           "quote": null,
@@ -3354,7 +3354,7 @@
         },
         "last_update": {
           "data_type": null,
-          "description": "description for last_update (dbt side)",
+          "description": "description for last_update from dbt",
           "meta": {},
           "name": "last_update",
           "quote": null,
@@ -3365,7 +3365,7 @@
         "enabled": true
       },
       "database": "pagila",
-      "description": "",
+      "description": "description for actor table from dbt",
       "external": null,
       "fqn": [
         "sample_dbt",
@@ -3623,7 +3623,7 @@
         "enabled": true
       },
       "database": "pagila",
-      "description": "",
+      "description": "description for customer table from dbt",
       "external": null,
       "fqn": [
         "sample_dbt",

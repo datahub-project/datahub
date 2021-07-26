@@ -141,6 +141,8 @@ def extract_dbt_entities(
         if manifest_node.get("alias") is not None:
             name = manifest_node["alias"]
 
+        # initialize comment to "" for consistency with descriptions
+        # (since dbt null/undefined descriptions as "")
         comment = ""
 
         if key in all_catalog_entities and all_catalog_entities[key]["metadata"].get(
@@ -392,7 +394,7 @@ def get_schema_metadata(
         description = None
 
         if column.comment and column.description:
-            description = f"{platform} comment: {column.comment}\n\ndbt description:{column.description}"
+            description = f"{platform} comment: {column.comment}\n\ndbt model description: {column.description}"
         elif column.comment:
             description = column.comment
         elif column.description:
@@ -467,7 +469,7 @@ class DBTSource(Source):
             description = None
 
             if node.comment and node.description:
-                description = f"{platform} comment: {node.comment}\n\ndbt description:{node.description}"
+                description = f"{self.config.target_platform} comment: {node.comment}\n\ndbt model description: {node.description}"
             elif node.comment:
                 description = node.comment
             elif node.description:
@@ -485,7 +487,9 @@ class DBTSource(Source):
                 dataset_snapshot.aspects.append(upstreams)
 
             if self.config.load_schemas:
-                schema_metadata = get_schema_metadata(self.report, node, platform)
+                schema_metadata = get_schema_metadata(
+                    self.report, node, self.config.target_platform
+                )
                 dataset_snapshot.aspects.append(schema_metadata)
 
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
