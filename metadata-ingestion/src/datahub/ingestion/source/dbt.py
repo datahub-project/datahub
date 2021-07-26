@@ -447,7 +447,6 @@ class DBTSource(Source):
         self.report = SourceReport()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        platform = self.platform
         nodes = loadManifestAndCatalog(
             self.config.manifest_path,
             self.config.catalog_path,
