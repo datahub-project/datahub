@@ -9,7 +9,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.PegasusUtils;
-import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
@@ -18,7 +17,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -32,8 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.PegasusUtils.getDataTemplateClassFromSchema;
-import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.PegasusUtils.*;
 
 
 /**
@@ -358,7 +355,4 @@ public abstract class EntityService {
   public abstract void setWritable(boolean canWrite);
 
   public abstract void ingestProposal(MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp);
-
-  public abstract List<EnvelopedAspect> getAspect(@Nonnull final Urn urn, @Nonnull String entityName,
-      @Nonnull String aspectName, @Nullable Filter filter, int limit);
 }

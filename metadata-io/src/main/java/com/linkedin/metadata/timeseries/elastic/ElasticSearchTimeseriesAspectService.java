@@ -121,7 +121,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public List<EnvelopedAspect> getAspect(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
+  public List<EnvelopedAspect> getAspectValues(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
       @Nullable Filter filter, int limit) {
     final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter);
     filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));

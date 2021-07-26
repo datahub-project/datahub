@@ -29,7 +29,7 @@ export enum TabType {
     Properties = 'Properties',
     Documents = 'Documents',
     Queries = 'Queries',
-    Profile = 'Profile',
+    Stats = 'Stats',
 }
 
 const EMPTY_ARR: never[] = [];
@@ -159,8 +159,8 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
 
         if (profiles && profiles.length) {
             tabs.unshift({
-                name: TabType.Profile,
-                path: TabType.Profile.toLowerCase(),
+                name: TabType.Stats,
+                path: TabType.Stats.toLowerCase(),
                 content: (
                     <ProfilesView urn={urn} profile={(profiles && profiles.length > 0 && profiles[0]) || undefined} />
                 ),

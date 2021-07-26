@@ -143,7 +143,7 @@ export default function ProfilesView({ urn, profile }: Props) {
                     >
                         {view === 'latest' && (
                             <Space direction="vertical" size={0}>
-                                <Typography.Title level={2}>Latest Profile</Typography.Title>
+                                <Typography.Title level={2}>Latest Stats</Typography.Title>
                                 <Typography.Text style={{ color: 'gray' }}>
                                     Reported at {lastUpdatedDate.toLocaleDateString()} at{' '}
                                     {lastUpdatedDate.toLocaleTimeString()}

@@ -1,13 +1,17 @@
 import { Button, Col, Modal, Table, Typography } from 'antd';
 import React, { useState } from 'react';
+import styled from 'styled-components';
 import { DatasetProfile } from '../../../../../types.generated';
-import { ChartCard } from '../../../../analyticsDashboard/components/ChartCard';
-import { ChartContainer } from '../../../../analyticsDashboard/components/ChartContainer';
 import DataProfileView from './DataProfileView';
 
 export type Props = {
     profiles: Array<DatasetProfile>;
 };
+
+export const ChartTable = styled(Table)`
+    margin: 12px;
+    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+`;
 
 export default function ProfilingRunsChart({ profiles }: Props) {
     const [showModal, setShowModal] = useState(false);
@@ -38,7 +42,7 @@ export default function ProfilingRunsChart({ profiles }: Props) {
     const chartData = {
         title: 'Recent Profiles',
         rows,
-        columns: ['Run Time', 'Row Count', 'Column Count'],
+        columns: ['Reported At', 'Row Count', 'Column Count'],
     };
 
     const columns = [
@@ -49,7 +53,7 @@ export default function ProfilingRunsChart({ profiles }: Props) {
             render: (title, record, index) => {
                 return (
                     <Button type="text" onClick={() => showProfileModal(index)}>
-                        <b>{title}</b>
+                        <Typography.Text underline>{title}</Typography.Text>
                     </Button>
                 );
             },
@@ -86,20 +90,15 @@ export default function ProfilingRunsChart({ profiles }: Props) {
                 </Modal>
             )}
             <Col sm={24} md={24} lg={12} xl={12}>
-                <ChartCard shouldScroll>
-                    <ChartContainer>
-                        <div style={{ width: '100%', marginBottom: 20 }}>
-                            <Typography.Title level={5}>{chartData.title}</Typography.Title>
-                        </div>
-                        <Table
-                            style={{ width: '100%', padding: 12 }}
-                            columns={columns}
-                            dataSource={tableData}
-                            pagination={false}
-                            size="small"
-                        />
-                    </ChartContainer>
-                </ChartCard>
+                <ChartTable
+                    scroll={{ y: 400 }}
+                    bordered
+                    style={{ width: '100%', maxHeight: 440 }}
+                    columns={columns}
+                    dataSource={tableData}
+                    pagination={false}
+                    size="small"
+                />
             </Col>
         </>
     );
