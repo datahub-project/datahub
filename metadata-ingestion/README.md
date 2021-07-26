@@ -1012,7 +1012,7 @@ In some cases, you might want to construct the MetadataChangeEvents yourself but
 
 There's a couple ways to get lineage information from Airflow into DataHub.
 
-:::note Running ingestion on a schedule
+:::note
 
 If you're simply looking to run ingestion on a schedule, take a look at these sample DAGs:
 
@@ -1049,12 +1049,12 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
        "graceful_exceptions": true }
    # The above indentation is important!
    ```
-   Configuration options:
+   **Configuration options:**
    - `datahub_conn_id` (required): Usually `datahub_rest_default` or `datahub_kafka_default`, depending on what you named the connection in step 1.
    - `capture_ownership_info` (defaults to true): If true, the owners field of the DAG will be capture as a DataHub corpuser.
    - `capture_tags_info` (defaults to true): If true, the tags field of the DAG will be captured as DataHub tags.
    - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions.
-3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./src/datahub_provider/example_dags/lineage_backend_demo.py).
+3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./src/datahub_provider/example_dags/lineage_backend_demo.py), or reference [`lineage_backend_taskflow_demo.py`](./src/datahub_provider/example_dags/lineage_backend_taskflow_demo.py) if you're using the [TaskFlow API](https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html).
 4. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
 
 ### Emitting lineage via a separate operator
