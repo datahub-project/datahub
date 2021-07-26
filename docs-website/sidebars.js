@@ -73,6 +73,7 @@ module.exports = {
       "docs/docker/development",
       "metadata-ingestion/adding-source",
       "metadata-ingestion/s3-ingestion",
+      "metadata-ingestion/transformers",
       //"docs/what/graph",
       //"docs/what/search-index",
       //"docs/how/add-new-aspect",
