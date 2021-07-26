@@ -30,6 +30,7 @@ class DatahubRestSink(Sink):
         self.config = config
         self.report = SinkReport()
         self.emitter = DatahubRestEmitter(self.config.server, self.config.token)
+        self.emitter.test_connection()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DatahubRestSink":
