@@ -134,7 +134,9 @@ class LookerModel:
                 # Need to handle a relative path.
                 glob_expr = str(pathlib.Path(path).parent / inc)
             # "**" matches an arbitrary number of directories in LookML
-            outputs = glob.glob(glob_expr, recursive=True) + glob.glob(f"{glob_expr}.lkml", recursive=True)
+            outputs = glob.glob(glob_expr, recursive=True) + glob.glob(
+                f"{glob_expr}.lkml", recursive=True
+            )
             if "*" not in inc and not outputs:
                 reporter.report_failure(path, f"cannot resolve include {inc}")
             elif not outputs:
