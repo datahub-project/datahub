@@ -53,11 +53,11 @@ If you'd like to add more complex logic for assigning ownership, you can use the
 
 :::
 
-## Writing a transformer from scratch
+## Writing a custom transformer from scratch
 
-In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required. In such cases, we can add our own class and define the arguments it takes.
+In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.
 
-Suppose we want to append a set of ownership fields to our metadata that are dependent upon an external source – for instance, an API endpoint or file – rather than a preset list like above. In this case, we can set a JSON file as an argument to our custom config, and our transformer will read this file and append the included ownership classes to all our MCEs (if you'd like, you could also include filtering logic for specific MCEs).
+As an example, suppose we want to append a set of ownership fields to our metadata that are dependent upon an external source – for instance, an API endpoint or file – rather than a preset list like above. In this case, we can set a JSON file as an argument to our custom config, and our transformer will read this file and append the included ownership classes to all our MCEs (if you'd like, you could also include filtering logic for specific MCEs).
 
 Our JSON file might look like the following:
 
@@ -133,7 +133,7 @@ class AddCustomOwnership(Transformer):
 
 A transformer must have two functions: a `create()` function for initialization and a `transform()` function for executing the transformation.
 
-Let's begin by adding a `create()` method for taking our configuration dictionary and parsing it:
+Let's begin by adding a `create()` method for parsing our configuration dictionary:
 
 ```python
 # add this as a function of AddCustomOwnership
@@ -197,7 +197,7 @@ setup(
     version="1.0",
     packages=find_packages(),
     # if you don't already have DataHub installed, add it under install_requires
-		# install_requires=["datahub"]
+		# install_requires=["acryl-datahub"]
 )
 ```
 
@@ -212,7 +212,7 @@ transformers:
       owners_json: "<path_to_owners_json>" # the JSON file mentioned at the start
 ```
 
-````
+After running `datahub ingest -c <path_to_recipe>`, our MCEs should now have the following owners:
 
 ```json
 "owners": [
@@ -238,6 +238,6 @@ transformers:
     },
 		// ...and any additional owners
 ],
-````
+```
 
 All the files for this tutorial may be found [here](./examples/transforms/).
