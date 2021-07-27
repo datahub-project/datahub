@@ -26,7 +26,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.ebean.EbeanServer;
@@ -58,7 +57,6 @@ public class EbeanEntityServiceTest {
   private EbeanAspectDao _aspectDao;
   private EbeanServer _server;
   private EntityEventProducer _mockProducer;
-  private TimeseriesAspectService _timeseriesAspectService;
 
   @Nonnull
   private static ServerConfig createTestingH2ServerConfig() {
@@ -91,9 +89,7 @@ public class EbeanEntityServiceTest {
     _mockProducer = mock(EntityEventProducer.class);
     _aspectDao = new EbeanAspectDao(_server);
     _aspectDao.setConnectionValidated(true);
-    // TODO: Instantiate ElasticSearchTimeseriesAspectService
-    _timeseriesAspectService = null;
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _timeseriesAspectService);
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
   }
 
   @Test

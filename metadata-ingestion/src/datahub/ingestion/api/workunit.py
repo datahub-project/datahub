@@ -41,7 +41,7 @@ class MetadataWorkUnit(WorkUnit):
         super().__init__(id)
 
         if sum(1 if v else 0 for v in [mce, mcp, mcp_raw]) != 1:
-            raise ValueError("one of mce, mcp, or mcp_raw must be provided")
+            raise ValueError("exactly one of mce, mcp, or mcp_raw must be provided")
 
         if mcp_raw:
             assert not (mce or mcp)
@@ -51,7 +51,7 @@ class MetadataWorkUnit(WorkUnit):
         elif mcp and not mce:
             self.metadata = mcp
 
-    def get_metadata(self):
+    def get_metadata(self) -> dict:
         return {"metadata": self.metadata}
 
 
@@ -59,5 +59,5 @@ class MetadataWorkUnit(WorkUnit):
 class UsageStatsWorkUnit(WorkUnit):
     usageStats: UsageAggregationClass
 
-    def get_metadata(self):
+    def get_metadata(self) -> dict:
         return {"usage": self.usageStats}

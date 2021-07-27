@@ -7,7 +7,6 @@ import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import java.nio.charset.StandardCharsets;
 import javax.annotation.Nonnull;
-import java.nio.charset.StandardCharsets;
 
 
 public class AspectDeserializationUtil {
@@ -20,9 +19,7 @@ public class AspectDeserializationUtil {
    * Deserialize the given value into the aspect based on the input aspectSpec
    */
   @Nonnull
-  public static RecordTemplate deserializeAspect(
-      @Nonnull ByteString aspectValue,
-      @Nonnull String contentType,
+  public static RecordTemplate deserializeAspect(@Nonnull ByteString aspectValue, @Nonnull String contentType,
       @Nonnull AspectSpec aspectSpec) {
     if (!contentType.equals(JSON)) {
       throw new IllegalArgumentException(String.format("%s content type is not supported", contentType));

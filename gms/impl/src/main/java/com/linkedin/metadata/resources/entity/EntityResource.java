@@ -1,7 +1,6 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
@@ -16,7 +15,6 @@ import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
@@ -69,8 +67,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
   private static final String PARAM_VALUE = "value";
-  private static final String ACTION_INGEST_PROPOSAL = "ingestProposal";
-  private static final String PARAM_PROPOSAL = "proposal";
 
   private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
   private final Clock _clock = Clock.systemUTC();
@@ -82,7 +78,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("searchService")
   private SearchService _searchService;
-
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -106,8 +101,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @RestMethod.BatchGet
   @Nonnull
-  public Task<Map<String, Entity>> batchGet(
-      @Nonnull Set<String> urnStrs,
+  public Task<Map<String, Entity>> batchGet(@Nonnull Set<String> urnStrs,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     log.info("BATCH GET {}", urnStrs.toString());
     final Set<Urn> urns = new HashSet<>();
@@ -145,19 +139,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     });
   }
 
-  @Action(name = ACTION_INGEST_PROPOSAL)
-  @Nonnull
-  public Task<Void> ingestProposal(@ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal)
-      throws URISyntaxException {
-    final AuditStamp auditStamp =
-        new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
-    return RestliUtils.toTask(() -> {
-      log.debug("Proposal: {}", metadataChangeProposal.toString());
-      _entityService.ingestProposal(metadataChangeProposal, auditStamp);
-      return null;
-    });
-  }
-
   @Action(name = ACTION_BATCH_INGEST)
   @Nonnull
   public Task<Void> batchIngest(@ActionParam(PARAM_ENTITIES) @Nonnull Entity[] entities) throws URISyntaxException {
@@ -171,12 +152,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = ACTION_SEARCH)
   @Nonnull
-  public Task<SearchResult> search(
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_INPUT) @Nonnull String input,
-      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
-      @ActionParam(PARAM_START) int start,
+  public Task<SearchResult> search(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count) {
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
@@ -185,24 +163,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = ACTION_AUTOCOMPLETE)
   @Nonnull
-  public Task<AutoCompleteResult> autocomplete(
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_QUERY) @Nonnull String query,
-      @ActionParam(PARAM_FIELD) @Optional @Nullable String field,
-      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_LIMIT) int limit) {
+  public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_QUERY) @Nonnull String query, @ActionParam(PARAM_FIELD) @Optional @Nullable String field,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_LIMIT) int limit) {
 
     return RestliUtils.toTask(() -> _searchService.autoComplete(entityName, query, field, filter, limit));
   }
 
   @Action(name = ACTION_BROWSE)
   @Nonnull
-  public Task<BrowseResult> browse(
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_PATH) @Nonnull String path,
-      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_LIMIT) int limit) {
+  public Task<BrowseResult> browse(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_PATH) @Nonnull String path, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_START) int start, @ActionParam(PARAM_LIMIT) int limit) {
 
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
     return RestliUtils.toTask(() -> _searchService.browse(entityName, path, filter, start, limit));

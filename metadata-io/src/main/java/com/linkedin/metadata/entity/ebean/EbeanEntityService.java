@@ -8,7 +8,6 @@ import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.Aspect;
-import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
@@ -19,8 +18,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.util.AspectDeserializationUtil;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -40,8 +37,7 @@ import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
 
 
 /**
@@ -54,15 +50,13 @@ public class EbeanEntityService extends EntityService {
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
 
   private final EbeanAspectDao _entityDao;
-  private final TimeseriesAspectService _timeseriesAspectService;
   private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
   private Boolean _alwaysEmitAuditEvent = false;
 
   public EbeanEntityService(@Nonnull final EbeanAspectDao entityDao, @Nonnull final EntityEventProducer eventProducer,
-      @Nonnull final EntityRegistry entityRegistry, @Nonnull final TimeseriesAspectService timeseriesAspectService) {
+      @Nonnull final EntityRegistry entityRegistry) {
     super(eventProducer, entityRegistry);
     _entityDao = entityDao;
-    _timeseriesAspectService = timeseriesAspectService;
   }
 
   @Override
@@ -386,14 +380,6 @@ public class EbeanEntityService extends EntityService {
           String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
               metadataChangeProposal.getAspectName(), entityUrn));
     }
-  }
-
-  @Override
-  public List<EnvelopedAspect> getAspect(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
-      @Nullable Filter filter, int limit) {
-    // TODO: Also support fetching Sequence Versioned Aspects using this API.
-    // TODO: Ebean Entity Service should probably not host this logic in the current state.
-    return _timeseriesAspectService.getAspect(urn, entityName, aspectName, filter, limit);
   }
 
   @Value
