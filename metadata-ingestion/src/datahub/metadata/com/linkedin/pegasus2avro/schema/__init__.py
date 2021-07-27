@@ -4,7 +4,7 @@
 # Do not modify manually!
 
 # fmt: off
-from .....schema_classes import ArrayTypeClass
+from .....schema_classes import ArrayTypeClass, OwnerClass, OwnershipTypeClass
 from .....schema_classes import BinaryJsonSchemaClass
 from .....schema_classes import BooleanTypeClass
 from .....schema_classes import BytesTypeClass
@@ -35,7 +35,10 @@ from .....schema_classes import StringTypeClass
 from .....schema_classes import TimeTypeClass
 from .....schema_classes import UnionTypeClass
 from .....schema_classes import UrnForeignKeyClass
-
+from .....schema_classes import OwnershipClass
+from .....schema_classes import OwnershipTypeClass
+from .....schema_classes import DatasetPropertiesClass
+from .....schema_classes import OwnerClass
 
 ArrayType = ArrayTypeClass
 BinaryJsonSchema = BinaryJsonSchemaClass
@@ -68,4 +71,8 @@ StringType = StringTypeClass
 TimeType = TimeTypeClass
 UnionType = UnionTypeClass
 UrnForeignKey = UrnForeignKeyClass
+Ownership = OwnershipClass
+OwnershipType = OwnershipTypeClass
+Owner = OwnerClass
+DatasetProperties = DatasetPropertiesClass
 # fmt: on

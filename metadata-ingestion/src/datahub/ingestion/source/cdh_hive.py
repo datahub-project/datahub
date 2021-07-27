@@ -36,7 +36,7 @@ DEFAULT_ENV = "PROD"
 
 
 @dataclass
-class KuduDBSourceReport(SourceReport):
+class CDH_HiveDBSourceReport(SourceReport):
     tables_scanned: int = 0
     views_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
@@ -67,7 +67,7 @@ mapping: Dict[str, Type] = {
 
 
 def get_column_type(
-    sql_report: KuduDBSourceReport, dataset_name: str, column_type: str
+    sql_report: CDH_HiveDBSourceReport, dataset_name: str, column_type: str
 ) -> SchemaFieldDataType:
 
     TypeClass: Optional[Type] = None
@@ -86,7 +86,7 @@ def get_column_type(
 
 
 def get_schema_metadata(
-    sql_report: KuduDBSourceReport,
+    sql_report: CDH_HiveDBSourceReport,
     dataset_name: str,
     platform: str,
     columns: List[Tuple],
@@ -126,7 +126,7 @@ def get_schema_metadata(
 
 class KuduConfig(ConfigModel):
     # defaults
-    scheme: str = "impala"
+    scheme: str = "hi"
     host: str = "localhost:21050"
     kerberos: bool = False
     truststore_loc: str = "/cert/path/is/missing.jks"
@@ -159,12 +159,12 @@ class KuduConfig(ConfigModel):
 
 class KuduSource(Source):
     config: KuduConfig
-    report: KuduDBSourceReport
+    report: CDH_HiveDBSourceReport
 
     def __init__(self, config, ctx):
         super().__init__(ctx)
         self.config = config
-        self.report = KuduDBSourceReport()
+        self.report = CDH_HiveDBSourceReport()
         self.platform = "kudu"
 
     @classmethod
