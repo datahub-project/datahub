@@ -13,9 +13,24 @@ source:
   config:
     connection:
       bootstrap: "broker:9092"
-      consumer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.DeserializingConsumer
       schema_registry_url: http://localhost:8081
-      schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
+
+      # Extra schema registry config.
+      # These options will be passed into Kafka's SchemaRegistryClient.
+      # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html?#schemaregistryclient
+      schema_registry_config: {}
+
+      # Extra consumer config.
+      # These options will be passed into Kafka's DeserializingConsumer.
+      # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#deserializingconsumer
+      # and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md.
+      consumer_config: {}
+
+      # Extra producer config.
+      # These options will be passed into Kafka's SerializingProducer.
+      # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serializingproducer
+      # and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md.
+      producer_config: {}
 ```
 
 The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.

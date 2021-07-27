@@ -27,7 +27,20 @@ source:
 
     extract_transforms: True # whether to ingest Glue jobs, defaults to True
 
-    # Filtering patterns for databases and tables to scan
-    database_pattern: # Optional, to filter databases scanned, same as schema_pattern above.
+    # Regex filters for databases to scan
+    database_pattern:
+      deny:
+        # Note that the deny patterns take precedence over the allow patterns.
+        - "bad_database"
+        - "junk_database"
+        # Can also be a regular expression
+        - "(old|used|deprecated)_database"
+      allow:
+        - "good_database"
+        - "excellent_database"
     table_pattern: # Optional, to filter tables scanned, same as table_pattern above.
+      deny:
+        # ...
+      allow:
+        # ...
 ```

@@ -86,13 +86,15 @@ source:
     options:
       # See https://googleapis.dev/python/logging/latest/client.html for details.
       credentials: ~ # optional - see docs
-    env: PROD
 
+    # Common usage stats options
     bucket_duration: "DAY"
     start_time: ~ # defaults to the last full day in UTC (or hour)
     end_time: ~ # defaults to the last full day in UTC (or hour)
 
     top_n_queries: 10 # number of queries to save for each table
+
+    env: PROD
 ```
 
 :::note

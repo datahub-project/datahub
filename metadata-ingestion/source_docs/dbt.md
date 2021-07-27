@@ -23,11 +23,21 @@ This plugin pulls metadata from dbt's artifact files:
 source:
   type: "dbt"
   config:
+    # https://docs.getdbt.com/reference/artifacts/manifest-json
     manifest_path: "./path/dbt/manifest_file.json"
+    # https://docs.getdbt.com/reference/artifacts/catalog-json
     catalog_path: "./path/dbt/catalog_file.json"
+    # https://docs.getdbt.com/reference/artifacts/sources-json
     sources_path: "./path/dbt/sources_file.json" # (optional, used for freshness checks)
+
+    # the platform that dbt is loading onto
     target_platform: "postgres" # optional, eg "postgres", "snowflake", etc.
+
+    # whether to load schemas of datasets from dbt
+    # (otherwise, only includes a simple list of tables)
     load_schemas: True or False
+
+    # regex pattern to allow/deny nodes
     node_type_pattern: # optional
       deny:
         - ^test.*

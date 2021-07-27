@@ -60,7 +60,6 @@ source:
       allow:
         # ...
 
-    include_views: True # whether to include views, defaults to True
     include_tables: True # whether to include views, defaults to True
 ```
 
