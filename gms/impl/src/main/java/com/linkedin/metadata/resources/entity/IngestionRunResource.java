@@ -44,7 +44,7 @@ public class IngestionRunResource extends CollectionResourceTaskTemplate<String,
   private EntityService _entityService;
 
   /**
-   * Retrieves the value for an entity that is made up of latest versions of specified aspects.
+   * Rolls back an ingestion run
    */
   @Action(name = "rollback")
   @Nonnull
@@ -117,7 +117,7 @@ public class IngestionRunResource extends CollectionResourceTaskTemplate<String,
       @ActionParam("pageOffset") @Optional @Nullable Integer pageOffset,
       @ActionParam("pageSize") @Optional @Nullable Integer pageSize
   ) {
-    log.info("LIST RUNS min size: {} max size: {} offset: {} size: {}");
+    log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
     return RestliUtils.toTask(() ->
       new IngestionRunSummaryArray(_systemMetadataService.listRuns(
