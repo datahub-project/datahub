@@ -20,7 +20,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 import QueriesTab from './QueriesTab';
-import ProfilesView from './stats/StatsView';
+import StatsView from './stats/Stats';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -161,7 +161,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
             tabs.unshift({
                 name: TabType.Stats,
                 path: TabType.Stats.toLowerCase(),
-                content: <ProfilesView urn={urn} profile={datasetProfiles[0]} />,
+                content: <StatsView urn={urn} profile={datasetProfiles[0]} />,
             });
         }
         return tabs;
