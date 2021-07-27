@@ -1,8 +1,8 @@
-### File `file`
+# File `file`
 
 Pulls metadata from a previously generated file. Note that the file sink
 can produce such files, and a number of samples are included in the
-[examples/mce_files](examples/mce_files) directory.
+[examples/mce_files](../examples/mce_files) directory.
 
 ```yml
 source:

@@ -18,8 +18,7 @@ source:
 
 The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.
 
-For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka.yml).
-
+For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.yml).
 
 # Kafka Connect `kafka-connect`
 

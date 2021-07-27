@@ -55,9 +55,9 @@ module.exports = {
       "datahub-web-react/README",
     ],
     "Metadata Ingestion": [
-      // {
-      //   Sources: list_ids_in_directory("metadata-ingestion/source_docs"),
-      // },
+      {
+        Sources: list_ids_in_directory("metadata-ingestion/source_docs"),
+      },
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },

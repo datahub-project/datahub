@@ -1,4 +1,4 @@
-### MySQL `mysql`
+# MySQL `mysql`
 
 Extracts:
 

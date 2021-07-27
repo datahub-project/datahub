@@ -158,6 +158,11 @@ function markdown_guess_title(
   } else {
     // Find first h1 header and use it as the title.
     const headers = contents.content.match(/^# (.+)$/gm);
+
+    if (!headers) {
+      throw new Error(`${filepath} must have at least one h1 header`);
+    }
+
     if (headers.length > 1 && contents.content.indexOf("```") < 0) {
       throw new Error(`too many h1 headers in ${filepath}`);
     }

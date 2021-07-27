@@ -1,7 +1,6 @@
-
 # AWS Glue `glue`
 
-Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](./s3-ingestion.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
+Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](../s3-ingestion.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
 
 Extracts:
 
