@@ -2,7 +2,6 @@ package com.linkedin.metadata.entity.ebean;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.ByteString;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
@@ -18,11 +17,9 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.util.AspectDeserializationUtil;
-import com.linkedin.mxe.GenericAspect;
+import com.linkedin.metadata.util.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,7 +34,8 @@ import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
 
 
 /**
@@ -333,7 +331,7 @@ public class EbeanEntityService extends EntityService {
 
     RecordTemplate aspect;
     try {
-      aspect = AspectDeserializationUtil.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
+      aspect = GenericAspectUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
           metadataChangeProposal.getAspect().getContentType(), aspectSpec);
     } catch (ModelConversionException e) {
       log.error("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
@@ -359,18 +357,10 @@ public class EbeanEntityService extends EntityService {
 
       final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(metadataChangeProposal.data());
       if (oldAspect != null) {
-        GenericAspect oldGenericAspect = new GenericAspect();
-        oldGenericAspect.setValue(
-            ByteString.unsafeWrap(RecordUtils.toJsonString(oldAspect).getBytes(StandardCharsets.UTF_8)));
-        oldGenericAspect.setContentType(AspectDeserializationUtil.JSON);
-        metadataChangeLog.setPreviousAspectValue(oldGenericAspect);
+        metadataChangeLog.setPreviousAspectValue(GenericAspectUtils.serializeAspect(oldAspect));
       }
       if (newAspect != null) {
-        GenericAspect newGenericAspect = new GenericAspect();
-        newGenericAspect.setValue(
-            ByteString.unsafeWrap(RecordUtils.toJsonString(newAspect).getBytes(StandardCharsets.UTF_8)));
-        newGenericAspect.setContentType(AspectDeserializationUtil.JSON);
-        metadataChangeLog.setAspect(newGenericAspect);
+        metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(newAspect));
       }
 
       // Since only temporal aspect are ingested as of now, simply produce mae event for it

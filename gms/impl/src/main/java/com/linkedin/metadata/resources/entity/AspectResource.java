@@ -3,12 +3,18 @@ package com.linkedin.metadata.resources.entity;
 import com.linkedin.aspect.GetAspectResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.restli.RestliUtils;
+import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.util.GenericAspectUtils;
+import com.linkedin.metadata.utils.mxe.EventUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
@@ -20,6 +26,9 @@ import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import java.net.URISyntaxException;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -103,12 +112,40 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @Nonnull
   public Task<Void> ingestProposal(@ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal)
       throws URISyntaxException {
+    log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+
+    final List<MetadataChangeProposal> additionalChanges = getAdditionalChanges(metadataChangeProposal);
+
     return RestliUtils.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal.toString());
       _entityService.ingestProposal(metadataChangeProposal, auditStamp);
+      additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
       return null;
     });
+  }
+
+  private List<MetadataChangeProposal> getAdditionalChanges(@Nonnull MetadataChangeProposal metadataChangeProposal)
+      throws URISyntaxException {
+    // No additional changes for delete operation
+    if (metadataChangeProposal.getChangeType() == ChangeType.DELETE) {
+      return Collections.emptyList();
+    }
+    List<MetadataChangeProposal> additionalChanges = new ArrayList<>();
+    final Urn urn = EventUtils.getUrnFromProposal(metadataChangeProposal);
+    final RecordTemplate browsePathAspect =
+        _entityService.getAspect(urn, "browsePaths", EntityService.LATEST_ASPECT_VERSION);
+    if (browsePathAspect == null) {
+      try {
+        MetadataChangeProposal browsePathProposal = metadataChangeProposal.copy();
+        GenericAspect aspect = GenericAspectUtils.serializeAspect(BrowsePathUtils.buildBrowsePath(urn));
+        browsePathProposal.setAspect(aspect);
+        additionalChanges.add(browsePathProposal);
+      } catch (CloneNotSupportedException e) {
+        log.error("Issue while generating additional proposals corresponding to the input proposal", e);
+      }
+    }
+    return additionalChanges;
   }
 }

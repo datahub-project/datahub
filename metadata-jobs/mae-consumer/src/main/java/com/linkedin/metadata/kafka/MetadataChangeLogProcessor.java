@@ -25,7 +25,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.util.AspectDeserializationUtil;
+import com.linkedin.metadata.util.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
@@ -119,7 +119,7 @@ public class MetadataChangeLogProcessor {
       }
 
       RecordTemplate aspect =
-          AspectDeserializationUtil.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
+          GenericAspectUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
               aspectSpec);
       if (aspectSpec.isTimeseries()) {
         updateTemporalStats(event.getEntityType(), event.getAspectName(), urn, aspect, event.getSystemMetadata());
