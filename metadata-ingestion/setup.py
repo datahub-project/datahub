@@ -77,6 +77,7 @@ plugins: Dict[str, Set[str]] = {
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": {"google-cloud-logging", "cachetools"},
+    "dbt": set(),
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
     "glue": aws_common,
@@ -99,7 +100,7 @@ plugins: Dict[str, Set[str]] = {
     "sagemaker": aws_common,
     "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
-    "sql-profiler": sql_common | {"great-expectations"},
+    "sql-profiles": sql_common | {"great-expectations"},
     "superset": {"requests"},
 }
 
@@ -190,7 +191,7 @@ full_test_dev_requirements = {
             "mssql",
             "mysql",
             "snowflake",
-            "sql-profiler",
+            "sql-profiles",
         ]
         for dependency in plugins[plugin]
     ),
