@@ -16,12 +16,7 @@ source:
   type: glue
   config:
     aws_region: # aws_region_name, i.e. "eu-west-1"
-    extract_transforms: True # whether to ingest Glue jobs, defaults to True
     env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
-
-    # Filtering patterns for databases and tables to scan
-    database_pattern: # Optional, to filter databases scanned, same as schema_pattern above.
-    table_pattern: # Optional, to filter tables scanned, same as table_pattern above.
 
     # Credentials. If not specified here, these are picked up according to boto3 rules.
     # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
@@ -29,4 +24,10 @@ source:
     aws_secret_access_key: # Optional.
     aws_session_token: # Optional.
     aws_role: # Optional (Role chaining supported by using a sorted list).
+
+    extract_transforms: True # whether to ingest Glue jobs, defaults to True
+
+    # Filtering patterns for databases and tables to scan
+    database_pattern: # Optional, to filter databases scanned, same as schema_pattern above.
+    table_pattern: # Optional, to filter tables scanned, same as table_pattern above.
 ```
