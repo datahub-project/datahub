@@ -348,9 +348,10 @@ type Dataset implements EntityWithRelationships & Entity {
     usageStats(resource: String!, range: TimeRange): UsageQueryResult
 
     """
-    Profile Stats resource. Get the events in a previous unit of time. Biased for recency.
+    Profile Stats resource. Get the events in a previous unit of time in descending order.
+    If no start / end time are provided, the most recent events will be returned.
     """
-    profiles(count: Int, range: TimeRange): [DatasetProfile!]
+    datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
 }
 
 type GlossaryTerm implements Entity {

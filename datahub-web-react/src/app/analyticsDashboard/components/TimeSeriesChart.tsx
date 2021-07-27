@@ -2,14 +2,10 @@ import React, { useMemo } from 'react';
 import { XYChart, LineSeries, CrossHair, XAxis, YAxis } from '@data-ui/xy-chart';
 import { scaleOrdinal } from '@vx/scale';
 
-import {
-    TimeSeriesChart as TimeSeriesChartType,
-    DateInterval,
-    NumericDataPoint,
-    NamedLine,
-} from '../../../types.generated';
+import { TimeSeriesChart as TimeSeriesChartType, NumericDataPoint, NamedLine } from '../../../types.generated';
 import { lineColors } from './lineColors';
 import Legend from './Legend';
+import { INTERVAL_TO_SECONDS } from '../../shared/time/timeUtils';
 
 type Props = {
     chartData: TimeSeriesChartType;
@@ -27,16 +23,6 @@ type Props = {
 };
 
 const MARGIN_SIZE = 32;
-
-const INTERVAL_TO_SECONDS = {
-    [DateInterval.Second]: 1,
-    [DateInterval.Minute]: 60,
-    [DateInterval.Hour]: 3600,
-    [DateInterval.Day]: 86400,
-    [DateInterval.Week]: 604800,
-    [DateInterval.Month]: 2419200,
-    [DateInterval.Year]: 31536000,
-};
 
 function insertBlankAt(ts: number, newLine: Array<NumericDataPoint>) {
     const dateString = new Date(ts).toString();

@@ -10,10 +10,10 @@ mutation updateDataset($input: DatasetUpdateInput!) {
     }
 }
 
-query getDataProfiles($urn: String!, $count: Int, $range: TimeRange) {
+query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Long) {
     dataset(urn: $urn) {
         urn
-        profiles(count: $count, range: $range) {
+        datasetProfiles(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
             rowCount
             columnCount
             timestampMillis
@@ -107,7 +107,7 @@ query getDataset($urn: String!) {
                 }
             }
         }
-        profiles(count: 1) {
+        datasetProfiles(limit: 1) {
             rowCount
             columnCount
             timestampMillis

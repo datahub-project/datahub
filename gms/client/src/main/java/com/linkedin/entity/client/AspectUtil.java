@@ -26,6 +26,4 @@ public class AspectUtil {
         clazz,
         aspectValue.asString(StandardCharsets.UTF_8));
   }
-
-
 }
