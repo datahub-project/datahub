@@ -948,7 +948,7 @@ sink:
 
 ## Transformations
 
-See [the transformers guide](./transformers.md)
+See the [transformers guide](./transformers.md).
 
 ## Using as a library
 
