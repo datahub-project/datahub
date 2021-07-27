@@ -95,6 +95,21 @@ source:
     top_n_queries: 10 # number of queries to save for each table
 
     env: PROD
+
+    # Additional options to pass to google.cloud.logging_v2.client.Client
+    extra_client_options:
+
+    # To account for the possibility that the query event arrives after
+    # the read event in the audit logs, we wait for at least `query_log_delay`
+    # additional events to be processed before attempting to resolve BigQuery
+    # job information from the logs. If `query_log_delay` is None, it gets treated
+    # as an unlimited delay, which prioritizes correctness at the expense of memory usage.
+    query_log_delay:
+
+    # Correction to pad start_time and end_time with.
+    # For handling the case where the read happens within our time range but the query
+    # completion event is delayed and happens after the configured end time.
+    max_query_duration:
 ```
 
 :::note

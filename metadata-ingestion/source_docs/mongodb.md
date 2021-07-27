@@ -21,13 +21,26 @@ source:
     connect_uri: "mongodb://localhost"
     username: admin
     password: password
-    env: "PROD" # Optional, default is "PROD"
+    # used for PyMongo
     authMechanism: "DEFAULT"
-    options: {}
-    database_pattern: {}
-    collection_pattern: {}
+
+    options: {} # kwargs to pass to pymongo.MongoClient
     enableSchemaInference: True
-    schemaSamplingSize: 1000
+    schemaSamplingSize: 1000 # number of samples for determining schema
     useRandomSampling: True # whether to randomly sample docs for schema or just use the first ones, True by default
-    # database_pattern/collection_pattern are similar to schema_pattern/table_pattern from above
+
+    env: "PROD" # Optional, default is "PROD"
+
+    # regex pattern to allow/deny databases
+    database_pattern:
+      deny:
+        # ...
+      allow:
+        # ...
+    # regex pattern to allow/deny collections
+    collection_pattern:
+      deny:
+        # ...
+      allow:
+        # ...
 ```

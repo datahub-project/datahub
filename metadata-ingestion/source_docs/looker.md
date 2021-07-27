@@ -16,9 +16,23 @@ source:
     client_id: # Your Looker API3 client ID
     client_secret: # Your Looker API3 client secret
     base_url: # The url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
-    dashboard_pattern: # supports allow/deny regexes
-    chart_pattern: # supports allow/deny regexes
-    actor: urn:li:corpuser:etl # Optional, defaults to urn:li:corpuser:etl
-    env: "PROD" # Optional, default is "PROD"
+
     platform_name: "looker" # Optional, default is "looker"
+    actor: urn:li:corpuser:etl # Optional, defaults to urn:li:corpuser:etl
+
+    # regex pattern to allow/deny dashboards
+    dashboard_pattern:
+      deny:
+        # ...
+      allow:
+        # ...
+
+    # regex pattern to allow/deny charts
+    chart_pattern:
+      deny:
+        # ...
+      allow:
+        # ...
+
+    env: "PROD" # Optional, default is "PROD"
 ```

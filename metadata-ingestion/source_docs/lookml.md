@@ -16,11 +16,25 @@ source:
     base_folder: /path/to/model/files # where the *.model.lkml and *.view.lkml files are stored
     connection_to_platform_map: # mappings between connection names in the model files to platform names
       connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
-    model_pattern: {}
-    view_pattern: {}
+
+    platform_name: "looker" # optional, default is "looker"
+
+    # regex pattern to allow/deny models
+    model_pattern:
+      deny:
+        # ...
+      allow:
+        # ...
+
+    # regex pattern to allow/deny views
+    view_pattern:
+      deny:
+        # ...
+      allow:
+        # ...
+
     env: "PROD" # optional, default is "PROD"
     parse_table_names_from_sql: False # see note below
-    platform_name: "looker" # optional, default is "looker"
 ```
 
 Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the

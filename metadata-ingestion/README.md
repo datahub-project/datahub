@@ -32,32 +32,33 @@ We use a plugin architecture so that you can install only the dependencies you a
 
 Sources:
 
-| Plugin Name                                   | Install Command                                            | Provides                            |
-| --------------------------------------------- | ---------------------------------------------------------- | ----------------------------------- |
-| [file](./source_docs/file.md)                 | _included by default_                                      | File source and sink                |
-| [athena](./source_docs/athena.md)             | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
-| [bigquery](./source_docs/bigquery.md)         | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
-| [bigquery-usage](./source_docs/bigquery.md)   | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
-| [dbt](./source_docs/dbt.md)                   | _no additional dependencies_                               | dbt source                          |
-| [druid](./source_docs/druid.md)               | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| [feast](./source_docs/feast.md)               | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
-| [glue](./source_docs/glue.md)                 | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
-| [hive](./source_docs/hive.md)                 | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
-| [kafka](./source_docs/kafka.md)               | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
-| [ldap](./source_docs/ldap.md)                 | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
-| [looker](./source_docs/looker.md)             | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
-| [lookml](./source_docs/lookml.md)             | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
-| [mongodb](./source_docs/mongodb.md)           | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
-| [mssql](./source_docs/mssql.md)               | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
-| [mysql](./source_docs/mysql.md)               | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
-| [oracle](./source_docs/oracle.md)             | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
-| [postgres](./source_docs/postgres.md)         | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
-| [redshift](./source_docs/redshift.md)         | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
-| [sagemaker](./source_docs/sagemaker.md)       | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
-| [snowflake](./source_docs/snowflake.md)       | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
-| [snowflake-usage](./source_docs/snowflake.md) | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
-| [sqlalchemy](./source_docs/sqlalchemy.md)     | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
-| [superset](./source_docs/superset.md)         | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
+| Plugin Name                                     | Install Command                                            | Provides                            |
+| ----------------------------------------------- | ---------------------------------------------------------- | ----------------------------------- |
+| [file](./source_docs/file.md)                   | _included by default_                                      | File source and sink                |
+| [athena](./source_docs/athena.md)               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
+| [bigquery](./source_docs/bigquery.md)           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| [bigquery-usage](./source_docs/bigquery.md)     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
+| [dbt](./source_docs/dbt.md)                     | _no additional dependencies_                               | dbt source                          |
+| [druid](./source_docs/druid.md)                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
+| [feast](./source_docs/feast.md)                 | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
+| [glue](./source_docs/glue.md)                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
+| [hive](./source_docs/hive.md)                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
+| [kafka](./source_docs/kafka.md)                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
+| [kafka-connect](./source_docs/kafka-connect.md) | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                |
+| [ldap](./source_docs/ldap.md)                   | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
+| [looker](./source_docs/looker.md)               | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
+| [lookml](./source_docs/lookml.md)               | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
+| [mongodb](./source_docs/mongodb.md)             | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
+| [mssql](./source_docs/mssql.md)                 | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
+| [mysql](./source_docs/mysql.md)                 | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
+| [oracle](./source_docs/oracle.md)               | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
+| [postgres](./source_docs/postgres.md)           | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
+| [redshift](./source_docs/redshift.md)           | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
+| [sagemaker](./source_docs/sagemaker.md)         | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
+| [snowflake](./source_docs/snowflake.md)         | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
+| [snowflake-usage](./source_docs/snowflake.md)   | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
+| [sqlalchemy](./source_docs/sqlalchemy.md)       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
+| [superset](./source_docs/superset.md)           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 
 Sinks
 

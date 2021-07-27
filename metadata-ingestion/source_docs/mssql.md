@@ -63,6 +63,7 @@ source:
     # already installed the Microsoft ODBC Driver for SQL Server.
     # See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
     use_odbc: False
+    # args URL-encode and append to the mssql connection URL
     uri_args: {}
 ```
 

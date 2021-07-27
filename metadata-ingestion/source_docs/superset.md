@@ -10,10 +10,12 @@ This plugin extracts the following:
 source:
   type: superset
   config:
+    connect_uri: http://localhost:8088
+
     username: user
     password: pass
     provider: db | ldap
-    connect_uri: http://localhost:8088
+
     env: "PROD" # Optional, default is "PROD"
 ```
 

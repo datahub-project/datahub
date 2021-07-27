@@ -15,9 +15,16 @@ source:
     ldap_server: ldap://localhost
     ldap_user: "cn=admin,dc=example,dc=org"
     ldap_password: "admin"
+
+    # Extraction configuration.
     base_dn: "dc=example,dc=org"
     filter: "(objectClass=*)" # optional field
+
+    # If set to true, any users without first and last names will be dropped.
     drop_missing_first_last_name: False # optional
+
+    # For creating LDAP controls
+    page_size: # default is 20
 ```
 
 The `drop_missing_first_last_name` should be set to true if you've got many "headless" user LDAP accounts

@@ -14,14 +14,7 @@ source:
     username: user
     password: pass
     host_port: account_name
-    database_pattern:
-      # The escaping of the $ symbol helps us skip the environment variable substitution.
-      allow:
-        - ^MY_DEMO_DATA.*
-        - ^ANOTHER_DB_REGEX
-      deny:
-        - ^SNOWFLAKE\$
-        - ^SNOWFLAKE_SAMPLE_DATA\$
+
     warehouse: "COMPUTE_WH" # optional
     role: "sysadmin" # optional
 
@@ -32,6 +25,16 @@ source:
     # in use, consult this table: https://docs.sqlalchemy.org/en/14/dialects/index.html.
     options:
       # driver_option: some-option
+
+    # Regexe filters for databases to allow/deny
+    database_pattern:
+      # The escaping of the $ symbol helps us skip the environment variable substitution.
+      allow:
+        - ^MY_DEMO_DATA.*
+        - ^ANOTHER_DB_REGEX
+      deny:
+        - ^SNOWFLAKE\$
+        - ^SNOWFLAKE_SAMPLE_DATA\$
 
     # Tables to allow/deny
     table_pattern:
