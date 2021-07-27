@@ -39,19 +39,25 @@ source:
         - "good_table"
         - "excellent_table"
 
-      # Although the 'table_pattern' enables you to skip everything from certain schemas,
-      # having another option to allow/deny on schema level is an optimization for the case when there is a large number
-      # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
-      # them out afterwards via the table_pattern.
+    # Although the 'table_pattern' enables you to skip everything from certain schemas,
+    # having another option to allow/deny on schema level is an optimization for the case when there is a large number
+    # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
+    # them out afterwards via the table_pattern.
     schema_pattern:
       deny:
-        - "bad_schema"
-        - "junk_table"
+        # ...
       allow:
-        - "good_schema"
-        - "excellent_schema"
+        # ...
+
+    # Same format as table_pattern, used for filtering views
+    view_pattern:
+      deny:
+        # ...
+      allow:
+        # ...
 
     include_views: True # whether to include views, defaults to True
+    include_tables: True # whether to include views, defaults to True
 
     # If set to true, we'll use the pyodbc library. This requires you to have
     # already installed the Microsoft ODBC Driver for SQL Server.
