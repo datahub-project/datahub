@@ -416,7 +416,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         "  relationshipType1 as var(func: has(<relationship1>))\n" +
                         "  relationshipType2 as var(func: has(<relationship2>))\n" +
                         "\n" +
-                        "  result (func: uid(sourceFilter1), first: 100, offset: 0) @filter(\n" +
+                        "  result (func: uid(relationshipType1, relationshipType2, sourceFilter1, sourceFilter2, sourceType), first: 100, offset: 0) @filter(\n" +
                         "    uid(sourceType) AND\n" +
                         "    uid(sourceFilter1) AND\n" +
                         "    uid(sourceFilter2) AND\n" +
@@ -449,7 +449,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         "  relationshipType1 as var(func: has(<~relationship1>))\n" +
                         "  relationshipType2 as var(func: has(<~relationship2>))\n" +
                         "\n" +
-                        "  result (func: uid(sourceFilter1), first: 100, offset: 0) @filter(\n" +
+                        "  result (func: uid(relationshipType1, relationshipType2, sourceFilter1, sourceFilter2, sourceType), first: 100, offset: 0) @filter(\n" +
                         "    uid(sourceType) AND\n" +
                         "    uid(sourceFilter1) AND\n" +
                         "    uid(sourceFilter2) AND\n" +
@@ -484,7 +484,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         "  relationshipType3 as var(func: has(<~relationship1>))\n" +
                         "  relationshipType4 as var(func: has(<~relationship2>))\n" +
                         "\n" +
-                        "  result (func: uid(sourceFilter1), first: 100, offset: 0) @filter(\n" +
+                        "  result (func: uid(relationshipType1, relationshipType2, relationshipType3, relationshipType4, sourceFilter1, sourceFilter2, sourceType), first: 100, offset: 0) @filter(\n" +
                         "    uid(sourceType) AND\n" +
                         "    uid(sourceFilter1) AND\n" +
                         "    uid(sourceFilter2) AND\n" +

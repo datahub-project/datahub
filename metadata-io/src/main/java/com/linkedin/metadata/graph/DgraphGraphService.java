@@ -144,7 +144,7 @@ public class DgraphGraphService implements GraphService {
 
         List<String> filters = new ArrayList<>();
 
-        String bootstrapFilterName = null;
+        Set<String> sourceNodeFilterNames = new HashSet<>();
         String sourceTypeFilterName = null;
         String destinationTypeFilterName = null;
         List<String> sourceFilterNames = new ArrayList<>();
@@ -190,23 +190,27 @@ public class DgraphGraphService implements GraphService {
                     filters.add(String.format("%s as var(func: has(<%s>))", relationshipTypeFilterName, directedRelationshipTypes.get(idx)));
                 });
 
-        // bootstrap filter is the first filter that is being applied
-        // should be most selective to improve performance
+        // the source node filter is the first filter that is being applied on the source node
+        // we can add multiple filters, they will combine as OR
+        if (sourceTypeFilterName != null)
+            sourceNodeFilterNames.add(sourceTypeFilterName);
+        sourceNodeFilterNames.addAll(sourceFilterNames);
+        sourceNodeFilterNames.addAll(relationshipTypeFilterNames);
+
         // TODO: we can only retrieve all relationships (non given) when we add all relationships to a node type
         //       then we would also have to move the destination type filter to a different place in the query
         //       better not support such a broad query
         // TODO: throw exception when no relationship type given (test for that exception)
         //       then, condition if (bootstrapFilterName == null) can be removed
-        if (!relationshipTypeFilterNames.isEmpty())
-            bootstrapFilterName = relationshipTypeFilterNames.get(0);
-        if (sourceTypeFilterName != null) bootstrapFilterName = sourceTypeFilterName;
-        if (!sourceFilterNames.isEmpty()) bootstrapFilterName = sourceFilterNames.get(0);
         // if there is still no bootstrap filter, we filter for all nodes
-        if (bootstrapFilterName == null) {
-            bootstrapFilterName = "allNodes";
-            String bootstrapFilter = String.format("%s as var(func: has(<urn>))", bootstrapFilterName);
-            filters.add(bootstrapFilter);
+        if (sourceNodeFilterNames.isEmpty()) {
+            sourceNodeFilterNames.add("allNodes");
+            String sourceNodeFilter = String.format("%s as var(func: has(<urn>))", sourceNodeFilterNames);
+            filters.add(sourceNodeFilter);
         }
+        StringJoiner sourceNodeFilterJoiner = new StringJoiner(", ");
+        sourceNodeFilterNames.stream().sorted().forEach(sourceNodeFilterJoiner::add);
+        String sourceNodeFilter = sourceNodeFilterJoiner.toString();
 
         String filterConditions = getFilterConditions(
                 sourceTypeFilterName, destinationTypeFilterName,
@@ -233,7 +237,7 @@ public class DgraphGraphService implements GraphService {
                         "  }\n" +
                         "}",
                 filterExpressions,
-                bootstrapFilterName,
+                sourceNodeFilter,
                 count, offset,
                 filterConditions,
                 relationships);
