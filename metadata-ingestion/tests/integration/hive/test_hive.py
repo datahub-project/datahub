@@ -1,8 +1,8 @@
 import subprocess
-from freezegun import freeze_time
 
 import pytest
 from click.testing import CliRunner
+from freezegun import freeze_time
 
 from datahub.entrypoints import datahub
 from tests.test_helpers import fs_helpers, mce_helpers
