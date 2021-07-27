@@ -2,7 +2,7 @@
 
 To install this plugin, run `pip install 'acryl-datahub[kafka]'`.
 
-Extracts:
+This plugin extracts the following:
 
 - List of topics - from the Kafka broker
 - Schemas associated with each topic - from the schema registry
@@ -24,7 +24,7 @@ For a full example with a number of security options, see this [example recipe](
 
 # Kafka Connect `kafka-connect`
 
-Extracts:
+This plugin extracts the following:
 
 - Kafka Connect connector as individual `DataFlowSnapshotClass` entity
 - Creating individual `DataJobSnapshotClass` entity using `{connector_name}:{source_dataset}` naming

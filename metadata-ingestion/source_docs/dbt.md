@@ -1,6 +1,6 @@
 # dbt
 
-Pull metadata from dbt artifacts files:
+This plugin pulls metadata from dbt's artifact files:
 
 - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
   - This file contains model, source and lineage data.

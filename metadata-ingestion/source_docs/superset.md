@@ -2,7 +2,7 @@
 
 To install this plugin, run `pip install 'acryl-datahub[superset]'`.
 
-Extracts:
+This plugin extracts the following:
 
 - List of charts and dashboards
 

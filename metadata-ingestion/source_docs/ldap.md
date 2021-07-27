@@ -2,7 +2,7 @@
 
 To install this plugin, run `pip install 'acryl-datahub[ldap]'`.
 
-Extracts:
+This plugin extracts the following:
 
 - List of people
 - Names, emails, titles, and manager information for each person

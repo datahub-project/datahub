@@ -2,7 +2,7 @@
 
 To install this plugin, run `pip install 'acryl-datahub[bigquery]'`.
 
-Extracts:
+This plugin extracts the following:
 
 - List of databases, schema, and tables
 - Column types associated with each table
@@ -21,7 +21,7 @@ source:
 
 :::tip
 
-You can also get fine-grained usage statistics for BigQuery using the `bigquery-usage` source.
+You can also get fine-grained usage statistics for BigQuery using the `bigquery-usage` source described below.
 
 :::
 

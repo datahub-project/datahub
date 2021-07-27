@@ -2,7 +2,7 @@
 
 To install this plugin, run `pip install 'acryl-datahub[looker]'`.
 
-Extracts:
+This plugin extracts the following:
 
 - Looker dashboards and dashboard elements (charts)
 - Names, descriptions, URLs, chart types, input view for the charts

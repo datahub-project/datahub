@@ -4,7 +4,7 @@ To install this plugin, run `pip install 'acryl-datahub[lookml]'`.
 
 Note! This plugin uses a package that requires Python 3.7+!
 
-Extracts:
+This plugin extracts the following:
 
 - LookML views from model files
 - Name, upstream table names, dimensions, measures, and dimension groups

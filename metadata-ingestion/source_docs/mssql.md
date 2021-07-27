@@ -4,7 +4,7 @@ To install this plugin, run `pip install 'acryl-datahub[mssql]'`.
 
 We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install, but only PyODBC supports encrypted connections.
 
-Extracts:
+This plugin extracts the following:
 
 - List of databases, schema, tables and views
 - Column types associated with each table/view

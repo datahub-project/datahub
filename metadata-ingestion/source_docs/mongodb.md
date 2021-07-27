@@ -2,7 +2,7 @@
 
 To install this plugin, run `pip install 'acryl-datahub[mongodb]'`.
 
-Extracts:
+This plugin extracts the following:
 
 - List of databases
 - List of collections in each database and infers schemas for each collection

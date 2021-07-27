@@ -2,7 +2,7 @@
 
 To install this plugin, run `pip install 'acryl-datahub[mysql]'`.
 
-Extracts:
+This plugin extracts the following:
 
 - List of databases and tables
 - Column types and schema associated with each table

@@ -1,6 +1,6 @@
 # File
 
-Pulls metadata from a previously generated file. Note that the file sink
+This plugin pulls metadata from a previously generated file. The file sink
 can produce such files, and a number of samples are included in the
 [examples/mce_files](../examples/mce_files) directory.
 

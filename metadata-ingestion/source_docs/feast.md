@@ -4,7 +4,7 @@
 
 To install this plugin, run `pip install 'acryl-datahub[feast]'`.
 
-Extracts:
+This plugin extracts the following:
 
 - List of feature tables (modeled as [`MLFeatureTable`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureTableProperties.pdl)s),
   features ([`MLFeature`](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureProperties.pdl)s),

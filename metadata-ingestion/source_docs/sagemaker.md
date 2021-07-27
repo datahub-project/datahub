@@ -2,7 +2,7 @@
 
 To install this plugin, run `pip install 'acryl-datahub[sagemaker]'`.
 
-Extracts:
+This plugin extracts the following:
 
 - Feature groups
 - Models, jobs, and lineage between the two (e.g. when jobs output a model or a model is used by a job)

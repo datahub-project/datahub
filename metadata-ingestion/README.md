@@ -54,9 +54,9 @@ Sources:
 | [postgres](./source_docs/postgres.md)         | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
 | [redshift](./source_docs/redshift.md)         | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
 | [sagemaker](./source_docs/sagemaker.md)       | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
-| [sqlalchemy](./source_docs/sqlalchemy.md)     | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | [snowflake](./source_docs/snowflake.md)       | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
 | [snowflake-usage](./source_docs/snowflake.md) | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
+| [sqlalchemy](./source_docs/sqlalchemy.md)     | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | [superset](./source_docs/superset.md)         | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 
 Sinks
@@ -144,7 +144,7 @@ Running a recipe is quite easy.
 datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 ```
 
-A number of recipes are included in the examples/recipes directory.
+A number of recipes are included in the [examples/recipes](./examples/recipes) directory. See also pages described in the [table of plugins](#installing-plugins) for more context on recipe options for each source and sink.
 
 ## Transformations
 
