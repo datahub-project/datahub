@@ -38,7 +38,10 @@ public class EbeanUtils {
 
   public static SystemMetadata parseSystemMetadata(String jsonSystemMetadata) {
     if (jsonSystemMetadata == null || jsonSystemMetadata.equals("")) {
-      return new SystemMetadata();
+      SystemMetadata response = new SystemMetadata();
+      response.setRunId("none");
+      response.setLastObserved(0);
+      return response;
     }
     return RecordUtils.toRecordTemplate(SystemMetadata.class, jsonSystemMetadata);
   }

@@ -19,6 +19,7 @@ import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.entity.ebean.EbeanUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
+import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataAuditOperation;
@@ -63,6 +64,41 @@ public class EbeanEntityServiceTest {
   @Test
   public void testIngestGetEntity() throws Exception {
     // Test Writing a CorpUser Entity
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+    com.linkedin.entity.Entity writeEntity = createCorpUserEntity(entityUrn, "tester@test.com");
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    // 1. Ingest Entity
+    _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
+
+    // 2. Retrieve Entity
+    com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
+
+    // 3. Compare Entity Objects
+    assertEquals(2, readEntity.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
+    assertTrue(DataTemplateUtil.areEqual(
+        writeEntity.getValue().getCorpUserSnapshot().getAspects().get(0),
+        readEntity.getValue().getCorpUserSnapshot().getAspects().get(1)));
+    CorpUserKey expectedKey = new CorpUserKey();
+    expectedKey.setUsername("test");
+    assertTrue(DataTemplateUtil.areEqual(
+        expectedKey,
+        readEntity.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserKey()
+    )); // Key + Info aspect.
+
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(
+        Mockito.eq(entityUrn),
+        Mockito.eq(null),
+        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+    verifyNoMoreInteractions(_mockProducer);
+  }
+
+  @Test
+  public void testAddKey() throws Exception {
+    // Test Writing a CorpUser Key
     Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
     com.linkedin.entity.Entity writeEntity = createCorpUserEntity(entityUrn, "tester@test.com");
 
@@ -363,6 +399,130 @@ public class EbeanEntityServiceTest {
     assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect, readAspectVersion0));
 
     verifyNoMoreInteractions(_mockProducer);
+  }
+
+  @Test
+  public void testRollbackAspect() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1635792689);
+    metadata2.setRunId("run-456");
+
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+
+
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+
+
+    // Ingest CorpUserInfo Aspect #3
+    CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #1 Overwrite
+    CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
+
+    // this should no-op since this run has been overwritten
+    AspectRowSummary rollbackOverwrittenAspect = new AspectRowSummary();
+    rollbackOverwrittenAspect.setRunId("run-123");
+    rollbackOverwrittenAspect.setAspectName(aspectName);
+    rollbackOverwrittenAspect.setUrn(entityUrn1.toString());
+
+    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123");
+
+    // assert nothing was deleted
+    RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
+
+    RecordTemplate readAspectOverwrite = _entityService.getAspect(entityUrn1, aspectName, 0);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readAspectOverwrite));
+
+    // this should delete the most recent aspect
+    AspectRowSummary rollbackRecentAspect = new AspectRowSummary();
+    rollbackRecentAspect.setRunId("run-456");
+    rollbackRecentAspect.setAspectName(aspectName);
+    rollbackRecentAspect.setUrn(entityUrn1.toString());
+
+    _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456");
+
+    // assert the new most recent aspect is the original one
+    RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readNewRecentAspect));
+  }
+
+  @Test
+  public void testRollbackKey() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1635792689);
+    metadata2.setRunId("run-456");
+
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+
+
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+
+
+    // Ingest CorpUserInfo Aspect #3
+    CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #1 Overwrite
+    CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
+
+    // this should no-op since the key should have been written in the furst run
+    AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
+    rollbackKeyWithWrongRunId.setRunId("run-456");
+    rollbackKeyWithWrongRunId.setAspectName("CorpUserKey");
+    rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
+
+    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456");
+
+    // assert nothing was deleted
+    RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
+
+    RecordTemplate readAspectOverwrite = _entityService.getAspect(entityUrn1, aspectName, 0);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readAspectOverwrite));
+
+    // this should delete the most recent aspect
+    AspectRowSummary rollbackKeyWithCorrectRunId = new AspectRowSummary();
+    rollbackKeyWithCorrectRunId.setRunId("run-123");
+    rollbackKeyWithCorrectRunId.setAspectName("corpUserKey");
+    rollbackKeyWithCorrectRunId.setUrn(entityUrn1.toString());
+
+    _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123");
+
+    // assert the new most recent aspect is null
+    RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
+    assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
   }
 
   @Nonnull

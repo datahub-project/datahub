@@ -232,8 +232,8 @@ def post_run_endpoint(
 
 
 @ingest.command()
-@click.argument("run_id", type=str)
-def show_run(run_id: str) -> None:
+@click.option("--run-id", required=True, type=str)
+def show(run_id: str) -> None:
     """Describe a provided ingestion run to datahub"""
     payload_obj = {"runId": run_id, "dryRun": True}
     structured_rows, entities_affected, aspects_affected = post_run_endpoint(
@@ -259,8 +259,8 @@ def show_run(run_id: str) -> None:
 
 
 @ingest.command()
-@click.argument("run_id", type=str)
-def rollback_run(run_id: str) -> None:
+@click.option("--run-id", required=True, type=str)
+def rollback(run_id: str) -> None:
     """Rollback a provided ingestion run to datahub"""
     click.confirm(
         "This will permanently delete data from DataHub. Do you want to continue?",
