@@ -1,7 +1,7 @@
 import unittest
-
 from typing import Iterable, List, cast
 from unittest.mock import patch
+
 from freezegun import freeze_time
 
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
@@ -93,7 +93,7 @@ class AddStatusRemovedTransformer(Transformer):
         return cls()
 
     def transform(
-            self, record_envelopes: Iterable[RecordEnvelope]
+        self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         for record_envelope in record_envelopes:
             record_envelope.record.proposedSnapshot.aspects.append(
@@ -134,7 +134,9 @@ def get_initial_mce() -> MetadataChangeEventClass:
                 )
             ],
         ),
-        systemMetadata=SystemMetadata(lastObserved=1586847600000, runId="pipeline_test")
+        systemMetadata=SystemMetadata(
+            lastObserved=1586847600000, runId="pipeline_test"
+        ),
     )
 
 

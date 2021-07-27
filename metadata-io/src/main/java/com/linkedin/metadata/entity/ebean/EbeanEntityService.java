@@ -516,11 +516,20 @@ public class EbeanEntityService extends EntityService {
           _entityDao.saveAspect(latest, false);
           _entityDao.deleteAspect(previousAspect);
         } else {
-          // if there was not a previous aspect, just delete the latest one
-          _entityDao.deleteAspect(latest);
           // if this is the key aspect, we also want to delete the entity entirely
           if (isKeyAspect) {
-            rowsDeletedFromEntityDeletion.updateAndGet(v -> v + _entityDao.deleteUrn(aspectToRemove.getUrn()));
+            if (
+                _entityDao.getEarliestAspect(aspectToRemove.getUrn()).get().getCreatedOn()
+                    .equals(latest.getCreatedOn())
+            ) {
+              rowsDeletedFromEntityDeletion.updateAndGet(v -> v + _entityDao.deleteUrn(aspectToRemove.getUrn()));
+              _entityDao.deleteAspect(latest);
+            } else {
+              return null;
+            }
+          } else {
+            // if there was not a previous aspect, just delete the latest one
+            _entityDao.deleteAspect(latest);
           }
         }
 

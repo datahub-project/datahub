@@ -1,12 +1,23 @@
 import json
+import logging
 import os.path
+import pathlib
+import sys
 import typing
 from datetime import datetime
 
 import click
 import requests
 import yaml
+from click_default_group import DefaultGroup
+from pydantic import ValidationError
 from tabulate import tabulate
+
+import datahub as datahub_package
+from datahub.configuration.config_loader import load_config_file
+from datahub.ingestion.run.pipeline import Pipeline
+
+logger = logging.getLogger(__name__)
 
 ELASTIC_MAX_PAGE_SIZE = 10000
 CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
@@ -23,14 +34,43 @@ RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
 
+@click.group(cls=DefaultGroup)
+def ingest() -> None:
+    """Ingest metadata into DataHub."""
+    pass
+
+
+@ingest.command(default=True)
+@click.option(
+    "-c",
+    "--config",
+    type=click.Path(exists=True, dir_okay=False),
+    help="Config file in .toml or .yaml format.",
+    required=True,
+)
+def run(config: str) -> None:
+    """Ingest metadata into DataHub."""
+    logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
+
+    config_file = pathlib.Path(config)
+    pipeline_config = load_config_file(config_file)
+
+    try:
+        logger.debug(f"Using config: {pipeline_config}")
+        pipeline = Pipeline.create(pipeline_config)
+    except ValidationError as e:
+        click.echo(e, err=True)
+        sys.exit(1)
+
+    logger.info("Starting metadata ingestion")
+    pipeline.run()
+    logger.info("Finished metadata ingestion")
+    ret = pipeline.pretty_print_summary()
+    sys.exit(ret)
+
+
 def get_runs_url(gms_host: str) -> str:
     return f"{gms_host}/runs?action=rollback"
-
-
-@click.group()
-def run() -> None:
-    """View and delete ingestion runs."""
-    pass
 
 
 def parse_restli_response(response):
@@ -125,10 +165,11 @@ def get_session_and_host():
     return session, gms_host
 
 
-@run.command()
+@ingest.command()
 @click.argument("page_offset", type=int, default=0)
 @click.argument("page_size", type=int, default=100)
-def ls(page_offset: int, page_size: int) -> None:
+def list_runs(page_offset: int, page_size: int) -> None:
+    """List recent ingestion runs to datahub"""
     session, gms_host = get_session_and_host()
 
     url = f"{gms_host}/runs?action=list"
@@ -190,9 +231,10 @@ def post_run_endpoint(
     return structured_rows, entities_affected, aspects_affected
 
 
-@run.command()
+@ingest.command()
 @click.argument("run_id", type=str)
-def show(run_id: str) -> None:
+def show_run(run_id: str) -> None:
+    """Describe a provided ingestion run to datahub"""
     payload_obj = {"runId": run_id, "dryRun": True}
     structured_rows, entities_affected, aspects_affected = post_run_endpoint(
         payload_obj
@@ -216,9 +258,15 @@ def show(run_id: str) -> None:
     click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
 
 
-@run.command()
+@ingest.command()
 @click.argument("run_id", type=str)
-def rollback(run_id: str) -> None:
+def rollback_run(run_id: str) -> None:
+    """Rollback a provided ingestion run to datahub"""
+    click.confirm(
+        "This will permanently delete data from DataHub. Do you want to continue?",
+        abort=True,
+    )
+
     payload_obj = {"runId": run_id, "dryRun": False}
     structured_rows, entities_affected, aspects_affected = post_run_endpoint(
         payload_obj

@@ -90,7 +90,6 @@ public class EbeanAspectV2 extends Model {
   @Column(name = CREATED_FOR_COLUMN, nullable = true)
   private String createdFor;
 
-  @NonNull
   @Column(name = SYSTEM_METADATA_COLUMN, nullable = true)
   protected String systemMetadata;
 }

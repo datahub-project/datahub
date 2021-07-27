@@ -1,8 +1,8 @@
 import logging
 import sys
-from freezegun import freeze_time
 
 import pytest
+from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
@@ -10,6 +10,7 @@ from tests.test_helpers import mce_helpers
 logging.getLogger("lkml").setLevel(logging.INFO)
 
 FROZEN_TIME = "2020-04-14 07:00:00"
+
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="lkml requires Python 3.7+")
