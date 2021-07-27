@@ -3,6 +3,8 @@ import unittest.mock
 from datetime import datetime, timedelta, timezone
 
 import jsonpickle
+import pydantic
+import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
@@ -20,10 +22,21 @@ def test_bq_usage_config():
         dict(
             project_id="sample-bigquery-project-name-1234",
             bucket_duration="HOUR",
+            end_time="2021-07-20T00:00:00Z",
         )
     )
     assert (config.end_time - config.start_time) == timedelta(hours=1)
     assert config.projects == ["sample-bigquery-project-name-1234"]
+
+
+def test_bq_timezone_validation():
+    with pytest.raises(pydantic.ValidationError, match="UTC"):
+        BigQueryUsageConfig.parse_obj(
+            dict(
+                project_id="sample-bigquery-project-name-1234",
+                start_time="2021-07-20T00:00:00",
+            )
+        )
 
 
 def test_bq_usage_source(pytestconfig, tmp_path):
