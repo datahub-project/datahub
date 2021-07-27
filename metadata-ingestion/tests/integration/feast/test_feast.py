@@ -18,7 +18,7 @@ def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/feast"
 
     with docker_compose_runner(
-            test_resources_dir / "docker-compose.yml", "feast"
+        test_resources_dir / "docker-compose.yml", "feast"
     ) as docker_services:
         wait_for_port(docker_services, "testfeast", 6565, timeout=120)
 
