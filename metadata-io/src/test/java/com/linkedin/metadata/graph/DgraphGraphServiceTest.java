@@ -11,8 +11,10 @@ import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import javax.annotation.Nonnull;
 import java.util.*;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.EMPTY_FILTER;
@@ -20,7 +22,7 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 import static org.testng.Assert.assertEquals;
 
 
-public class DgraphGraphServiceTest {
+public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
     private DgraphGraphService _service;
 
@@ -96,7 +98,7 @@ public class DgraphGraphServiceTest {
     }
 
     @Test
-    public void testRemoveEdgesFromNode() throws Exception {
+    public void testRemoveEdgesFromNodeDeprecated() throws Exception {
         // TODO: test with both relationship directions
         Edge edge1 = new Edge(
                 Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
@@ -140,6 +142,16 @@ public class DgraphGraphServiceTest {
 
         assertEquals(relatedUrnsPostDelete.size(), 0);
     }
+
+    @Nonnull
+    @Override
+    protected GraphService getGraphService() throws Exception {
+        _service.clear();
+        return _service;
+    }
+
+    @Override
+    protected void syncAfterWrite() throws Exception { }
 
     @Test
     public void testClear() throws Exception {
