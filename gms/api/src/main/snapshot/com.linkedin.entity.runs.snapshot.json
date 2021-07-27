@@ -2816,7 +2816,7 @@
         "returns" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.run.IngestionRunSummary\" }"
       }, {
         "name" : "rollback",
-        "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
+        "doc" : "Rolls back an ingestion run",
         "parameters" : [ {
           "name" : "runId",
           "type" : "string"

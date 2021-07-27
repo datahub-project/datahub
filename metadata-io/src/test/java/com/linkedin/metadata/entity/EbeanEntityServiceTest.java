@@ -14,7 +14,9 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
+import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
+import com.linkedin.metadata.entity.ebean.EbeanUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
@@ -172,6 +174,10 @@ public class EbeanEntityServiceTest {
     metadata1.setLastObserved(1625792689);
     metadata1.setRunId("run-123");
 
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1635792689);
+    metadata2.setRunId("run-456");
+
     // Validate retrieval of CorpUserInfo Aspect #1
     _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
     RecordTemplate readAspect1 = _entityService.getLatestAspect(entityUrn, aspectName);
@@ -181,9 +187,14 @@ public class EbeanEntityServiceTest {
     CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
 
     // Validate retrieval of CorpUserInfo Aspect #2
-    _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+    _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
     RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName);
+    EbeanAspectV2 readEbean1 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 1);
+    EbeanAspectV2 readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
+
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
+    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
+    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean1.getSystemMetadata()), metadata1));
 
     verify(_mockProducer, times(2)).produceMetadataAuditEvent(
         Mockito.eq(entityUrn),
@@ -191,6 +202,58 @@ public class EbeanEntityServiceTest {
         Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
     verify(_mockProducer, times(1)).produceMetadataAuditEvent(
+        Mockito.eq(entityUrn),
+        Mockito.notNull(),
+        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+    verifyNoMoreInteractions(_mockProducer);
+  }
+
+  @Test
+  public void testIngestSameAspect() throws Exception {
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1635792689);
+    metadata2.setRunId("run-456");
+
+    // Validate retrieval of CorpUserInfo Aspect #1
+    _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    RecordTemplate readAspect1 = _entityService.getLatestAspect(entityUrn, aspectName);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspect1));
+
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("email@test.com");
+
+    // Validate retrieval of CorpUserInfo Aspect #2
+    _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
+    RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName);
+    EbeanAspectV2 readEbean2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
+
+    assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
+    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata2));
+    assertFalse(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata1));
+
+    SystemMetadata metadata3 = new SystemMetadata();
+    metadata3.setLastObserved(1635792689);
+    metadata3.setRunId("run-123");
+
+    assertTrue(DataTemplateUtil.areEqual(EbeanUtils.parseSystemMetadata(readEbean2.getSystemMetadata()), metadata3));
+
+    verify(_mockProducer, times(2)).produceMetadataAuditEvent(
+        Mockito.eq(entityUrn),
+        Mockito.eq(null),
+        Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+    verify(_mockProducer, times(0)).produceMetadataAuditEvent(
         Mockito.eq(entityUrn),
         Mockito.notNull(),
         Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
