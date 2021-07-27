@@ -4,10 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.query.*;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphProto;
 import io.dgraph.DgraphProto.Value;
@@ -112,6 +109,24 @@ public class DgraphGraphService implements GraphService {
         this._client.newTransaction().doRequest(request);
     }
 
+    private static List<String> getDirectedRelationshipTypes(List<String> relationships,
+                                                             RelationshipDirection direction) {
+
+        if (direction == RelationshipDirection.INCOMING || direction == RelationshipDirection.UNDIRECTED) {
+            List<String> incomingRelationships = relationships.stream()
+                    .map(type -> "~" + type).collect(Collectors.toList());
+
+            if (direction == RelationshipDirection.INCOMING) {
+                return incomingRelationships;
+            } else {
+                relationships = new ArrayList<>(relationships);
+                relationships.addAll(incomingRelationships);
+            }
+        }
+
+        return relationships;
+    }
+
     protected static String getQueryForRelatedUrns(@Nullable String sourceType,
                                                    @Nonnull Filter sourceEntityFilter,
                                                    @Nullable String destinationType,
@@ -122,7 +137,10 @@ public class DgraphGraphService implements GraphService {
                                                    int count) {
         // TODO: verify assumptions: criterions in filters are AND
         // TODO: support destinationEntityFilter
-        // TODO: support relationshipFilter (direction)
+
+        final List<String> directedRelationshipTypes = getDirectedRelationshipTypes(
+                relationshipTypes, relationshipFilter.getDirection()
+        );
 
         List<String> filters = new ArrayList<>();
 
@@ -164,12 +182,12 @@ public class DgraphGraphService implements GraphService {
                     filters.add(String.format("%s as var(func: eq(<%s>, \"%s\"))", sourceFilterName, criterion.getField(), criterion.getValue()));
                 });
 
-        IntStream.range(0, relationshipTypes.size())
+        IntStream.range(0, directedRelationshipTypes.size())
                 .forEach(idx -> {
                     String relationshipTypeFilterName = "relationshipType" + (idx + 1);
                     relationshipTypeFilterNames.add(relationshipTypeFilterName);
                     // TODO: escape string value
-                    filters.add(String.format("%s as var(func: has(<%s>))", relationshipTypeFilterName, relationshipTypes.get(idx)));
+                    filters.add(String.format("%s as var(func: has(<%s>))", relationshipTypeFilterName, directedRelationshipTypes.get(idx)));
                 });
 
         // bootstrap filter is the first filter that is being applied
@@ -193,7 +211,7 @@ public class DgraphGraphService implements GraphService {
         String filterConditions = getFilterConditions(
                 sourceTypeFilterName, destinationTypeFilterName,
                 sourceFilterNames, destinationFilterNames,
-                relationshipTypeFilterNames, relationshipTypes
+                relationshipTypeFilterNames, directedRelationshipTypes
         );
 
         StringJoiner filterJoiner = new StringJoiner("\n  ");
@@ -201,7 +219,7 @@ public class DgraphGraphService implements GraphService {
         String filterExpressions = filterJoiner.toString();
 
         StringJoiner relationshipJoiner = new StringJoiner("\n    ");
-        relationshipTypes.forEach(relationshipType -> relationshipJoiner.add(String.format("<%s> { uid <urn> <type> <key> }", relationshipType)));
+        directedRelationshipTypes.forEach(relationshipType -> relationshipJoiner.add(String.format("<%s> { uid <urn> <type> <key> }", relationshipType)));
         String relationships = relationshipJoiner.toString();
         return String.format("query {\n" +
                         "  %s\n" +
@@ -248,7 +266,11 @@ public class DgraphGraphService implements GraphService {
         String json = response.getJson().toStringUtf8();
         Map<String, Object> data = getDataFromResponseJson(json);
 
-        return getDestinationUrnsFromResponseData(data, relationshipTypes);
+        List<String> directedRelationshipTypes = getDirectedRelationshipTypes(
+                relationshipTypes, relationshipFilter.getDirection()
+        );
+
+        return getDestinationUrnsFromResponseData(data, directedRelationshipTypes);
     }
 
     protected static @Nonnull String getFilterConditions(String sourceTypeFilterName,

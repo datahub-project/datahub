@@ -404,23 +404,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     }
 
     @Test
-    public void testGetQueryForRelatedUrns() {
-        assertEquals(
-                DgraphGraphService.getQueryForRelatedUrns(
-                        "sourceType",
-                        newFilter(new HashMap<String, String>() {{
-                            put("urn", "urn:ns:type:source-key");
-                            put("key", "source-key");
-                        }}),
-                        "destinationType",
-                        newFilter(new HashMap<String, String>() {{
-                            put("urn", "urn:ns:type:dest-key");
-                            put("key", "dest-key");
-                        }}),
-                        Arrays.asList("relationship1", "relationship2"),
-                        new RelationshipFilter().setCriteria(EMPTY_FILTER.getCriteria()).setDirection(RelationshipDirection.INCOMING),
-                        0, 100
-                ),
+    public void testGetQueryForRelatedUrnsOutgoing() {
+        doTestGetQueryForRelatedUrnsDirection(RelationshipDirection.OUTGOING,
                 "query {\n" +
                         "  sourceType as var(func: eq(<type>, \"sourceType\"))\n" +
                         "  destinationTypeType as var(func: eq(<type>, \"destinationType\"))\n" +
@@ -448,6 +433,99 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         "    <relationship2> { uid <urn> <type> <key> }\n" +
                         "  }\n" +
                         "}"
+        );
+    }
+
+    @Test
+    public void testGetQueryForRelatedUrnsIncoming() {
+        doTestGetQueryForRelatedUrnsDirection(RelationshipDirection.INCOMING,
+                "query {\n" +
+                        "  sourceType as var(func: eq(<type>, \"sourceType\"))\n" +
+                        "  destinationTypeType as var(func: eq(<type>, \"destinationType\"))\n" +
+                        "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n" +
+                        "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n" +
+                        "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n" +
+                        "  destinationFilter2 as var(func: eq(<key>, \"dest-key\"))\n" +
+                        "  relationshipType1 as var(func: has(<~relationship1>))\n" +
+                        "  relationshipType2 as var(func: has(<~relationship2>))\n" +
+                        "\n" +
+                        "  result (func: uid(sourceFilter1), first: 100, offset: 0) @filter(\n" +
+                        "    uid(sourceType) AND\n" +
+                        "    uid(sourceFilter1) AND\n" +
+                        "    uid(sourceFilter2) AND\n" +
+                        "    (\n" +
+                        "      uid(relationshipType1) AND uid_in(<~relationship1>, uid(destinationTypeType)) AND uid_in(<~relationship1>, uid(destinationFilter1)) AND uid_in(<~relationship1>, uid(destinationFilter2)) OR\n" +
+                        "      uid(relationshipType2) AND uid_in(<~relationship2>, uid(destinationTypeType)) AND uid_in(<~relationship2>, uid(destinationFilter1)) AND uid_in(<~relationship2>, uid(destinationFilter2))\n" +
+                        "    )\n" +
+                        "  ) {\n" +
+                        "    uid\n" +
+                        "    <urn>\n" +
+                        "    <type>\n" +
+                        "    <key>\n" +
+                        "    <~relationship1> { uid <urn> <type> <key> }\n" +
+                        "    <~relationship2> { uid <urn> <type> <key> }\n" +
+                        "  }\n" +
+                        "}"
+        );
+    }
+
+    @Test
+    public void testGetQueryForRelatedUrnsUndirected() {
+        doTestGetQueryForRelatedUrnsDirection(RelationshipDirection.UNDIRECTED,
+                "query {\n" +
+                        "  sourceType as var(func: eq(<type>, \"sourceType\"))\n" +
+                        "  destinationTypeType as var(func: eq(<type>, \"destinationType\"))\n" +
+                        "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n" +
+                        "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n" +
+                        "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n" +
+                        "  destinationFilter2 as var(func: eq(<key>, \"dest-key\"))\n" +
+                        "  relationshipType1 as var(func: has(<relationship1>))\n" +
+                        "  relationshipType2 as var(func: has(<relationship2>))\n" +
+                        "  relationshipType3 as var(func: has(<~relationship1>))\n" +
+                        "  relationshipType4 as var(func: has(<~relationship2>))\n" +
+                        "\n" +
+                        "  result (func: uid(sourceFilter1), first: 100, offset: 0) @filter(\n" +
+                        "    uid(sourceType) AND\n" +
+                        "    uid(sourceFilter1) AND\n" +
+                        "    uid(sourceFilter2) AND\n" +
+                        "    (\n" +
+                        "      uid(relationshipType1) AND uid_in(<relationship1>, uid(destinationTypeType)) AND uid_in(<relationship1>, uid(destinationFilter1)) AND uid_in(<relationship1>, uid(destinationFilter2)) OR\n" +
+                        "      uid(relationshipType2) AND uid_in(<relationship2>, uid(destinationTypeType)) AND uid_in(<relationship2>, uid(destinationFilter1)) AND uid_in(<relationship2>, uid(destinationFilter2)) OR\n" +
+                        "      uid(relationshipType3) AND uid_in(<~relationship1>, uid(destinationTypeType)) AND uid_in(<~relationship1>, uid(destinationFilter1)) AND uid_in(<~relationship1>, uid(destinationFilter2)) OR\n" +
+                        "      uid(relationshipType4) AND uid_in(<~relationship2>, uid(destinationTypeType)) AND uid_in(<~relationship2>, uid(destinationFilter1)) AND uid_in(<~relationship2>, uid(destinationFilter2))\n" +
+                        "    )\n" +
+                        "  ) {\n" +
+                        "    uid\n" +
+                        "    <urn>\n" +
+                        "    <type>\n" +
+                        "    <key>\n" +
+                        "    <relationship1> { uid <urn> <type> <key> }\n" +
+                        "    <relationship2> { uid <urn> <type> <key> }\n" +
+                        "    <~relationship1> { uid <urn> <type> <key> }\n" +
+                        "    <~relationship2> { uid <urn> <type> <key> }\n" +
+                        "  }\n" +
+                        "}"
+        );
+    }
+
+    private void doTestGetQueryForRelatedUrnsDirection(@Nonnull RelationshipDirection direction, @Nonnull String expectedQuery) {
+        assertEquals(
+                DgraphGraphService.getQueryForRelatedUrns(
+                        "sourceType",
+                        newFilter(new HashMap<String, String>() {{
+                            put("urn", "urn:ns:type:source-key");
+                            put("key", "source-key");
+                        }}),
+                        "destinationType",
+                        newFilter(new HashMap<String, String>() {{
+                            put("urn", "urn:ns:type:dest-key");
+                            put("key", "dest-key");
+                        }}),
+                        Arrays.asList("relationship1", "relationship2"),
+                        new RelationshipFilter().setCriteria(EMPTY_FILTER.getCriteria()).setDirection(direction),
+                        0, 100
+                ),
+                expectedQuery
         );
     }
 
