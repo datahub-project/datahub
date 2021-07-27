@@ -2,19 +2,19 @@
 
 ## What’s a transformer?
 
-Sometimes we want to modify metadata before it reaches the ingestion sink – for instance, we might want to add custom tags, ownership, or patch some fields. A transformer allows us to do exactly these things.
+Oftentimes we want to modify metadata before it reaches the ingestion sink – for instance, we might want to add custom tags, ownership, or patch some fields. A transformer allows us to do exactly these things.
 
-Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the source code of the ingestion framework itself. Instead, you can write your own independent module.
+Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the ingestion framework's code yourself. Instead, you can write your own module that can take MCEs, and pass its name as well as any arguments to a recipe.
 
 ## Provided transformers
 
-We provide two simple transformers for the use cases of adding dataset tags and ownership information.
+Aside from the option of writing your own transformer (see below), we provide two simple transformers for the use cases of adding dataset tags and ownership information.
 
 ### Adding a set of tags
 
-Let’s suppose we’d like to add a set of dataset tags. To do so, we can use the `simple_add_dataset_tags` module that’s provided by the ingestion framework.
+Let’s suppose we’d like to add a set of dataset tags. To do so, we can use the `simple_add_dataset_tags` module that’s included in the ingestion framework.
 
-The config (which we’d append to our ingestion recipe YAML) would look like this:
+The config, which we’d append to our ingestion recipe YAML, would look like this:
 
 ```yaml
 transformers:
@@ -25,11 +25,17 @@ transformers:
         - "urn:li:tag:Legacy"
 ```
 
+:::tip
+
+If you'd like to add more complex logic for assigning tags, you can use the more generic [`add_dataset_tags` transformer](./src/datahub/ingestion/transformer/add_dataset_tags.py), which calls a user-provided function to determine the tags for each dataset.
+
+:::
+
 ### Setting ownership
 
-Let’s suppose we’d like to add a set of dataset tags. To do so, we can use the `simple_add_dataset_tags` module that’s provided by the ingestion framework.
+Let’s suppose we’d like to append a series of users who we know to own a dataset but aren't detected during normal ingestion. To do so, we can use the `simple_add_dataset_ownership` module that’s included in the ingestion framework.
 
-The config (which we’d append to our ingestion recipe YAML) would look like this:
+The config, which we’d append to our ingestion recipe YAML, would look like this:
 
 ```yaml
 transformers:
@@ -41,26 +47,42 @@ transformers:
         - "urn:li:corpGroup:groupname"
 ```
 
+:::tip
+
+If you'd like to add more complex logic for assigning ownership, you can use the more generic [`add_dataset_ownership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset. See below for a guide on how to set this up.
+
+:::
+
 ## Writing a transformer from scratch
 
-In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required. In such cases, we can add our own class and define what arguments it takes.
+In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required. In such cases, we can add our own class and define the arguments it takes.
 
-Suppose we want to append a set of ownership fields to our metadata that are dependent upon an external source – for instance, an API endpoint or file – rather than a preset list like above.
+Suppose we want to append a set of ownership fields to our metadata that are dependent upon an external source – for instance, an API endpoint or file – rather than a preset list like above. In this case, we can set a JSON file as an argument to our custom config, and our transformer will read this file and append the included ownership classes to all our MCEs (if you'd like, you could also include filtering logic for specific MCEs).
+
+Our JSON file might look like the following:
+
+````json
+[
+  "urn:li:corpuser:athos",
+  "urn:li:corpuser:porthos",
+  "urn:li:corpuser:aramis",
+  "urn:li:corpGroup:the_three_musketeers"
+]
 
 ### Defining a config
 
-To get started, we’ll initiate an `AddCustomOwnershipConfig` class that inherits from `datahub.configuration.common.ConfigModel`. The sole parameter will be an `owners_file` which expects a path to a JSON file containing a list of owner URNs. This will go in a file called `custom_transform_example.py`.
+To get started, we’ll initiate an `AddCustomOwnershipConfig` class that inherits from [`datahub.configuration.common.ConfigModel`](./src/datahub/configuration/common.py). The sole parameter will be an `owners_file` which expects a path to a JSON file containing a list of owner URNs. This will go in a file called `custom_transform_example.py`.
 
 ```python
 from datahub.configuration.common import ConfigModel
 
 class AddCustomOwnershipConfig(ConfigModel):
     owners_json: str
-```
+````
 
 ### Defining the transformer
 
-Next, we’ll define the transformer itself, which will inherit from `datahub.ingestion.api.transform.Transformer`. First, let's get all our imports in:
+Next, we’ll define the transformer itself, which must inherit from [`datahub.ingestion.api.transform.Transformer`](./src/datahub/ingestion/api/transform.py). First, let's get all our imports in:
 
 ```python
 # append these to the start of custom_transform_example.py
@@ -86,7 +108,7 @@ from datahub.metadata.schema_classes import (
 )
 ```
 
-First, let's define the base scaffolding for the class:
+Next, let's define the base scaffolding for the class:
 
 ```python
 # append this to the end of custom_transform_example.py
@@ -109,7 +131,7 @@ class AddCustomOwnership(Transformer):
         ]
 ```
 
-A transformer should have two functions: a `create()` function for initialization and a `transform()` function for executing the transformation.
+A transformer must have two functions: a `create()` function for initialization and a `transform()` function for executing the transformation.
 
 Let's begin by adding a `create()` method for taking our configuration dictionary and parsing it:
 
@@ -122,7 +144,7 @@ def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddCustomOwnership"
     return cls(config, ctx)
 ```
 
-Now we've got to add a `transform()` method that does the work of adding our custom ownership classes. This method will take as input an MCE and output the transformed MCE. Let's offload the processing of each MCE to another `transform_one()` class.
+Now we need to add a `transform()` method that does the work of adding our custom ownership classes. This method will take an MCE as input and output the transformed MCE. Let's offload the processing of each MCE to another `transform_one()` class.
 
 ```python
 # add this as a function of AddCustomOwnership
@@ -140,7 +162,7 @@ def transform(
         yield envelope
 ```
 
-The `transform_one()` method will take a single MCE and add the owners that we loaded from the JSON.
+With the main `transform()` method set up, the `transform_one()` method will take a single MCE and add the owners that we loaded from the JSON.
 
 ```python
 # add this as a function of AddCustomOwnership
@@ -165,7 +187,7 @@ def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventCla
 
 ### Installing the package
 
-Now that we've defined the transformer, we can set up the package for installation. To do so, create a `setup.py` in the same directory:
+Now that we've defined the transformer, we can set up the package to install it and make it visible to the ingestion framework. To do so, create a `setup.py` in the same directory:
 
 ```python
 from setuptools import find_packages, setup
@@ -181,25 +203,16 @@ setup(
 
 ### Running the transform
 
-After installing this (e.g. with `python setup.py` or `pip install -e .`), our module will be importable.
+After installing this package (e.g. with `python setup.py` or `pip install -e .`), our module will be installed and importable.
 
 ```yaml
 transformers:
   - type: "custom_transform_example.AddCustomOwnership"
     config:
-      owners_json: "<path_to_owners_json>"
+      owners_json: "<path_to_owners_json>" # the JSON file mentioned at the start
 ```
 
-We provide a simple JSON if you'd like to test it:
-
-```json
-[
-  "urn:li:corpuser:athos",
-  "urn:li:corpuser:porthos",
-  "urn:li:corpuser:aramis",
-  "urn:li:corpGroup:the_three_musketeers"
-]
-```
+````
 
 ```json
 "owners": [
@@ -225,4 +238,6 @@ We provide a simple JSON if you'd like to test it:
     },
 		// ...and any additional owners
 ],
-```
+````
+
+All the files for this tutorial may be found [here](./examples/transforms/).
