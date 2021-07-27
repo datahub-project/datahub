@@ -28,37 +28,45 @@ If you run into an error, try checking the [_common setup issues_](./developing.
 
 #### Installing Plugins
 
-We use a plugin architecture so that you can install only the dependencies you actually need.
+We use a plugin architecture so that you can install only the dependencies you actually need. Click the plugin name to learn more about the specific source recipe and any FAQs!
 
-| Plugin Name     | Install Command                                            | Provides                            |
-| --------------- | ---------------------------------------------------------- | ----------------------------------- |
-| file            | _included by default_                                      | File source and sink                |
-| console         | _included by default_                                      | Console sink                        |
-| athena          | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
-| bigquery        | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
-| bigquery-usage  | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
-| feast           | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
-| glue            | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
-| hive            | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
-| mssql           | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
-| mysql           | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
-| oracle          | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
-| postgres        | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
-| redshift        | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
-| sagemaker       | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
-| sqlalchemy      | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
-| snowflake       | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
-| snowflake-usage | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
-| superset        | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
-| mongodb         | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
-| ldap            | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
-| looker          | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
-| lookml          | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
-| kafka           | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
-| druid           | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| dbt             | _no additional dependencies_                               | dbt source                          |
-| datahub-rest    | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API          |
-| datahub-kafka   | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka             |
+Sources:
+
+| Plugin Name                                   | Install Command                                            | Provides                            |
+| --------------------------------------------- | ---------------------------------------------------------- | ----------------------------------- | --- |
+| [file](./source_docs/file.md)                 | _included by default_                                      | File source and sink                |
+| [athena](./source_docs/athena.md)             | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
+| [bigquery](./source_docs/bigquery.md)         | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| [bigquery-usage](./source_docs/bigquery.md)   | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
+| [dbt](./source_docs/dbt.md)                   | _no additional dependencies_                               | dbt source                          |
+| [druid](./source_docs/druid.md)               | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
+| [feast](./source_docs/feast.md)               | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
+| [glue](./source_docs/glue.md)                 | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
+| [hive](./source_docs/hive.md)                 | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
+| [kafka](./source_docs/kafka.md)               | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |     |
+| [ldap](./source_docs/ldap.md)                 | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
+| [looker](./source_docs/looker.md)             | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
+| [lookml](./source_docs/lookml.md)             | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
+| [mongodb](./source_docs/mongodb.md)           | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
+| [mssql](./source_docs/mssql.md)               | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
+| [mysql](./source_docs/mysql.md)               | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
+| [oracle](./source_docs/oracle.md)             | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
+| [postgres](./source_docs/postgres.md)         | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
+| [redshift](./source_docs/redshift.md)         | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
+| [sagemaker](./source_docs/sagemaker.md)       | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
+| [sqlalchemy](./source_docs/sqlalchemy.md)     | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
+| [snowflake](./source_docs/snowflake.md)       | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
+| [snowflake-usage](./source_docs/snowflake.md) | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
+| [superset](./source_docs/superset.md)         | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
+
+Sinks
+
+| Plugin Name                             | Install Command                              | Provides                   |
+| --------------------------------------- | -------------------------------------------- | -------------------------- |
+| [file](./sink_docs/file.md)             | _included by default_                        | File source and sink       |
+| [console](./sink_docs/console.md)       | _included by default_                        | Console sink               |
+| [datahub-rest](./sink_docs/datahub.md)  | `pip install 'acryl-datahub[datahub-rest]'`  | DataHub sink over REST API |
+| [datahub-kafka](./sink_docs/datahub.md) | `pip install 'acryl-datahub[datahub-kafka]'` | DataHub sink over Kafka    |
 
 These plugins can be mixed and matched as desired. For example:
 
@@ -137,63 +145,6 @@ datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 ```
 
 A number of recipes are included in the examples/recipes directory.
-
-## Sinks
-
-### DataHub Rest `datahub-rest`
-
-Pushes metadata to DataHub using the GMA rest API. The advantage of the rest-based interface
-is that any errors can immediately be reported.
-
-```yml
-sink:
-  type: "datahub-rest"
-  config:
-    server: "http://localhost:8080"
-```
-
-### DataHub Kafka `datahub-kafka`
-
-Pushes metadata to DataHub by publishing messages to Kafka. The advantage of the Kafka-based
-interface is that it's asynchronous and can handle higher throughput. This requires the
-Datahub mce-consumer container to be running.
-
-```yml
-sink:
-  type: "datahub-kafka"
-  config:
-    connection:
-      bootstrap: "localhost:9092"
-      producer_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer
-      schema_registry_url: "http://localhost:8081"
-      schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
-```
-
-The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
-
-For a full example with a number of security options, see this [example recipe](./examples/recipes/secured_kafka.yml).
-
-### Console `console`
-
-Simply prints each metadata event to stdout. Useful for experimentation and debugging purposes.
-
-```yml
-sink:
-  type: "console"
-```
-
-### File `file`
-
-Outputs metadata to a file. This can be used to decouple metadata sourcing from the
-process of pushing it into DataHub, and is particularly useful for debugging purposes.
-Note that the file source can read files generated by this sink.
-
-```yml
-sink:
-  type: file
-  config:
-    filename: ./path/to/mce/file.json
-```
 
 ## Transformations
 
