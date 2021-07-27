@@ -10,7 +10,7 @@
                         "customProperties": {
                             "Database:": "default",
                             "Owner:": "root",
-                            "CreateTime:": "Fri Jul 02 22:51:46 UTC 2021",
+                            "CreateTime:": "Tue Jul 27 18:21:56 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/_test_table_underscore",
@@ -20,7 +20,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1625266306",
+                            "Table Parameters: transient_lastDdlTime": "1627410116",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -99,7 +99,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -112,7 +117,7 @@
                         "customProperties": {
                             "Database:": "default",
                             "Owner:": "root",
-                            "CreateTime:": "Fri Jul 02 22:51:47 UTC 2021",
+                            "CreateTime:": "Tue Jul 27 18:21:56 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/array_struct_test",
@@ -122,7 +127,7 @@
                             "Table Parameters: numRows": "1",
                             "Table Parameters: rawDataSize": "32",
                             "Table Parameters: totalSize": "33",
-                            "Table Parameters: transient_lastDdlTime": "1625266310",
+                            "Table Parameters: transient_lastDdlTime": "1627410123",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -201,7 +206,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -214,7 +224,7 @@
                         "customProperties": {
                             "Database:": "default",
                             "Owner:": "root",
-                            "CreateTime:": "Fri Jul 02 22:51:45 UTC 2021",
+                            "CreateTime:": "Tue Jul 27 18:21:52 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/pokes",
@@ -223,7 +233,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "5812",
-                            "Table Parameters: transient_lastDdlTime": "1625266306",
+                            "Table Parameters: transient_lastDdlTime": "1627410115",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -302,7 +312,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -315,7 +330,7 @@
                         "customProperties": {
                             "Database:": "default",
                             "Owner:": "root",
-                            "CreateTime:": "Fri Jul 02 22:51:46 UTC 2021",
+                            "CreateTime:": "Tue Jul 27 18:21:56 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/struct_test",
@@ -325,7 +340,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1625266306",
+                            "Table Parameters: transient_lastDdlTime": "1627410116",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -404,6 +419,11 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test",
+        "properties": null
+    }
 }
 ]
