@@ -1,4 +1,6 @@
-# Other databases using SQLAlchemy `sqlalchemy`
+# Other databases using SQLAlchemy
+
+To install this plugin, run `pip install 'acryl-datahub[sqlalchemy]'`.
 
 The `sqlalchemy` source is useful if we don't have a pre-built source for your chosen
 database system, but there is an [SQLAlchemy dialect](https://docs.sqlalchemy.org/en/14/dialects/)

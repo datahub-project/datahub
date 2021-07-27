@@ -1,4 +1,4 @@
-# dbt `dbt`
+# dbt
 
 Pull metadata from dbt artifacts files:
 
@@ -36,4 +36,3 @@ source:
 ```
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
-

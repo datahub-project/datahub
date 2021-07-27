@@ -1,4 +1,4 @@
-# File `file`
+# File
 
 Outputs metadata to a file. This can be used to decouple metadata sourcing from the
 process of pushing it into DataHub, and is particularly useful for debugging purposes.

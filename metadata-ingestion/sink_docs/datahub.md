@@ -1,4 +1,6 @@
-# DataHub Rest `datahub-rest`
+# DataHub Rest
+
+To install this plugin, run `pip install 'acryl-datahub[datahub-reset]'`.
 
 Pushes metadata to DataHub using the GMA rest API. The advantage of the rest-based interface
 is that any errors can immediately be reported.
@@ -10,7 +12,9 @@ sink:
     server: "http://localhost:8080"
 ```
 
-# DataHub Kafka `datahub-kafka`
+# DataHub Kafka
+
+To install this plugin, run `pip install 'acryl-datahub[datahub-kafka]'`.
 
 Pushes metadata to DataHub by publishing messages to Kafka. The advantage of the Kafka-based
 interface is that it's asynchronous and can handle higher throughput. This requires the

@@ -1,4 +1,6 @@
-# Kafka Metadata `kafka`
+# Kafka Metadata
+
+To install this plugin, run `pip install 'acryl-datahub[kafka]'`.
 
 Extracts:
 

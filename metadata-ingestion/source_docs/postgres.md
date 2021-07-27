@@ -1,4 +1,6 @@
-# PostgreSQL `postgres`
+# PostgreSQL
+
+To install this plugin, run `pip install 'acryl-datahub[postgres]'`.
 
 Extracts:
 
@@ -20,4 +22,3 @@ source:
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
-

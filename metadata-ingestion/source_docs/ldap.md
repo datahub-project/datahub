@@ -1,4 +1,6 @@
-# LDAP `ldap`
+# LDAP
+
+To install this plugin, run `pip install 'acryl-datahub[ldap]'`.
 
 Extracts:
 

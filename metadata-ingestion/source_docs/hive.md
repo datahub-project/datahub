@@ -1,4 +1,6 @@
-# Hive `hive`
+# Hive
+
+To install this plugin, run `pip install 'acryl-datahub[hive]'`.
 
 Extracts:
 
@@ -44,4 +46,3 @@ source:
 ```
 
 </details>
-

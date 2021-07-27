@@ -1,4 +1,6 @@
-# Superset `superset`
+# Superset
+
+To install this plugin, run `pip install 'acryl-datahub[superset]'`.
 
 Extracts:
 
@@ -16,4 +18,3 @@ source:
 ```
 
 See documentation for superset's `/security/login` at https://superset.apache.org/docs/rest-api for more details on superset's login api.
-

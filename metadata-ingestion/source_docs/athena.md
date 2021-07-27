@@ -1,4 +1,6 @@
-# AWS Athena `athena`
+# AWS Athena
+
+To install this plugin, run `pip install 'acryl-datahub[athena]'`.
 
 Extracts:
 

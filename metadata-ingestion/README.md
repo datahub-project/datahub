@@ -33,7 +33,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 Sources:
 
 | Plugin Name                                   | Install Command                                            | Provides                            |
-| --------------------------------------------- | ---------------------------------------------------------- | ----------------------------------- | --- |
+| --------------------------------------------- | ---------------------------------------------------------- | ----------------------------------- |
 | [file](./source_docs/file.md)                 | _included by default_                                      | File source and sink                |
 | [athena](./source_docs/athena.md)             | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | [bigquery](./source_docs/bigquery.md)         | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
@@ -43,7 +43,7 @@ Sources:
 | [feast](./source_docs/feast.md)               | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
 | [glue](./source_docs/glue.md)                 | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
 | [hive](./source_docs/hive.md)                 | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
-| [kafka](./source_docs/kafka.md)               | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |     |
+| [kafka](./source_docs/kafka.md)               | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
 | [ldap](./source_docs/ldap.md)                 | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
 | [looker](./source_docs/looker.md)             | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
 | [lookml](./source_docs/lookml.md)             | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |

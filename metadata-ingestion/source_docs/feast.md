@@ -1,6 +1,8 @@
-# Feast `feast`
+# Feast
 
 **Note: Feast ingestion requires Docker to be installed.**
+
+To install this plugin, run `pip install 'acryl-datahub[feast]'`.
 
 Extracts:
 

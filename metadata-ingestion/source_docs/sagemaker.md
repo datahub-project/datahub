@@ -1,4 +1,6 @@
-# AWS SageMaker `sagemaker`
+# AWS SageMaker
+
+To install this plugin, run `pip install 'acryl-datahub[sagemaker]'`.
 
 Extracts:
 
@@ -31,4 +33,3 @@ source:
       training: True
       transform: True
 ```
-

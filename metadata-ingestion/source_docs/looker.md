@@ -1,4 +1,6 @@
-# Looker dashboards `looker`
+# Looker dashboards
+
+To install this plugin, run `pip install 'acryl-datahub[looker]'`.
 
 Extracts:
 

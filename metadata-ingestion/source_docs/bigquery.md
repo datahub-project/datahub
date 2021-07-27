@@ -1,4 +1,6 @@
-# Google BigQuery `bigquery`
+# Google BigQuery
+
+To install this plugin, run `pip install 'acryl-datahub[bigquery]'`.
 
 Extracts:
 
@@ -23,8 +25,9 @@ You can also get fine-grained usage statistics for BigQuery using the `bigquery-
 
 :::
 
+# Google BigQuery Usage Stats
 
-# Google BigQuery Usage Stats `bigquery-usage`
+To install this plugin, run `pip install 'acryl-datahub[bigquery-usage]'`.
 
 - Fetch a list of queries issued
 - Fetch a list of tables and columns accessed

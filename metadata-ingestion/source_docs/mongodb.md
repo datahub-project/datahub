@@ -1,4 +1,6 @@
-# MongoDB `mongodb`
+# MongoDB
+
+To install this plugin, run `pip install 'acryl-datahub[mongodb]'`.
 
 Extracts:
 

@@ -1,4 +1,6 @@
-# LookML `lookml`
+# LookML
+
+To install this plugin, run `pip install 'acryl-datahub[lookml]'`.
 
 Note! This plugin uses a package that requires Python 3.7+!
 
