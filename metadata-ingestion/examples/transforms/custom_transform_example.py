@@ -1,3 +1,4 @@
+# see https://datahubproject.io/docs/metadata-ingestion/transformers for original tutorial
 from datahub.configuration.common import ConfigModel
 
 

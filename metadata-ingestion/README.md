@@ -948,7 +948,9 @@ sink:
 
 ## Transformations
 
-See the [transformers guide](./transformers.md).
+If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.
+
+Check out the [transformers guide](./transformers.md) for more info!.
 
 ## Using as a library
 

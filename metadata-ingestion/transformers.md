@@ -27,7 +27,7 @@ transformers:
 
 :::tip
 
-If you'd like to add more complex logic for assigning tags, you can use the more generic [`add_dataset_tags` transformer](./src/datahub/ingestion/transformer/add_dataset_tags.py), which calls a user-provided function to determine the tags for each dataset.
+If you'd like to add more complex logic for assigning tags, you can use the more generic add_dataset_tags transformer, which calls a user-provided function to determine the tags for each dataset.
 
 :::
 
@@ -46,12 +46,6 @@ transformers:
         - "urn:li:corpuser:username2"
         - "urn:li:corpGroup:groupname"
 ```
-
-:::tip
-
-If you'd like to add more complex logic for assigning ownership, you can use the more generic [`add_dataset_ownership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset. See below for a guide on how to set this up.
-
-:::
 
 ## Writing a custom transformer from scratch
 
@@ -188,7 +182,9 @@ def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventCla
 
 ### Installing the package
 
-Now that we've defined the transformer, we can set up the package to install it and make it visible to the ingestion framework. To do so, create a `setup.py` in the same directory:
+Now that we've defined the transformer, we need to make it visible to DataHub. This can be done by making sure the Python file is available as a local import.
+
+Alternatively, create a `setup.py` in the same directory as our transform script to make it visible globally. After installing this package (e.g. with `python setup.py` or `pip install -e .`), our module will be installed and importable as `custom_transform_example`.
 
 ```python
 from setuptools import find_packages, setup
@@ -198,13 +194,11 @@ setup(
     version="1.0",
     packages=find_packages(),
     # if you don't already have DataHub installed, add it under install_requires
-		# install_requires=["acryl-datahub"]
+	# install_requires=["acryl-datahub"]
 )
 ```
 
 ### Running the transform
-
-After installing this package (e.g. with `python setup.py` or `pip install -e .`), our module will be installed and importable.
 
 ```yaml
 transformers:
