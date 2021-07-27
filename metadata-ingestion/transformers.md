@@ -4,7 +4,7 @@
 
 Oftentimes we want to modify metadata before it reaches the ingestion sink – for instance, we might want to add custom tags, ownership, or patch some fields. A transformer allows us to do exactly these things.
 
-Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the ingestion framework's code yourself. Instead, you can write your own module that can take MCEs, and pass its name as well as any arguments to a recipe.
+Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the ingestion framework's code yourself. Instead, you can write your own module that can take MCEs however you like. To configure the recipe, all that's needed is a module name as well as any arguments.
 
 ## Provided transformers
 
@@ -61,24 +61,25 @@ As an example, suppose we want to append a set of ownership fields to our metada
 
 Our JSON file might look like the following:
 
-````json
+```json
 [
   "urn:li:corpuser:athos",
   "urn:li:corpuser:porthos",
   "urn:li:corpuser:aramis",
   "urn:li:corpGroup:the_three_musketeers"
 ]
+```
 
 ### Defining a config
 
-To get started, we’ll initiate an `AddCustomOwnershipConfig` class that inherits from [`datahub.configuration.common.ConfigModel`](./src/datahub/configuration/common.py). The sole parameter will be an `owners_file` which expects a path to a JSON file containing a list of owner URNs. This will go in a file called `custom_transform_example.py`.
+To get started, we’ll initiate an `AddCustomOwnershipConfig` class that inherits from [`datahub.configuration.common.ConfigModel`](./src/datahub/configuration/common.py). The sole parameter will be an `owners_json` which expects a path to a JSON file containing a list of owner URNs. This will go in a file called `custom_transform_example.py`.
 
 ```python
 from datahub.configuration.common import ConfigModel
 
 class AddCustomOwnershipConfig(ConfigModel):
     owners_json: str
-````
+```
 
 ### Defining the transformer
 
@@ -212,7 +213,7 @@ transformers:
       owners_json: "<path_to_owners_json>" # the JSON file mentioned at the start
 ```
 
-After running `datahub ingest -c <path_to_recipe>`, our MCEs should now have the following owners:
+After running `datahub ingest -c <path_to_recipe>`, our MCEs will now have the following owners appended:
 
 ```json
 "owners": [
@@ -236,7 +237,7 @@ After running `datahub ingest -c <path_to_recipe>`, our MCEs should now have the
         "type": "DATAOWNER",
         "source": null
     },
-		// ...and any additional owners
+	// ...and any additional owners
 ],
 ```
 
