@@ -320,16 +320,16 @@ export const dataset3 = {
     usageStats: null,
     datasetProfiles: [
         {
-            timestampMillis: 0,
             rowCount: 10,
             columnCount: 5,
+            timestampMillis: 0,
             fieldProfiles: [
                 {
                     fieldPath: 'testColumn',
                     uniqueCount: 1,
+                    uniqueProportion: 0.129,
                     nullCount: 2,
                     nullProportion: 0.56,
-                    uniqueProportion: 0.129,
                     min: '3',
                     max: '4',
                     mean: '5',

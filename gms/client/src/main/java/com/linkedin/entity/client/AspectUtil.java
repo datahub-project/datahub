@@ -11,7 +11,8 @@ public class AspectUtil {
 
   public static final String JSON = "application/json";
 
-  private AspectUtil() {}
+  private AspectUtil() {
+  }
 
   // TODO: Consolidate with AspectDeserializationUtil.
   @Nonnull
