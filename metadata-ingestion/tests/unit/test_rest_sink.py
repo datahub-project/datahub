@@ -74,7 +74,7 @@ basicAuditStamp = models.AuditStampClass(
                         }
                     }
                 },
-                "systemMetadata": {}
+                "systemMetadata": {},
             },
         ),
         (
@@ -110,7 +110,7 @@ basicAuditStamp = models.AuditStampClass(
                         }
                     }
                 },
-                "systemMetadata": {}
+                "systemMetadata": {},
             },
         ),
         (
@@ -160,7 +160,7 @@ basicAuditStamp = models.AuditStampClass(
                         }
                     }
                 },
-                "systemMetadata": {}
+                "systemMetadata": {},
             },
         ),
         (
@@ -196,7 +196,7 @@ basicAuditStamp = models.AuditStampClass(
                         }
                     }
                 },
-                "systemMetadata": {}
+                "systemMetadata": {},
             },
         ),
         (

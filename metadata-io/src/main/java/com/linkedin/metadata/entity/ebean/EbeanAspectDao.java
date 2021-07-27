@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -217,6 +218,15 @@ public class EbeanAspectDao {
   @Nullable
   public int deleteUrn(@Nonnull final String urn) {
     return _server.createQuery(EbeanAspectV2.class).where().eq("urn", urn).delete();
+  }
+
+  @Nullable
+  public Optional<EbeanAspectV2> getEarliestAspect(@Nonnull final String urn) {
+    return _server.createQuery(EbeanAspectV2.class).where().eq("urn", urn)
+        .orderBy()
+        .asc(EbeanAspectV2.CREATED_ON_COLUMN)
+        .setMaxRows(1)
+        .findList().stream().findFirst();
   }
 
   @Nonnull

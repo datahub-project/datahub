@@ -1,14 +1,15 @@
 import time
 from datetime import datetime
 from unittest import mock
-from freezegun import freeze_time
 
+from freezegun import freeze_time
 from looker_sdk.sdk.api31.models import Dashboard, DashboardElement, Query
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
+
 
 @freeze_time(FROZEN_TIME)
 def test_looker_ingest(pytestconfig, tmp_path, mock_time):

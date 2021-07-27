@@ -1,11 +1,11 @@
 import io
 import json
 import pathlib
-from freezegun import freeze_time
 
 import fastavro
 import pytest
 from click.testing import CliRunner
+from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.entrypoints import datahub
@@ -17,6 +17,7 @@ from tests.test_helpers import mce_helpers
 from tests.test_helpers.type_helpers import PytestConfig
 
 FROZEN_TIME = "2021-07-22 18:54:06"
+
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.parametrize(
@@ -42,7 +43,7 @@ def test_serde_to_json(
         {
             "source": {"type": "file", "config": {"filename": str(golden_file)}},
             "sink": {"type": "file", "config": {"filename": str(output_file)}},
-            "run_id": "serde_test"
+            "run_id": "serde_test",
         }
     )
     pipeline.run()
