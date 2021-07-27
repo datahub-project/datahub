@@ -2,7 +2,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, DefaultDict, Dict, List, Set
 
-from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
+from datahub.ingestion.source.aws.sagemaker_processors.common import (
+    SagemakerSourceReport,
+)
 
 
 @dataclass

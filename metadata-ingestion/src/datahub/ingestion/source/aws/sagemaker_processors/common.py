@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
 from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.source.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 
 
 class SagemakerSourceConfig(AwsSourceConfig):

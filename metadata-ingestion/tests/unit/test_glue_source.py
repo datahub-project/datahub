@@ -4,7 +4,11 @@ from botocore.stub import Stubber
 from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.glue import GlueSource, GlueSourceConfig, get_column_type
+from datahub.ingestion.source.aws.glue import (
+    GlueSource,
+    GlueSourceConfig,
+    get_column_type,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     MapTypeClass,

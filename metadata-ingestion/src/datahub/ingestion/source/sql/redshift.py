@@ -7,8 +7,8 @@ from sqlalchemy.engine import reflection
 from sqlalchemy_redshift.dialect import RedshiftDialect, RelationKey
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.postgres import PostgresConfig
-from datahub.ingestion.source.sql_common import SQLAlchemySource
+from datahub.ingestion.source.sql.postgres import PostgresConfig
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 
 # TRICKY: it's necessary to import the Postgres source because
 # that module has some side effects that we care about here.

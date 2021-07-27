@@ -3,7 +3,9 @@ from typing import Any, Dict, Iterable, List
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
+from datahub.ingestion.source.aws.sagemaker_processors.common import (
+    SagemakerSourceReport,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     MLFeatureSnapshot,
