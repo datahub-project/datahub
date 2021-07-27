@@ -189,8 +189,6 @@ public class EntityClient {
     }
 
     public void updateWithSystemMetadata(@Nonnull final Entity entity, @Nonnull final SystemMetadata systemMetadata) throws RemoteInvocationException {
-        // TODO: Replace with EntitiesDoIngestActionBuilder.
-
         EntitiesDoIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity).systemMetadataParam(systemMetadata);
 
