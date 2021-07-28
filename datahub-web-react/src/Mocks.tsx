@@ -257,6 +257,7 @@ export const dataset3 = {
                     type: EntityType.GlossaryTerm,
                     urn: 'urn:li:glossaryTerm:sample-glossary-term',
                     name: 'sample-glossary-term',
+                    domain: 'example',
                     glossaryTermInfo: {
                         definition: 'sample definition',
                         termSource: 'sample term source',
@@ -463,6 +464,7 @@ const glossaryTerm1 = {
     urn: 'urn:li:glossaryTerm:1',
     type: EntityType.GlossaryTerm,
     name: 'Another glossary term',
+    domain: 'example',
     ownership: {
         owners: [
             {

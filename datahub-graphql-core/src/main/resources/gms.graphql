@@ -363,6 +363,11 @@ type GlossaryTerm implements Entity {
     name: String!
 
     """
+    Domain of glossary term
+    """
+    domain: String!
+
+    """
     Details of the Glossary Term
     """
     glossaryTermInfo: GlossaryTermInfo!
