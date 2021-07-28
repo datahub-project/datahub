@@ -222,9 +222,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   /*
   Used to enable writes in GMS after data migration is complete
    */
-  @Action(name = "rollback")
+  @Action(name = "delete")
   @Nonnull
-  public Task<RollbackResponse> rollback(@Nonnull String urnStr) throws URISyntaxException {
+  public Task<RollbackResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr) throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
 
     return RestliUtils.toTask(() -> {
