@@ -198,7 +198,7 @@ class LookerViewFileLoader:
         return path in self.viewfile_cache
 
     def _load_viewfile(
-        self, path: str, reporter: LookMLSourceReport
+        self, path: str, reporter: LookMLSourceReport, update_cache: bool
     ) -> Optional[LookerViewFile]:
         if self.is_view_seen(path):
             return self.viewfile_cache[path]
@@ -209,16 +209,39 @@ class LookerViewFileLoader:
                 looker_viewfile = LookerViewFile.from_looker_dict(
                     path, parsed, self._base_folder, reporter
                 )
-                self.viewfile_cache[path] = looker_viewfile
+                if update_cache:
+                    logger.debug(f"adding viewfile for path {path} to the cache")
+                    self.viewfile_cache[path] = looker_viewfile
                 return looker_viewfile
         except Exception as e:
             self.reporter.report_failure(path, f"failed to load view file: {e}")
             return None
 
     def load_viewfile(
-        self, path: str, connection: str, reporter: LookMLSourceReport
+        self,
+        path: str,
+        connection: str,
+        reporter: LookMLSourceReport,
+        update_cache: bool = True,
     ) -> Optional[LookerViewFile]:
-        viewfile = self._load_viewfile(path, reporter)
+        """
+        Given a path to ``.view.lkml`` file, create a ``LookerViewFile`` instance.
+
+        Parameters
+        ----------
+            path:
+                String with an absolute path to a ``.view.lkml`` file
+            connection:
+                String with a connection name (e.g. ``"redshift"``)
+            reporter:
+                ``LookMLSourceReport`` instance, used to generate a summary report at the end of ingestion
+            update_cache:
+                Set to ``True`` (the default) in situations where a View is being loaded for metadata ingestion,
+                to prevent re-ingesting metadata for it. Set to ``False`` when loading a view just to inspect it.
+        """
+        viewfile = self._load_viewfile(
+            path=path, reporter=reporter, update_cache=update_cache
+        )
         if viewfile is None:
             return None
 
@@ -373,7 +396,10 @@ class LookerView:
         # lives in, so we try them all!
         for include in looker_viewfile.resolved_includes:
             included_looker_viewfile = looker_viewfile_loader.load_viewfile(
-                include, connection, reporter
+                path=include,
+                connection=connection,
+                reporter=reporter,
+                update_cache=False,
             )
             if not included_looker_viewfile:
                 logger.warning(
@@ -634,7 +660,10 @@ class LookMLSource(Source):
 
                 logger.debug(f"Attempting to load view file: {include}")
                 looker_viewfile = viewfile_loader.load_viewfile(
-                    include, model.connection, self.reporter
+                    path=include,
+                    connection=model.connection,
+                    reporter=self.reporter,
+                    update_cache=True,
                 )
                 if looker_viewfile is not None:
                     for raw_view in looker_viewfile.views:
