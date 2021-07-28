@@ -35,7 +35,7 @@ class MetadataChangeProposalWrapper:
     def make_mcp(self) -> MetadataChangeProposalClass:
         serializedEntityKeyAspect: Union[None, GenericAspectClass] = None
         if isinstance(self.entityKeyAspect, DictWrapper):
-            serializedEntityKeyAspect = _make_generic_aspect(self.entityKey)
+            serializedEntityKeyAspect = _make_generic_aspect(self.entityKeyAspect)
 
         serializedAspect = None
         if self.aspect is not None:
@@ -54,10 +54,10 @@ class MetadataChangeProposalWrapper:
 
     def validate(self) -> bool:
         if self.entityUrn is None and self.entityKeyAspect is None:
-            return False 
+            return False
         if self.entityUrn is not None and self.entityKeyAspect is not None:
             return False
-        if self.entityKeyAspect is not None and not self.entityKey.validate():
+        if self.entityKeyAspect is not None and not self.entityKeyAspect.validate():
             return False
         if self.aspect and not self.aspect.validate():
             return False
