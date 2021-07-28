@@ -1,7 +1,9 @@
 import pytest
 
+
 @pytest.mark.integration
 def test_hive_configuration_get_identifier_with_database():
+    from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.sql.hive import HiveConfig, HiveSource
 
     test_db_name = "test_database"
@@ -15,5 +17,7 @@ def test_hive_configuration_get_identifier_with_database():
     }
     hive_config = HiveConfig.parse_obj(config_dict)
     expected_output = f"{test_db_name}.{test_table_name}"
-    output = HiveSource.get_schema_names(hive_config)
+    ctx = PipelineContext(run_id="test")
+    hive_source = HiveSource(config_dict, ctx)
+    output = HiveSource.get_schema_names(hive_source, hive_config)
     assert output == expected_output
