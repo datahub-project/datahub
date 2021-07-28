@@ -35,15 +35,19 @@
         "name" : "aspect",
         "type" : "string"
       }, {
-        "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
+        "name" : "startTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long",
         "optional" : true
       }, {
         "name" : "limit",
         "type" : "int",
         "default" : "10000"
       } ],
-      "returns" : "com.linkedin.aspect.GetAspectResponse"
+      "returns" : "com.linkedin.aspect.GetTimeseriesAspectValuesResponse"
     }, {
       "name" : "ingestProposal",
       "parameters" : [ {
