@@ -40,7 +40,7 @@ Our open sourcing [blog post](https://engineering.linkedin.com/blog/2020/open-so
  - **Schema history**: view and diff historic versions of schemas
  - **GraphQL**: visualization of GraphQL schemas
 
-### Jos/flows [*coming soon*]
+### Jobs/flows [*coming soon*]
  - **Search**: full-text & advanced search, search ranking
  - **Browse**: browsing through a configurable hierarchy
  - **Basic information**: 

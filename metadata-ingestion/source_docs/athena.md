@@ -24,5 +24,33 @@ source:
     # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
 
     work_group: athena_workgroup # "primary"
-    # table_pattern/schema_pattern is same as above
+
+    # Tables to allow/deny
+    table_pattern:
+      deny:
+        # Note that the deny patterns take precedence over the allow patterns.
+        - "bad_table"
+        - "junk_table"
+        # Can also be a regular expression
+        - "(old|used|deprecated)_table"
+      allow:
+        - "good_table"
+        - "excellent_table"
+
+    # Although the 'table_pattern' enables you to skip everything from certain schemas,
+    # having another option to allow/deny on schema level is an optimization for the case when there is a large number
+    # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
+    # them out afterwards via the table_pattern.
+    schema_pattern:
+      deny:
+        # ...
+      allow:
+        # ...
+
+    # Same format as table_pattern, used for filtering views
+    view_pattern:
+      deny:
+        # ...
+      allow:
+        # ...
 ```

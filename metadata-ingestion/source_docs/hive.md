@@ -79,7 +79,7 @@ source:
       connect_args:
         http_path: "/hive2"
         auth: BASIC
-    # table_pattern/schema_pattern is same as above
+    # ... table_pattern/schema_pattern
 ```
 
 </details>

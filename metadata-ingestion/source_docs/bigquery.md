@@ -18,7 +18,7 @@ source:
     # Many of these options are specific to the underlying database driver, so that library's
     # documentation will be a good reference for what is supported. To find which dialect is likely
     # in use, consult this table: https://docs.sqlalchemy.org/en/14/dialects/index.html.
-    options: # options is same as above
+    options:
       # See https://github.com/mxmzdlv/pybigquery#authentication for details.
       credentials_path: "/path/to/keyfile.json" # optional
 

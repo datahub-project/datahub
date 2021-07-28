@@ -68,7 +68,7 @@ See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-
 source:
   type: redshift
   config:
-    # username, password, database, etc are all the same as above
+    # username, password, database, etc...
     host_port: my-proxy-hostname:5439
     options:
       connect_args:
