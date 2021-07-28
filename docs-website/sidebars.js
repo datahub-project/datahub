@@ -52,7 +52,6 @@ module.exports = {
       //"docs/what/gma",
       "docs/architecture/metadata-serving",
       //"docs/what/gms",
-      "datahub-web-react/README",
     ],
     "Metadata Modeling": [
       "docs/modeling/metadata-model",
