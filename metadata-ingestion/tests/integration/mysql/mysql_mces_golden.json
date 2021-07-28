@@ -3930,10 +3930,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.inventory_transaction_types,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.inventory_transaction_types,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -3945,10 +3943,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.inventory_transactions,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.inventory_transactions,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -3960,10 +3956,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.invoices,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.invoices,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -3975,10 +3969,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.order_details,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.order_details,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -3990,10 +3982,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.order_details_status,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.order_details_status,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4005,10 +3995,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4020,10 +4008,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders_status,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders_status,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4035,10 +4021,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders_tax_status,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders_tax_status,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4050,10 +4034,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.privileges,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.privileges,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4065,10 +4047,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.products,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.products,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4080,10 +4060,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.purchase_order_details,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.purchase_order_details,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4095,10 +4073,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.purchase_order_status,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.purchase_order_status,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4110,10 +4086,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.purchase_orders,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.purchase_orders,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4125,10 +4099,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.sales_reports,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.sales_reports,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4140,10 +4112,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.shippers,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.shippers,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4155,10 +4125,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.strings,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.strings,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -4170,10 +4138,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.employee_privileges,PROD)",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.suppliers,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.suppliers,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {

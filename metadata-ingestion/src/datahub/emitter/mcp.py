@@ -24,16 +24,16 @@ def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
 @dataclasses.dataclass
 class MetadataChangeProposalWrapper:
     entityType: str
-    entityUrn: Union[None, str]
-    entityKeyAspect: Union[None, DictWrapper] = None
     changeType: Union[str, ChangeTypeClass]
+    entityUrn: Union[None, str] = None
+    entityKeyAspect: Union[None, DictWrapper] = None
     auditHeader: Union[None, KafkaAuditHeaderClass] = None
     aspectName: Union[None, str] = None
     aspect: Union[None, DictWrapper] = None
     systemMetadata: Union[None, SystemMetadataClass] = None
 
     def make_mcp(self) -> MetadataChangeProposalClass:
-        serializedEntityKeyAspect: Union[None, GenericAspectClass]
+        serializedEntityKeyAspect: Union[None, GenericAspectClass] = None
         if isinstance(self.entityKeyAspect, DictWrapper):
             serializedEntityKeyAspect = _make_generic_aspect(self.entityKey)
 
@@ -43,7 +43,7 @@ class MetadataChangeProposalWrapper:
 
         return MetadataChangeProposalClass(
             entityType=self.entityType,
-            entityUrn=entityUrn,
+            entityUrn=self.entityUrn,
             entityKeyAspect=serializedEntityKeyAspect,
             changeType=self.changeType,
             auditHeader=self.auditHeader,
@@ -53,7 +53,11 @@ class MetadataChangeProposalWrapper:
         )
 
     def validate(self) -> bool:
-        if isinstance(self.entityKey, DictWrapper) and not self.entityKey.validate():
+        if self.entityUrn is None and self.entityKeyAspect is None:
+            return False 
+        if self.entityUrn is not None and self.entityKeyAspect is not None:
+            return False
+        if self.entityKeyAspect is not None and not self.entityKey.validate():
             return False
         if self.aspect and not self.aspect.validate():
             return False

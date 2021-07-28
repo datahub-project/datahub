@@ -266,9 +266,7 @@ basicAuditStamp = models.AuditStampClass(
             {
                 "proposal": {
                     "entityType": "dataset",
-                    "entityKey": {
-                        "string": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"
-                    },
+                    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
                     "changeType": "UPSERT",
                     "aspectName": "ownership",
                     "aspect": {
