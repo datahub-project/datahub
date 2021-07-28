@@ -153,8 +153,6 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             },
         )
 
-        print(job_types)
-
         for job_type in job_types:
 
             job = job_stubs[job_type.value]
