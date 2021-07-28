@@ -194,8 +194,10 @@ def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventCla
 
 ### Installing the package
 
-Now that we've defined the transformer, we need to make it visible to DataHub. This can be done by making sure the Python file is available as a local import.
+Now that we've defined the transformer, we need to make it visible to DataHub. The easiest way to do this is to just place it in the same directory as your recipe, in which case the module name is the same as the file – in this case, `custom_transform_example`.
 
+<details>
+  <summary>Advanced: installing as a package</summary>
 Alternatively, create a `setup.py` in the same directory as our transform script to make it visible globally. After installing this package (e.g. with `python setup.py` or `pip install -e .`), our module will be installed and importable as `custom_transform_example`.
 
 ```python
@@ -209,6 +211,8 @@ setup(
 	# install_requires=["acryl-datahub"]
 )
 ```
+
+</details>
 
 ### Running the transform
 
