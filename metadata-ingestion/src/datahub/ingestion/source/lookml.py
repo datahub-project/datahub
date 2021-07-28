@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import pydantic
 
@@ -217,10 +217,7 @@ class LookerViewFileLoader:
             return None
 
     def load_viewfile(
-        self,
-        path: str,
-        connection: str,
-        reporter: LookMLSourceReport,
+        self, path: str, connection: str, reporter: LookMLSourceReport
     ) -> Optional[LookerViewFile]:
         """
         Given a path to ``.view.lkml`` file, create a ``LookerViewFile`` instance.
@@ -389,9 +386,9 @@ class LookerView:
         # lives in, so we try them all!
         for include in looker_viewfile.resolved_includes:
             included_looker_viewfile = looker_viewfile_loader.load_viewfile(
-                path=include,
-                connection=connection,
-                reporter=reporter,
+                include,
+                connection,
+                reporter,
             )
             if not included_looker_viewfile:
                 logger.warning(
@@ -627,7 +624,7 @@ class LookMLSource(Source):
 
         # some views can be mentioned by multiple 'include' statements, so this set is be used to prevent
         # creating duplicate MCE messages
-        views_with_workunits = set()
+        views_with_workunits: Set[str] = set()
 
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
@@ -655,9 +652,9 @@ class LookMLSource(Source):
 
                 logger.debug(f"Attempting to load view file: {include}")
                 looker_viewfile = viewfile_loader.load_viewfile(
-                    path=include,
-                    connection=model.connection,
-                    reporter=self.reporter,
+                    include,
+                    model.connection,
+                    self.reporter,
                 )
                 if looker_viewfile is not None:
                     for raw_view in looker_viewfile.views:
