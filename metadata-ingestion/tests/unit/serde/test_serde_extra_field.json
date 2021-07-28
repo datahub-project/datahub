@@ -6,6 +6,7 @@
       "aspects": [
         {
           "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+            "this_is_an_invalid_field": "hope it throws an error!",
             "active": true,
             "displayName": {
               "string": "Harshal Sheth"
