@@ -1,12 +1,10 @@
 import pytest
 
-
 @pytest.mark.integration
 def test_hive_configuration_get_identifier_with_database():
-    from datahub.ingestion.source.sql.hive import HiveConfig
+    from datahub.ingestion.source.sql.hive import HiveConfig, HiveSource
 
     test_db_name = "test_database"
-    test_schema_name = "test_schema"
     test_table_name = "test_table"
     config_dict = {
         "username": "test",
@@ -16,6 +14,6 @@ def test_hive_configuration_get_identifier_with_database():
         "scheme": "hive+https",
     }
     hive_config = HiveConfig.parse_obj(config_dict)
-    expected_output = f"{test_db_name}.{test_schema_name}.{test_table_name}"
-    output = hive_config.get_identifier(schema=test_schema_name, table=test_table_name)
+    expected_output = f"{test_db_name}.{test_table_name}"
+    output = HiveSource.get_schema_names(hive_config)
     assert output == expected_output

@@ -281,7 +281,7 @@ source:
     username: user # optional
     password: pass # optional
     host_port: localhost:10000
-    database: DemoDatabase # if not specified, ingests from all databases
+    database: DemoDatabase # optional, if not specified, ingests from all databases
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```

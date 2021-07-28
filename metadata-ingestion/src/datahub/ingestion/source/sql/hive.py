@@ -39,7 +39,7 @@ class HiveSource(SQLAlchemySource):
 
     def get_schema_names(self, inspector):
         assert isinstance(self.config, HiveConfig)
-        # This condition restrictes the ingestion to the specified database.
+        # This condition restricts the ingestion to the specified database.
         if self.config.database:
             return [self.config.database]
         else:
