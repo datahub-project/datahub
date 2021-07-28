@@ -75,9 +75,11 @@ You can also get fine-grained usage statistics for Snowflake using the `snowflak
 
 :::
 
-# Snowflake Usage Stats `snowflake-usage`
+# Snowflake Usage Stats
 
 To install this plugin, run `pip install 'acryl-datahub[snowflake-usage]'`.
+
+This plugin extracts the following:
 
 - Fetch a list of queries issued
 - Fetch a list of tables and columns accessed (excludes views)

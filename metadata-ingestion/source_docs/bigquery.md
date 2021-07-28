@@ -65,6 +65,8 @@ You can also get fine-grained usage statistics for BigQuery using the `bigquery-
 
 To install this plugin, run `pip install 'acryl-datahub[bigquery-usage]'`.
 
+This plugin extracts the following:
+
 - Fetch a list of queries issued
 - Fetch a list of tables and columns accessed
 - Aggregate these statistics into buckets, by day or hour granularity

@@ -18,7 +18,7 @@ To install this plugin, run `pip install 'acryl-datahub[datahub-kafka]'`.
 
 Pushes metadata to DataHub by publishing messages to Kafka. The advantage of the Kafka-based
 interface is that it's asynchronous and can handle higher throughput. This requires the
-Datahub mce-consumer container to be running.
+DataHub mce-consumer container to be running.
 
 ```yml
 sink:
