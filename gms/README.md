@@ -620,29 +620,61 @@ curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
 
 In addition to fetching the set of latest Snapshot aspects for an entity, we also support doing a point lookup of an entity at a particular version.
 
-This call returns a VersionedAspect, which is a record containing a version and an aspect inside a Rest.li Union, wherein the fully-qualified record name of the
+To do so, you can use the following query template:
+
+```
+curl 'http://localhost:8080/aspects/<url-encoded-entity-urn>?aspect=<aspect-name>&version=<version>
+```
+
+Which will return a VersionedAspect, which is a record containing a version and an aspect inside a Rest.li Union, wherein the fully-qualified record name of the
 aspect is the key for the union.
 
+For example, to fetch the latest version of a Dataset's "schemaMetadata" aspect, you could issue the following query:
+
 ```
-curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:bar,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Afoo)/rawOwnership/0' | jq
+curl 'http://localhost:8080/aspects/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3Afoo%2Cbar%2CPROD)?aspect=schemaMetadata&version=0'
 
 {
-  "owners": [
-    {
-      "owner": "urn:li:corpuser:fbar",
-      "type": "DATAOWNER"
-    },
-    {
-      "owner": "urn:li:corpuser:ksahin",
-      "type": "DATAOWNER"
-    }
-  ],
-  "lastModified": {
-    "actor": "urn:li:corpuser:ksahin",
-    "time": 1568015476480
-  }
+   "version":0,
+   "aspect":{
+      "com.linkedin.schema.SchemaMetadata":{
+         "created":{
+            "actor":"urn:li:corpuser:fbar",
+            "time":0
+         },
+         "platformSchema":{
+            "com.linkedin.schema.KafkaSchema":{
+               "documentSchema":"{\"type\":\"record\",\"name\":\"MetadataChangeEvent\",\"namespace\":\"com.linkedin.mxe\",\"doc\":\"Kafka event for proposing a metadata change for an entity.\",\"fields\":[{\"name\":\"auditHeader\",\"type\":{\"type\":\"record\",\"name\":\"KafkaAuditHeader\",\"namespace\":\"com.linkedin.avro2pegasus.events\",\"doc\":\"Header\"}}]}"
+            }
+         },
+         "lastModified":{
+            "actor":"urn:li:corpuser:fbar",
+            "time":0
+         },
+         "schemaName":"FooEvent",
+         "fields":[
+            {
+               "fieldPath":"foo",
+               "description":"Bar",
+               "type":{
+                  "type":{
+                     "com.linkedin.schema.StringType":{
+                        
+                     }
+                  }
+               },
+               "nativeDataType":"string"
+            }
+         ],
+         "version":0,
+         "hash":"",
+         "platform":"urn:li:dataPlatform:foo"
+      }
+   }
 }
 ```
+
+Keep in mind that versions increase monotonically *after* version 0, which represents the latest. 
 
 Note that this API will soon be deprecated and replaced by the V2 Aspect API, discussed below. 
 
