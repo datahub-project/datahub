@@ -3,7 +3,7 @@ import pytest
 
 @pytest.mark.integration
 def test_hive_configuration_get_identifier_with_database():
-    from datahub.ingestion.source.hive import HiveConfig
+    from datahub.ingestion.source.sql.hive import HiveConfig
 
     test_db_name = "test_database"
     test_schema_name = "test_schema"

@@ -19,8 +19,10 @@ def import_key(key: str) -> Any:
 
 
 class Registry(Generic[T]):
-    def __init__(self):
-        self._mapping: Dict[str, Union[Type[T], Exception]] = {}
+    _mapping: Dict[str, Union[Type[T], Exception]]
+
+    def __init__(self) -> None:
+        self._mapping = {}
 
     def _get_registered_type(self) -> Type[T]:
         cls = typing_inspect.get_generic_type(self)
@@ -61,14 +63,14 @@ class Registry(Generic[T]):
 
             try:
                 plugin_class = entry_point.load()
-            except ModuleNotFoundError as e:
+            except (AssertionError, ModuleNotFoundError, ImportError) as e:
                 self.register_disabled(name, e)
                 continue
 
             self.register(name, plugin_class)
 
     @property
-    def mapping(self):
+    def mapping(self) -> Dict[str, Union[Type[T], Exception]]:
         return self._mapping
 
     def get(self, key: str) -> Type[T]:
@@ -82,15 +84,21 @@ class Registry(Generic[T]):
         if key not in self._mapping:
             raise KeyError(f"Did not find a registered class for {key}")
         tp = self._mapping[key]
-        if isinstance(tp, Exception):
+        if isinstance(tp, ModuleNotFoundError):
             raise ConfigurationError(
                 f"{key} is disabled; try running: pip install '{__package_name__}[{key}]'"
+            ) from tp
+        elif isinstance(tp, Exception):
+            raise ConfigurationError(
+                f"{key} is disabled due to an error in initialization"
             ) from tp
         else:
             # If it's not an exception, then it's a registered type.
             return tp
 
-    def summary(self, verbose=True, col_width=15, verbose_col_width=20):
+    def summary(
+        self, verbose: bool = True, col_width: int = 15, verbose_col_width: int = 20
+    ) -> str:
         lines = []
         for key in sorted(self._mapping.keys()):
             line = f"{key}"

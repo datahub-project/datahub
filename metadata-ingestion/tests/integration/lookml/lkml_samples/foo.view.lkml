@@ -1,8 +1,3 @@
-###
-###  Please update the docs below after editing this:
-###  https://woltwide.atlassian.net/wiki/spaces/AN/pages/429195880/Weather+Forecasts
-###
-
 view: my_view {
   derived_table: {
     sql:

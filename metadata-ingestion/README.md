@@ -93,7 +93,8 @@ We have prebuilt images available on [Docker hub](https://hub.docker.com/r/linke
 _Limitation: the datahub_docker.sh convenience script assumes that the recipe and any input/output files are accessible in the current working directory or its subdirectories. Files outside the current working directory will not be found, and you'll need to invoke the Docker image directly._
 
 ```shell
-./scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
+# Assumes the DataHub repo is cloned locally.
+./metadata-ingestion/scripts/datahub_docker.sh ingest -c ./examples/recipes/example_to_datahub_rest.yml
 ```
 
 ### Install from source
@@ -314,6 +315,7 @@ Extracts:
 - List of databases, schema, and tables
 - Column types associated with each table
 - Also supports PostGIS extensions
+- database_alias (optional) can be used to change the name of database to be ingested
 
 ```yml
 source:
@@ -323,6 +325,7 @@ source:
     password: pass
     host_port: localhost:5432
     database: DemoDatabase
+    database_alias: DatabaseNameToBeIngested
     include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
     # options is same as above
@@ -418,12 +421,13 @@ source:
     password: pass
     host_port: account_name
     database_pattern:
+      # The escaping of the $ symbol helps us skip the environment variable substitution.
       allow:
-        - ^regex$
-        - ^another_regex$
+        - ^MY_DEMO_DATA.*
+        - ^ANOTHER_DB_REGEX
       deny:
-        - ^SNOWFLAKE$
-        - ^SNOWFLAKE_SAMPLE_DATA$
+        - ^SNOWFLAKE\$
+        - ^SNOWFLAKE_SAMPLE_DATA\$
     warehouse: "COMPUTE_WH" # optional
     role: "sysadmin" # optional
     include_views: True # whether to include views, defaults to True
@@ -551,7 +555,6 @@ source:
     # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
     # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
     work_group: athena_workgroup # "primary"
-    include_views: True # whether to include views, defaults to True
     # table_pattern/schema_pattern is same as above
 ```
 
@@ -704,12 +707,11 @@ source:
     base_folder: /path/to/model/files # where the *.model.lkml and *.view.lkml files are stored
     connection_to_platform_map: # mappings between connection names in the model files to platform names
       connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
-    platform_name: "looker" # optional, default is "looker"
-    actor: "urn:li:corpuser:etl" # optional, default is "urn:li:corpuser:etl"
     model_pattern: {}
     view_pattern: {}
     env: "PROD" # optional, default is "PROD"
     parse_table_names_from_sql: False # see note below
+    platform_name: "looker" # optional, default is "looker"
 ```
 
 Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
@@ -724,19 +726,20 @@ Extracts:
 - Looker dashboards and dashboard elements (charts)
 - Names, descriptions, URLs, chart types, input view for the charts
 
+See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
+
 ```yml
 source:
   type: "looker"
   config:
-    client_id: str # Your Looker API client ID. As your Looker admin
-    client_secret: str # Your Looker API client secret. As your Looker admin
-    base_url: str # The url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
-    platform_name: str = "looker" # Optional, default is "looker"
-    view_platform_name: str = "looker_views" # Optional, default is "looker_views". Should be the same `platform_name` in the `lookml` source, if that source is also run.
-    actor: str = "urn:li:corpuser:etl" # Optional, "urn:li:corpuser:etl"
-    dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    env: str = "PROD" # Optional, default is "PROD"
+    client_id: # Your Looker API3 client ID
+    client_secret: # Your Looker API3 client secret
+    base_url: # The url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
+    dashboard_pattern: # supports allow/deny regexes
+    chart_pattern: # supports allow/deny regexes
+    actor: urn:li:corpuser:etl # Optional, defaults to urn:li:corpuser:etl
+    env: "PROD" # Optional, default is "PROD"
+    platform_name: "looker" # Optional, default is "looker"
 ```
 
 ### File `file`
@@ -797,7 +800,7 @@ Note: when `load_schemas` is False, models that use [identifiers](https://docs.g
 - Fetch a list of tables and columns accessed
 - Aggregate these statistics into buckets, by day or hour granularity
 
-Note: the client must have one of the following OAuth scopes:
+Note: the client must have one of the following OAuth scopes, and should be authorized on all projects you'd like to ingest usage stats from.
 
 - https://www.googleapis.com/auth/logging.read
 - https://www.googleapis.com/auth/logging.admin
@@ -808,7 +811,9 @@ Note: the client must have one of the following OAuth scopes:
 source:
   type: bigquery-usage
   config:
-    project_id: project # optional - can autodetect from environment
+    projects: # optional - can autodetect a single project from the environment
+      - project_id_1
+      - project_id_2
     options:
       # See https://googleapis.dev/python/logging/latest/client.html for details.
       credentials: ~ # optional - see docs
@@ -1038,7 +1043,7 @@ In some cases, you might want to construct the MetadataChangeEvents yourself but
 
 There's a couple ways to get lineage information from Airflow into DataHub.
 
-:::note Running ingestion on a schedule
+:::note
 
 If you're simply looking to run ingestion on a schedule, take a look at these sample DAGs:
 
@@ -1075,12 +1080,12 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
        "graceful_exceptions": true }
    # The above indentation is important!
    ```
-   Configuration options:
+   **Configuration options:**
    - `datahub_conn_id` (required): Usually `datahub_rest_default` or `datahub_kafka_default`, depending on what you named the connection in step 1.
    - `capture_ownership_info` (defaults to true): If true, the owners field of the DAG will be capture as a DataHub corpuser.
    - `capture_tags_info` (defaults to true): If true, the tags field of the DAG will be captured as DataHub tags.
    - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions.
-3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./src/datahub_provider/example_dags/lineage_backend_demo.py).
+3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./src/datahub_provider/example_dags/lineage_backend_demo.py), or reference [`lineage_backend_taskflow_demo.py`](./src/datahub_provider/example_dags/lineage_backend_taskflow_demo.py) if you're using the [TaskFlow API](https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html).
 4. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
 
 ### Emitting lineage via a separate operator
