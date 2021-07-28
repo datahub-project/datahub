@@ -644,7 +644,7 @@ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://loca
 }
 ```
 
-Note that this API will soon be deprecated in favor the V2 Aspect API, discussed below. 
+Note that this API will soon be deprecated and replaced by the V2 Aspect API, discussed below. 
 
 #### Aspect API V2: Get a range of Versioned Aspects
 

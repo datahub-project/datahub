@@ -1,5 +1,5 @@
 import React from 'react';
-import { findByText, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import SnapshotStatsView from '../stats/snapshot/SnapshotStatsView';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 import { completeSampleProfile, missingFieldStatsProfile, missingTableStatsProfile } from '../stories/stats';
