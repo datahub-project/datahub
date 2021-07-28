@@ -41,8 +41,13 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.*;
-import static org.testng.Assert.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 
 public class EbeanEntityServiceTest {
@@ -233,9 +238,7 @@ public class EbeanEntityServiceTest {
     datasetProfile.setRowCount(1000);
     datasetProfile.setColumnCount(15);
     MetadataChangeProposal gmce = new MetadataChangeProposal();
-    MetadataChangeProposal.EntityKey entityKey = new MetadataChangeProposal.EntityKey();
-    entityKey.setUrn(entityUrn);
-    gmce.setEntityKey(entityKey);
+    gmce.setEntityUrn(entityUrn);
     gmce.setChangeType(ChangeType.CREATE);
     gmce.setEntityType("dataset");
     gmce.setAspectName("datasetProfile");

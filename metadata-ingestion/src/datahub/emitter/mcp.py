@@ -24,7 +24,8 @@ def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
 @dataclasses.dataclass
 class MetadataChangeProposalWrapper:
     entityType: str
-    entityKey: Union[str, DictWrapper]
+    entityUrn: Union[None, str]
+    entityKeyAspect: Union[None, DictWrapper] = None
     changeType: Union[str, ChangeTypeClass]
     auditHeader: Union[None, KafkaAuditHeaderClass] = None
     aspectName: Union[None, str] = None
@@ -32,11 +33,9 @@ class MetadataChangeProposalWrapper:
     systemMetadata: Union[None, SystemMetadataClass] = None
 
     def make_mcp(self) -> MetadataChangeProposalClass:
-        serializedEntityKey: Union[str, GenericAspectClass]
-        if isinstance(self.entityKey, DictWrapper):
-            serializedEntityKey = _make_generic_aspect(self.entityKey)
-        else:
-            serializedEntityKey = self.entityKey
+        serializedEntityKeyAspect: Union[None, GenericAspectClass]
+        if isinstance(self.entityKeyAspect, DictWrapper):
+            serializedEntityKeyAspect = _make_generic_aspect(self.entityKey)
 
         serializedAspect = None
         if self.aspect is not None:
@@ -44,7 +43,8 @@ class MetadataChangeProposalWrapper:
 
         return MetadataChangeProposalClass(
             entityType=self.entityType,
-            entityKey=serializedEntityKey,
+            entityUrn=entityUrn,
+            entityKeyAspect=serializedEntityKeyAspect,
             changeType=self.changeType,
             auditHeader=self.auditHeader,
             aspectName=self.aspectName,

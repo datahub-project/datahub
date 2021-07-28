@@ -118,9 +118,8 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityKey": {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DEMO_PIPELINE.public.dataset_lineages,PROD)"
-    },
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,DEMO_PIPELINE.public.dataset_lineages,PROD)",
+    "entityKeyAspect": null,
     "changeType": "UPDATE",
     "aspectName": "datasetProfile",
     "aspect": {

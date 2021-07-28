@@ -246,7 +246,7 @@ basicAuditStamp = models.AuditStampClass(
         (
             MetadataChangeProposalWrapper(
                 entityType="dataset",
-                entityKey="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
                 changeType=models.ChangeTypeClass.UPSERT,
                 aspectName="ownership",
                 aspect=models.OwnershipClass(
