@@ -4,8 +4,11 @@ from botocore.stub import Stubber
 from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sagemaker import SagemakerSource, SagemakerSourceConfig
-from datahub.ingestion.source.sagemaker_processors.jobs import SAGEMAKER_JOB_TYPES
+from datahub.ingestion.source.aws.sagemaker import (
+    SagemakerSource,
+    SagemakerSourceConfig,
+)
+from datahub.ingestion.source.aws.sagemaker_processors.jobs import SAGEMAKER_JOB_TYPES
 from tests.test_helpers import mce_helpers
 from tests.unit.test_sagemaker_source_stubs import (
     describe_endpoint_response_1,

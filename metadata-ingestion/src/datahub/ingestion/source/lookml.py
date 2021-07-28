@@ -24,6 +24,11 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.sql_types import (
+    POSTGRES_TYPES_MAP,
+    SNOWFLAKE_TYPES_MAP,
+    resolve_postgres_modified_type,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -112,6 +117,11 @@ class LookerModel:
     def resolve_includes(
         includes: List[str], base_folder: str, path: str, reporter: LookMLSourceReport
     ) -> List[str]:
+        """Resolve ``include`` statements in LookML model files to a list of ``.lkml`` files.
+
+        For rules on how LookML ``include`` statements are written, see
+            https://docs.looker.com/data-modeling/getting-started/ide-folders#wildcard_examples
+        """
         resolved = []
         for inc in includes:
             # Filter out dashboards - we get those through the looker source.
@@ -128,7 +138,10 @@ class LookerModel:
             else:
                 # Need to handle a relative path.
                 glob_expr = str(pathlib.Path(path).parent / inc)
-            outputs = glob.glob(glob_expr) + glob.glob(f"{glob_expr}.lkml")
+            # "**" matches an arbitrary number of directories in LookML
+            outputs = glob.glob(glob_expr, recursive=True) + glob.glob(
+                f"{glob_expr}.lkml", recursive=True
+            )
             if "*" not in inc and not outputs:
                 reporter.report_failure(path, f"cannot resolve include {inc}")
             elif not outputs:
@@ -412,6 +425,46 @@ class LookerView:
         return None
 
 
+field_type_mapping = {
+    **POSTGRES_TYPES_MAP,
+    **SNOWFLAKE_TYPES_MAP,
+    "date": DateTypeClass,
+    "date_time": TimeTypeClass,
+    "date_millisecond": TimeTypeClass,
+    "date_minute": TimeTypeClass,
+    "date_raw": TimeTypeClass,
+    "date_week": TimeTypeClass,
+    "duration_day": TimeTypeClass,
+    "distance": NumberTypeClass,
+    "duration": NumberTypeClass,
+    "location": UnionTypeClass,
+    "number": NumberTypeClass,
+    "string": StringTypeClass,
+    "tier": EnumTypeClass,
+    "time": TimeTypeClass,
+    "unquoted": StringTypeClass,
+    "yesno": BooleanTypeClass,
+    "zipcode": EnumTypeClass,
+    "int": NumberTypeClass,
+    "average": NumberTypeClass,
+    "average_distinct": NumberTypeClass,
+    "count": NumberTypeClass,
+    "count_distinct": NumberTypeClass,
+    "list": ArrayTypeClass,
+    "max": NumberTypeClass,
+    "median": NumberTypeClass,
+    "median_distinct": NumberTypeClass,
+    "min": NumberTypeClass,
+    "percent_of_previous": NumberTypeClass,
+    "percent_of_total": NumberTypeClass,
+    "percentile": NumberTypeClass,
+    "percentile_distinct": NumberTypeClass,
+    "running_total": NumberTypeClass,
+    "sum": NumberTypeClass,
+    "sum_distinct": NumberTypeClass,
+}
+
+
 class LookMLSource(Source):
     source_config: LookMLSourceConfig
     reporter: LookMLSourceReport
@@ -477,46 +530,22 @@ class LookMLSource(Source):
         return upstream_lineage
 
     def _get_field_type(self, native_type: str) -> SchemaFieldDataType:
-        field_type_mapping = {
-            "date": DateTypeClass,
-            "date_time": TimeTypeClass,
-            "distance": NumberTypeClass,
-            "duration": NumberTypeClass,
-            "location": UnionTypeClass,
-            "number": NumberTypeClass,
-            "string": StringTypeClass,
-            "tier": EnumTypeClass,
-            "time": TimeTypeClass,
-            "unquoted": StringTypeClass,
-            "yesno": BooleanTypeClass,
-            "zipcode": EnumTypeClass,
-            "int": NumberTypeClass,
-            "average": NumberTypeClass,
-            "average_distinct": NumberTypeClass,
-            "count": NumberTypeClass,
-            "count_distinct": NumberTypeClass,
-            "list": ArrayTypeClass,
-            "max": NumberTypeClass,
-            "median": NumberTypeClass,
-            "median_distinct": NumberTypeClass,
-            "min": NumberTypeClass,
-            "percent_of_previous": NumberTypeClass,
-            "percent_of_total": NumberTypeClass,
-            "percentile": NumberTypeClass,
-            "percentile_distinct": NumberTypeClass,
-            "running_total": NumberTypeClass,
-            "sum": NumberTypeClass,
-            "sum_distinct": NumberTypeClass,
-        }
 
-        if native_type in field_type_mapping:
-            type_class = field_type_mapping[native_type]
-        else:
+        type_class = field_type_mapping.get(native_type)
+
+        if type_class is None:
+
+            # attempt Postgres modified type
+            type_class = resolve_postgres_modified_type(native_type)
+
+        # if still not found, report a warning
+        if type_class is None:
             self.reporter.report_warning(
                 native_type,
                 f"The type '{native_type}' is not recognized for field type, setting as NullTypeClass.",
             )
             type_class = NullTypeClass
+
         data_type = SchemaFieldDataType(type=type_class())
         return data_type
 

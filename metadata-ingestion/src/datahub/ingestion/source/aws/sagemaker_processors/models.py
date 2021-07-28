@@ -5,13 +5,15 @@ from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
-from datahub.ingestion.source.sagemaker_processors.jobs import (
+from datahub.ingestion.source.aws.sagemaker_processors.common import (
+    SagemakerSourceReport,
+)
+from datahub.ingestion.source.aws.sagemaker_processors.jobs import (
     JobDirection,
     JobKey,
     ModelJob,
 )
-from datahub.ingestion.source.sagemaker_processors.lineage import LineageInfo
+from datahub.ingestion.source.aws.sagemaker_processors.lineage import LineageInfo
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     MLModelDeploymentSnapshot,
     MLModelGroupSnapshot,
