@@ -869,7 +869,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "auto_ml/an-auto-ml-job"
+                "/auto_ml/an-auto-ml-job"
               ]
             }
           },
@@ -949,7 +949,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "compilation/a-compilation-job"
+                "/compilation/a-compilation-job"
               ]
             }
           },
@@ -1030,7 +1030,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "edge_packaging/an-edge-packaging-job"
+                "/edge_packaging/an-edge-packaging-job"
               ]
             }
           },
@@ -1108,7 +1108,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "hyper_parameter_tuning/a-hyper-parameter-tuning-job"
+                "/hyper_parameter_tuning/a-hyper-parameter-tuning-job"
               ]
             }
           },
@@ -1186,7 +1186,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "labeling/a-labeling-job"
+                "/labeling/a-labeling-job"
               ]
             }
           },
@@ -1273,7 +1273,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "processing/a-processing-job"
+                "/processing/a-processing-job"
               ]
             }
           },
@@ -1378,7 +1378,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "training/a-training-job"
+                "/training/a-training-job"
               ]
             }
           },
@@ -1468,7 +1468,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "transform/a-transform-job"
+                "/transform/a-transform-job"
               ]
             }
           },
