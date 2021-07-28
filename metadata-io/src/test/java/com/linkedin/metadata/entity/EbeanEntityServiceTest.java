@@ -525,6 +525,58 @@ public class EbeanEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
   }
 
+  @Test
+  public void testRollbackUrn() throws Exception {
+    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
+    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+
+    SystemMetadata metadata1 = new SystemMetadata();
+    metadata1.setLastObserved(1625792689);
+    metadata1.setRunId("run-123");
+
+    SystemMetadata metadata2 = new SystemMetadata();
+    metadata2.setLastObserved(1635792689);
+    metadata2.setRunId("run-456");
+
+    String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+
+
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+
+
+    // Ingest CorpUserInfo Aspect #3
+    CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
+    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #1 Overwrite
+    CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
+    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
+
+    // this should no-op since the key should have been written in the furst run
+    AspectRowSummary rollbackKeyWithWrongRunId = new AspectRowSummary();
+    rollbackKeyWithWrongRunId.setRunId("run-456");
+    rollbackKeyWithWrongRunId.setAspectName("CorpUserKey");
+    rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
+
+    // this should delete all related aspects
+    _entityService.rollbackUrn(Urn.createFromString("urn:li:corpuser:test1"));
+
+
+    // assert the new most recent aspect is null
+    RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
+    assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
+
+    RecordTemplate deletedKeyAspect = _entityService.getAspect(entityUrn1, "corpUserKey", 0);
+    assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
+  }
+
   @Nonnull
   private com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email) throws Exception {
     CorpuserUrn corpuserUrn = CorpuserUrn.createFromUrn(entityUrn);

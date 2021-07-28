@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -48,7 +48,6 @@ public class EbeanEntityService extends EntityService {
   private Boolean _alwaysEmitAuditEvent = false;
 
   private final ObjectMapper objectMapper = new ObjectMapper();
-
 
   public EbeanEntityService(
       @Nonnull final EbeanAspectDao entityDao,
@@ -455,6 +454,18 @@ public class EbeanEntityService extends EntityService {
 
   @Value
   public static class RollbackResult {
+    Urn urn;
+    RecordTemplate oldValue;
+    RecordTemplate newValue;
+    SystemMetadata oldSystemMetadata;
+    SystemMetadata newSystemMetadata;
+    MetadataAuditOperation operation;
+    Boolean keyAffected;
+    Integer additionalRowsAffected;
+  }
+
+  @Value
+  public static class RollbackRunResult {
     List<AspectRowSummary> rowsRolledBack;
     Integer rowsDeletedFromEntityDeletion;
   }
@@ -464,113 +475,124 @@ public class EbeanEntityService extends EntityService {
     _entityDao.setWritable(canWrite);
   }
 
+  public RollbackResult rollback(String urn, String aspectName, String runId) {
+    final RollbackResult result = _entityDao.runInTransactionWithRetry(() -> {
+      Integer additionalRowsDeleted = 0;
+
+      // 1. Fetch the latest existing version of the aspect.
+      final EbeanAspectV2 latest =
+          _entityDao.getLatestAspect(urn, aspectName);
+
+      // 1.1 If no latest exists, skip this aspect
+      if (latest == null) {
+        return null;
+      }
+
+      // 2. Compare the latest run id. If the run id does not match this run, ignore.
+      SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemMetadata());
+      String latestMetadata = latest.getMetadata();
+      if (!latestSystemMetadata.getRunId().equals(runId)) {
+        return null;
+      }
+
+      // 3. Fetch what precedes it, if there is another aspect
+      final long maxVersion = _entityDao.getMaxVersion(urn, aspectName);
+      EbeanAspectV2 previousAspect = null;
+      String previousMetadata = null;
+      if (maxVersion > 0) {
+        previousAspect =
+            _entityDao.getAspect(urn, aspectName, maxVersion);
+        previousMetadata = previousAspect.getMetadata();
+      }
+
+
+      // 4. Update the mysql table
+      Boolean isKeyAspect = false;
+      try {
+        isKeyAspect =
+            getKeyAspectName(Urn.createFromString(urn)).equals(aspectName);
+      } catch (URISyntaxException e) {
+        e.printStackTrace();
+      }
+
+      if (previousAspect != null) {
+        // if there was a previous aspect, delete it and them write it to version 0
+        latest.setMetadata(previousAspect.getMetadata());
+        latest.setSystemMetadata(previousAspect.getSystemMetadata());
+        _entityDao.saveAspect(latest, false);
+        _entityDao.deleteAspect(previousAspect);
+      } else {
+        // if this is the key aspect, we also want to delete the entity entirely
+        if (isKeyAspect) {
+          if (
+              _entityDao.getEarliestAspect(urn).get().getCreatedOn()
+                  .equals(latest.getCreatedOn())
+          ) {
+            additionalRowsDeleted = _entityDao.deleteUrn(urn);
+            _entityDao.deleteAspect(latest);
+          } else {
+            return null;
+          }
+        } else {
+          // if there was not a previous aspect, just delete the latest one
+          _entityDao.deleteAspect(latest);
+        }
+      }
+
+      // 5. Emit the Update
+      try {
+        final RecordTemplate latestValue = latest == null ? null
+            : toAspectRecord(
+                Urn.createFromString(latest.getKey().getUrn()),
+                latest.getKey().getAspect(),
+                latestMetadata,
+                getEntityRegistry()
+            );
+
+
+        final RecordTemplate previousValue = previousAspect == null ? null
+            : toAspectRecord(
+                Urn.createFromString(previousAspect.getKey().getUrn()),
+                previousAspect.getKey().getAspect(),
+                previousMetadata,
+                getEntityRegistry()
+            );
+
+
+        return new RollbackResult(
+            Urn.createFromString(urn),
+            latestValue,
+            previousValue == null ? latestValue : previousValue,
+            latestSystemMetadata,
+            previousValue == null ? null : parseSystemMetadata(previousAspect.getSystemMetadata()),
+            previousAspect == null ? MetadataAuditOperation.DELETE : MetadataAuditOperation.UPDATE,
+            isKeyAspect,
+            additionalRowsDeleted
+        );
+
+      } catch (URISyntaxException e) {
+        e.printStackTrace();
+      }
+
+      return null;
+    }, DEFAULT_MAX_TRANSACTION_RETRY);
+
+    return result;
+  }
+
   @Override
-  public RollbackResult rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
+  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
-    AtomicReference<Integer> rowsDeletedFromEntityDeletion = new AtomicReference<>(0);
+    AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
 
     aspectRows.forEach(aspectToRemove -> {
 
-      final UpdateAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
+      RollbackResult result =
+          rollback(aspectToRemove.getUrn(), aspectToRemove.getAspectName(), runId);
 
-        // 1. Fetch the latest existing version of the aspect.
-        final EbeanAspectV2 latest =
-            _entityDao.getLatestAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName());
-
-        // 1.1 If no latest exists, skip this aspect
-        if (latest == null) {
-          return null;
-        }
-
-        // 2. Compare the latest run id. If the run id does not match this run, ignore.
-        SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemMetadata());
-        String latestMetadata = latest.getMetadata();
-        if (!latestSystemMetadata.getRunId().equals(runId)) {
-          return null;
-        }
-
-        // 3. Fetch what precedes it, if there is another aspect
-        final long maxVersion = _entityDao.getMaxVersion(aspectToRemove.getUrn(), aspectToRemove.getAspectName());
-        EbeanAspectV2 previousAspect = null;
-        String previousMetadata = null;
-        if (maxVersion > 0) {
-          previousAspect =
-              _entityDao.getAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(), maxVersion);
-          previousMetadata = previousAspect.getMetadata();
-        }
-
-
-        // 4. Update the mysql table
-        Boolean isKeyAspect = false;
-        try {
-          isKeyAspect =
-              getKeyAspectName(Urn.createFromString(aspectToRemove.getUrn())).equals(aspectToRemove.getAspectName());
-        } catch (URISyntaxException e) {
-          e.printStackTrace();
-        }
-
-        if (previousAspect != null) {
-          // if there was a previous aspect, delete it and them write it to version 0
-          latest.setMetadata(previousAspect.getMetadata());
-          latest.setSystemMetadata(previousAspect.getSystemMetadata());
-          _entityDao.saveAspect(latest, false);
-          _entityDao.deleteAspect(previousAspect);
-        } else {
-          // if this is the key aspect, we also want to delete the entity entirely
-          if (isKeyAspect) {
-            if (
-                _entityDao.getEarliestAspect(aspectToRemove.getUrn()).get().getCreatedOn()
-                    .equals(latest.getCreatedOn())
-            ) {
-              rowsDeletedFromEntityDeletion.updateAndGet(v -> v + _entityDao.deleteUrn(aspectToRemove.getUrn()));
-              _entityDao.deleteAspect(latest);
-            } else {
-              return null;
-            }
-          } else {
-            // if there was not a previous aspect, just delete the latest one
-            _entityDao.deleteAspect(latest);
-          }
-        }
-
-        // 5. Emit the Update
-        try {
-          final RecordTemplate latestValue = latest == null ? null
-              : toAspectRecord(
-                  Urn.createFromString(latest.getKey().getUrn()),
-                  latest.getKey().getAspect(),
-                  latestMetadata,
-                  getEntityRegistry()
-              );
-
-
-          final RecordTemplate previousValue = previousAspect == null ? null
-              : toAspectRecord(
-                  Urn.createFromString(previousAspect.getKey().getUrn()),
-                  previousAspect.getKey().getAspect(),
-                  previousMetadata,
-                  getEntityRegistry()
-              );
-
-
-          return new UpdateAspectResult(
-              Urn.createFromString(aspectToRemove.getUrn()),
-              latestValue,
-              previousValue == null ? latestValue : previousValue,
-              latestSystemMetadata,
-              previousValue == null ? null : parseSystemMetadata(previousAspect.getSystemMetadata()),
-              previousAspect == null ? MetadataAuditOperation.DELETE : MetadataAuditOperation.UPDATE,
-              isKeyAspect
-          );
-
-        } catch (URISyntaxException e) {
-          e.printStackTrace();
-        }
-
-        return null;
-      }, DEFAULT_MAX_TRANSACTION_RETRY);
 
       if (result != null) {
+        rowsDeletedFromEntityDeletion.addAndGet(result.additionalRowsAffected);
         removedAspects.add(aspectToRemove);
         produceMetadataAuditEvent(
             result.getUrn(),
@@ -583,6 +605,43 @@ public class EbeanEntityService extends EntityService {
       }
     });
 
-    return new RollbackResult(removedAspects, rowsDeletedFromEntityDeletion.get());
+    return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion.get());
+  }
+
+  @Override
+  public RollbackRunResult rollbackUrn(Urn urn) {
+    List<AspectRowSummary> removedAspects = new ArrayList<>();
+    AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
+
+    String keyAspectName = getKeyAspectName(urn);
+    EbeanAspectV2 latestKey = _entityDao.getLatestAspect(urn.toString(), keyAspectName);
+    if (latestKey == null || latestKey.getSystemMetadata() == null) {
+      return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion.get());
+    }
+
+    SystemMetadata latestKeySystemMetadata = parseSystemMetadata(latestKey.getSystemMetadata());
+
+    RollbackResult result = rollback(urn.toString(), keyAspectName, latestKeySystemMetadata.getRunId());
+
+    if (result != null) {
+      AspectRowSummary summary = new AspectRowSummary();
+      summary.setUrn(urn.toString());
+      summary.setKeyAspect(true);
+      summary.setAspectName(keyAspectName);
+      summary.setVersion(0);
+
+      rowsDeletedFromEntityDeletion.addAndGet(result.additionalRowsAffected);
+      removedAspects.add(summary);
+      produceMetadataAuditEvent(
+          result.getUrn(),
+          result.getOldValue(),
+          result.getNewValue(),
+          result.getOldSystemMetadata(),
+          result.getNewSystemMetadata(),
+          result.getOperation()
+      );
+    }
+
+    return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion.get());
   }
 }

@@ -457,5 +457,7 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
-  public abstract EbeanEntityService.RollbackResult rollbackRun(List<AspectRowSummary> aspectRows, String runId);
+  public abstract EbeanEntityService.RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId);
+
+  public abstract EbeanEntityService.RollbackRunResult rollbackUrn(Urn urn);
 }
