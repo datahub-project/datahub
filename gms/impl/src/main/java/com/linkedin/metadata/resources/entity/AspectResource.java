@@ -39,6 +39,7 @@ import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
 public class AspectResource extends CollectionResourceTaskTemplate<String, VersionedAspect> {
 
   private static final String ACTION_GET_TIMESERIES_ASPECT = "getTimeseriesAspectValues";
+
   private static final String ACTION_INGEST_PROPOSAL = "ingestProposal";
 
   private static final String PARAM_ENTITY = "entity";
@@ -82,7 +83,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_ENTITY) @Nonnull String entityName, @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
       @ActionParam(FINDER_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_LIMIT) @Optional("10000") int limit) throws URISyntaxException {
-    log.info("Get Aspect values for aspect {} for entity {} with filter {} and limit {}.", aspectName, entityName,
+    log.info("Get Timeseries Aspect values for aspect {} for entity {} with filter {} and limit {}.", aspectName, entityName,
         filter, limit);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtils.toTask(() -> {

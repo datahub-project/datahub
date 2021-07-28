@@ -32,7 +32,9 @@ DataHub’s modeling language allows you to optimize metadata persistence to ali
 
 There are three supported ways to query the metadata graph: by primary key lookup, a search query, and via relationship traversal. 
 
-### Primary Key Query
+### Querying an Entity
+
+#### Fetching Latest Entity Aspects 
 
 Querying an Entity by primary key means using the "entities" endpoint, passing in the 
 urn of the entity to retrieve. 
@@ -43,8 +45,51 @@ For example, to fetch a Chart entity, we can use the following CURL:
 curl --location --request GET 'http://localhost:8080/entities/urn%3Ali%3Achart%3Acustomers
 ```
 
+The type of request will return a set of versioned aspects, each at the latest version. 
+
 As you'll notice, we perform the lookup using the url-encoded *Urn* associated with an entity. 
 The response would be an "Entity" record containing the Entity Snapshot (which in turn contains the latest aspects associated with the Entity).
+
+#### Fetching Versioned Aspects
+
+DataHub also supports fetching individual pieces of metadata about an Entity, which we call aspects. To do so, 
+you'll provide both an Entity's primary key (urn) along with the aspect name and version that you'd like to retrieve. 
+
+For example, to fetch the latest version of a Dataset's SchemaMetadata aspect, you would issue the following query:
+
+```aidl
+
+
+```
+          
+Which will return a particular aspect, keyed by its fully qualified schema name: 
+
+```aidl
+
+```
+
+#### Fetching Timeseries Aspects
+
+DataHub supports an API for fetching a group of Timeseries aspects about an Entity. For example, you may want to use this API
+to fetch recent profiling runs & statistics about a Dataset. To do so, you can issue a "get" against the `/aspects` endpoint,.
+
+For example, to fetch dataset profiles (ie. stats) for a Dataset, you would issue the following query:
+
+```aidl
+
+```
+
+Which will return a set of aspects, each with some enveloping metadata:
+
+```aidl
+
+
+```
+
+You'll notice that the aspect itself is serialized as escaped JSON. This is part of a shift toward a more generic set of READ / WRITE APIs
+that permit serialization of aspects in different ways. By default, the content type will be JSON, and the aspect can be deserialized into a normal JSON object 
+in the language of your choice. Note that this will soon become the defacto way to both write and read individual aspects. 
+
 
 
 ### Search Query
