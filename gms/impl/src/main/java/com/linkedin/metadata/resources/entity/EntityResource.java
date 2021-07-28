@@ -7,12 +7,16 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtils;
+import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.run.AspectRowSummaryArray;
+import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.mxe.SystemMetadata;
@@ -29,6 +33,7 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -212,6 +217,30 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
     log.info("GET BROWSE PATHS for {}", urn.toString());
     return RestliUtils.toTask(() -> new StringArray(_searchService.getBrowsePaths(urnToEntityName(urn), urn)));
+  }
+
+  /*
+  Used to enable writes in GMS after data migration is complete
+   */
+  @Action(name = "rollback")
+  @Nonnull
+  public Task<RollbackResponse> rollback(@Nonnull String urnStr) throws URISyntaxException {
+    Urn urn = Urn.createFromString(urnStr);
+
+    return RestliUtils.toTask(() -> {
+      RollbackResponse response = new RollbackResponse();
+
+      EbeanEntityService.RollbackRunResult result = _entityService.rollbackUrn(urn);
+
+      List<AspectRowSummary> deletedRows = result.getRowsRolledBack();
+
+      response.setAspectsAffected(deletedRows.size());
+      response.setEntitiesAffected(deletedRows.stream().filter(row -> row.isKeyAspect()).count());
+      response.setAspectRowSummaries(
+          new AspectRowSummaryArray(deletedRows.subList(0, Math.min(100, deletedRows.size()))));
+
+      return response;
+    });
   }
 
   /*

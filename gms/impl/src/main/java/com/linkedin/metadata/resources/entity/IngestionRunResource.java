@@ -68,18 +68,19 @@ public class IngestionRunResource extends CollectionResourceTaskTemplate<String,
         return response;
       }
 
-      log.info("deleting...");
-      EbeanEntityService.RollbackResult rollbackResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
-      List<AspectRowSummary> deletedRows = rollbackResult.getRowsRolledBack();
-      Integer rowsDeletedFromEntityDeletion = rollbackResult.getRowsDeletedFromEntityDeletion();
+      EbeanEntityService.RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
+      List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
+      Integer rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
+
+      // since elastic limits how many rows we can access at once, we need to iteratively delete
       while (aspectRowsToDelete.size() >= ELASTIC_MAX_PAGE_SIZE) {
         sleep(5);
         aspectRowsToDelete = _systemMetadataService.findByRunId(runId);
         log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
         log.info("deleting...");
-        rollbackResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
-        deletedRows.addAll(rollbackResult.getRowsRolledBack());
-        rowsDeletedFromEntityDeletion += rollbackResult.getRowsDeletedFromEntityDeletion();
+        rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
+        deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
+        rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
       }
 
       log.info("finished deleting {} rows", deletedRows.size());
