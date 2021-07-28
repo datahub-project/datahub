@@ -106,4 +106,15 @@ record MLModelProperties includes CustomProperties, ExternalReference {
     }
   }
   downstreamJobs: optional array[Urn]
+
+  /**
+   * Groups the model belongs to
+   */
+  @Relationship = {
+    "/*": {
+      "name": "MemberOf",
+      "entityTypes": [ "mlModelGroup" ]
+    }
+  }
+  groups: optional array[Urn]
 }

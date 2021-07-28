@@ -815,7 +815,11 @@
           }
         }
       },
-      "doc" : "Urn of the applied glossary term"
+      "doc" : "Urn of the applied glossary term",
+      "Searchable" : {
+        "fieldName" : "glossaryTerms",
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
     "type" : "record",
@@ -2879,11 +2883,6 @@
                           "type" : "com.linkedin.common.Time",
                           "doc" : "Date when the MLHyperParam was developed",
                           "optional" : true
-                        }, {
-                          "name" : "version",
-                          "type" : "com.linkedin.common.VersionTag",
-                          "doc" : "Version of the MLHyperParam",
-                          "optional" : true
                         } ],
                         "Aspect" : {
                           "name" : "mlHyperParam"
@@ -2918,11 +2917,6 @@
                           "name" : "createdAt",
                           "type" : "com.linkedin.common.Time",
                           "doc" : "Date when the mlMetric was developed",
-                          "optional" : true
-                        }, {
-                          "name" : "version",
-                          "type" : "com.linkedin.common.VersionTag",
-                          "doc" : "Version of the mlMetric",
                           "optional" : true
                         } ],
                         "Aspect" : {
@@ -2996,6 +2990,20 @@
                       "/*" : {
                         "entityTypes" : [ "dataJob" ],
                         "name" : "UsedBy"
+                      }
+                    }
+                  }, {
+                    "name" : "groups",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "Groups the model belongs to",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "mlModelGroup" ],
+                        "name" : "MemberOf"
                       }
                     }
                   } ],
@@ -3794,20 +3802,6 @@
                     "type" : "com.linkedin.common.VersionTag",
                     "doc" : "Version of the MLModelGroup",
                     "optional" : true
-                  }, {
-                    "name" : "models",
-                    "type" : {
-                      "type" : "array",
-                      "items" : "com.linkedin.common.Urn"
-                    },
-                    "doc" : "Models in the group",
-                    "default" : [ ],
-                    "Relationship" : {
-                      "/*" : {
-                        "entityTypes" : [ "mlModel" ],
-                        "name" : "Includes"
-                      }
-                    }
                   } ],
                   "Aspect" : {
                     "name" : "mlModelGroupProperties"

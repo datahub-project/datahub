@@ -74,7 +74,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "sagemaker/test-2"
+                "/sagemaker/test-2"
               ]
             }
           },
@@ -185,7 +185,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "sagemaker/test-1"
+                "/sagemaker/test-1"
               ]
             }
           },
@@ -278,7 +278,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "sagemaker/test"
+                "/sagemaker/test"
               ]
             }
           },
@@ -1495,7 +1495,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
-        "urn": "urn:li:mlModelDeployment:(sagemaker,the-first-endpoint,PROD)",
+        "urn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-first-endpoint,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
@@ -1525,7 +1525,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
-        "urn": "urn:li:mlModelDeployment:(sagemaker,the-second-endpoint,PROD)",
+        "urn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-second-endpoint,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
@@ -1544,6 +1544,53 @@
               "createdAt": 1420070400000,
               "version": null,
               "status": "CREATING"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot": {
+        "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelGroupProperties": {
+              "customProperties": {
+                "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
+                "ModelPackageGroupDescription": "Just a model package group.",
+                "CreatedBy": "{'UserProfileArn': 'arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user', 'UserProfileName': 'some-user', 'DomainId': 'some-domain'}",
+                "ModelPackageGroupStatus": "Completed"
+              },
+              "description": "Just a model package group.",
+              "createdAt": 1420070400000,
+              "version": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:some-user",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "/sagemaker/a-model-package-group"
+              ]
             }
           }
         ]
@@ -1579,15 +1626,13 @@
                   "name": "parameter-1",
                   "description": null,
                   "value": "some-value",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 },
                 {
                   "name": "parameter-2",
                   "description": null,
                   "value": "another-value",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 }
               ],
               "trainingMetrics": [
@@ -1595,27 +1640,35 @@
                   "name": "another-metric",
                   "description": null,
                   "value": "1.0",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 },
                 {
                   "name": "some-metric",
                   "description": null,
                   "value": "1.0",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 }
               ],
               "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],
               "deployments": [
-                "urn:li:mlModelDeployment:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
+                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
               ],
               "trainingJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
               ],
-              "downstreamJobs": []
+              "downstreamJobs": [],
+              "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "/sagemaker/a-model-package-group/the-first-model"
+              ]
             }
           }
         ]
@@ -1651,15 +1704,13 @@
                   "name": "parameter-1",
                   "description": null,
                   "value": "some-value",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 },
                 {
                   "name": "parameter-2",
                   "description": null,
                   "value": "another-value",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 }
               ],
               "trainingMetrics": [
@@ -1667,22 +1718,20 @@
                   "name": "another-metric",
                   "description": null,
                   "value": "1.0",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 },
                 {
                   "name": "some-metric",
                   "description": null,
                   "value": "1.0",
-                  "createdAt": null,
-                  "version": null
+                  "createdAt": null
                 }
               ],
               "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],
               "deployments": [
-                "urn:li:mlModelDeployment:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
+                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
               ],
               "trainingJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
@@ -1690,51 +1739,17 @@
               "downstreamJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot": {
-        "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLModelGroupProperties": {
-              "customProperties": {
-                "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
-                "ModelPackageGroupDescription": "Just a model package group.",
-                "CreatedBy": "{'UserProfileArn': 'arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user', 'UserProfileName': 'some-user', 'DomainId': 'some-domain'}",
-                "ModelPackageGroupStatus": "Completed"
-              },
-              "description": "Just a model package group.",
-              "createdAt": 1420070400000,
-              "version": null,
-              "models": [
-                "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
-                "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)"
+              ],
+              "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
               ]
             }
           },
           {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [
-                {
-                  "owner": "some-user",
-                  "type": "DATAOWNER",
-                  "source": null
-                }
-              ],
-              "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              }
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "/sagemaker/a-model-package-group/the-second-model"
+              ]
             }
           }
         ]

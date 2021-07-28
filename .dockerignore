@@ -1,5 +1,4 @@
 **/node_modules/
-datahub-web/build/
 datahub-frontend/build/
 metadata-ingestion/venv/
 out

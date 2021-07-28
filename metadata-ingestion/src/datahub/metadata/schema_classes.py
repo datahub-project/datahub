@@ -5671,7 +5671,6 @@ class MLHyperParamClass(DictWrapper):
         description: Union[None, str]=None,
         value: Union[None, str]=None,
         createdAt: Union[None, int]=None,
-        version: Union[None, "VersionTagClass"]=None,
     ):
         super().__init__()
         
@@ -5679,7 +5678,6 @@ class MLHyperParamClass(DictWrapper):
         self.description = description
         self.value = value
         self.createdAt = createdAt
-        self.version = version
     
     @classmethod
     def construct_with_defaults(cls) -> "MLHyperParamClass":
@@ -5693,7 +5691,6 @@ class MLHyperParamClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.value = self.RECORD_SCHEMA.field_map["value"].default
         self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
-        self.version = self.RECORD_SCHEMA.field_map["version"].default
     
     
     @property
@@ -5740,17 +5737,6 @@ class MLHyperParamClass(DictWrapper):
         self._inner_dict['createdAt'] = value
     
     
-    @property
-    def version(self) -> Union[None, "VersionTagClass"]:
-        """Getter: Version of the MLHyperParam"""
-        return self._inner_dict.get('version')  # type: ignore
-    
-    @version.setter
-    def version(self, value: Union[None, "VersionTagClass"]) -> None:
-        """Setter: Version of the MLHyperParam"""
-        self._inner_dict['version'] = value
-    
-    
 class MLMetricClass(DictWrapper):
     """Properties associated with an ML Metric"""
     
@@ -5760,7 +5746,6 @@ class MLMetricClass(DictWrapper):
         description: Union[None, str]=None,
         value: Union[None, str]=None,
         createdAt: Union[None, int]=None,
-        version: Union[None, "VersionTagClass"]=None,
     ):
         super().__init__()
         
@@ -5768,7 +5753,6 @@ class MLMetricClass(DictWrapper):
         self.description = description
         self.value = value
         self.createdAt = createdAt
-        self.version = version
     
     @classmethod
     def construct_with_defaults(cls) -> "MLMetricClass":
@@ -5782,7 +5766,6 @@ class MLMetricClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.value = self.RECORD_SCHEMA.field_map["value"].default
         self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
-        self.version = self.RECORD_SCHEMA.field_map["version"].default
     
     
     @property
@@ -5827,17 +5810,6 @@ class MLMetricClass(DictWrapper):
     def createdAt(self, value: Union[None, int]) -> None:
         """Setter: Date when the mlMetric was developed"""
         self._inner_dict['createdAt'] = value
-    
-    
-    @property
-    def version(self) -> Union[None, "VersionTagClass"]:
-        """Getter: Version of the mlMetric"""
-        return self._inner_dict.get('version')  # type: ignore
-    
-    @version.setter
-    def version(self, value: Union[None, "VersionTagClass"]) -> None:
-        """Setter: Version of the mlMetric"""
-        self._inner_dict['version'] = value
     
     
 class MLModelDeploymentPropertiesClass(DictWrapper):
@@ -6070,7 +6042,6 @@ class MLModelGroupPropertiesClass(DictWrapper):
         description: Union[None, str]=None,
         createdAt: Union[None, int]=None,
         version: Union[None, "VersionTagClass"]=None,
-        models: Optional[List[str]]=None,
     ):
         super().__init__()
         
@@ -6082,11 +6053,6 @@ class MLModelGroupPropertiesClass(DictWrapper):
         self.description = description
         self.createdAt = createdAt
         self.version = version
-        if models is None:
-            # default: []
-            self.models = list()
-        else:
-            self.models = models
     
     @classmethod
     def construct_with_defaults(cls) -> "MLModelGroupPropertiesClass":
@@ -6100,7 +6066,6 @@ class MLModelGroupPropertiesClass(DictWrapper):
         self.description = self.RECORD_SCHEMA.field_map["description"].default
         self.createdAt = self.RECORD_SCHEMA.field_map["createdAt"].default
         self.version = self.RECORD_SCHEMA.field_map["version"].default
-        self.models = list()
     
     
     @property
@@ -6147,17 +6112,6 @@ class MLModelGroupPropertiesClass(DictWrapper):
         self._inner_dict['version'] = value
     
     
-    @property
-    def models(self) -> List[str]:
-        """Getter: Models in the group"""
-        return self._inner_dict.get('models')  # type: ignore
-    
-    @models.setter
-    def models(self, value: List[str]) -> None:
-        """Setter: Models in the group"""
-        self._inner_dict['models'] = value
-    
-    
 class MLModelPropertiesClass(DictWrapper):
     """Properties associated with a ML Model"""
     
@@ -6178,6 +6132,7 @@ class MLModelPropertiesClass(DictWrapper):
         deployments: Union[None, List[str]]=None,
         trainingJobs: Union[None, List[str]]=None,
         downstreamJobs: Union[None, List[str]]=None,
+        groups: Union[None, List[str]]=None,
     ):
         super().__init__()
         
@@ -6204,6 +6159,7 @@ class MLModelPropertiesClass(DictWrapper):
         self.deployments = deployments
         self.trainingJobs = trainingJobs
         self.downstreamJobs = downstreamJobs
+        self.groups = groups
     
     @classmethod
     def construct_with_defaults(cls) -> "MLModelPropertiesClass":
@@ -6228,6 +6184,7 @@ class MLModelPropertiesClass(DictWrapper):
         self.deployments = self.RECORD_SCHEMA.field_map["deployments"].default
         self.trainingJobs = self.RECORD_SCHEMA.field_map["trainingJobs"].default
         self.downstreamJobs = self.RECORD_SCHEMA.field_map["downstreamJobs"].default
+        self.groups = self.RECORD_SCHEMA.field_map["groups"].default
     
     
     @property
@@ -6397,6 +6354,17 @@ class MLModelPropertiesClass(DictWrapper):
     def downstreamJobs(self, value: Union[None, List[str]]) -> None:
         """Setter: List of jobs (if any) that use the model"""
         self._inner_dict['downstreamJobs'] = value
+    
+    
+    @property
+    def groups(self) -> Union[None, List[str]]:
+        """Getter: Groups the model belongs to"""
+        return self._inner_dict.get('groups')  # type: ignore
+    
+    @groups.setter
+    def groups(self, value: Union[None, List[str]]) -> None:
+        """Setter: Groups the model belongs to"""
+        self._inner_dict['groups'] = value
     
     
 class MLPrimaryKeyPropertiesClass(DictWrapper):

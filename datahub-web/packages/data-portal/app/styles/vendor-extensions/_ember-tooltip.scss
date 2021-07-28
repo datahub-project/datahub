@@ -1,9 +1,0 @@
-.ember-tooltip {
-  z-index: z(dropdown);
-}
-
-// Ensures that the popover element as part of the tooltip component is given a high enough  priority over other elements (such as tabs or other persistent elements)
-// Example : Dataset-groups tooltip appears over the the ".entity-tabs" class
-.ember-tether.ember-popover {
-  z-index: z('toast') + 1;
-}

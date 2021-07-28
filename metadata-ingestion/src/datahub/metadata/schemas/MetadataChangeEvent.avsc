@@ -2699,6 +2699,10 @@
                                                 "name": "urn",
                                                 "type": "string",
                                                 "doc": "Urn of the applied glossary term",
+                                                "Searchable": {
+                                                  "fieldName": "glossaryTerms",
+                                                  "fieldType": "TEXT_PARTIAL"
+                                                },
                                                 "java": {
                                                   "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
                                                 }
@@ -3379,15 +3383,6 @@
                                   ],
                                   "doc": "Date when the MLHyperParam was developed",
                                   "default": null
-                                },
-                                {
-                                  "name": "version",
-                                  "type": [
-                                    "null",
-                                    "com.linkedin.pegasus2avro.common.VersionTag"
-                                  ],
-                                  "doc": "Version of the MLHyperParam",
-                                  "default": null
                                 }
                               ],
                               "Aspect": {
@@ -3440,15 +3435,6 @@
                                     "long"
                                   ],
                                   "doc": "Date when the mlMetric was developed",
-                                  "default": null
-                                },
-                                {
-                                  "name": "version",
-                                  "type": [
-                                    "null",
-                                    "com.linkedin.pegasus2avro.common.VersionTag"
-                                  ],
-                                  "doc": "Version of the mlMetric",
                                   "default": null
                                 }
                               ],
@@ -3551,6 +3537,26 @@
                               "dataJob"
                             ],
                             "name": "UsedBy"
+                          }
+                        }
+                      },
+                      {
+                        "name": "groups",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Groups the model belongs to",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlModelGroup"
+                            ],
+                            "name": "MemberOf"
                           }
                         }
                       }
@@ -4836,23 +4842,6 @@
                         ],
                         "doc": "Version of the MLModelGroup",
                         "default": null
-                      },
-                      {
-                        "name": "models",
-                        "type": {
-                          "type": "array",
-                          "items": "string"
-                        },
-                        "doc": "Models in the group",
-                        "default": [],
-                        "Relationship": {
-                          "/*": {
-                            "entityTypes": [
-                              "mlModel"
-                            ],
-                            "name": "Includes"
-                          }
-                        }
                       }
                     ],
                     "Aspect": {
