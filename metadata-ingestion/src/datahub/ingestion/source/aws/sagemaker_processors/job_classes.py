@@ -1,41 +1,6 @@
-from collections import defaultdict
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import (
-    Any,
-    DefaultDict,
-    Dict,
-    Final,
-    Generic,
-    Iterable,
-    List,
-    Literal,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import Dict, Literal
 
-from mypy_boto3_sagemaker import SageMakerClient
-
-from datahub.emitter import mce_builder
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws_common import make_s3_urn
-from datahub.ingestion.source.sagemaker_processors.common import SagemakerSourceReport
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import (
-    BrowsePathsClass,
-    DataFlowInfoClass,
-    DataFlowSnapshotClass,
-    DataJobInfoClass,
-    DataJobInputOutputClass,
-    DataJobSnapshotClass,
-    DatasetPropertiesClass,
-    JobStatusClass,
-)
+from datahub.metadata.schema_classes import JobStatusClass
 
 
 class SageMakerJobInfo:

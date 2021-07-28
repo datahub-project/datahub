@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List
+from typing import Iterable, List
 
 from mypy_boto3_sagemaker import SageMakerClient
 from mypy_boto3_sagemaker.type_defs import (

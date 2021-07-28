@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import Any, List, Optional, Union
+from typing import List, Optional, Union
 
 import boto3
 from boto3.session import Session
