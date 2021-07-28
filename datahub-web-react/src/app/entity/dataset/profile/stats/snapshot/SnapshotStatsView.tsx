@@ -32,6 +32,7 @@ export default function DataProfileView({ profile }: Props) {
                 max: doc.max,
                 mean: doc.mean,
                 median: doc.median,
+                stdev: doc.stdev,
                 nullCount: isPresent(doc.nullCount) && doc.nullCount!.toString(),
                 nullPercentage: isPresent(doc.nullProportion) && decimalToPercentStr(doc.nullProportion!, 2),
                 distinctCount: isPresent(doc.uniqueCount) && doc.uniqueCount!.toString(),
@@ -108,13 +109,18 @@ export default function DataProfileView({ profile }: Props) {
                 render: (value) => value || unknownValue(),
             },
             {
+                title: 'Std. Dev',
+                dataIndex: 'stdev',
+                render: (value) => value || unknownValue(),
+            },
+            {
                 title: 'Sample Values',
                 dataIndex: 'sampleValues',
                 render: (sampleValues: Array<string>) => {
                     return (
                         (sampleValues &&
                             sampleValues
-                                .slice(0, sampleValues.length < 3 ? sampleValues?.length - 1 : 2)
+                                .slice(0, sampleValues.length < 3 ? sampleValues?.length : 3)
                                 .map((value) => <Tag>{value}</Tag>)) ||
                         unknownValue()
                     );

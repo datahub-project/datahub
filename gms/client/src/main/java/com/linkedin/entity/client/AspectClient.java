@@ -1,13 +1,16 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.entity.AspectsDoGetTimeseriesAspectValuesRequestBuilder;
+import com.linkedin.entity.AspectsDoIngestProposalRequestBuilder;
 import com.linkedin.entity.AspectsGetRequestBuilder;
 import com.linkedin.entity.AspectsRequestBuilders;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
+import com.linkedin.restli.client.Response;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -69,5 +72,17 @@ public class AspectClient {
     }
 
     return _client.sendRequest(requestBuilder.build()).getResponse().getEntity().getValues();
+  }
+
+  /**
+   * Ingest a MetadataChangeProposal event.
+   */
+  public Response<Void> ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal)
+      throws RemoteInvocationException {
+    final AspectsDoIngestProposalRequestBuilder requestBuilder =
+        ASPECTS_REQUEST_BUILDERS.actionIngestProposal()
+            .proposalParam(metadataChangeProposal);
+
+    return _client.sendRequest(requestBuilder.build()).getResponse();
   }
 }

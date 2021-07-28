@@ -92,7 +92,7 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
       try {
 
         // Step 1: Get profile aspects.
-        aspects = _client.getAspectValues(
+        aspects = _client.getTimeseriesAspectValues(
             urn,
             _entityName,
             _aspectName,

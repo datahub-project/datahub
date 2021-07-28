@@ -17,9 +17,6 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
             rowCount
             columnCount
             timestampMillis
-            partitionSpec {
-                partition
-            }
             fieldProfiles {
                 fieldPath
                 uniqueCount
@@ -111,9 +108,6 @@ query getDataset($urn: String!) {
             rowCount
             columnCount
             timestampMillis
-            partitionSpec {
-                partition
-            }
             fieldProfiles {
                 fieldPath
                 uniqueCount

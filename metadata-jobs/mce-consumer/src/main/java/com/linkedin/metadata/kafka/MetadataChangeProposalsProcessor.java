@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka;
 
+import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
@@ -26,15 +27,15 @@ import org.springframework.stereotype.Component;
 @EnableKafka
 public class MetadataChangeProposalsProcessor {
 
-  private EntityClient entityClient;
+  private AspectClient aspectClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
   @Value("${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
   private String fmcpTopicName;
 
-  public MetadataChangeProposalsProcessor(@Nonnull final EntityClient entityClient,
+  public MetadataChangeProposalsProcessor(@Nonnull final AspectClient aspectClient,
       @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
-    this.entityClient = entityClient;
+    this.aspectClient = aspectClient;
     this.kafkaTemplate = kafkaTemplate;
   }
 
@@ -49,7 +50,7 @@ public class MetadataChangeProposalsProcessor {
     try {
       event = EventUtils.avroToPegasusMCP(record);
       log.debug("MetadataChangeProposal {}", event);
-      entityClient.ingestProposal(event);
+      aspectClient.ingestProposal(event);
     } catch (Throwable throwable) {
       log.error("MCP Processor Error", throwable);
       log.error("Message: {}", record);

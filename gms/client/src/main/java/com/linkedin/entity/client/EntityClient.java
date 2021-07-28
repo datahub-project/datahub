@@ -1,9 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.EntitiesDoIngestProposalRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.restli.client.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,8 +66,7 @@ public class EntityClient {
         try {
             return _client.sendRequest(request).getResponse();
         } catch (RemoteInvocationException e) {
-            if ((e instanceof RestLiResponseException) && (((RestLiResponseException) e).getStatus() == 404))
-            {
+            if ((e instanceof RestLiResponseException) && (((RestLiResponseException) e).getStatus() == 404)) {
                     _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
                             + "Please update your gms to the latest Datahub release");
                     System.exit(1);
@@ -215,14 +212,6 @@ public class EntityClient {
         final Request request = builder.build();
 
         return sendClientRequest(request);
-    }
-
-    public Response<Void> ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal)
-        throws RemoteInvocationException {
-        final EntitiesDoIngestProposalRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionIngestProposal()
-            .proposalParam(metadataChangeProposal);
-
-        return sendClientRequest(requestBuilder.build());
     }
 
     /**
