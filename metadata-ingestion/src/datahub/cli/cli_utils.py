@@ -1,11 +1,14 @@
 import json
 import os.path
+import sys
 import typing
 from datetime import datetime
+from typing import Optional
 
 import click
 import requests
 import yaml
+from pydantic import BaseModel, ValidationError
 
 CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
 DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
@@ -18,15 +21,13 @@ DEFAULT_DATAHUB_CONFIG = {
 }
 
 
-def print_datahub_env_format_guide():
-    click.secho(
-        f"datahub config ({CONDENSED_DATAHUB_CONFIG_PATH}) is malformed.", bold=True
-    )
-    click.echo("see expected format below...")
-    click.echo()
-    click.echo("gms:")
-    click.echo("  server: <gms host>")
-    click.echo("  token: <optional gms token>")
+class GmsConfig(BaseModel):
+    server: str
+    token: Optional[str]
+
+
+class DatahubConfig(BaseModel):
+    gms: GmsConfig
 
 
 def get_session_and_host():
@@ -45,18 +46,20 @@ def get_session_and_host():
 
     with open(DATAHUB_CONFIG_PATH, "r") as stream:
         try:
-            config = yaml.safe_load(stream)
-            if not isinstance(config, dict):
-                print_datahub_env_format_guide()
-                exit()
+            config_json = yaml.safe_load(stream)
+            try:
+                datahub_config = DatahubConfig(**config_json)
+            except ValidationError as e:
+                click.echo(
+                    f"Received error, please check your {CONDENSED_DATAHUB_CONFIG_PATH}"
+                )
+                click.echo(e, err=True)
+                sys.exit(1)
 
-            gms_config = config.get("gms")
-            if not isinstance(gms_config, dict) or gms_config.get("server") is None:
-                print_datahub_env_format_guide()
-                exit()
+            gms_config = datahub_config.gms
 
-            gms_host = gms_config.get("server", "")
-            gms_token = gms_config.get("token")
+            gms_host = gms_config.server
+            gms_token = gms_config.token
         except yaml.YAMLError as exc:
             click.secho(f"{DATAHUB_CONFIG_PATH} malformatted, error: {exc}", bold=True)
 
