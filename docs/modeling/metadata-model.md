@@ -264,7 +264,7 @@ b. An entity "type" using its common name ("dataset" in the example above).
 
 #### Timeseries aspects
 
-Timeseries aspects are aspects that have a timestampMillis, and are meant for aspects that continuously change on a
+Timeseries aspects are aspects that have a timestampMillis field, and are meant for aspects that continuously change on a
 timely basis e.g. data profiles, usage statistics, etc.
 
 Each timeseries aspect must be declared "type": "timeseries" and must
@@ -274,3 +274,8 @@ include [TimeseriesAspectBase](https://github.com/linkedin/datahub/tree/master/m
 Please refer
 to [DatasetProfile](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile)
 to see an example of a timeseries aspect.
+
+Because timeseries aspects are updated on a frequent basis, ingests of these aspects go straight to elastic search (
+instead of being stored in local DB). 
+
+You can retrieve timeseries aspects using the "aspects?action=getTimeseriesAspectValues" end point. 
