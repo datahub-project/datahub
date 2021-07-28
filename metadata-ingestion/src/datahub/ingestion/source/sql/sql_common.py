@@ -497,7 +497,7 @@ class SQLAlchemySource(Source):
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
                 entityKey=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
-                changeType=ChangeTypeClass.UPDATE,
+                changeType=ChangeTypeClass.UPSERT,
                 aspectName="datasetProfile",
                 aspect=profile,
             )

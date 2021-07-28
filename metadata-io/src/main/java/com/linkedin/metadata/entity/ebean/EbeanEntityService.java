@@ -308,8 +308,8 @@ public class EbeanEntityService extends EntityService {
       throw new RuntimeException("Failed to validate key", re);
     }
 
-    if (metadataChangeProposal.getChangeType() == ChangeType.DELETE) {
-      log.error("Delete operation is not yet supported");
+    if (metadataChangeProposal.getChangeType() != ChangeType.UPSERT) {
+      log.error("Only upsert operation is supported");
       return;
     }
 

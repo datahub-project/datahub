@@ -1355,11 +1355,13 @@
     "name" : "ChangeType",
     "namespace" : "com.linkedin.events.metadata",
     "doc" : "Descriptor for a change action",
-    "symbols" : [ "CREATE", "DELETE", "UPDATE" ],
+    "symbols" : [ "UPSERT", "CREATE", "UPDATE", "DELETE", "PATCH" ],
     "symbolDocs" : {
-      "CREATE" : "create action",
-      "DELETE" : "delete action",
-      "UPDATE" : "update action"
+      "CREATE" : "NOT SUPPORTED YET\ninsert if not exists. otherwise fail",
+      "DELETE" : "NOT SUPPORTED YET\ndelete action",
+      "PATCH" : "NOT SUPPORTED YET\npatch the changes instead of full replace",
+      "UPDATE" : "NOT SUPPORTED YET\nupdate if exists. otherwise fail",
+      "UPSERT" : "insert if not exists. otherwise update"
     }
   }, {
     "type" : "record",

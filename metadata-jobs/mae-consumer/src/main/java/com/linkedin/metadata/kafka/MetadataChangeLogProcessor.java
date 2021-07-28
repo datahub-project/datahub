@@ -92,7 +92,7 @@ public class MetadataChangeLogProcessor {
       return;
     }
 
-    if (event.getChangeType() == ChangeType.CREATE || event.getChangeType() == ChangeType.UPDATE) {
+    if (event.getChangeType() == ChangeType.UPSERT) {
       EntitySpec entitySpec;
       try {
         entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
