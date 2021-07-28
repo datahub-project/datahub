@@ -44,6 +44,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | mysql           | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
 | oracle          | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
 | postgres        | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
+| redash          | `pip install 'acryl-datahub[redash]'`                      | Redash source, requires Python 3.7+ |
 | redshift        | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
 | sagemaker       | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
 | sqlalchemy      | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
@@ -885,6 +886,8 @@ Current limitations:
 - Currently works only for Debezium source connectors.
 
 ### Redash `redash`
+
+Note! This plugin uses a package that requires Python 3.7+!
 
 Extracts:
 
