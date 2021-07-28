@@ -1,28 +1,56 @@
-from typing import Dict
-
-from typing_extensions import Literal
+from typing import Dict, Final
 
 from datahub.metadata.schema_classes import JobStatusClass
 
 
 class SageMakerJobInfo:
+
+    # Note: The weird typing for the following commands is because the child classes
+    # use a Final type to ensure that they're interpreted by the boto3 stubs correctly.
+    # If we try to type these as plain strings, we get a TypeError because it's being converted
+    # to a non-overwritable type.
+    # See https://mypy.readthedocs.io/en/stable/final_attrs.html#details-of-using-final
+
     # boto3 command to get list of jobs
-    list_command: str
+    @property
+    def list_command(self) -> str:
+        raise NotImplementedError
+
     # field in job listing response containing actual list
-    list_key: str
+    @property
+    def list_key(self) -> str:
+        raise NotImplementedError
+
     # field in job listing response element corresponding to job name
-    list_name_key: str
+    @property
+    def list_name_key(self) -> str:
+        raise NotImplementedError
+
     # field in job listing response element corresponding to job ARN
-    list_arn_key: str
+    @property
+    def list_arn_key(self) -> str:
+        raise NotImplementedError
 
     # boto3 command to get job details
-    describe_command: str
+    @property
+    def describe_command(self) -> str:
+        raise NotImplementedError
+
     # field in job description response corresponding to job name
-    describe_name_key: str
+    @property
+    def describe_name_key(self) -> str:
+        raise NotImplementedError
+
     # field in job description response corresponding to job ARN
-    describe_arn_key: str
+    @property
+    def describe_arn_key(self) -> str:
+        raise NotImplementedError
+
     # field in job description response corresponding to job status
-    describe_status_key: str
+    @property
+    def describe_status_key(self) -> str:
+        raise NotImplementedError
+
     # job-specific mapping from boto3 status strings to DataHub-native enum
     status_map: Dict[str, str]
 
@@ -32,15 +60,15 @@ class SageMakerJobInfo:
 
 class AutoMlJobInfo(SageMakerJobInfo):
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_auto_ml_jobs
-    list_command: Literal["list_auto_ml_jobs"] = "list_auto_ml_jobs"
-    list_key: Literal["AutoMLJobSummaries"] = "AutoMLJobSummaries"
-    list_name_key: Literal["AutoMLJobName"] = "AutoMLJobName"
-    list_arn_key: Literal["AutoMLJobArn"] = "AutoMLJobArn"
+    list_command: Final = "list_auto_ml_jobs"
+    list_key: Final = "AutoMLJobSummaries"
+    list_name_key: Final = "AutoMLJobName"
+    list_arn_key: Final = "AutoMLJobArn"
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_auto_ml_job
-    describe_command: Literal["describe_auto_ml_job"] = "describe_auto_ml_job"
-    describe_name_key: Literal["AutoMLJobName"] = "AutoMLJobName"
-    describe_arn_key: Literal["AutoMLJobArn"] = "AutoMLJobArn"
-    describe_status_key: Literal["AutoMLJobStatus"] = "AutoMLJobStatus"
+    describe_command: Final = "describe_auto_ml_job"
+    describe_name_key: Final = "AutoMLJobName"
+    describe_arn_key: Final = "AutoMLJobArn"
+    describe_status_key: Final = "AutoMLJobStatus"
     status_map = {
         "Completed": JobStatusClass.COMPLETED,
         "InProgress": JobStatusClass.IN_PROGRESS,
@@ -54,15 +82,15 @@ class AutoMlJobInfo(SageMakerJobInfo):
 
 class CompilationJobInfo(SageMakerJobInfo):
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_compilation_jobs
-    list_command: Literal["list_compilation_jobs"] = "list_compilation_jobs"
-    list_key: Literal["CompilationJobSummaries"] = "CompilationJobSummaries"
-    list_name_key: Literal["CompilationJobName"] = "CompilationJobName"
-    list_arn_key: Literal["CompilationJobArn"] = "CompilationJobArn"
+    list_command: Final = "list_compilation_jobs"
+    list_key: Final = "CompilationJobSummaries"
+    list_name_key: Final = "CompilationJobName"
+    list_arn_key: Final = "CompilationJobArn"
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_compilation_job
-    describe_command: Literal["describe_compilation_job"] = "describe_compilation_job"
-    describe_name_key: Literal["CompilationJobName"] = "CompilationJobName"
-    describe_arn_key: Literal["CompilationJobArn"] = "CompilationJobArn"
-    describe_status_key: Literal["CompilationJobStatus"] = "CompilationJobStatus"
+    describe_command: Final = "describe_compilation_job"
+    describe_name_key: Final = "CompilationJobName"
+    describe_arn_key: Final = "CompilationJobArn"
+    describe_status_key: Final = "CompilationJobStatus"
     status_map = {
         "INPROGRESS": JobStatusClass.IN_PROGRESS,
         "COMPLETED": JobStatusClass.COMPLETED,
@@ -76,17 +104,15 @@ class CompilationJobInfo(SageMakerJobInfo):
 
 class EdgePackagingJobInfo(SageMakerJobInfo):
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_edge_packaging_jobs
-    list_command: Literal["list_edge_packaging_jobs"] = "list_edge_packaging_jobs"
-    list_key: Literal["EdgePackagingJobSummaries"] = "EdgePackagingJobSummaries"
-    list_name_key: Literal["EdgePackagingJobName"] = "EdgePackagingJobName"
-    list_arn_key: Literal["EdgePackagingJobArn"] = "EdgePackagingJobArn"
+    list_command: Final = "list_edge_packaging_jobs"
+    list_key: Final = "EdgePackagingJobSummaries"
+    list_name_key: Final = "EdgePackagingJobName"
+    list_arn_key: Final = "EdgePackagingJobArn"
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_edge_packaging_job
-    describe_command: Literal[
-        "describe_edge_packaging_job"
-    ] = "describe_edge_packaging_job"
-    describe_name_key: Literal["EdgePackagingJobName"] = "EdgePackagingJobName"
-    describe_arn_key: Literal["EdgePackagingJobArn"] = "EdgePackagingJobArn"
-    describe_status_key: Literal["EdgePackagingJobStatus"] = "EdgePackagingJobStatus"
+    describe_command: Final = "describe_edge_packaging_job"
+    describe_name_key: Final = "EdgePackagingJobName"
+    describe_arn_key: Final = "EdgePackagingJobArn"
+    describe_status_key: Final = "EdgePackagingJobStatus"
     status_map = {
         "INPROGRESS": JobStatusClass.IN_PROGRESS,
         "COMPLETED": JobStatusClass.COMPLETED,
@@ -100,29 +126,15 @@ class EdgePackagingJobInfo(SageMakerJobInfo):
 
 class HyperParameterTuningJobInfo(SageMakerJobInfo):
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_hyper_parameter_tuning_jobs
-    list_command: Literal[
-        "list_hyper_parameter_tuning_jobs"
-    ] = "list_hyper_parameter_tuning_jobs"
-    list_key: Literal[
-        "HyperParameterTuningJobSummaries"
-    ] = "HyperParameterTuningJobSummaries"
-    list_name_key: Literal[
-        "HyperParameterTuningJobName"
-    ] = "HyperParameterTuningJobName"
-    list_arn_key: Literal["HyperParameterTuningJobArn"] = "HyperParameterTuningJobArn"
+    list_command: Final = "list_hyper_parameter_tuning_jobs"
+    list_key: Final = "HyperParameterTuningJobSummaries"
+    list_name_key: Final = "HyperParameterTuningJobName"
+    list_arn_key: Final = "HyperParameterTuningJobArn"
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_hyper_parameter_tuning_job
-    describe_command: Literal[
-        "describe_hyper_parameter_tuning_job"
-    ] = "describe_hyper_parameter_tuning_job"
-    describe_name_key: Literal[
-        "HyperParameterTuningJobName"
-    ] = "HyperParameterTuningJobName"
-    describe_arn_key: Literal[
-        "HyperParameterTuningJobArn"
-    ] = "HyperParameterTuningJobArn"
-    describe_status_key: Literal[
-        "HyperParameterTuningJobStatus"
-    ] = "HyperParameterTuningJobStatus"
+    describe_command: Final = "describe_hyper_parameter_tuning_job"
+    describe_name_key: Final = "HyperParameterTuningJobName"
+    describe_arn_key: Final = "HyperParameterTuningJobArn"
+    describe_status_key: Final = "HyperParameterTuningJobStatus"
     status_map = {
         "InProgress": JobStatusClass.IN_PROGRESS,
         "Completed": JobStatusClass.COMPLETED,
@@ -135,15 +147,15 @@ class HyperParameterTuningJobInfo(SageMakerJobInfo):
 
 class LabelingJobInfo(SageMakerJobInfo):
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_labeling_jobs
-    list_command: Literal["list_labeling_jobs"] = "list_labeling_jobs"
-    list_key: Literal["LabelingJobSummaryList"] = "LabelingJobSummaryList"
-    list_name_key: Literal["LabelingJobName"] = "LabelingJobName"
-    list_arn_key: Literal["LabelingJobArn"] = "LabelingJobArn"
+    list_command: Final = "list_labeling_jobs"
+    list_key: Final = "LabelingJobSummaryList"
+    list_name_key: Final = "LabelingJobName"
+    list_arn_key: Final = "LabelingJobArn"
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_labeling_job
-    describe_command: Literal["describe_labeling_job"] = "describe_labeling_job"
-    describe_name_key: Literal["LabelingJobName"] = "LabelingJobName"
-    describe_arn_key: Literal["LabelingJobArn"] = "LabelingJobArn"
-    describe_status_key: Literal["LabelingJobStatus"] = "LabelingJobStatus"
+    describe_command: Final = "describe_labeling_job"
+    describe_name_key: Final = "LabelingJobName"
+    describe_arn_key: Final = "LabelingJobArn"
+    describe_status_key: Final = "LabelingJobStatus"
     status_map = {
         "Initializing": JobStatusClass.STARTING,
         "InProgress": JobStatusClass.IN_PROGRESS,
@@ -157,15 +169,15 @@ class LabelingJobInfo(SageMakerJobInfo):
 
 class ProcessingJobInfo(SageMakerJobInfo):
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_processing_jobs
-    list_command: Literal["list_processing_jobs"] = "list_processing_jobs"
-    list_key: Literal["ProcessingJobSummaries"] = "ProcessingJobSummaries"
-    list_name_key: Literal["ProcessingJobName"] = "ProcessingJobName"
-    list_arn_key: Literal["ProcessingJobArn"] = "ProcessingJobArn"
+    list_command: Final = "list_processing_jobs"
+    list_key: Final = "ProcessingJobSummaries"
+    list_name_key: Final = "ProcessingJobName"
+    list_arn_key: Final = "ProcessingJobArn"
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_processing_job
-    describe_command: Literal["describe_processing_job"] = "describe_processing_job"
-    describe_name_key: Literal["ProcessingJobName"] = "ProcessingJobName"
-    describe_arn_key: Literal["ProcessingJobArn"] = "ProcessingJobArn"
-    describe_status_key: Literal["ProcessingJobStatus"] = "ProcessingJobStatus"
+    describe_command: Final = "describe_processing_job"
+    describe_name_key: Final = "ProcessingJobName"
+    describe_arn_key: Final = "ProcessingJobArn"
+    describe_status_key: Final = "ProcessingJobStatus"
     status_map = {
         "InProgress": JobStatusClass.IN_PROGRESS,
         "Completed": JobStatusClass.COMPLETED,
@@ -178,15 +190,15 @@ class ProcessingJobInfo(SageMakerJobInfo):
 
 class TrainingJobInfo(SageMakerJobInfo):
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_training_jobs
-    list_command: Literal["list_training_jobs"] = "list_training_jobs"
-    list_key: Literal["TrainingJobSummaries"] = "TrainingJobSummaries"
-    list_name_key: Literal["TrainingJobName"] = "TrainingJobName"
-    list_arn_key: Literal["TrainingJobArn"] = "TrainingJobArn"
+    list_command: Final = "list_training_jobs"
+    list_key: Final = "TrainingJobSummaries"
+    list_name_key: Final = "TrainingJobName"
+    list_arn_key: Final = "TrainingJobArn"
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_training_job
-    describe_command: Literal["describe_training_job"] = "describe_training_job"
-    describe_name_key: Literal["TrainingJobName"] = "TrainingJobName"
-    describe_arn_key: Literal["TrainingJobArn"] = "TrainingJobArn"
-    describe_status_key: Literal["TrainingJobStatus"] = "TrainingJobStatus"
+    describe_command: Final = "describe_training_job"
+    describe_name_key: Final = "TrainingJobName"
+    describe_arn_key: Final = "TrainingJobArn"
+    describe_status_key: Final = "TrainingJobStatus"
     status_map = {
         "InProgress": JobStatusClass.IN_PROGRESS,
         "Completed": JobStatusClass.COMPLETED,
@@ -199,15 +211,15 @@ class TrainingJobInfo(SageMakerJobInfo):
 
 class TransformJobInfo(SageMakerJobInfo):
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_transform_jobs
-    list_command: Literal["list_transform_jobs"] = "list_transform_jobs"
-    list_key: Literal["TransformJobSummaries"] = "TransformJobSummaries"
-    list_name_key: Literal["TransformJobName"] = "TransformJobName"
-    list_arn_key: Literal["TransformJobArn"] = "TransformJobArn"
+    list_command: Final = "list_transform_jobs"
+    list_key: Final = "TransformJobSummaries"
+    list_name_key: Final = "TransformJobName"
+    list_arn_key: Final = "TransformJobArn"
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_transform_job
-    describe_command: Literal["describe_transform_job"] = "describe_transform_job"
-    describe_name_key: Literal["TransformJobName"] = "TransformJobName"
-    describe_arn_key: Literal["TransformJobArn"] = "TransformJobArn"
-    describe_status_key: Literal["TransformJobStatus"] = "TransformJobStatus"
+    describe_command: Final = "describe_transform_job"
+    describe_name_key: Final = "TransformJobName"
+    describe_arn_key: Final = "TransformJobArn"
+    describe_status_key: Final = "TransformJobStatus"
     status_map = {
         "InProgress": JobStatusClass.IN_PROGRESS,
         "Completed": JobStatusClass.COMPLETED,
