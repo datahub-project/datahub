@@ -472,7 +472,6 @@ fragment nonRecursiveMLModel on MLModel {
     platform {
         name
         info {
-            displayName
             logoUrl
         }
     }
@@ -519,7 +518,6 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     platform {
         name
         info {
-            displayName
             logoUrl
         }
     }

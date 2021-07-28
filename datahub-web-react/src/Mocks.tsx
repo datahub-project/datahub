@@ -9,8 +9,19 @@ import {
     GetSearchResultsQuery,
 } from './graphql/search.generated';
 import { GetUserDocument } from './graphql/user.generated';
-import { Dataset, DataFlow, DataJob, GlossaryTerm, EntityType, PlatformType } from './types.generated';
+import {
+    Dataset,
+    DataFlow,
+    DataJob,
+    GlossaryTerm,
+    EntityType,
+    PlatformType,
+    MlModel,
+    MlModelGroup,
+} from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
+import { GetMlModelDocument } from './graphql/mlModel.generated';
+import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 
 const user1 = {
     username: 'sdas',
@@ -742,6 +753,125 @@ dataJob1.upstreamLineage = {
         },
     ],
 };
+
+export const mlModel = {
+    __typename: 'MLModel',
+    urn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+    type: EntityType.Mlmodel,
+    name: 'trust model',
+    description: 'a ml trust model',
+    origin: 'PROD',
+    platform: {
+        urn: 'urn:li:dataPlatform:kafka',
+        name: 'Kafka',
+        info: {
+            type: PlatformType.MessageBroker,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
+        type: EntityType.DataPlatform,
+    },
+    tags: [],
+    properties: {
+        description: 'a ml trust model',
+        date: null,
+        version: '1',
+        type: 'model type',
+        trainingMetrics: null,
+        hyperParams: null,
+        mlFeatures: null,
+        groups: null,
+        customProperties: null,
+    },
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    upstreamLineage: [],
+    downstreamLineage: [],
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
+    },
+} as MlModel;
+
+export const mlModelGroup = {
+    __typename: 'MLModelGroup',
+    urn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
+    type: EntityType.MlmodelGroup,
+    name: 'trust model group',
+    description: 'a ml trust model group',
+    origin: 'PROD',
+    platform: {
+        urn: 'urn:li:dataPlatform:kafka',
+        name: 'Kafka',
+        info: {
+            type: PlatformType.MessageBroker,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
+        type: EntityType.DataPlatform,
+    },
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    upstreamLineage: null,
+    downstreamLineage: null,
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
+    },
+} as MlModelGroup;
+
 /*
     Define mock data to be returned by Apollo MockProvider. 
 */
@@ -1510,6 +1640,36 @@ export const mocks = [
             data: {
                 dataJob: {
                     ...dataJob1,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetMlModelDocument,
+            variables: {
+                urn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+            },
+        },
+        result: {
+            data: {
+                mlModel: {
+                    ...mlModel,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetMlModelGroupDocument,
+            variables: {
+                urn: mlModelGroup.urn,
+            },
+        },
+        result: {
+            data: {
+                mlModelGroup: {
+                    ...mlModelGroup,
                 },
             },
         },

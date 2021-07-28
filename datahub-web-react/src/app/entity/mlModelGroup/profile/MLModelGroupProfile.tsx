@@ -21,7 +21,6 @@ export enum TabType {
 export const MLModelGroupProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const { loading, error, data } = useGetMlModelGroupQuery({ variables: { urn } });
-    console.log(data);
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
