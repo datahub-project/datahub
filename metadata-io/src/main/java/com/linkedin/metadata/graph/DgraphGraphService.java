@@ -14,6 +14,7 @@ import io.dgraph.DgraphProto.Operation;
 import io.dgraph.DgraphProto.Request;
 import io.dgraph.DgraphProto.Response;
 import io.dgraph.Helpers;
+import io.dgraph.Transaction;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
@@ -369,7 +370,27 @@ public class DgraphGraphService implements GraphService {
 
     @Override
     public void removeNode(@Nonnull Urn urn) {
+        // TODO: S * * . deletes only predicates that are part of the nodes type
+        //       maintain the schema of the node to be able to wildcard delete edges
+        String query = String.format("query {\n" +
+                " node as var(func: eq(urn, \"%s\"))\n" +
+                "}", urn);
+        String deletion = "uid(node) * * .";
 
+        log.debug("Query: " + query);
+        log.debug("Delete: " + deletion);
+
+        Mutation mutation = Mutation.newBuilder()
+                .setDelNquads(ByteString.copyFromUtf8(deletion))
+                .build();
+        Request request = Request.newBuilder()
+                .setQuery(query)
+                .addMutations(mutation)
+                .setCommitNow(true)
+                .build();
+
+        Response response = this._client.newTransaction().doRequest(request);
+        ByteString json = response.getJson();
     }
 
     @Override
@@ -391,6 +412,9 @@ public class DgraphGraphService implements GraphService {
                         .build()
         ).collect(Collectors.toList());
 
+        log.debug("Query: " + query);
+        log.debug("Deletions: " + deletions);
+
         Mutation mutation = Mutation.newBuilder()
                 .addAllDel(deletions)
                 .build();
@@ -399,9 +423,6 @@ public class DgraphGraphService implements GraphService {
                 .addMutations(mutation)
                 .setCommitNow(true)
                 .build();
-
-        log.debug("Query: " + query);
-        log.debug("Deletions: " + deletions);
 
         this._client.newTransaction().doRequest(request);
     }
