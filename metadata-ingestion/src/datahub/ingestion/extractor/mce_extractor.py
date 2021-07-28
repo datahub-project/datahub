@@ -1,4 +1,3 @@
-import time as t
 from typing import Iterable, Union
 
 from datahub.emitter.mce_builder import get_sys_time
@@ -11,7 +10,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     SystemMetadata,
 )
 from datahub.metadata.schema_classes import UsageAggregationClass
-
 
 
 class WorkUnitRecordExtractor(Extractor):

@@ -629,6 +629,7 @@ public class EbeanEntityService extends EntityService {
       summary.setKeyAspect(true);
       summary.setAspectName(keyAspectName);
       summary.setVersion(0);
+      summary.setTimestamp(latestKey.getCreatedOn().getTime());
 
       rowsDeletedFromEntityDeletion.addAndGet(result.additionalRowsAffected);
       removedAspects.add(summary);
