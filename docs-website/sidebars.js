@@ -99,7 +99,7 @@ module.exports = {
       "datahub-gms-graphql-service/README",
       // "metadata-jobs/README",
       "metadata-jobs/mae-consumer-job/README",
-      "metadata-jobs/mce-consumer-job/README"
+      "metadata-jobs/mce-consumer-job/README",
     ],
     "Advanced Guides": [
       "docs/advanced/no-code-modeling",
@@ -109,6 +109,7 @@ module.exports = {
       "docs/how/scsi-onboarding-guide",
       "docs/advanced/no-code-upgrade",
       "docs/how/migrating-graph-service-implementation",
+      "docs/advanced/mcp-mcl",
       // WIP "docs/advanced/backfilling",
       // WIP "docs/advanced/derived-aspects",
       // WIP "docs/advanced/entity-hierarchy",
