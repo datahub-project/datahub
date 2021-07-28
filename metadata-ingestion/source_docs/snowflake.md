@@ -71,7 +71,7 @@ source:
 
 :::tip
 
-You can also get fine-grained usage statistics for Snowflake using the `snowflake-usage` source.
+You can also get fine-grained usage statistics for Snowflake using the `snowflake-usage` source described below.
 
 :::
 
@@ -106,6 +106,6 @@ source:
 
 :::note
 
-This source only does usage statistics. To get the tables, views, and schemas in your Snowflake warehouse, ingest using the `snowflake` source.
+This source only does usage statistics. To get the tables, views, and schemas in your Snowflake warehouse, ingest using the `snowflake` source described above.
 
 :::

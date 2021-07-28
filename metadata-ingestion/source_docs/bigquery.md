@@ -114,6 +114,6 @@ source:
 
 :::note
 
-This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` source.
+This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` source described above.
 
 :::
