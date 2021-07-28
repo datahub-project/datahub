@@ -80,10 +80,8 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     } catch (JsonProcessingException e) {
       throw new RuntimeException("Failed to deserialize event from the timeseries aspect index: " + e);
     }
-    // TODO: Add content type to the index
     genericAspect.setContentType("application/json");
     envelopedAspect.setAspect(genericAspect);
-    // TODO: Set the system metadata
     Object systemMetadata = docFields.get("systemMetadata");
     if (systemMetadata != null) {
       try {
