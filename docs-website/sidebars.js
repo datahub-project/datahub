@@ -89,6 +89,7 @@ module.exports = {
       "docs/how/auth/sso/configure-oidc-react-okta",
       "docs/how/restore-indices",
       "datahub-web-react/src/app/analytics/README",
+      "metadata-ingestion/developing",
     ],
     Components: [
       "datahub-web-react/README",
@@ -98,8 +99,7 @@ module.exports = {
       "datahub-gms-graphql-service/README",
       // "metadata-jobs/README",
       "metadata-jobs/mae-consumer-job/README",
-      "metadata-jobs/mce-consumer-job/README",
-      "metadata-ingestion/developing",
+      "metadata-jobs/mce-consumer-job/README"
     ],
     "Advanced Guides": [
       "docs/advanced/no-code-modeling",
