@@ -1,17 +1,14 @@
 package com.linkedin.metadata.graph;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import org.neo4j.driver.Driver;
-import org.neo4j.driver.GraphDatabase;
+import org.junit.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nonnull;
@@ -40,160 +37,94 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     @AfterMethod
     public void tearDown() { }
 
-    @Test
-    public void testAddEdge() throws Exception {
-        // test both directions
-        Edge edge1 = new Edge(
-                Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"),
-                "DownstreamOf");
-
-        _service.addEdge(edge1);
-
-        List<String> edgeTypes = new ArrayList<>();
-        edgeTypes.add("DownstreamOf");
-        RelationshipFilter relationshipFilter = new RelationshipFilter();
-        relationshipFilter.setDirection(RelationshipDirection.OUTGOING);
-        relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
-
-        List<String> relatedUrns = _service.findRelatedUrns(
-                "",
-                newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                "",
-                EMPTY_FILTER,
-                edgeTypes,
-                relationshipFilter,
-                0,
-                10);
-
-        assertEquals(relatedUrns.size(), 1);
-    }
-
-    @Test
-    public void testAddEdgeReverse() throws Exception {
-        Edge edge1 = new Edge(
-                Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"),
-                Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                "DownstreamOf");
-
-        _service.addEdge(edge1);
-
-        List<String> edgeTypes = new ArrayList<>();
-        edgeTypes.add("DownstreamOf");
-        RelationshipFilter relationshipFilter = new RelationshipFilter();
-        relationshipFilter.setDirection(RelationshipDirection.INCOMING);
-        relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
-
-        List<String> relatedUrns = _service.findRelatedUrns(
-                "",
-                newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                "",
-                EMPTY_FILTER,
-                edgeTypes,
-                relationshipFilter,
-                0,
-                10);
-
-        assertEquals(relatedUrns.size(), 1);
-    }
-
-    @Test
-    public void testRemoveEdgesFromNodeDeprecated() throws Exception {
-        // TODO: test with both relationship directions
-        Edge edge1 = new Edge(
-                Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"),
-                "DownstreamOf");
-
-        _service.addEdge(edge1);
-
-        List<String> edgeTypes = new ArrayList<>();
-        edgeTypes.add("DownstreamOf");
-        RelationshipFilter relationshipFilter = new RelationshipFilter();
-        relationshipFilter.setDirection(RelationshipDirection.INCOMING);
-        relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
-
-        List<String> relatedUrns = _service.findRelatedUrns(
-                "",
-                newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                "",
-                EMPTY_FILTER,
-                edgeTypes,
-                relationshipFilter,
-                0,
-                10);
-
-        assertEquals(relatedUrns.size(), 1);
-
-        _service.removeEdgesFromNode(Urn.createFromString(
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                edgeTypes,
-                relationshipFilter);
-
-        List<String> relatedUrnsPostDelete = _service.findRelatedUrns(
-                "",
-                newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                "",
-                EMPTY_FILTER,
-                edgeTypes,
-                relationshipFilter,
-                0,
-                10);
-
-        assertEquals(relatedUrnsPostDelete.size(), 0);
-    }
-
     @Nonnull
     @Override
-    protected GraphService getGraphService() throws Exception {
+    protected GraphService getGraphService() {
         _service.clear();
         return _service;
     }
 
     @Override
-    protected void syncAfterWrite() throws Exception { }
+    protected void syncAfterWrite() { }
 
     @Test
-    public void testClear() throws Exception {
-        // TODO: test with both relationship directions
-        Edge edge1 = new Edge(
-                Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"),
-                Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                "DownstreamOf");
+    public void testGetSchema() {
+        DgraphSchema schema = DgraphGraphService.getSchema("{\n" +
+                "    \"schema\": [\n" +
+                "      {\n" +
+                "        \"predicate\": \"PredOne\"\n" +
+                "      },\n" +
+                "      {\n" +
+                "        \"predicate\": \"PredTwo\"\n" +
+                "      },\n" +
+                "      {\n" +
+                "        \"predicate\": \"dgraph.type\"\n" +
+                "      }\n" +
+                "    ],\n" +
+                "    \"types\": [\n" +
+                "      {\n" +
+                "        \"fields\": [\n" +
+                "          {\n" +
+                "            \"name\": \"dgraph.type\"\n" +
+                "          }\n" +
+                "        ],\n" +
+                "        \"name\": \"dgraph.meta\"\n" +
+                "      },\n" +
+                "      {\n" +
+                "        \"fields\": [\n" +
+                "          {\n" +
+                "            \"name\": \"PredOne\"\n" +
+                "          },\n" +
+                "          {\n" +
+                "            \"name\": \"PredTwo\"\n" +
+                "          }\n" +
+                "        ],\n" +
+                "        \"name\": \"ns:typeOne\"\n" +
+                "      },\n" +
+                "      {\n" +
+                "        \"fields\": [\n" +
+                "          {\n" +
+                "            \"name\": \"PredTwo\"\n" +
+                "          }\n" +
+                "        ],\n" +
+                "        \"name\": \"ns:typeTwo\"\n" +
+                "      }\n" +
+                "    ]\n" +
+                "  }");
+        assertEquals(schema.getFields(), new HashSet<>(Arrays.asList("PredOne", "PredTwo")));
 
-        _service.addEdge(edge1);
+        assertEquals(schema.getTypes(), new HashMap<String, Set<String>>() {{
+            put("ns:typeOne", new HashSet<>(Arrays.asList("PredOne", "PredTwo")));
+            put("ns:typeTwo", new HashSet<>(Arrays.asList("PredTwo")));
+        }});
 
-        List<String> edgeTypes = new ArrayList<>();
-        edgeTypes.add("DownstreamOf");
-        RelationshipFilter relationshipFilter = new RelationshipFilter();
-        relationshipFilter.setDirection(RelationshipDirection.INCOMING);
-        relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
+        assertEquals(schema.getFields("ns:typeOne"), new HashSet<>(Arrays.asList("PredOne", "PredTwo")));
+        assertEquals(schema.getFields("ns:typeTwo"), new HashSet<>(Arrays.asList("PredTwo")));
+        assertEquals(schema.getFields("ns:unknown"), Collections.emptySet());
 
-        List<String> relatedUrns = _service.findRelatedUrns(
-                "",
-                newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                "",
-                EMPTY_FILTER,
-                edgeTypes,
-                relationshipFilter,
-                0,
-                10);
+        schema.addField("newType", "newField");
+        assertEquals(schema.getFields(), new HashSet<>(Arrays.asList("PredOne", "PredTwo", "newField")));
+        assertEquals(schema.getTypes(), new HashMap<String, Set<String>>() {{
+            put("ns:typeOne", new HashSet<>(Arrays.asList("PredOne", "PredTwo")));
+            put("ns:typeTwo", new HashSet<>(Arrays.asList("PredTwo")));
+            put("newType", new HashSet<>(Arrays.asList("newField")));
+        }});
 
-        assertEquals(relatedUrns.size(), 1);
+        schema.addField("ns:typeOne", "otherField");
+        assertEquals(schema.getFields(), new HashSet<>(Arrays.asList("PredOne", "PredTwo", "newField", "otherField")));
+        assertEquals(schema.getTypes(), new HashMap<String, Set<String>>() {{
+            put("ns:typeOne", new HashSet<>(Arrays.asList("PredOne", "PredTwo", "otherField")));
+            put("ns:typeTwo", new HashSet<>(Arrays.asList("PredTwo")));
+            put("newType", new HashSet<>(Arrays.asList("newField")));
+        }});
 
-        _service.clear();
-
-        List<String> relatedUrnsPostDelete = _service.findRelatedUrns(
-                "",
-                newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
-                "",
-                EMPTY_FILTER,
-                edgeTypes,
-                relationshipFilter,
-                0,
-                10);
-
-        assertEquals(relatedUrnsPostDelete.size(), 0);
+        schema.addField("ns:typeTwo", "PredTwo");
+        assertEquals(schema.getFields(), new HashSet<>(Arrays.asList("PredOne", "PredTwo", "newField", "otherField")));
+        assertEquals(schema.getTypes(), new HashMap<String, Set<String>>() {{
+            put("ns:typeOne", new HashSet<>(Arrays.asList("PredOne", "PredTwo", "otherField")));
+            put("ns:typeTwo", new HashSet<>(Arrays.asList("PredTwo")));
+            put("newType", new HashSet<>(Arrays.asList("newField")));
+        }});
     }
 
     @Test

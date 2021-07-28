@@ -6,16 +6,9 @@ import com.google.protobuf.ByteString;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.*;
 import io.dgraph.DgraphClient;
-import io.dgraph.DgraphProto;
-import io.dgraph.DgraphProto.Value;
-import io.dgraph.DgraphProto.Mutation;
-import io.dgraph.DgraphProto.NQuad;
-import io.dgraph.DgraphProto.Operation;
-import io.dgraph.DgraphProto.Request;
-import io.dgraph.DgraphProto.Response;
-import io.dgraph.Helpers;
-import io.dgraph.Transaction;
+import io.dgraph.DgraphProto.*;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,17 +29,87 @@ import java.util.stream.Stream;
 public class DgraphGraphService implements GraphService {
 
     private final DgraphClient _client;
+    private final DgraphSchema _schema;
 
     public DgraphGraphService(@Nonnull DgraphClient client) {
         this._client = client;
-        Operation setSchema = Operation.newBuilder()
-                .setSchema("" +
-                        "<urn>: string @index(hash) .\n" +
-                        "<type>: string @index(exact) .\n" +
-                        "<key>: string @index(hash) .\n"
-                )
-                .build();
-        this._client.alter(setSchema);
+        this._schema = getSchema(client);
+
+        if (this._schema.isEmpty()) {
+            Operation setSchema = Operation.newBuilder()
+                    .setSchema("" +
+                            "<urn>: string @index(hash) @upsert .\n" +
+                            "<type>: string @index(hash) .\n" +
+                            "<key>: string @index(hash) .\n"
+                    )
+                    .build();
+            this._client.alter(setSchema);
+        }
+    }
+
+    protected static @Nonnull DgraphSchema getSchema(@Nonnull DgraphClient client) {
+        Response response = client.newReadOnlyTransaction().doRequest(
+                Request.newBuilder().setQuery("schema { predicate }").build()
+        );
+        return getSchema(response.getJson().toStringUtf8());
+    }
+
+    protected static @Nonnull DgraphSchema getSchema(@Nonnull String json) {
+        Map<String, Object> data = getDataFromResponseJson(json);
+
+        Object schemaObj = data.get("schema");
+        if (! (schemaObj instanceof List<?>))
+            throw new IllegalArgumentException(
+                    "The result from Dgraph did not contain a 'schema' field, or that field is not a List"
+            );
+
+        List<?> schemaList = (List<?>)schemaObj;
+        Set<String> fieldNames = schemaList.stream().flatMap(fieldObj -> {
+            if (!(fieldObj instanceof Map))
+                return Stream.empty();
+
+            Map<?, ?> fieldMap = (Map<?, ?>) fieldObj;
+            if ( ! (fieldMap.containsKey("predicate") && fieldMap.get("predicate") instanceof String))
+                return Stream.empty();
+
+            String fieldName = (String) fieldMap.get("predicate");
+            return Stream.of(fieldName);
+        }).filter(f -> !f.startsWith("dgraph.")).collect(Collectors.toSet());
+
+        Object typesObj = data.get("types");
+        if (! (typesObj instanceof List<?>))
+            throw new IllegalArgumentException(
+                    "The result from Dgraph did not contain a 'types' field, or that field is not a List"
+            );
+
+        List<?> types = (List<?>)typesObj;
+        Map<String, Set<String>> typeFields = types.stream().flatMap(typeObj -> {
+            if (!(typeObj instanceof Map))
+                return Stream.empty();
+
+            Map<?, ?> typeMap = (Map<?, ?>) typeObj;
+            if ( ! (typeMap.containsKey("fields") && typeMap.containsKey("name") &&
+                    typeMap.get("fields") instanceof List<?> && typeMap.get("name") instanceof String))
+                return Stream.empty();
+
+            String typeName = (String) typeMap.get("name");
+            List<?> fieldsList = (List<?>) typeMap.get("fields");
+
+            Set<String> fields = fieldsList.stream().flatMap(fieldObj -> {
+                if (!(fieldObj instanceof Map<?, ?>))
+                    return Stream.empty();
+
+                Map<?, ?> fieldMap = (Map<?, ?>) fieldObj;
+                if (! (fieldMap.containsKey("name") && fieldMap.get("name") instanceof String))
+                    return Stream.empty();
+
+                String fieldName = (String) fieldMap.get("name");
+                return Stream.of(fieldName);
+            }).filter(f -> !f.startsWith("dgraph.")).collect(Collectors.toSet());
+            return Stream.of(Pair.of(typeName, fields));
+        }).filter(t -> !t.getKey().startsWith("dgraph.")).collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+
+        return new DgraphSchema(fieldNames, typeFields);
     }
 
     @Override
@@ -59,12 +122,34 @@ public class DgraphGraphService implements GraphService {
         // add the relationship type to the schema
         // TODO: translate edge name to allowed dgraph uris
         // TODO: cache the schema and only mutate if relationship is new
-        String schema = String.format("<%s>: [uid] @reverse .", edge.getRelationshipType());
-        log.debug("Adding to schema: " + schema);
-        Operation setSchema = Operation.newBuilder()
-                .setSchema(schema)
-                .build();
-        this._client.alter(setSchema);
+        String sourceEntityType = getDgraphType(edge.getSource());
+        String relationshipType = edge.getRelationshipType();
+        if (! _schema.hasField(sourceEntityType, relationshipType)) {
+            StringJoiner schema = new StringJoiner("\n");
+
+            // is the field known at all?
+            if (! _schema.hasField(relationshipType)) {
+                schema.add(String.format("<%s>: [uid] @reverse .", relationshipType));
+            }
+
+            // is the type known at all?
+            if (! _schema.hasType(sourceEntityType)) {
+                _schema.addField(sourceEntityType, "urn");
+                _schema.addField(sourceEntityType, "type");
+                _schema.addField(sourceEntityType, "key");
+            }
+
+            // add this new field
+            this._schema.addField(sourceEntityType, relationshipType);
+
+            // update the schema on the Dgraph cluster
+            StringJoiner type = new StringJoiner("\n  ");
+            _schema.getFields(sourceEntityType).stream().map(t -> "<" + t + ">").forEach(type::add);
+            schema.add(String.format("type <%s> {\n%s\n}", sourceEntityType, type));
+            log.debug("Adding to schema: " + schema);
+            Operation setSchema = Operation.newBuilder().setSchema(schema.toString()).build();
+            this._client.alter(setSchema);
+        }
 
         // lookup the source and destination nodes
         // TODO: add escape for string values
@@ -76,29 +161,23 @@ public class DgraphGraphService implements GraphService {
         // and create the new edge between them
         // TODO: add escape for string values
         // TODO: translate edge name to allowed dgraph uris
-        String mutations = String.format("" +
-                        "uid(src) <urn> \"%s\" .\n" +
-                        "uid(src) <type> \"%s\" .\n" +
-                        "uid(src) <key> \"%s\" .\n" +
-                        "uid(dst) <urn> \"%s\" .\n" +
-                        "uid(dst) <type> \"%s\" .\n" +
-                        "uid(dst) <key> \"%s\" .\n" +
-                        "uid(src) <%s> uid(dst) .",
-                edge.getSource(),
-                edge.getSource().getEntityType(),
-                edge.getSource().getEntityKey(),
-                edge.getDestination(),
-                edge.getDestination().getEntityType(),
-                edge.getDestination().getEntityKey(),
-                edge.getRelationshipType()
-        );
+        StringJoiner mutations = new StringJoiner("\n");
+        mutations.add(String.format("uid(src) <dgraph.type> \"%s\" .", getDgraphType(edge.getSource())));
+        mutations.add(String.format("uid(src) <urn> \"%s\" .", edge.getSource()));
+        mutations.add(String.format("uid(src) <type> \"%s\" .", edge.getSource().getEntityType()));
+        mutations.add(String.format("uid(src) <key> \"%s\" .", edge.getSource().getEntityKey()));
+        mutations.add(String.format("uid(dst) <dgraph.type> \"%s\" .", getDgraphType(edge.getDestination())));
+        mutations.add(String.format("uid(dst) <urn> \"%s\" .", edge.getDestination()));
+        mutations.add(String.format("uid(dst) <type> \"%s\" .", edge.getDestination().getEntityType()));
+        mutations.add(String.format("uid(dst) <key> \"%s\" .", edge.getDestination().getEntityKey()));
+        mutations.add(String.format("uid(src) <%s> uid(dst) .", edge.getRelationshipType()));
 
         log.debug("Query: " + query);
         log.debug("Mutations: " + mutations);
 
         // construct the upsert
         Mutation mutation = Mutation.newBuilder()
-                .setSetNquads(ByteString.copyFromUtf8(mutations))
+                .setSetNquads(ByteString.copyFromUtf8(mutations.toString()))
                 .build();
         Request request = Request.newBuilder()
                 .setQuery(query)
@@ -108,6 +187,10 @@ public class DgraphGraphService implements GraphService {
 
         // run the request
         this._client.newTransaction().doRequest(request);
+    }
+
+    private static @Nonnull String getDgraphType(@Nonnull Urn urn) {
+        return urn.getNamespace() + ":" + urn.getEntityType();
     }
 
     private static List<String> getDirectedRelationshipTypes(List<String> relationships,
@@ -370,8 +453,6 @@ public class DgraphGraphService implements GraphService {
 
     @Override
     public void removeNode(@Nonnull Urn urn) {
-        // TODO: S * * . deletes only predicates that are part of the nodes type
-        //       maintain the schema of the node to be able to wildcard delete edges
         String query = String.format("query {\n" +
                 " node as var(func: eq(urn, \"%s\"))\n" +
                 "}", urn);
@@ -389,19 +470,28 @@ public class DgraphGraphService implements GraphService {
                 .setCommitNow(true)
                 .build();
 
-        Response response = this._client.newTransaction().doRequest(request);
-        ByteString json = response.getJson();
+        this._client.newTransaction().doRequest(request);
     }
 
     @Override
     public void removeEdgesFromNode(@Nonnull Urn urn,
                                     @Nonnull List<String> relationshipTypes,
                                     @Nonnull RelationshipFilter relationshipFilter) {
-        // TODO: implement reverse relationships
+        RelationshipDirection direction = relationshipFilter.getDirection();
+
+        if (direction == RelationshipDirection.OUTGOING || direction == RelationshipDirection.UNDIRECTED)
+            removeOutgoingEdgesFromNode(urn, relationshipTypes);
+
+        if (direction == RelationshipDirection.INCOMING || direction == RelationshipDirection.UNDIRECTED)
+            removeIncomingEdgesFromNode(urn, relationshipTypes);
+    }
+
+    private void removeOutgoingEdgesFromNode(@Nonnull Urn urn,
+                                             @Nonnull List<String> relationshipTypes) {
         // TODO: add escape for string values
         String query = String.format("query {\n" +
                 "  node as var(func: eq(<urn>, \"%s\"))\n" +
-                "}", urn.toString());
+                "}", urn);
 
         Value star = Value.newBuilder().setDefaultVal("_STAR_ALL").build();
         List<NQuad> deletions = relationshipTypes.stream().map(relationshipType ->
@@ -417,6 +507,41 @@ public class DgraphGraphService implements GraphService {
 
         Mutation mutation = Mutation.newBuilder()
                 .addAllDel(deletions)
+                .build();
+        Request request = Request.newBuilder()
+                .setQuery(query)
+                .addMutations(mutation)
+                .setCommitNow(true)
+                .build();
+
+        this._client.newTransaction().doRequest(request);
+    }
+
+    private void removeIncomingEdgesFromNode(@Nonnull Urn urn,
+                                             @Nonnull List<String> relationshipTypes) {
+        // TODO: add escape for string values
+        StringJoiner reverseEdges = new StringJoiner("\n    ");
+        IntStream.range(0, relationshipTypes.size()).forEach(idx ->
+                reverseEdges.add("<~" + relationshipTypes.get(idx) + "> { uids" + ( idx+1 ) + " as uid }")
+        );
+        String query = String.format("query {\n" +
+                "  node as var(func: eq(<urn>, \"%s\"))\n" +
+                "\n" +
+                "  var(func: uid(node)) @normalize {\n" +
+                "    %s\n" +
+                "  }\n" +
+                "}", urn, reverseEdges);
+
+        StringJoiner deletions = new StringJoiner("\n");
+        IntStream.range(0, relationshipTypes.size()).forEach(idx ->
+                deletions.add("uid(uids" + (idx + 1) + ") <" + relationshipTypes.get(idx) + "> uid(node) .")
+        );
+
+        log.debug("Query: " + query);
+        log.debug("Deletions: " + deletions);
+
+        Mutation mutation = Mutation.newBuilder()
+                .setDelNquads(ByteString.copyFromUtf8(deletions.toString()))
                 .build();
         Request request = Request.newBuilder()
                 .setQuery(query)
