@@ -1,4 +1,6 @@
-from typing import Dict, Literal
+from typing import Dict
+
+from typing_extensions import Literal
 
 from datahub.metadata.schema_classes import JobStatusClass
 
