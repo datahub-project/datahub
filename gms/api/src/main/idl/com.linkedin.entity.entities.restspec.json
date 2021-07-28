@@ -78,6 +78,13 @@
       } ],
       "returns" : "com.linkedin.metadata.query.BrowseResult"
     }, {
+      "name" : "delete",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      } ],
+      "returns" : "com.linkedin.metadata.run.RollbackResponse"
+    }, {
       "name" : "getBrowsePaths",
       "parameters" : [ {
         "name" : "urn",
