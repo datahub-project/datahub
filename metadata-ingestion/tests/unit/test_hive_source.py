@@ -18,6 +18,6 @@ def test_hive_configuration_get_identifier_with_database():
     hive_config = HiveConfig.parse_obj(config_dict)
     expected_output = f"{test_db_name}.{test_table_name}"
     ctx = PipelineContext(run_id="test")
-    hive_source = HiveSource(config_dict, ctx)
+    hive_source = HiveSource(hive_config, ctx)
     output = HiveSource.get_schema_names(hive_source, hive_config)
     assert output == expected_output
