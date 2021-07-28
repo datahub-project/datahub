@@ -1,4 +1,5 @@
 # This import verifies that the dependencies are available.
+from logging import exception
 from pyhive import hive  # noqa: F401
 from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveTimestamp
 
@@ -27,12 +28,6 @@ class HiveConfig(BasicSQLAlchemyConfig):
     # Disabling views helps us prevent this duplication.
     include_views = False
 
-    def get_identifier(self, schema: str, table: str) -> str:
-        regular = f"{schema}.{table}"
-        if self.database:
-            return f"{self.database}.{regular}"
-        return regular
-
 
 class HiveSource(SQLAlchemySource):
     def __init__(self, config, ctx):
@@ -42,3 +37,10 @@ class HiveSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = HiveConfig.parse_obj(config_dict)
         return cls(config, ctx)
+    
+    def get_schema_names(self, inspector):
+        if self.config.database:
+            # specific
+            return [self.config.database]
+        else:
+            return super().get_schema_names(inspector)
