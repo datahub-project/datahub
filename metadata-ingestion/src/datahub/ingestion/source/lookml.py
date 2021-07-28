@@ -219,19 +219,7 @@ class LookerViewFileLoader:
     def load_viewfile(
         self, path: str, connection: str, reporter: LookMLSourceReport
     ) -> Optional[LookerViewFile]:
-        """
-        Given a path to ``.view.lkml`` file, create a ``LookerViewFile`` instance.
-
-        Parameters
-        ----------
-            path:
-                String with an absolute path to a ``.view.lkml`` file
-            connection:
-                String with a connection name (e.g. ``"redshift"``)
-            reporter:
-                ``LookMLSourceReport`` instance, used to generate a summary report at the end of ingestion
-        """
-        viewfile = self._load_viewfile(path=path, reporter=reporter)
+        viewfile = self._load_viewfile(path, reporter)
         if viewfile is None:
             return None
 
