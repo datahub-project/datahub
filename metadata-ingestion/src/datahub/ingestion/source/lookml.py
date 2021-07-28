@@ -198,7 +198,7 @@ class LookerViewFileLoader:
         return path in self.viewfile_cache
 
     def _load_viewfile(
-        self, path: str, reporter: LookMLSourceReport, update_cache: bool
+        self, path: str, reporter: LookMLSourceReport
     ) -> Optional[LookerViewFile]:
         if self.is_view_seen(path):
             return self.viewfile_cache[path]
@@ -209,9 +209,8 @@ class LookerViewFileLoader:
                 looker_viewfile = LookerViewFile.from_looker_dict(
                     path, parsed, self._base_folder, reporter
                 )
-                if update_cache:
-                    logger.debug(f"adding viewfile for path {path} to the cache")
-                    self.viewfile_cache[path] = looker_viewfile
+                logger.debug(f"adding viewfile for path {path} to the cache")
+                self.viewfile_cache[path] = looker_viewfile
                 return looker_viewfile
         except Exception as e:
             self.reporter.report_failure(path, f"failed to load view file: {e}")
@@ -222,7 +221,6 @@ class LookerViewFileLoader:
         path: str,
         connection: str,
         reporter: LookMLSourceReport,
-        update_cache: bool = True,
     ) -> Optional[LookerViewFile]:
         """
         Given a path to ``.view.lkml`` file, create a ``LookerViewFile`` instance.
@@ -235,13 +233,8 @@ class LookerViewFileLoader:
                 String with a connection name (e.g. ``"redshift"``)
             reporter:
                 ``LookMLSourceReport`` instance, used to generate a summary report at the end of ingestion
-            update_cache:
-                Set to ``True`` (the default) in situations where a View is being loaded for metadata ingestion,
-                to prevent re-ingesting metadata for it. Set to ``False`` when loading a view just to inspect it.
         """
-        viewfile = self._load_viewfile(
-            path=path, reporter=reporter, update_cache=update_cache
-        )
+        viewfile = self._load_viewfile(path=path, reporter=reporter)
         if viewfile is None:
             return None
 
@@ -399,7 +392,6 @@ class LookerView:
                 path=include,
                 connection=connection,
                 reporter=reporter,
-                update_cache=False,
             )
             if not included_looker_viewfile:
                 logger.warning(
@@ -633,6 +625,10 @@ class LookMLSource(Source):
             str(self.source_config.base_folder), self.reporter
         )
 
+        # some views can be mentioned by multiple 'include' statements, so this set is be used to prevent
+        # creating duplicate MCE messages
+        views_with_workunits = set()
+
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
         model_files = sorted(self.source_config.base_folder.glob("**/*.model.lkml"))
@@ -654,8 +650,7 @@ class LookMLSource(Source):
                 continue
 
             for include in model.resolved_includes:
-                is_view_seen = viewfile_loader.is_view_seen(include)
-                if is_view_seen:
+                if include in views_with_workunits:
                     continue
 
                 logger.debug(f"Attempting to load view file: {include}")
@@ -663,7 +658,6 @@ class LookMLSource(Source):
                     path=include,
                     connection=model.connection,
                     reporter=self.reporter,
-                    update_cache=True,
                 )
                 if looker_viewfile is not None:
                     for raw_view in looker_viewfile.views:
@@ -692,6 +686,7 @@ class LookMLSource(Source):
                                     id=f"lookml-{maybe_looker_view.view_name}", mce=mce
                                 )
                                 self.reporter.report_workunit(workunit)
+                                views_with_workunits.add(include)
                                 yield workunit
                             else:
                                 self.reporter.report_views_dropped(
