@@ -3,8 +3,8 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.dataset.DatasetFieldProfile;
 import com.linkedin.dataset.DatasetProfile;
-import com.linkedin.entity.client.AspectUtil;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.util.GenericAspectUtils;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -20,7 +20,7 @@ public class DatasetProfileMapper implements TimeSeriesAspectMapper<com.linkedin
   @Override
   public com.linkedin.datahub.graphql.generated.DatasetProfile apply(@Nonnull final EnvelopedAspect envelopedAspect) {
 
-    DatasetProfile gmsProfile = AspectUtil
+    DatasetProfile gmsProfile = GenericAspectUtils
         .deserializeAspect(
             envelopedAspect.getAspect().getValue(),
             envelopedAspect.getAspect().getContentType(),

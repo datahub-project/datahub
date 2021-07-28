@@ -25,7 +25,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.util.AspectDeserializationUtil;
+import com.linkedin.metadata.util.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
@@ -75,9 +75,10 @@ public class MetadataChangeLogProcessor {
     _timeseriesAspectService.configure();
   }
 
-  @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics =
-      "${METADATA_CHANGE_LOG_NAME:" + Topics.METADATA_CHANGE_LOG
-          + "}", containerFactory = "avroSerializedKafkaListener")
+  @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics = {
+      "${METADATA_CHANGE_LOG_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG + "}",
+      "${METADATA_CHANGE_LOG_LIMITED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_LIMITED
+          + "}"}, containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     log.debug("Got Generic MCL");
@@ -119,7 +120,7 @@ public class MetadataChangeLogProcessor {
       }
 
       RecordTemplate aspect =
-          AspectDeserializationUtil.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
+          GenericAspectUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
               aspectSpec);
       if (aspectSpec.isTimeseries()) {
         updateTemporalStats(event.getEntityType(), event.getAspectName(), urn, aspect, event.getSystemMetadata());

@@ -132,6 +132,7 @@ There are 2 "special" aspects worth mentioning:
 
 1. Key aspects
 2. Browse aspect
+3. Timeseries aspects
 
 #### Key aspects
 
@@ -260,3 +261,16 @@ Notice that you must provide
 
 a. A "/"-delimited root path for which to fetch results.
 b. An entity "type" using its common name ("dataset" in the example above). 
+
+#### Timeseries aspects
+
+Timeseries aspects are aspects that have a timestampMillis, and are meant for aspects that continuously change on a
+timely basis e.g. data profiles, usage statistics, etc.
+
+Each timeseries aspect must be declared "type": "timeseries" and must
+include [TimeseriesAspectBase](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/timeseries/TimeseriesAspectBase.pdl)
+, which contains a timestampMillis field.
+
+Please refer
+to [DatasetProfile](https://github.com/linkedin/datahub/tree/master/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetProfile)
+to see an example of a timeseries aspect.

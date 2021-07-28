@@ -30,7 +30,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.PegasusUtils.*;
+import static com.linkedin.metadata.PegasusUtils.getDataTemplateClassFromSchema;
+import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -210,10 +211,12 @@ public abstract class EntityService {
    * new & previous aspect.
    *
    * @param urn the urn associated with the entity changed
+   * @param aspectSpec AspectSpec of the aspect being updated
    * @param metadataChangeLog metadata change log to push into MCL kafka topic
    */
-  public void produceMetadataChangeLog(@Nonnull final Urn urn, @Nonnull final MetadataChangeLog metadataChangeLog) {
-    _producer.produceMetadataChangeLog(urn, metadataChangeLog);
+  public void produceMetadataChangeLog(@Nonnull final Urn urn, AspectSpec aspectSpec,
+      @Nonnull final MetadataChangeLog metadataChangeLog) {
+    _producer.produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
   }
 
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {

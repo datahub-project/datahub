@@ -26,19 +26,23 @@ public class TopicConventionFactory {
   @Value("${FAILED_METADATA_CHANGE_EVENT_NAME:" + Topics.FAILED_METADATA_CHANGE_EVENT + "}")
   private String failedMetadataChangeEventName;
 
-  @Value("${GENERIC_METADATA_CHANGE_EVENT_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}")
+  @Value("${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}")
   private String metadataChangeProposalName;
 
-  @Value("${GENERIC_METADATA_AUDIT_EVENT_NAME:" + Topics.METADATA_CHANGE_LOG + "}")
+  @Value("${METADATA_CHANGE_LOG_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG + "}")
   private String metadataChangeLogName;
 
-  @Value("${GENERIC_FAILED_METADATA_CHANGE_EVENT_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
+  @Value("${METADATA_CHANGE_LOG_LIMITED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_LIMITED + "}")
+  private String metadataChangeLogLimitedName;
+
+  @Value("${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
   private String failedMetadataChangeProposalName;
 
   @Bean(name = TOPIC_CONVENTION_BEAN)
   protected TopicConvention createInstance() {
     return new TopicConventionImpl(metadataChangeEventName, metadataAuditEventName, failedMetadataChangeEventName,
-        metadataChangeProposalName, metadataChangeLogName, failedMetadataChangeProposalName,
+        metadataChangeProposalName, metadataChangeLogName, metadataChangeLogLimitedName,
+        failedMetadataChangeProposalName,
         // TODO once we start rolling out v5 add support for changing the new event names.
         TopicConventionImpl.DEFAULT_EVENT_PATTERN);
   }

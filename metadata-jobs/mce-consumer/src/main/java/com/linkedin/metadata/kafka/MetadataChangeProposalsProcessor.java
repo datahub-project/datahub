@@ -30,7 +30,7 @@ public class MetadataChangeProposalsProcessor {
   private AspectClient aspectClient;
   private KafkaTemplate<String, GenericRecord> kafkaTemplate;
 
-  @Value("${FAILED_METADATA_CHANGE_PROPOSAL_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
+  @Value("${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
   private String fmcpTopicName;
 
   public MetadataChangeProposalsProcessor(@Nonnull final AspectClient aspectClient,
@@ -40,7 +40,7 @@ public class MetadataChangeProposalsProcessor {
   }
 
   @KafkaListener(id = "${METADATA_CHANGE_PROPOSAL_KAFKA_CONSUMER_GROUP_ID:generic-mce-consumer-job-client}", topics =
-      "${METADATA_CHANGE_PROPOSAL_NAME:" + Topics.METADATA_CHANGE_PROPOSAL
+      "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL
           + "}", containerFactory = "mceKafkaContainerFactory")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();

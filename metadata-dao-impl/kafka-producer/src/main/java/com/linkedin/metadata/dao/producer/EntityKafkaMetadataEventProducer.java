@@ -7,6 +7,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.Configs;
 import com.linkedin.mxe.MetadataAuditEvent;
@@ -98,8 +99,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
   }
 
   @Override
-  public void produceMetadataChangeLog(
-      @Nonnull final Urn urn,
+  public void produceMetadataChangeLog(@Nonnull final Urn urn, @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     GenericRecord record;
     try {
@@ -111,11 +111,15 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 
+    String topic = _topicConvention.getMetadataChangeLogTopicName();
+    if (aspectSpec.isTimeseries()) {
+      topic = _topicConvention.getMetadataChangeLogLimitedTopicName();
+    }
+
     if (_callback.isPresent()) {
-      _producer.send(new ProducerRecord(_topicConvention.getMetadataChangeLogTopicName(), urn.toString(), record),
-          _callback.get());
+      _producer.send(new ProducerRecord(topic, urn.toString(), record), _callback.get());
     } else {
-      _producer.send(new ProducerRecord(_topicConvention.getMetadataChangeLogTopicName(), urn.toString(), record));
+      _producer.send(new ProducerRecord(topic, urn.toString(), record));
     }
   }
 
