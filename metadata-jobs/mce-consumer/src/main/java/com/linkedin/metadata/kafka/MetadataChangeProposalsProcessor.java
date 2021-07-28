@@ -1,7 +1,6 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.entity.client.AspectClient;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.mxe.FailedMetadataChangeProposal;

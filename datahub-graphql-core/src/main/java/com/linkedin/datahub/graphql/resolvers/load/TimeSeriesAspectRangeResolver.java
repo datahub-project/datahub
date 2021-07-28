@@ -27,8 +27,7 @@ import java.util.stream.Collectors;
  *
  *    TODO: This needs to call a "Type" that performs the mapping.
  */
-public class TimeSeriesAspectRangeResolver
-    implements DataFetcher<CompletableFuture<List<TimeSeriesAspect>>> {
+public class TimeSeriesAspectRangeResolver implements DataFetcher<CompletableFuture<List<TimeSeriesAspect>>> {
 
   private static final String TIMESTAMP_FIELD_NAME = "timestampMillis";
 
@@ -36,10 +35,7 @@ public class TimeSeriesAspectRangeResolver
   private final String _aspectName;
   private final AspectClient _client;
 
-  public TimeSeriesAspectRangeResolver(
-      final String entityName,
-      final String aspectName,
-      final AspectClient client) {
+  public TimeSeriesAspectRangeResolver(final String entityName, final String aspectName, final AspectClient client) {
     _entityName = entityName;
     _aspectName = aspectName;
     _client = client;
@@ -55,8 +51,7 @@ public class TimeSeriesAspectRangeResolver
       // For operability we'll likely want to permit a range.
 
       TimeRange range = null;
-      final String maybeTimeRange = environment.getArgumentOrDefault
-          ("range", null);
+      final String maybeTimeRange = environment.getArgumentOrDefault("range", null);
       if (maybeTimeRange != null) {
         range = TimeRange.valueOf(maybeTimeRange);
       }
@@ -72,18 +67,10 @@ public class TimeSeriesAspectRangeResolver
       List<EnvelopedAspect> aspects;
       try {
         // Step 1: Get profile aspects.
-        aspects = _client.getTimeseriesAspectValues(
-            urn,
-            _entityName,
-            _aspectName,
-            filter,
-            limit);
+        aspects = _client.getTimeseriesAspectValues(urn, _entityName, _aspectName, filter, limit);
 
         // Step 2: Bind profiles into GraphQL strong types.
-        return aspects.stream()
-            .map(DatasetProfileMapper::map)
-            .collect(Collectors.toList());
-
+        return aspects.stream().map(DatasetProfileMapper::map).collect(Collectors.toList());
       } catch (RemoteInvocationException e) {
         // TODO:
         throw new RuntimeException("Failed to retrieve aspects from GMS", e);
@@ -133,7 +120,8 @@ public class TimeSeriesAspectRangeResolver
       case ALL:
         return System.currentTimeMillis();
       default:
-        throw new RuntimeException(String.format("Unrecognized TimeRange %s provided to TimeSeriesAspectRangeResolver", range));
+        throw new RuntimeException(
+            String.format("Unrecognized TimeRange %s provided to TimeSeriesAspectRangeResolver", range));
     }
   }
 }

@@ -16,7 +16,7 @@ import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.util.AspectDeserializationUtil;
+import com.linkedin.metadata.util.GenericAspectUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import java.util.Calendar;
@@ -37,7 +37,8 @@ import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 
 public class ElasticSearchTimeseriesAspectServiceTest {
@@ -115,7 +116,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   private void validateAspectValue(EnvelopedAspect envelopedAspectResult) {
     TestEntityProfile actualProfile =
-        (TestEntityProfile) AspectDeserializationUtil.deserializeAspect(envelopedAspectResult.getAspect().getValue(),
+        (TestEntityProfile) GenericAspectUtils.deserializeAspect(envelopedAspectResult.getAspect().getValue(),
             CONTENT_TYPE, _aspectSpec);
     TestEntityProfile expectedProfile = _testEntityProfiles.get(actualProfile.getTimestampMillis());
     assertNotNull(expectedProfile);
@@ -187,33 +188,33 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   @Test(groups = "query", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesSubRangeInclusiveOverlap() {
-    int expected_num_rows = 10;
-    Filter filter = makeRangeFilter(_startTime, _startTime + TIME_INCREMENT * (expected_num_rows - 1));
+    int expectedNumRows = 10;
+    Filter filter = makeRangeFilter(_startTime, _startTime + TIME_INCREMENT * (expectedNumRows - 1));
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, filter,
-            expected_num_rows);
-    validateAspectValues(resultAspects, expected_num_rows);
+            expectedNumRows);
+    validateAspectValues(resultAspects, expectedNumRows);
   }
 
   @Test(groups = "query", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesSubRangeExclusiveOverlap() {
-    int expected_num_rows = 10;
+    int expectedNumRows = 10;
     Filter filter = makeRangeFilter(_startTime + TIME_INCREMENT / 2,
-        _startTime + TIME_INCREMENT * expected_num_rows + TIME_INCREMENT / 2);
+        _startTime + TIME_INCREMENT * expectedNumRows + TIME_INCREMENT / 2);
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, filter,
-            expected_num_rows);
-    validateAspectValues(resultAspects, expected_num_rows);
+            expectedNumRows);
+    validateAspectValues(resultAspects, expectedNumRows);
   }
 
   @Test(groups = "query", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesExactlyOneResponse() {
-    int expected_num_rows = 1;
+    int expectedNumRows = 1;
     Filter filter = makeRangeFilter(_startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * 3 / 2);
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, filter,
-            expected_num_rows);
-    validateAspectValues(resultAspects, expected_num_rows);
+            expectedNumRows);
+    validateAspectValues(resultAspects, expectedNumRows);
   }
 
   @Test(groups = {"query"}, dependsOnGroups = {"upsert"})
