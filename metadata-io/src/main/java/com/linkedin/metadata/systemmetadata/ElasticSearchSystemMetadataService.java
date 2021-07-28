@@ -98,7 +98,12 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
       summary.setRunId((String) values.get("runId"));
       summary.setAspectName((String) values.get("aspect"));
       summary.setUrn((String) values.get("urn"));
-      summary.setTimestamp((Long) values.get("lastUpdated"));
+      Object timestamp = values.get("lastUpdated");
+      if (timestamp instanceof Long) {
+        summary.setTimestamp((Long) timestamp);
+      } else if (timestamp instanceof Integer) {
+        summary.setTimestamp(Long.valueOf((Integer) timestamp));
+      }
       summary.setKeyAspect(((String) values.get("aspect")).endsWith("Key"));
       return summary;
     }).collect(Collectors.toList());
