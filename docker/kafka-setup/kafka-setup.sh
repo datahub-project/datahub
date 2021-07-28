@@ -25,9 +25,9 @@ kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PA
 kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_CHANGE_EVENT_NAME
 kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $FAILED_METADATA_CHANGE_EVENT_NAME
 
-kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_CHANGE_LOG_TOPIC
+kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_CHANGE_LOG_VERSIONED_TOPIC
 # Set retention to 90 days
-kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --config retention.ms=7776000000 --topic $METADATA_CHANGE_LOG_LIMITED_TOPIC
+kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --config retention.ms=7776000000 --topic $METADATA_CHANGE_LOG_TIMESERIES_TOPIC
 kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $METADATA_CHANGE_PROPOSAL_TOPIC
 kafka-topics --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --zookeeper $KAFKA_ZOOKEEPER_CONNECT --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $FAILED_METADATA_CHANGE_PROPOSAL_TOPIC
 

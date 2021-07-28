@@ -41,13 +41,13 @@ public interface TopicConvention {
    * The name of the metadata change log kafka topic.
    */
   @Nonnull
-  String getMetadataChangeLogTopicName();
+  String getMetadataChangeLogVersionedTopicName();
 
   /**
    * The name of the metadata change log kafka topic with limited retention.
    */
   @Nonnull
-  String getMetadataChangeLogLimitedTopicName();
+  String getMetadataChangeLogTimeseriesTopicName();
 
   /**
    * The name of the failed metadata change proposal kafka topic.

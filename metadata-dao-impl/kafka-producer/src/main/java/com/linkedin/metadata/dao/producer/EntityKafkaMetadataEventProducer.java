@@ -111,9 +111,9 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 
-    String topic = _topicConvention.getMetadataChangeLogTopicName();
+    String topic = _topicConvention.getMetadataChangeLogVersionedTopicName();
     if (aspectSpec.isTimeseries()) {
-      topic = _topicConvention.getMetadataChangeLogLimitedTopicName();
+      topic = _topicConvention.getMetadataChangeLogTimeseriesTopicName();
     }
 
     if (_callback.isPresent()) {

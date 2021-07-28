@@ -3355,14 +3355,24 @@ class ChangeTypeClass(object):
     """Descriptor for a change action"""
     
     
-    """create action"""
+    """insert if not exists. otherwise update"""
+    UPSERT = "UPSERT"
+    
+    """NOT SUPPORTED YET
+    insert if not exists. otherwise fail"""
     CREATE = "CREATE"
     
-    """delete action"""
+    """NOT SUPPORTED YET
+    update if exists. otherwise fail"""
+    UPDATE = "UPDATE"
+    
+    """NOT SUPPORTED YET
+    delete action"""
     DELETE = "DELETE"
     
-    """update action"""
-    UPDATE = "UPDATE"
+    """NOT SUPPORTED YET
+    patch the changes instead of full replace"""
+    PATCH = "PATCH"
     
     
 class GlossaryNodeInfoClass(DictWrapper):
@@ -7217,9 +7227,10 @@ class MetadataChangeProposalClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataChangeProposal")
     def __init__(self,
         entityType: str,
-        entityKey: Union[str, "GenericAspectClass"],
         changeType: Union[str, "ChangeTypeClass"],
         auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
+        entityUrn: Union[None, str]=None,
+        entityKeyAspect: Union[None, "GenericAspectClass"]=None,
         aspectName: Union[None, str]=None,
         aspect: Union[None, "GenericAspectClass"]=None,
         systemMetadata: Union[None, "SystemMetadataClass"]=None,
@@ -7228,7 +7239,8 @@ class MetadataChangeProposalClass(DictWrapper):
         
         self.auditHeader = auditHeader
         self.entityType = entityType
-        self.entityKey = entityKey
+        self.entityUrn = entityUrn
+        self.entityKeyAspect = entityKeyAspect
         self.changeType = changeType
         self.aspectName = aspectName
         self.aspect = aspect
@@ -7244,8 +7256,9 @@ class MetadataChangeProposalClass(DictWrapper):
     def _restore_defaults(self) -> None:
         self.auditHeader = self.RECORD_SCHEMA.field_map["auditHeader"].default
         self.entityType = str()
-        self.entityKey = str()
-        self.changeType = ChangeTypeClass.CREATE
+        self.entityUrn = self.RECORD_SCHEMA.field_map["entityUrn"].default
+        self.entityKeyAspect = self.RECORD_SCHEMA.field_map["entityKeyAspect"].default
+        self.changeType = ChangeTypeClass.UPSERT
         self.aspectName = self.RECORD_SCHEMA.field_map["aspectName"].default
         self.aspect = self.RECORD_SCHEMA.field_map["aspect"].default
         self.systemMetadata = self.RECORD_SCHEMA.field_map["systemMetadata"].default
@@ -7274,26 +7287,37 @@ class MetadataChangeProposalClass(DictWrapper):
     
     
     @property
-    def entityKey(self) -> Union[str, "GenericAspectClass"]:
-        """Getter: Urn or serialized key Aspect of the entity being written to
+    def entityUrn(self) -> Union[None, str]:
+        """Getter: Urn of the entity being written
     """
-        return self._inner_dict.get('entityKey')  # type: ignore
+        return self._inner_dict.get('entityUrn')  # type: ignore
     
-    @entityKey.setter
-    def entityKey(self, value: Union[str, "GenericAspectClass"]) -> None:
-        """Setter: Urn or serialized key Aspect of the entity being written to
+    @entityUrn.setter
+    def entityUrn(self, value: Union[None, str]) -> None:
+        """Setter: Urn of the entity being written
     """
-        self._inner_dict['entityKey'] = value
+        self._inner_dict['entityUrn'] = value
+    
+    
+    @property
+    def entityKeyAspect(self) -> Union[None, "GenericAspectClass"]:
+        """Getter: Key aspect of the entity being written"""
+        return self._inner_dict.get('entityKeyAspect')  # type: ignore
+    
+    @entityKeyAspect.setter
+    def entityKeyAspect(self, value: Union[None, "GenericAspectClass"]) -> None:
+        """Setter: Key aspect of the entity being written"""
+        self._inner_dict['entityKeyAspect'] = value
     
     
     @property
     def changeType(self) -> Union[str, "ChangeTypeClass"]:
-        # No docs available.
+        """Getter: Type of change being proposed"""
         return self._inner_dict.get('changeType')  # type: ignore
     
     @changeType.setter
     def changeType(self, value: Union[str, "ChangeTypeClass"]) -> None:
-        # No docs available.
+        """Setter: Type of change being proposed"""
         self._inner_dict['changeType'] = value
     
     

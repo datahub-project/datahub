@@ -12,7 +12,7 @@ import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.util.GenericAspectUtils;
-import com.linkedin.metadata.utils.mxe.EventUtils;
+import com.linkedin.metadata.utils.mxe.EntityKeyUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
@@ -138,7 +138,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       return Collections.emptyList();
     }
     List<MetadataChangeProposal> additionalChanges = new ArrayList<>();
-    final Urn urn = EventUtils.getUrnFromProposal(metadataChangeProposal);
+    final Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal);
     final RecordTemplate browsePathAspect =
         _entityService.getAspect(urn, "browsePaths", EntityService.LATEST_ASPECT_VERSION);
     if (browsePathAspect == null) {

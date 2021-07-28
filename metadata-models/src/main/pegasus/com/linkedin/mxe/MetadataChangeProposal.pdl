@@ -20,11 +20,18 @@ record MetadataChangeProposal {
   entityType: string
 
   /**
-   * Urn or serialized key Aspect of the entity being written to
+   * Urn of the entity being written
    **/
+  entityUrn: optional Urn,
 
-  entityKey: union [Urn, GenericAspect]
+  /**
+   * Key aspect of the entity being written
+   */
+  entityKeyAspect: optional GenericAspect
 
+  /**
+   * Type of change being proposed
+   */
   changeType: ChangeType
 
   /**

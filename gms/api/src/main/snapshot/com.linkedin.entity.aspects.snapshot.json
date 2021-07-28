@@ -2898,12 +2898,19 @@
       "type" : "string",
       "doc" : "Type of the entity being written to"
     }, {
-      "name" : "entityKey",
-      "type" : [ "com.linkedin.common.Urn", "GenericAspect" ],
-      "doc" : "Urn or serialized key Aspect of the entity being written to\n"
+      "name" : "entityUrn",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "Urn of the entity being written\n",
+      "optional" : true
+    }, {
+      "name" : "entityKeyAspect",
+      "type" : "GenericAspect",
+      "doc" : "Key aspect of the entity being written",
+      "optional" : true
     }, {
       "name" : "changeType",
-      "type" : "com.linkedin.events.metadata.ChangeType"
+      "type" : "com.linkedin.events.metadata.ChangeType",
+      "doc" : "Type of change being proposed"
     }, {
       "name" : "aspectName",
       "type" : "string",

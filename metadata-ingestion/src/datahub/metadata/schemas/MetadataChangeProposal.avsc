@@ -98,9 +98,21 @@
       "doc": "Type of the entity being written to"
     },
     {
-      "name": "entityKey",
+      "name": "entityUrn",
       "type": [
-        "string",
+        "null",
+        "string"
+      ],
+      "doc": "Urn of the entity being written\n",
+      "default": null,
+      "java": {
+        "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+      }
+    },
+    {
+      "name": "entityKeyAspect",
+      "type": [
+        "null",
         {
           "type": "record",
           "name": "GenericAspect",
@@ -117,7 +129,8 @@
           ]
         }
       ],
-      "doc": "Urn or serialized key Aspect of the entity being written to\n"
+      "doc": "Key aspect of the entity being written",
+      "default": null
     },
     {
       "name": "changeType",
@@ -127,16 +140,21 @@
         "namespace": "com.linkedin.pegasus2avro.events.metadata",
         "doc": "Descriptor for a change action",
         "symbols": [
+          "UPSERT",
           "CREATE",
+          "UPDATE",
           "DELETE",
-          "UPDATE"
+          "PATCH"
         ],
         "symbolDocs": {
-          "CREATE": "create action",
-          "DELETE": "delete action",
-          "UPDATE": "update action"
+          "CREATE": "NOT SUPPORTED YET\ninsert if not exists. otherwise fail",
+          "DELETE": "NOT SUPPORTED YET\ndelete action",
+          "PATCH": "NOT SUPPORTED YET\npatch the changes instead of full replace",
+          "UPDATE": "NOT SUPPORTED YET\nupdate if exists. otherwise fail",
+          "UPSERT": "insert if not exists. otherwise update"
         }
-      }
+      },
+      "doc": "Type of change being proposed"
     },
     {
       "name": "aspectName",

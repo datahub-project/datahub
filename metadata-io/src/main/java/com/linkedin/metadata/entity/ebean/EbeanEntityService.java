@@ -14,10 +14,10 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.util.GenericAspectUtils;
+import com.linkedin.metadata.utils.mxe.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.sql.Timestamp;
@@ -292,19 +292,15 @@ public class EbeanEntityService extends EntityService {
     log.debug("entity type = {}", metadataChangeProposal.getEntityType());
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
     log.debug("entity spec = {}", entitySpec);
-    if (metadataChangeProposal.getEntityKey().isGenericAspect()) {
-      log.error("Key as struct is not yet supported");
-      return;
-    }
+
+    Urn entityUrn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal);
 
     // Validate Key
     try {
-      if (metadataChangeProposal.getEntityKey().isUrn()) {
-        RecordTemplate entityKey = EntityKeyUtils.convertUrnToEntityKey(metadataChangeProposal.getEntityKey().getUrn(),
-            entitySpec.getKeyAspectSpec().getPegasusSchema());
-      }
+      RecordTemplate entityKey =
+          com.linkedin.metadata.models.EntityKeyUtils.convertUrnToEntityKey(entityUrn, entitySpec.getKeyAspectSpec().getPegasusSchema());
     } catch (RuntimeException re) {
-      log.warn("Failed to validate key {}", metadataChangeProposal.getEntityKey().getUrn());
+      log.warn("Failed to validate key {}", entityUrn);
       throw new RuntimeException("Failed to validate key", re);
     }
 
@@ -317,8 +313,6 @@ public class EbeanEntityService extends EntityService {
       log.error("Aspect and aspect name is required for create and update operations");
       return;
     }
-
-    Urn entityUrn = metadataChangeProposal.getEntityKey().getUrn();
 
     AspectSpec aspectSpec = entitySpec.getAspectSpec(metadataChangeProposal.getAspectName());
 

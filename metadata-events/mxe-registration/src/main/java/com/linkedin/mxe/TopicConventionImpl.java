@@ -36,8 +36,8 @@ public final class TopicConventionImpl implements TopicConvention {
 
   // Generic event topic names
   private final String _metadataChangeProposalTopicName;
-  private final String _metadataChangeLogTopicName;
-  private final String _metadataChangeLogLimitedTopicName;
+  private final String _metadataChangeLogVersionedTopicName;
+  private final String _metadataChangeLogTimeseriesTopicName;
   private final String _failedMetadataChangeProposalTopicName;
 
   // v5 patterns
@@ -45,21 +45,21 @@ public final class TopicConventionImpl implements TopicConvention {
 
   public TopicConventionImpl(@Nonnull String metadataChangeEventTopicName, @Nonnull String metadataAuditEventTopicName,
       @Nonnull String failedMetadataChangeEventTopicName, @Nonnull String metadataChangeProposalTopicName,
-      @Nonnull String metadataChangeLogTopicName, @Nonnull String metadataChangeLogLimitedTopicName,
+      @Nonnull String metadataChangeLogVersionedTopicName, @Nonnull String metadataChangeLogTimeseriesTopicName,
       @Nonnull String failedMetadataChangeProposalTopicName, @Nonnull String eventPattern) {
     _metadataChangeEventTopicName = metadataChangeEventTopicName;
     _metadataAuditEventTopicName = metadataAuditEventTopicName;
     _failedMetadataChangeEventTopicName = failedMetadataChangeEventTopicName;
     _metadataChangeProposalTopicName = metadataChangeProposalTopicName;
-    _metadataChangeLogTopicName = metadataChangeLogTopicName;
-    _metadataChangeLogLimitedTopicName = metadataChangeLogLimitedTopicName;
+    _metadataChangeLogVersionedTopicName = metadataChangeLogVersionedTopicName;
+    _metadataChangeLogTimeseriesTopicName = metadataChangeLogTimeseriesTopicName;
     _failedMetadataChangeProposalTopicName = failedMetadataChangeProposalTopicName;
     _eventPattern = eventPattern;
   }
 
   public TopicConventionImpl() {
     this(Topics.METADATA_CHANGE_EVENT, Topics.METADATA_AUDIT_EVENT, Topics.FAILED_METADATA_CHANGE_EVENT,
-        Topics.METADATA_CHANGE_PROPOSAL, Topics.METADATA_CHANGE_LOG, Topics.METADATA_CHANGE_LOG_LIMITED,
+        Topics.METADATA_CHANGE_PROPOSAL, Topics.METADATA_CHANGE_LOG_VERSIONED, Topics.METADATA_CHANGE_LOG_TIMESERIES,
         Topics.FAILED_METADATA_CHANGE_PROPOSAL, DEFAULT_EVENT_PATTERN);
   }
 
@@ -89,14 +89,14 @@ public final class TopicConventionImpl implements TopicConvention {
 
   @Nonnull
   @Override
-  public String getMetadataChangeLogTopicName() {
-    return _metadataChangeLogTopicName;
+  public String getMetadataChangeLogVersionedTopicName() {
+    return _metadataChangeLogVersionedTopicName;
   }
 
   @Nonnull
   @Override
-  public String getMetadataChangeLogLimitedTopicName() {
-    return _metadataChangeLogLimitedTopicName;
+  public String getMetadataChangeLogTimeseriesTopicName() {
+    return _metadataChangeLogTimeseriesTopicName;
   }
 
   @Nonnull

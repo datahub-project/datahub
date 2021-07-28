@@ -26,6 +26,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.util.GenericAspectUtils;
+import com.linkedin.metadata.utils.mxe.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
@@ -76,8 +77,8 @@ public class MetadataChangeLogProcessor {
   }
 
   @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics = {
-      "${METADATA_CHANGE_LOG_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG + "}",
-      "${METADATA_CHANGE_LOG_LIMITED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_LIMITED
+      "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
+      "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
           + "}"}, containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
@@ -101,12 +102,7 @@ public class MetadataChangeLogProcessor {
         return;
       }
 
-      if (event.getEntityKey().isGenericAspect()) {
-        log.error("Key as struct is not yet supported");
-        return;
-      }
-
-      Urn urn = event.getEntityKey().getUrn();
+      Urn urn = EntityKeyUtils.getUrnFromLog(event);
 
       if (!event.hasAspectName() || !event.hasAspect()) {
         log.error("Aspect or aspect name is missing");

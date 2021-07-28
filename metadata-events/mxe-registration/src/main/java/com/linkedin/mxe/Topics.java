@@ -8,8 +8,8 @@ public class Topics {
   public static final String METADATA_GRAPH_EVENT = "MetadataGraphEvent_v4";
   public static final String METADATA_SEARCH_EVENT = "MetadataSearchEvent_v4";
 
-  public static final String METADATA_CHANGE_LOG = "MetadataChangeLog_v1";
-  public static final String METADATA_CHANGE_LOG_LIMITED = "MetadataChangeLog_Limited_v1";
+  public static final String METADATA_CHANGE_LOG_VERSIONED = "MetadataChangeLog_Versioned_v1";
+  public static final String METADATA_CHANGE_LOG_TIMESERIES = "MetadataChangeLog_Timeseries_v1";
   public static final String METADATA_CHANGE_PROPOSAL = "MetadataChangeProposal_v1";
   public static final String FAILED_METADATA_CHANGE_PROPOSAL = "FailedMetadataChangeProposal_v1";
 
