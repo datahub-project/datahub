@@ -6,11 +6,9 @@
       "aspects": [
         {
           "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-            "active": true,
             "displayName": {
-              "string": "Harshal Sheth"
+              "string": "notice that the 'active' and 'email' fields are missing, but should be required"
             },
-            "email": "harshal@sheth.io",
             "title": {
               "string": "Engineer"
             },
