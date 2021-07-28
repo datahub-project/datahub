@@ -44,6 +44,12 @@
         "default" : "10000"
       } ],
       "returns" : "com.linkedin.aspect.GetAspectResponse"
+    }, {
+      "name" : "ingestProposal",
+      "parameters" : [ {
+        "name" : "proposal",
+        "type" : "com.linkedin.mxe.MetadataChangeProposal"
+      } ]
     } ],
     "entity" : {
       "path" : "/aspects/{aspectsId}"

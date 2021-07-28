@@ -75,9 +75,10 @@ public class MetadataChangeLogProcessor {
     _timeseriesAspectService.configure();
   }
 
-  @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics =
-      "${METADATA_CHANGE_LOG_NAME:" + Topics.METADATA_CHANGE_LOG
-          + "}", containerFactory = "avroSerializedKafkaListener")
+  @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics = {
+      "${METADATA_CHANGE_LOG_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG + "}",
+      "${METADATA_CHANGE_LOG_LIMITED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_LIMITED
+          + "}"}, containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     log.debug("Got Generic MCL");

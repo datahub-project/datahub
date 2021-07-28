@@ -364,7 +364,7 @@ public class EbeanEntityService extends EntityService {
       }
 
       // Since only temporal aspect are ingested as of now, simply produce mae event for it
-      produceMetadataChangeLog(entityUrn, metadataChangeLog);
+      produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
     } else {
       log.debug(
           String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",

@@ -87,12 +87,6 @@
         "type" : "com.linkedin.entity.Entity"
       } ]
     }, {
-      "name" : "ingestProposal",
-      "parameters" : [ {
-        "name" : "proposal",
-        "type" : "com.linkedin.mxe.MetadataChangeProposal"
-      } ]
-    }, {
       "name" : "search",
       "parameters" : [ {
         "name" : "entity",
