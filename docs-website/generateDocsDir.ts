@@ -160,7 +160,9 @@ function markdown_guess_title(
     const headers = contents.content.match(/^# (.+)$/gm);
 
     if (!headers) {
-      throw new Error(`${filepath} must have at least one h1 header`);
+      throw new Error(
+        `${filepath} must have at least one h1 header for setting the title`
+      );
     }
 
     if (headers.length > 1 && contents.content.indexOf("```") < 0) {

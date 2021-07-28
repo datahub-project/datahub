@@ -145,7 +145,7 @@ Running a recipe is quite easy.
 datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
 ```
 
-A number of recipes are included in the [examples/recipes](./examples/recipes) directory. See also pages described in the [table of plugins](#installing-plugins) for more context on recipe options for each source and sink.
+A number of recipes are included in the [examples/recipes](./examples/recipes) directory. For full info and context on each source and sink, see the pages described in the [table of plugins](#installing-plugins).
 
 ## Transformations
 
