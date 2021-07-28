@@ -187,33 +187,33 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   @Test(groups = "query", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesSubRangeInclusiveOverlap() {
-    int expected_num_rows = 10;
-    Filter filter = makeRangeFilter(_startTime, _startTime + TIME_INCREMENT * (expected_num_rows - 1));
+    int expectedNumRows = 10;
+    Filter filter = makeRangeFilter(_startTime, _startTime + TIME_INCREMENT * (expectedNumRows - 1));
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, filter,
-            expected_num_rows);
-    validateAspectValues(resultAspects, expected_num_rows);
+            expectedNumRows);
+    validateAspectValues(resultAspects, expectedNumRows);
   }
 
   @Test(groups = "query", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesSubRangeExclusiveOverlap() {
-    int expected_num_rows = 10;
+    int expectedNumRows = 10;
     Filter filter = makeRangeFilter(_startTime + TIME_INCREMENT / 2,
-        _startTime + TIME_INCREMENT * expected_num_rows + TIME_INCREMENT / 2);
+        _startTime + TIME_INCREMENT * expectedNumRows + TIME_INCREMENT / 2);
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, filter,
-            expected_num_rows);
-    validateAspectValues(resultAspects, expected_num_rows);
+            expectedNumRows);
+    validateAspectValues(resultAspects, expectedNumRows);
   }
 
   @Test(groups = "query", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesExactlyOneResponse() {
-    int expected_num_rows = 1;
+    int expectedNumRows = 1;
     Filter filter = makeRangeFilter(_startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * 3 / 2);
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, filter,
-            expected_num_rows);
-    validateAspectValues(resultAspects, expected_num_rows);
+            expectedNumRows);
+    validateAspectValues(resultAspects, expectedNumRows);
   }
 
   @Test(groups = {"query"}, dependsOnGroups = {"upsert"})
