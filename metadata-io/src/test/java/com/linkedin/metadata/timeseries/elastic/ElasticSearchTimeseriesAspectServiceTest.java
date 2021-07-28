@@ -16,7 +16,7 @@ import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.util.AspectDeserializationUtil;
+import com.linkedin.metadata.util.GenericAspectUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import java.util.Calendar;
@@ -115,7 +115,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   private void validateAspectValue(EnvelopedAspect envelopedAspectResult) {
     TestEntityProfile actualProfile =
-        (TestEntityProfile) AspectDeserializationUtil.deserializeAspect(envelopedAspectResult.getAspect().getValue(),
+        (TestEntityProfile) GenericAspectUtils.deserializeAspect(envelopedAspectResult.getAspect().getValue(),
             CONTENT_TYPE, _aspectSpec);
     TestEntityProfile expectedProfile = _testEntityProfiles.get(actualProfile.getTimestampMillis());
     assertNotNull(expectedProfile);
