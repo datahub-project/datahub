@@ -1,6 +1,6 @@
 # DataHub Rest
 
-To install this plugin, run `pip install 'acryl-datahub[datahub-reset]'`.
+To install this plugin, run `pip install 'acryl-datahub[datahub-rest]'`.
 
 Pushes metadata to DataHub using the GMA rest API. The advantage of the rest-based interface
 is that any errors can immediately be reported.
