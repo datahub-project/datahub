@@ -10,10 +10,6 @@ import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.util.GenericAspectUtils;
@@ -37,8 +33,7 @@ import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.*;
 
 
 public class ElasticSearchTimeseriesAspectServiceTest {
@@ -51,13 +46,11 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   private static final int NUM_ROWS = 100;
   private static final long TIME_INCREMENT = 3600000; // hour in ms.
   private static final String CONTENT_TYPE = "application/json";
-  private static final String TIMESTAMP_FIELD_NAME = "timestampMillis";
 
   private ElasticsearchContainer _elasticsearchContainer;
   private RestHighLevelClient _searchClient;
   private EntityRegistry _entityRegistry;
   private IndexConvention _indexConvention;
-  //private SettingsBuilder _settingsBuilder;
   private ElasticSearchTimeseriesAspectService _elasticSearchTimeseriesAspectService;
   private AspectSpec _aspectSpec;
 
@@ -70,7 +63,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
         TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
     _indexConvention = new IndexConventionImpl(null);
     _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
-    //_settingsBuilder = new SettingsBuilder(Collections.emptyList());
     _elasticsearchContainer.start();
     _searchClient = buildRestClient();
     _elasticSearchTimeseriesAspectService = buildService();
@@ -129,27 +121,6 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     aspects.forEach(this::validateAspectValue);
   }
 
-  private Filter makeRangeFilter(Long startTime, Long endTime) {
-    Filter filter = new Filter();
-    CriterionArray criterionArray = new CriterionArray();
-
-    Criterion endTimeCriterion = new Criterion();
-    endTimeCriterion.setField(TIMESTAMP_FIELD_NAME);
-    endTimeCriterion.setCondition(Condition.LESS_THAN_OR_EQUAL_TO);
-    endTimeCriterion.setValue(endTime.toString());
-
-    Criterion startTimeCriterion = new Criterion();
-    startTimeCriterion.setField(TIMESTAMP_FIELD_NAME);
-    startTimeCriterion.setCondition(Condition.GREATER_THAN_OR_EQUAL_TO);
-    startTimeCriterion.setValue(startTime.toString());
-
-    criterionArray.add(endTimeCriterion);
-    criterionArray.add(startTimeCriterion);
-
-    filter.setCriteria(criterionArray);
-    return filter;
-  }
-
   @Test(groups = "upsert")
   public void testUpsertProfiles() throws InterruptedException {
     // Create the testEntity profiles that we would like to use for testing.
@@ -180,29 +151,26 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
   @Test(groups = "query", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesAll() {
-    // Get every row back.
     List<EnvelopedAspect> resultAspects =
-        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, null, NUM_ROWS);
+        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null, NUM_ROWS);
     validateAspectValues(resultAspects, NUM_ROWS);
   }
 
   @Test(groups = "query", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesSubRangeInclusiveOverlap() {
     int expectedNumRows = 10;
-    Filter filter = makeRangeFilter(_startTime, _startTime + TIME_INCREMENT * (expectedNumRows - 1));
     List<EnvelopedAspect> resultAspects =
-        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, filter,
-            expectedNumRows);
+        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, _startTime,
+            _startTime + TIME_INCREMENT * (expectedNumRows - 1), expectedNumRows);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
   @Test(groups = "query", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesSubRangeExclusiveOverlap() {
     int expectedNumRows = 10;
-    Filter filter = makeRangeFilter(_startTime + TIME_INCREMENT / 2,
-        _startTime + TIME_INCREMENT * expectedNumRows + TIME_INCREMENT / 2);
     List<EnvelopedAspect> resultAspects =
-        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, filter,
+        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME,
+            _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * expectedNumRows + TIME_INCREMENT / 2,
             expectedNumRows);
     validateAspectValues(resultAspects, expectedNumRows);
   }
@@ -210,10 +178,9 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   @Test(groups = "query", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesExactlyOneResponse() {
     int expectedNumRows = 1;
-    Filter filter = makeRangeFilter(_startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * 3 / 2);
     List<EnvelopedAspect> resultAspects =
-        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, filter,
-            expectedNumRows);
+        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME,
+            _startTime + TIME_INCREMENT / 2, _startTime + TIME_INCREMENT * 3 / 2, expectedNumRows);
     validateAspectValues(resultAspects, expectedNumRows);
   }
 
@@ -221,7 +188,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   public void testGetAspectTimeseriesValueMissingUrn() {
     Urn nonExistingUrn = new TestEntityUrn("missing", "missing", "missing");
     List<EnvelopedAspect> resultAspects =
-        _elasticSearchTimeseriesAspectService.getAspectValues(nonExistingUrn, ENTITY_NAME, ASPECT_NAME, null, NUM_ROWS);
+        _elasticSearchTimeseriesAspectService.getAspectValues(nonExistingUrn, ENTITY_NAME, ASPECT_NAME, null, null,
+            NUM_ROWS);
     validateAspectValues(resultAspects, 0);
   }
 }

@@ -9,7 +9,8 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.dao.utils.ESUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
-import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.Condition;
+import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
@@ -47,6 +48,7 @@ import org.elasticsearch.search.sort.SortOrder;
 @Slf4j
 public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectService {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final String TIMESTAMP_FIELD = "timestampMillis";
 
   private final IndexConvention _indexConvention;
   private final BulkProcessor _bulkProcessor;
@@ -74,9 +76,8 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     Object event = docFields.get("event");
     GenericAspect genericAspect;
     try {
-      genericAspect = new GenericAspect()
-          .setValue(ByteString.unsafeWrap(OBJECT_MAPPER.writeValueAsString(event)
-              .getBytes(StandardCharsets.UTF_8)));
+      genericAspect = new GenericAspect().setValue(
+          ByteString.unsafeWrap(OBJECT_MAPPER.writeValueAsString(event).getBytes(StandardCharsets.UTF_8)));
     } catch (JsonProcessingException e) {
       throw new RuntimeException("Failed to deserialize event from the timeseries aspect index: " + e);
     }
@@ -119,10 +120,22 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public List<EnvelopedAspect> getAspectValues(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
-      @Nullable Filter filter, int limit) {
-    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter);
+  public List<EnvelopedAspect> getAspectValues(@Nonnull final Urn urn, @Nonnull String entityName,
+      @Nonnull String aspectName, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, int limit) {
+    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(null);
     filterQueryBuilder.must(QueryBuilders.matchQuery("urn", urn.toString()));
+    if (startTimeMillis != null) {
+      Criterion startTimeCriterion = new Criterion().setField(TIMESTAMP_FIELD)
+          .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
+          .setValue(startTimeMillis.toString());
+      filterQueryBuilder.must(ESUtils.getQueryBuilderFromCriterionForSearch(startTimeCriterion));
+    }
+    if (endTimeMillis != null) {
+      Criterion endTimeCriterion = new Criterion().setField(TIMESTAMP_FIELD)
+          .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
+          .setValue(endTimeMillis.toString());
+      filterQueryBuilder.must(ESUtils.getQueryBuilderFromCriterionForSearch(endTimeCriterion));
+    }
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQueryBuilder);
     searchSourceBuilder.size(limit);

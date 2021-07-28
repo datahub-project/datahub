@@ -7,10 +7,6 @@ import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.entity.client.AspectClient;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.Criterion;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -28,8 +24,6 @@ import java.util.stream.Collectors;
  *    TODO: This needs to call a "Type" that performs the mapping.
  */
 public class TimeSeriesAspectRangeResolver implements DataFetcher<CompletableFuture<List<TimeSeriesAspect>>> {
-
-  private static final String TIMESTAMP_FIELD_NAME = "timestampMillis";
 
   private final String _entityName;
   private final String _aspectName;
@@ -58,16 +52,20 @@ public class TimeSeriesAspectRangeResolver implements DataFetcher<CompletableFut
 
       // Max number of aspects to return.
       final Integer limit = environment.getArgumentOrDefault("count", null);
-      Filter filter = null;
+
+      Long startTimeMillis = null;
+      Long endTimeMillis = null;
 
       if (range != null) {
-        filter = buildRangeFilter(range);
+        endTimeMillis = System.currentTimeMillis();
+        startTimeMillis = endTimeMillis - rangeToMillis(range);
       }
 
       List<EnvelopedAspect> aspects;
       try {
         // Step 1: Get profile aspects.
-        aspects = _client.getTimeseriesAspectValues(urn, _entityName, _aspectName, filter, limit);
+        aspects =
+            _client.getTimeseriesAspectValues(urn, _entityName, _aspectName, startTimeMillis, endTimeMillis, limit);
 
         // Step 2: Bind profiles into GraphQL strong types.
         return aspects.stream().map(DatasetProfileMapper::map).collect(Collectors.toList());
@@ -76,31 +74,6 @@ public class TimeSeriesAspectRangeResolver implements DataFetcher<CompletableFut
         throw new RuntimeException("Failed to retrieve aspects from GMS", e);
       }
     });
-  }
-
-  private Filter buildRangeFilter(TimeRange range) {
-    Filter filter = new Filter();
-
-    CriterionArray criterionArray = new CriterionArray();
-
-    Long endTime = System.currentTimeMillis();
-    Long startTime = endTime - rangeToMillis(range);
-
-    Criterion endTimeCriterion = new Criterion();
-    endTimeCriterion.setField(TIMESTAMP_FIELD_NAME);
-    endTimeCriterion.setCondition(Condition.LESS_THAN_OR_EQUAL_TO);
-    endTimeCriterion.setValue(endTime.toString());
-
-    Criterion startTimeCriterion = new Criterion();
-    startTimeCriterion.setField(TIMESTAMP_FIELD_NAME);
-    startTimeCriterion.setCondition(Condition.GREATER_THAN_OR_EQUAL_TO);
-    startTimeCriterion.setValue(startTime.toString());
-
-    criterionArray.add(endTimeCriterion);
-    criterionArray.add(startTimeCriterion);
-
-    filter.setCriteria(criterionArray);
-    return filter;
   }
 
   private Long rangeToMillis(TimeRange range) {
