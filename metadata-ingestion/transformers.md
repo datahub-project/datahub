@@ -25,11 +25,14 @@ transformers:
         - "urn:li:tag:Legacy"
 ```
 
-:::tip
-
 If you'd like to add more complex logic for assigning tags, you can use the more generic add_dataset_tags transformer, which calls a user-provided function to determine the tags for each dataset.
 
-:::
+```yaml
+transformers:
+  - type: "add_dataset_tags"
+    config:
+      get_tags_to_add: "<your_module>.<your_function>"
+```
 
 ### Setting ownership
 
@@ -45,6 +48,15 @@ transformers:
         - "urn:li:corpuser:username1"
         - "urn:li:corpuser:username2"
         - "urn:li:corpGroup:groupname"
+```
+
+If you'd like to add more complex logic for assigning ownership, you can use the more generic `add_dataset_ownership` transformer, which calls a user-provided function to determine the ownership of each dataset.
+
+```yaml
+transformers:
+  - type: "add_dataset_ownership"
+    config:
+      get_owners_to_add: "<your_module>.<your_function>"
 ```
 
 ## Writing a custom transformer from scratch

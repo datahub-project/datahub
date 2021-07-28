@@ -950,7 +950,7 @@ sink:
 
 If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.
 
-Check out the [transformers guide](./transformers.md) for more info!.
+Check out the [transformers guide](./transformers.md) for more info!
 
 ## Using as a library
 
@@ -1018,4 +1018,4 @@ In order to use this example, you must first configure the Datahub hook. Like in
 
 ## Developing
 
-See the [developing guide](./developing.md), [adding a source guide](./adding-source.md) and the [using transformers](./transformers.md) guides.
+See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and the [using transformers](./transformers.md).
