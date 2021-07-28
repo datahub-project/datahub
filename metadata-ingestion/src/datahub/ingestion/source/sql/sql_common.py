@@ -268,7 +268,6 @@ class SQLAlchemySource(Source):
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
 
-
     def get_workunits(self) -> Iterable[SqlWorkUnit]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):

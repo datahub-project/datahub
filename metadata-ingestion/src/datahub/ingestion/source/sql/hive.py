@@ -1,5 +1,4 @@
 # This import verifies that the dependencies are available.
-from logging import exception
 from pyhive import hive  # noqa: F401
 from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveTimestamp
 
@@ -37,10 +36,11 @@ class HiveSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = HiveConfig.parse_obj(config_dict)
         return cls(config, ctx)
-    
+
     def get_schema_names(self, inspector):
+        assert isinstance(self.config, HiveConfig)
+        # This condition restrictes the ingestion to the specified database.
         if self.config.database:
-            # specific
             return [self.config.database]
         else:
             return super().get_schema_names(inspector)
