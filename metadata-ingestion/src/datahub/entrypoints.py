@@ -7,6 +7,7 @@ import stackprinter
 
 import datahub as datahub_package
 from datahub.cli.check_cli import check
+from datahub.cli.delete_cli import delete
 from datahub.cli.docker import docker
 from datahub.cli.ingest_cli import ingest
 
@@ -59,6 +60,7 @@ def version() -> None:
 datahub.add_command(check)
 datahub.add_command(docker)
 datahub.add_command(ingest)
+datahub.add_command(delete)
 
 
 def main(**kwargs):
