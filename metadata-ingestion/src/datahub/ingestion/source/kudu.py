@@ -259,8 +259,9 @@ class KuduSource(Source):
                     properties["table_type"] = item[1]
                 if item[0].strip() == "Owner:":
                     table_owner = item[1]
-                if item[1].strip() == "kudu.master_addresses":
-                    properties["kudu_master"] = item[2]
+                if item[1]:
+                    if item[1].strip() == "kudu.master_addresses":
+                        properties["kudu_master"] = item[2]
             for item in ["table_location","table_type", "kudu_master"]:
                 if item not in properties:
                     properties[item]=""
