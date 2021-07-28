@@ -386,9 +386,7 @@ class LookerView:
         # lives in, so we try them all!
         for include in looker_viewfile.resolved_includes:
             included_looker_viewfile = looker_viewfile_loader.load_viewfile(
-                include,
-                connection,
-                reporter,
+                include, connection, reporter
             )
             if not included_looker_viewfile:
                 logger.warning(
@@ -652,9 +650,7 @@ class LookMLSource(Source):
 
                 logger.debug(f"Attempting to load view file: {include}")
                 looker_viewfile = viewfile_loader.load_viewfile(
-                    include,
-                    model.connection,
-                    self.reporter,
+                    include, model.connection, self.reporter
                 )
                 if looker_viewfile is not None:
                     for raw_view in looker_viewfile.views:
