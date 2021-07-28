@@ -948,58 +948,9 @@ sink:
 
 ## Transformations
 
-Beyond basic ingestion, sometimes there might exist a need to modify the source data before passing it on to the sink.
-Example use cases could be to add ownership information, add extra tags etc.
+If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.
 
-In such a scenario, it is possible to configure a recipe with a list of transformers.
-
-```yml
-transformers:
-  - type: "fully-qualified-class-name-of-transformer"
-    config:
-      some_property: "some.value"
-```
-
-A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py).
-
-### `simple_add_dataset_ownership`
-
-Adds a set of owners to every dataset.
-
-```yml
-transformers:
-  - type: "simple_add_dataset_ownership"
-    config:
-      owner_urns:
-        - "urn:li:corpuser:username1"
-        - "urn:li:corpuser:username2"
-        - "urn:li:corpGroup:groupname"
-```
-
-:::tip
-
-If you'd like to add more complex logic for assigning ownership, you can use the more generic [`add_dataset_ownership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset.
-
-:::
-
-### `simple_add_dataset_tags`
-
-Adds a set of tags to every dataset.
-
-```yml
-transformers:
-  - type: "simple_add_dataset_tags"
-    config:
-      tag_urns:
-        - "urn:li:tag:NeedsDocumentation"
-        - "urn:li:tag:Legacy"
-```
-
-:::tip
-
-If you'd like to add more complex logic for assigning tags, you can use the more generic [`add_dataset_tags` transformer](./src/datahub/ingestion/transformer/add_dataset_tags.py), which calls a user-provided function to determine the tags for each dataset.
-
-:::
+Check out the [transformers guide](./transformers.md) for more info!
 
 ## Using as a library
 
@@ -1067,4 +1018,4 @@ In order to use this example, you must first configure the Datahub hook. Like in
 
 ## Developing
 
-See the [developing guide](./developing.md) or the [adding a source guide](./adding-source.md).
+See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./transformers.md).
