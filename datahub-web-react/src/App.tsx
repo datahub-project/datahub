@@ -32,17 +32,8 @@ import { MLFeatureTableEntity } from './app/entity/mlFeatureTable/MLFeatureTable
 */
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
-const errorLink = onError(({ response, graphQLErrors, networkError }) => {
-    console.log('on error called');
-
-    console.log(response);
-
-    if (graphQLErrors) {
-        console.log(`Received graphQL error ${graphQLErrors}`);
-    }
-
+const errorLink = onError(({ networkError }) => {
     if (networkError) {
-        console.log(`Received network error ${networkError}`);
         const serverError = networkError as ServerError;
         if (serverError.statusCode === 401) {
             isLoggedInVar(false);
