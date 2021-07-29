@@ -14,7 +14,7 @@ class MarkDatasetStatusConfig(ConfigModel):
 
 
 class MarkDatasetStatus(DatasetTransformer):
-    """Transformer that adds a specified set of owners to each dataset."""
+    """Transformer that marks status of each dataset."""
 
     ctx: PipelineContext
     config: MarkDatasetStatusConfig

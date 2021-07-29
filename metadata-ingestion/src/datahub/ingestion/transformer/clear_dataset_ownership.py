@@ -14,7 +14,7 @@ class ClearDatasetOwnershipConfig(ConfigModel):
 
 
 class SimpleClearDatasetOwnership(DatasetTransformer):
-    """Transformer that adds a specified set of owners to each dataset."""
+    """Transformer that clears all owners on each dataset."""
 
     def __init__(self, config: ClearDatasetOwnershipConfig, ctx: PipelineContext):
         pass
