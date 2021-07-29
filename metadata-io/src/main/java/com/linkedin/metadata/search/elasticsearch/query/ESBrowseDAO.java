@@ -83,6 +83,9 @@ public class ESBrowseDAO {
       final int numGroups = browseResultMetadata.getTotalNumEntities().intValue();
 
       // Based on the number of groups returned, compute the from and size to query for entities
+      // Groups come before entities, so if numGroups >= from + size, we should return all groups
+      // if from < numGroups < from + size, we should return a mix of groups and entities
+      // if numGroups <= from, we should only return entities
       int entityFrom = Math.max(from - numGroups, 0);
       int entitySize = Math.min(Math.max(from + size - numGroups, 0), size);
       final SearchResponse entitiesResponse =

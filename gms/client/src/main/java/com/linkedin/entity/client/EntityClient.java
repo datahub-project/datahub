@@ -1,21 +1,17 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.EntitiesDoBatchGetNumEntitiesRequestBuilder;
-import com.linkedin.entity.EntitiesDoGetNumEntitiesRequestBuilder;
-import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
-import com.linkedin.restli.client.Response;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.DynamicRecordMetadata;
 import com.linkedin.data.template.FieldDef;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
+import com.linkedin.entity.EntitiesDoBatchGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
+import com.linkedin.entity.EntitiesDoGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
+import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -26,27 +22,29 @@ import com.linkedin.restli.client.ActionRequestBuilder;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
-
 import com.linkedin.restli.client.Request;
+import com.linkedin.restli.client.Response;
 import com.linkedin.restli.client.RestLiResponseException;
 import com.linkedin.restli.client.RestliRequestOptions;
 import com.linkedin.restli.common.EmptyRecord;
 import com.linkedin.restli.common.ResourceSpec;
 import com.linkedin.restli.common.ResourceSpecImpl;
-import java.util.Arrays;
-import java.util.Collections;
-import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.*;
+import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 
 
 public class EntityClient {
@@ -270,16 +268,16 @@ public class EntityClient {
     }
 
     @Nonnull
-    public long getNumEntities(@Nonnull String entityName) throws RemoteInvocationException {
-        EntitiesDoGetNumEntitiesRequestBuilder requestBuilder =
-            ENTITIES_REQUEST_BUILDERS.actionGetNumEntities().entityParam(entityName);
+    public long getTotalEntityCount(@Nonnull String entityName) throws RemoteInvocationException {
+        EntitiesDoGetTotalEntityCountRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionGetTotalEntityCount().entityParam(entityName);
         return sendClientRequest(requestBuilder.build()).getEntity();
     }
 
     @Nonnull
-    public Map<String, Long> batchGetNumEntities(@Nonnull List<String> entityName) throws RemoteInvocationException {
-        EntitiesDoBatchGetNumEntitiesRequestBuilder requestBuilder =
-            ENTITIES_REQUEST_BUILDERS.actionBatchGetNumEntities().entitiesParam(new StringArray(entityName));
+    public Map<String, Long> batchGetTotalEntityCount(@Nonnull List<String> entityName) throws RemoteInvocationException {
+        EntitiesDoBatchGetTotalEntityCountRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionBatchGetTotalEntityCount().entitiesParam(new StringArray(entityName));
         return sendClientRequest(requestBuilder.build()).getEntity();
     }
 }

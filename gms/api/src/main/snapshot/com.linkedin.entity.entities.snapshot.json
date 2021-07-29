@@ -4341,7 +4341,7 @@
         } ],
         "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
       }, {
-        "name" : "batchGetNumEntities",
+        "name" : "batchGetTotalEntityCount",
         "parameters" : [ {
           "name" : "entities",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
@@ -4381,7 +4381,7 @@
         } ],
         "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
       }, {
-        "name" : "getNumEntities",
+        "name" : "getTotalEntityCount",
         "parameters" : [ {
           "name" : "entity",
           "type" : "string"

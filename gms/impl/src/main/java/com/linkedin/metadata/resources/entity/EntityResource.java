@@ -203,15 +203,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     });
   }
 
-  @Action(name = "getNumEntities")
+  @Action(name = "getTotalEntityCount")
   @Nonnull
-  public Task<Long> getNumEntities(@ActionParam(PARAM_ENTITY) @Nonnull String entityName) {
+  public Task<Long> getTotalEntityCount(@ActionParam(PARAM_ENTITY) @Nonnull String entityName) {
     return RestliUtils.toTask(() -> _searchService.docCount(entityName));
   }
 
-  @Action(name = "batchGetNumEntities")
+  @Action(name = "batchGetTotalEntityCount")
   @Nonnull
-  public Task<LongMap> batchGetNumEntities(@ActionParam(PARAM_ENTITIES) @Nonnull String[] entityNames) {
+  public Task<LongMap> batchGetTotalEntityCount(@ActionParam(PARAM_ENTITIES) @Nonnull String[] entityNames) {
     return RestliUtils.toTask(() -> new LongMap(
         Arrays.stream(entityNames).collect(Collectors.toMap(Function.identity(), _searchService::docCount))));
   }
