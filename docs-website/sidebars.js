@@ -22,6 +22,8 @@ function list_ids_in_directory(directory) {
   return ids;
 }
 
+// note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
+// this will fix errors like `Error: File not accounted for in sidebar: ...`
 module.exports = {
   // users
   // architects
@@ -73,6 +75,8 @@ module.exports = {
       "docs/docker/development",
       "metadata-ingestion/adding-source",
       "metadata-ingestion/s3-ingestion",
+      //"metadata-ingestion/examples/transforms/README"
+      "metadata-ingestion/transformers",
       //"docs/what/graph",
       //"docs/what/search-index",
       //"docs/how/add-new-aspect",

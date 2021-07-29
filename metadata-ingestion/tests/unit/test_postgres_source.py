@@ -1,4 +1,4 @@
-from datahub.ingestion.source.postgres import PostgresConfig
+from datahub.ingestion.source.sql.postgres import PostgresConfig
 
 
 def _base_config():
