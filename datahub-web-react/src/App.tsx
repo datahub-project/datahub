@@ -52,7 +52,6 @@ const client = new ApolloClient({
                 fields: {
                     dataset: {
                         merge(existing, incoming) {
-                            // Better, but not quite correct.
                             return { ...existing, ...incoming };
                         },
                     },
