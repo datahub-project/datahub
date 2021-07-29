@@ -13,6 +13,8 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 
+from datahub.configuration.common import KeyValuePattern
+
 
 class AddDatasetOwnershipConfig(ConfigModel):
     # Workaround for https://github.com/python/mypy/issues/708.
@@ -42,7 +44,7 @@ class AddDatasetOwnership(Transformer):
         return cls(config, ctx)
 
     def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
+            self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         for envelope in record_envelopes:
             if isinstance(envelope.record, MetadataChangeEventClass):
@@ -88,7 +90,41 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
 
     @classmethod
     def create(
-        cls, config_dict: dict, ctx: PipelineContext
+            cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleAddDatasetOwnership":
         config = SimpleDatasetOwnershipConfig.parse_obj(config_dict)
+        return cls(config, ctx)
+
+
+class PatternDatasetOwnershipConfig(ConfigModel):
+    owner_pattern: KeyValuePattern = KeyValuePattern.all()
+    default_actor: str = builder.make_user_urn("etl")
+
+
+class PatternAddDatasetOwnership(AddDatasetOwnership):
+    """Transformer that adds a specified set of owners to each dataset."""
+
+    def getOwners(self, key, owner_pattern):
+        owners = [
+            OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
+            for owner in owner_pattern.value(key)
+        ]
+        return owners
+
+    def __init__(self, config: PatternDatasetOwnershipConfig, ctx: PipelineContext):
+        owner_pattern = config.owner_pattern
+        generic_config = AddDatasetOwnershipConfig(
+            get_owners_to_add=lambda _: [
+                OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
+                for owner in owner_pattern.value(_.urn)
+            ],
+            default_actor=config.default_actor,
+        )
+        super().__init__(generic_config, ctx)
+
+    @classmethod
+    def create(
+            cls, config_dict: dict, ctx: PipelineContext
+    ) -> "PatternAddDatasetOwnership":
+        config = PatternDatasetOwnershipConfig.parse_obj(config_dict)
         return cls(config, ctx)
