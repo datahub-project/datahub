@@ -61,8 +61,8 @@ transformers:
     config:
       owner_pattern:
         rules:
-          ".*example1.*": "urn:li:corpuser:username1"
-          ".*example2.*": "urn:li:corpuser:username2"
+          ".*example1.*": ["urn:li:corpuser:username1"]
+          ".*example2.*": ["urn:li:corpuser:username2"]
 ```
 
 If you'd like to add more complex logic for assigning ownership, you can use the more generic `add_dataset_ownership` transformer, which calls a user-provided function to determine the ownership of each dataset.
