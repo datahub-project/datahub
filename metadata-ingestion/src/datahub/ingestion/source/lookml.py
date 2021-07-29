@@ -130,6 +130,7 @@ class LookerModel:
                 or inc.endswith(".dashboard.lookml")
                 or inc.endswith(".dashboard.lkml")
             ):
+                logger.debug(f"include '{inc}' is a dashboard, skipping it")
                 continue
 
             # Massage the looker include into a valid glob wildcard expression
@@ -635,6 +636,7 @@ class LookMLSource(Source):
 
             for include in model.resolved_includes:
                 if include in views_with_workunits:
+                    logger.debug(f"view '{include}' already processed, skipping it")
                     continue
 
                 logger.debug(f"Attempting to load view file: {include}")
