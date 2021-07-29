@@ -18,6 +18,14 @@ public class MLModelUtils {
         }
     }
 
+    static Urn getMLModelGroupUrn(String modelUrn) {
+        try {
+            return Urn.createFromString(modelUrn);
+        } catch (URISyntaxException uriSyntaxException) {
+            throw new RuntimeException(String.format("Failed to retrieve mlModelGroup with urn %s, invalid urn", modelUrn));
+        }
+    }
+
     static MLFeatureUrn getMLFeatureUrn(String modelUrn) {
         try {
             return MLFeatureUrn.createFromString(modelUrn);
