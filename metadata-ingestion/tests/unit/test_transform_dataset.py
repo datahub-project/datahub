@@ -132,10 +132,10 @@ def test_mark_status_dataset():
         {"removed": True},
         PipelineContext(run_id="test"),
     )
-    outputs = list(
-        transformer.transform([RecordEnvelope(dataset, metadata={})])
+    outputs = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    status_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.StatusClass
     )
-    status_aspect = builder.get_aspect_if_available(outputs[0].record, models.StatusClass)
     assert status_aspect.removed is True
 
 
