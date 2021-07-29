@@ -2,7 +2,7 @@ package com.linkedin.metadata.resources.entity;
 
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.EbeanEntityService;
+import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
@@ -29,11 +29,12 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @RestLiCollection(name = "runs", namespace = "com.linkedin.entity")
-public class IngestionRunResource extends CollectionResourceTaskTemplate<String, VersionedAspect> {
+public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<String, VersionedAspect> {
 
   private static final Integer DEFAULT_OFFSET = 0;
   private static final Integer DEFAULT_PAGE_SIZE = 100;
   private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
+  private static final Integer ELASTIC_BATCH_DELETE_SLEEP_SEC = 5;
 
   @Inject
   @Named("systemMetadataService")
@@ -68,13 +69,13 @@ public class IngestionRunResource extends CollectionResourceTaskTemplate<String,
         return response;
       }
 
-      EbeanEntityService.RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
+      RollbackRunResult rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId);
       List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
       Integer rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
 
       // since elastic limits how many rows we can access at once, we need to iteratively delete
       while (aspectRowsToDelete.size() >= ELASTIC_MAX_PAGE_SIZE) {
-        sleep(5);
+        sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
         aspectRowsToDelete = _systemMetadataService.findByRunId(runId);
         log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
         log.info("deleting...");

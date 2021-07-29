@@ -3,7 +3,7 @@
   "namespace" : "com.linkedin.entity",
   "path" : "/runs",
   "schema" : "com.linkedin.metadata.aspect.VersionedAspect",
-  "doc" : "resource for showing information and rolling back runs\n\ngenerated from: com.linkedin.metadata.resources.entity.IngestionRunResource",
+  "doc" : "resource for showing information and rolling back runs\n\ngenerated from: com.linkedin.metadata.resources.entity.BatchIngestionRunResource",
   "collection" : {
     "identifier" : {
       "name" : "runsId",

@@ -10,6 +10,8 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.RollbackResult;
+import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
@@ -452,30 +454,12 @@ public class EbeanEntityService extends EntityService {
     Boolean keyAffected;
   }
 
-  @Value
-  public static class RollbackResult {
-    Urn urn;
-    RecordTemplate oldValue;
-    RecordTemplate newValue;
-    SystemMetadata oldSystemMetadata;
-    SystemMetadata newSystemMetadata;
-    MetadataAuditOperation operation;
-    Boolean keyAffected;
-    Integer additionalRowsAffected;
-  }
-
-  @Value
-  public static class RollbackRunResult {
-    List<AspectRowSummary> rowsRolledBack;
-    Integer rowsDeletedFromEntityDeletion;
-  }
-
   public void setWritable(boolean canWrite) {
     log.debug("Enabling writes");
     _entityDao.setWritable(canWrite);
   }
 
-  public RollbackResult rollback(String urn, String aspectName, String runId) {
+  public RollbackResult deleteAspect(String urn, String aspectName, String runId) {
     final RollbackResult result = _entityDao.runInTransactionWithRetry(() -> {
       Integer additionalRowsDeleted = 0;
 
@@ -588,7 +572,7 @@ public class EbeanEntityService extends EntityService {
     aspectRows.forEach(aspectToRemove -> {
 
       RollbackResult result =
-          rollback(aspectToRemove.getUrn(), aspectToRemove.getAspectName(), runId);
+          deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(), runId);
 
 
       if (result != null) {
@@ -609,7 +593,7 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Override
-  public RollbackRunResult rollbackUrn(Urn urn) {
+  public RollbackRunResult deleteUrn(Urn urn) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
 
@@ -621,7 +605,7 @@ public class EbeanEntityService extends EntityService {
 
     SystemMetadata latestKeySystemMetadata = parseSystemMetadata(latestKey.getSystemMetadata());
 
-    RollbackResult result = rollback(urn.toString(), keyAspectName, latestKeySystemMetadata.getRunId());
+    RollbackResult result = deleteAspect(urn.toString(), keyAspectName, latestKeySystemMetadata.getRunId());
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();

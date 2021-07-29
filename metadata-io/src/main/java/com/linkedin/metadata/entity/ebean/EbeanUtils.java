@@ -12,6 +12,7 @@ import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.PegasusUtils.getDataTemplateClassFromSchema;
+import static com.linkedin.metadata.entity.EntityService.*;
 
 
 public class EbeanUtils {
@@ -39,7 +40,7 @@ public class EbeanUtils {
   public static SystemMetadata parseSystemMetadata(String jsonSystemMetadata) {
     if (jsonSystemMetadata == null || jsonSystemMetadata.equals("")) {
       SystemMetadata response = new SystemMetadata();
-      response.setRunId("none");
+      response.setRunId(DEFAULT_RUN_ID);
       response.setLastObserved(0);
       return response;
     }

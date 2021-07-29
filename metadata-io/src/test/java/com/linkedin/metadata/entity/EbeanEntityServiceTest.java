@@ -566,7 +566,7 @@ public class EbeanEntityServiceTest {
     rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
 
     // this should delete all related aspects
-    _entityService.rollbackUrn(Urn.createFromString("urn:li:corpuser:test1"));
+    _entityService.deleteUrn(Urn.createFromString("urn:li:corpuser:test1"));
 
 
     // assert the new most recent aspect is null
