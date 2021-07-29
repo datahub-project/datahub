@@ -80,6 +80,7 @@ plugins: Dict[str, Set[str]] = {
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
     "glue": aws_common,
+    "athena_managed_by_glue": aws_common,
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
@@ -207,6 +208,7 @@ entry_points = {
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
+        "athena_managed_by_glue = datahub.ingestion.source.aws.athena_managed_by_glue:AthenaManagedByGlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",

@@ -87,6 +87,9 @@ class GlueSource(Source):
         config = GlueSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_urn_platform(self):
+        return "urn:li:dataPlatform:glue"
+
     def get_all_jobs(self):
         """
         List all jobs in Glue.
@@ -181,7 +184,7 @@ class GlueSource(Source):
                 full_table_name = f"{node_args['database']}.{node_args['table_name']}"
 
                 # we know that the table will already be covered when ingesting Glue tables
-                node_urn = f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.env})"
+                node_urn = f"urn:li:dataset:({self.get_urn_platform()},{full_table_name},{self.env})"
 
             # if data object is S3 bucket
             elif node_args.get("connection_type") == "s3":
@@ -521,13 +524,13 @@ class GlueSource(Source):
                 schemaName=table_name,
                 version=0,
                 fields=fields,
-                platform="urn:li:dataPlatform:glue",
+                platform=self.get_urn_platform(),
                 hash="",
                 platformSchema=MySqlDDL(tableSchema=""),
             )
 
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:glue,{table_name},{self.env})",
+            urn=f"urn:li:dataset:({self.get_urn_platform()},{table_name},{self.env})",
             aspects=[],
         )
 
