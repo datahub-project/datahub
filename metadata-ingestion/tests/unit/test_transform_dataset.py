@@ -8,6 +8,9 @@ from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
     SimpleAddDatasetTags,
 )
+from datahub.ingestion.transformer.clear_dataset_ownership import (
+    SimpleClearDatasetOwnership,
+)
 
 
 def make_generic_dataset():
@@ -21,10 +24,8 @@ def make_generic_dataset():
     )
 
 
-def test_simple_dataset_ownership_tranformation(mock_time):
-    no_owner_aspect = make_generic_dataset()
-
-    with_owner_aspect = models.MetadataChangeEventClass(
+def make_dataset_with_owner():
+    return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)",
             aspects=[
@@ -42,6 +43,12 @@ def test_simple_dataset_ownership_tranformation(mock_time):
             ],
         ),
     )
+
+
+def test_simple_dataset_ownership_tranformation(mock_time):
+    no_owner_aspect = make_generic_dataset()
+
+    with_owner_aspect = make_dataset_with_owner()
 
     not_a_dataset = models.MetadataChangeEventClass(
         proposedSnapshot=models.DataJobSnapshotClass(
@@ -94,6 +101,27 @@ def test_simple_dataset_ownership_tranformation(mock_time):
 
     # Verify that the third entry is unchanged.
     assert inputs[2] == outputs[2].record
+
+
+def test_simple_clear_dataset_ownership():
+    with_owner_aspect = make_dataset_with_owner()
+    ownership_aspect = builder.get_aspect_if_available(
+        with_owner_aspect, models.OwnershipClass
+    )
+    assert len(ownership_aspect.owners) == 1
+    transformer = SimpleClearDatasetOwnership.create(
+        {},
+        PipelineContext(run_id="test"),
+    )
+    outputs = list(
+        transformer.transform([RecordEnvelope(with_owner_aspect, metadata={})])
+    )
+    assert len(outputs) == 1
+
+    ownership_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.OwnershipClass
+    )
+    assert len(ownership_aspect.owners) == 0
 
 
 def test_simple_dataset_tags_transformation(mock_time):
