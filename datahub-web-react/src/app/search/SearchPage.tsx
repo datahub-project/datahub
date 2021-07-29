@@ -10,6 +10,7 @@ import { FacetFilterInput, EntityType } from '../../types.generated';
 import useFilters from './utils/useFilters';
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
+import { countFormatter } from '../../utils/formatter';
 import { EntitySearchResults } from './EntitySearchResults';
 import { IconStyleType } from '../entity/Entity';
 import { AllEntitiesSearchResults } from './AllEntitiesSearchResults';
@@ -158,7 +159,9 @@ export const SearchPage = () => {
                                     {entityRegistry.getIcon(type, 16, IconStyleType.TAB_VIEW)}
                                     <StyledTab>{entityRegistry.getCollectionName(type)}</StyledTab>
                                     {resultCounts[type] ? (
-                                        <StyledNumberInTab>{` (${resultCounts[type]})`}</StyledNumberInTab>
+                                        <StyledNumberInTab>{` (${countFormatter(
+                                            resultCounts[type] || 0,
+                                        )})`}</StyledNumberInTab>
                                     ) : null}
                                 </>
                             }
