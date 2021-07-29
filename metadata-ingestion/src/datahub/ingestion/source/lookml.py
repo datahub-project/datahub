@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import pydantic
 
@@ -209,6 +209,7 @@ class LookerViewFileLoader:
                 looker_viewfile = LookerViewFile.from_looker_dict(
                     path, parsed, self._base_folder, reporter
                 )
+                logger.debug(f"adding viewfile for path {path} to the cache")
                 self.viewfile_cache[path] = looker_viewfile
                 return looker_viewfile
         except Exception as e:
@@ -607,6 +608,10 @@ class LookMLSource(Source):
             str(self.source_config.base_folder), self.reporter
         )
 
+        # some views can be mentioned by multiple 'include' statements, so this set is used to prevent
+        # creating duplicate MCE messages
+        views_with_workunits: Set[str] = set()
+
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
         model_files = sorted(self.source_config.base_folder.glob("**/*.model.lkml"))
@@ -628,8 +633,7 @@ class LookMLSource(Source):
                 continue
 
             for include in model.resolved_includes:
-                is_view_seen = viewfile_loader.is_view_seen(include)
-                if is_view_seen:
+                if include in views_with_workunits:
                     continue
 
                 logger.debug(f"Attempting to load view file: {include}")
@@ -663,6 +667,7 @@ class LookMLSource(Source):
                                     id=f"lookml-{maybe_looker_view.view_name}", mce=mce
                                 )
                                 self.reporter.report_workunit(workunit)
+                                views_with_workunits.add(include)
                                 yield workunit
                             else:
                                 self.reporter.report_views_dropped(
