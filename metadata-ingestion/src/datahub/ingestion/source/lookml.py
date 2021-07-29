@@ -608,7 +608,7 @@ class LookMLSource(Source):
             str(self.source_config.base_folder), self.reporter
         )
 
-        # some views can be mentioned by multiple 'include' statements, so this set is be used to prevent
+        # some views can be mentioned by multiple 'include' statements, so this set is used to prevent
         # creating duplicate MCE messages
         views_with_workunits: Set[str] = set()
 
