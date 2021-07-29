@@ -1,14 +1,18 @@
-
+CREATE DATABASE IF NOT EXISTS db1;
+CREATE DATABASE IF NOT EXISTS db2;
 -- Setup a "pokes" example table.
-CREATE TABLE pokes (foo INT, bar STRING);
-LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE pokes;
+CREATE TABLE IF NOT EXISTS db1.pokes (foo INT, bar STRING);
+LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE db1.pokes;
+
+CREATE TABLE IF NOT EXISTS db2.pokes (foo INT, bar STRING);
+LOAD DATA LOCAL INPATH '/opt/hive/examples/files/kv1.txt' OVERWRITE INTO TABLE db2.pokes;
 
 -- Setup a table with a special character.
-CREATE TABLE `_test_table_underscore` (foo INT, bar STRING);
+CREATE TABLE IF NOT EXISTS db1.`_test_table_underscore` (foo INT, bar STRING);
 
 -- Create tables with struct and array types.
 -- From https://stackoverflow.com/questions/57491644/correct-usage-of-a-struct-in-hive.
-CREATE TABLE struct_test
+CREATE TABLE IF NOT EXISTS db1.struct_test
 (
  property_id INT,
  service STRUCT<
@@ -17,7 +21,7 @@ CREATE TABLE struct_test
                >
 );
 
-CREATE TABLE array_struct_test
+CREATE TABLE IF NOT EXISTS db1.array_struct_test
 (
  property_id INT,
  service array<STRUCT<
@@ -32,5 +36,5 @@ test_data as (
                       NAMED_STRUCT('type','Pricing','provider', ARRAY(932))
                       ) AS service
 )
-INSERT INTO TABLE array_struct_test
+INSERT INTO TABLE db1.array_struct_test
 select * from test_data;

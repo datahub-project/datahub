@@ -265,6 +265,9 @@ class SQLAlchemySource(Source):
         inspector = inspect(engine)
         yield inspector
 
+    def get_schema_names(self, inspector):
+        return inspector.get_schema_names()
+
     def get_workunits(self) -> Iterable[SqlWorkUnit]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
@@ -272,7 +275,7 @@ class SQLAlchemySource(Source):
             sql_config.options["echo"] = True
 
         for inspector in self.get_inspectors():
-            for schema in inspector.get_schema_names():
+            for schema in self.get_schema_names(inspector):
                 if not sql_config.schema_pattern.allowed(schema):
                     self.report.report_dropped(f"{schema}.*")
                     continue
