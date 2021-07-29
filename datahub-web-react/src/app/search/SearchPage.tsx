@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { Affix, Tabs } from 'antd';
@@ -34,9 +34,19 @@ const StyledTab = styled.span`
         font-size: 20px;
     }
 `;
+const StyledNumberInTab = styled.span`
+    &&& {
+        font-size: 16px;
+        color: gray;
+    }
+`;
 
 type SearchPageParams = {
     type?: string;
+};
+
+type SearchResultCounts = {
+    [key in EntityType]?: number;
 };
 
 const RESULTS_PER_GROUP = 3; // Results limit per entities
@@ -50,8 +60,6 @@ export const SearchPage = () => {
 
     const entityRegistry = useEntityRegistry();
     const searchTypes = entityRegistry.getSearchEntityTypes();
-
-    const [resultCounts, setResultCounts] = useState<Record<string, number> | undefined>();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = params.query ? (params.query as string) : '';
@@ -77,28 +85,26 @@ export const SearchPage = () => {
         );
     });
 
-    useEffect(() => {
+    const resultCounts: SearchResultCounts = useMemo(() => {
         if (!loading) {
             let resultCount = 0;
-            const counts: Record<string, number> = { [EntityType.Dataset]: 0 };
+            const counts: SearchResultCounts = {};
             Object.keys(allSearchResultsByType).forEach((key) => {
-                if (allSearchResultsByType[key].loading) {
-                    resultCount += 0;
-                } else {
+                if (!allSearchResultsByType[key].loading) {
                     resultCount += allSearchResultsByType[key].data?.search?.total;
                     counts[key as EntityType] = allSearchResultsByType[key].data?.search?.total || 0;
                 }
             });
-
-            setResultCounts(counts);
 
             analytics.event({
                 type: EventType.SearchResultsViewEvent,
                 query,
                 total: resultCount,
             });
+            return counts;
         }
-    }, [query, allSearchResultsByType, setResultCounts, loading]);
+        return {};
+    }, [query, allSearchResultsByType, loading]);
 
     const onSearch = (q: string, type?: EntityType) => {
         if (q.trim().length === 0) {
@@ -133,7 +139,7 @@ export const SearchPage = () => {
 
     const filteredSearchTypes =
         resultCounts && Object.keys(resultCounts).length > 0
-            ? searchTypes.filter((type) => !!resultCounts[type] && resultCounts[type] > 0)
+            ? searchTypes.filter((type: EntityType) => !!resultCounts[type] && (resultCounts[type] as number) > 0)
             : [];
 
     return (
@@ -145,17 +151,18 @@ export const SearchPage = () => {
                     onChange={onChangeSearchType}
                 >
                     <Tabs.TabPane tab={<StyledTab>All</StyledTab>} key={ALL_ENTITIES_TAB_NAME} />
-                    {filteredSearchTypes.map((t) => (
+                    {filteredSearchTypes.map((type: EntityType) => (
                         <Tabs.TabPane
                             tab={
                                 <>
-                                    {entityRegistry.getIcon(t, 16, IconStyleType.TAB_VIEW)}
-                                    <StyledTab>{`${entityRegistry.getCollectionName(t)}${
-                                        resultCounts ? ` (${resultCounts[t]})` : ''
-                                    }`}</StyledTab>
+                                    {entityRegistry.getIcon(type, 16, IconStyleType.TAB_VIEW)}
+                                    <StyledTab>{entityRegistry.getCollectionName(type)}</StyledTab>
+                                    {resultCounts[type] ? (
+                                        <StyledNumberInTab>{` (${resultCounts[type]})`}</StyledNumberInTab>
+                                    ) : null}
                                 </>
                             }
-                            key={entityRegistry.getCollectionName(t)}
+                            key={entityRegistry.getCollectionName(type)}
                         />
                     ))}
                 </StyledTabs>

@@ -141,6 +141,7 @@ export const HomePageHeader = () => {
                 variables: {
                     input: {
                         query,
+                        limit: 30,
                     },
                 },
             });
