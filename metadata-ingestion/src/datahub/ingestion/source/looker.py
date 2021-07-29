@@ -160,7 +160,6 @@ class LookerDashboardSource(Source):
             # We are not going to support parsing arbitrary Looker expressions here, so going to ignore these fields for now
             if "dimension" in field:
                 dimension = field["dimension"]
-                expression = field["expression"]  # noqa: F841
                 custom_field_to_underlying_field[dimension] = None
 
         # A query uses fields defined in views, find the views those fields use

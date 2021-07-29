@@ -47,10 +47,10 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
     private static final Integer MAX_DOWNSTREAM_CNT = 100;
 
     private static final List<String> LINEAGE_RELATIONSHIP_TYPES = Arrays.asList(
-        "DownstreamOf", "Consumes", "Contains");
+        "DownstreamOf", "Consumes", "Contains", "TrainedBy");
 
     private static final List<String> INVERSE_LINEAGE_RELATIONSHIP_TYPES = Arrays.asList(
-        "Produces");
+        "Produces", "MemberOf");
 
     @Inject
     @Named("graphService")

@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
+import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
@@ -19,6 +20,8 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.MLModel;
+import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLFeatureTableProperties;
 import com.linkedin.datahub.graphql.generated.MLFeature;
@@ -61,6 +64,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
+import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsType;
@@ -112,6 +116,7 @@ public class GmsGraphQLEngine {
     );
     public static final TagType TAG_TYPE = new TagType(GmsClientFactory.getEntitiesClient());
     public static final MLModelType ML_MODEL_TYPE = new MLModelType(GmsClientFactory.getEntitiesClient());
+    public static final MLModelGroupType ML_MODEL_GROUP_TYPE = new MLModelGroupType(GmsClientFactory.getEntitiesClient());
     public static final MLFeatureType ML_FEATURE_TYPE = new MLFeatureType(GmsClientFactory.getEntitiesClient());
     public static final MLFeatureTableType ML_FEATURE_TABLE_TYPE = new MLFeatureTableType(GmsClientFactory.getEntitiesClient());
     public static final MLPrimaryKeyType ML_PRIMARY_KEY_TYPE = new MLPrimaryKeyType(GmsClientFactory.getEntitiesClient());
@@ -136,6 +141,7 @@ public class GmsGraphQLEngine {
             DASHBOARD_TYPE,
             TAG_TYPE,
             ML_MODEL_TYPE,
+            ML_MODEL_GROUP_TYPE,
             ML_FEATURE_TYPE,
             ML_FEATURE_TABLE_TYPE,
             ML_PRIMARY_KEY_TYPE,
@@ -301,6 +307,14 @@ public class GmsGraphQLEngine {
             .dataFetcher("mlPrimaryKey", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(
                             ML_PRIMARY_KEY_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("mlModel", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            ML_MODEL_TYPE,
+                            (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("mlModelGroup", new AuthenticatedResolver<>(
+                    new LoadableTypeResolver<>(
+                            ML_MODEL_GROUP_TYPE,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
         );
     }
@@ -578,8 +592,17 @@ public class GmsGraphQLEngine {
      * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.MLFeatureTable} type.
      */
     private static void configureMLFeatureTableResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("MLModelProperties", typeWiring -> typeWiring
+            .dataFetcher("groups", new AuthenticatedResolver<>(
+                new LoadableTypeBatchResolver<>(
+                    ML_MODEL_GROUP_TYPE,
+                    (env) -> ((MLModelProperties) env.getSource()).getGroups().stream()
+                        .map(MLModelGroup::getUrn)
+                        .collect(Collectors.toList())))
+            )
+        );
         builder
-                .type("MLFeatureTable", typeWiring -> typeWiring
+            .type("MLFeatureTable", typeWiring -> typeWiring
                         .dataFetcher("platform", new AuthenticatedResolver<>(
                                 new LoadableTypeResolver<>(
                                         DATA_PLATFORM_TYPE,
@@ -618,6 +641,40 @@ public class GmsGraphQLEngine {
                                         (env) -> ((MLPrimaryKeyProperties) env.getSource()).getSources().stream()
                                                 .map(Dataset::getUrn)
                                                 .collect(Collectors.toList())))
+                        )
+                )
+                .type("MLModel", typeWiring -> typeWiring
+                        .dataFetcher("platform", new AuthenticatedResolver<>(
+                                new LoadableTypeResolver<>(
+                                        DATA_PLATFORM_TYPE,
+                                        (env) -> ((MLModel) env.getSource()).getPlatform().getUrn()))
+                        )
+                        .dataFetcher("downstreamLineage", new AuthenticatedResolver<>(
+                            new LoadableTypeResolver<>(
+                                DOWNSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                        )
+                        .dataFetcher("upstreamLineage", new AuthenticatedResolver<>(
+                            new LoadableTypeResolver<>(
+                                UPSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                        )
+                )
+                .type("MLModelGroup", typeWiring -> typeWiring
+                        .dataFetcher("platform", new AuthenticatedResolver<>(
+                                new LoadableTypeResolver<>(
+                                        DATA_PLATFORM_TYPE,
+                                        (env) -> ((MLModelGroup) env.getSource()).getPlatform().getUrn()))
+                        )
+                        .dataFetcher("downstreamLineage", new AuthenticatedResolver<>(
+                            new LoadableTypeResolver<>(
+                                DOWNSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                        )
+                        .dataFetcher("upstreamLineage", new AuthenticatedResolver<>(
+                            new LoadableTypeResolver<>(
+                                UPSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
                         )
                 );
     }
