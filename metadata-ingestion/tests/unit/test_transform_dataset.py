@@ -106,10 +106,7 @@ def test_simple_dataset_ownership_tranformation(mock_time):
 
 def test_simple_clear_dataset_ownership():
     with_owner_aspect = make_dataset_with_owner()
-    ownership_aspect = builder.get_aspect_if_available(
-        with_owner_aspect, models.OwnershipClass
-    )
-    assert len(ownership_aspect.owners) == 1
+
     transformer = SimpleClearDatasetOwnership.create(
         {},
         PipelineContext(run_id="test"),
@@ -121,22 +118,33 @@ def test_simple_clear_dataset_ownership():
     ownership_aspect = builder.get_aspect_if_available(
         outputs[0].record, models.OwnershipClass
     )
-    assert len(ownership_aspect.owners) == 0
+    assert ownership_aspect is None
 
 
 def test_mark_status_dataset():
     dataset = make_generic_dataset()
-    status_aspect = builder.get_aspect_if_available(dataset, models.StatusClass)
-    assert status_aspect.removed is False
+
     transformer = MarkDatasetStatus.create(
         {"removed": True},
         PipelineContext(run_id="test"),
     )
-    outputs = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    removed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
     status_aspect = builder.get_aspect_if_available(
-        outputs[0].record, models.StatusClass
+        removed[0].record, models.StatusClass
     )
+    assert status_aspect
     assert status_aspect.removed is True
+
+    transformer = MarkDatasetStatus.create(
+        {"removed": False},
+        PipelineContext(run_id="test"),
+    )
+    not_removed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    status_aspect = builder.get_aspect_if_available(
+        not_removed[0].record, models.StatusClass
+    )
+    assert status_aspect
+    assert status_aspect.removed is False
 
 
 def test_simple_dataset_tags_transformation(mock_time):
