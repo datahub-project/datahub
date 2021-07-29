@@ -146,6 +146,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         MetadataChangeProposal browsePathProposal = metadataChangeProposal.copy();
         GenericAspect aspect = GenericAspectUtils.serializeAspect(BrowsePathUtils.buildBrowsePath(urn));
         browsePathProposal.setAspect(aspect);
+        browsePathProposal.setAspectName("browsePaths");
         additionalChanges.add(browsePathProposal);
       } catch (CloneNotSupportedException e) {
         log.error("Issue while generating additional proposals corresponding to the input proposal", e);

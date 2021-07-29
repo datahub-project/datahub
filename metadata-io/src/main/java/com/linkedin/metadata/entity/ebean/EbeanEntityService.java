@@ -357,6 +357,7 @@ public class EbeanEntityService extends EntityService {
         metadataChangeLog.setAspect(GenericAspectUtils.serializeAspect(newAspect));
       }
 
+      log.debug(String.format("Serialized MCL event: %s", metadataChangeLog.toString()));
       // Since only temporal aspect are ingested as of now, simply produce mae event for it
       produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
     } else {

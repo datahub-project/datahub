@@ -32,8 +32,17 @@ import { MLFeatureTableEntity } from './app/entity/mlFeatureTable/MLFeatureTable
 */
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
-const errorLink = onError(({ networkError }) => {
+const errorLink = onError(({ response, graphQLErrors, networkError }) => {
+    console.log('on error called');
+
+    console.log(response);
+
+    if (graphQLErrors) {
+        console.log(`Received graphQL error ${graphQLErrors}`);
+    }
+
     if (networkError) {
+        console.log(`Received network error ${networkError}`);
         const serverError = networkError as ServerError;
         if (serverError.statusCode === 401) {
             isLoggedInVar(false);
@@ -44,9 +53,20 @@ const errorLink = onError(({ networkError }) => {
 });
 
 const client = new ApolloClient({
+    connectToDevTools: true,
     link: errorLink.concat(httpLink),
     cache: new InMemoryCache({
         typePolicies: {
+            Query: {
+                fields: {
+                    dataset: {
+                        merge(existing, incoming) {
+                            // Better, but not quite correct.
+                            return { ...existing, ...incoming };
+                        },
+                    },
+                },
+            },
             Dataset: {
                 keyFields: ['urn'],
             },

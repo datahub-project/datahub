@@ -67,14 +67,8 @@ query getDataset($urn: String!) {
         globalTags {
             ...globalTagsFields
         }
-        downstreamLineage {
-            ...downstreamRelationshipFields
-        }
         glossaryTerms {
             ...glossaryTerms
-        }
-        upstreamLineage {
-            ...upstreamRelationshipFields
         }
         usageStats(resource: $urn, range: MONTH) {
             buckets {

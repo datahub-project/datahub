@@ -1,10 +1,6 @@
 import React from 'react';
 import { Alert } from 'antd';
-import {
-    useGetDatasetQuery,
-    useUpdateDatasetMutation,
-    GetDatasetDocument,
-} from '../../../../graphql/dataset.generated';
+import { useGetDatasetQuery, useUpdateDatasetMutation } from '../../../../graphql/dataset.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
@@ -43,23 +39,10 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
 
     const user = useGetAuthenticatedUser();
-    const [updateDataset] = useUpdateDatasetMutation({
-        update(cache, { data: newDataset }) {
-            cache.modify({
-                fields: {
-                    dataset() {
-                        cache.writeQuery({
-                            query: GetDatasetDocument,
-                            data: { dataset: { ...newDataset?.updateDataset, usageStats: data?.dataset?.usageStats } },
-                        });
-                    },
-                },
-            });
-        },
-    });
+    const [updateDataset] = useUpdateDatasetMutation();
     const isLineageMode = useIsLineageMode();
 
-    if (error || (!loading && !error && !data)) {
+    if (!loading && error) {
         return <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />;
     }
 

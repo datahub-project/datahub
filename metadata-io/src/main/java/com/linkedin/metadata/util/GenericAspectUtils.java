@@ -39,7 +39,7 @@ public class GenericAspectUtils {
   public static GenericAspect serializeAspect(@Nonnull RecordTemplate aspect) {
     GenericAspect genericAspect = new GenericAspect();
     genericAspect.setValue(
-        ByteString.unsafeWrap(RecordUtils.toJsonString(genericAspect).getBytes(StandardCharsets.UTF_8)));
+        ByteString.unsafeWrap(RecordUtils.toJsonString(aspect).getBytes(StandardCharsets.UTF_8)));
     genericAspect.setContentType(GenericAspectUtils.JSON);
     return genericAspect;
   }

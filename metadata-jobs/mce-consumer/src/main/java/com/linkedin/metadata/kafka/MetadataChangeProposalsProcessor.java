@@ -32,7 +32,8 @@ public class MetadataChangeProposalsProcessor {
   @Value("${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
   private String fmcpTopicName;
 
-  public MetadataChangeProposalsProcessor(@Nonnull final AspectClient aspectClient,
+  public MetadataChangeProposalsProcessor(
+      @Nonnull final AspectClient aspectClient,
       @Nonnull final KafkaTemplate<String, GenericRecord> kafkaTemplate) {
     this.aspectClient = aspectClient;
     this.kafkaTemplate = kafkaTemplate;
