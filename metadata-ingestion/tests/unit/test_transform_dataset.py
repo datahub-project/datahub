@@ -118,7 +118,8 @@ def test_simple_clear_dataset_ownership():
     ownership_aspect = builder.get_aspect_if_available(
         outputs[0].record, models.OwnershipClass
     )
-    assert ownership_aspect is None
+    assert ownership_aspect
+    assert len(ownership_aspect.owners) == 0
 
 
 def test_mark_status_dataset():
