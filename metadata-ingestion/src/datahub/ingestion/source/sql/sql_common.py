@@ -104,16 +104,6 @@ class SQLAlchemyConfig(ConfigModel):
     def get_sql_alchemy_url(self):
         pass
 
-    def get_identifier(self, schema: str, table: str) -> str:
-        return f"{schema}.{table}"
-
-    def standardize_schema_table_names(
-        self, schema: str, entity: str
-    ) -> Tuple[str, str]:
-        # Some SQLAlchemy dialects need a standardization step to clean the schema
-        # and table names. See BigQuery for an example of when this is useful.
-        return schema, entity
-
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     username: Optional[str] = None
@@ -156,7 +146,7 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
     types.JSON: RecordTypeClass,
-    # When SQLAlchemy is unable to map a type into its internally hierarchy, it
+    # When SQLAlchemy is unable to map a type into its internal hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
 }
@@ -286,6 +276,24 @@ class SQLAlchemySource(Source):
                 if sql_config.include_views:
                     yield from self.loop_views(inspector, schema, sql_config)
 
+    def standardize_schema_table_names(
+        self, schema: str, entity: str
+    ) -> Tuple[str, str]:
+        # Some SQLAlchemy dialects need a standardization step to clean the schema
+        # and table names. See BigQuery for an example of when this is useful.
+        return schema, entity
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        # Many SQLAlchemy dialects have three-level hierarchies. This method, which
+        # subclasses can override, enables them to modify the identifers as needed.
+        if hasattr(self.config, "get_identifier"):
+            # This path is deprecated and will eventually be removed.
+            return self.config.get_identifier(schema=schema, table=entity)  # type: ignore
+        else:
+            return f"{schema}.{entity}"
+
     def loop_tables(
         self,
         inspector: Inspector,
@@ -293,8 +301,12 @@ class SQLAlchemySource(Source):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[SqlWorkUnit]:
         for table in inspector.get_table_names(schema):
-            schema, table = sql_config.standardize_schema_table_names(schema, table)
-            dataset_name = sql_config.get_identifier(schema, table)
+            schema, table = self.standardize_schema_table_names(
+                schema=schema, entity=table
+            )
+            dataset_name = self.get_identifier(
+                schema=schema, entity=table, inspector=inspector
+            )
             self.report.report_entity_scanned(dataset_name, ent_type="table")
 
             if not sql_config.table_pattern.allowed(dataset_name):
@@ -348,8 +360,12 @@ class SQLAlchemySource(Source):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[SqlWorkUnit]:
         for view in inspector.get_view_names(schema):
-            schema, view = sql_config.standardize_schema_table_names(schema, view)
-            dataset_name = sql_config.get_identifier(schema, view)
+            schema, view = self.standardize_schema_table_names(
+                schema=schema, entity=view
+            )
+            dataset_name = self.get_identifier(
+                schema=schema, entity=view, inspector=inspector
+            )
             self.report.report_entity_scanned(dataset_name, ent_type="view")
 
             if not sql_config.view_pattern.allowed(dataset_name):
