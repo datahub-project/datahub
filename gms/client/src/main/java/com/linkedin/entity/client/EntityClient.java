@@ -1,6 +1,8 @@
 package com.linkedin.entity.client;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.EntitiesDoBatchGetNumEntitiesRequestBuilder;
+import com.linkedin.entity.EntitiesDoGetNumEntitiesRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.restli.client.Response;
 import org.slf4j.Logger;
@@ -265,5 +267,19 @@ public class EntityClient {
         EntitiesDoSetWritableRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionSetWritable().valueParam(canWrite);
         sendClientRequest(requestBuilder.build());
+    }
+
+    @Nonnull
+    public long getNumEntities(@Nonnull String entityName) throws RemoteInvocationException {
+        EntitiesDoGetNumEntitiesRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionGetNumEntities().entityParam(entityName);
+        return sendClientRequest(requestBuilder.build()).getEntity();
+    }
+
+    @Nonnull
+    public Map<String, Long> batchGetNumEntities(@Nonnull List<String> entityName) throws RemoteInvocationException {
+        EntitiesDoBatchGetNumEntitiesRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionBatchGetNumEntities().entitiesParam(new StringArray(entityName));
+        return sendClientRequest(requestBuilder.build()).getEntity();
     }
 }

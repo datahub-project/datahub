@@ -21,6 +21,13 @@ public interface SearchService {
   void clear();
 
   /**
+   * Get the number of documents corresponding to the entity
+   *
+   * @param entityName name of the entity
+   */
+  long docCount(@Nonnull String entityName);
+
+  /**
    * Updates or inserts the given search document.
    *
    * @param entityName name of the entity

@@ -87,6 +87,7 @@ public class ElasticSearchServiceTest {
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     BrowseResult browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
+    assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);
 
     Urn urn = new TestEntityUrn("test", "testUrn", "VALUE_1");
     ObjectNode document = JsonNodeFactory.instance.objectNode();
@@ -102,6 +103,7 @@ public class ElasticSearchServiceTest {
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
     assertEquals(browseResult.getMetadata().getGroups().get(0).getName(), "a");
+    assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 1);
 
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     TimeUnit.SECONDS.sleep(5);
@@ -109,5 +111,6 @@ public class ElasticSearchServiceTest {
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
+    assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);
   }
 }
