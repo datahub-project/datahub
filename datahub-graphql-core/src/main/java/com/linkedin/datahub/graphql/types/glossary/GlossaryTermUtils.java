@@ -25,11 +25,11 @@ public class GlossaryTermUtils {
         return hierarchicalName;
     }
 
-    public static String getGlossaryTermDomain(String hierarchicalName){
+    public static String getGlossaryTermDomain(String hierarchicalName) {
         String domain = "";
-        if(hierarchicalName.contains(".")){
+        if (hierarchicalName.contains(".")) {
             String[] nodes = hierarchicalName.split(Pattern.quote("."));
-            for(int i = 0; i < nodes.length - 2; i++) {
+            for (int i = 0; i < nodes.length - 2; i++) {
                 domain = domain + nodes[i] + ".";
             }
             domain = domain + nodes[nodes.length - 2];
