@@ -66,6 +66,16 @@ transformers:
       get_owners_to_add: "<your_module>.<your_function>"
 ```
 
+### Mark dataset status
+
+If you would like to stop a dataset from appearing in the UI then you need to mark the status of the dataset
+```yaml
+transformers:
+  - type: "mark_dataset_status"
+    config:
+      removed: true
+```
+
 ## Writing a custom transformer from scratch
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.

@@ -11,12 +11,14 @@ from datahub.ingestion.transformer.add_dataset_tags import (
 from datahub.ingestion.transformer.clear_dataset_ownership import (
     SimpleClearDatasetOwnership,
 )
+from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 
 transform_registry = Registry[Transformer]()
 
 transform_registry.register(
     "simple_clear_dataset_ownership", SimpleClearDatasetOwnership
 )
+transform_registry.register("mark_dataset_status", MarkDatasetStatus)
 
 transform_registry.register("add_dataset_ownership", AddDatasetOwnership)
 transform_registry.register("simple_add_dataset_ownership", SimpleAddDatasetOwnership)

@@ -11,6 +11,7 @@ from datahub.ingestion.transformer.add_dataset_tags import (
 from datahub.ingestion.transformer.clear_dataset_ownership import (
     SimpleClearDatasetOwnership,
 )
+from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 
 
 def make_generic_dataset():
@@ -121,6 +122,19 @@ def test_simple_clear_dataset_ownership():
         outputs[0].record, models.OwnershipClass
     )
     assert len(ownership_aspect.owners) == 0
+
+
+def test_mark_status_dataset():
+    dataset = make_generic_dataset()
+    status_aspect = builder.get_aspect_if_available(dataset, models.StatusClass)
+    assert status_aspect.status == False
+    transformer = MarkDatasetStatus.create(
+        {"removed": True},
+        PipelineContext(run_id="test"),
+    )
+    output = transformer.transform([RecordEnvelope(dataset, metadata={})])
+    status_aspect = builder.get_aspect_if_available(output.record, models.StatusClass)
+    assert status_aspect.status == True
 
 
 def test_simple_dataset_tags_transformation(mock_time):
