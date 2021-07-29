@@ -13,7 +13,6 @@ import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
-import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
@@ -79,6 +78,7 @@ public abstract class EntityService {
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
   private Boolean _emitAspectSpecificAuditEvent = false;
+  public static String DEFAULT_RUN_ID = "no-run-id-provided";
 
 
   protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
@@ -288,7 +288,7 @@ public abstract class EntityService {
 
   public void ingestEntity(Entity entity, AuditStamp auditStamp) {
     SystemMetadata generatedSystemMetadata = new SystemMetadata();
-    generatedSystemMetadata.setRunId("");
+    generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
     generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
 
     ingestEntity(entity, auditStamp, generatedSystemMetadata);
@@ -457,7 +457,7 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
-  public abstract EbeanEntityService.RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId);
+  public abstract RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId);
 
-  public abstract EbeanEntityService.RollbackRunResult rollbackUrn(Urn urn);
+  public abstract RollbackRunResult deleteUrn(Urn urn);
 }

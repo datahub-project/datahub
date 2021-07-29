@@ -183,12 +183,13 @@ public class EntityClient {
     }
 
     public void update(@Nonnull final Entity entity) throws RemoteInvocationException {
-      SystemMetadata generatedSystemMetadata = new SystemMetadata();
-      generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
-      updateWithSystemMetadata(entity, generatedSystemMetadata);
+        EntitiesDoIngestRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity);
+
+        sendClientRequest(requestBuilder.build());
     }
 
-    public void updateWithSystemMetadata(@Nonnull final Entity entity, @Nonnull final SystemMetadata systemMetadata) throws RemoteInvocationException {
+    public void updateWithSystemMetadata(@Nonnull final Entity entity, @Nullable final SystemMetadata systemMetadata) throws RemoteInvocationException {
         EntitiesDoIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity).systemMetadataParam(systemMetadata);
 

@@ -7,7 +7,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.EbeanEntityService;
+import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
@@ -44,6 +44,7 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.entity.EntityService.*;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
@@ -136,6 +137,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     if (systemMetadata == null) {
       SystemMetadata generatedSystemMetadata = new SystemMetadata();
       generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
+      generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
       systemMetadata = generatedSystemMetadata;
     }
 
@@ -166,6 +168,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       ) throws URISyntaxException {
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+    if (entities.length != systemMetadataList.length) {
+      throw RestliUtils.invalidArgumentsException("entities and systemMetadata length must match");
+    }
+
     return RestliUtils.toTask(() -> {
       _entityService.ingestEntities(Arrays.asList(entities), auditStamp, Arrays.asList(systemMetadataList));
       return null;
@@ -220,7 +226,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   }
 
   /*
-  Used to enable writes in GMS after data migration is complete
+  Used to delete all data related to an individual urn
    */
   @Action(name = "delete")
   @Nonnull
@@ -230,7 +236,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(() -> {
       RollbackResponse response = new RollbackResponse();
 
-      EbeanEntityService.RollbackRunResult result = _entityService.rollbackUrn(urn);
+      RollbackRunResult result = _entityService.deleteUrn(urn);
 
       List<AspectRowSummary> deletedRows = result.getRowsRolledBack();
 
