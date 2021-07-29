@@ -1,87 +1,85 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
-
+import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.MLModelGroup;
+import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.generated.BrowseResults;
+import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
+import com.linkedin.datahub.graphql.generated.BrowsePath;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.BrowsableEntityType;
+import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelSnapshotMapper;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelGroupSnapshotMapper;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.extractor.SnapshotToAspectMap;
-import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.query.SearchResult;
 import graphql.execution.DataFetcherResult;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import com.linkedin.data.template.StringArray;
-
-import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.urn.MLModelUrn;
-import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
-import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-import com.linkedin.datahub.graphql.generated.MLModel;
-import com.linkedin.datahub.graphql.generated.SearchResults;
-import com.linkedin.datahub.graphql.generated.BrowseResults;
-import com.linkedin.datahub.graphql.generated.BrowsePath;
-import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
-import com.linkedin.datahub.graphql.types.BrowsableEntityType;
-import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
-import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
-import com.linkedin.metadata.query.AutoCompleteResult;
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
-public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEntityType<MLModel> {
+public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, BrowsableEntityType<MLModelGroup> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
-    private final EntityClient _mlModelsClient;
+    private final EntityClient _mlModelGroupClient;
 
-    public MLModelType(final EntityClient mlModelsClient) {
-        _mlModelsClient = mlModelsClient;
+    public MLModelGroupType(final EntityClient mlModelGroupClient) {
+        _mlModelGroupClient = mlModelGroupClient;
     }
 
     @Override
     public EntityType type() {
-        return EntityType.MLMODEL;
+        return EntityType.MLMODEL_GROUP;
     }
 
     @Override
-    public Class<MLModel> objectClass() {
-        return MLModel.class;
+    public Class<MLModelGroup> objectClass() {
+        return MLModelGroup.class;
     }
 
     @Override
-    public List<DataFetcherResult<MLModel>> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
-        final List<MLModelUrn> mlModelUrns = urns.stream()
-            .map(MLModelUtils::getMLModelUrn)
+    public List<DataFetcherResult<MLModelGroup>> batchLoad(final List<String> urns, final QueryContext context) throws Exception {
+        final List<Urn> mlModelGroupUrns = urns.stream()
+            .map(MLModelUtils::getMLModelGroupUrn)
             .collect(Collectors.toList());
 
         try {
-            final Map<Urn, Entity> mlModelMap = _mlModelsClient.batchGet(mlModelUrns
+            final Map<Urn, Entity> mlModelMap = _mlModelGroupClient.batchGet(mlModelGroupUrns
                 .stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
 
-            final List<Entity> gmsResults = mlModelUrns.stream()
+            final List<Entity> gmsResults = mlModelGroupUrns.stream()
                 .map(modelUrn -> mlModelMap.getOrDefault(modelUrn, null)).collect(Collectors.toList());
 
             return gmsResults.stream()
-                .map(gmsMlModel -> gmsMlModel == null ? null
-                    : DataFetcherResult.<MLModel>newResult()
-                        .data(MLModelSnapshotMapper.map(gmsMlModel.getValue().getMLModelSnapshot()))
-                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsMlModel.getValue().getMLModelSnapshot()))
+                .map(gmsMlModelGroup -> gmsMlModelGroup == null ? null
+                    : DataFetcherResult.<MLModelGroup>newResult()
+                        .data(MLModelGroupSnapshotMapper.map(gmsMlModelGroup.getValue().getMLModelGroupSnapshot()))
+                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsMlModelGroup.getValue().getMLModelGroupSnapshot()))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {
-            throw new RuntimeException("Failed to batch load MLModels", e);
+            throw new RuntimeException("Failed to batch load MLModelGroups", e);
         }
     }
 
@@ -92,7 +90,7 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _mlModelsClient.search("mlModel", query, facetFilters, start, count);
+        final SearchResult searchResult = _mlModelGroupClient.search("mlModelGroup", query, facetFilters, start, count);
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -103,7 +101,7 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _mlModelsClient.autoComplete("mlModel", query, facetFilters, limit);
+        final AutoCompleteResult result = _mlModelGroupClient.autoComplete("mlModelGroup", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -115,21 +113,21 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
-        final BrowseResult result = _mlModelsClient.browse(
-                "mlModel",
+        final BrowseResult result = _mlModelGroupClient.browse(
+                "mlModelGroup",
                 pathStr,
                 facetFilters,
                 start,
                 count);
         final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<MLModel> mlModels = batchLoad(urns, context)
-                .stream().map(mlModelDataFetcherResult -> mlModelDataFetcherResult.getData()).collect(Collectors.toList());
+        final List<MLModelGroup> mlModelGroups = batchLoad(urns, context)
+                .stream().map(mlModelGroupDataFetcherResult -> mlModelGroupDataFetcherResult.getData()).collect(Collectors.toList());
         final BrowseResults browseResults = new BrowseResults();
         browseResults.setStart(result.getFrom());
         browseResults.setCount(result.getPageSize());
         browseResults.setTotal(result.getNumEntities());
         browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
-        browseResults.setEntities(mlModels.stream()
+        browseResults.setEntities(mlModelGroups.stream()
                 .map(entity -> (com.linkedin.datahub.graphql.generated.Entity) entity)
                 .collect(Collectors.toList()));
         return browseResults;
@@ -137,7 +135,7 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
-        final StringArray result = _mlModelsClient.getBrowsePaths(MLModelUtils.getMLModelUrn(urn));
+        final StringArray result = _mlModelGroupClient.getBrowsePaths(MLModelUtils.getMLModelGroupUrn(urn));
         return BrowsePathsMapper.map(result);
     }
 }

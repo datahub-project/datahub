@@ -66,4 +66,16 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             />
         );
     };
+
+    getLineageVizConfig = (entity: MlFeatureTable) => {
+        return {
+            urn: entity.urn,
+            name: entity.name,
+            type: EntityType.MlfeatureTable,
+            upstreamChildren: [],
+            downstreamChildren: [],
+            icon: entity.platform.info?.logoUrl || undefined,
+            platform: entity.platform.name,
+        };
+    };
 }
