@@ -44,17 +44,16 @@ class KuduSourceTest(unittest.TestCase):
         """
         test that the ingestion is able to pull out a workunit
         """
-        mock_engine = Mock()
-        mock_engine.execute.return_value.fetchone.return_value = {
-            "# Rows": "",
-            "Start Key": "",
-            "Stop Key": "",
-            "Leader Replica": "",
-            "# Replicas": "",
-        }
-        mock_inspect = Mock()
-        mock_inspect.get_table_names.return_value = ["my_first_table"]
-        mock_inspect.get_table_comment.return_value = {"text": None}
+        mock_engine = Mock(description=[("# Rows",""),("Start Key",""),("Stop Key",""),("Leader Replica",""),("# Replicas","")])
+        mock_execute = Mock()
+        mock_execute.side_effect = ["table","stats", "describe", "describe_formatted" ] #show tables, show
+        mock_fetch = Mock()
+        table_stats = 
+        table_formatted_stats = 
+        mock_fetch.side_effect = ["table1", table_stats, table_formatted_stats]
+        mock_engine.execute = mock_execute
+        mock_engine.fetchall = mock_fetch
+        
         mock_inspect.get_columns.return_value = [
             {
                 "name": "id",
@@ -120,11 +119,7 @@ class KuduSourceTest(unittest.TestCase):
                 )
             ),
         )
-        for (
-            item
-        ) in (
-            yield_gen
-        ):  # there shd be a more elegant way to pull the first item off a generator...
+        for item in yield_gen:  # there shd be a more elegant way to pull the first item off a generator...
             generated = item
             break
         self.assertEqual(generated, expected_return)
