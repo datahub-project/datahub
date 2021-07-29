@@ -127,14 +127,16 @@ def test_simple_clear_dataset_ownership():
 def test_mark_status_dataset():
     dataset = make_generic_dataset()
     status_aspect = builder.get_aspect_if_available(dataset, models.StatusClass)
-    assert status_aspect.status is False
+    assert status_aspect.removed is False
     transformer = MarkDatasetStatus.create(
         {"removed": True},
         PipelineContext(run_id="test"),
     )
-    output = transformer.transform([RecordEnvelope(dataset, metadata={})])
-    status_aspect = builder.get_aspect_if_available(output.record, models.StatusClass)
-    assert status_aspect.status is True
+    outputs = list(
+        transformer.transform([RecordEnvelope(dataset, metadata={})])
+    )
+    status_aspect = builder.get_aspect_if_available(outputs[0].record, models.StatusClass)
+    assert status_aspect.removed is True
 
 
 def test_simple_dataset_tags_transformation(mock_time):
