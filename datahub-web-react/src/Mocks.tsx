@@ -1093,7 +1093,7 @@ export const mocks = [
             variables: {
                 input: {
                     type: 'GLOSSARY_TERM',
-                    query: 'tags:abc-sample-tag',
+                    query: 'tags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
                     filters: [],
@@ -1275,7 +1275,7 @@ export const mocks = [
             variables: {
                 input: {
                     type: 'CORP_USER',
-                    query: 'tags:abc-sample-tag',
+                    query: 'tags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
                     filters: [],
@@ -1302,7 +1302,7 @@ export const mocks = [
             variables: {
                 input: {
                     type: 'DATASET',
-                    query: 'tags:abc-sample-tag',
+                    query: 'tags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
                     filters: [],
