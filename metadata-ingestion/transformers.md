@@ -33,8 +33,15 @@ transformers:
     config:
       get_tags_to_add: "<your_module>.<your_function>"
 ```
+### Change owners
 
-### Setting ownership
+If we wanted to clear existing owners sent by ingestion source we can use the `simple_clear_dataset_ownership` module which removes all owners sent by the ingestion source.
+
+```yaml
+transformers:
+  - type: "simple_clear_dataset_ownership"
+    config: {}
+```
 
 Let’s suppose we’d like to append a series of users who we know to own a dataset but aren't detected during normal ingestion. To do so, we can use the `simple_add_dataset_ownership` module that’s included in the ingestion framework.
 
