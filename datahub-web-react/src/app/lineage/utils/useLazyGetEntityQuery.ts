@@ -8,6 +8,8 @@ import { useGetMlFeatureLazyQuery } from '../../../graphql/mlFeature.generated';
 import { useGetMlPrimaryKeyLazyQuery } from '../../../graphql/mlPrimaryKey.generated';
 import { EntityType } from '../../../types.generated';
 import { EntityAndType } from '../types';
+import { useGetMlModelLazyQuery } from '../../../graphql/mlModel.generated';
+import { useGetMlModelGroupLazyQuery } from '../../../graphql/mlModelGroup.generated';
 
 export default function useLazyGetEntityQuery() {
     const [fetchedEntityType, setFetchedEntityType] = useState<EntityType | undefined>(undefined);
@@ -18,6 +20,8 @@ export default function useLazyGetEntityQuery() {
     const [getAsyncMLFeatureTable, { data: asyncMLFeatureTable }] = useGetMlFeatureTableLazyQuery();
     const [getAsyncMLFeature, { data: asyncMLFeature }] = useGetMlFeatureLazyQuery();
     const [getAsyncMLPrimaryKey, { data: asyncMLPrimaryKey }] = useGetMlPrimaryKeyLazyQuery();
+    const [getAsyncMlModel, { data: asyncMlModel }] = useGetMlModelLazyQuery();
+    const [getAsyncMlModelGroup, { data: asyncMlModelGroup }] = useGetMlModelGroupLazyQuery();
 
     const getAsyncEntity = useCallback(
         (urn: string, type: EntityType) => {
@@ -49,6 +53,14 @@ export default function useLazyGetEntityQuery() {
                 setFetchedEntityType(type);
                 getAsyncMLPrimaryKey({ variables: { urn } });
             }
+            if (type === EntityType.Mlmodel) {
+                setFetchedEntityType(type);
+                getAsyncMlModel({ variables: { urn } });
+            }
+            if (type === EntityType.MlmodelGroup) {
+                setFetchedEntityType(type);
+                getAsyncMlModelGroup({ variables: { urn } });
+            }
         },
         [
             setFetchedEntityType,
@@ -59,6 +71,8 @@ export default function useLazyGetEntityQuery() {
             getAsyncMLFeatureTable,
             getAsyncMLFeature,
             getAsyncMLPrimaryKey,
+            getAsyncMlModel,
+            getAsyncMlModelGroup,
         ],
     );
 
@@ -128,6 +142,24 @@ export default function useLazyGetEntityQuery() {
                     } as EntityAndType;
                 }
                 break;
+            case EntityType.Mlmodel:
+                returnData = asyncMlModel?.mlModel;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.Mlmodel,
+                    } as EntityAndType;
+                }
+                break;
+            case EntityType.MlmodelGroup:
+                returnData = asyncMlModelGroup?.mlModelGroup;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.MlmodelGroup,
+                    } as EntityAndType;
+                }
+                break;
             default:
                 break;
         }
@@ -141,6 +173,8 @@ export default function useLazyGetEntityQuery() {
         asyncMLFeatureTable,
         asyncMLFeature,
         asyncMLPrimaryKey,
+        asyncMlModel,
+        asyncMlModelGroup,
     ]);
 
     return { getAsyncEntity, asyncData: returnEntityAndType };
