@@ -6,10 +6,11 @@ services:
       dockerfile: docker/ingest-api/Dockerfile    
     hostname: ingest-api
     container_name: ingest-api
+    env_file: env/docker.env
     ports:
       - "8001:80"
     volumes:
-      - apidata:/app/ingest-api/ingest_api/log
+      - apidata:/var/log/ingest/
 
 networks:
   default:

@@ -2,12 +2,11 @@
 import datetime
 import json
 import logging
+import os
 import time
-from pathlib import Path
 from typing import Dict, List, Optional, Type, TypeVar, Union
 
 from datahub.ingestion.api import RecordEnvelope
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.schema_classes import *
 
 log = logging.getLogger(__name__)
@@ -41,52 +40,39 @@ def make_user_urn(username: str) -> str:
 def make_tag_urn(tag: str) -> str:
     return f"urn:li:tag:{tag}"
 
-
 def make_institutionalmemory_mce(
     dataset_urn: str, input_url: List[str], input_description: List[str], actor: str
-) -> MetadataChangeEventClass:
+) -> InstitutionalMemoryClass:
     """
     returns a list of Documents
     """
     sys_time = get_sys_time()
     actor = make_user_urn(actor)
-    mce = MetadataChangeEventClass(
-        proposedSnapshot=DatasetSnapshotClass(
-            urn=dataset_urn,
-            aspects=[
-                InstitutionalMemoryClass(
-                    elements=[
-                        InstitutionalMemoryMetadataClass(
-                            url=url,
-                            description=description,
-                            createStamp=AuditStampClass(
-                                time=sys_time,
-                                actor=actor,
-                            ),
-                        )
-                        for url, description in zip(input_url, input_description)
-                    ]
+    mce = InstitutionalMemoryClass(
+            elements=[
+                InstitutionalMemoryMetadataClass(
+                    url=url,
+                    description=description,
+                    createStamp=AuditStampClass(
+                        time=sys_time,
+                        actor=actor,
+                    ),
                 )
-            ],
+                for url, description in zip(input_url, input_description)
+            ]
         )
-    )
-    return mce
 
+    return mce
 
 def make_browsepath_mce(
     dataset_urn: str,
     path: List[str],
-) -> MetadataChangeEventClass:
+) -> BrowsePathsClass:
     """
     Creates browsepath for dataset. By default, if not specified, Datahub assigns it to /prod/platform/datasetname
     """
     sys_time = get_sys_time()
-    mce = MetadataChangeEventClass(
-        proposedSnapshot=DatasetSnapshotClass(
-            urn=dataset_urn,
-            aspects=[BrowsePathsClass(paths=path)],
-        )
-    )
+    mce = BrowsePathsClass(paths=path)
     return mce
 
 
@@ -136,25 +122,16 @@ def make_dataset_description_mce(
     externalUrl: str = None,
     tags: List[str] = [],
     customProperties: Optional[Dict[str, str]] = None,
-) -> MetadataChangeEventClass:
+) -> DatasetPropertiesClass:
     """
     Tags and externalUrl doesnt seem to have any impact on UI.
     """
-    return MetadataChangeEventClass(
-        proposedSnapshot=DatasetSnapshotClass(
-            urn=dataset_name,
-            aspects=[
-                DatasetPropertiesClass(
+    return DatasetPropertiesClass(
                     description=description,
                     externalUrl=externalUrl,
                     customProperties=customProperties
-                    #                    tags = [make_tag_urn(tag) for tag in tags]
                 )
-            ],
-        )
-    )
-
-
+            
 def make_schema_mce(
     dataset_urn: str,
     platformName: str,
@@ -195,68 +172,53 @@ def make_schema_mce(
             "fixed": FixedTypeClass(),
         }.get(item["field_type"])
 
-    mce = MetadataChangeEventClass(
-        proposedSnapshot=DatasetSnapshotClass(
-            urn=dataset_urn,
-            aspects=[
-                SchemaMetadataClass(
-                    schemaName="OtherSchema",
-                    platform=platformName,
-                    version=0,
-                    created=AuditStampClass(time=sys_time, actor=actor),
-                    lastModified=AuditStampClass(time=sys_time, actor=actor),
-                    hash="",
-                    platformSchema=OtherSchemaClass(rawSchema=""),
-                    fields=[
-                        SchemaFieldClass(
-                            fieldPath=item["fieldPath"],
-                            type=SchemaFieldDataTypeClass(type=item["field_type"]),
-                            nativeDataType=item.get("nativeType", ""),
-                            description=item.get("field_description", ""),
-                            nullable=item.get("nullable", None),
-                        )
-                        for item in fields
-                    ],
-                    primaryKeys=primaryKeys,  # no visual impact in UI
-                    foreignKeysSpecs=None,
-                )
-            ],
-        )
+    mce = SchemaMetadataClass(
+        schemaName="OtherSchema",
+        platform=platformName,
+        version=0,
+        created=AuditStampClass(time=sys_time, actor=actor),
+        lastModified=AuditStampClass(time=sys_time, actor=actor),
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=item["fieldPath"],
+                type=SchemaFieldDataTypeClass(type=item["field_type"]),
+                nativeDataType=item.get("nativeType", ""),
+                description=item.get("field_description", ""),
+                nullable=item.get("nullable", None),
+            )
+            for item in fields
+        ],
+        primaryKeys=primaryKeys,  # no visual impact in UI
+        foreignKeysSpecs=None,
     )
     return mce
 
-
-def make_ownership_mce(actor: str, dataset_urn: str) -> MetadataChangeEventClass:
-    return MetadataChangeEventClass(
-        proposedSnapshot=DatasetSnapshotClass(
-            urn=dataset_urn,
-            aspects=[
-                OwnershipClass(
-                    owners=[
-                        OwnerClass(
-                            owner=actor,
-                            type=OwnershipTypeClass.DATAOWNER,
-                        )
-                    ],
-                    lastModified=AuditStampClass(
-                        time=int(time.time() * 1000),
-                        actor=make_user_urn(actor),
-                    ),
-                )
-            ],
-        )
-    )
-
-
-def generate_json_output(mces: List[MetadataChangeEventClass], file_loc: str) -> None:
+def make_ownership_mce(actor: str, dataset_urn: str) -> OwnershipClass:
+    return OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=actor,
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ],
+                lastModified=AuditStampClass(
+                    time=int(time.time() * 1000),
+                    actor=make_user_urn(actor),
+                ),
+            )
+            
+def generate_json_output(mce: MetadataChangeEventClass, file_loc: str) -> None:
     """
     Generates the json MCE files that can be ingested via CLI. For debugging
-    """
-    path = Path(file_loc)
-    mce_objs = [item.to_obj() for item in mces]
+    """    
+    mce_obj = mce.to_obj()
+    file_name = mce.proposedSnapshot.urn.replace("urn:li:dataset:(urn:li:dataPlatform:", "").split(",")[1]
+    path = os.path.join(file_loc, f"{file_name}.json")
 
     with open(path, "w") as f:
-        json.dump(mce_objs, f, indent=4)
+        json.dump(mce_obj, f, indent=4)
 
 
 def make_delete_mce(

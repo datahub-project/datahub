@@ -1,11 +1,10 @@
-FROM tiangolo/uvicorn-gunicorn-fastapi:python3.8 as base
+FROM tiangolo/uvicorn-gunicorn-fastapi:python3.8-slim as base
 
 #add certs in this stage.
 COPY ./metadata-ingestion/ /app/metadata-ingestion
-COPY ./ingest-api/ /app/ingest-api
 RUN pip install ./metadata-ingestion/. 
-RUN pip install ./ingest-api/.
+COPY ./ingest-api/ /app/ingest-api
 WORKDIR /app/ingest-api/ingest_api
-RUN mkdir log
+RUN pip install -r ../requirements.txt && pip install ../
 CMD ["python", "main.py"]
 
