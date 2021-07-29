@@ -127,6 +127,7 @@ module.exports = {
       "docker/datahub-upgrade/README",
       "docs/deploy/aws",
       "docs/deploy/gcp",
+      "docs/deploy/confluent-cloud",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms-graphql-service/README",
