@@ -52,29 +52,207 @@ python -c "import webbrowser; webbrowser.open('http://localhost:8080/restli/docs
 The Entity Snapshot Ingest endpoints allow you to ingest multiple aspects about a particular entity at the same time. 
 
 #### Create a user
+
 ```
-curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{"entity": { "value": { "com.linkedin.metadata.snapshot.CorpUserSnapshot": {"aspects": [{"com.linkedin.identity.CorpUserInfo":{"active": true, "displayName": "Foo Bar", "fullName": "Foo Bar", "email": "fbar@linkedin.com"}}, {"com.linkedin.identity.CorpUserEditableInfo":{}}], "urn": "urn:li:corpuser:fbar"}}}}'
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.CorpUserSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.identity.CorpUserInfo":{
+                     "active":true,
+                     "displayName":"Foo Bar",
+                     "fullName":"Foo Bar",
+                     "email":"fbar@linkedin.com"
+                  }
+               }
+            ],
+            "urn":"urn:li:corpuser:footbarusername"
+         }
+      }
+   }
+}'
 ```
 
 #### Create a group
 
 ```
-curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{"entity": { "value": { "com.linkedin.metadata.snapshot.CorpGroupSnapshot": {"aspects": [{"com.linkedin.identity.CorpGroupInfo":{"email": "dev@linkedin.com", "admins": ["urn:li:corpUser:jdoe"], "members": ["urn:li:corpUser:datahub", "urn:li:corpUser:jdoe"], "groups": []}}], "urn": "urn:li:corpGroup:dev"}}}}'
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.CorpGroupSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.identity.CorpGroupInfo":{
+                     "email":"dev@linkedin.com",
+                     "admins":[
+                        "urn:li:corpUser:jdoe"
+                     ],
+                     "members":[
+                        "urn:li:corpUser:datahub",
+                        "urn:li:corpUser:jdoe"
+                     ],
+                     "groups":[
+                        
+                     ]
+                  }
+               }
+            ],
+            "urn":"urn:li:corpGroup:dev"
+         }
+      }
+   }
+}'
 ```
 
 #### Create a dataset
 ```
-curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{"entity": { "value": { "com.linkedin.metadata.snapshot.DatasetSnapshot": {"aspects":[{"com.linkedin.common.Ownership":{"owners":[{"owner":"urn:li:corpuser:fbar","type":"DATAOWNER"}],"lastModified":{"time":0,"actor":"urn:li:corpuser:fbar"}}},{"com.linkedin.dataset.UpstreamLineage":{"upstreams":[{"auditStamp":{"time":0,"actor":"urn:li:corpuser:fbar"},"dataset":"urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)","type":"TRANSFORMED"}]}},{"com.linkedin.common.InstitutionalMemory":{"elements":[{"url":"https://www.linkedin.com","description":"Sample doc","createStamp":{"time":0,"actor":"urn:li:corpuser:fbar"}}]}},{"com.linkedin.schema.SchemaMetadata":{"schemaName":"FooEvent","platform":"urn:li:dataPlatform:foo","version":0,"created":{"time":0,"actor":"urn:li:corpuser:fbar"},"lastModified":{"time":0,"actor":"urn:li:corpuser:fbar"},"hash":"","platformSchema":{"com.linkedin.schema.KafkaSchema":{"documentSchema":"{\"type\":\"record\",\"name\":\"MetadataChangeEvent\",\"namespace\":\"com.linkedin.mxe\",\"doc\":\"Kafka event for proposing a metadata change for an entity.\",\"fields\":[{\"name\":\"auditHeader\",\"type\":{\"type\":\"record\",\"name\":\"KafkaAuditHeader\",\"namespace\":\"com.linkedin.avro2pegasus.events\",\"doc\":\"Header\"}}]}"}},"fields":[{"fieldPath":"foo","description":"Bar","nativeDataType":"string","type":{"type":{"com.linkedin.schema.StringType":{}}}}]}}],"urn":"urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"}}}}'
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.DatasetSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.common.Ownership":{
+                     "owners":[
+                        {
+                           "owner":"urn:li:corpuser:fbar",
+                           "type":"DATAOWNER"
+                        }
+                     ],
+                     "lastModified":{
+                        "time":0,
+                        "actor":"urn:li:corpuser:fbar"
+                     }
+                  }
+               },
+               {
+                  "com.linkedin.common.InstitutionalMemory":{
+                     "elements":[
+                        {
+                           "url":"https://www.linkedin.com",
+                           "description":"Sample doc",
+                           "createStamp":{
+                              "time":0,
+                              "actor":"urn:li:corpuser:fbar"
+                           }
+                        }
+                     ]
+                  }
+               },
+               {
+                  "com.linkedin.schema.SchemaMetadata":{
+                     "schemaName":"FooEvent",
+                     "platform":"urn:li:dataPlatform:foo",
+                     "version":0,
+                     "created":{
+                        "time":0,
+                        "actor":"urn:li:corpuser:fbar"
+                     },
+                     "lastModified":{
+                        "time":0,
+                        "actor":"urn:li:corpuser:fbar"
+                     },
+                     "hash":"",
+                     "platformSchema":{
+                        "com.linkedin.schema.KafkaSchema":{
+                           "documentSchema":"{\"type\":\"record\",\"name\":\"MetadataChangeEvent\",\"namespace\":\"com.linkedin.mxe\",\"doc\":\"Kafka event for proposing a metadata change for an entity.\",\"fields\":[{\"name\":\"auditHeader\",\"type\":{\"type\":\"record\",\"name\":\"KafkaAuditHeader\",\"namespace\":\"com.linkedin.avro2pegasus.events\",\"doc\":\"Header\"}}]}"
+                        }
+                     },
+                     "fields":[
+                        {
+                           "fieldPath":"foo",
+                           "description":"Bar",
+                           "nativeDataType":"string",
+                           "type":{
+                              "type":{
+                                 "com.linkedin.schema.StringType":{
+                                    
+                                 }
+                              }
+                           }
+                        }
+                     ]
+                  }
+               }
+            ],
+            "urn":"urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"
+         }
+      }
+   }
+}'
 ```
 
 #### Create a chart
 ```
-curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{"entity": { "value": { "com.linkedin.metadata.snapshot.ChartSnapshot":{"aspects":[{"com.linkedin.chart.ChartInfo":{"title":"Baz Chart 1","description":"Baz Chart 1","inputs":[{"string":"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"}],"lastModified":{"created":{"time":0,"actor":"urn:li:corpuser:jdoe"},"lastModified":{"time":0,"actor":"urn:li:corpuser:datahub"}}}}],"urn":"urn:li:chart:(looker,baz1)"}}}}'
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.ChartSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.chart.ChartInfo":{
+                     "title":"Baz Chart 1",
+                     "description":"Baz Chart 1",
+                     "inputs":[
+                        {
+                           "string":"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
+                        }
+                     ],
+                     "lastModified":{
+                        "created":{
+                           "time":0,
+                           "actor":"urn:li:corpuser:jdoe"
+                        },
+                        "lastModified":{
+                           "time":0,
+                           "actor":"urn:li:corpuser:datahub"
+                        }
+                     }
+                  }
+               }
+            ],
+            "urn":"urn:li:chart:(looker,baz1)"
+         }
+      }
+   }
+}'
 ```
 
 #### Create a dashboard
 ```
-curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{"entity": { "value": { "com.linkedin.metadata.snapshot.DashboardSnapshot":{"aspects":[{"com.linkedin.dashboard.DashboardInfo":{"title":"Baz Dashboard","description":"Baz Dashboard","charts":["urn:li:chart:(looker,baz1)","urn:li:chart:(looker,baz2)"],"lastModified":{"created":{"time":0,"actor":"urn:li:corpuser:jdoe"},"lastModified":{"time":0,"actor":"urn:li:corpuser:datahub"}}}}],"urn":"urn:li:dashboard:(looker,baz)"}}}}'
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.DashboardSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.dashboard.DashboardInfo":{
+                     "title":"Baz Dashboard",
+                     "description":"Baz Dashboard",
+                     "charts":[
+                        "urn:li:chart:(looker,baz1)",
+                        "urn:li:chart:(looker,baz2)"
+                     ],
+                     "lastModified":{
+                        "created":{
+                           "time":0,
+                           "actor":"urn:li:corpuser:jdoe"
+                        },
+                        "lastModified":{
+                           "time":0,
+                           "actor":"urn:li:corpuser:datahub"
+                        }
+                     }
+                  }
+               }
+            ],
+            "urn":"urn:li:dashboard:(looker,baz)"
+         }
+      }
+   }
+}'
 ```
 
 ### Entity API V1: Get Entity Snapshots  
