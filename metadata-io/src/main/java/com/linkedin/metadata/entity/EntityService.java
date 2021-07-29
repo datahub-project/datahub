@@ -78,7 +78,7 @@ public abstract class EntityService {
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
   private Boolean _emitAspectSpecificAuditEvent = false;
-  public static String DEFAULT_RUN_ID = "no-run-id-provided";
+  public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
 
   protected EntityService(@Nonnull final EntityEventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
