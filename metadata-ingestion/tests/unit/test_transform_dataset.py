@@ -116,7 +116,6 @@ def test_simple_clear_dataset_ownership():
     outputs = list(
         transformer.transform([RecordEnvelope(with_owner_aspect, metadata={})])
     )
-    assert len(outputs) == 1
 
     ownership_aspect = builder.get_aspect_if_available(
         outputs[0].record, models.OwnershipClass
