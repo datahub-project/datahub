@@ -85,28 +85,51 @@ kafka:
         url: https://psrc-yorrp.us-east-2.aws.confluent.cloud
 ```
 
-Finally, set the required Confluent Kafka properties under the `springKafkaConfigurationOverrides` block:
+Next, you'll want to create 2 new Kubernetes secrets, one for the JaaS configuration which contains the username and password for Confluent,
+and another for the user info used for connecting to the schema registry. You'll find the values for each within the Confluent Control Center. Specifically,
+select "Clients" -> "Configure new Java Client". You should see a page like the following:
+
+
+![Config](../imgs/confluent-cloud-config.png)
+
+You'll want to generate both a Kafka Cluster API Key & a Schema Registry key. Once you do so,you should see the config
+automatically populate with your new secrets:
+
+![Config](../imgs/confluent-cloud-config-2.png)
+
+You'll need to copy the values of `sasl.jaas.config` and `basic.auth.user.info`
+for the next step.
+
+The next step is to create K8s secrets containing the config values you've just generated. Specifically, you'll run the following commands:
+
+```shell
+kubectl create secret generic confluent-secrets --from-literal=sasl_jaas_config="<your-sasl.jaas.config>"
+kubectl create secret generic confluent-secrets --from-literal=basic_auth_user_info="<your-basic.auth.user.info>"
+```
+
+With your config values substituted as appropriate. For example, in our case we'd run:
+
+```shell
+kubectl create secret generic confluent-secrets --from-literal=sasl_jaas_config="org.apache.kafka.common.security.plain.PlainLoginModule   required username='FJCUYDUWVOW3N4ST'   password='SbjL1DS+dQGRc7s6AiAgqAhuWytSGWCpSyJHS7rgplrezvrr5hpDnzKuForBkw9F';"
+kubectl create secret generic confluent-secrets --from-literal=basic_auth_user_info="QZYGIXDYOSR2P22Z:jetgvk+1WKN19KnonC8zADP81h9UA8DWtZrRfnX9rc8BlK7c7CZw85iCr4z4cmns"
+```
+
+Finally, we'll configure our containers to pick up the Confluent Kafka Configs by changing two config blocks in our values.yaml file. You
+should see these blocks commented at the bottom of the template. You'll want to uncomment them and set them to the following values: 
 
 ```
+credentialsAndCertsSecrets:
+  name: confluent-secrets
+  secureEnv:
+    sasl.jaas.config: sasl_jaas_config
+    basic.auth.user.info: basic_auth_user_info
+
+
 springKafkaConfigurationOverrides:
       security.protocol: SASL
-      sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule   required username='XFA35EL7QFUQP2PA' password='zmkfP6Envr9TYutsjLB3ZYfrk+yfCXD8sQHCE3EMp57A2jNs4RR7J1bU9k6lM6rU'; # Provided inside Confluent Control Center
       sasl.mechanism: PLAIN
       client.dns.lookup: use_all_dns_ips
       basic.auth.credentials.source: USER_INFO
-      basic.auth.user.info: U4UXEN6SP3KEWMO4:ESju8ZfETDm2RZo/6KO057hPYs2TGjFKmvMWUFnlJ3uKubFbB1Sfs7aOjUVT6CGe # Provided within Confluent Control Center
-```
-
-Typically, we suggest that all secrets are managed using K8s native secret manager. If you are using this, you can replace actual credentials with references to your secrets. For example,
-
-```
-springKafkaConfigurationOverrides:
-		security.protocol: SASL_SSL
-    sasl.jaas.config: "org.apache.kafka.common.security.plain.PlainLoginModule required username='{{ kafka_key_id }}' password='{{ kafka_key_secret }}';"
-    sasl.mechanism: PLAIN
-    client.dns.lookup: use_all_dns_ips
-    basic.auth.credentials.source: USER_INFO
-    basic.auth.user.info: "{{ kafka_schema_registry_key_id }}:{{ kafka_schema_registry_key_secret }}"
 ```
 
 Then simply apply the updated `values.yaml` to your K8s cluster via `kubectl apply`. 
