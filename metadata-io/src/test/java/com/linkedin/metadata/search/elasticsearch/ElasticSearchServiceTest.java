@@ -7,7 +7,7 @@ import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;

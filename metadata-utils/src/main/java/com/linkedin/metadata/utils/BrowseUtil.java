@@ -10,6 +10,9 @@ import java.util.stream.Collectors;
 
 
 public class BrowseUtil {
+  private BrowseUtil() {
+  }
+
   public static com.linkedin.metadata.query.BrowseResult convertToLegacyResult(BrowseResult browseResult) {
     com.linkedin.metadata.query.BrowseResult legacyResult = new com.linkedin.metadata.query.BrowseResult();
 

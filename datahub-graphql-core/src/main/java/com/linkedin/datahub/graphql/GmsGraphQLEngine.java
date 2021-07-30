@@ -218,6 +218,7 @@ public class GmsGraphQLEngine {
     public static void configureRuntimeWiring(final RuntimeWiring.Builder builder) {
         configureQueryResolvers(builder);
         configureMutationResolvers(builder);
+        configureSearchAndBrowseResolvers(builder);
         configureDatasetResolvers(builder);
         configureCorpUserResolvers(builder);
         configureCorpGroupResolvers(builder);
@@ -332,6 +333,24 @@ public class GmsGraphQLEngine {
         );
     }
 
+    private static void configureSearchAndBrowseResolvers(final RuntimeWiring.Builder builder) {
+        builder
+            .type("SearchResult", typeWiring -> typeWiring
+                .dataFetcher("entity", new AuthenticatedResolver<>(
+                    new EntityTypeResolver(
+                        ENTITY_TYPES.stream().collect(Collectors.toList()),
+                        (env) -> ((SearchResult) env.getSource()).getEntity()))
+                )
+            )
+            .type("BrowseResults", typeWiring -> typeWiring
+                .dataFetcher("entities", new AuthenticatedResolver<>(
+                    new EntityTypeBatchResolver(
+                        ENTITY_TYPES.stream().collect(Collectors.toList()),
+                        (env) -> ((BrowseResults) env.getSource()).getEntities()))
+                )
+            );
+    }
+
     /**
      * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.Dataset} type.
      */
@@ -384,20 +403,6 @@ public class GmsGraphQLEngine {
                         new EntityTypeResolver(
                                 ENTITY_TYPES.stream().collect(Collectors.toList()),
                                 (env) -> ((EntityRelationship) env.getSource()).getEntity()))
-                )
-            )
-            .type("SearchResult", typeWiring -> typeWiring
-                .dataFetcher("entity", new AuthenticatedResolver<>(
-                    new EntityTypeResolver(
-                        ENTITY_TYPES.stream().collect(Collectors.toList()),
-                        (env) -> ((SearchResult) env.getSource()).getEntity()))
-                ) 
-            )
-            .type("BrowseResults", typeWiring -> typeWiring
-                .dataFetcher("entities", new AuthenticatedResolver<>(
-                    new EntityTypeBatchResolver(
-                        ENTITY_TYPES.stream().collect(Collectors.toList()),
-                        (env) -> ((BrowseResults) env.getSource()).getEntities()))
                 )
             )
             .type("InstitutionalMemoryMetadata", typeWiring -> typeWiring
