@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.search.SearchRequest;
@@ -59,6 +60,13 @@ public class ESBrowseDAO {
   private static final String GROUP_AGG = "groups";
   private static final String ALL_PATHS = "allPaths";
 
+  @Value
+  private class BrowseGroupsResult {
+    List<BrowseResultGroup> groups;
+    int totalGroups;
+    int totalNumEntities;
+  }
+
   /**
    * Gets a list of groups/entities that match given browse request.
    *
@@ -79,8 +87,8 @@ public class ESBrowseDAO {
 
       final SearchResponse groupsResponse =
           client.search(constructGroupsSearchRequest(indexName, path, requestMap), RequestOptions.DEFAULT);
-      final BrowseResultMetadata browseResultMetadata = extractGroupsResponse(groupsResponse, path, from, size);
-      final int numGroups = browseResultMetadata.getTotalNumEntities().intValue();
+      final BrowseGroupsResult browseGroupsResult = extractGroupsResponse(groupsResponse, path, from, size);
+      final int numGroups = browseGroupsResult.getTotalGroups();
 
       // Based on the number of groups returned, compute the from and size to query for entities
       // Groups come before entities, so if numGroups >= from + size, we should return all groups
@@ -94,9 +102,13 @@ public class ESBrowseDAO {
       final int numEntities = (int) entitiesResponse.getHits().getTotalHits().value;
       final List<BrowseResultEntity> browseResultEntityList = extractEntitiesResponse(entitiesResponse, path);
 
-      return new BrowseResult().setMetadata(browseResultMetadata)
+      return new BrowseResult().setMetadata(
+          new BrowseResultMetadata().setTotalNumEntities(browseGroupsResult.getTotalNumEntities()).setPath(path))
           .setEntities(new BrowseResultEntityArray(browseResultEntityList))
-          .setNumEntities(numGroups + numEntities)
+          .setGroups(new BrowseResultGroupArray(browseGroupsResult.getGroups()))
+          .setNumEntities(numEntities)
+          .setNumGroups(numGroups)
+          .setNumElements(numGroups + numEntities)
           .setFrom(from)
           .setPageSize(size);
     } catch (Exception e) {
@@ -204,7 +216,7 @@ public class ESBrowseDAO {
    * @return {@link BrowseResultMetadata}
    */
   @Nonnull
-  private BrowseResultMetadata extractGroupsResponse(@Nonnull SearchResponse groupsResponse, @Nonnull String path,
+  private BrowseGroupsResult extractGroupsResponse(@Nonnull SearchResponse groupsResponse, @Nonnull String path,
       int from, int size) {
     final ParsedTerms groups = groupsResponse.getAggregations().get(GROUP_AGG);
     final List<BrowseResultGroup> groupsAgg = groups.getBuckets()
@@ -214,11 +226,10 @@ public class ESBrowseDAO {
             .setCount(group.getDocCount()))
         .collect(Collectors.toList());
     // Get the groups that are in the from to from + size range
-    final List<BrowseResultGroup> paginatedGroups =
-        groupsAgg.size() <= from ? Collections.emptyList() : groupsAgg.subList(from, Math.min(from + size, groupsAgg.size()));
-    return new BrowseResultMetadata().setGroups(new BrowseResultGroupArray(paginatedGroups))
-        .setTotalNumEntities(groupsAgg.size())
-        .setPath(path);
+    final List<BrowseResultGroup> paginatedGroups = groupsAgg.size() <= from ? Collections.emptyList()
+        : groupsAgg.subList(from, Math.min(from + size, groupsAgg.size()));
+    return new BrowseGroupsResult(paginatedGroups, groupsAgg.size(),
+        (int) groupsResponse.getHits().getTotalHits().value);
   }
 
   /**

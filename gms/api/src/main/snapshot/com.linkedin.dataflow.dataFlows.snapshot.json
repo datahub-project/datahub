@@ -540,6 +540,26 @@
       },
       "doc" : "A list of entities under the queried path"
     }, {
+      "name" : "groups",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "BrowseResultGroup",
+          "fields" : [ {
+            "name" : "name",
+            "type" : "string",
+            "doc" : "Name of the group"
+          }, {
+            "name" : "count",
+            "type" : "long",
+            "doc" : "Number of entities that can be reached from this path"
+          } ]
+        }
+      },
+      "doc" : "A list of groups and total number of entities inside those groups under the queried path",
+      "default" : [ ]
+    }, {
       "name" : "metadata",
       "type" : {
         "type" : "record",
@@ -549,26 +569,6 @@
           "name" : "path",
           "type" : "string",
           "doc" : "Path that is being browsed"
-        }, {
-          "name" : "groups",
-          "type" : {
-            "type" : "array",
-            "items" : {
-              "type" : "record",
-              "name" : "BrowseResultGroup",
-              "fields" : [ {
-                "name" : "name",
-                "type" : "string",
-                "doc" : "Name of the group"
-              }, {
-                "name" : "count",
-                "type" : "long",
-                "doc" : "Number of entities that can be reached from this path"
-              } ]
-            }
-          },
-          "doc" : "A list of groups and total number of entities inside those groups under the queried path",
-          "default" : [ ]
         }, {
           "name" : "totalNumEntities",
           "type" : "long",
@@ -588,6 +588,14 @@
       "name" : "numEntities",
       "type" : "int",
       "doc" : "The total number of entities directly under queried path"
+    }, {
+      "name" : "numGroups",
+      "type" : "int",
+      "doc" : "The total number of groups directly under queried path"
+    }, {
+      "name" : "numElements",
+      "type" : "int",
+      "doc" : "The total number of elements (entities + groups) directly under queried path"
     } ]
   }, "com.linkedin.metadata.query.BrowseResultEntity", "com.linkedin.metadata.query.BrowseResultGroup", "com.linkedin.metadata.query.BrowseResultMetadata", {
     "type" : "enum",
