@@ -10,7 +10,7 @@ To delete all the data related to a single entity, run
 datahub delete --urn "<my urn>"
 ```
 
-_Note: make sure you surround your urn with quotes! If you do not include the quotes, your terminal my misinterpret the command._
+_Note: make sure you surround your urn with quotes! If you do not include the quotes, your terminal may misinterpret the command._
 
 ## Rollback Ingestion Batch Run
 
