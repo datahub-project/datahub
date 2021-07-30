@@ -2,12 +2,16 @@ import subprocess
 
 import pytest
 from click.testing import CliRunner
+from freezegun import freeze_time
 
 from datahub.entrypoints import datahub
 from tests.test_helpers import fs_helpers, mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
+FROZEN_TIME = "2020-04-14 07:00:00"
 
+
+@freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_hive_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hive"

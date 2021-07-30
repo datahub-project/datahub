@@ -32,15 +32,17 @@ base_requirements = {
 
 framework_common = {
     "click>=6.0.0",
+    "click-default-group",
     "PyYAML",
     "toml>=0.10.0",
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.5.3",
+    "avro-gen3==0.6.0",
     "avro-python3>=1.8.2",
     "python-dateutil",
     "stackprinter",
+    "tabulate",
 }
 
 kafka_common = {
@@ -122,6 +124,8 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
+    "boto3-stubs[s3,glue,sagemaker]",
+    "types-tabulate",
 }
 
 base_dev_requirements = {
@@ -198,29 +202,29 @@ entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
         "file = datahub.ingestion.source.file:GenericFileSource",
-        "sqlalchemy = datahub.ingestion.source.sql_generic:SQLAlchemyGenericSource",
-        "athena = datahub.ingestion.source.athena:AthenaSource",
-        "bigquery = datahub.ingestion.source.bigquery:BigQuerySource",
-        "bigquery-usage = datahub.ingestion.source.bigquery_usage:BigQueryUsageSource",
+        "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
+        "athena = datahub.ingestion.source.sql.athena:AthenaSource",
+        "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
+        "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
-        "druid = datahub.ingestion.source.druid:DruidSource",
+        "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "feast = datahub.ingestion.source.feast:FeastSource",
-        "glue = datahub.ingestion.source.glue:GlueSource",
-        "sagemaker = datahub.ingestion.source.sagemaker:SagemakerSource",
-        "hive = datahub.ingestion.source.hive:HiveSource",
+        "glue = datahub.ingestion.source.aws.glue:GlueSource",
+        "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
+        "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "lookml = datahub.ingestion.source.lookml:LookMLSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
-        "mssql = datahub.ingestion.source.mssql:SQLServerSource",
-        "mysql = datahub.ingestion.source.mysql:MySQLSource",
-        "oracle = datahub.ingestion.source.oracle:OracleSource",
-        "postgres = datahub.ingestion.source.postgres:PostgresSource",
-        "redshift = datahub.ingestion.source.redshift:RedshiftSource",
-        "snowflake = datahub.ingestion.source.snowflake:SnowflakeSource",
-        "snowflake-usage = datahub.ingestion.source.snowflake_usage:SnowflakeUsageSource",
+        "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
+        "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
+        "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
+        "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
+        "redshift = datahub.ingestion.source.sql.redshift:RedshiftSource",
+        "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
+        "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
     ],
     "datahub.ingestion.sink.plugins": [
@@ -276,6 +280,7 @@ setuptools.setup(
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
+        "datahub.ingestion.source.feast_image": ["Dockerfile", "requirements.txt"],
     },
     entry_points=entry_points,
     # Dependencies.

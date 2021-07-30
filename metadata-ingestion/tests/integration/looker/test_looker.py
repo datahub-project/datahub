@@ -2,12 +2,16 @@ import time
 from datetime import datetime
 from unittest import mock
 
+from freezegun import freeze_time
 from looker_sdk.sdk.api31.models import Dashboard, DashboardElement, Query
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
+FROZEN_TIME = "2020-04-14 07:00:00"
 
+
+@freeze_time(FROZEN_TIME)
 def test_looker_ingest(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
     with mock.patch(
@@ -65,6 +69,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
         )
 
 
+@freeze_time(FROZEN_TIME)
 def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
     with mock.patch(

@@ -74,6 +74,7 @@ function list_markdown_files(): string[] {
     /^datahub-kubernetes\//,
     /^datahub-web\//,
     /^metadata-ingestion-examples\//,
+    /^docker\/(?!README|datahub-upgrade)/, // Drop all but a few docker docs.
     /^docs\/rfc\/templates\/000-template\.md$/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.

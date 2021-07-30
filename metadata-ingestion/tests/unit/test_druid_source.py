@@ -3,7 +3,7 @@ import pytest
 
 @pytest.mark.integration
 def test_druid_uri():
-    from datahub.ingestion.source.druid import DruidConfig
+    from datahub.ingestion.source.sql.druid import DruidConfig
 
     config = DruidConfig.parse_obj({"host_port": "localhost:8082"})
 

@@ -3,7 +3,7 @@ import unittest.mock
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.oracle import OracleConfig, OracleSource
+from datahub.ingestion.source.sql.oracle import OracleConfig, OracleSource
 
 
 def test_oracle_config():
@@ -34,7 +34,7 @@ def test_oracle_config():
         )
 
     with unittest.mock.patch(
-        "datahub.ingestion.source.sql_common.SQLAlchemySource.get_workunits"
+        "datahub.ingestion.source.sql.sql_common.SQLAlchemySource.get_workunits"
     ):
         OracleSource.create(
             {

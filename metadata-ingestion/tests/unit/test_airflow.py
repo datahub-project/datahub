@@ -66,7 +66,18 @@ def test_dags_load_with_no_errors(pytestconfig):
     )
 
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
-    assert dag_bag.import_errors == {}
+
+    import_errors = dag_bag.import_errors
+    if airflow.version.version.startswith("1"):
+        # The TaskFlow API is new in Airflow 2.x, so we don't expect that demo DAG
+        # to work on earlier versions.
+        import_errors = {
+            dag_filename: dag_errors
+            for dag_filename, dag_errors in import_errors.items()
+            if "taskflow" not in dag_filename
+        }
+
+    assert import_errors == {}
     assert len(dag_bag.dag_ids) > 0
 
 
@@ -80,7 +91,7 @@ def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
         yield conn
 
 
-@mock.patch("datahub_provider.hooks.datahub.DatahubRestEmitter", autospec=True)
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
 def test_datahub_rest_hook(mock_emitter):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         hook = DatahubRestHook(config.conn_id)
@@ -91,7 +102,7 @@ def test_datahub_rest_hook(mock_emitter):
         instance.emit_mce.assert_called_with(lineage_mce)
 
 
-@mock.patch("datahub_provider.hooks.datahub.DatahubKafkaEmitter", autospec=True)
+@mock.patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter", autospec=True)
 def test_datahub_kafka_hook(mock_emitter):
     with patch_airflow_connection(datahub_kafka_connection_config) as config:
         hook = DatahubKafkaHook(config.conn_id)

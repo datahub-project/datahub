@@ -4,8 +4,8 @@
     "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json",
     "dbt_version": "0.19.1",
     "env": {},
-    "generated_at": "2021-07-21T21:04:55.475026Z",
-    "invocation_id": "edf3a531-d74f-4ca2-b8fe-fc17c9014e4d"
+    "generated_at": "2021-07-26T16:12:02.512630Z",
+    "invocation_id": "01d287bd-a8be-44f2-825e-c37570949bfb"
   },
   "nodes": {
     "model.sample_dbt.monthly_billing_with_cust": {
@@ -163,7 +163,7 @@
           "type": "integer"
         },
         "first_name": {
-          "comment": null,
+          "comment": "Actors column \u2013 from postgres",
           "index": 2,
           "name": "first_name",
           "type": "text"
@@ -182,7 +182,7 @@
         }
       },
       "metadata": {
-        "comment": null,
+        "comment": "Actors table \u2013 from postgres",
         "database": "pagila",
         "name": "actor",
         "owner": "postgres",
