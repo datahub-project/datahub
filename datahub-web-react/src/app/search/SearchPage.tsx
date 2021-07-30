@@ -37,7 +37,8 @@ const StyledTab = styled.span`
 `;
 const StyledNumberInTab = styled.span`
     &&& {
-        font-size: 16px;
+        padding-left: 8px;
+        font-size: 20px;
         color: gray;
     }
 `;
@@ -168,7 +169,7 @@ export const SearchPage = () => {
                                     {entityRegistry.getIcon(type, 16, IconStyleType.TAB_VIEW)}
                                     <StyledTab>{entityRegistry.getCollectionName(type)}</StyledTab>
                                     {resultCounts[type] ? (
-                                        <StyledNumberInTab>{` ${countFormatter(
+                                        <StyledNumberInTab>{`${countFormatter(
                                             resultCounts[type] || 0,
                                         )}`}</StyledNumberInTab>
                                     ) : null}
