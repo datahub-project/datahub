@@ -79,7 +79,7 @@
         "name" : "limit",
         "type" : "int"
       } ],
-      "returns" : "com.linkedin.metadata.query.BrowseResult"
+      "returns" : "com.linkedin.metadata.browse.BrowseResult"
     }, {
       "name" : "getBrowsePaths",
       "parameters" : [ {
