@@ -35,6 +35,7 @@ import com.linkedin.metadata.search.ChartDocument;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.snapshot.ChartSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.BrowseUtil;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -64,7 +65,25 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 
-import static com.linkedin.metadata.restli.RestliConstants.*;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_BACKFILL_WITH_URNS;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_SNAPSHOT;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_INGEST;
+import static com.linkedin.metadata.restli.RestliConstants.FINDER_SEARCH;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_ASPECTS;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_FIELD;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_FILTER;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_INPUT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_LIMIT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_PATH;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_QUERY;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_SNAPSHOT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_SORT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_START;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_URNS;
 
 
 /**
@@ -318,13 +337,8 @@ public class Charts extends BaseBrowsableEntityResource<
   public Task<BrowseResult> browse(@ActionParam(PARAM_PATH) @Nonnull String path,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_LIMIT) int limit) {
-    return RestliUtils.toTask(() ->
-        _searchService.browse(
-            "chart",
-            path,
-            filter,
-            start,
-            limit)
+    return RestliUtils.toTask(
+        () -> BrowseUtil.convertToLegacyResult(_searchService.browse("chart", path, filter, start, limit))
     );
   }
 
