@@ -166,10 +166,9 @@ The Aspect has four key components: its properties, the @Aspect annotation, the 
   see [pdl schema documentation](https://linkedin.github.io/rest.li/pdl_schema))
   references to other entities, of type Urn or optionally `<Entity>Urn`
 - The @Aspect annotation. This is used to declare that the record is an Aspect and can be included in an entity’s
-  Snapshot. Inside the aspect, you declare a common name for the aspect. You can also set the type of the aspect to
-  "timeseries", in which case, the aspect **must** include com.linkedin.timeseries.TimeseriesAspectBase and cannot
-  include any fields with @Searchable or @Relationship annotations. Unlike the other two annotations, @Aspect is applied
-  to the entire record rather than a specific field.
+  Snapshot. Unlike the other two annotations, @Aspect is applied to the entire record rather than a specific field.
+  Note, you can mark an aspect as a timeseries aspect. Check out
+  this [doc](metadata-model.md#timeseries-aspects) for details.
 - The @Searchable annotation. This annotation can be applied to any primitive field to indicate that it should be
   indexed in Elasticsearch and can be searched on. For a complete guide on using the search annotation, see the
   annotation docs further down in this document.
@@ -312,7 +311,8 @@ AspectUnion must have this annotation.
 It takes the following parameters:
 
 - **name**: string - A common name used to identify the Aspect. Must be unique among all aspects DataHub is aware of.
-- **type**: string (optional) - set to "timeseries" to mark this aspect as timeseries. 
+- **type**: string (optional) - set to "timeseries" to mark this aspect as timeseries. Check out
+  this [doc](metadata-model.md#timeseries-aspects) for details.
 
 ##### Example
 
