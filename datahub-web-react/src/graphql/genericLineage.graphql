@@ -87,6 +87,36 @@ fragment upstreamRelationshipFields on UpstreamEntityRelationships {
                     }
                 }
             }
+            ... on MLModelGroup {
+                urn
+                type
+                name
+                description
+                origin
+                platform {
+                    name
+                    info {
+                        displayName
+                        logoUrl
+                    }
+                }
+                ...shallowLineageFields
+            }
+            ... on MLModel {
+                urn
+                type
+                name
+                description
+                origin
+                platform {
+                    name
+                    info {
+                        displayName
+                        logoUrl
+                    }
+                }
+                ...shallowLineageFields
+            }
         }
     }
 }
@@ -122,6 +152,36 @@ fragment downstreamRelationshipFields on DownstreamEntityRelationships {
                 platform {
                     name
                     info {
+                        logoUrl
+                    }
+                }
+                ...shallowLineageFields
+            }
+            ... on MLModelGroup {
+                urn
+                type
+                name
+                description
+                origin
+                platform {
+                    name
+                    info {
+                        displayName
+                        logoUrl
+                    }
+                }
+                ...shallowLineageFields
+            }
+            ... on MLModel {
+                urn
+                type
+                name
+                description
+                origin
+                platform {
+                    name
+                    info {
+                        displayName
                         logoUrl
                     }
                 }

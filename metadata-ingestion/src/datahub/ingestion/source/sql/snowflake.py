@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 import pydantic
 
@@ -80,18 +80,12 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         return None
 
     def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url(self.database)
-
-    def get_identifier(self, schema: str, table: str) -> str:
-        regular = super().get_identifier(schema, table)
-        assert (
-            self.database is not None
-        )  # it is set by get_inspectors, so this will be true
-        return f"{self.database.lower()}.{regular}"
+        return super().get_sql_alchemy_url(database=None)
 
 
 class SnowflakeSource(SQLAlchemySource):
     config: SnowflakeConfig
+    current_database: str
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "snowflake")
@@ -110,12 +104,13 @@ class SnowflakeSource(SQLAlchemySource):
             with engine.connect() as conn:
                 db = db_row.name
                 if self.config.database_pattern.allowed(db):
-                    # TRICKY: As we iterate through this loop, we modify the value of
-                    # self.config.database so that the get_identifier method can function
-                    # as intended.
-                    self.config.database = db
+                    self.current_database = db
                     conn.execute((f'USE DATABASE "{quoted_name(db, True)}"'))
                     inspector = inspect(conn)
                     yield inspector
                 else:
                     self.report.report_dropped(db)
+
+    def get_identifier(self, *, schema: str, entity: str, **kwargs: Any) -> str:
+        regular = super().get_identifier(schema=schema, entity=entity, **kwargs)
+        return f"{self.current_database.lower()}.{regular}"

@@ -8,6 +8,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.query.BrowseResult;
 import graphql.execution.DataFetcherResult;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import com.linkedin.data.template.StringArray;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.MLModelUrn;
@@ -26,12 +28,18 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.generated.BrowseResults;
+import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.BrowsableEntityType;
+import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
-public class MLModelType implements SearchableEntityType<MLModel> {
+public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEntityType<MLModel> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
     private final EntityClient _mlModelsClient;
@@ -97,5 +105,39 @@ public class MLModelType implements SearchableEntityType<MLModel> {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final AutoCompleteResult result = _mlModelsClient.autoComplete("mlModel", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
+    }
+
+    @Override
+    public BrowseResults browse(@Nonnull List<String> path,
+                                @Nullable List<FacetFilterInput> filters,
+                                int start,
+                                int count,
+                                @Nonnull final QueryContext context) throws Exception {
+        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
+        final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
+        final BrowseResult result = _mlModelsClient.browse(
+                "mlModel",
+                pathStr,
+                facetFilters,
+                start,
+                count);
+        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
+        final List<MLModel> mlModels = batchLoad(urns, context)
+                .stream().map(mlModelDataFetcherResult -> mlModelDataFetcherResult.getData()).collect(Collectors.toList());
+        final BrowseResults browseResults = new BrowseResults();
+        browseResults.setStart(result.getFrom());
+        browseResults.setCount(result.getPageSize());
+        browseResults.setTotal(result.getNumEntities());
+        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
+        browseResults.setEntities(mlModels.stream()
+                .map(entity -> (com.linkedin.datahub.graphql.generated.Entity) entity)
+                .collect(Collectors.toList()));
+        return browseResults;
+    }
+
+    @Override
+    public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
+        final StringArray result = _mlModelsClient.getBrowsePaths(MLModelUtils.getMLModelUrn(urn));
+        return BrowsePathsMapper.map(result);
     }
 }

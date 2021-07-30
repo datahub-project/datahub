@@ -22,6 +22,8 @@ function list_ids_in_directory(directory) {
   return ids;
 }
 
+// note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
+// this will fix errors like `Error: File not accounted for in sidebar: ...`
 module.exports = {
   // users
   // architects
@@ -72,22 +74,20 @@ module.exports = {
       "docs/docker/development",
       "metadata-ingestion/adding-source",
       "metadata-ingestion/s3-ingestion",
+      //"metadata-ingestion/examples/transforms/README"
+      "metadata-ingestion/transformers",
       //"docs/what/graph",
       //"docs/what/search-index",
       //"docs/how/add-new-aspect",
       //"docs/how/build-metadata-service",
-      //"docs/how/customize-elasticsearch-query-template",
-      //"docs/how/entity-onboarding",
       //"docs/how/graph-onboarding",
-      // "docs/how/metadata-modelling",
       //"docs/demo/graph-onboarding",
-      //"docs/how/search-onboarding",
-      //"docs/how/search-over-new-field",
       "docs/how/auth/jaas",
       "docs/how/auth/sso/configure-oidc-react",
       "docs/how/auth/sso/configure-oidc-react-google",
       "docs/how/auth/sso/configure-oidc-react-okta",
       "docs/how/restore-indices",
+      "docs/how/extract-container-logs",
       "datahub-web-react/src/app/analytics/README",
       "metadata-ingestion/developing",
     ],
@@ -123,20 +123,6 @@ module.exports = {
       "docker/datahub-upgrade/README",
       "docs/deploy/aws",
       "docs/deploy/gcp",
-      // Purposely not including the following:
-      // - "docker/datahub-frontend/README",
-      // - "docker/datahub-gms-graphql-service/README",
-      // - "docker/datahub-gms/README",
-      // - "docker/datahub-mae-consumer/README",
-      // - "docker/datahub-mce-consumer/README",
-      // - "docker/datahub-ingestion/README",
-      // - "docker/elasticsearch-setup/README",
-      // - "docker/ingestion/README",
-      // - "docker/kafka-setup/README",
-      // - "docker/mariadb/README",
-      // - "docker/mysql/README",
-      // - "docker/neo4j/README",
-      // - "docker/postgres/README",
     ],
     Community: [
       "docs/slack",
