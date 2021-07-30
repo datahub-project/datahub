@@ -2,6 +2,10 @@ from functools import reduce
 from typing import List, Optional, Union
 
 import boto3
+from boto3.session import Session
+from mypy_boto3_glue import GlueClient
+from mypy_boto3_s3 import S3Client
+from mypy_boto3_sagemaker import SageMakerClient
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
@@ -46,22 +50,20 @@ class AwsSourceConfig(ConfigModel):
     aws_role: Optional[Union[str, List[str]]] = None
     aws_region: str
 
-    def get_client(self, service: str) -> boto3.client:
+    def get_session(self) -> Session:
         if (
             self.aws_access_key_id
             and self.aws_secret_access_key
             and self.aws_session_token
         ):
-            return boto3.client(
-                service,
+            return Session(
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
                 aws_session_token=self.aws_session_token,
                 region_name=self.aws_region,
             )
         elif self.aws_access_key_id and self.aws_secret_access_key:
-            return boto3.client(
-                service,
+            return Session(
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
                 region_name=self.aws_region,
@@ -77,15 +79,23 @@ class AwsSourceConfig(ConfigModel):
                     self.aws_role,
                     {},
                 )
-            return boto3.client(
-                service,
+            return Session(
                 aws_access_key_id=credentials["AccessKeyId"],
                 aws_secret_access_key=credentials["SecretAccessKey"],
                 aws_session_token=credentials["SessionToken"],
                 region_name=self.aws_region,
             )
         else:
-            return boto3.client(service, region_name=self.aws_region)
+            return Session(region_name=self.aws_region)
+
+    def get_s3_client(self) -> S3Client:
+        return self.get_session().client("s3")
+
+    def get_glue_client(self) -> GlueClient:
+        return self.get_session().client("glue")
+
+    def get_sagemaker_client(self) -> SageMakerClient:
+        return self.get_session().client("sagemaker")
 
 
 def make_s3_urn(s3_uri: str, env: str, suffix: Optional[str] = None) -> str:

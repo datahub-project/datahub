@@ -3,6 +3,8 @@ package com.linkedin.metadata.event;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.MetadataAuditOperation;
+import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -15,18 +17,19 @@ public interface EntityEventProducer {
   /**
    * Produces a {@link com.linkedin.mxe.MetadataAuditEvent} from a
    * new & previous Entity {@link Snapshot}.
-   *
-   * @param urn the urn associated with the entity changed
+   *  @param urn the urn associated with the entity changed
    * @param oldSnapshot a {@link RecordTemplate} corresponding to the old snapshot.
    * @param newSnapshot a {@link RecordTemplate} corresponding to the new snapshot.
+   * @param oldSystemMetadata
+   * @param newSystemMetadata
    */
-  void produceMetadataAuditEvent(
-      @Nonnull final Urn urn,
-      @Nullable final Snapshot oldSnapshot,
-      @Nonnull final Snapshot newSnapshot);
+  void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final Snapshot oldSnapshot,
+      @Nonnull final Snapshot newSnapshot, @Nullable SystemMetadata oldSystemMetadata, @Nullable SystemMetadata newSystemMetadata,
+      MetadataAuditOperation operation
+  );
 
   /**
-   * Produces an aspect-specific {@link com.linkedin.mxe.MetadataChangeEvent} from a
+   * Produces an aspect-specific {@link com.linkedin.mxe.MetadataAuditEvent} from a
    * new & previous Entity Aspect.
    *
    * @param urn the urn associated with the entity changed
@@ -36,5 +39,9 @@ public interface EntityEventProducer {
   void produceAspectSpecificMetadataAuditEvent(
       @Nonnull final Urn urn,
       @Nullable final RecordTemplate oldValue,
-      @Nonnull final RecordTemplate newValue);
+      @Nonnull final RecordTemplate newValue,
+      SystemMetadata oldSystemMetadata,
+      SystemMetadata newSystemMetadata,
+      MetadataAuditOperation operation
+  );
 }

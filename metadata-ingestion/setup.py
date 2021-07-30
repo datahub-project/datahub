@@ -32,15 +32,17 @@ base_requirements = {
 
 framework_common = {
     "click>=6.0.0",
+    "click-default-group",
     "PyYAML",
     "toml>=0.10.0",
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.5.3",
+    "avro-gen3==0.6.0",
     "avro-python3>=1.8.2",
     "python-dateutil",
     "stackprinter",
+    "tabulate",
 }
 
 kafka_common = {
@@ -123,6 +125,8 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
+    "boto3-stubs[s3,glue,sagemaker]",
+    "types-tabulate",
 }
 
 base_dev_requirements = {

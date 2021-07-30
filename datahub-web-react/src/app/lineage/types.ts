@@ -7,6 +7,8 @@ import {
     MlFeatureTable,
     MlPrimaryKey,
     MlFeature,
+    MlModel,
+    MlModelGroup,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -92,6 +94,14 @@ export type EntityAndType =
     | {
           type: EntityType.Mlfeature;
           entity: MlFeature;
+      }
+    | {
+          type: EntityType.Mlmodel;
+          entity: MlModel;
+      }
+    | {
+          type: EntityType.MlmodelGroup;
+          entity: MlModelGroup;
       }
     | {
           type: EntityType.MlprimaryKey;

@@ -282,7 +282,7 @@ source:
     username: user # optional
     password: pass # optional
     host_port: localhost:10000
-    database: DemoDatabase # optional, defaults to 'default'
+    database: DemoDatabase # optional, if not specified, ingests from all databases
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -421,7 +421,7 @@ source:
     password: pass
     host_port: account_name
     database_pattern:
-      # The escaping of the $ symbol helps us skip the environment variable substitution.
+      # The escaping of the \$ symbol helps us skip the environment variable substitution.
       allow:
         - ^MY_DEMO_DATA.*
         - ^ANOTHER_DB_REGEX
@@ -979,58 +979,9 @@ sink:
 
 ## Transformations
 
-Beyond basic ingestion, sometimes there might exist a need to modify the source data before passing it on to the sink.
-Example use cases could be to add ownership information, add extra tags etc.
+If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.
 
-In such a scenario, it is possible to configure a recipe with a list of transformers.
-
-```yml
-transformers:
-  - type: "fully-qualified-class-name-of-transformer"
-    config:
-      some_property: "some.value"
-```
-
-A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py).
-
-### `simple_add_dataset_ownership`
-
-Adds a set of owners to every dataset.
-
-```yml
-transformers:
-  - type: "simple_add_dataset_ownership"
-    config:
-      owner_urns:
-        - "urn:li:corpuser:username1"
-        - "urn:li:corpuser:username2"
-        - "urn:li:corpGroup:groupname"
-```
-
-:::tip
-
-If you'd like to add more complex logic for assigning ownership, you can use the more generic [`add_dataset_ownership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset.
-
-:::
-
-### `simple_add_dataset_tags`
-
-Adds a set of tags to every dataset.
-
-```yml
-transformers:
-  - type: "simple_add_dataset_tags"
-    config:
-      tag_urns:
-        - "urn:li:tag:NeedsDocumentation"
-        - "urn:li:tag:Legacy"
-```
-
-:::tip
-
-If you'd like to add more complex logic for assigning tags, you can use the more generic [`add_dataset_tags` transformer](./src/datahub/ingestion/transformer/add_dataset_tags.py), which calls a user-provided function to determine the tags for each dataset.
-
-:::
+Check out the [transformers guide](./transformers.md) for more info!
 
 ## Using as a library
 
@@ -1059,8 +1010,11 @@ If you're simply looking to run ingestion on a schedule, take a look at these sa
 The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
 
 :::
-
-1. First, you must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
+1. You need to install the required dependency in your airflow. See https://registry.astronomer.io/providers/datahub/modules/datahublineagebackend
+  ```shell
+    pip install acryl-datahub[airflow]
+  ```
+2. You must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
 
    ```shell
    # For REST-based:
@@ -1069,7 +1023,7 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
    airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
    ```
 
-2. Add the following lines to your `airflow.cfg` file.
+3. Add the following lines to your `airflow.cfg` file.
    ```ini
    [lineage]
    backend = datahub_provider.lineage.datahub.DatahubLineageBackend
@@ -1085,8 +1039,8 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
    - `capture_ownership_info` (defaults to true): If true, the owners field of the DAG will be capture as a DataHub corpuser.
    - `capture_tags_info` (defaults to true): If true, the tags field of the DAG will be captured as DataHub tags.
    - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions.
-3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./src/datahub_provider/example_dags/lineage_backend_demo.py), or reference [`lineage_backend_taskflow_demo.py`](./src/datahub_provider/example_dags/lineage_backend_taskflow_demo.py) if you're using the [TaskFlow API](https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html).
-4. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
+4. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./src/datahub_provider/example_dags/lineage_backend_demo.py), or reference [`lineage_backend_taskflow_demo.py`](./src/datahub_provider/example_dags/lineage_backend_taskflow_demo.py) if you're using the [TaskFlow API](https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html).
+5. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
 
 ### Emitting lineage via a separate operator
 
@@ -1098,4 +1052,4 @@ In order to use this example, you must first configure the Datahub hook. Like in
 
 ## Developing
 
-See the [developing guide](./developing.md) or the [adding a source guide](./adding-source.md).
+See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./transformers.md).

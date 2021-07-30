@@ -1,4 +1,5 @@
 import pytest
+from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
@@ -7,8 +8,11 @@ from tests.test_helpers import mce_helpers
 # from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
+FROZEN_TIME = "2020-04-14 07:00:00"
+
 
 # make sure that mock_time is excluded here because it messes with feast
+@freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/feast"

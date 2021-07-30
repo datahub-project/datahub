@@ -26,13 +26,15 @@ def iterate_mce_file(path: str) -> Iterator[MetadataChangeEvent]:
 def iterate_generic_file(
     path: str,
 ) -> Iterator[Union[MetadataChangeEvent, UsageAggregationClass]]:
-    for obj in _iterate_file(path):
+    for i, obj in enumerate(_iterate_file(path)):
+        item: Union[MetadataChangeEvent, UsageAggregationClass]
         if "proposedSnapshot" in obj:
-            mce: MetadataChangeEvent = MetadataChangeEvent.from_obj(obj)
-            yield mce
+            item = MetadataChangeEvent.from_obj(obj)
         else:
-            bucket: UsageAggregationClass = UsageAggregationClass.from_obj(obj)
-            yield bucket
+            item = UsageAggregationClass.from_obj(obj)
+        if not item.validate():
+            raise ValueError(f"failed to parse: {obj} (index {i})")
+        yield item
 
 
 class FileSourceConfig(ConfigModel):
@@ -51,9 +53,6 @@ class GenericFileSource(Source):
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         for i, obj in enumerate(iterate_generic_file(self.config.filename)):
-            if not obj.validate():
-                raise ValueError(f"failed to parse: {obj} (index {i})")
-
             wu: Union[MetadataWorkUnit, UsageStatsWorkUnit]
             if isinstance(obj, UsageAggregationClass):
                 wu = UsageStatsWorkUnit(f"file://{self.config.filename}:{i}", obj)

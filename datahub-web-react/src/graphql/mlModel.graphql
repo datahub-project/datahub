@@ -1,0 +1,11 @@
+query getMLModel($urn: String!) {
+    mlModel(urn: $urn) {
+        ...nonRecursiveMLModel
+        downstreamLineage {
+            ...downstreamRelationshipFields
+        }
+        upstreamLineage {
+            ...upstreamRelationshipFields
+        }
+    }
+}
