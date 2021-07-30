@@ -6,7 +6,7 @@ import { useGetUserQuery } from '../graphql/user.generated';
  * Fetch a CorpUser object corresponding to the currently authenticated user.
  */
 export function useGetAuthenticatedUser() {
-    const userUrn = process.env.JEST_WORKER_ID !== undefined ? 'urn:li:corpuser:1' : Cookies.get(CLIENT_AUTH_COOKIE);
+    const userUrn = Cookies.get(CLIENT_AUTH_COOKIE);
     if (!userUrn) {
         throw new Error('Could not find logged in user.');
     }

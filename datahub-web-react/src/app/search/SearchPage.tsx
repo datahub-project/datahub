@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { Affix, Tabs } from 'antd';
@@ -88,12 +88,23 @@ export const SearchPage = () => {
 
     const resultCounts: SearchResultCounts = useMemo(() => {
         if (!loading) {
-            let resultCount = 0;
             const counts: SearchResultCounts = {};
             Object.keys(allSearchResultsByType).forEach((key) => {
                 if (!allSearchResultsByType[key].loading) {
-                    resultCount += allSearchResultsByType[key].data?.search?.total;
                     counts[key as EntityType] = allSearchResultsByType[key].data?.search?.total || 0;
+                }
+            });
+            return counts;
+        }
+        return {};
+    }, [allSearchResultsByType, loading]);
+
+    useEffect(() => {
+        if (!loading) {
+            let resultCount = 0;
+            Object.keys(allSearchResultsByType).forEach((key) => {
+                if (!allSearchResultsByType[key].loading) {
+                    resultCount += allSearchResultsByType[key].data?.search?.total;
                 }
             });
 
@@ -102,9 +113,7 @@ export const SearchPage = () => {
                 query,
                 total: resultCount,
             });
-            return counts;
         }
-        return {};
     }, [query, allSearchResultsByType, loading]);
 
     const onSearch = (q: string, type?: EntityType) => {
@@ -159,9 +168,9 @@ export const SearchPage = () => {
                                     {entityRegistry.getIcon(type, 16, IconStyleType.TAB_VIEW)}
                                     <StyledTab>{entityRegistry.getCollectionName(type)}</StyledTab>
                                     {resultCounts[type] ? (
-                                        <StyledNumberInTab>{` (${countFormatter(
+                                        <StyledNumberInTab>{` ${countFormatter(
                                             resultCounts[type] || 0,
-                                        )})`}</StyledNumberInTab>
+                                        )}`}</StyledNumberInTab>
                                     ) : null}
                                 </>
                             }

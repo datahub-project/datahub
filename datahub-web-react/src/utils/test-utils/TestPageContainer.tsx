@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
 import { ThemeProvider } from 'styled-components';
 
+import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
 import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
 import { DataFlowEntity } from '../../app/entity/dataFlow/DataFlowEntity';
 import { DataJobEntity } from '../../app/entity/dataJob/DataJobEntity';
@@ -41,8 +42,10 @@ export default ({ children, initialEntries }: Props) => {
     const entityRegistry = useMemo(() => getTestEntityRegistry(), []);
     Object.defineProperty(window.document, 'cookie', {
         writable: true,
-        value: 'actor=urn:li:corpuser:2',
+        value: `${CLIENT_AUTH_COOKIE}=urn:li:corpuser:2`,
     });
+    jest.mock('js-cookie', () => ({ get: () => 'urn:li:corpuser:2' }));
+
     return (
         <ThemeProvider theme={defaultThemeConfig}>
             <MemoryRouter initialEntries={initialEntries}>
