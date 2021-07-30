@@ -143,7 +143,9 @@ export default function Documentation({
                         <FormInput name="url" placeholder="Enter a URL" type="url" />
                     </Space>
                 ) : (
-                    <Typography.Link href={record.url}>{description}</Typography.Link>
+                    <Typography.Link href={record.url} target="_blank">
+                        {description}
+                    </Typography.Link>
                 );
             },
         },
