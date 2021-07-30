@@ -13,7 +13,7 @@ import datahub as datahub_package
 from datahub.cli.cli_utils import (
     CONDENSED_DATAHUB_CONFIG_PATH,
     get_session_and_host,
-    post_delete_endpoint,
+    post_rollback_endpoint,
 )
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
@@ -124,7 +124,7 @@ def show(run_id: str) -> None:
     """Describe a provided ingestion run to datahub"""
     payload_obj = {"runId": run_id, "dryRun": True}
 
-    structured_rows, entities_affected, aspects_affected = post_delete_endpoint(
+    structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
     )
 
@@ -156,7 +156,7 @@ def rollback(run_id: str) -> None:
     )
 
     payload_obj = {"runId": run_id, "dryRun": False}
-    structured_rows, entities_affected, aspects_affected = post_delete_endpoint(
+    structured_rows, entities_affected, aspects_affected = post_rollback_endpoint(
         payload_obj, "/runs?action=rollback"
     )
 

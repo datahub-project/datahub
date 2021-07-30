@@ -83,7 +83,7 @@
         "name" : "urn",
         "type" : "string"
       } ],
-      "returns" : "com.linkedin.metadata.run.RollbackResponse"
+      "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
     }, {
       "name" : "getBrowsePaths",
       "parameters" : [ {

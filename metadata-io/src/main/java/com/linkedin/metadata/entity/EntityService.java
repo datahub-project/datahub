@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.javatuples.Pair;
+import com.linkedin.util.Pair;
 
 import static com.linkedin.metadata.PegasusUtils.*;
 
@@ -281,8 +281,8 @@ public abstract class EntityService {
         entities.stream(),
         systemMetadata.stream(),
         (a, b) -> new Pair<Entity, SystemMetadata>(a, b)
-    ).collect(Collectors.toList()).forEach(
-       pair -> ingestEntity(pair.getValue0(), auditStamp, pair.getValue1())
+    ).forEach(
+       pair -> ingestEntity(pair.getFirst(), auditStamp, pair.getSecond())
     );
   }
 
@@ -327,11 +327,16 @@ public abstract class EntityService {
   private void ingestSnapshotUnion(
       @Nonnull final Snapshot snapshotUnion,
       @Nonnull final AuditStamp auditStamp,
-      @Nonnull SystemMetadata systemMetadata
+      SystemMetadata systemMetadata
   ) {
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
     final List<RecordTemplate> aspectRecordsToIngest = com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
+
+    final String keyAspectName = getKeyAspectName(urn);
+    if (getLatestAspect(urn, keyAspectName) == null) {
+      aspectRecordsToIngest.add(buildKeyAspect(urn));
+    }
 
     aspectRecordsToIngest.forEach(aspect -> {
       final String aspectName = PegasusUtils.getAspectNameFromSchema(aspect.schema());

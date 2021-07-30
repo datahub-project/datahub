@@ -94,7 +94,7 @@ def parse_run_restli_response(response):
     return summary
 
 
-def post_delete_endpoint(
+def post_rollback_endpoint(
     payload_obj: dict,
     path: str,
 ) -> typing.Tuple[typing.List[typing.List[str]], int, int]:
@@ -125,3 +125,21 @@ def post_delete_endpoint(
     ]
 
     return structured_rows, entities_affected, aspects_affected
+
+
+def post_delete_endpoint(
+    payload_obj: dict,
+    path: str,
+) -> typing.Tuple[str, int]:
+    session, gms_host = get_session_and_host()
+    url = gms_host + path
+
+    payload = json.dumps(payload_obj)
+
+    response = session.post(url, payload)
+
+    summary = parse_run_restli_response(response)
+    urn = summary.get("urn")
+    rows_affected = summary.get("rows")
+
+    return urn, rows_affected
