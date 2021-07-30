@@ -32,7 +32,7 @@ def iterate_generic_file(
     Union[MetadataChangeEvent, MetadataChangeProposal, UsageAggregationClass]
 ]:
     for i, obj in enumerate(_iterate_file(path)):
-        item: Union[MetadataChangeEvent, MetadataChangeProposal, UsageAggregationClass]]
+        item: Union[MetadataChangeEvent, MetadataChangeProposal, UsageAggregationClass]
         if "proposedSnapshot" in obj:
             item = MetadataChangeEvent.from_obj(obj)
         elif "aspect" in obj:

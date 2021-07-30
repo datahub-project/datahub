@@ -890,17 +890,35 @@ that were reported after July 26, 2021 and before July 28, 2021, you could issue
 ```
 curl -X POST 'http://localhost:8080/aspects?action=getTimeseriesAspectValues' \
 --data '{
-    "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)",
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:redshift,global_dev.larxynx_carcinoma_data_2020,PROD)",
     "entity": "dataset",
     "aspect": "datasetProfile",
-    "startTimeMillis": "1627282800000",
-    "endTimeMillis": "1627455600000"
+    "startTimeMillis": 1625122800000,
+    "endTimeMillis": 1627455600000
 }'
 
-TODO: Show response. 
-
+{
+   "value":{
+      "limit":10000,
+      "aspectName":"datasetProfile",
+      "endTimeMillis":1627455600000,
+      "startTimeMillis":1625122800000,
+      "entityName":"dataset",
+      "values":[
+         {
+            "aspect":{
+               "value":"{\"timestampMillis\":1626912000000,\"fieldProfiles\":[{\"uniqueProportion\":1.0,\"sampleValues\":[\"123MMKK12\",\"13KDFMKML\",\"123NNJJJL\"],\"fieldPath\":\"id\",\"nullCount\":0,\"nullProportion\":0.0,\"uniqueCount\":3742},{\"uniqueProportion\":1.0,\"min\":\"1524406400000\",\"max\":\"1624406400000\",\"sampleValues\":[\"1640023230002\",\"1640343012207\",\"16303412330117\"],\"mean\":\"1555406400000\",\"fieldPath\":\"date\",\"nullCount\":0,\"nullProportion\":0.0,\"uniqueCount\":3742},{\"uniqueProportion\":0.037,\"min\":\"21\",\"median\":\"68\",\"max\":\"92\",\"sampleValues\":[\"45\",\"65\",\"81\"],\"mean\":\"65\",\"distinctValueFrequencies\":[{\"value\":\"12\",\"frequency\":103},{\"value\":\"54\",\"frequency\":12}],\"fieldPath\":\"patient_age\",\"nullCount\":0,\"nullProportion\":0.0,\"uniqueCount\":79},{\"uniqueProportion\":0.00820873786407767,\"sampleValues\":[\"male\",\"female\"],\"fieldPath\":\"patient_gender\",\"nullCount\":120,\"nullProportion\":0.03,\"uniqueCount\":2}],\"rowCount\":3742,\"columnCount\":4}",
+               "contentType":"application/json"
+            }
+         },
+      ]
+   }
+}
 ```
 
+You'll notice that in this API (V2), we return a generic serialized aspect string as opposed to an inlined Rest.li-serialized Snapshot Model.
+
+This is part of an initiative to move from MCE + MAE to MetadataChangeProposal and MetadataChangeLog. For more information, see [this doc](../docs/advanced/mcp-mcl.md). 
 
 #### Get Relationships (Edges)
 

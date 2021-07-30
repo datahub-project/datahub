@@ -497,8 +497,12 @@ class SQLAlchemySource(Source):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[MetadataWorkUnit]:
         for table in inspector.get_table_names(schema):
-            schema, table = sql_config.standardize_schema_table_names(schema, table)
-            dataset_name = sql_config.get_identifier(schema, table)
+            schema, table = self.standardize_schema_table_names(
+                schema=schema, entity=table
+            )
+            dataset_name = self.get_identifier(
+                schema=schema, entity=table, inspector=inspector
+            )
             self.report.report_entity_scanned(f"profile of {dataset_name}")
 
             if not sql_config.profile_pattern.allowed(dataset_name):

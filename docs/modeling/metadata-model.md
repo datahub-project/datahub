@@ -34,7 +34,7 @@ There are three supported ways to query the metadata graph: by primary key looku
 
 ### Querying an Entity
 
-#### Fetching Latest Entity Aspects 
+#### Fetching Latest Entity Aspects (Snapshot)
 
 Querying an Entity by primary key means using the "entities" endpoint, passing in the 
 urn of the entity to retrieve. 
@@ -57,38 +57,88 @@ you'll provide both an Entity's primary key (urn) along with the aspect name and
 
 For example, to fetch the latest version of a Dataset's SchemaMetadata aspect, you would issue the following query:
 
-```aidl
-
-
 ```
-          
-Which will return a particular aspect, keyed by its fully qualified schema name: 
+curl 'http://localhost:8080/aspects/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3Afoo%2Cbar%2CPROD)?aspect=schemaMetadata&version=0'
 
-```aidl
-
+{
+   "version":0,
+   "aspect":{
+      "com.linkedin.schema.SchemaMetadata":{
+         "created":{
+            "actor":"urn:li:corpuser:fbar",
+            "time":0
+         },
+         "platformSchema":{
+            "com.linkedin.schema.KafkaSchema":{
+               "documentSchema":"{\"type\":\"record\",\"name\":\"MetadataChangeEvent\",\"namespace\":\"com.linkedin.mxe\",\"doc\":\"Kafka event for proposing a metadata change for an entity.\",\"fields\":[{\"name\":\"auditHeader\",\"type\":{\"type\":\"record\",\"name\":\"KafkaAuditHeader\",\"namespace\":\"com.linkedin.avro2pegasus.events\",\"doc\":\"Header\"}}]}"
+            }
+         },
+         "lastModified":{
+            "actor":"urn:li:corpuser:fbar",
+            "time":0
+         },
+         "schemaName":"FooEvent",
+         "fields":[
+            {
+               "fieldPath":"foo",
+               "description":"Bar",
+               "type":{
+                  "type":{
+                     "com.linkedin.schema.StringType":{
+                        
+                     }
+                  }
+               },
+               "nativeDataType":"string"
+            }
+         ],
+         "version":0,
+         "hash":"",
+         "platform":"urn:li:dataPlatform:foo"
+      }
+   }
+}
 ```
 
 #### Fetching Timeseries Aspects
 
 DataHub supports an API for fetching a group of Timeseries aspects about an Entity. For example, you may want to use this API
-to fetch recent profiling runs & statistics about a Dataset. To do so, you can issue a "get" against the `/aspects` endpoint,.
+to fetch recent profiling runs & statistics about a Dataset. To do so, you can issue a "get" request against the `/aspects` endpoint.
 
 For example, to fetch dataset profiles (ie. stats) for a Dataset, you would issue the following query:
 
-```aidl
-
 ```
+curl -X POST 'http://localhost:8080/aspects?action=getTimeseriesAspectValues' \
+--data '{
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:redshift,global_dev.larxynx_carcinoma_data_2020,PROD)",
+    "entity": "dataset",
+    "aspect": "datasetProfile",
+    "startTimeMillis": 1625122800000,
+    "endTimeMillis": 1627455600000
+}'
 
-Which will return a set of aspects, each with some enveloping metadata:
-
-```aidl
-
-
+{
+   "value":{
+      "limit":10000,
+      "aspectName":"datasetProfile",
+      "endTimeMillis":1627455600000,
+      "startTimeMillis":1625122800000,
+      "entityName":"dataset",
+      "values":[
+         {
+            "aspect":{
+               "value":"{\"timestampMillis\":1626912000000,\"fieldProfiles\":[{\"uniqueProportion\":1.0,\"sampleValues\":[\"123MMKK12\",\"13KDFMKML\",\"123NNJJJL\"],\"fieldPath\":\"id\",\"nullCount\":0,\"nullProportion\":0.0,\"uniqueCount\":3742},{\"uniqueProportion\":1.0,\"min\":\"1524406400000\",\"max\":\"1624406400000\",\"sampleValues\":[\"1640023230002\",\"1640343012207\",\"16303412330117\"],\"mean\":\"1555406400000\",\"fieldPath\":\"date\",\"nullCount\":0,\"nullProportion\":0.0,\"uniqueCount\":3742},{\"uniqueProportion\":0.037,\"min\":\"21\",\"median\":\"68\",\"max\":\"92\",\"sampleValues\":[\"45\",\"65\",\"81\"],\"mean\":\"65\",\"distinctValueFrequencies\":[{\"value\":\"12\",\"frequency\":103},{\"value\":\"54\",\"frequency\":12}],\"fieldPath\":\"patient_age\",\"nullCount\":0,\"nullProportion\":0.0,\"uniqueCount\":79},{\"uniqueProportion\":0.00820873786407767,\"sampleValues\":[\"male\",\"female\"],\"fieldPath\":\"patient_gender\",\"nullCount\":120,\"nullProportion\":0.03,\"uniqueCount\":2}],\"rowCount\":3742,\"columnCount\":4}",
+               "contentType":"application/json"
+            }
+         },
+      ]
+   }
+}
 ```
 
 You'll notice that the aspect itself is serialized as escaped JSON. This is part of a shift toward a more generic set of READ / WRITE APIs
 that permit serialization of aspects in different ways. By default, the content type will be JSON, and the aspect can be deserialized into a normal JSON object 
-in the language of your choice. Note that this will soon become the defacto way to both write and read individual aspects. 
+in the language of your choice. Note that this will soon become the de-facto way to both write and read individual aspects. 
 
 
 
