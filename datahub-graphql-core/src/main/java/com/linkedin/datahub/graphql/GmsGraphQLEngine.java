@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.generated.Aspect;
+import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
@@ -29,6 +30,7 @@ import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
+import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
@@ -390,6 +392,13 @@ public class GmsGraphQLEngine {
                         ENTITY_TYPES.stream().collect(Collectors.toList()),
                         (env) -> ((SearchResult) env.getSource()).getEntity()))
                 ) 
+            )
+            .type("BrowseResults", typeWiring -> typeWiring
+                .dataFetcher("entities", new AuthenticatedResolver<>(
+                    new EntityTypeBatchResolver(
+                        ENTITY_TYPES.stream().collect(Collectors.toList()),
+                        (env) -> ((BrowseResults) env.getSource()).getEntities()))
+                )
             )
             .type("InstitutionalMemoryMetadata", typeWiring -> typeWiring
                 .dataFetcher("author", new AuthenticatedResolver<>(

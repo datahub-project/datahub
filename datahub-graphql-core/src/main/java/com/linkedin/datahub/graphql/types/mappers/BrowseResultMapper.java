@@ -14,7 +14,7 @@ public class BrowseResultMapper {
   private BrowseResultMapper() {
   }
 
-  public static BrowseResults map(com.linkedin.metadata.query.BrowseResult input) {
+  public static BrowseResults map(com.linkedin.metadata.browse.BrowseResult input) {
     final BrowseResults result = new BrowseResults();
 
     if (!input.hasFrom() || !input.hasPageSize() || !input.hasNumElements()) {
@@ -41,7 +41,7 @@ public class BrowseResultMapper {
     return result;
   }
 
-  private static BrowseResultGroup mapGroup(@Nonnull final com.linkedin.metadata.query.BrowseResultGroup group) {
+  private static BrowseResultGroup mapGroup(@Nonnull final com.linkedin.metadata.browse.BrowseResultGroup group) {
     final BrowseResultGroup result = new BrowseResultGroup();
     result.setName(group.getName());
     result.setCount(group.getCount());

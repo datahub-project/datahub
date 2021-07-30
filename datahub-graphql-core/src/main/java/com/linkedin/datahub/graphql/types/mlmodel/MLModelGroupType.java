@@ -22,8 +22,8 @@ import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelGroupSnapshotMa
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import graphql.execution.DataFetcherResult;
 

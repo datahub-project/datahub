@@ -9,7 +9,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.query.SearchResult;
-import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResult;
 import graphql.execution.DataFetcherResult;
 import java.util.List;
 import java.util.Map;
