@@ -89,6 +89,7 @@ module.exports = {
       "docs/how/auth/sso/configure-oidc-react-google",
       "docs/how/auth/sso/configure-oidc-react-okta",
       "docs/how/restore-indices",
+      "docs/how/delete-metadata",
       "datahub-web-react/src/app/analytics/README",
     ],
     Components: [
