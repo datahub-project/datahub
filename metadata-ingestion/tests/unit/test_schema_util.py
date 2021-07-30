@@ -1,7 +1,9 @@
 import os
-import pytest
-from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from pathlib import Path
+
+import pytest
+
+from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 
 SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE = """
 {
@@ -213,8 +215,15 @@ def test_avro_sample_payment_schema_to_mce_fields_with_nesting():
 """
     fields = avro_schema_to_mce_fields(schema)
     assert len(fields) == 7
-    field_paths = ["id", "amount", "name", "phoneNumber.areaCode", "phoneNumber.countryCode", "phoneNumber.prefix",
-                   "phoneNumber.number"]
+    field_paths = [
+        "id",
+        "amount",
+        "name",
+        "phoneNumber.areaCode",
+        "phoneNumber.countryCode",
+        "phoneNumber.prefix",
+        "phoneNumber.number",
+    ]
     for i, f in enumerate(fields):
         assert f.fieldPath == field_paths[i]
 
@@ -426,5 +435,15 @@ def test_recursive_avro():
 def test_mce_avro_parses_okay():
     # This helps to exercise the complexity in parsing and catch unexpected regressions.
     schema = Path(
-        os.path.join(os.path.dirname(__file__), "..", "..", "src", "datahub", "metadata", "schema.avsc")).read_text()
+        os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "src",
+            "datahub",
+            "metadata",
+            "schema.avsc",
+        )
+    ).read_text()
     fields = avro_schema_to_mce_fields(schema)
+    assert len(fields)

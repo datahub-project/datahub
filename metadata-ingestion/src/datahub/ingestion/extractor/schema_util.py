@@ -1,6 +1,8 @@
-import avro.schema
 import logging
-from avrogen.dict_wrapper import DictWrapper
+from typing import Any, Callable, Dict, List, Optional, Union
+
+import avro.schema
+
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -16,7 +18,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     UnionTypeClass,
 )
-from typing import Any, List, Optional, Union, Dict, Callable
 
 """A helper file for Avro schema -> MCE schema transformations"""
 
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class AvroToMceSchemaConverter:
-    field_type_mapping: Dict[str, DictWrapper] = {
+    field_type_mapping: Dict[str, Any] = {
         "null": NullTypeClass,
         "bool": BooleanTypeClass,
         "boolean": BooleanTypeClass,
@@ -48,10 +49,18 @@ class AvroToMceSchemaConverter:
         self._record_types_seen: List[str] = []
 
     def _should_recurse(self, schema: avro.schema.Schema) -> bool:
-        return isinstance(schema, (
-            avro.schema.RecordSchema, avro.schema.UnionSchema, avro.schema.ArraySchema, avro.schema.MapSchema)) and (
-                       not isinstance(schema,
-                                      avro.schema.RecordSchema) or (schema.fullname not in self._record_types_seen))
+        return isinstance(
+            schema,
+            (
+                avro.schema.RecordSchema,
+                avro.schema.UnionSchema,
+                avro.schema.ArraySchema,
+                avro.schema.MapSchema,
+            ),
+        ) and (
+            not isinstance(schema, avro.schema.RecordSchema)
+            or (schema.fullname not in self._record_types_seen)
+        )
 
     def _get_column_type(self, field_type: Union[str, dict]) -> SchemaFieldDataType:
         tp = field_type
@@ -76,7 +85,9 @@ class AvroToMceSchemaConverter:
     def _get_cur_field_path(self) -> str:
         return ".".join(self._prefix_name_stack)
 
-    def _recordschema_to_mce_fields(self, schema: avro.schema.RecordSchema) -> List[SchemaField]:
+    def _recordschema_to_mce_fields(
+        self, schema: avro.schema.RecordSchema
+    ) -> List[SchemaField]:
         fields: List[SchemaField] = []
         # Add the full name of this schema to the list of record types seen so far.
         self._record_types_seen.append(schema.fullname)
@@ -84,9 +95,13 @@ class AvroToMceSchemaConverter:
         # Generate the fields from the record schema's fields
         for parsed_field in schema.fields:
             # Generate the description.
-            description: Optional[str] = parsed_field.doc if parsed_field.doc else "No description available."
+            description: Optional[str] = (
+                parsed_field.doc if parsed_field.doc else "No description available."
+            )
             if parsed_field.has_default:
-                description = f"{description}\nField default value: {parsed_field.default}"
+                description = (
+                    f"{description}\nField default value: {parsed_field.default}"
+                )
             # Add the field name to the prefix stack.
             self._prefix_name_stack.append(parsed_field.name)
             cur_sub_fields: List[SchemaField] = []
@@ -96,19 +111,23 @@ class AvroToMceSchemaConverter:
                 fields.extend(cur_sub_fields)
             if not cur_sub_fields:
                 # No subfields exist. So, this is the leaf field. Go ahead and construct the field and append it to the output.
-                fields.append(SchemaField(
-                    fieldPath=self._get_cur_field_path(),
-                    nativeDataType=str(parsed_field.type),
-                    type=self._get_column_type(parsed_field.type),
-                    description=description,
-                    recursive=False,
-                    nullable=self._is_nullable(parsed_field.type),
-                ))
+                fields.append(
+                    SchemaField(
+                        fieldPath=self._get_cur_field_path(),
+                        nativeDataType=str(parsed_field.type),
+                        type=self._get_column_type(parsed_field.type),
+                        description=description,
+                        recursive=False,
+                        nullable=self._is_nullable(parsed_field.type),
+                    )
+                )
             # Remove the name from prefix stack.
             self._prefix_name_stack.pop()
         return fields
 
-    def _arrayschema_to_mce_fields(self, schema: avro.schema.ArraySchema) -> List[SchemaField]:
+    def _arrayschema_to_mce_fields(
+        self, schema: avro.schema.ArraySchema
+    ) -> List[SchemaField]:
         fields: List[SchemaField] = []
         # Recurse if needed.
         if self._should_recurse(schema.items):
@@ -116,14 +135,18 @@ class AvroToMceSchemaConverter:
             fields.extend(self._to_mce_fields(schema.items))
         return fields
 
-    def _mapschema_to_mce_fields(self, schema: avro.schema.MapSchema) -> List[SchemaField]:
+    def _mapschema_to_mce_fields(
+        self, schema: avro.schema.MapSchema
+    ) -> List[SchemaField]:
         fields: List[SchemaField] = []
         # Process the map schema
         if self._should_recurse(schema.values):
             fields.extend(self._to_mce_fields(schema.values))
         return fields
 
-    def _unionschema_to_mce_fields(self, schema: avro.schema.UnionSchema) -> List[SchemaField]:
+    def _unionschema_to_mce_fields(
+        self, schema: avro.schema.UnionSchema
+    ) -> List[SchemaField]:
         fields: List[SchemaField] = []
         # Process the union schemas.
         for sub_schema in schema.schemas:
@@ -132,7 +155,9 @@ class AvroToMceSchemaConverter:
                 fields.extend(self._to_mce_fields(sub_schema))
         return fields
 
-    def _non_recursive_to_mce_fields(self, schema: avro.schema.Schema) -> List[SchemaField]:
+    def _non_recursive_to_mce_fields(
+        self, schema: avro.schema.Schema
+    ) -> List[SchemaField]:
         fields: List[SchemaField] = []
         # In the non-recursive case, only a single SchemaField will be returned
         # and the fieldPath will be set to empty to signal that the type refers to the
@@ -151,7 +176,8 @@ class AvroToMceSchemaConverter:
     def _to_mce_fields(self, avro_schema: avro.schema.Schema) -> List[SchemaField]:
         # Map of avro schema type to the conversion handler
         avro_type_to_mce_converter_map: Dict[
-            avro.schema.RecordSchema, Callable[[avro.schema.Schema], List[SchemaField]]] = {
+            avro.schema.RecordSchema, Callable[[avro.schema.Schema], List[SchemaField]]
+        ] = {
             avro.schema.RecordSchema: self._recordschema_to_mce_fields,
             avro.schema.UnionSchema: self._unionschema_to_mce_fields,
             avro.schema.ArraySchema: self._arrayschema_to_mce_fields,
