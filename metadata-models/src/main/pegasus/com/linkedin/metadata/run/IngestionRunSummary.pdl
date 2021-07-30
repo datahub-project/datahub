@@ -1,0 +1,7 @@
+namespace com.linkedin.metadata.run
+
+record IngestionRunSummary {
+    runId: string
+    timestamp: long
+    rows: long
+}
