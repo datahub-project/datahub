@@ -1,27 +1,26 @@
 package com.linkedin.metadata.resources.datajob;
 
 import com.linkedin.common.AuditStamp;
-
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
-import com.linkedin.datajob.DataJobInfo;
-import com.linkedin.datajob.DataJobInputOutput;
-import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datajob.DataJob;
-import com.linkedin.datajob.DataJobKey;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datajob.DataJob;
+import com.linkedin.datajob.DataJobInfo;
+import com.linkedin.datajob.DataJobInputOutput;
+import com.linkedin.datajob.DataJobKey;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.DataJobAspect;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.QueryUtils;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
@@ -36,6 +35,7 @@ import com.linkedin.metadata.search.DataJobDocument;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.snapshot.DataJobSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.BrowseUtil;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -65,7 +65,25 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 
-import static com.linkedin.metadata.restli.RestliConstants.*;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_BACKFILL_WITH_URNS;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_SNAPSHOT;
+import static com.linkedin.metadata.restli.RestliConstants.ACTION_INGEST;
+import static com.linkedin.metadata.restli.RestliConstants.FINDER_SEARCH;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_ASPECTS;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_FIELD;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_FILTER;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_INPUT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_LIMIT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_PATH;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_QUERY;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_SNAPSHOT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_SORT;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_START;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_URN;
+import static com.linkedin.metadata.restli.RestliConstants.PARAM_URNS;
 
 /**
  * Deprecated! Use {@link EntityResource} instead.
@@ -317,25 +335,17 @@ public class DataJobs extends BaseBrowsableEntityResource<
   public Task<BrowseResult> browse(@ActionParam(PARAM_PATH) @Nonnull String path,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_LIMIT) int limit) {
-    return RestliUtils.toTask(() ->
-        _searchService.browse(
-            "dataJob",
-            path,
-            filter,
-            start,
-            limit)
-    );  }
+    return RestliUtils.toTask(
+        () -> BrowseUtil.convertToLegacyResult(_searchService.browse("dataJob", path, filter, start, limit)));
+  }
 
   @Action(name = ACTION_GET_BROWSE_PATHS)
   @Override
   @Nonnull
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = "urn", typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
-    return RestliUtils.toTask(() ->
-        new StringArray(_searchService.getBrowsePaths(
-            "dataJob",
-            urn))
-    );  }
+    return RestliUtils.toTask(() -> new StringArray(_searchService.getBrowsePaths("dataJob", urn)));
+  }
 
   @Action(name = ACTION_INGEST)
   @Override

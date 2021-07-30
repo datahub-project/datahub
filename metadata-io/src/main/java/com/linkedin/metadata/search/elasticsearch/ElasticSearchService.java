@@ -1,8 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
@@ -38,9 +38,14 @@ public class ElasticSearchService implements SearchService {
   }
 
   @Override
+  public long docCount(@Nonnull String entityName) {
+    return esSearchDAO.docCount(entityName);
+  }
+
+  @Override
   public void upsertDocument(@Nonnull String entityName, @Nonnull String document, @Nonnull String docId) {
-    log.debug(String.format("Upserting Search document entityName: %s, document: %s, docId: %s", entityName,
-        document, docId));
+    log.debug(String.format("Upserting Search document entityName: %s, document: %s, docId: %s", entityName, document,
+        docId));
     esWriteDAO.upsertDocument(entityName, document, docId);
   }
 
@@ -54,7 +59,8 @@ public class ElasticSearchService implements SearchService {
   @Override
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
-    log.debug(String.format("Searching Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
+    log.debug(String.format(
+        "Searching Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entityName, input, postFilters, sortCriterion, from, size));
     return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size);
   }
@@ -63,8 +69,9 @@ public class ElasticSearchService implements SearchService {
   @Override
   public SearchResult filter(@Nonnull String entityName, @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
-    log.debug(String.format("Filtering Search documents entityName: %s, filters: %s, sortCriterion: %s, from: %s, size: %s",
-        entityName, filters, sortCriterion, from, size));
+    log.debug(
+        String.format("Filtering Search documents entityName: %s, filters: %s, sortCriterion: %s, from: %s, size: %s",
+            entityName, filters, sortCriterion, from, size));
     return esSearchDAO.filter(entityName, filters, sortCriterion, from, size);
   }
 
@@ -81,16 +88,16 @@ public class ElasticSearchService implements SearchService {
   @Override
   public BrowseResult browse(@Nonnull String entityName, @Nonnull String path, @Nullable Filter requestParams, int from,
       int size) {
-    log.debug(String.format("Browsing entities entityName: %s, path: %s, requestParams: %s, from: %s, size: %s",
-        entityName, path, requestParams, from, size));
+    log.debug(
+        String.format("Browsing entities entityName: %s, path: %s, requestParams: %s, from: %s, size: %s", entityName,
+            path, requestParams, from, size));
     return esBrowseDAO.browse(entityName, path, requestParams, from, size);
   }
 
   @Nonnull
   @Override
   public List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn) {
-    log.debug(String.format("Getting browse paths for entity entityName: %s, urn: %s",
-        entityName, urn));
+    log.debug(String.format("Getting browse paths for entity entityName: %s, urn: %s", entityName, urn));
     return esBrowseDAO.getBrowsePaths(entityName, urn);
   }
 }

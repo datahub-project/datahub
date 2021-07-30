@@ -6,25 +6,25 @@ import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.dao.utils.ESUtils;
 import com.linkedin.metadata.dao.utils.SearchUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.BrowseResult;
-import com.linkedin.metadata.query.BrowseResultEntity;
-import com.linkedin.metadata.query.BrowseResultEntityArray;
-import com.linkedin.metadata.query.BrowseResultGroup;
-import com.linkedin.metadata.query.BrowseResultGroupArray;
-import com.linkedin.metadata.query.BrowseResultMetadata;
+import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultEntity;
+import com.linkedin.metadata.browse.BrowseResultEntityArray;
+import com.linkedin.metadata.browse.BrowseResultGroup;
+import com.linkedin.metadata.browse.BrowseResultGroupArray;
+import com.linkedin.metadata.browse.BrowseResultMetadata;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.search.SearchRequest;
@@ -37,7 +37,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.BucketOrder;
+import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -57,6 +57,16 @@ public class ESBrowseDAO {
   private static final String URN = "urn";
   private static final String REMOVED = "removed";
 
+  private static final String GROUP_AGG = "groups";
+  private static final String ALL_PATHS = "allPaths";
+
+  @Value
+  private class BrowseGroupsResult {
+    List<BrowseResultGroup> groups;
+    int totalGroups;
+    int totalNumEntities;
+  }
+
   /**
    * Gets a list of groups/entities that match given browse request.
    *
@@ -74,14 +84,33 @@ public class ESBrowseDAO {
 
     try {
       final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
+
       final SearchResponse groupsResponse =
-          client.search(constructGroupsSearchRequest(indexName, path, requestMap, 0, 1000), RequestOptions.DEFAULT);
+          client.search(constructGroupsSearchRequest(indexName, path, requestMap), RequestOptions.DEFAULT);
+      final BrowseGroupsResult browseGroupsResult = extractGroupsResponse(groupsResponse, path, from, size);
+      final int numGroups = browseGroupsResult.getTotalGroups();
+
+      // Based on the number of groups returned, compute the from and size to query for entities
+      // Groups come before entities, so if numGroups >= from + size, we should return all groups
+      // if from < numGroups < from + size, we should return a mix of groups and entities
+      // if numGroups <= from, we should only return entities
+      int entityFrom = Math.max(from - numGroups, 0);
+      int entitySize = Math.min(Math.max(from + size - numGroups, 0), size);
       final SearchResponse entitiesResponse =
-          client.search(constructEntitiesSearchRequest(indexName, path, requestMap, from, size),
+          client.search(constructEntitiesSearchRequest(indexName, path, requestMap, entityFrom, entitySize),
               RequestOptions.DEFAULT);
-      final BrowseResult result = extractQueryResult(groupsResponse, entitiesResponse, path, from);
-      result.getMetadata().setPath(path);
-      return result;
+      final int numEntities = (int) entitiesResponse.getHits().getTotalHits().value;
+      final List<BrowseResultEntity> browseResultEntityList = extractEntitiesResponse(entitiesResponse, path);
+
+      return new BrowseResult().setMetadata(
+          new BrowseResultMetadata().setTotalNumEntities(browseGroupsResult.getTotalNumEntities()).setPath(path))
+          .setEntities(new BrowseResultEntityArray(browseResultEntityList))
+          .setGroups(new BrowseResultGroupArray(browseGroupsResult.getGroups()))
+          .setNumEntities(numEntities)
+          .setNumGroups(numGroups)
+          .setNumElements(numGroups + numEntities)
+          .setFrom(from)
+          .setPageSize(size);
     } catch (Exception e) {
       log.error("Browse query failed: " + e.getMessage());
       throw new ESQueryException("Browse query failed: ", e);
@@ -99,11 +128,11 @@ public class ESBrowseDAO {
     final String includeFilter = ESUtils.escapeReservedCharacters(path) + "/.*";
     final String excludeFilter = ESUtils.escapeReservedCharacters(path) + "/.*/.*";
 
-    return AggregationBuilders.terms("groups")
+    return AggregationBuilders.terms(GROUP_AGG)
         .field(BROWSE_PATH)
         .size(Integer.MAX_VALUE)
-        .order(BucketOrder.count(true)) // Ascending order
-        .includeExclude(new IncludeExclude(includeFilter, excludeFilter));
+        .includeExclude(new IncludeExclude(includeFilter, excludeFilter))
+        .subAggregation(AggregationBuilders.terms(ALL_PATHS).field(BROWSE_PATH).size(Integer.MAX_VALUE));
   }
 
   /**
@@ -114,11 +143,10 @@ public class ESBrowseDAO {
    */
   @Nonnull
   protected SearchRequest constructGroupsSearchRequest(@Nonnull String indexName, @Nonnull String path,
-      @Nonnull Map<String, String> requestMap, int from, int size) {
+      @Nonnull Map<String, String> requestMap) {
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.from(from);
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(0);
     searchSourceBuilder.query(buildQueryString(path, requestMap, true));
     searchSourceBuilder.aggregation(buildAggregations(path));
     searchRequest.source(searchSourceBuilder);
@@ -181,29 +209,6 @@ public class ESBrowseDAO {
   }
 
   /**
-   * Extracts search responses into browse result.
-   *
-   * @param groupsResponse groups search response
-   * @param entitiesResponse entity search response
-   * @param path the path which is being browsed
-   * @param from index of first entity
-   * @return {@link BrowseResult}
-   */
-  @Nonnull
-  private BrowseResult extractQueryResult(@Nonnull SearchResponse groupsResponse,
-      @Nonnull SearchResponse entitiesResponse, @Nonnull String path, int from) {
-    final List<BrowseResultEntity> browseResultEntityList = extractEntitiesResponse(entitiesResponse, path);
-    final BrowseResultMetadata browseResultMetadata = extractGroupsResponse(groupsResponse, path);
-    browseResultMetadata.setTotalNumEntities(
-        browseResultMetadata.getTotalNumEntities() + entitiesResponse.getHits().getTotalHits().value);
-    return new BrowseResult().setEntities(new BrowseResultEntityArray(browseResultEntityList))
-        .setMetadata(browseResultMetadata)
-        .setFrom(from)
-        .setPageSize(browseResultEntityList.size())
-        .setNumEntities((int) entitiesResponse.getHits().getTotalHits().value);
-  }
-
-  /**
    * Extracts group search response into browse result metadata.
    *
    * @param groupsResponse groups search response
@@ -211,19 +216,32 @@ public class ESBrowseDAO {
    * @return {@link BrowseResultMetadata}
    */
   @Nonnull
-  private BrowseResultMetadata extractGroupsResponse(@Nonnull SearchResponse groupsResponse, @Nonnull String path) {
-    final ParsedTerms groups = (ParsedTerms) groupsResponse.getAggregations().getAsMap().get("groups");
+  private BrowseGroupsResult extractGroupsResponse(@Nonnull SearchResponse groupsResponse, @Nonnull String path,
+      int from, int size) {
+    final ParsedTerms groups = groupsResponse.getAggregations().get(GROUP_AGG);
     final List<BrowseResultGroup> groupsAgg = groups.getBuckets()
         .stream()
+        .filter(this::validateBucket)
         .map(group -> new BrowseResultGroup().setName(getSimpleName(group.getKeyAsString()))
             .setCount(group.getDocCount()))
-        // Sort by document count desc and then by name
-        .sorted(Comparator.<BrowseResultGroup, Long>comparing(BrowseResultGroup::getCount).reversed()
-            .thenComparing(Comparator.comparing(BrowseResultGroup::getName)))
         .collect(Collectors.toList());
-    return new BrowseResultMetadata().setGroups(new BrowseResultGroupArray(groupsAgg))
-        .setTotalNumEntities(groupsResponse.getHits().getTotalHits().value)
-        .setPath(path);
+    // Get the groups that are in the from to from + size range
+    final List<BrowseResultGroup> paginatedGroups = groupsAgg.size() <= from ? Collections.emptyList()
+        : groupsAgg.subList(from, Math.min(from + size, groupsAgg.size()));
+    return new BrowseGroupsResult(paginatedGroups, groupsAgg.size(),
+        (int) groupsResponse.getHits().getTotalHits().value);
+  }
+
+  /**
+   * Check if there are any paths that extends the matchedPath signifying that the path does not point to an entity
+   */
+  private boolean validateBucket(@Nonnull MultiBucketsAggregation.Bucket bucket) {
+    final ParsedTerms groups = bucket.getAggregations().get(ALL_PATHS);
+    final String matchedPath = bucket.getKeyAsString();
+    return groups.getBuckets()
+        .stream()
+        .map(MultiBucketsAggregation.Bucket::getKeyAsString)
+        .anyMatch(bucketPath -> (bucketPath.length() > matchedPath.length() && bucketPath.startsWith(matchedPath)));
   }
 
   /**
