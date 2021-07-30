@@ -49,11 +49,11 @@ public class DatasetProfileMapper implements TimeSeriesAspectMapper<com.linkedin
     result.setStdev(gmsProfile.getStdev());
     result.setMedian(gmsProfile.getMedian());
     result.setMean(gmsProfile.getMean());
+    result.setUniqueCount(gmsProfile.getUniqueCount());
+    result.setNullCount(gmsProfile.getNullCount());
     if (gmsProfile.hasUniqueProportion()) {
       result.setUniqueProportion(gmsProfile.getUniqueProportion());
     }
-    result.setUniqueCount(gmsProfile.getUniqueCount());
-    result.setNullCount(gmsProfile.getNullCount());
     if (gmsProfile.hasNullProportion()) {
       result.setNullProportion(gmsProfile.getNullProportion());
     }
