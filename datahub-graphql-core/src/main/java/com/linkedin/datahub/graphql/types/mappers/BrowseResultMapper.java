@@ -11,6 +11,8 @@ import javax.annotation.Nonnull;
 
 
 public class BrowseResultMapper {
+  private BrowseResultMapper() {
+  }
 
   public static BrowseResults map(com.linkedin.metadata.query.BrowseResult input) {
     final BrowseResults result = new BrowseResults();

@@ -36,7 +36,6 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 
 import graphql.execution.DataFetcherResult;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;

@@ -102,7 +102,7 @@ public class ElasticSearchServiceTest {
     assertEquals(searchResult.getEntities().get(0), urn);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
-    assertEquals(browseResult.getMetadata().getGroups().get(0).getName(), "a");
+    assertEquals(browseResult.getGroups().get(0).getName(), "a");
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 1);
 
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
