@@ -420,7 +420,7 @@ source:
     password: pass
     host_port: account_name
     database_pattern:
-      # The escaping of the $ symbol helps us skip the environment variable substitution.
+      # The escaping of the \$ symbol helps us skip the environment variable substitution.
       allow:
         - ^MY_DEMO_DATA.*
         - ^ANOTHER_DB_REGEX
