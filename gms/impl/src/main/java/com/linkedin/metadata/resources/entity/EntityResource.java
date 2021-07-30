@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
@@ -43,6 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
 import static com.linkedin.metadata.entity.EntityService.*;
+import static com.linkedin.metadata.resources.ResourceUtils.*;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
@@ -100,6 +102,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       final Entity entity = _entityService.getEntity(urn, projectedAspects);
       if (entity == null) {
         throw RestliUtils.resourceNotFoundException();
+      } else {
+        validateOrWarn(entity);
       }
       return entity;
     });
@@ -121,6 +125,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       return _entityService.getEntities(urns, projectedAspects)
           .entrySet()
           .stream()
+          .peek(entry -> validateOrWarn(entry.getValue()))
           .collect(Collectors.toMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
     });
   }
@@ -131,6 +136,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_ENTITY) @Nonnull Entity entity,
       @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata systemMetadata
   ) throws URISyntaxException {
+
+    validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
 
     if (systemMetadata == null) {
       SystemMetadata generatedSystemMetadata = new SystemMetadata();
@@ -166,6 +173,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_ENTITIES) @Nonnull Entity[] entities,
       @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata[] systemMetadataList
       ) throws URISyntaxException {
+
+    for (Entity entity : entities) {
+      validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
+    }
+
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
     if (systemMetadataList == null) {
