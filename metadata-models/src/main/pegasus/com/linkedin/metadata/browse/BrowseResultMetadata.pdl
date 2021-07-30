@@ -1,0 +1,17 @@
+namespace com.linkedin.metadata.browse
+
+/**
+ * The model for browse result metadata
+ */
+record BrowseResultMetadata {
+
+  /**
+   * Path that is being browsed
+   */
+  path: string
+
+  /**
+   * Total number of entities we can reach from path
+   */
+  totalNumEntities: long
+}

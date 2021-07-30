@@ -68,7 +68,7 @@ export const BrowseResultsPage = () => {
                     title={path.length > 0 ? path[path.length - 1] : entityRegistry.getCollectionName(entityType)}
                     page={page}
                     pageSize={BrowseCfg.RESULTS_PER_PAGE}
-                    groups={data.browse.metadata.groups}
+                    groups={data.browse.groups}
                     entities={data.browse.entities}
                     totalResults={data.browse.total}
                     onChangePage={onChangePage}

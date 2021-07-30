@@ -2,14 +2,15 @@ package com.linkedin.metadata.resources.entity;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
@@ -33,6 +34,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -107,8 +109,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @RestMethod.BatchGet
   @Nonnull
-  public Task<Map<String, Entity>> batchGet(
-      @Nonnull Set<String> urnStrs,
+  public Task<Map<String, Entity>> batchGet(@Nonnull Set<String> urnStrs,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     log.info("BATCH GET {}", urnStrs.toString());
     final Set<Urn> urns = new HashSet<>();
@@ -186,12 +187,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = ACTION_SEARCH)
   @Nonnull
-  public Task<SearchResult> search(
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_INPUT) @Nonnull String input,
-      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
-      @ActionParam(PARAM_START) int start,
+  public Task<SearchResult> search(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count) {
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
@@ -200,24 +198,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = ACTION_AUTOCOMPLETE)
   @Nonnull
-  public Task<AutoCompleteResult> autocomplete(
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_QUERY) @Nonnull String query,
-      @ActionParam(PARAM_FIELD) @Optional @Nullable String field,
-      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_LIMIT) int limit) {
+  public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_QUERY) @Nonnull String query, @ActionParam(PARAM_FIELD) @Optional @Nullable String field,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_LIMIT) int limit) {
 
     return RestliUtils.toTask(() -> _searchService.autoComplete(entityName, query, field, filter, limit));
   }
 
   @Action(name = ACTION_BROWSE)
   @Nonnull
-  public Task<BrowseResult> browse(
-      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
-      @ActionParam(PARAM_PATH) @Nonnull String path,
-      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_LIMIT) int limit) {
+  public Task<BrowseResult> browse(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_PATH) @Nonnull String path, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_START) int start, @ActionParam(PARAM_LIMIT) int limit) {
 
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
     return RestliUtils.toTask(() -> _searchService.browse(entityName, path, filter, start, limit));
@@ -262,5 +254,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       _entityService.setWritable(value);
       return null;
     });
+  }
+
+  @Action(name = "getTotalEntityCount")
+  @Nonnull
+  public Task<Long> getTotalEntityCount(@ActionParam(PARAM_ENTITY) @Nonnull String entityName) {
+    return RestliUtils.toTask(() -> _searchService.docCount(entityName));
+  }
+
+  @Action(name = "batchGetTotalEntityCount")
+  @Nonnull
+  public Task<LongMap> batchGetTotalEntityCount(@ActionParam(PARAM_ENTITIES) @Nonnull String[] entityNames) {
+    return RestliUtils.toTask(() -> new LongMap(
+        Arrays.stream(entityNames).collect(Collectors.toMap(Function.identity(), _searchService::docCount))));
   }
 }
