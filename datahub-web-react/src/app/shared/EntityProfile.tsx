@@ -94,7 +94,7 @@ export const EntityProfile = ({
                         {header}
                     </LayoutDiv>
                 </Col>
-                {tags && (
+                {!!tags && (
                     <Col md={isCompact ? 24 : 8} xs={24} sm={24}>
                         <TagCard>
                             <TagsTitle type="secondary" level={4}>

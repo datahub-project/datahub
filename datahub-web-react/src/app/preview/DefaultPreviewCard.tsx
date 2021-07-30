@@ -86,7 +86,7 @@ export default function DefaultPreviewCard({
                                 <Space split={<Divider type="vertical" />} size={16}>
                                     <Typography.Text>{type}</Typography.Text>
                                     <Typography.Text strong>{platform}</Typography.Text>
-                                    {qualifier && <Tag>{qualifier}</Tag>}
+                                    {!!qualifier && <Tag>{qualifier}</Tag>}
                                 </Space>
                             )}
                         </Space>

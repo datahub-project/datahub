@@ -42,7 +42,7 @@ export default function DashboardHeader({
                     <Typography.Text strong type="secondary">
                         {capitalizedPlatform}
                     </Typography.Text>
-                    {info?.externalUrl && <Button onClick={openExternalUrl}>View in {capitalizedPlatform}</Button>}
+                    {!!info?.externalUrl && <Button onClick={openExternalUrl}>View in {capitalizedPlatform}</Button>}
                 </Space>
             </Row>
             <UpdatableDescription

@@ -180,7 +180,7 @@ export const HomePageHeader = () => {
         <Background>
             <Row justify="space-between" style={styles.navBar}>
                 <WelcomeText>
-                    {user && (
+                    {!!user && (
                         <>
                             Welcome back, <b>{user.info?.firstName || user.username}</b>.
                         </>
@@ -197,7 +197,7 @@ export const HomePageHeader = () => {
             </Row>
             <HeaderContainer>
                 <Image src={themeConfig.assets.logoUrl} preview={false} style={styles.logoImage} />
-                {themeConfig.content.subtitle && (
+                {!!themeConfig.content.subtitle && (
                     <Typography.Text style={styles.subtitle}>{themeConfig.content.subtitle}</Typography.Text>
                 )}
                 <SearchBar
