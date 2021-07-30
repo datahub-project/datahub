@@ -84,6 +84,10 @@ enum EntityType {
     """
     MLMODEL
     """
+    The MLModelGroup Entity
+    """
+    MLMODEL_GROUP
+    """
     The MLFEATURETable Entity
     """
     MLFEATURE_TABLE
@@ -144,6 +148,11 @@ type Query {
     Fetch a MLModel by primary key
     """
     mlModel(urn: String!): MLModel
+
+    """
+    Fetch a MLModel by primary key
+    """
+    mlModelGroup(urn: String!): MLModelGroup
 
     """
     Fetch a MLFeature by primary key
@@ -2053,8 +2062,7 @@ enum ChartQueryType {
     LOOKML
 }
 
-type MLModel implements Entity {
-
+type MLModel implements EntityWithRelationships & Entity {
     """
     The unique mlmodel URN
     """
@@ -2071,6 +2079,11 @@ type MLModel implements Entity {
     name: String!
 
     """
+    Standardized platform urn where the MLModel is defined
+    """
+    platform: DataPlatform!
+
+    """
     Fabric type where mlmodel belongs to or where it was generated
     """
     origin: FabricType!
@@ -2079,11 +2092,15 @@ type MLModel implements Entity {
     Human readable description for mlmodel
     """
     description: String
-
     """
     Tags used for searching mlmodel
     """
     tags: [String!]!
+    """
+
+    gloablTags for mlmodel
+    """
+    globalTags: GlobalTags
 
     """
     Ownership metadata of the mlmodel
@@ -2159,6 +2176,85 @@ type MLModel implements Entity {
     Deprecation
     """
     deprecation: Deprecation
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
+}
+
+type MLModelGroup implements EntityWithRelationships & Entity {
+
+    """
+    The unique mlmodel URN
+    """
+    urn: String!
+
+    """
+    GMS Entity Type
+    """
+    type: EntityType!
+
+    """
+    MLModelGroup name
+    """
+    name: String!
+
+    """
+    Standardized platform urn where the MLModelGroup is defined
+    """
+    platform: DataPlatform!
+
+    """
+    Fabric type where MLModelGroup belongs to or where it was generated
+    """
+    origin: FabricType!
+
+    """
+    Human readable description for MLModelGroup
+    """
+    description: String
+
+    properties: MLModelGroupProperties
+
+    """
+    Ownership metadata of the MLModelGroup
+    """
+    ownership: Ownership
+
+    """
+    Status metadata of the MLFeature
+    """
+    status: Status
+
+    """
+    Deprecation
+    """
+    deprecation: Deprecation
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
+}
+
+type MLModelGroupProperties {
+
+    description: String
+
+    createdAt: Long
+
+    version: VersionTag
 }
 
 type MLFeature implements Entity {
@@ -2219,6 +2315,26 @@ type MLFeature implements Entity {
     deprecation: Deprecation
 }
 
+type MLHyperParam {
+    name: String
+
+    description: String
+
+    value: String
+
+    createdAt: Long
+}
+
+type MLMetric {
+    name: String
+
+    description: String
+
+    value: String
+
+    createdAt: Long
+}
+
 type MLModelProperties {
 
     description: String
@@ -2231,14 +2347,22 @@ type MLModelProperties {
 
     hyperParameters: HyperParameterMap
 
+    hyperParams:  [MLHyperParam]
+
+    trainingMetrics: [MLMetric]
+
     mlFeatures: [String!]
 
     tags: [String!]
+
+    groups: [MLModelGroup]
+
+    customProperties: [StringMapEntry!]
 }
 
 type MLFeatureProperties {
 
-    description: String
+description: String
 
     dataType: MLFeatureDataType
 
@@ -2336,7 +2460,7 @@ type MLFeatureTable implements Entity {
     """
     Standardized platform urn where the MLFeatureTable is defined
     """
-    platform: DataPlatform
+    platform: DataPlatform!
 
     """
     MLFeatureTable description

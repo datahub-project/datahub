@@ -37,7 +37,7 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.5.3",
+    "avro-gen3==0.6.0",
     "avro-python3>=1.8.2",
     "python-dateutil",
     "stackprinter",
@@ -122,6 +122,7 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
+    "boto3-stubs[s3,glue,sagemaker]",
 }
 
 base_dev_requirements = {

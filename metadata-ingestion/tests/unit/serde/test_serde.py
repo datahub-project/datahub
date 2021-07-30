@@ -7,6 +7,7 @@ import pytest
 from click.testing import CliRunner
 
 import datahub.metadata.schema_classes as models
+from datahub.cli.json_file import check_mce_file
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import iterate_mce_file
@@ -104,6 +105,24 @@ def test_check_mce_schema(pytestconfig: PytestConfig, json_filename: str) -> Non
     runner = CliRunner()
     result = runner.invoke(datahub, ["check", "mce-file", f"{json_file_path}"])
     assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    "json_filename",
+    [
+        # Extra field.
+        "tests/unit/serde/test_serde_extra_field.json",
+        # Missing fields.
+        "tests/unit/serde/test_serde_missing_field.json",
+    ],
+)
+def test_check_mce_schema_failure(
+    pytestconfig: PytestConfig, json_filename: str
+) -> None:
+    json_file_path = pytestconfig.rootpath / json_filename
+
+    with pytest.raises((ValueError, AssertionError)):
+        check_mce_file(str(json_file_path))
 
 
 def test_field_discriminator() -> None:
