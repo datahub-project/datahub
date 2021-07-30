@@ -15,8 +15,7 @@ import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.run.AspectRowSummary;
-import com.linkedin.metadata.run.AspectRowSummaryArray;
-import com.linkedin.metadata.run.RollbackResponse;
+import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.mxe.SystemMetadata;
@@ -37,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -153,7 +153,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     // TODO Correctly audit ingestions.
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
-    SystemMetadata finalSystemMetadata = systemMetadata;
+
+    // variables referenced in lambdas are required to be final
+    final SystemMetadata finalSystemMetadata = systemMetadata;
     return RestliUtils.toTask(() -> {
       _entityService.ingestEntity(entity, auditStamp, finalSystemMetadata);
       return null;
@@ -164,11 +166,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Nonnull
   public Task<Void> batchIngest(
       @ActionParam(PARAM_ENTITIES) @Nonnull Entity[] entities,
-      @ActionParam(SYSTEM_METADATA) @Optional @Nonnull SystemMetadata[] systemMetadataList
+      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata[] systemMetadataList
       ) throws URISyntaxException {
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
-    if (entities.length != systemMetadataList.length) {
+    if (systemMetadataList == null) {
+      final SystemMetadata generatedSystemMetadata = new SystemMetadata();
+      generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
+      generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
+      Stream.generate(() -> generatedSystemMetadata).limit(entities.length).collect(Collectors.toList());
+    }
+    if (systemMetadataList != null && entities.length != systemMetadataList.length) {
       throw RestliUtils.invalidArgumentsException("entities and systemMetadata length must match");
     }
 
@@ -230,20 +238,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
    */
   @Action(name = "delete")
   @Nonnull
-  public Task<RollbackResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr) throws URISyntaxException {
+  public Task<DeleteEntityResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr) throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
 
     return RestliUtils.toTask(() -> {
-      RollbackResponse response = new RollbackResponse();
+      DeleteEntityResponse response = new DeleteEntityResponse();
 
       RollbackRunResult result = _entityService.deleteUrn(urn);
 
-      List<AspectRowSummary> deletedRows = result.getRowsRolledBack();
-
-      response.setAspectsAffected(deletedRows.size());
-      response.setEntitiesAffected(deletedRows.stream().filter(row -> row.isKeyAspect()).count());
-      response.setAspectRowSummaries(
-          new AspectRowSummaryArray(deletedRows.subList(0, Math.min(100, deletedRows.size()))));
+      response.setUrn(urnStr);
+      response.setRows(result.getRowsDeletedFromEntityDeletion());
 
       return response;
     });

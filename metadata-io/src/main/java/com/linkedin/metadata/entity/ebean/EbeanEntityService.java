@@ -238,34 +238,13 @@ public class EbeanEntityService extends EntityService {
 
         _entityDao.saveAspect(latest, false);
 
-        // if there is no key aspect, create one
-        if (keyAspect == null) {
-          final RecordTemplate newKeyAspect = buildKeyAspect(urn);
-          _entityDao.saveLatestAspect(
-              urn.toString(),
-              getKeyAspectName(urn),
-              latest == null ? null : toJsonAspect(oldValue),
-              latest == null ? null : latest.getCreatedBy(),
-              latest == null ? null : latest.getCreatedFor(),
-              latest == null ? null : latest.getCreatedOn(),
-              latest == null ? null : latest.getSystemMetadata(),
-              toJsonAspect(newKeyAspect),
-              auditStamp.getActor().toString(),
-              auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
-              new Timestamp(auditStamp.getTime()),
-              toJsonAspect(providedSystemMetadata)
-          );
-          keyAdded = true;
-        }
-
         return new UpdateAspectResult(
             urn,
             oldValue,
             oldValue,
             EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()),
             latestSystemMetadata,
-            MetadataAuditOperation.UPDATE,
-            keyAdded
+            MetadataAuditOperation.UPDATE
         );
       }
 
@@ -286,36 +265,13 @@ public class EbeanEntityService extends EntityService {
           toJsonAspect(providedSystemMetadata)
       );
 
-      // if there is no key aspect, create one
-      if (keyAspect == null) {
-        final RecordTemplate newKeyAspect = buildKeyAspect(urn);
-        _entityDao.saveLatestAspect(
-            urn.toString(),
-            getKeyAspectName(urn),
-            latest == null ? null : toJsonAspect(oldValue),
-            latest == null ? null : latest.getCreatedBy(),
-            latest == null ? null : latest.getCreatedFor(),
-            latest == null ? null : latest.getCreatedOn(),
-            latest == null ? null : latest.getSystemMetadata(),
-            toJsonAspect(newKeyAspect),
-            auditStamp.getActor().toString(),
-            auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
-            new Timestamp(auditStamp.getTime()),
-            toJsonAspect(providedSystemMetadata)
-        );
-        keyAdded = true;
-      }
-
-
-
       return new UpdateAspectResult(
           urn,
           oldValue,
           newValue,
           latest == null ? null : EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()),
           providedSystemMetadata,
-          MetadataAuditOperation.UPDATE,
-          keyAdded
+          MetadataAuditOperation.UPDATE
       );
 
     }, maxTransactionRetry);
@@ -326,23 +282,23 @@ public class EbeanEntityService extends EntityService {
     // 5. Produce MAE after a successful update
     if (oldValue != newValue || _alwaysEmitAuditEvent) {
       log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
-      produceMetadataAuditEvent(
-          urn,
-          oldValue,
-          newValue,
-          result.getOldSystemMetadata(),
-          result.getNewSystemMetadata(),
-          MetadataAuditOperation.UPDATE
-      );
+      if (aspectName == getKeyAspectName(urn)) {
+        produceMetadataAuditEventForKey(
+            urn,
+            result.getNewSystemMetadata()
+        );
+      } else {
+        produceMetadataAuditEvent(
+            urn,
+            oldValue,
+            newValue,
+            result.getOldSystemMetadata(),
+            result.getNewSystemMetadata(),
+            MetadataAuditOperation.UPDATE
+        );
+      }
     } else {
       log.debug(String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.", aspectName, urn));
-    }
-
-    if (result.keyAffected) {
-      produceMetadataAuditEventForKey(
-          urn,
-          result.getNewSystemMetadata()
-      );
     }
 
     return newValue;
@@ -409,8 +365,7 @@ public class EbeanEntityService extends EntityService {
           value,
           oldSystemMetadata,
           newSystemMetadata,
-          MetadataAuditOperation.UPDATE,
-          false
+          MetadataAuditOperation.UPDATE
       );
 
     }, maxTransactionRetry);
@@ -451,7 +406,6 @@ public class EbeanEntityService extends EntityService {
     SystemMetadata oldSystemMetadata;
     SystemMetadata newSystemMetadata;
     MetadataAuditOperation operation;
-    Boolean keyAffected;
   }
 
   public void setWritable(boolean canWrite) {
@@ -595,12 +549,12 @@ public class EbeanEntityService extends EntityService {
   @Override
   public RollbackRunResult deleteUrn(Urn urn) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
-    AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
+    Integer rowsDeletedFromEntityDeletion = 0;
 
     String keyAspectName = getKeyAspectName(urn);
     EbeanAspectV2 latestKey = _entityDao.getLatestAspect(urn.toString(), keyAspectName);
     if (latestKey == null || latestKey.getSystemMetadata() == null) {
-      return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion.get());
+      return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
     }
 
     SystemMetadata latestKeySystemMetadata = parseSystemMetadata(latestKey.getSystemMetadata());
@@ -615,7 +569,7 @@ public class EbeanEntityService extends EntityService {
       summary.setVersion(0);
       summary.setTimestamp(latestKey.getCreatedOn().getTime());
 
-      rowsDeletedFromEntityDeletion.addAndGet(result.additionalRowsAffected);
+      rowsDeletedFromEntityDeletion = result.additionalRowsAffected;
       removedAspects.add(summary);
       produceMetadataAuditEvent(
           result.getUrn(),
@@ -627,6 +581,6 @@ public class EbeanEntityService extends EntityService {
       );
     }
 
-    return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion.get());
+    return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
   }
 }

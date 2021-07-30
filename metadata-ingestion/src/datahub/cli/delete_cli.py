@@ -1,7 +1,6 @@
 import logging
 
 import click
-from tabulate import tabulate
 
 from datahub.cli.cli_utils import post_delete_endpoint
 
@@ -24,11 +23,6 @@ def delete(urn: str) -> None:
 
     payload_obj = {"urn": urn}
 
-    structured_rows, entities_affected, aspects_affected = post_delete_endpoint(
-        payload_obj, "/entities?action=delete"
-    )
+    urn, rows_affected = post_delete_endpoint(payload_obj, "/entities?action=delete")
 
-    click.echo(
-        f"showing first {len(structured_rows)} of {aspects_affected} aspects reverted by this run"
-    )
-    click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
+    click.echo(f"Successfully deleted {urn}. {rows_affected} rows deleted")
