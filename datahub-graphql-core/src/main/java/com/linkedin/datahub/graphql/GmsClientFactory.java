@@ -42,17 +42,6 @@ public class GmsClientFactory {
 
     private GmsClientFactory() { }
 
-    public static DataPlatforms getDataPlatformsClient() {
-        if (_dataPlatforms == null) {
-            synchronized (GmsClientFactory.class) {
-                if (_dataPlatforms == null) {
-                    _dataPlatforms = new DataPlatforms(REST_CLIENT);
-                }
-            }
-        }
-        return _dataPlatforms;
-    }
-
     public static Lineages getLineagesClient() {
         if (_lineages == null) {
             synchronized (GmsClientFactory.class) {
