@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS `northwind`.`customers` (
   `company` VARCHAR(50) NULL DEFAULT NULL,
   `last_name` VARCHAR(50) NULL DEFAULT NULL,
   `first_name` VARCHAR(50) NULL DEFAULT NULL,
-  `email_address` VARCHAR(50) NULL DEFAULT NULL
+  `email_address` VARCHAR(50) NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   INDEX `company` (`company` ASC),
   INDEX `first_name` (`first_name` ASC),
@@ -86,7 +86,7 @@ INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_addr
 INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (2, 'Company B', 'Gratacos Solsona', 'Antonio', NULL);
 INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (3, 'Company C', 'Axen', 'Thomas', NULL);
 INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (4, 'Company D', 'Lee', 'Christina', NULL);
-INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (5, 'Company E', 'O’Donnell', 'Martin', NULL);
+INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (5, 'Company E', 'Donnell', 'Martin', NULL);
 # 5 records
 
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
