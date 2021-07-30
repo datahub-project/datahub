@@ -1,6 +1,6 @@
 import re
 from abc import ABC, abstractmethod
-from typing import IO, Any, List, Optional, Pattern
+from typing import IO, Any, List, Optional, Pattern ,Dict
 
 from pydantic import BaseModel
 
@@ -96,7 +96,7 @@ class AllowDenyPattern(ConfigModel):
 class KeyValuePattern(ConfigModel):
     """A class to store allow deny regexes"""
 
-    rules: dict[str, List[str]] = {".*": []}
+    rules: Dict[str, List[str]] = {".*": []}
     alphabet: str = "[A-Za-z0-9 _.-]"
 
     @property
@@ -131,7 +131,7 @@ class KeyValuePattern(ConfigModel):
                 return True
         return False
 
-    def get(self) -> dict[str, List[str]]:
+    def get(self) -> Dict[str, List[str]]:
         """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
         assert self.is_fully_specified_key()
         return [a for a in self.rules if self.matched(a)]
