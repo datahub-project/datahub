@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.transformer;
 
 import com.fasterxml.jackson.databind.JsonNode;
+
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -27,7 +28,11 @@ public class SearchDocumentTransformer {
   private SearchDocumentTransformer() {
   }
 
-  public static Optional<String> transformSnapshot(final RecordTemplate snapshot, final EntitySpec entitySpec) {
+  public static Optional<String> transformSnapshot(
+      final RecordTemplate snapshot,
+      final EntitySpec entitySpec,
+      final Boolean forDelete
+  ) {
     final Map<SearchableFieldSpec, List<Object>> extractedFields =
         FieldExtractor.extractFieldsFromSnapshot(snapshot, entitySpec, AspectSpec::getSearchableFieldSpecs);
     if (extractedFields.isEmpty()) {
@@ -35,7 +40,7 @@ public class SearchDocumentTransformer {
     }
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     searchDocument.put("urn", snapshot.data().get("urn").toString());
-    extractedFields.forEach((key, value) -> setValue(key, value, searchDocument));
+    extractedFields.forEach((key, value) -> setValue(key, value, searchDocument, forDelete));
     return Optional.of(searchDocument.toString());
   }
 
@@ -47,18 +52,22 @@ public class SearchDocumentTransformer {
     }
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     searchDocument.put("urn", urn.toString());
-    extractedFields.forEach((key, value) -> setValue(key, value, searchDocument));
+    extractedFields.forEach((key, value) -> setValue(key, value, searchDocument, false));
     return Optional.of(searchDocument.toString());
   }
 
   public static void setValue(final SearchableFieldSpec fieldSpec, final List<Object> fieldValues,
-      final ObjectNode searchDocument) {
+      final ObjectNode searchDocument, final Boolean forDelete) {
     DataSchema.Type valueType = fieldSpec.getPegasusSchema().getType();
     Optional<Object> firstValue = fieldValues.stream().findFirst();
     boolean isArray = fieldSpec.isArray();
 
     // Set hasValues field if exists
     fieldSpec.getSearchableAnnotation().getHasValuesFieldName().ifPresent(fieldName -> {
+      if (forDelete) {
+        searchDocument.set(fieldName, JsonNodeFactory.instance.booleanNode(false));
+        return;
+      }
       if (valueType == DataSchema.Type.BOOLEAN) {
         searchDocument.set(fieldName, JsonNodeFactory.instance.booleanNode((Boolean) firstValue.orElse(false)));
       } else {
@@ -68,6 +77,10 @@ public class SearchDocumentTransformer {
 
     // Set numValues field if exists
     fieldSpec.getSearchableAnnotation().getNumValuesFieldName().ifPresent(fieldName -> {
+      if (forDelete) {
+        searchDocument.set(fieldName, JsonNodeFactory.instance.numberNode((Integer) 0));
+        return;
+      }
       switch (valueType) {
         case INT:
           searchDocument.set(fieldName, JsonNodeFactory.instance.numberNode((Integer) firstValue.orElse(0)));
@@ -83,6 +96,11 @@ public class SearchDocumentTransformer {
 
     final String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
     final FieldType fieldType = fieldSpec.getSearchableAnnotation().getFieldType();
+
+    if (forDelete) {
+      searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
+      return;
+    }
 
     if (isArray) {
       ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();

@@ -11,7 +11,9 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.Configs;
 import com.linkedin.mxe.MetadataAuditEvent;
+import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
 import com.linkedin.mxe.Topics;
@@ -47,8 +49,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
    * @param producer The Kafka {@link Producer} to use
    * @param topicConvention the convention to use to get kafka topic names
    */
-  public EntityKafkaMetadataEventProducer(
-      @Nonnull final Producer<String, ? extends IndexedRecord> producer,
+  public EntityKafkaMetadataEventProducer(@Nonnull final Producer<String, ? extends IndexedRecord> producer,
       @Nonnull final TopicConvention topicConvention) {
     this(producer, topicConvention, null);
   }
@@ -60,30 +61,38 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
    * @param topicConvention the convention to use to get kafka topic names
    * @param callback The {@link Callback} to invoke when the request is completed
    */
-  public EntityKafkaMetadataEventProducer(
-      @Nonnull final Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull final TopicConvention topicConvention,
-      @Nullable final Callback callback) {
+  public EntityKafkaMetadataEventProducer(@Nonnull final Producer<String, ? extends IndexedRecord> producer,
+      @Nonnull final TopicConvention topicConvention, @Nullable final Callback callback) {
     _producer = producer;
     _callback = Optional.ofNullable(callback);
     _topicConvention = topicConvention;
   }
 
   @Override
-  public void produceMetadataAuditEvent(
-      @Nonnull final Urn urn,
-      @Nullable final Snapshot oldSnapshot,
-      @Nonnull final Snapshot newSnapshot) {
-
+  public void produceMetadataAuditEvent(@Nonnull Urn urn, @Nullable Snapshot oldSnapshot, @Nonnull Snapshot newSnapshot,
+      @Nullable SystemMetadata oldSystemMetadata, @Nullable SystemMetadata newSystemMetadata,
+      MetadataAuditOperation operation) {
     final MetadataAuditEvent metadataAuditEvent = new MetadataAuditEvent();
-    metadataAuditEvent.setNewSnapshot(newSnapshot);
+    if (newSnapshot != null) {
+      metadataAuditEvent.setNewSnapshot(newSnapshot);
+    }
     if (oldSnapshot != null) {
       metadataAuditEvent.setOldSnapshot(oldSnapshot);
+    }
+    if (oldSystemMetadata != null) {
+      metadataAuditEvent.setOldSystemMetadata(oldSystemMetadata);
+    }
+    if (newSystemMetadata != null) {
+      metadataAuditEvent.setNewSystemMetadata(newSystemMetadata);
+    }
+    if (operation != null) {
+      metadataAuditEvent.setOperation(operation);
     }
 
     GenericRecord record;
     try {
-      log.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn), metadataAuditEvent.toString()));
+      log.debug(String.format(String.format("Converting Pegasus snapshot to Avro snapshot urn %s", urn),
+          metadataAuditEvent.toString()));
       record = EventUtils.pegasusToAvroMAE(metadataAuditEvent);
     } catch (IOException e) {
       log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()));
@@ -124,10 +133,9 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
   }
 
   @Override
-  public void produceAspectSpecificMetadataAuditEvent(
-      @Nonnull final Urn urn,
-      @Nullable final RecordTemplate oldValue,
-      @Nonnull final RecordTemplate newValue) {
+  public void produceAspectSpecificMetadataAuditEvent(@Nonnull final Urn urn, @Nullable final RecordTemplate oldValue,
+      @Nonnull final RecordTemplate newValue, @Nullable final SystemMetadata oldSystemMetadata,
+      @Nullable final SystemMetadata newSystemMetadata, @Nonnull final MetadataAuditOperation operation) {
     // TODO switch to convention once versions are annotated in the schema
     final String topicKey = ModelUtils.getAspectSpecificMAETopicName(urn, newValue);
     if (!isValidAspectSpecificTopic(topicKey)) {

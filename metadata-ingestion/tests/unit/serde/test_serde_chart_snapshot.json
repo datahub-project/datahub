@@ -38,6 +38,11 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata":  {
+        "runId": "serde_test",
+        "lastObserved": 1626980046000,
+        "properties": null
+    }
 }
 ]

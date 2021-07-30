@@ -7168,12 +7168,14 @@ class MetadataChangeEventClass(DictWrapper):
         proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
         auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
         proposedDelta: None=None,
+        systemMetadata: Union[None, "SystemMetadataClass"]=None,
     ):
         super().__init__()
         
         self.auditHeader = auditHeader
         self.proposedSnapshot = proposedSnapshot
         self.proposedDelta = proposedDelta
+        self.systemMetadata = systemMetadata
     
     @classmethod
     def construct_with_defaults(cls) -> "MetadataChangeEventClass":
@@ -7186,6 +7188,7 @@ class MetadataChangeEventClass(DictWrapper):
         self.auditHeader = self.RECORD_SCHEMA.field_map["auditHeader"].default
         self.proposedSnapshot = ChartSnapshotClass.construct_with_defaults()
         self.proposedDelta = self.RECORD_SCHEMA.field_map["proposedDelta"].default
+        self.systemMetadata = self.RECORD_SCHEMA.field_map["systemMetadata"].default
     
     
     @property
@@ -7219,6 +7222,17 @@ class MetadataChangeEventClass(DictWrapper):
     def proposedDelta(self, value: None) -> None:
         """Setter: Delta of the proposed metadata partial update."""
         self._inner_dict['proposedDelta'] = value
+    
+    
+    @property
+    def systemMetadata(self) -> Union[None, "SystemMetadataClass"]:
+        """Getter: Metadata around how the snapshot was ingested"""
+        return self._inner_dict.get('systemMetadata')  # type: ignore
+    
+    @systemMetadata.setter
+    def systemMetadata(self, value: Union[None, "SystemMetadataClass"]) -> None:
+        """Setter: Metadata around how the snapshot was ingested"""
+        self._inner_dict['systemMetadata'] = value
     
     
 class MetadataChangeProposalClass(DictWrapper):
@@ -7363,7 +7377,7 @@ class MetadataChangeProposalClass(DictWrapper):
     
     
 class SystemMetadataClass(DictWrapper):
-    # No docs available.
+    """Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead."""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.SystemMetadata")
     def __init__(self,
@@ -7403,12 +7417,12 @@ class SystemMetadataClass(DictWrapper):
     
     @property
     def runId(self) -> Union[None, str]:
-        """Getter: The timestamp the metadata was observed at"""
+        """Getter: The run id that produced the metadata"""
         return self._inner_dict.get('runId')  # type: ignore
     
     @runId.setter
     def runId(self, value: Union[None, str]) -> None:
-        """Setter: The timestamp the metadata was observed at"""
+        """Setter: The run id that produced the metadata"""
         self._inner_dict['runId'] = value
     
     

@@ -180,6 +180,7 @@
         {
           "type": "record",
           "name": "SystemMetadata",
+          "doc": "Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.",
           "fields": [
             {
               "name": "lastObserved",
@@ -196,7 +197,7 @@
                 "null",
                 "string"
               ],
-              "doc": "The timestamp the metadata was observed at",
+              "doc": "The run id that produced the metadata",
               "default": null
             },
             {
