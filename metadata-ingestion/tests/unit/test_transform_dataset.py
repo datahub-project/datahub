@@ -2,8 +2,8 @@ import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.transformer.add_dataset_ownership import (
-    SimpleAddDatasetOwnership,
     PatternAddDatasetOwnership,
+    SimpleAddDatasetOwnership,
 )
 from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
@@ -188,14 +188,12 @@ def test_pattern_dataset_ownership_tranformation(mock_time):
 
     transformer = PatternAddDatasetOwnership.create(
         {
-            "owner_pattern":
-                {
-                    "rules": {
-                        ".*example1.*": [builder.make_user_urn("person1")],
-                        ".*example2.*": [builder.make_user_urn("person2")]
-                    }
-                },
-
+            "owner_pattern": {
+                "rules": {
+                    ".*example1.*": [builder.make_user_urn("person1")],
+                    ".*example2.*": [builder.make_user_urn("person2")],
+                }
+            },
         },
         PipelineContext(run_id="test"),
     )

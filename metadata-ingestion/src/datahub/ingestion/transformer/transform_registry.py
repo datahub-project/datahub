@@ -2,8 +2,8 @@ from datahub.ingestion.api.registry import Registry
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.transformer.add_dataset_ownership import (
     AddDatasetOwnership,
-    SimpleAddDatasetOwnership,
     PatternAddDatasetOwnership,
+    SimpleAddDatasetOwnership,
 )
 from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,

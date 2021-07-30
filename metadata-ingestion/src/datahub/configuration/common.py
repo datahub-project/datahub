@@ -1,6 +1,6 @@
 import re
 from abc import ABC, abstractmethod
-from typing import IO, Any, List, Optional, Pattern ,Dict
+from typing import IO, Any, Dict, List, Optional, Pattern
 
 from pydantic import BaseModel
 
@@ -113,7 +113,7 @@ class KeyValuePattern(ConfigModel):
                 return self.rules[key]
         return []
 
-    def matched(self, string: str) -> List[str]:
+    def matched(self, string: str) -> bool:
         for key in self.rules.keys():
             if re.match(key, string):
                 return True
@@ -134,4 +134,4 @@ class KeyValuePattern(ConfigModel):
     def get(self) -> Dict[str, List[str]]:
         """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
         assert self.is_fully_specified_key()
-        return [a for a in self.rules if self.matched(a)]
+        return self.rules
