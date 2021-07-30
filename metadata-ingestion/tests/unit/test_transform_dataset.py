@@ -144,6 +144,7 @@ def test_import_resolver():
     )
     assert output
 
+
 def test_pattern_dataset_ownership_tranformation(mock_time):
     no_owner_aspect = make_generic_dataset()
 
@@ -189,10 +190,10 @@ def test_pattern_dataset_ownership_tranformation(mock_time):
         {
             "owner_pattern":
                 {
-                  "rules": {
-                            ".*example1.*": [builder.make_user_urn("person1")],
-                            ".*example2.*": [builder.make_user_urn("person2")]
-                          }
+                    "rules": {
+                        ".*example1.*": [builder.make_user_urn("person1")],
+                        ".*example2.*": [builder.make_user_urn("person2")]
+                    }
                 },
 
         },

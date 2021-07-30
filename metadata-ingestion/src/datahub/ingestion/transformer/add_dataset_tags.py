@@ -40,7 +40,7 @@ class AddDatasetTags(Transformer):
         return cls(config, ctx)
 
     def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
+            self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         for envelope in record_envelopes:
             if isinstance(envelope.record, MetadataChangeEventClass):
