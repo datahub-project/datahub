@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.dataplatform.mappers;
 
-import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.metadata.aspect.DataPlatformAspect;
