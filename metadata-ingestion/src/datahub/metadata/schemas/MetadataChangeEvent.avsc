@@ -5150,6 +5150,51 @@
       ],
       "doc": "Delta of the proposed metadata partial update.",
       "default": null
+    },
+    {
+      "name": "systemMetadata",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "SystemMetadata",
+          "doc": "Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.",
+          "fields": [
+            {
+              "name": "lastObserved",
+              "type": [
+                "null",
+                "long"
+              ],
+              "doc": "The timestamp the metadata was observed at",
+              "default": null
+            },
+            {
+              "name": "runId",
+              "type": [
+                "null",
+                "string"
+              ],
+              "doc": "The run id that produced the metadata",
+              "default": null
+            },
+            {
+              "name": "properties",
+              "type": [
+                "null",
+                {
+                  "type": "map",
+                  "values": "string"
+                }
+              ],
+              "doc": "Additional properties",
+              "default": null
+            }
+          ]
+        }
+      ],
+      "doc": "Metadata around how the snapshot was ingested",
+      "default": null
     }
   ]
 }

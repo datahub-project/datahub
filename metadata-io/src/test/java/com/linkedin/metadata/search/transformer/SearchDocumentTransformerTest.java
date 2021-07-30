@@ -12,6 +12,7 @@ import com.datahub.test.TestEntityKey;
 import com.datahub.test.TestEntitySnapshot;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
@@ -34,7 +35,7 @@ public class SearchDocumentTransformerTest {
   public void testTransform() throws IOException {
     TestEntitySnapshot snapshot = buildSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
-    Optional<String> result = SearchDocumentTransformer.transform(snapshot, testEntitySpec);
+    Optional<String> result = SearchDocumentTransformer.transform(snapshot, testEntitySpec, false);
     assertTrue(result.isPresent());
     ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
     assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
@@ -57,6 +58,24 @@ public class SearchDocumentTransformerTest {
     assertEquals(browsePaths.size(), 2);
     assertEquals(browsePaths.get(0).asText(), "/a/b/c");
     assertEquals(browsePaths.get(1).asText(), "d/e/f");
+  }
+
+  @Test
+  public void testTransformForDelete() throws IOException {
+    TestEntitySnapshot snapshot = buildSnapshot();
+    EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
+    Optional<String> result = SearchDocumentTransformer.transform(snapshot, testEntitySpec, true);
+    assertTrue(result.isPresent());
+    ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
+    assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
+    parsedJson.get("keyPart1").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("keyPart3").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("textFieldOverride").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("foreignKey").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("textArrayField").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("browsePaths").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("nestedArrayStringField").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("nestedIntegerField").getNodeType().equals(JsonNodeType.NULL);
   }
 
   private TestEntitySnapshot buildSnapshot() {

@@ -6665,12 +6665,18 @@ class MetadataAuditEventClass(DictWrapper):
         newSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
         auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
         oldSnapshot: Union[None, "ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]=None,
+        oldSystemMetadata: Union[None, "SystemMetadataClass"]=None,
+        newSystemMetadata: Union[None, "SystemMetadataClass"]=None,
+        operation: Union[None, Union[str, "MetadataAuditOperationClass"]]=None,
     ):
         super().__init__()
         
         self.auditHeader = auditHeader
         self.oldSnapshot = oldSnapshot
+        self.oldSystemMetadata = oldSystemMetadata
         self.newSnapshot = newSnapshot
+        self.newSystemMetadata = newSystemMetadata
+        self.operation = operation
     
     @classmethod
     def construct_with_defaults(cls) -> "MetadataAuditEventClass":
@@ -6682,7 +6688,10 @@ class MetadataAuditEventClass(DictWrapper):
     def _restore_defaults(self) -> None:
         self.auditHeader = self.RECORD_SCHEMA.field_map["auditHeader"].default
         self.oldSnapshot = self.RECORD_SCHEMA.field_map["oldSnapshot"].default
+        self.oldSystemMetadata = self.RECORD_SCHEMA.field_map["oldSystemMetadata"].default
         self.newSnapshot = ChartSnapshotClass.construct_with_defaults()
+        self.newSystemMetadata = self.RECORD_SCHEMA.field_map["newSystemMetadata"].default
+        self.operation = self.RECORD_SCHEMA.field_map["operation"].default
     
     
     @property
@@ -6708,6 +6717,17 @@ class MetadataAuditEventClass(DictWrapper):
     
     
     @property
+    def oldSystemMetadata(self) -> Union[None, "SystemMetadataClass"]:
+        """Getter: Metadata around how the old snapshot was produced."""
+        return self._inner_dict.get('oldSystemMetadata')  # type: ignore
+    
+    @oldSystemMetadata.setter
+    def oldSystemMetadata(self, value: Union[None, "SystemMetadataClass"]) -> None:
+        """Setter: Metadata around how the old snapshot was produced."""
+        self._inner_dict['oldSystemMetadata'] = value
+    
+    
+    @property
     def newSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
         """Getter: Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."""
         return self._inner_dict.get('newSnapshot')  # type: ignore
@@ -6718,6 +6738,35 @@ class MetadataAuditEventClass(DictWrapper):
         self._inner_dict['newSnapshot'] = value
     
     
+    @property
+    def newSystemMetadata(self) -> Union[None, "SystemMetadataClass"]:
+        """Getter: Metadata around how the new snapshot was produced."""
+        return self._inner_dict.get('newSystemMetadata')  # type: ignore
+    
+    @newSystemMetadata.setter
+    def newSystemMetadata(self, value: Union[None, "SystemMetadataClass"]) -> None:
+        """Setter: Metadata around how the new snapshot was produced."""
+        self._inner_dict['newSystemMetadata'] = value
+    
+    
+    @property
+    def operation(self) -> Union[None, Union[str, "MetadataAuditOperationClass"]]:
+        # No docs available.
+        return self._inner_dict.get('operation')  # type: ignore
+    
+    @operation.setter
+    def operation(self, value: Union[None, Union[str, "MetadataAuditOperationClass"]]) -> None:
+        # No docs available.
+        self._inner_dict['operation'] = value
+    
+    
+class MetadataAuditOperationClass(object):
+    # No docs available.
+    
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+    
+    
 class MetadataChangeEventClass(DictWrapper):
     """Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead."""
     
@@ -6726,12 +6775,14 @@ class MetadataChangeEventClass(DictWrapper):
         proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
         auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
         proposedDelta: None=None,
+        systemMetadata: Union[None, "SystemMetadataClass"]=None,
     ):
         super().__init__()
         
         self.auditHeader = auditHeader
         self.proposedSnapshot = proposedSnapshot
         self.proposedDelta = proposedDelta
+        self.systemMetadata = systemMetadata
     
     @classmethod
     def construct_with_defaults(cls) -> "MetadataChangeEventClass":
@@ -6744,6 +6795,7 @@ class MetadataChangeEventClass(DictWrapper):
         self.auditHeader = self.RECORD_SCHEMA.field_map["auditHeader"].default
         self.proposedSnapshot = ChartSnapshotClass.construct_with_defaults()
         self.proposedDelta = self.RECORD_SCHEMA.field_map["proposedDelta"].default
+        self.systemMetadata = self.RECORD_SCHEMA.field_map["systemMetadata"].default
     
     
     @property
@@ -6777,6 +6829,78 @@ class MetadataChangeEventClass(DictWrapper):
     def proposedDelta(self, value: None) -> None:
         """Setter: Delta of the proposed metadata partial update."""
         self._inner_dict['proposedDelta'] = value
+    
+    
+    @property
+    def systemMetadata(self) -> Union[None, "SystemMetadataClass"]:
+        """Getter: Metadata around how the snapshot was ingested"""
+        return self._inner_dict.get('systemMetadata')  # type: ignore
+    
+    @systemMetadata.setter
+    def systemMetadata(self, value: Union[None, "SystemMetadataClass"]) -> None:
+        """Setter: Metadata around how the snapshot was ingested"""
+        self._inner_dict['systemMetadata'] = value
+    
+    
+class SystemMetadataClass(DictWrapper):
+    """Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.SystemMetadata")
+    def __init__(self,
+        lastObserved: Union[None, int]=None,
+        runId: Union[None, str]=None,
+        properties: Union[None, Dict[str, str]]=None,
+    ):
+        super().__init__()
+        
+        self.lastObserved = lastObserved
+        self.runId = runId
+        self.properties = properties
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "SystemMetadataClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.lastObserved = self.RECORD_SCHEMA.field_map["lastObserved"].default
+        self.runId = self.RECORD_SCHEMA.field_map["runId"].default
+        self.properties = self.RECORD_SCHEMA.field_map["properties"].default
+    
+    
+    @property
+    def lastObserved(self) -> Union[None, int]:
+        """Getter: The timestamp the metadata was observed at"""
+        return self._inner_dict.get('lastObserved')  # type: ignore
+    
+    @lastObserved.setter
+    def lastObserved(self, value: Union[None, int]) -> None:
+        """Setter: The timestamp the metadata was observed at"""
+        self._inner_dict['lastObserved'] = value
+    
+    
+    @property
+    def runId(self) -> Union[None, str]:
+        """Getter: The run id that produced the metadata"""
+        return self._inner_dict.get('runId')  # type: ignore
+    
+    @runId.setter
+    def runId(self, value: Union[None, str]) -> None:
+        """Setter: The run id that produced the metadata"""
+        self._inner_dict['runId'] = value
+    
+    
+    @property
+    def properties(self) -> Union[None, Dict[str, str]]:
+        """Getter: Additional properties"""
+        return self._inner_dict.get('properties')  # type: ignore
+    
+    @properties.setter
+    def properties(self, value: Union[None, Dict[str, str]]) -> None:
+        """Setter: Additional properties"""
+        self._inner_dict['properties'] = value
     
     
 class ArrayTypeClass(DictWrapper):
@@ -8544,7 +8668,9 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.ml.metadata.SourceCodeUrlType': SourceCodeUrlTypeClass,
     'com.linkedin.pegasus2avro.ml.metadata.TrainingData': TrainingDataClass,
     'com.linkedin.pegasus2avro.mxe.MetadataAuditEvent': MetadataAuditEventClass,
+    'com.linkedin.pegasus2avro.mxe.MetadataAuditOperation': MetadataAuditOperationClass,
     'com.linkedin.pegasus2avro.mxe.MetadataChangeEvent': MetadataChangeEventClass,
+    'com.linkedin.pegasus2avro.mxe.SystemMetadata': SystemMetadataClass,
     'com.linkedin.pegasus2avro.schema.ArrayType': ArrayTypeClass,
     'com.linkedin.pegasus2avro.schema.BinaryJsonSchema': BinaryJsonSchemaClass,
     'com.linkedin.pegasus2avro.schema.BooleanType': BooleanTypeClass,
@@ -8700,7 +8826,9 @@ __SCHEMA_TYPES = {
     'SourceCodeUrlType': SourceCodeUrlTypeClass,
     'TrainingData': TrainingDataClass,
     'MetadataAuditEvent': MetadataAuditEventClass,
+    'MetadataAuditOperation': MetadataAuditOperationClass,
     'MetadataChangeEvent': MetadataChangeEventClass,
+    'SystemMetadata': SystemMetadataClass,
     'ArrayType': ArrayTypeClass,
     'BinaryJsonSchema': BinaryJsonSchemaClass,
     'BooleanType': BooleanTypeClass,
