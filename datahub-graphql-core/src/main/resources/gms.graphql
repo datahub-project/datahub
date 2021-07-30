@@ -1445,6 +1445,11 @@ type BrowseResults {
     """
 	entities: [Entity!]!
 
+	"""
+	The groups present at the provided browse path
+	"""
+	groups: [BrowseResultGroup!]!
+
     """
     The starting point of paginated results
     """
@@ -1471,10 +1476,7 @@ type BrowseResultMetadata {
     The provided path
     """
 	path: [String!]!
-	"""
-	The groups present at the provided browse path
-	"""
-	groups: [BrowseResultGroup!]!
+
     """
     The total number of entities under the provided browse path
     """

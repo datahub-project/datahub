@@ -3,15 +3,17 @@ package com.linkedin.entity.client;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
+import com.linkedin.entity.EntitiesDoBatchGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
+import com.linkedin.entity.EntitiesDoGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
@@ -245,5 +247,19 @@ public class EntityClient {
         EntitiesDoSetWritableRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionSetWritable().valueParam(canWrite);
         sendClientRequest(requestBuilder.build());
+    }
+
+    @Nonnull
+    public long getTotalEntityCount(@Nonnull String entityName) throws RemoteInvocationException {
+        EntitiesDoGetTotalEntityCountRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionGetTotalEntityCount().entityParam(entityName);
+        return sendClientRequest(requestBuilder.build()).getEntity();
+    }
+
+    @Nonnull
+    public Map<String, Long> batchGetTotalEntityCount(@Nonnull List<String> entityName) throws RemoteInvocationException {
+        EntitiesDoBatchGetTotalEntityCountRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionBatchGetTotalEntityCount().entitiesParam(new StringArray(entityName));
+        return sendClientRequest(requestBuilder.build()).getEntity();
     }
 }

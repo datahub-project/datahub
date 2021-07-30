@@ -2,14 +2,15 @@ package com.linkedin.metadata.resources.entity;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
@@ -33,6 +34,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -252,5 +254,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       _entityService.setWritable(value);
       return null;
     });
+  }
+
+  @Action(name = "getTotalEntityCount")
+  @Nonnull
+  public Task<Long> getTotalEntityCount(@ActionParam(PARAM_ENTITY) @Nonnull String entityName) {
+    return RestliUtils.toTask(() -> _searchService.docCount(entityName));
+  }
+
+  @Action(name = "batchGetTotalEntityCount")
+  @Nonnull
+  public Task<LongMap> batchGetTotalEntityCount(@ActionParam(PARAM_ENTITIES) @Nonnull String[] entityNames) {
+    return RestliUtils.toTask(() -> new LongMap(
+        Arrays.stream(entityNames).collect(Collectors.toMap(Function.identity(), _searchService::docCount))));
   }
 }

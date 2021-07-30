@@ -7,7 +7,7 @@ import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
@@ -91,6 +91,7 @@ public class ElasticSearchServiceTest {
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     BrowseResult browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
+    assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);
 
     Urn urn = new TestEntityUrn("test", "testUrn", "VALUE_1");
     ObjectNode document = JsonNodeFactory.instance.objectNode();
@@ -105,7 +106,8 @@ public class ElasticSearchServiceTest {
     assertEquals(searchResult.getEntities().get(0), urn);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 1);
-    assertEquals(browseResult.getMetadata().getGroups().get(0).getName(), "a");
+    assertEquals(browseResult.getGroups().get(0).getName(), "a");
+    assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 1);
 
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     TimeUnit.SECONDS.sleep(5);
@@ -113,5 +115,6 @@ public class ElasticSearchServiceTest {
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
+    assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);
   }
 }

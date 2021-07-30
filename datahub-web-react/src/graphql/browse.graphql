@@ -161,15 +161,15 @@ query getBrowseResults($input: BrowseInput!) {
                 }
             }
         }
+        groups {
+            name
+            count
+        }
         start
         count
         total
         metadata {
             path
-            groups {
-                name
-                count
-            }
             totalNumEntities
         }
     }

@@ -45,12 +45,12 @@ export class BrowsePathResolver {
         data: {
             browse: {
                 entities: [],
+                groups: [],
                 start: 0,
                 count: 0,
                 total: 0,
                 metadata: {
                     path: [],
-                    groups: [],
                     totalNumEntities: 0,
                     __typename: 'BrowseResultMetadata',
                 },
@@ -102,13 +102,13 @@ export class BrowsePathResolver {
                             browse: {
                                 ...dataBrowse,
                                 entities: chunkEntities,
+                                groups,
                                 start: startValue,
                                 count: chunkEntities.length,
                                 total: entities.length,
                                 metadata: {
                                     ...dataBrowse.metadata,
                                     path: paths,
-                                    groups,
                                     totalNumEntities: groups.reduce(this.sumTotalEntityByGroups, 0),
                                 },
                             },
