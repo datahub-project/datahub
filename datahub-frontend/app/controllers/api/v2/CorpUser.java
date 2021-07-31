@@ -13,6 +13,7 @@ import play.Logger;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
+import play.mvc.Results;
 import play.mvc.Security;
 import utils.ControllerUtil;
 
@@ -40,7 +41,7 @@ public class CorpUser extends Controller {
     @Nonnull
     public Result getCorpUser(@Nonnull String corpUserUrn) {
         try {
-            return ok(toJsonNode(_corpUserViewDao.get(corpUserUrn)));
+            return Results.ok(toJsonNode(_corpUserViewDao.get(corpUserUrn)));
         } catch (Exception e) {
             if (e.toString().contains("Response status 404")) {
                 return notFound(EMPTY_RESPONSE);
@@ -77,7 +78,7 @@ public class CorpUser extends Controller {
             CorpUserEditableInfo corpUserEditableInfo =
                     RecordUtils.toRecordTemplate(CorpUserEditableInfo.class, requestBody.toString());
             _corpUserViewDao.updateCorpUserEditableConfig(corpUserUrn, corpUserEditableInfo);
-            return ok(Json.newObject().set("updated", Json.toJson(true)));
+            return Results.ok((JsonNode) Json.newObject().set("updated", Json.toJson(true)));
         } catch (Exception e) {
             Logger.error("Failed to upsert corp user editable info", e);
             return internalServerError(ControllerUtil.errorResponse(e));

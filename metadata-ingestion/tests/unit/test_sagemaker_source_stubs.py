@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Any, Mapping
 
 list_feature_groups_response = {
     "FeatureGroupSummaries": [
@@ -1180,7 +1181,7 @@ describe_transform_job_response = {
     },
 }
 
-job_stubs = {
+job_stubs: Mapping[str, Mapping[str, Any]] = {
     "auto_ml": {
         "list": list_auto_ml_jobs_response,
         "describe": describe_auto_ml_job_response,

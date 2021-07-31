@@ -330,7 +330,13 @@ export const Ownership: React.FC<Props> = ({ owners, lastModifiedAt, updateOwner
                     Please maintain at least <b>{NUMBER_OWNERS_REQUIRED}</b> owners.
                 </Typography.Paragraph>
                 <Form form={form} component={false}>
-                    <Table pagination={false} columns={ownerTableColumns} dataSource={ownerTableData} rowKey="urn" />
+                    <Table
+                        bordered
+                        pagination={false}
+                        columns={ownerTableColumns}
+                        dataSource={ownerTableData}
+                        rowKey="urn"
+                    />
                 </Form>
                 {editingIndex < 0 && (
                     <Button type="link" onClick={onAdd}>

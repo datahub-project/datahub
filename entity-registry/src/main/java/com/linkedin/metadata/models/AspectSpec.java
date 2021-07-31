@@ -20,25 +20,21 @@ public class AspectSpec {
 
   public AspectSpec(@Nonnull final AspectAnnotation aspectAnnotation,
       @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
-      @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpec) {
-    this(aspectAnnotation, searchableFieldSpecs, relationshipFieldSpec, null);
-  }
-
-  public AspectSpec(
-      @Nonnull final AspectAnnotation aspectAnnotation,
-      @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
-      @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpec,
-      final RecordDataSchema schema) {
+      @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpecs, final RecordDataSchema schema) {
     _aspectAnnotation = aspectAnnotation;
     _searchableFieldSpecs = searchableFieldSpecs.stream()
         .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
-    _relationshipFieldSpecs = relationshipFieldSpec.stream()
+    _relationshipFieldSpecs = relationshipFieldSpecs.stream()
         .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
     _schema = schema;
   }
 
   public String getName() {
     return _aspectAnnotation.getName();
+  }
+
+  public boolean isTimeseries() {
+    return _aspectAnnotation.isTimeseries();
   }
 
   public Map<String, SearchableFieldSpec> getSearchableFieldSpecMap() {

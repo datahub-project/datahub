@@ -91,7 +91,7 @@ def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
         yield conn
 
 
-@mock.patch("datahub_provider.hooks.datahub.DatahubRestEmitter", autospec=True)
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
 def test_datahub_rest_hook(mock_emitter):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         hook = DatahubRestHook(config.conn_id)
@@ -102,7 +102,7 @@ def test_datahub_rest_hook(mock_emitter):
         instance.emit_mce.assert_called_with(lineage_mce)
 
 
-@mock.patch("datahub_provider.hooks.datahub.DatahubKafkaEmitter", autospec=True)
+@mock.patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter", autospec=True)
 def test_datahub_kafka_hook(mock_emitter):
     with patch_airflow_connection(datahub_kafka_connection_config) as config:
         hook = DatahubKafkaHook(config.conn_id)

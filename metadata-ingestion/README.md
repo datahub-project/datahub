@@ -50,6 +50,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | sqlalchemy      | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | snowflake       | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
 | snowflake-usage | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
+| sql-profiles    | `pip install 'acryl-datahub[sql-profiles]'`                | Data profiles for SQL-based systems |
 | superset        | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 | mongodb         | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
 | ldap            | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
@@ -57,7 +58,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | lookml          | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
 | kafka           | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
 | druid           | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| dbt             | _no additional dependencies_                               | dbt source                          |
+| dbt             | `pip install 'acryl-datahub[dbt]'`                         | dbt source                          |
 | datahub-rest    | `pip install 'acryl-datahub[datahub-rest]'`                | DataHub sink over REST API          |
 | datahub-kafka   | `pip install 'acryl-datahub[datahub-kafka]'`               | DataHub sink over Kafka             |
 
@@ -282,7 +283,7 @@ source:
     username: user # optional
     password: pass # optional
     host_port: localhost:10000
-    database: DemoDatabase # optional, defaults to 'default'
+    database: DemoDatabase # optional, if not specified, ingests from all databases
     # table_pattern/schema_pattern is same as above
     # options is same as above
 ```
@@ -421,7 +422,7 @@ source:
     password: pass
     host_port: account_name
     database_pattern:
-      # The escaping of the $ symbol helps us skip the environment variable substitution.
+      # The escaping of the \$ symbol helps us skip the environment variable substitution.
       allow:
         - ^MY_DEMO_DATA.*
         - ^ANOTHER_DB_REGEX
@@ -438,6 +439,65 @@ source:
 :::tip
 
 You can also get fine-grained usage statistics for Snowflake using the `snowflake-usage` source.
+
+:::
+
+### SQL Profiles `sql-profiles`
+
+The SQL-based profiler does not run alone, but rather can be enabled for other SQL-based sources.
+Enabling profiling will slow down ingestion runs.
+
+Extracts:
+
+- row and column counts for each table
+- for each column, if applicable:
+  - null counts and proportions
+  - distinct counts and proportions
+  - minimum, maximum, mean, median, standard deviation, some quantile values
+  - histograms or frequencies of unique values
+
+Supported SQL sources:
+
+- AWS Athena
+- BigQuery
+- Druid
+- Hive
+- Microsoft SQL Server
+- MySQL
+- Oracle
+- Postgres
+- Redshift
+- Snowflake
+- Generic SQLAlchemy source
+
+```yml
+source:
+  type: <sql-source> # can be bigquery, snowflake, etc - see above for the list
+  config:
+    # username, password, etc - varies by source type
+    profiling:
+      enabled: true
+      limit: 1000 # optional - max rows to profile
+      offset: 100 # optional - offset of first row to profile
+    profile_pattern:
+      deny:
+        # Skip all tables ending with "_staging"
+        - _staging\$
+      allow:
+        # Profile all tables in that start with "gold_" in "myschema"
+        - myschema\.gold_.*
+
+    # If you only want profiles (but no catalog information), set these to false
+    include_tables: true
+    include_views: true
+```
+
+:::caution
+
+Running profiling against many tables or over many rows can run up significant costs.
+While we've done our best to limit the expensiveness of the queries the profiler runs, you
+should be prudent about the set of tables profiling is enabled on or the frequency
+of the profiling runs.
 
 :::
 
@@ -979,58 +1039,9 @@ sink:
 
 ## Transformations
 
-Beyond basic ingestion, sometimes there might exist a need to modify the source data before passing it on to the sink.
-Example use cases could be to add ownership information, add extra tags etc.
+If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub.
 
-In such a scenario, it is possible to configure a recipe with a list of transformers.
-
-```yml
-transformers:
-  - type: "fully-qualified-class-name-of-transformer"
-    config:
-      some_property: "some.value"
-```
-
-A transformer class needs to inherit from [`Transformer`](./src/datahub/ingestion/api/transform.py).
-
-### `simple_add_dataset_ownership`
-
-Adds a set of owners to every dataset.
-
-```yml
-transformers:
-  - type: "simple_add_dataset_ownership"
-    config:
-      owner_urns:
-        - "urn:li:corpuser:username1"
-        - "urn:li:corpuser:username2"
-        - "urn:li:corpGroup:groupname"
-```
-
-:::tip
-
-If you'd like to add more complex logic for assigning ownership, you can use the more generic [`add_dataset_ownership` transformer](./src/datahub/ingestion/transformer/add_dataset_ownership.py), which calls a user-provided function to determine the ownership of each dataset.
-
-:::
-
-### `simple_add_dataset_tags`
-
-Adds a set of tags to every dataset.
-
-```yml
-transformers:
-  - type: "simple_add_dataset_tags"
-    config:
-      tag_urns:
-        - "urn:li:tag:NeedsDocumentation"
-        - "urn:li:tag:Legacy"
-```
-
-:::tip
-
-If you'd like to add more complex logic for assigning tags, you can use the more generic [`add_dataset_tags` transformer](./src/datahub/ingestion/transformer/add_dataset_tags.py), which calls a user-provided function to determine the tags for each dataset.
-
-:::
+Check out the [transformers guide](./transformers.md) for more info!
 
 ## Using as a library
 
@@ -1059,8 +1070,11 @@ If you're simply looking to run ingestion on a schedule, take a look at these sa
 The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
 
 :::
-
-1. First, you must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
+1. You need to install the required dependency in your airflow. See https://registry.astronomer.io/providers/datahub/modules/datahublineagebackend
+  ```shell
+    pip install acryl-datahub[airflow]
+  ```
+2. You must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
 
    ```shell
    # For REST-based:
@@ -1069,7 +1083,7 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
    airflow connections add  --conn-type 'datahub_kafka' 'datahub_kafka_default' --conn-host 'broker:9092' --conn-extra '{}'
    ```
 
-2. Add the following lines to your `airflow.cfg` file.
+3. Add the following lines to your `airflow.cfg` file.
    ```ini
    [lineage]
    backend = datahub_provider.lineage.datahub.DatahubLineageBackend
@@ -1085,8 +1099,8 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
    - `capture_ownership_info` (defaults to true): If true, the owners field of the DAG will be capture as a DataHub corpuser.
    - `capture_tags_info` (defaults to true): If true, the tags field of the DAG will be captured as DataHub tags.
    - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions.
-3. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./src/datahub_provider/example_dags/lineage_backend_demo.py), or reference [`lineage_backend_taskflow_demo.py`](./src/datahub_provider/example_dags/lineage_backend_taskflow_demo.py) if you're using the [TaskFlow API](https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html).
-4. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
+4. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](./src/datahub_provider/example_dags/lineage_backend_demo.py), or reference [`lineage_backend_taskflow_demo.py`](./src/datahub_provider/example_dags/lineage_backend_taskflow_demo.py) if you're using the [TaskFlow API](https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html).
+5. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
 
 ### Emitting lineage via a separate operator
 
@@ -1098,4 +1112,4 @@ In order to use this example, you must first configure the Datahub hook. Like in
 
 ## Developing
 
-See the [developing guide](./developing.md) or the [adding a source guide](./adding-source.md).
+See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./transformers.md).

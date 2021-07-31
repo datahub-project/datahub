@@ -1,7 +1,18 @@
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 from urllib.parse import quote_plus
 
 import pydantic
@@ -9,8 +20,14 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes as types
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub import __package_name__
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    ConfigurationError,
+)
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -32,7 +49,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
     TimeTypeClass,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -86,6 +106,12 @@ class SQLSourceReport(SourceReport):
         self.filtered.append(ent_name)
 
 
+class GEProfilingConfig(ConfigModel):
+    enabled: bool = False
+    limit: Optional[int] = None
+    offset: Optional[int] = None
+
+
 class SQLAlchemyConfig(ConfigModel):
     env: str = DEFAULT_ENV
     options: dict = {}
@@ -96,23 +122,16 @@ class SQLAlchemyConfig(ConfigModel):
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
     include_views: Optional[bool] = True
     include_tables: Optional[bool] = True
 
+    profiling: GEProfilingConfig = GEProfilingConfig()
+
     @abstractmethod
     def get_sql_alchemy_url(self):
         pass
-
-    def get_identifier(self, schema: str, table: str) -> str:
-        return f"{schema}.{table}"
-
-    def standardize_schema_table_names(
-        self, schema: str, entity: str
-    ) -> Tuple[str, str]:
-        # Some SQLAlchemy dialects need a standardization step to clean the schema
-        # and table names. See BigQuery for an example of when this is useful.
-        return schema, entity
 
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
@@ -134,7 +153,6 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
         )
 
 
-@dataclass
 class SqlWorkUnit(MetadataWorkUnit):
     pass
 
@@ -156,7 +174,7 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     types.DATETIME: TimeTypeClass,
     types.TIMESTAMP: TimeTypeClass,
     types.JSON: RecordTypeClass,
-    # When SQLAlchemy is unable to map a type into its internally hierarchy, it
+    # When SQLAlchemy is unable to map a type into its internal hierarchy, it
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
 }
@@ -255,6 +273,12 @@ class SQLAlchemySource(Source):
         self.platform = platform
         self.report = SQLSourceReport()
 
+        if self.config.profiling.enabled and not self._can_run_profiler():
+            raise ConfigurationError(
+                "Table profiles requested but profiler plugin is not enabled. "
+                f"Try running: pip install '{__package_name__}[sql-profiler]'"
+            )
+
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
@@ -262,17 +286,24 @@ class SQLAlchemySource(Source):
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
-        inspector = inspect(engine)
-        yield inspector
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+            yield inspector
 
-    def get_workunits(self) -> Iterable[SqlWorkUnit]:
+    def get_schema_names(self, inspector):
+        return inspector.get_schema_names()
+
+    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
-            sql_config.options["echo"] = True
+            sql_config.options.setdefault("echo", True)
 
         for inspector in self.get_inspectors():
-            for schema in inspector.get_schema_names():
+            if sql_config.profiling.enabled:
+                profiler = self._get_profiler_instance(inspector)
+
+            for schema in self.get_schema_names(inspector):
                 if not sql_config.schema_pattern.allowed(schema):
                     self.report.report_dropped(f"{schema}.*")
                     continue
@@ -283,6 +314,29 @@ class SQLAlchemySource(Source):
                 if sql_config.include_views:
                     yield from self.loop_views(inspector, schema, sql_config)
 
+                if sql_config.profiling.enabled:
+                    yield from self.loop_profiler(
+                        inspector, profiler, schema, sql_config
+                    )
+
+    def standardize_schema_table_names(
+        self, schema: str, entity: str
+    ) -> Tuple[str, str]:
+        # Some SQLAlchemy dialects need a standardization step to clean the schema
+        # and table names. See BigQuery for an example of when this is useful.
+        return schema, entity
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        # Many SQLAlchemy dialects have three-level hierarchies. This method, which
+        # subclasses can override, enables them to modify the identifers as needed.
+        if hasattr(self.config, "get_identifier"):
+            # This path is deprecated and will eventually be removed.
+            return self.config.get_identifier(schema=schema, table=entity)  # type: ignore
+        else:
+            return f"{schema}.{entity}"
+
     def loop_tables(
         self,
         inspector: Inspector,
@@ -290,8 +344,12 @@ class SQLAlchemySource(Source):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[SqlWorkUnit]:
         for table in inspector.get_table_names(schema):
-            schema, table = sql_config.standardize_schema_table_names(schema, table)
-            dataset_name = sql_config.get_identifier(schema, table)
+            schema, table = self.standardize_schema_table_names(
+                schema=schema, entity=table
+            )
+            dataset_name = self.get_identifier(
+                schema=schema, entity=table, inspector=inspector
+            )
             self.report.report_entity_scanned(dataset_name, ent_type="table")
 
             if not sql_config.table_pattern.allowed(dataset_name):
@@ -345,8 +403,12 @@ class SQLAlchemySource(Source):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[SqlWorkUnit]:
         for view in inspector.get_view_names(schema):
-            schema, view = sql_config.standardize_schema_table_names(schema, view)
-            dataset_name = sql_config.get_identifier(schema, view)
+            schema, view = self.standardize_schema_table_names(
+                schema=schema, entity=view
+            )
+            dataset_name = self.get_identifier(
+                schema=schema, entity=view, inspector=inspector
+            )
             self.report.report_entity_scanned(dataset_name, ent_type="view")
 
             if not sql_config.view_pattern.allowed(dataset_name):
@@ -411,6 +473,67 @@ class SQLAlchemySource(Source):
             wu = SqlWorkUnit(id=dataset_name, mce=mce)
             self.report.report_workunit(wu)
             yield wu
+
+    def _can_run_profiler(self) -> bool:
+        try:
+            from datahub.ingestion.source.ge_data_profiler import (  # noqa: F401
+                DatahubGEProfiler,
+            )
+
+            return True
+        except Exception:
+            return False
+
+    def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
+        from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+
+        return DatahubGEProfiler(conn=inspector.bind, report=self.report)
+
+    def loop_profiler(
+        self,
+        inspector: Inspector,
+        profiler: "DatahubGEProfiler",
+        schema: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[MetadataWorkUnit]:
+        for table in inspector.get_table_names(schema):
+            schema, table = self.standardize_schema_table_names(
+                schema=schema, entity=table
+            )
+            dataset_name = self.get_identifier(
+                schema=schema, entity=table, inspector=inspector
+            )
+            self.report.report_entity_scanned(f"profile of {dataset_name}")
+
+            if not sql_config.profile_pattern.allowed(dataset_name):
+                self.report.report_dropped(f"profile of {dataset_name}")
+                continue
+
+            logger.info(f"Profiling {dataset_name} (this may take a while)")
+            profile = profiler.generate_profile(
+                pretty_name=dataset_name,
+                **self.prepare_profiler_args(schema=schema, table=table),
+            )
+            logger.debug(f"Finished profiling {dataset_name}")
+
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
+                changeType=ChangeTypeClass.UPSERT,
+                aspectName="datasetProfile",
+                aspect=profile,
+            )
+            wu = MetadataWorkUnit(id=f"profile-{dataset_name}", mcp=mcp)
+            self.report.report_workunit(wu)
+            yield wu
+
+    def prepare_profiler_args(self, schema: str, table: str) -> dict:
+        return dict(
+            schema=schema,
+            table=table,
+            limit=self.config.profiling.limit,
+            offset=self.config.profiling.offset,
+        )
 
     def get_report(self):
         return self.report

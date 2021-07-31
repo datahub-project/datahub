@@ -247,6 +247,19 @@ You can also allow communication via HTTP (without SSL) by using the settings be
     indexPrefix: demo
 ```
 
+Lastly, you need to set the following env variable for **elasticsearchSetupJob**. 
+
+```
+  elasticsearchSetupJob:
+    enabled: true
+    image:
+      repository: linkedin/datahub-elasticsearch-setup
+      tag: "***"
+    extraEnvs:
+      - name: USE_AWS_ELASTICSEARCH
+        value: "true"
+```
+
 Run `helm install datahub datahub/ --values datahub/quickstart-values.yaml` to apply the changes.
 
 ### Managed Streaming for Apache Kafka (MSK)

@@ -83,7 +83,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -222,7 +227,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -436,7 +446,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -551,7 +566,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -673,7 +693,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -852,7 +877,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -956,7 +986,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1075,7 +1110,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1182,7 +1222,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1391,7 +1436,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1540,7 +1590,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1693,7 +1748,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1842,7 +1902,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -1991,7 +2056,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -2140,7 +2210,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -2289,6 +2364,11 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-with-schemas",
+        "properties": null
+    }
 }
 ]

@@ -104,8 +104,11 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
 
 class BaseUsageConfig(ConfigModel):
-    # start_time and end_time will be populated by the validators.
     bucket_duration: BucketDuration = BucketDuration.DAY
+
+    # `start_time` and `end_time` will be populated by the pre-validators.
+    # However, we must specific a "default" value here or pydantic will complain
+    # if those fields are not set by the user.
     end_time: datetime = None  # type: ignore
     start_time: datetime = None  # type: ignore
 
@@ -122,3 +125,11 @@ class BaseUsageConfig(ConfigModel):
         return v or (
             values["end_time"] - get_bucket_duration_delta(values["bucket_duration"])
         )
+
+    @pydantic.validator("start_time", "end_time")
+    def ensure_timestamps_in_utc(cls, v: datetime) -> datetime:
+        if v.tzinfo != timezone.utc:
+            raise ValueError(
+                'timezone is not UTC; try adding a "Z" to the value e.g. "2021-07-20T00:00:00Z"'
+            )
+        return v

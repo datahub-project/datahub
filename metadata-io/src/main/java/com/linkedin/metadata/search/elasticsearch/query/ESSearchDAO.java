@@ -10,6 +10,7 @@ import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import java.io.IOException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,8 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.core.CountRequest;
+import org.elasticsearch.index.query.QueryBuilders;
 
 
 /**
@@ -30,6 +33,18 @@ public class ESSearchDAO {
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient client;
   private final IndexConvention indexConvention;
+
+  public long docCount(@Nonnull String entityName) {
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    CountRequest countRequest =
+        new CountRequest(indexConvention.getIndexName(entitySpec)).query(QueryBuilders.matchAllQuery());
+    try {
+      return client.count(countRequest, RequestOptions.DEFAULT).getCount();
+    } catch (IOException e) {
+      log.error("Count query failed:" + e.getMessage());
+      throw new ESQueryException("Count query failed:", e);
+    }
+  }
 
   @Nonnull
   private SearchResult executeAndExtract(@Nonnull EntitySpec entitySpec, @Nonnull SearchRequest searchRequest, int from,

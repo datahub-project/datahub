@@ -1,8 +1,8 @@
 package com.linkedin.metadata.search;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
@@ -19,6 +19,13 @@ public interface SearchService {
    * Clear all data within the service
    */
   void clear();
+
+  /**
+   * Get the number of documents corresponding to the entity
+   *
+   * @param entityName name of the entity
+   */
+  long docCount(@Nonnull String entityName);
 
   /**
    * Updates or inserts the given search document.

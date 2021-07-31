@@ -27,12 +27,6 @@ class HiveConfig(BasicSQLAlchemyConfig):
     # Disabling views helps us prevent this duplication.
     include_views = False
 
-    def get_identifier(self, schema: str, table: str) -> str:
-        regular = f"{schema}.{table}"
-        if self.database:
-            return f"{self.database}.{regular}"
-        return regular
-
 
 class HiveSource(SQLAlchemySource):
     def __init__(self, config, ctx):
@@ -42,3 +36,11 @@ class HiveSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = HiveConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_schema_names(self, inspector):
+        assert isinstance(self.config, HiveConfig)
+        # This condition restricts the ingestion to the specified database.
+        if self.config.database:
+            return [self.config.database]
+        else:
+            return super().get_schema_names(inspector)

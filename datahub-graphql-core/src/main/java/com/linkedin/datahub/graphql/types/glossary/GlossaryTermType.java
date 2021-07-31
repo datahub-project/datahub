@@ -17,14 +17,14 @@ import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
-import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 
 import graphql.execution.DataFetcherResult;
@@ -80,7 +80,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                         gmsGlossaryTerm == null ? null
                             : DataFetcherResult.<GlossaryTerm>newResult()
                                 .data(GlossaryTermSnapshotMapper.map(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
-                                .localContext(SnapshotToAspectMap.extractAspectMap(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
+                                .localContext(AspectExtractor.extractAspects(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
                                 .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
@@ -126,18 +126,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                 facetFilters,
                 start,
                 count);
-        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<GlossaryTerm> glossaryTerms = batchLoad(urns, context).stream().map(term -> term.getData()).collect(
-            Collectors.toList());
-        final BrowseResults browseResults = new BrowseResults();
-        browseResults.setStart(result.getFrom());
-        browseResults.setCount(result.getPageSize());
-        browseResults.setTotal(result.getNumEntities());
-        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
-        browseResults.setEntities(glossaryTerms.stream()
-                .map(glossaryTerm -> (com.linkedin.datahub.graphql.generated.Entity) glossaryTerm)
-                .collect(Collectors.toList()));
-        return browseResults;
+        return BrowseResultMapper.map(result);
     }
 
     @Override
