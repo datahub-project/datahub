@@ -1,7 +1,6 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.common.urn.Urn;
-
 import com.linkedin.data.element.DataElement;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
@@ -11,11 +10,12 @@ import com.linkedin.gms.factory.usage.UsageServiceFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.extractor.FieldExtractor;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.kafka.config.MetadataAuditEventsProcessorCondition;
+import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -57,8 +56,9 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 
 @Slf4j
 @Component
-@Conditional(MetadataAuditEventsProcessorCondition.class)
-@Import({GraphServiceFactory.class, SearchServiceFactory.class, UsageServiceFactory.class, SystemMetadataServiceFactory.class})
+@Conditional(MetadataChangeLogProcessorCondition.class)
+@Import({GraphServiceFactory.class, SearchServiceFactory.class, UsageServiceFactory.class,
+    SystemMetadataServiceFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {
 
@@ -68,13 +68,8 @@ public class MetadataAuditEventsProcessor {
   private final SystemMetadataService _systemMetadataService;
 
   @Autowired
-  public MetadataAuditEventsProcessor(
-      GraphService graphService,
-      SearchService searchService,
-      UsageService usageService,
-      SystemMetadataService systemMetadataService
-  ) {
-
+  public MetadataAuditEventsProcessor(GraphService graphService, SearchService searchService, UsageService usageService,
+      SystemMetadataService systemMetadataService) {
     _graphService = graphService;
     _searchService = searchService;
     _usageService = usageService;
@@ -111,14 +106,17 @@ public class MetadataAuditEventsProcessor {
 
         final EntitySpec entitySpec =
             SnapshotEntityRegistry.getInstance().getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
-
-        updateSearchService(snapshot, entitySpec, true);
-        updateGraphService(snapshot, entitySpec, true);
+        final Map<String, DataElement> aspectsToUpdate = AspectExtractor.extractAspects(snapshot);
+        boolean deleteEntity =
+            aspectsToUpdate.containsKey(entitySpec.getKeyAspectName()) && aspectsToUpdate.keySet().size() == 1;
+        updateSearchService(snapshot, entitySpec, true, deleteEntity);
+        updateGraphService(snapshot, entitySpec, true, deleteEntity);
         updateSystemMetadata(RecordUtils.getSelectedRecordTemplateFromUnion(event.getOldSnapshot()),
             event.hasNewSnapshot() ? RecordUtils.getSelectedRecordTemplateFromUnion(event.getNewSnapshot()) : null,
             event.hasNewSystemMetadata() ? event.getNewSystemMetadata() : null, operation, entitySpec);
         return;
       }
+
       final RecordTemplate snapshot = RecordUtils.getSelectedRecordTemplateFromUnion(event.getNewSnapshot());
       RecordTemplate oldSnapshot = null;
 
@@ -130,8 +128,8 @@ public class MetadataAuditEventsProcessor {
 
       final EntitySpec entitySpec =
           SnapshotEntityRegistry.getInstance().getEntitySpec(PegasusUtils.getEntityNameFromSchema(snapshot.schema()));
-      updateSearchService(snapshot, entitySpec, false);
-      updateGraphService(snapshot, entitySpec, false);
+      updateSearchService(snapshot, entitySpec, false, false);
+      updateGraphService(snapshot, entitySpec, false, false);
       updateSystemMetadata(oldSnapshot, snapshot, event.getNewSystemMetadata(), operation, entitySpec);
     } catch (Exception e) {
       log.error("Error deserializing message: {}", e.toString());
@@ -139,13 +137,9 @@ public class MetadataAuditEventsProcessor {
     }
   }
 
-  private void updateSystemMetadata(
-      @Nullable final RecordTemplate oldSnapshot,
-      @Nullable final RecordTemplate newSnapshot,
-      @Nullable final SystemMetadata newSystemMetadata,
-      @Nonnull final MetadataAuditOperation operation,
-      @Nonnull  final EntitySpec entitySpec
-  ) {
+  private void updateSystemMetadata(@Nullable final RecordTemplate oldSnapshot,
+      @Nullable final RecordTemplate newSnapshot, @Nullable final SystemMetadata newSystemMetadata,
+      @Nonnull final MetadataAuditOperation operation, @Nonnull final EntitySpec entitySpec) {
 
     // if we are deleting the aspect, we want to remove it from the index
     if (operation.equals(MetadataAuditOperation.DELETE)) {
@@ -153,7 +147,7 @@ public class MetadataAuditEventsProcessor {
         return;
       }
 
-      Map<String, DataElement> oldAspects = SnapshotToAspectMap.extractAspectMap(oldSnapshot);
+      Map<String, DataElement> oldAspects = AspectExtractor.extractAspects(oldSnapshot);
       String oldUrn = oldSnapshot.data().get("urn").toString();
       String finalOldUrn = oldUrn;
       // an MAE containing just a key signifies that the entity is being deleted- only then should we delete the key
@@ -170,7 +164,7 @@ public class MetadataAuditEventsProcessor {
 
     // otherwise, we want to update the index with a new run id
     if (newSnapshot != null) {
-      Map<String, DataElement> newAspects = SnapshotToAspectMap.extractAspectMap(newSnapshot);
+      Map<String, DataElement> newAspects = AspectExtractor.extractAspects(newSnapshot);
 
       final String newUrn = newSnapshot.data().get("urn").toString();
 
@@ -185,11 +179,12 @@ public class MetadataAuditEventsProcessor {
   }
 
   /**
-   * Process snapshot and update Neo4j
+   * Process snapshot and update graph index
    *
    * @param snapshot Snapshot
    */
-  private void updateGraphService(final RecordTemplate snapshot, final EntitySpec entitySpec, final Boolean delete) {
+  private void updateGraphService(final RecordTemplate snapshot, final EntitySpec entitySpec, final boolean delete,
+      final boolean deleteEntity) {
     final Set<String> relationshipTypesBeingAdded = new HashSet<>();
     final List<Edge> edgesToAdd = new ArrayList<>();
     final String sourceUrnStr = snapshot.data().get("urn").toString();
@@ -201,18 +196,15 @@ public class MetadataAuditEventsProcessor {
       return;
     }
 
-    Map<String, List<RelationshipFieldSpec>> relationshipFieldSpecsPerAspect = entitySpec.getAspectSpecMap()
-        .entrySet()
-        .stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getRelationshipFieldSpecs()));
     Map<RelationshipFieldSpec, List<Object>> extractedFields =
-        FieldExtractor.extractFields(snapshot, relationshipFieldSpecsPerAspect);
+        FieldExtractor.extractFieldsFromSnapshot(snapshot, entitySpec, AspectSpec::getRelationshipFieldSpecs);
 
     for (Map.Entry<RelationshipFieldSpec, List<Object>> entry : extractedFields.entrySet()) {
       relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
       for (Object fieldValue : entry.getValue()) {
         try {
-          edgesToAdd.add(new Edge(sourceUrn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName()));
+          edgesToAdd.add(
+              new Edge(sourceUrn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName()));
         } catch (URISyntaxException e) {
           log.info("Invalid destination urn: {}", e.getLocalizedMessage());
         }
@@ -224,28 +216,25 @@ public class MetadataAuditEventsProcessor {
             createRelationshipFilter(new Filter().setCriteria(new CriterionArray()), RelationshipDirection.OUTGOING));
         if (!delete) {
           edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
-        } else {
-          // if the only aspect being deleted is the key aspect, that means the entity as a whole is being removed
-          Map<String, DataElement> aspectsToUpdate = SnapshotToAspectMap.extractAspectMap(snapshot);
-          if (aspectsToUpdate.containsKey(entitySpec.getKeyAspectName()) && aspectsToUpdate.keySet().size() == 1) {
-            _graphService.removeNode(sourceUrn);
-          }
+        } else if (deleteEntity) {
+          _graphService.removeNode(sourceUrn);
         }
       }).start();
     }
   }
 
   /**
-   * Process snapshot and update Elasticsearch
+   * Process snapshot and update search index
    *
    * @param snapshot Snapshot
    */
-  private void updateSearchService(final RecordTemplate snapshot, final EntitySpec entitySpec, final Boolean delete) {
+  private void updateSearchService(final RecordTemplate snapshot, final EntitySpec entitySpec, final boolean delete,
+      final boolean deleteEntity) {
     String urn = snapshot.data().get("urn").toString();
     Optional<String> searchDocument;
 
     try {
-      searchDocument = SearchDocumentTransformer.transform(snapshot, entitySpec, delete);
+      searchDocument = SearchDocumentTransformer.transformSnapshot(snapshot, entitySpec, delete);
     } catch (Exception e) {
       log.error("Error in getting documents from snapshot: {} for snapshot {}", e, snapshot);
       return;
@@ -263,10 +252,7 @@ public class MetadataAuditEventsProcessor {
       return;
     }
 
-    Map<String, DataElement> aspectsToUpdate = SnapshotToAspectMap.extractAspectMap(snapshot);
-
-    // if the only aspect being deleted is the key aspect, that means the entity as a whole is being removed
-    if (delete && aspectsToUpdate.containsKey(entitySpec.getKeyAspectName()) && aspectsToUpdate.keySet().size() == 1) {
+    if (deleteEntity) {
       _searchService.deleteDocument(entitySpec.getName(), docId);
       return;
     }

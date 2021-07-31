@@ -22,5 +22,11 @@ public interface IndexConvention {
   String getIndexName(String baseIndexName);
 
   @Nonnull
-  String getAllIndicesPattern();
+  String getTimeseriesAspectIndexName(String entityName, String aspectName);
+
+  @Nonnull
+  String getAllEntityIndicesPattern();
+
+  @Nonnull
+  String getAllTimeseriesAspectIndicesPattern();
 }

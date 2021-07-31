@@ -43,703 +43,933 @@ You can access basic documentation on the API endpoints by opening the `/restli/
 python -c "import webbrowser; webbrowser.open('http://localhost:8080/restli/docs', new=2)"
 ```
 
+*Please note that because DataHub is in a period of rapid development, the APIs below are subject to change. 
+
 ## Sample API Calls
 
-> As GMS uses [Rest.li 2.0 protocol](https://linkedin.github.io/rest.li/spec/protocol), please make sure to add `-H 'X-RestLi-Protocol-Version:2.0.0'` to all curl calls
+### Ingest Entity API V1: Write Entity Snapshots
 
-### Create user
-```
-curl 'http://localhost:8080/corpUsers?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot": {"aspects": [{"com.linkedin.identity.CorpUserInfo":{"active": true, "displayName": "Foo Bar", "fullName": "Foo Bar", "email": "fbar@linkedin.com"}}, {"com.linkedin.identity.CorpUserEditableInfo":{}}], "urn": "urn:li:corpuser:fbar"}}'
-```
+The Entity Snapshot Ingest endpoints allow you to ingest multiple aspects about a particular entity at the same time. 
 
-### Create group
-```
-curl 'http://localhost:8080/corpGroups?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot": {"aspects": [{"com.linkedin.identity.CorpGroupInfo":{"email": "dev@linkedin.com", "admins": ["urn:li:corpUser:jdoe"], "members": ["urn:li:corpUser:datahub", "urn:li:corpUser:jdoe"], "groups": []}}], "urn": "urn:li:corpGroup:dev"}}'
-```
-
-### Create dataset
-```
-curl 'http://localhost:8080/datasets?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot": {"aspects":[{"com.linkedin.common.Ownership":{"owners":[{"owner":"urn:li:corpuser:fbar","type":"DATAOWNER"}],"lastModified":{"time":0,"actor":"urn:li:corpuser:fbar"}}},{"com.linkedin.dataset.UpstreamLineage":{"upstreams":[{"auditStamp":{"time":0,"actor":"urn:li:corpuser:fbar"},"dataset":"urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)","type":"TRANSFORMED"}]}},{"com.linkedin.common.InstitutionalMemory":{"elements":[{"url":"https://www.linkedin.com","description":"Sample doc","createStamp":{"time":0,"actor":"urn:li:corpuser:fbar"}}]}},{"com.linkedin.schema.SchemaMetadata":{"schemaName":"FooEvent","platform":"urn:li:dataPlatform:foo","version":0,"created":{"time":0,"actor":"urn:li:corpuser:fbar"},"lastModified":{"time":0,"actor":"urn:li:corpuser:fbar"},"hash":"","platformSchema":{"com.linkedin.schema.KafkaSchema":{"documentSchema":"{\"type\":\"record\",\"name\":\"MetadataChangeEvent\",\"namespace\":\"com.linkedin.mxe\",\"doc\":\"Kafka event for proposing a metadata change for an entity.\",\"fields\":[{\"name\":\"auditHeader\",\"type\":{\"type\":\"record\",\"name\":\"KafkaAuditHeader\",\"namespace\":\"com.linkedin.avro2pegasus.events\",\"doc\":\"Header\"}}]}"}},"fields":[{"fieldPath":"foo","description":"Bar","nativeDataType":"string","type":{"type":{"com.linkedin.schema.StringType":{}}}}]}}],"urn":"urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"}}'
-```
-
-### Create chart
-```
-curl 'http://localhost:8080/charts?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot":{"aspects":[{"com.linkedin.chart.ChartInfo":{"title":"Baz Chart 1","description":"Baz Chart 1","inputs":[{"string":"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"}],"lastModified":{"created":{"time":0,"actor":"urn:li:corpuser:jdoe"},"lastModified":{"time":0,"actor":"urn:li:corpuser:datahub"}}}}],"urn":"urn:li:chart:(looker,baz1)"}}'
-```
-
-### Create dashboards
-```
-curl 'http://localhost:8080/dashboards?action=ingest' -X POST -H 'X-RestLi-Protocol-Version:2.0.0' --data '{"snapshot":{"aspects":[{"com.linkedin.dashboard.DashboardInfo":{"title":"Baz Dashboard","description":"Baz Dashboard","charts":["urn:li:chart:(looker,baz1)","urn:li:chart:(looker,baz2)"],"lastModified":{"created":{"time":0,"actor":"urn:li:corpuser:jdoe"},"lastModified":{"time":0,"actor":"urn:li:corpuser:datahub"}}}}],"urn":"urn:li:dashboard:(looker,baz)"}}'
-```
-
-### Get all dataplatforms 
+#### Create a user
 
 ```
-curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get_all' 'http://localhost:8080/dataPlatforms' | jq
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.CorpUserSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.identity.CorpUserInfo":{
+                     "active":true,
+                     "displayName":"Foo Bar",
+                     "fullName":"Foo Bar",
+                     "email":"fbar@linkedin.com"
+                  }
+               }
+            ],
+            "urn":"urn:li:corpuser:footbarusername"
+         }
+      }
+   }
+}'
 ```
 
-### Get dataplatform
+#### Create a group
 
 ```
-curl 'http://localhost:8080/dataPlatforms/hdfs?aspects=List(com.linkedin.dataplatform.DataPlatformInfo)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.CorpGroupSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.identity.CorpGroupInfo":{
+                     "email":"dev@linkedin.com",
+                     "admins":[
+                        "urn:li:corpUser:jdoe"
+                     ],
+                     "members":[
+                        "urn:li:corpUser:datahub",
+                        "urn:li:corpUser:jdoe"
+                     ],
+                     "groups":[
+                        
+                     ]
+                  }
+               }
+            ],
+            "urn":"urn:li:corpGroup:dev"
+         }
+      }
+   }
+}'
+```
+
+#### Create a dataset
+```
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.DatasetSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.common.Ownership":{
+                     "owners":[
+                        {
+                           "owner":"urn:li:corpuser:fbar",
+                           "type":"DATAOWNER"
+                        }
+                     ],
+                     "lastModified":{
+                        "time":0,
+                        "actor":"urn:li:corpuser:fbar"
+                     }
+                  }
+               },
+               {
+                  "com.linkedin.common.InstitutionalMemory":{
+                     "elements":[
+                        {
+                           "url":"https://www.linkedin.com",
+                           "description":"Sample doc",
+                           "createStamp":{
+                              "time":0,
+                              "actor":"urn:li:corpuser:fbar"
+                           }
+                        }
+                     ]
+                  }
+               },
+               {
+                  "com.linkedin.schema.SchemaMetadata":{
+                     "schemaName":"FooEvent",
+                     "platform":"urn:li:dataPlatform:foo",
+                     "version":0,
+                     "created":{
+                        "time":0,
+                        "actor":"urn:li:corpuser:fbar"
+                     },
+                     "lastModified":{
+                        "time":0,
+                        "actor":"urn:li:corpuser:fbar"
+                     },
+                     "hash":"",
+                     "platformSchema":{
+                        "com.linkedin.schema.KafkaSchema":{
+                           "documentSchema":"{\"type\":\"record\",\"name\":\"MetadataChangeEvent\",\"namespace\":\"com.linkedin.mxe\",\"doc\":\"Kafka event for proposing a metadata change for an entity.\",\"fields\":[{\"name\":\"auditHeader\",\"type\":{\"type\":\"record\",\"name\":\"KafkaAuditHeader\",\"namespace\":\"com.linkedin.avro2pegasus.events\",\"doc\":\"Header\"}}]}"
+                        }
+                     },
+                     "fields":[
+                        {
+                           "fieldPath":"foo",
+                           "description":"Bar",
+                           "nativeDataType":"string",
+                           "type":{
+                              "type":{
+                                 "com.linkedin.schema.StringType":{
+                                    
+                                 }
+                              }
+                           }
+                        }
+                     ]
+                  }
+               }
+            ],
+            "urn":"urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"
+         }
+      }
+   }
+}'
+```
+
+#### Create a chart
+```
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.ChartSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.chart.ChartInfo":{
+                     "title":"Baz Chart 1",
+                     "description":"Baz Chart 1",
+                     "inputs":[
+                        {
+                           "string":"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
+                        }
+                     ],
+                     "lastModified":{
+                        "created":{
+                           "time":0,
+                           "actor":"urn:li:corpuser:jdoe"
+                        },
+                        "lastModified":{
+                           "time":0,
+                           "actor":"urn:li:corpuser:datahub"
+                        }
+                     }
+                  }
+               }
+            ],
+            "urn":"urn:li:chart:(looker,baz1)"
+         }
+      }
+   }
+}'
+```
+
+#### Create a dashboard
+```
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.DashboardSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.dashboard.DashboardInfo":{
+                     "title":"Baz Dashboard",
+                     "description":"Baz Dashboard",
+                     "charts":[
+                        "urn:li:chart:(looker,baz1)",
+                        "urn:li:chart:(looker,baz2)"
+                     ],
+                     "lastModified":{
+                        "created":{
+                           "time":0,
+                           "actor":"urn:li:corpuser:jdoe"
+                        },
+                        "lastModified":{
+                           "time":0,
+                           "actor":"urn:li:corpuser:datahub"
+                        }
+                     }
+                  }
+               }
+            ],
+            "urn":"urn:li:dashboard:(looker,baz)"
+         }
+      }
+   }
+}'
+```
+
+### Entity API V1: Get Entity Snapshots  
+
+The Entity Snapshot Get APIs allow to retrieve the latest version of each aspect associated with an Entity. 
+
+In general, when reading entities by primary key (urn), you will use the general-purpose `entities` endpoints. To fetch by primary key (urn), you'll
+issue a query of the following form:
+
+```
+curl  'http://localhost:8080/entities/<url-encoded-entity-urn>'
+```
+
+#### Get a CorpUser
+
+```
+curl 'http://localhost:8080/entities/urn%3Ali%3Acorpuser%3Afbar'
+
 {
-  "name": "hdfs",
-  "dataPlatformInfo": {
-    "name": "hdfs",
-    "type": "FILE_SYSTEM",
-    "datasetNameDelimiter": "/"
-  }
+   "value":{
+      "com.linkedin.metadata.snapshot.CorpUserSnapshot":{
+         "urn":"urn:li:corpuser:fbar",
+         "aspects":[
+            {
+               "com.linkedin.metadata.key.CorpUserKey":{
+                  "username":"fbar"
+               }
+            },
+            {
+               "com.linkedin.identity.CorpUserInfo":{
+                  "active":true,
+                  "fullName":"Foo Bar",
+                  "displayName":"Foo Bar",
+                  "email":"fbar@linkedin.com"
+               }
+            },
+            {
+               "com.linkedin.identity.CorpUserEditableInfo":{
+                  
+               }
+            }
+         ]
+      }
+   }
 }
 ```
 
-### Get user
+
+#### Get a CorpGroup
+
 ```
-curl 'http://localhost:8080/corpUsers/($params:(),name:fbar)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+curl 'http://localhost:8080/entities/urn%3Ali%3AcorpGroup%3Adev'
 
 {
-  "editableInfo": {},
-  "username": "fbar",
-  "info": {
-    "displayName": "Foo Bar",
-    "active": true,
-    "fullName": "Foo Bar",
-    "email": "fbar@linkedin.com"
-  }
+   "value":{
+      "com.linkedin.metadata.snapshot.CorpGroupSnapshot":{
+         "urn":"urn:li:corpGroup:dev",
+         "aspects":[
+            {
+               "com.linkedin.metadata.key.CorpGroupKey":{
+                  "name":"dev"
+               }
+            },
+            {
+               "com.linkedin.identity.CorpGroupInfo":{
+                  "groups":[
+                     
+                  ],
+                  "email":"dev@linkedin.com",
+                  "admins":[
+                     "urn:li:corpUser:jdoe"
+                  ],
+                  "members":[
+                     "urn:li:corpUser:datahub",
+                     "urn:li:corpUser:jdoe"
+                  ]
+               }
+            }
+         ]
+      }
+   }
 }
 ```
 
-### Get group
+#### Get a Dataset
 ```
-curl 'http://localhost:8080/corpGroups/($params:(),name:dev)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+curl 'http://localhost:8080/entities/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3Afoo,bar,PROD)'
 
 {
-  "name": "dev",
-  "info": {
-    "groups": [],
-    "email": "dev@linkedin.com",
-    "admins": [
-      "urn:li:corpuser:jdoe"
-    ],
-    "members": [
-      "urn:li:corpuser:datahub",
-      "urn:li:corpuser:jdoe"
-    ]
-  }
+   "value":{
+      "com.linkedin.metadata.snapshot.DatasetSnapshot":{
+         "urn":"urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+         "aspects":[
+            {
+               "com.linkedin.metadata.key.DatasetKey":{
+                  "origin":"PROD",
+                  "name":"bar",
+                  "platform":"urn:li:dataPlatform:foo"
+               }
+            },
+            {
+               "com.linkedin.common.InstitutionalMemory":{
+                  "elements":[
+                     {
+                        "createStamp":{
+                           "actor":"urn:li:corpuser:fbar",
+                           "time":0
+                        },
+                        "description":"Sample doc",
+                        "url":"https://www.linkedin.com"
+                     }
+                  ]
+               }
+            },
+            {
+               "com.linkedin.common.Ownership":{
+                  "owners":[
+                     {
+                        "owner":"urn:li:corpuser:fbar",
+                        "type":"DATAOWNER"
+                     }
+                  ],
+                  "lastModified":{
+                     "actor":"urn:li:corpuser:fbar",
+                     "time":0
+                  }
+               }
+            },
+            {
+               "com.linkedin.schema.SchemaMetadata":{
+                  "created":{
+                     "actor":"urn:li:corpuser:fbar",
+                     "time":0
+                  },
+                  "platformSchema":{
+                     "com.linkedin.schema.KafkaSchema":{
+                        "documentSchema":"{\"type\":\"record\",\"name\":\"MetadataChangeEvent\",\"namespace\":\"com.linkedin.mxe\",\"doc\":\"Kafka event for proposing a metadata change for an entity.\",\"fields\":[{\"name\":\"auditHeader\",\"type\":{\"type\":\"record\",\"name\":\"KafkaAuditHeader\",\"namespace\":\"com.linkedin.avro2pegasus.events\",\"doc\":\"Header\"}}]}"
+                     }
+                  },
+                  "lastModified":{
+                     "actor":"urn:li:corpuser:fbar",
+                     "time":0
+                  },
+                  "schemaName":"FooEvent",
+                  "fields":[
+                     {
+                        "fieldPath":"foo",
+                        "description":"Bar",
+                        "type":{
+                           "type":{
+                              "com.linkedin.schema.StringType":{
+                                 
+                              }
+                           }
+                        },
+                        "nativeDataType":"string"
+                     }
+                  ],
+                  "version":0,
+                  "hash":"",
+                  "platform":"urn:li:dataPlatform:foo"
+               }
+            },
+            {
+               "com.linkedin.common.BrowsePaths":{
+                  "paths":[
+                     "/prod/foo/bar"
+                  ]
+               }
+            },
+            {
+               "com.linkedin.dataset.UpstreamLineage":{
+                  "upstreams":[
+                     {
+                        "auditStamp":{
+                           "actor":"urn:li:corpuser:fbar",
+                           "time":0
+                        },
+                        "type":"TRANSFORMED",
+                        "dataset":"urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)"
+                     }
+                  ]
+               }
+            }
+         ]
+      }
+   }
 }
 ```
 
-### Get dataset
+#### Get a Chart
 ```
-curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:bar,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Afoo)' | jq
+curl 'http://localhost:8080/entities/urn%3Ali%3Achart%3A(looker,baz1)'
 
 {
-  "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
-  "ownership": {
-    "owners": [
-      {
-        "owner": "urn:li:corpuser:fbar",
-        "type": "DATAOWNER"
+   "value":{
+      "com.linkedin.metadata.snapshot.ChartSnapshot":{
+         "urn":"urn:li:chart:(looker,baz1)",
+         "aspects":[
+            {
+               "com.linkedin.metadata.key.ChartKey":{
+                  "chartId":"baz1",
+                  "dashboardTool":"looker"
+               }
+            },
+            {
+               "com.linkedin.common.BrowsePaths":{
+                  "paths":[
+                     "/looker/baz1"
+                  ]
+               }
+            },
+            {
+               "com.linkedin.chart.ChartInfo":{
+                  "description":"Baz Chart 1",
+                  "lastModified":{
+                     "created":{
+                        "actor":"urn:li:corpuser:jdoe",
+                        "time":0
+                     },
+                     "lastModified":{
+                        "actor":"urn:li:corpuser:datahub",
+                        "time":0
+                     }
+                  },
+                  "title":"Baz Chart 1",
+                  "inputs":[
+                     {
+                        "string":"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
+                     }
+                  ]
+               }
+            }
+         ]
       }
-    ],
-    "lastModified": {
-      "actor": "urn:li:corpuser:fbar",
-      "time": 0
-    }
-  },
-  "origin": "PROD",
-  "name": "bar",
-  "institutionalMemory": {
-    "elements": [
-      {
-        "createStamp": {
-          "actor": "urn:li:corpuser:fbar",
-          "time": 0
-        },
-        "description": "Sample doc",
-        "url": "https://www.linkedin.com"
-      }
-    ]
-  },
-  "schemaMetadata": {
-    "created": {
-      "actor": "urn:li:corpuser:fbar",
-      "time": 0
-    },
-    "platformSchema": {
-      "com.linkedin.schema.KafkaSchema": {
-        "documentSchema": "{\"type\":\"record\",\"name\":\"MetadataChangeEvent\",\"namespace\":\"com.linkedin.mxe\",\"doc\":\"Kafka event for proposing a metadata change for an entity.\",\"fields\":[{\"name\":\"auditHeader\",\"type\":{\"type\":\"record\",\"name\":\"KafkaAuditHeader\",\"namespace\":\"com.linkedin.avro2pegasus.events\",\"doc\":\"Header\"}}]}"
-      }
-    },
-    "lastModified": {
-      "actor": "urn:li:corpuser:fbar",
-      "time": 0
-    },
-    "schemaName": "FooEvent",
-    "fields": [
-      {
-        "fieldPath": "foo",
-        "description": "Bar",
-        "type": {
-          "type": {
-            "com.linkedin.schema.StringType": {}
-          }
-        },
-        "nativeDataType": "string"
-      }
-    ],
-    "version": 0,
-    "hash": "",
-    "platform": "urn:li:dataPlatform:foo"
-  },
-  "upstreamLineage": {
-    "upstreams": [
-      {
-        "auditStamp": {
-          "actor": "urn:li:corpuser:fbar",
-          "time": 0
-        },
-        "type": "TRANSFORMED",
-        "dataset": "urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)"
-      }
-    ]
-  },
-  "platform": "urn:li:dataPlatform:foo"
+   }
 }
 ```
 
-### Get chart
+#### Get a Dashboard
 ```
-curl 'http://localhost:8080/charts/($params:(),tool:looker,chartId:baz1)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+curl 'http://localhost:8080/entities/urn%3Ali%3Adashboard%3A(looker,foo)'
 
 {
-  "chartId": "baz1",
-  "tool": "looker",
-  "info": {
-    "description": "Baz Chart 1",
-    "lastModified": {
-      "created": {
-        "actor": "urn:li:corpuser:jdoe",
-        "time": 0
-      },
-      "lastModified": {
-        "actor": "urn:li:corpuser:datahub",
-        "time": 0
+   "value":{
+      "com.linkedin.metadata.snapshot.DashboardSnapshot":{
+         "urn":"urn:li:dashboard:(looker,foo)",
+         "aspects":[
+            {
+               "com.linkedin.metadata.key.DashboardKey":{
+                  "dashboardId":"foo",
+                  "dashboardTool":"looker"
+               }
+            }
+         ]
       }
-    },
-    "title": "Baz Chart 1",
-    "inputs": [
-      {
-        "string": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
-      }
-    ]
-  }
+   }
 }
 ```
 
-### Get dashboard
+#### Get a GlossaryTerm
 ```
-curl 'http://localhost:8080/dashboards/($params:(),tool:looker,dashboardId:foo)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
-
+curl 'http://localhost:8080/entities/urn%3Ali%3AglossaryTerm%3A(instruments,instruments.FinancialInstrument_v1)'
 {
-  "dashboardId": "foo",
-  "tool": "looker",
-  "info": {
-    "description": "Foo Dashboard",
-    "charts": [],
-    "lastModified": {
-      "created": {
-        "actor": "urn:li:corpuser:jdoe",
-        "time": 0
-      },
-      "lastModified": {
-        "actor": "urn:li:corpuser:jdoe",
-        "time": 0
+   "value":{
+      "com.linkedin.metadata.snapshot.GlossaryTermSnapshot":{
+         "urn":"urn:li:glossaryTerm:instruments.FinancialInstrument_v1",
+         "ownership":{
+            "owners":[
+               {
+                  "owner":"urn:li:corpuser:jdoe",
+                  "type":"DATAOWNER"
+               }
+            ],
+            "lastModified":{
+               "actor":"urn:li:corpuser:jdoe",
+               "time":1581407189000
+            }
+         },
+         "glossaryTermInfo":{
+            "definition":"written contract that gives rise to both a financial asset of one entity and a financial liability of another entity",
+            "customProperties":{
+               "FQDN":"full"
+            },
+            "sourceRef":"FIBO",
+            "sourceUrl":"https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
+            "termSource":"EXTERNAL"
+         }
       }
-    },
-    "title": "Foo Dashboard"
-  }
+   }
 }
 ```
 
-### Get business-term
-```
-curl 'http://localhost:8080/glossaryTerms/($params:(),name:instruments.FinancialInstrument_v1)' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+#### Browse an Entity
 
-{
-  "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1",
-  "ownership": {
-    "owners": [
-      {
-        "owner": "urn:li:corpuser:jdoe",
-        "type": "DATAOWNER"
-      }
-    ],
-    "lastModified": {
-      "actor": "urn:li:corpuser:jdoe",
-      "time": 1581407189000
-    }
-  },
-  "glossaryTermInfo": {
-    "definition": "written contract that gives rise to both a financial asset of one entity and a financial liability of another entity",
-    "customProperties": {
-      "FQDN": "full"
-    },
-    "sourceRef": "FIBO",
-    "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
-    "termSource": "EXTERNAL"
-  }
-}
-```
+To browse (explore) for an Entity of a particular type (e.g. dataset, chart, etc), you can use the following query format:
 
-### Get all users
 ```
-curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get_all' 'http://localhost:8080/corpUsers' | jq
-
-{
-  "elements": [
-    {
-      "editableInfo": {},
-      "username": "fbar",
-      "info": {
-        "displayName": "Foo Bar",
-        "active": true,
-        "fullName": "Foo Bar",
-        "email": "fbar@linkedin.com"
-      }
-    },
-    {
-      "editableInfo": {
-        "skills": [],
-        "teams": [],
-        "pictureLink": "https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Bug.svg.original.svg"
-      },
-      "username": "ksahin",
-      "info": {
-        "displayName": "Kerem Sahin",
-        "active": true,
-        "fullName": "Kerem Sahin",
-        "email": "ksahin@linkedin.com"
-      }
-    },
-    {
-      "editableInfo": {
-        "skills": [],
-        "teams": [],
-        "pictureLink": "https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Bug.svg.original.svg"
-      },
-      "username": "datahub",
-      "info": {
-        "displayName": "Data Hub",
-        "active": true,
-        "fullName": "Data Hub",
-        "email": "datahub@linkedin.com"
-      }
-    }
-  ],
-  "paging": {
-    "count": 10,
+curl -X POST 'http://localhost:8080/entities?action=browse' \
+--data '{
+    "path": "<slash-delimited-browse-path>",
+    "entity": "<entity name>",
     "start": 0,
-    "links": []
-  }
-}
+    "limit": 10
+}'
 ```
 
-### Get all business terms
-```
-curl 'http://localhost:8080/glossaryTerms/' -H 'X-RestLi-Protocol-Version:2.0.0' -s | jq
+For example, to browse the "charts" entity, you could use the following query: 
 
-{
-  "elements": [
-    {
-      "urn": "urn:li:glossaryTerm:instruments.FinancialInstrument_v1",
-      "ownership": {
-        "owners": [
-          {
-            "owner": "urn:li:corpuser:jdoe",
-            "type": "DATAOWNER"
-          }
-        ],
-        "lastModified": {
-          "actor": "urn:li:corpuser:jdoe",
-          "time": 1581407189000
-        }
-      },
-      "glossaryTermInfo": {
-        "definition": "written contract that gives rise to both a financial asset of one entity and a financial liability of another entity",
-        "customProperties": {
-          "FQDN": "full"
-        },
-        "sourceRef": "FIBO",
-        "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FinancialInstruments/FinancialInstruments/FinancialInstrument",
-        "termSource": "EXTERNAL"
-      }
-    }
-  ],
-  "paging": {
-    "count": 10,
+```
+curl -X POST 'http://localhost:8080/entities?action=browse' \
+--data '{
+    "path": "/looker",
+    "entity": "chart",
     "start": 0,
-    "links": []
-  }
-}
-```
-
-### Browse datasets
-```
-curl "http://localhost:8080/datasets?action=browse" -d '{"path": "", "start": 0, "limit": 10}' -X POST -H 'X-RestLi-Protocol-Version: 2.0.0' | jq
+    "limit": 10
+}'
 
 {
-  "value": {
-    "numEntities": 0,
-    "metadata": {
-      "totalNumEntities": 2,
-      "path": "",
-      "groups": [
-        {
-          "name": "prod",
-          "count": 2
-        }
+   "value":{
+      "numEntities":1,
+      "pageSize":1,
+      "metadata":{
+         "totalNumEntities":1,
+         "groups":[
+            
+         ],
+         "path":"/looker"
+      },
+      "from":0,
+      "entities":[
+         {
+            "name":"baz1",
+            "urn":"urn:li:chart:(looker,baz1)"
+         }
       ]
-    },
-    "entities": [],
-    "pageSize": 10,
-    "from": 0
-  }
+   }
 }
 ```
 
-### Search users
-```
-curl "http://localhost:8080/corpUsers?q=search&input=foo&" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
+#### Search an Entity
 
-{
-  "metadata": {
-    "searchResultMetadatas": [
-      {
-        "name": "title",
-        "aggregations": {}
-      }
-    ]
-  },
-  "elements": [
-    {
-      "editableInfo": {},
-      "username": "fbar",
-      "info": {
-        "displayName": "Foo Bar",
-        "active": true,
-        "fullName": "Foo Bar",
-        "email": "fbar@linkedin.com"
-      }
-    }
-  ],
-  "paging": {
-    "total": 1,
-    "count": 10,
+To search for an Entity of a particular type (e.g. dataset, chart, etc), you can use the following query format: 
+
+```
+curl -X POST 'http://localhost:8080/entities?action=search' \
+--data '{
+    "input": "<query-text>",
+    "entity": "<entity name>",
     "start": 0,
-    "links": []
-  }
+    "count": 10
+}'
+```
+
+The API will return a list of URNs that matched your search query.
+
+For example, to search the "charts" entity, you could use the following query:
+
+```
+curl -X POST 'http://localhost:8080/entities?action=search' \
+--data '{
+    "input": "looker",
+    "entity": "chart",
+    "start": 0,
+    "count": 10
+}'
+
+{
+   "value":{
+      "numEntities":1,
+      "pageSize":10,
+      "metadata":{
+         "urns":[
+            "urn:li:chart:(looker,baz1)"
+         ],
+         "matches":[
+            {
+               "matchedFields":[
+                  {
+                     "name":"tool",
+                     "value":"looker"
+                  }
+               ]
+            }
+         ],
+         "searchResultMetadatas":[
+            {
+               "name":"tool",
+               "aggregations":{
+                  "looker":1
+               }
+            }
+         ]
+      },
+      "from":0,
+      "entities":[
+         "urn:li:chart:(looker,baz1)"
+      ]
+   }
 }
 ```
 
-### Search datasets
+##### Filtering
+
+In addition to performing full-text search, you can also filter explicitly against fields marked as @Searchable in the corresponding aspect PDLs.
+
+For example, to perform filtering for a chart with title "Baz Chart 1", you could issue the following query:
+
 ```
-curl "http://localhost:8080/datasets?q=search&input=bar" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
+curl -X POST 'http://localhost:8080/entities?action=search' \
+--data '{
+    "input": "looker",
+    "entity": "chart",
+    "start": 0,
+    "count": 10,
+    "filter": {
+        "criteria": [
+           {
+                "field": "title",
+                "value": "Baz Chart 1",
+                "condition": "EQUAL"
+           }
+        ]
+    }
+}'
 
 {
-  "metadata": {
-    "searchResultMetadatas": [
-      {
-        "name": "platform",
-        "aggregations": {
-          "foo": 1
-        }
+   "value":{
+      "numEntities":1,
+      "pageSize":10,
+      "metadata":{
+         "urns":[
+            "urn:li:chart:(looker,baz1)"
+         ],
+         "matches":[
+            {
+               "matchedFields":[
+                  {
+                     "name":"tool",
+                     "value":"looker"
+                  }
+               ]
+            }
+         ],
+         "searchResultMetadatas":[
+            {
+               "name":"tool",
+               "aggregations":{
+                  "looker":1
+               }
+            }
+         ]
       },
-      {
-        "name": "origin",
-        "aggregations": {
-          "prod": 1
-        }
+      "from":0,
+      "entities":[
+         "urn:li:chart:(looker,baz1)"
+      ]
+   }
+}
+```
+
+where valid conditions include 
+    - CONTAIN
+    - END_WITH
+    - EQUAL
+    - GREATER_THAN
+    - GREATER_THAN_OR_EQUAL_TO
+    - LESS_THAN
+    - LESS_THAN_OR_EQUAL_TO
+    - START_WITH
+
+*Note that the search API only includes data corresponding to the latest snapshots of a particular Entity.
+
+
+#### Autocomplete against fields of an Entity 
+
+To autocomplete a query for a particular entity type, you can use a query of the following form: 
+
+```
+curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
+--data '{
+    "query": "<query-text>",
+    "entity": "<entity-name>",
+    "limit": 10
+}'
+```
+
+For example, to autocomplete a query against all Dataset entities, you could issue the following:
+
+```
+curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
+--data '{
+    "query": "Baz Ch",
+    "entity": "chart",
+    "start": 0,
+    "limit": 10
+}'
+
+{
+   "value":{
+      "suggestions":[
+         "Baz Chart 1"
+      ],
+      "query":"Baz Ch"
+   }
+}
+```
+
+Note that you can also provide a `Filter` to the autocomplete endpoint: 
+
+```
+curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
+--data '{
+    "query": "Baz C",
+    "entity": "chart",
+    "start": 0,
+    "limit": 10,
+    "filter": {
+        "criteria": [
+           {
+                "field": "tool",
+                "value": "looker",
+                "condition": "EQUAL"
+           }
+        ]
+    }
+}'
+
+{
+   "value":{
+      "suggestions":[
+         "Baz Chart 1"
+      ],
+      "query":"Baz Ch"
+   }
+}
+```
+
+*Note that the autocomplete API only includes data corresponding to the latest snapshots of a particular Entity.
+
+
+#### Aspect API V1: Get a Versioned Aspect
+
+In addition to fetching the set of latest Snapshot aspects for an entity, we also support doing a point lookup of an entity at a particular version.
+
+To do so, you can use the following query template:
+
+```
+curl 'http://localhost:8080/aspects/<url-encoded-entity-urn>?aspect=<aspect-name>&version=<version>
+```
+
+Which will return a VersionedAspect, which is a record containing a version and an aspect inside a Rest.li Union, wherein the fully-qualified record name of the
+aspect is the key for the union.
+
+For example, to fetch the latest version of a Dataset's "schemaMetadata" aspect, you could issue the following query:
+
+```
+curl 'http://localhost:8080/aspects/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3Afoo%2Cbar%2CPROD)?aspect=schemaMetadata&version=0'
+
+{
+   "version":0,
+   "aspect":{
+      "com.linkedin.schema.SchemaMetadata":{
+         "created":{
+            "actor":"urn:li:corpuser:fbar",
+            "time":0
+         },
+         "platformSchema":{
+            "com.linkedin.schema.KafkaSchema":{
+               "documentSchema":"{\"type\":\"record\",\"name\":\"MetadataChangeEvent\",\"namespace\":\"com.linkedin.mxe\",\"doc\":\"Kafka event for proposing a metadata change for an entity.\",\"fields\":[{\"name\":\"auditHeader\",\"type\":{\"type\":\"record\",\"name\":\"KafkaAuditHeader\",\"namespace\":\"com.linkedin.avro2pegasus.events\",\"doc\":\"Header\"}}]}"
+            }
+         },
+         "lastModified":{
+            "actor":"urn:li:corpuser:fbar",
+            "time":0
+         },
+         "schemaName":"FooEvent",
+         "fields":[
+            {
+               "fieldPath":"foo",
+               "description":"Bar",
+               "type":{
+                  "type":{
+                     "com.linkedin.schema.StringType":{
+                        
+                     }
+                  }
+               },
+               "nativeDataType":"string"
+            }
+         ],
+         "version":0,
+         "hash":"",
+         "platform":"urn:li:dataPlatform:foo"
       }
-    ]
-  },
-  "elements": [
-    {
-      "urn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
-      "origin": "PROD",
-      "name": "bar",
-      "platform": "urn:li:dataPlatform:foo"
-    }
-  ],
-  "paging": {
-    "total": 1,
-    "count": 10,
-    "start": 0,
-    "links": []
-  }
+   }
 }
 ```
 
-### Search dashboards
+Keep in mind that versions increase monotonically *after* version 0, which represents the latest. 
+
+Note that this API will soon be deprecated and replaced by the V2 Aspect API, discussed below. 
+
+#### Aspect API V2: Get a range of Versioned Aspects
+
+*Coming Soon*! 
+
+#### Aspect API V2: Get a range of Timeseries Aspects 
+
+With the introduction of Timeseries Aspects, we've introduced a new API for fetching a series of aspects falling into a particular time range. For this, you'll
+use the `/aspects` endpoint. The V2 APIs are unique in that they return a new type of payload: an "Enveloped Aspect". This is essentially a serialized aspect along with
+some system metadata. The serialized aspect can be in any form, though we currently default to escaped Rest.li-compatible JSON. 
+
+Callers of the V2 Aspect APIs will be expected to deserialize the aspect payload in the way they see fit. For example, they may bind the deserialized JSON object
+into a strongly typed Rest.li RecordTemplate class (which is what datahub-frontend does). The benefit of doing it this way is thaet we remove the necessity to 
+use Rest.li Unions to represent an object which can take on multiple payload forms. It also makes adding and removing aspects from the model easier, a process
+which could theoretically be done at runtime as opposed to at deploy time.
+
+To fetch a set of Timeseries Aspects that fall into a particular time range, you can use the following query template:
+
 ```
-curl "http://localhost:8080/dashboards?q=search&input=looker" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
+curl -X POST 'http://localhost:8080/aspects?action=getTimeseriesAspectValues' \
+--data '{
+    "urn": "<urn>",
+    "entity": "<entity-name>",
+    "aspect": "<time-series-aspect-name>",
+    "startTimeMillis": "<your-start-time-ms>",
+    "endTimeMillis": "<your-end-time-ms>"
+}'
+```
+
+For example, to fetch "datasetProfile" timeseries aspects for a dataset with urn `urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)`
+that were reported after July 26, 2021 and before July 28, 2021, you could issue the following query:
+
+```
+curl -X POST 'http://localhost:8080/aspects?action=getTimeseriesAspectValues' \
+--data '{
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:redshift,global_dev.larxynx_carcinoma_data_2020,PROD)",
+    "entity": "dataset",
+    "aspect": "datasetProfile",
+    "startTimeMillis": 1625122800000,
+    "endTimeMillis": 1627455600000
+}'
 
 {
-  "metadata": {
-    "urns": [
-      "urn:li:dashboard:(looker,baz)"
-    ],
-    "searchResultMetadatas": [
-      {
-        "name": "tool",
-        "aggregations": {
-          "looker": 1
-        }
-      },
-      {
-        "name": "access",
-        "aggregations": {}
-      }
-    ]
-  },
-  "elements": [
-    {
-      "dashboardId": "baz",
-      "tool": "looker",
-      "info": {
-        "description": "Baz Dashboard",
-        "charts": [
-          "urn:li:chart:(looker,baz1)",
-          "urn:li:chart:(looker,baz2)"
-        ],
-        "lastModified": {
-          "created": {
-            "actor": "urn:li:corpuser:jdoe",
-            "time": 0
-          },
-          "lastModified": {
-            "actor": "urn:li:corpuser:datahub",
-            "time": 0
-          }
-        },
-        "title": "Baz Dashboard"
-      }
-    }
-  ],
-  "paging": {
-    "count": 10,
-    "start": 0,
-    "total": 1,
-    "links": []
-  }
+   "value":{
+      "limit":10000,
+      "aspectName":"datasetProfile",
+      "endTimeMillis":1627455600000,
+      "startTimeMillis":1625122800000,
+      "entityName":"dataset",
+      "values":[
+         {
+            "aspect":{
+               "value":"{\"timestampMillis\":1626912000000,\"fieldProfiles\":[{\"uniqueProportion\":1.0,\"sampleValues\":[\"123MMKK12\",\"13KDFMKML\",\"123NNJJJL\"],\"fieldPath\":\"id\",\"nullCount\":0,\"nullProportion\":0.0,\"uniqueCount\":3742},{\"uniqueProportion\":1.0,\"min\":\"1524406400000\",\"max\":\"1624406400000\",\"sampleValues\":[\"1640023230002\",\"1640343012207\",\"16303412330117\"],\"mean\":\"1555406400000\",\"fieldPath\":\"date\",\"nullCount\":0,\"nullProportion\":0.0,\"uniqueCount\":3742},{\"uniqueProportion\":0.037,\"min\":\"21\",\"median\":\"68\",\"max\":\"92\",\"sampleValues\":[\"45\",\"65\",\"81\"],\"mean\":\"65\",\"distinctValueFrequencies\":[{\"value\":\"12\",\"frequency\":103},{\"value\":\"54\",\"frequency\":12}],\"fieldPath\":\"patient_age\",\"nullCount\":0,\"nullProportion\":0.0,\"uniqueCount\":79},{\"uniqueProportion\":0.00820873786407767,\"sampleValues\":[\"male\",\"female\"],\"fieldPath\":\"patient_gender\",\"nullCount\":120,\"nullProportion\":0.03,\"uniqueCount\":2}],\"rowCount\":3742,\"columnCount\":4}",
+               "contentType":"application/json"
+            }
+         },
+      ]
+   }
 }
 ```
 
-### Search business term
-```
-curl "http://localhost:8080/glossaryTerms?q=search&input=FinancialInstrument_v1&start=0&count=10" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
+You'll notice that in this API (V2), we return a generic serialized aspect string as opposed to an inlined Rest.li-serialized Snapshot Model.
 
+This is part of an initiative to move from MCE + MAE to MetadataChangeProposal and MetadataChangeLog. For more information, see [this doc](../docs/advanced/mcp-mcl.md). 
+
+#### Get Relationships (Edges)
+
+To get relationships between entities, you can use the `/relationships` API. Do do so, you must provide the following inputs:
+
+1. Urn of the source node 
+2. Direction of the edge (INCOMING, OUTGOING)
+3. The name of the Relationship (This can be found in Aspect PDLs within the @Relationship annotation)
+
+For example, to get all entities owned by `urn:li:corpuser:fbar`, we could issue the following query: 
+
+urn:li:chart:(Looker,dashboard_elements.92)
+
+relationships?direction=OUTGOING&urn=urn%3Ali%3Achart%3A(Looker%2Cdashboard_elements.92)&types=Consumes
+
+```
+curl 'http://localhost:8080/relationships?direction=INCOMING&urn=urn%3Ali%3Acorpuser%3Auser1&types=OwnedBy'
+```
+
+which will return a list of urns, representing entities on the other side of the relationship: 
+
+```
 {
-  "metadata": {
-    "urns": [
-      "urn:li:glossaryTerm:instruments.InstrumentIdentifier"
-    ],
-    "searchResultMetadatas": []
-  },
-  "elements": [
-    {
-      "name": "bidTime",
-      "ownership": {
-        "owners": [
-          {
-            "owner": "urn:li:corpuser:jdoe",
-            "type": "DATAOWNER"
-          }
-        ],
-        "lastModified": {
-          "actor": "urn:li:corpuser:jdoe",
-          "time": 1581407189000
-        }
-      },
-      "glossaryTermInfo": {
-          "definition": "business term definition",
-          "sourceRef": "FIBO",
-          "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
-          "termSource": "EXTERNAL"
-       }
-    }
-  ],
-  "paging": {
-    "count": 10,
-    "start": 0,
-    "total": 1,
-    "links": []
-  }
+   "entities":[
+      urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)
+   ]
 }
 ```
 
-### Search business terms owned by a user
-```
-curl "http://localhost:8080/glossaryTerms?q=search&input=owners%3Adatahub&start=0&count=10" -X GET -H 'X-RestLi-Protocol-Version: 2.0.0' -H 'X-RestLi-Method: finder' | jq
+# FAQ
 
-{
-  "metadata": {
-    "urns": [
-      "urn:li:glossaryTerm:instruments.InstrumentIdentifier"
-    ],
-    "searchResultMetadatas": []
-  },
-  "elements": [
-    {
-      "name": "bidTime",
-      "ownership": {
-        "owners": [
-          {
-            "owner": "urn:li:corpuser:jdoe",
-            "type": "DATAOWNER"
-          }
-        ],
-        "lastModified": {
-          "actor": "urn:li:corpuser:jdoe",
-          "time": 1581407189000
-        }
-      },
-      "glossaryTermInfo": {
-          "definition": "business term definition",
-          "sourceRef": "FIBO",
-          "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FND/DatesAndTimes/FinancialDates/DateTime",
-          "termSource": "EXTERNAL"
-        }
-    }
-  ],
-  "paging": {
-    "count": 10,
-    "start": 0,
-    "total": 1,
-    "links": []
-  }
-}
-```
+*1. How do I find the valid set of Entity names?*
 
-### Typeahead for datasets
-```
-curl "http://localhost:8080/datasets?action=autocomplete" -d '{"query": "bar", "field": "name", "limit": 10, "filter": {"criteria": []}}' -X POST -H 'X-RestLi-Protocol-Version: 2.0.0' | jq
+Entities are named inside of PDL schemas. Each entity will be annotated with the @Entity annotation, which will include a "name" field inside. 
+This represents the "common name" for the entity which can be used in browsing, searching, and more. By default, DataHub ships with the following entities:
 
-{
-  "value": {
-    "query": "bar",
-    "suggestions": [
-      "bar"
-    ]
-  }
-}
-```
+By convention, all entity PDLs live under `metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot`
 
- 
-### Typeahead for business term
-```
-curl "http://localhost:8080/glossaryTerms?action=autocomplete" -d '{"query": "defin", "field": "definition", "limit": 10, "filter": {"criteria": []}}' -X POST -H 'X-RestLi-Protocol-Version: 2.0.0' | jq
+*2. How do I find the valid set of Aspect names?*
 
-{
-  "value": {
-    "suggestions": [
-      "business term definition"
-    ],
-    "query": "defin"
-  }
-}
-```
+Aspects are named inside of PDL schemas. Each aspect will be annotated with the @Aspect annotation, which will include a "name" field inside.
+This represents the "common name" for the entity which can be used in browsing, searching, and more.
 
-### Get dataset ownership
-```
-curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:bar,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Afoo)/rawOwnership/0' | jq
+By convention, all entity PDLs live under `metadata-models/src/main/pegasus/com/linkedin/metadata/common` or `metadata-models/src/main/pegasus/com/linkedin/metadata/<entity-name>`. For example,
+the dataset-specific aspects are located under `metadata-models/src/main/pegasus/com/linkedin/metadata/dataset`.
 
-{
-  "owners": [
-    {
-      "owner": "urn:li:corpuser:fbar",
-      "type": "DATAOWNER"
-    },
-    {
-      "owner": "urn:li:corpuser:ksahin",
-      "type": "DATAOWNER"
-    }
-  ],
-  "lastModified": {
-    "actor": "urn:li:corpuser:ksahin",
-    "time": 1568015476480
-  }
-}
-```
+*3. How do I find the valid set of Relationship names?*
 
-### Get dataset schema
-```
-curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:bar,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Afoo)/schema/0' | jq
+All relationships are defined on foreign-key fields inside Aspect PDLs. They are reflected by fields bearing the @Relationship annotation. Inside this annotation
+is a "name" field that defines the standardized name of the Relationship to be used when querying. 
 
-{
-  "created": {
-    "actor": "urn:li:corpuser:fbar",
-    "time": 0
-  },
-  "platformSchema": {
-    "com.linkedin.schema.KafkaSchema": {
-      "documentSchema": "{\"type\":\"record\",\"name\":\"MetadataChangeEvent\",\"namespace\":\"com.linkedin.mxe\",\"doc\":\"Kafka event for proposing a metadata change for an entity.\",\"fields\":[{\"name\":\"auditHeader\",\"type\":{\"type\":\"record\",\"name\":\"KafkaAuditHeader\",\"namespace\":\"com.linkedin.avro2pegasus.events\",\"doc\":\"Header\"}}]}"
-    }
-  },
-  "lastModified": {
-    "actor": "urn:li:corpuser:fbar",
-    "time": 0
-  },
-  "schemaName": "FooEvent",
-  "fields": [
-    {
-      "fieldPath": "foo",
-      "description": "Bar",
-      "type": {
-        "type": {
-          "com.linkedin.schema.StringType": {}
-        }
-      },
-      "nativeDataType": "string"
-    }
-  ],
-  "version": 0,
-  "platform": "urn:li:dataPlatform:foo",
-  "hash": ""
-}
-```
+By convention, all entity PDLs live under `metadata-models/src/main/pegasus/com/linkedin/metadata/common` or `metadata-models/src/main/pegasus/com/linkedin/metadata/<entity-name>`. For example,
+the dataset-specific aspects are located under `metadata-models/src/main/pegasus/com/linkedin/metadata/dataset`.
 
-### Get upstream datasets
-```
-curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:bar,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Afoo)/upstreamLineage/0' | jq
-
-{
-  "upstreams": [
-    {
-      "auditStamp": {
-        "actor": "urn:li:corpuser:fbar",
-        "time": 0
-      },
-      "type": "TRANSFORMED",
-      "dataset": "urn:li:dataset:(urn:li:dataPlatform:foo,barUp,PROD)"
-    }
-  ]
-}
-```
-
-### Get downstream datasets
-```
-curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:barUp,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Afoo)/downstreamLineage' | jq
-
-{
-  "downstreams": [
-    {
-      "type": "TRANSFORMED",
-      "auditStamp": {
-        "actor": "urn:li:corpuser:fbar",
-        "time": 0
-      },
-      "dataset": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"
-    }
-  ]
-}
-```

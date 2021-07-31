@@ -2,7 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import java.util.List;
 import java.util.Map;
 
 
@@ -10,19 +10,20 @@ import java.util.Map;
  * Builder for generating settings for elasticsearch indices
  */
 public class SettingsBuilder {
-  private static final Map<String, Object> SETTINGS = buildSettings();
+  private final Map<String, Object> settings;
 
-  private SettingsBuilder() {
+  public SettingsBuilder(List<String> urnStopWords) {
+    settings = buildSettings(urnStopWords);
   }
 
-  public static Map<String, Object> getSettings() {
-    return SETTINGS;
+  public Map<String, Object> getSettings() {
+    return settings;
   }
 
-  private static Map<String, Object> buildSettings() {
+  private static Map<String, Object> buildSettings(List<String> urnStopWords) {
     ImmutableMap.Builder<String, Object> settings = ImmutableMap.builder();
     settings.put("max_ngram_diff", 17);
-    settings.put("analysis", ImmutableMap.<String, Object>builder().put("filter", buildFilters())
+    settings.put("analysis", ImmutableMap.<String, Object>builder().put("filter", buildFilters(urnStopWords))
         .put("tokenizer", buildTokenizers())
         .put("normalizer", buildNormalizers())
         .put("analyzer", buildAnalyzers())
@@ -30,7 +31,7 @@ public class SettingsBuilder {
     return ImmutableMap.of("index", settings.build());
   }
 
-  private static Map<String, Object> buildFilters() {
+  private static Map<String, Object> buildFilters(List<String> urnStopWords) {
     ImmutableMap.Builder<String, Object> filters = ImmutableMap.builder();
     // Filter to allow partial matches on each token
     filters.put("partial_filter", ImmutableMap.<String, Object>builder().put("type", "edge_ngram")
@@ -44,14 +45,8 @@ public class SettingsBuilder {
         .put("preserve_original", true)
         .build());
 
-    // Filter to process URNs
-    ImmutableList.Builder<String> stopWords = ImmutableList.<String>builder().add("urn").add("li");
-    // Add all entity names to stop word list
-    SnapshotEntityRegistry.getInstance()
-        .getEntitySpecs()
-        .forEach(entitySpec -> stopWords.add(entitySpec.getName().toLowerCase()));
     filters.put("urn_stop_filter",
-        ImmutableMap.<String, Object>builder().put("type", "stop").put("stopwords", stopWords.build()).build());
+        ImmutableMap.<String, Object>builder().put("type", "stop").put("stopwords", urnStopWords).build());
 
     return filters.build();
   }
@@ -77,9 +72,8 @@ public class SettingsBuilder {
   private static Map<String, Object> buildNormalizers() {
     ImmutableMap.Builder<String, Object> normalizers = ImmutableMap.builder();
     // Analyzer for partial matching (i.e. autocomplete) - Prefix matching of each token
-    normalizers.put("keyword_normalizer", ImmutableMap.<String, Object>builder()
-        .put("filter", ImmutableList.of("lowercase", "asciifolding"))
-        .build());
+    normalizers.put("keyword_normalizer",
+        ImmutableMap.<String, Object>builder().put("filter", ImmutableList.of("lowercase", "asciifolding")).build());
 
     return normalizers.build();
   }

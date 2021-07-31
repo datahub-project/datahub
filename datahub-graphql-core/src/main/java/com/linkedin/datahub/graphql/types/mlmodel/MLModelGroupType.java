@@ -21,7 +21,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelGroupSnapshotMapper;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -75,7 +75,7 @@ public class MLModelGroupType implements SearchableEntityType<MLModelGroup>, Bro
                 .map(gmsMlModelGroup -> gmsMlModelGroup == null ? null
                     : DataFetcherResult.<MLModelGroup>newResult()
                         .data(MLModelGroupSnapshotMapper.map(gmsMlModelGroup.getValue().getMLModelGroupSnapshot()))
-                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsMlModelGroup.getValue().getMLModelGroupSnapshot()))
+                        .localContext(AspectExtractor.extractAspects(gmsMlModelGroup.getValue().getMLModelGroupSnapshot()))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {

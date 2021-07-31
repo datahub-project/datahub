@@ -29,7 +29,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.DataJobAspect;
 import com.linkedin.metadata.dao.utils.ModelUtils;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -94,7 +94,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                 .map(gmsDataJob -> gmsDataJob == null ? null
                     : DataFetcherResult.<DataJob>newResult()
                         .data(DataJobSnapshotMapper.map(gmsDataJob.getValue().getDataJobSnapshot()))
-                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataJob.getValue().getDataJobSnapshot()))
+                        .localContext(AspectExtractor.extractAspects(gmsDataJob.getValue().getDataJobSnapshot()))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {

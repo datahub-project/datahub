@@ -14,10 +14,13 @@ import lombok.Value;
 public class AspectAnnotation {
 
   public static final String ANNOTATION_NAME = "Aspect";
-  private static final String NAME_FIELD = "name";
+  public static final String NAME_FIELD = "name";
+  private static final String TYPE_FIELD = "type";
   private static final String IS_KEY_FIELD = "isKey";
+  private static final String TIMESERIES_TYPE = "timeseries";
 
   String name;
+  boolean isTimeseries;
 
   @Nonnull
   public static AspectAnnotation fromSchemaProperty(
@@ -43,6 +46,9 @@ public class AspectAnnotation {
           ));
     }
 
-    return new AspectAnnotation(name.get());
+    final Optional<String> type = AnnotationUtils.getField(map, TYPE_FIELD, String.class);
+    boolean isTimeseries = type.isPresent() && type.get().equals(TIMESERIES_TYPE);
+
+    return new AspectAnnotation(name.get(), isTimeseries);
   }
 }

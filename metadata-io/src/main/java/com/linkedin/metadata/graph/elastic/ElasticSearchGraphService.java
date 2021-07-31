@@ -1,7 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -13,7 +12,7 @@ import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -21,6 +20,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.indices.CreateIndexRequest;
-import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 
@@ -190,36 +188,12 @@ public class ElasticSearchGraphService implements GraphService {
   @Override
   public void configure() {
     log.info("Setting up elastic graph index");
-    boolean exists = false;
     try {
-      exists = searchClient.indices().exists(
-          new GetIndexRequest(_indexConvention.getIndexName(INDEX_NAME)), RequestOptions.DEFAULT);
+      new IndexBuilder(searchClient, _indexConvention.getIndexName(INDEX_NAME),
+          GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap()).buildIndex();
     } catch (IOException e) {
-      log.error("ERROR: Failed to set up elasticsearch graph index. Could not check if the index exists");
       e.printStackTrace();
-      return;
     }
-
-    // If index doesn't exist, create index
-    if (!exists) {
-      log.info("Elastic Graph Index does not exist. Creating.");
-      CreateIndexRequest createIndexRequest = new CreateIndexRequest(_indexConvention.getIndexName(INDEX_NAME));
-
-      createIndexRequest.mapping(GraphRelationshipMappingsBuilder.getMappings());
-      createIndexRequest.settings(SettingsBuilder.getSettings());
-
-      try {
-        searchClient.indices().create(createIndexRequest, RequestOptions.DEFAULT);
-      } catch (IOException e) {
-        log.error("ERROR: Failed to set up elasticsearch graph index. Could not create the index.");
-        e.printStackTrace();
-        return;
-      }
-
-      log.info("Successfully Created Elastic Graph Index");
-    }
-
-    return;
   }
 
   @Override

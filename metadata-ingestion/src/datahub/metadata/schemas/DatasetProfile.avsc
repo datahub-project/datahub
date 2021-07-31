@@ -1,0 +1,211 @@
+{
+  "type": "record",
+  "name": "DatasetProfile",
+  "namespace": "com.linkedin.pegasus2avro.dataset",
+  "doc": "Stats corresponding to datasets",
+  "fields": [
+    {
+      "name": "timestampMillis",
+      "type": "long"
+    },
+    {
+      "name": "rowCount",
+      "type": [
+        "null",
+        "long"
+      ],
+      "default": null
+    },
+    {
+      "name": "columnCount",
+      "type": [
+        "null",
+        "long"
+      ],
+      "default": null
+    },
+    {
+      "name": "fieldProfiles",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "type": "record",
+            "name": "DatasetFieldProfile",
+            "doc": "Stats corresponding to fields in a dataset",
+            "fields": [
+              {
+                "name": "fieldPath",
+                "type": "string"
+              },
+              {
+                "name": "uniqueCount",
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "default": null
+              },
+              {
+                "name": "uniqueProportion",
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "default": null
+              },
+              {
+                "name": "nullCount",
+                "type": [
+                  "null",
+                  "long"
+                ],
+                "default": null
+              },
+              {
+                "name": "nullProportion",
+                "type": [
+                  "null",
+                  "float"
+                ],
+                "default": null
+              },
+              {
+                "name": "min",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null
+              },
+              {
+                "name": "max",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null
+              },
+              {
+                "name": "mean",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null
+              },
+              {
+                "name": "median",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null
+              },
+              {
+                "name": "stdev",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null
+              },
+              {
+                "name": "quantiles",
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "record",
+                      "name": "Quantile",
+                      "fields": [
+                        {
+                          "name": "quantile",
+                          "type": "string"
+                        },
+                        {
+                          "name": "value",
+                          "type": "string"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "default": null
+              },
+              {
+                "name": "distinctValueFrequencies",
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "record",
+                      "name": "ValueFrequency",
+                      "fields": [
+                        {
+                          "name": "value",
+                          "type": "string"
+                        },
+                        {
+                          "name": "frequency",
+                          "type": "long"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "default": null
+              },
+              {
+                "name": "histogram",
+                "type": [
+                  "null",
+                  {
+                    "type": "record",
+                    "name": "Histogram",
+                    "fields": [
+                      {
+                        "name": "boundaries",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        }
+                      },
+                      {
+                        "name": "heights",
+                        "type": {
+                          "type": "array",
+                          "items": "float"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "default": null
+              },
+              {
+                "name": "sampleValues",
+                "type": [
+                  "null",
+                  {
+                    "type": "array",
+                    "items": "string"
+                  }
+                ],
+                "default": null
+              }
+            ]
+          }
+        }
+      ],
+      "default": null
+    }
+  ],
+  "Aspect": {
+    "name": "datasetProfile",
+    "type": "timeseries"
+  }
+}

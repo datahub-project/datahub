@@ -46,9 +46,19 @@ const errorLink = onError(({ networkError }) => {
 });
 
 const client = new ApolloClient({
+    connectToDevTools: true,
     link: errorLink.concat(httpLink),
     cache: new InMemoryCache({
         typePolicies: {
+            Query: {
+                fields: {
+                    dataset: {
+                        merge(existing, incoming) {
+                            return { ...existing, ...incoming };
+                        },
+                    },
+                },
+            },
             Dataset: {
                 keyFields: ['urn'],
             },

@@ -14,7 +14,8 @@ from datahub.cli.ingest_cli import ingest
 logger = logging.getLogger(__name__)
 
 # Configure some loggers.
-logging.getLogger("urllib3").setLevel(logging.WARN)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("snowflake").setLevel(level=logging.WARNING)
 # logging.getLogger("botocore").setLevel(logging.INFO)
 # logging.getLogger("google").setLevel(logging.INFO)
 

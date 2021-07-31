@@ -9,7 +9,6 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -20,6 +19,7 @@ import com.linkedin.usage.UsageAggregation;
 import com.linkedin.usage.UsageAggregationMetrics;
 import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
+import java.util.Collections;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -85,8 +85,7 @@ public class ElasticUsageService implements UsageService {
         try {
             new IndexBuilder(elasticClient,
                     indexConvention.getIndexName(USAGE_STATS_BASE_INDEX_NAME),
-                    this.getMappings(),
-                    SettingsBuilder.getSettings()).buildIndex();
+                    this.getMappings(), Collections.emptyMap()).buildIndex();
         } catch (IOException e) {
             e.printStackTrace();
         }

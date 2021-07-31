@@ -78,7 +78,6 @@ fragment upstreamRelationshipFields on UpstreamEntityRelationships {
                 }
             }
             ... on Dataset {
-                urn
                 name
                 description
                 platform {
@@ -148,7 +147,6 @@ fragment downstreamRelationshipFields on DownstreamEntityRelationships {
                 ...shallowLineageFields
             }
             ... on Dataset {
-                urn
                 name
                 description
                 platform {

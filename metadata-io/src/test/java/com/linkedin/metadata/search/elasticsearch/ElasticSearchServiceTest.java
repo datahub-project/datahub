@@ -10,11 +10,13 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import org.apache.http.HttpHost;
@@ -36,6 +38,7 @@ public class ElasticSearchServiceTest {
   private RestHighLevelClient _searchClient;
   private EntityRegistry _entityRegistry;
   private IndexConvention _indexConvention;
+  private SettingsBuilder _settingsBuilder;
   private ElasticSearchService _elasticSearchService;
 
   private static final String IMAGE_NAME = "docker.elastic.co/elasticsearch/elasticsearch:7.9.3";
@@ -47,6 +50,7 @@ public class ElasticSearchServiceTest {
     _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
     _indexConvention = new IndexConventionImpl(null);
     _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
+    _settingsBuilder = new SettingsBuilder(Collections.emptyList());
     _elasticsearchContainer.start();
     _searchClient = buildRestClient();
     _elasticSearchService = buildService();
@@ -67,7 +71,7 @@ public class ElasticSearchServiceTest {
 
   @Nonnull
   private ElasticSearchService buildService() {
-    ESIndexBuilders indexBuilders = new ESIndexBuilders(_entityRegistry, _searchClient, _indexConvention);
+    ESIndexBuilders indexBuilders = new ESIndexBuilders(_entityRegistry, _searchClient, _indexConvention, _settingsBuilder);
     ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention);
     ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
     ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention, 1, 1, 1, 1);

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
 import com.linkedin.data.template.UnionTemplate;
+import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -12,12 +13,13 @@ import javax.annotation.Nonnull;
 
 
 /**
- * Implementation of {@link EntityRegistry} that builds {@link EntitySpec} objects
+ * Implementation of {@link EntityRegistry} that builds {@link DefaultEntitySpec} objects
  * from the a {@link Snapshot} Record Template present on the classpath
  */
 public class SnapshotEntityRegistry implements EntityRegistry {
 
   private final Map<String, EntitySpec> entityNameToSpec;
+  private final List<EntitySpec> entitySpecs;
 
   private static final SnapshotEntityRegistry INSTANCE = new SnapshotEntityRegistry();
 
@@ -25,12 +27,14 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     entityNameToSpec = new EntitySpecBuilder().buildEntitySpecs(new Snapshot().schema())
         .stream()
         .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+    entitySpecs = new ArrayList<>(entityNameToSpec.values());
   }
 
   public SnapshotEntityRegistry(UnionTemplate snapshot) {
     entityNameToSpec = new EntitySpecBuilder().buildEntitySpecs(snapshot.schema())
         .stream()
         .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+    entitySpecs = new ArrayList<>(entityNameToSpec.values());
   }
 
   @Nonnull
@@ -46,8 +50,8 @@ public class SnapshotEntityRegistry implements EntityRegistry {
 
   @Nonnull
   @Override
-  public List<EntitySpec> getEntitySpecs() {
-    return new ArrayList<>(entityNameToSpec.values());
+  public Map<String, EntitySpec> getEntitySpecs() {
+    return entityNameToSpec;
   }
 
   public static SnapshotEntityRegistry getInstance() {

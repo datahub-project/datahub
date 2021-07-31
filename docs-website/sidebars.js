@@ -54,7 +54,6 @@ module.exports = {
       //"docs/what/gma",
       "docs/architecture/metadata-serving",
       //"docs/what/gms",
-      "datahub-web-react/README",
     ],
     "Metadata Modeling": [
       "docs/modeling/metadata-model",
@@ -91,6 +90,7 @@ module.exports = {
       "docs/how/extract-container-logs",
       "docs/how/delete-metadata",
       "datahub-web-react/src/app/analytics/README",
+      "metadata-ingestion/developing",
     ],
     Components: [
       "datahub-web-react/README",
@@ -101,7 +101,6 @@ module.exports = {
       // "metadata-jobs/README",
       "metadata-jobs/mae-consumer-job/README",
       "metadata-jobs/mce-consumer-job/README",
-      "metadata-ingestion/developing",
     ],
     "Advanced Guides": [
       "docs/advanced/no-code-modeling",
@@ -111,6 +110,7 @@ module.exports = {
       "docs/how/scsi-onboarding-guide",
       "docs/advanced/no-code-upgrade",
       "docs/how/migrating-graph-service-implementation",
+      "docs/advanced/mcp-mcl",
       // WIP "docs/advanced/backfilling",
       // WIP "docs/advanced/derived-aspects",
       // WIP "docs/advanced/entity-hierarchy",

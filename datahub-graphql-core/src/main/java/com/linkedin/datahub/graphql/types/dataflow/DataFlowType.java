@@ -29,7 +29,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.DataFlowAspect;
 import com.linkedin.metadata.dao.utils.ModelUtils;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -92,7 +92,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
             return gmsResults.stream()
                 .map(gmsDataFlow -> gmsDataFlow == null ? null : DataFetcherResult.<DataFlow>newResult()
                     .data(DataFlowSnapshotMapper.map(gmsDataFlow.getValue().getDataFlowSnapshot()))
-                    .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataFlow.getValue().getDataFlowSnapshot()))
+                    .localContext(AspectExtractor.extractAspects(gmsDataFlow.getValue().getDataFlowSnapshot()))
                     .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {

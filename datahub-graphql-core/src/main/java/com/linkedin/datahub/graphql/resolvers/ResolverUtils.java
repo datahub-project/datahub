@@ -101,7 +101,8 @@ public class ResolverUtils {
                 // de-register the prefetched aspect from local context. Since aspects will only
                 // ever be first-class properties of an entity type, local context will always
                 // contain a map of { aspectName: DataMap }
-                DataElement prefetchedAspect = ((Map<String, DataElement>) localContext).getOrDefault(fieldName, null);
+                DataElement prefetchedAspect =
+                    ((Map<String, DataElement>) localContext).getOrDefault(fieldName, null);
 
                 if (prefetchedAspect != null) {
                     try {

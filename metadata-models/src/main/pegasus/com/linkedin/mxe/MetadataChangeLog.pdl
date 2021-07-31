@@ -1,0 +1,14 @@
+namespace com.linkedin.mxe
+
+import com.linkedin.avro2pegasus.events.KafkaAuditHeader
+
+/**
+ * Kafka event for capturing update made to an entity's metadata.
+ */
+record MetadataChangeLog includes MetadataChangeProposal {
+
+  previousAspectValue: optional GenericAspect
+
+  previousSystemMetadata: optional SystemMetadata
+
+}
