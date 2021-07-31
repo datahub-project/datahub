@@ -5,7 +5,7 @@ import com.linkedin.metadata.dao.producer.EntityKafkaMetadataEventProducer;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.TopicConvention;
 import javax.annotation.Nonnull;
 import org.apache.kafka.clients.producer.Producer;
@@ -22,7 +22,7 @@ public class EntityServiceFactory {
   ApplicationContext applicationContext;
 
   @Bean(name = "entityService")
-  @DependsOn({"ebeanAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN})
+  @DependsOn({"ebeanAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
   @Nonnull
   protected EntityService createInstance() {
 
@@ -31,6 +31,6 @@ public class EntityServiceFactory {
             applicationContext.getBean(TopicConvention.class));
 
     return new EbeanEntityService(applicationContext.getBean(EbeanAspectDao.class), producer,
-        SnapshotEntityRegistry.getInstance());
+        applicationContext.getBean(EntityRegistry.class));
   }
 }

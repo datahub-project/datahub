@@ -4,8 +4,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
-import java.util.ArrayList;
-import java.util.List;
+
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -35,7 +34,7 @@ public class TestEntityRegistry implements EntityRegistry {
 
   @Nonnull
   @Override
-  public List<EntitySpec> getEntitySpecs() {
-    return new ArrayList<>(entityNameToSpec.values());
+  public Map<String, EntitySpec> getEntitySpecs() {
+    return entityNameToSpec;
   }
 }

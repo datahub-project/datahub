@@ -48,6 +48,13 @@
       } ],
       "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
     }, {
+      "name" : "batchGetTotalEntityCount",
+      "parameters" : [ {
+        "name" : "entities",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      } ],
+      "returns" : "{ \"type\" : \"map\", \"values\" : \"long\" }"
+    }, {
       "name" : "batchIngest",
       "parameters" : [ {
         "name" : "entities",
@@ -76,7 +83,7 @@
         "name" : "limit",
         "type" : "int"
       } ],
-      "returns" : "com.linkedin.metadata.query.BrowseResult"
+      "returns" : "com.linkedin.metadata.browse.BrowseResult"
     }, {
       "name" : "delete",
       "parameters" : [ {
@@ -91,6 +98,13 @@
         "type" : "com.linkedin.common.Urn"
       } ],
       "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+    }, {
+      "name" : "getTotalEntityCount",
+      "parameters" : [ {
+        "name" : "entity",
+        "type" : "string"
+      } ],
+      "returns" : "long"
     }, {
       "name" : "ingest",
       "parameters" : [ {

@@ -22,14 +22,14 @@ import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardSnapshotMap
 import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardUpdateInputSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
-import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.configs.DashboardSearchConfig;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.DashboardSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -91,7 +91,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                     .map(gmsDashboard -> gmsDashboard == null ? null
                         : DataFetcherResult.<Dashboard>newResult()
                             .data(DashboardSnapshotMapper.map(gmsDashboard.getValue().getDashboardSnapshot()))
-                            .localContext(SnapshotToAspectMap.extractAspectMap(gmsDashboard.getValue().getDashboardSnapshot()))
+                            .localContext(AspectExtractor.extractAspects(gmsDashboard.getValue().getDashboardSnapshot()))
                             .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
@@ -134,18 +134,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                 facetFilters,
                 start,
                 count);
-        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<Dashboard> dashboards = batchLoad(urns, context).stream().map(dashboardDataFetcherResult ->  dashboardDataFetcherResult.getData()).collect(
-            Collectors.toList());
-        final BrowseResults browseResults = new BrowseResults();
-        browseResults.setStart(result.getFrom());
-        browseResults.setCount(result.getPageSize());
-        browseResults.setTotal(result.getNumEntities());
-        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
-        browseResults.setEntities(dashboards.stream()
-                .map(dashboard -> (com.linkedin.datahub.graphql.generated.Entity) dashboard)
-                .collect(Collectors.toList()));
-        return browseResults;
+        return BrowseResultMapper.map(result);
     }
 
     @Override

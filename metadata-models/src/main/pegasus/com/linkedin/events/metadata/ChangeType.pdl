@@ -4,19 +4,32 @@ namespace com.linkedin.events.metadata
  * Descriptor for a change action
  */
 enum ChangeType {
+  /**
+   * insert if not exists. otherwise update
+   */
+  UPSERT
 
   /**
-   * create action
+   * NOT SUPPORTED YET
+   * insert if not exists. otherwise fail
    */
   CREATE
 
   /**
+   * NOT SUPPORTED YET
+   * update if exists. otherwise fail
+   */
+  UPDATE
+
+  /**
+   * NOT SUPPORTED YET
    * delete action
    */
   DELETE
 
   /**
-   * update action
+   * NOT SUPPORTED YET
+   * patch the changes instead of full replace
    */
-  UPDATE
+  PATCH
 }
