@@ -16,7 +16,7 @@ public class CostValueMapper implements ModelMapper<com.linkedin.common.CostValu
     public CostValue apply(@NonNull final com.linkedin.common.CostValue costValue) {
         final CostValue result = new CostValue();
         result.setCostCode(costValue.getCostCode());
-        result.setCostId(costValue.getCostId());
+        result.setCostId(costValue.getCostId().floatValue());
         return result;
     }
 }

@@ -22,7 +22,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -80,7 +80,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                         gmsGlossaryTerm == null ? null
                             : DataFetcherResult.<GlossaryTerm>newResult()
                                 .data(GlossaryTermSnapshotMapper.map(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
-                                .localContext(SnapshotToAspectMap.extractAspectMap(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
+                                .localContext(AspectExtractor.extractAspects(gmsGlossaryTerm.getValue().getGlossaryTermSnapshot()))
                                 .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {

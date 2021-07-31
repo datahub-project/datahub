@@ -13,12 +13,13 @@ import org.elasticsearch.client.RestHighLevelClient;
 public class EntityIndexBuilder {
   private final RestHighLevelClient searchClient;
   private final EntitySpec entitySpec;
+  private final SettingsBuilder settingsBuilder;
   private final String indexName;
 
   public void buildIndex() throws IOException {
     log.info("Setting up index: {}", indexName);
     Map<String, Object> mappings = MappingsBuilder.getMappings(entitySpec);
-    Map<String, Object> settings = SettingsBuilder.getSettings();
+    Map<String, Object> settings = settingsBuilder.getSettings();
 
     new IndexBuilder(searchClient, indexName, mappings, settings).buildIndex();
   }

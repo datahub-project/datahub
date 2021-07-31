@@ -1,0 +1,5 @@
+entities:
+  - name: testEntity
+    keyAspect: testEntityKey
+    aspects:
+      - testEntityProfile

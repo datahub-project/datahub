@@ -21,7 +21,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLFeatureTableSnapshotMapper;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -75,7 +75,7 @@ public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>,
                 .map(gmsMlFeatureTable -> gmsMlFeatureTable == null ? null
                     : DataFetcherResult.<MLFeatureTable>newResult()
                         .data(MLFeatureTableSnapshotMapper.map(gmsMlFeatureTable.getValue().getMLFeatureTableSnapshot()))
-                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsMlFeatureTable.getValue().getMLFeatureTableSnapshot()))
+                        .localContext(AspectExtractor.extractAspects(gmsMlFeatureTable.getValue().getMLFeatureTableSnapshot()))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {

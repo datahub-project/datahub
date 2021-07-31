@@ -16,10 +16,14 @@ def getMetadataChangeEventSchema() -> str:
     return _load_schema("MetadataChangeEvent")
 
 @functools.lru_cache(maxsize=None)
-def getMetadataAuditEventSchema() -> str:
-    return _load_schema("MetadataAuditEvent")
+def getMetadataChangeProposalSchema() -> str:
+    return _load_schema("MetadataChangeProposal")
 
 @functools.lru_cache(maxsize=None)
 def getUsageAggregationSchema() -> str:
     return _load_schema("UsageAggregation")
+
+@functools.lru_cache(maxsize=None)
+def getDatasetProfileSchema() -> str:
+    return _load_schema("DatasetProfile")
 # fmt: on
