@@ -249,19 +249,19 @@ class KuduSource(Source):
             db_cursor.execute(f"describe formatted {schema}.{table}")
             table_info_raw = db_cursor.fetchall()
             table_info = table_info_raw[len(table_schema)+3:]            
-
+            
             properties = {}
-
+            table_owner=None
             for item in table_info:
                 if item[0].strip() == "Location:":
-                    properties["table_location"] = item[1]                
+                    properties["table_location"] = item[1].strip()                
                 if item[0].strip() == "Table Type:":
-                    properties["table_type"] = item[1]
+                    properties["table_type"] = item[1].strip()
                 if item[0].strip() == "Owner:":
-                    table_owner = item[1]
+                    table_owner = item[1].strip()
                 if item[1]:
                     if item[1].strip() == "kudu.master_addresses":
-                        properties["kudu_master"] = item[2]
+                        properties["kudu_master"] = item[2].strip()
             for item in ["table_location","table_type", "kudu_master"]:
                 if item not in properties:
                     properties[item]=""
@@ -270,9 +270,10 @@ class KuduSource(Source):
                 urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
                 aspects=[],
             )
-            data_owner = f"urn:li:corpuser:{table_owner}"
-            owner_properties = OwnershipClass(owners=[Owner(owner=data_owner, type = OwnershipType.DATAOWNER)])
-            dataset_snapshot.aspects.append(owner_properties)
+            if table_owner:
+                data_owner = f"urn:li:corpuser:{table_owner}"
+                owner_properties = OwnershipClass(owners=[Owner(owner=data_owner, type = OwnershipType.DATAOWNER)])
+                dataset_snapshot.aspects.append(owner_properties)
             #kudu has no table comments. 
             dataset_properties = DatasetProperties(
                 description="",

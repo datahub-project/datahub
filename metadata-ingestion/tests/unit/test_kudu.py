@@ -20,6 +20,9 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    OwnershipClass,
+    OwnerClass,
+    DatasetPropertiesClass
 )
 
 logger = logging.getLogger(__name__)
@@ -32,11 +35,10 @@ class KuduSourceTest(unittest.TestCase):
         Test if the config is accepted without throwing an exception
         """
         ctx = PipelineContext(run_id="test")
-        kudu_source = KuduSource.create(KuduConfig(use_ssl=False), ctx)
-
+        kudu_source = KuduSource.create(KuduConfig(), ctx)
+        url, _ = kudu_source.config.get_url()
         assert (
-            kudu_source.config.get_sql_alchemy_url()
-            == "impala://localhost:21050/default"
+            url== "jdbc:impala://localhost:21050;"
         )
 
     @freeze_time("2012-01-14 12:00:01.000")
@@ -48,31 +50,52 @@ class KuduSourceTest(unittest.TestCase):
         mock_execute = Mock()
         mock_execute.side_effect = ["table","stats", "describe", "describe_formatted" ] #show tables, show
         mock_fetch = Mock()
-        table_stats = 
-        table_formatted_stats = 
-        mock_fetch.side_effect = ["table1", table_stats, table_formatted_stats]
+        all_tables_in_schema = [('my_first_table',)]
+        table_stats = [('# Rows', "DBAPITypeObject('BOOLEAN', 'BIGINT', 'BIT', 'INTEGER', 'SMALLINT', 'TINYINT')", 11, 11, 10, 0, 1), 
+            ('Start Key', "DBAPITypeObject('CHAR', 'NCHAR', 'NVARCHAR', 'VARCHAR', 'OTHER')", 32767, 32767, 32767, 0, 1), 
+            ('Stop Key', "DBAPITypeObject('CHAR', 'NCHAR', 'NVARCHAR', 'VARCHAR', 'OTHER')", 32767, 32767, 32767, 0, 1), 
+            ('Leader Replica', "DBAPITypeObject('CHAR', 'NCHAR', 'NVARCHAR', 'VARCHAR', 'OTHER')", 32767, 32767, 32767, 0, 1), 
+            ('# Replicas', "DBAPITypeObject('BOOLEAN', 'BIGINT', 'BIT', 'INTEGER', 'SMALLINT', 'TINYINT')", 11, 11, 10, 0, 1)]
+        describe_value = [('id', 'bigint', '', 'true', 'false', '', 'AUTO_ENCODING', 'DEFAULT_COMPRESSION', '0'), 
+            ('name', 'string', '', 'false', 'true', '', 'AUTO_ENCODING', 'DEFAULT_COMPRESSION', '0')]
+        table_formatted_stats = [('# col_name            ', 'data_type           ', 'comment             '), 
+            ('', None, None), 
+            ('id', 'bigint', None), 
+            ('name', 'string', None), 
+            ('', None, None), 
+            ('# Detailed Table Information', None, None), 
+            ('Database:           ', 'default             ', None), 
+            ('OwnerType:          ', 'USER                ', None), 
+            ('Owner:              ', 'impala              ', None), 
+            ('CreateTime:         ', 'Sun Aug 01 09:27:13 UTC 2021', None), 
+            ('LastAccessTime:     ', 'UNKNOWN             ', None), 
+            ('Retention:          ', '0                   ', None), 
+            ('Location:           ', 'file:/var/lib/impala/warehouse/my_first_table', None), 
+            ('Table Type:         ', 'EXTERNAL_TABLE      ', None), 
+            ('Table Parameters:', None, None), 
+            ('', 'EXTERNAL            ', 'TRUE                '), 
+            ('', 'kudu.master_addresses', 'kudu-master-1:7051,kudu-master-2:7151,kudu-master-3:7251'), 
+            ('', 'kudu.table_name     ', 'impala::default.my_first_table'), 
+            ('', 'storage_handler     ', 'org.apache.hadoop.hive.kudu.KuduStorageHandler'), 
+            ('', 'transient_lastDdlTime', '1627810033          '), 
+            ('', None, None), 
+            ('# Storage Information', None, None), 
+            ('SerDe Library:      ', 'org.apache.hadoop.hive.kudu.KuduSerDe', None), 
+            ('InputFormat:        ', 'org.apache.hadoop.hive.kudu.KuduInputFormat', None), 
+            ('OutputFormat:       ', 'org.apache.hadoop.hive.kudu.KuduOutputFormat', None), 
+            ('Compressed:         ', 'No                  ', None), 
+            ('Num Buckets:        ', '0                   ', None), 
+            ('Bucket Columns:     ', '[]                  ', None), 
+            ('Sort Columns:       ', '[]                  ', None)]
+        mock_fetch.side_effect = [all_tables_in_schema, describe_value, table_formatted_stats]
         mock_engine.execute = mock_execute
         mock_engine.fetchall = mock_fetch
         
-        mock_inspect.get_columns.return_value = [
-            {
-                "name": "id",
-                "type": types.BIGINT(),
-                "nullable": True,
-                "autoincrement": False,
-            },
-            {
-                "name": "name",
-                "type": types.String(),
-                "nullable": True,
-                "autoincrement": False,
-            },
-        ]
 
         ctx = PipelineContext(run_id="test")
-        src = KuduSource(KuduConfig(use_ssl=False), ctx)
+        src = KuduSource(KuduConfig(), ctx)
         yield_gen = src.loop_tables(
-            mock_inspect, "default", KuduConfig(use_ssl=False), mock_engine
+            mock_engine, "default", KuduConfig()
         )
         expected_return = MetadataWorkUnit(
             id="default.my_first_table",
@@ -80,6 +103,20 @@ class KuduSourceTest(unittest.TestCase):
                 proposedSnapshot=DatasetSnapshot(
                     urn="urn:li:dataset:(urn:li:dataPlatform:kudu,default.my_first_table,PROD)",
                     aspects=[
+                        OwnershipClass(
+                            owners=[OwnerClass(
+                                owner="urn:li:corpuser:impala",
+                                type="DATAOWNER",
+                            )],                        
+                        ),
+                        DatasetPropertiesClass(
+                            customProperties= {
+                                'table_location':'file:/var/lib/impala/warehouse/my_first_table',
+                                'table_type':'EXTERNAL_TABLE',
+                                'kudu_master': 'kudu-master-1:7051,kudu-master-2:7151,kudu-master-3:7251'
+                                },
+                                description=""                               
+                        ),
                         SchemaMetadataClass(
                             schemaName="default.my_first_table",
                             version=0,
@@ -87,39 +124,41 @@ class KuduSourceTest(unittest.TestCase):
                             platform="urn:li:dataPlatform:kudu",
                             platformSchema=SchemalessClass(),
                             created=AuditStampClass(
-                                time=1326542401000, actor="urn:li:corpuser:etl"
+                                time=0, actor="urn:li:corpuser:etl"
                             ),
                             lastModified=AuditStampClass(
-                                time=1326542401000, actor="urn:li:corpuser:etl"
+                                time=0, actor="urn:li:corpuser:etl"
                             ),
                             fields=[
                                 SchemaField(
                                     fieldPath="id",
-                                    nativeDataType="BIGINT()",
+                                    nativeDataType="'bigint'",
                                     type=SchemaFieldDataTypeClass(
                                         type=NumberTypeClass()
                                     ),
-                                    description=None,
-                                    nullable=True,
+                                    description="",
+                                    nullable=False,
                                     recursive=False,
                                 ),
                                 SchemaField(
                                     fieldPath="name",
-                                    nativeDataType="String()",
+                                    nativeDataType="'string'",
                                     type=SchemaFieldDataTypeClass(
                                         type=StringTypeClass()
                                     ),
-                                    description=None,
+                                    description="",
                                     nullable=True,
                                     recursive=False,
                                 ),
                             ],
+                            primaryKeys= ["id"],
+                            foreignKeysSpecs= None,
                         )
                     ],
                 )
             ),
         )
-        for item in yield_gen:  # there shd be a more elegant way to pull the first item off a generator...
+        for item in yield_gen:  # there shd be a more elegant way to pull the first item off a generator...            
             generated = item
             break
         self.assertEqual(generated, expected_return)
