@@ -1,0 +1,50 @@
+---
+# compulsory arguments for kudu table in dockerized kudu:
+# type : kudu
+# jar_location: where is the file downloaded from 
+# https://repository.cloudera.com/artifactory/cloudera-mirror/Impala/ImpalaJDBC42/2.6.23.1028/ImpalaJDBC42-2.6.23.1028.jar
+
+# compulsory arguments for kudu table in production/devt:
+# type : kudu
+# kerberos: True
+# host: name_of_host
+# truststore_loc: location_of_jks 
+# kerberos_realm: ABC.COM
+# KrbHostFQDN: HostName.ABC.com
+# service_principal: account used to access prod/devt
+# keytab_location: location of keytab file
+# jar_location: where is the file downloaded from 
+#   https://repository.cloudera.com/artifactory/cloudera-mirror/Impala/ImpalaJDBC42/2.6.23.1028/ImpalaJDBC42-2.6.23.1028.jar
+# classpath: (optional, assume default com.cloudera.impala.impala.core.ImpalaJDBCDriver)
+# schema_pattern:
+#   allow: (whitelist only)
+# table_pattern:
+#   allow: (whitelist only)
+source:
+  type: kudu  #only kudu tables are processed in this recipe
+  config:
+    host: localhost:21050
+    jar_location: /tmp/ImpalaJDBC42-2.6.23.1028.jar  #ask admin for cert        
+    schema_pattern:   #allowed schema will be processed. if not stated, will be dropped.
+      allow:
+      - "default"        
+    table_pattern:
+      allow:
+      - "default.my_forth_table"
+#     - "schema1.table2"
+
+
+
+
+# sink:
+#   type: "console"
+
+# sink:
+#   type: "file"
+#   config:
+#     filename: './example_output_mces.json'
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
