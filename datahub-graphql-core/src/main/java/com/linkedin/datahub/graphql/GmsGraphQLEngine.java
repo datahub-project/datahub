@@ -112,7 +112,7 @@ public class GmsGraphQLEngine {
     public static final CorpGroupType CORP_GROUP_TYPE = new CorpGroupType(GmsClientFactory.getEntitiesClient());
     public static final ChartType CHART_TYPE = new ChartType(GmsClientFactory.getEntitiesClient());
     public static final DashboardType DASHBOARD_TYPE = new DashboardType(GmsClientFactory.getEntitiesClient());
-    public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getDataPlatformsClient());
+    public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getEntitiesClient());
     public static final DownstreamLineageType DOWNSTREAM_LINEAGE_TYPE = new DownstreamLineageType(
             GmsClientFactory.getLineagesClient()
     );
