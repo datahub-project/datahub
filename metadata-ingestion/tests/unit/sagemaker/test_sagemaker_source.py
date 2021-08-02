@@ -8,7 +8,10 @@ from datahub.ingestion.source.aws.sagemaker import (
     SagemakerSource,
     SagemakerSourceConfig,
 )
-from datahub.ingestion.source.aws.sagemaker_processors.jobs import SAGEMAKER_JOB_TYPES
+from datahub.ingestion.source.aws.sagemaker_processors.jobs import (
+    job_type_to_info,
+    job_types,
+)
 from tests.test_helpers import mce_helpers
 from tests.unit.test_sagemaker_source_stubs import (
     describe_endpoint_response_1,
@@ -150,9 +153,11 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             },
         )
 
-        for job_type, job in job_stubs.items():
+        for job_type in job_types:
 
-            job_info = SAGEMAKER_JOB_TYPES[job_type]
+            job = job_stubs[job_type.value]
+
+            job_info = job_type_to_info[job_type]
 
             sagemaker_stubber.add_response(
                 job_info.list_command,
@@ -160,9 +165,11 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
                 {},
             )
 
-        for job_type, job in job_stubs.items():
+        for job_type in job_types:
 
-            job_info = SAGEMAKER_JOB_TYPES[job_type]
+            job = job_stubs[job_type.value]
+
+            job_info = job_type_to_info[job_type]
 
             sagemaker_stubber.add_response(
                 job_info.describe_command,
@@ -219,7 +226,7 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         )
 
         mce_objects = [
-            wu.mce.to_obj() for wu in sagemaker_source_instance.get_workunits()
+            wu.metadata.to_obj() for wu in sagemaker_source_instance.get_workunits()
         ]
 
         with open(str(tmp_path / "sagemaker_mces.json"), "w") as f:

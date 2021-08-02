@@ -13,7 +13,7 @@ class SagemakerSourceConfig(AwsSourceConfig):
 
     @property
     def sagemaker_client(self):
-        return self.get_client("sagemaker")
+        return self.get_sagemaker_client()
 
 
 @dataclass

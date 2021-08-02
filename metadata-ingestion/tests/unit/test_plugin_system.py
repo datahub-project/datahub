@@ -9,6 +9,7 @@ from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.sink.console import ConsoleSink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
+from tests.test_helpers.click_helpers import assert_result_ok
 
 
 @pytest.mark.parametrize(
@@ -27,7 +28,7 @@ def test_list_all() -> None:
     # This just verifies that it runs without error.
     runner = CliRunner()
     result = runner.invoke(datahub, ["check", "plugins", "--verbose"])
-    assert result.exit_code == 0
+    assert_result_ok(result)
     assert len(result.output.splitlines()) > 20
 
 

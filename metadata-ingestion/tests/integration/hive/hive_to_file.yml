@@ -4,6 +4,7 @@ source:
   type: hive
   config:
     scheme: "hive"
+    database: "db1"
     host_port: localhost:10000
 
 sink:

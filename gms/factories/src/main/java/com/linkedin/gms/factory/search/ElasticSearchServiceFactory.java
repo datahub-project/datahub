@@ -2,10 +2,11 @@ package com.linkedin.gms.factory.search;
 
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
+import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
@@ -21,7 +22,8 @@ import org.springframework.context.annotation.Import;
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, EntityRegistryFactory.class,
+    SettingsBuilderFactory.class})
 public class ElasticSearchServiceFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -30,6 +32,14 @@ public class ElasticSearchServiceFactory {
   @Autowired
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
   private IndexConvention indexConvention;
+
+  @Autowired
+  @Qualifier("entityRegistry")
+  private EntityRegistry entityRegistry;
+
+  @Autowired
+  @Qualifier("settingsBuilder")
+  private SettingsBuilder settingsBuilder;
 
   @Value("${ES_BULK_REQUESTS_LIMIT:1}")
   private Integer bulkRequestsLimit;
@@ -46,8 +56,7 @@ public class ElasticSearchServiceFactory {
   @Bean(name = "elasticSearchService")
   @Nonnull
   protected ElasticSearchService getInstance() {
-    EntityRegistry entityRegistry = SnapshotEntityRegistry.getInstance();
-    return new ElasticSearchService(new ESIndexBuilders(entityRegistry, searchClient, indexConvention),
+    return new ElasticSearchService(new ESIndexBuilders(entityRegistry, searchClient, indexConvention, settingsBuilder),
         new ESSearchDAO(entityRegistry, searchClient, indexConvention),
         new ESBrowseDAO(entityRegistry, searchClient, indexConvention),
         new ESWriteDAO(entityRegistry, searchClient, indexConvention, bulkRequestsLimit, bulkFlushPeriod, numRetries,

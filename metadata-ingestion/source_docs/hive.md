@@ -21,7 +21,7 @@ source:
     username: user # optional
     password: pass # optional
     host_port: localhost:10000
-    database: DemoDatabase # optional, defaults to 'default'
+    database: DemoDatabase # optional, if not specified, ingests from all databases
 
     # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
     # See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.

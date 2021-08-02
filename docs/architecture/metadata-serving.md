@@ -59,7 +59,7 @@ Read the [metadata service developer guide](../how/build-metadata-service.md) to
 [mae-consumer-job]: ../../metadata-jobs/mae-consumer-job
 [Remote DAO]: ../architecture/metadata-serving.md#remote-dao
 [URN]: ../what/urn.md
-[Metadata Modelling]: ../how/metadata-modelling.md
+[Metadata Modelling]: ../modeling/metadata-model.md
 [Entity]: ../what/entity.md
 [Relationship]: ../what/relationship.md
 [Search Document]: ../what/search-document.md
