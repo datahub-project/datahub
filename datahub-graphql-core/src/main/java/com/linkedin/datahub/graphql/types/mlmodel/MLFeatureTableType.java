@@ -39,7 +39,7 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>, BrowsableEntityType<MLFeatureTable> {
 
-    private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
+    private static final Set<String> FACET_FIELDS = ImmutableSet.of("platform", "name");
     private final EntityClient _mlFeatureTableClient;
 
     public MLFeatureTableType(final EntityClient mlFeatureTableClient) {
