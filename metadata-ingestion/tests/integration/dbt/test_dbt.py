@@ -28,7 +28,7 @@ class DbtTestConfig:
         self.manifest_path = f"{test_resources_dir}/dbt_manifest.json"
         self.catalog_path = f"{test_resources_dir}/dbt_catalog.json"
         self.sources_path = f"{test_resources_dir}/dbt_sources.json"
-        self.target_platform = "dbt"
+        self.target_platform = "postgres"
 
         self.output_path = f"{tmp_path}/{output_file}"
 

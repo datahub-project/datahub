@@ -76,7 +76,7 @@ export default function DefaultPreviewCard({
             <Space direction="vertical" align="start" size={28} style={styles.leftColumn}>
                 <Link to={url}>
                     <Space direction="horizontal" size={20} align="center">
-                        {logoUrl ? <PreviewImage src={logoUrl} preview /> : logoComponent || ''}
+                        {logoUrl ? <PreviewImage preview={false} src={logoUrl} /> : logoComponent || ''}
 
                         <Space direction="vertical" size={8}>
                             <Typography.Text strong style={styles.name}>

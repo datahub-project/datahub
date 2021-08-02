@@ -345,7 +345,11 @@
           }
         }
       },
-      "doc" : "Urn of the applied glossary term"
+      "doc" : "Urn of the applied glossary term",
+      "Searchable" : {
+        "fieldName" : "glossaryTerms",
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
     "type" : "record",

@@ -1332,7 +1332,7 @@
           },
           {
             "com.linkedin.pegasus2avro.common.Status": {
-              "boolean": false
+              "removed": false
             }
           },
           {
@@ -1935,6 +1935,26 @@
   {
     "auditHeader": null,
     "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:glue",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "glue",
+              "displayName": "Glue",
+              "type": "OTHERS",
+              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/gluelogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
         "urn": "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_1)",
         "aspects": [
@@ -2276,7 +2296,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["feast/test_feature_table_all_feature_dtypes"]
+              "paths": ["/feast/test_feature_table_all_feature_dtypes"]
             }
           },
           {
@@ -2360,7 +2380,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["feast/test_feature_table_no_labels"]
+              "paths": ["/feast/test_feature_table_no_labels"]
             }
           },
           {
@@ -2430,7 +2450,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["feast/test_feature_table_single_feature"]
+              "paths": ["/feast/test_feature_table_single_feature"]
             }
           },
           {
@@ -2563,7 +2583,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["feast/user_features"]
+              "paths": ["/feast/user_features"]
             }
           },
           {
@@ -2636,16 +2656,14 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["feast/user_analytics"]
+              "paths": ["/feast/user_analytics"]
             }
           },
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
               "customProperties": {},
               "description": null,
-              "mlFeatures": [
-                "urn:li:mlFeature:(user_analytics,date_joined)"
-              ],
+              "mlFeatures": ["urn:li:mlFeature:(user_analytics,date_joined)"],
               "mlPrimaryKeys": [
                 "urn:li:mlPrimaryKey:(user_analytics,user_name)"
               ]

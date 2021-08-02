@@ -31,9 +31,4 @@ record MLHyperParam {
    * Date when the MLHyperParam was developed
    */
   createdAt: optional Time
-
-  /**
-   * Version of the MLHyperParam
-   */
-  version: optional VersionTag
 }

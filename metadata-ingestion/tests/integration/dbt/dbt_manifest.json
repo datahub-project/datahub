@@ -3335,12 +3335,37 @@
   "selectors": {},
   "sources": {
     "source.sample_dbt.pagila.actor": {
-      "columns": {},
+      "columns": {
+        "first_name": {
+          "data_type": null,
+          "description": "description for first_name from dbt",
+          "meta": {},
+          "name": "first_name",
+          "quote": null,
+          "tags": []
+        },
+        "last_name": {
+          "data_type": null,
+          "description": "description for last_name from dbt",
+          "meta": {},
+          "name": "last_name",
+          "quote": null,
+          "tags": []
+        },
+        "last_update": {
+          "data_type": null,
+          "description": "description for last_update from dbt",
+          "meta": {},
+          "name": "last_update",
+          "quote": null,
+          "tags": []
+        }
+      },
       "config": {
         "enabled": true
       },
       "database": "pagila",
-      "description": "",
+      "description": "description for actor table from dbt",
       "external": null,
       "fqn": [
         "sample_dbt",
@@ -3394,7 +3419,7 @@
         "enabled": true
       },
       "database": "pagila",
-      "description": "",
+      "description": "a user's address",
       "external": null,
       "fqn": [
         "sample_dbt",
@@ -3444,7 +3469,7 @@
         "enabled": true
       },
       "database": "pagila",
-      "description": "",
+      "description": "a user's category",
       "external": null,
       "fqn": [
         "sample_dbt",
@@ -3598,7 +3623,7 @@
         "enabled": true
       },
       "database": "pagila",
-      "description": "",
+      "description": "description for customer table from dbt",
       "external": null,
       "fqn": [
         "sample_dbt",
@@ -3857,7 +3882,7 @@
         "enabled": true
       },
       "database": "pagila",
-      "description": "",
+      "description": "a payment",
       "external": null,
       "fqn": [
         "sample_dbt",

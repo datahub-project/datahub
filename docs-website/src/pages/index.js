@@ -32,6 +32,7 @@ import LogoAthena from "./logos/athena.png";
 import LogoBigquery from "./logos/bigquery.svg";
 import LogoDbt from "./logos/dbt.png";
 import LogoDruid from "./logos/druid.svg";
+import LogoFeast from "./logos/feast.png";
 import LogoGlue from "./logos/glue.png";
 import LogoHive from "./logos/hive.svg";
 import LogoKafka from "./logos/kafka.svg";
@@ -43,6 +44,7 @@ import LogoMysql from "./logos/mysql.svg";
 import LogoOracle from "./logos/oracle.svg";
 import LogoPostgres from "./logos/postgres.png";
 import LogoRedshift from "./logos/redshift.svg";
+import LogoSagemaker from "./logos/sagemaker.png";
 import LogoSnowflake from "./logos/snowflake.svg";
 import LogoSpark from "./logos/spark.svg";
 import LogoSuperset from "./logos/superset.svg";
@@ -187,6 +189,10 @@ const sourceLogos = [
   { name: "DBT", image: pngFormatter(LogoDbt) },
   { name: "Druid", image: svgFormatter(LogoDruid) },
   {
+    name: "Feast",
+    image: pngFormatter(LogoFeast),
+  },
+  {
     name: "Glue",
     image: pngFormatter(LogoGlue),
   },
@@ -215,6 +221,10 @@ const sourceLogos = [
     name: "Redshift",
     image: svgFormatter(LogoRedshift),
   },
+  {
+    name: "SageMaker",
+    image: pngFormatter(LogoSagemaker),
+  },
   { name: "Snowflake", image: svgFormatter(LogoSnowflake) },
   { name: "Spark", image: svgFormatter(LogoSpark) },
   {
@@ -223,15 +233,17 @@ const sourceLogos = [
   },
 ];
 
+// show the newest videos first
 const videos = [
-  { id: "VY57iRdG-Us" },
-  { id: "fEILyoWVpBw" },
-  { id: "3wiaqhb8UR0" },
-  { id: "dlFa4ubJ9ho" },
-  { id: "RQBEJhcen5E" },
-  { id: "xE8Uc27VTG4" },
-  { id: "mjKjjtm8GfM" },
+  { id: "xUHOdDfdFpY" },
   { id: "r862MZTLAJ0" },
+  { id: "mjKjjtm8GfM" },
+  { id: "xE8Uc27VTG4" },
+  { id: "RQBEJhcen5E" },
+  { id: "dlFa4ubJ9ho" },
+  { id: "3wiaqhb8UR0" },
+  { id: "fEILyoWVpBw" },
+  { id: "VY57iRdG-Us" },
 ];
 
 const articles = [

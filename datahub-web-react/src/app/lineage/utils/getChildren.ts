@@ -4,12 +4,13 @@ import { EntityType } from '../../../types.generated';
 export default function getChildren(entityAndType: EntityAndType, direction: Direction | null): Array<EntityAndType> {
     if (direction === Direction.Upstream) {
         if (
-            entityAndType.type === EntityType.MlfeatureTable ||
             entityAndType.type === EntityType.Mlfeature ||
-            entityAndType.type === EntityType.MlprimaryKey
+            entityAndType.type === EntityType.MlprimaryKey ||
+            entityAndType.type === EntityType.MlfeatureTable
         ) {
             return [];
         }
+
         return (
             entityAndType.entity.upstreamLineage?.entities?.map(
                 (entity) =>

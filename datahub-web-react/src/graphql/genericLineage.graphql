@@ -78,7 +78,6 @@ fragment upstreamRelationshipFields on UpstreamEntityRelationships {
                 }
             }
             ... on Dataset {
-                urn
                 name
                 description
                 platform {
@@ -87,6 +86,36 @@ fragment upstreamRelationshipFields on UpstreamEntityRelationships {
                         logoUrl
                     }
                 }
+            }
+            ... on MLModelGroup {
+                urn
+                type
+                name
+                description
+                origin
+                platform {
+                    name
+                    info {
+                        displayName
+                        logoUrl
+                    }
+                }
+                ...shallowLineageFields
+            }
+            ... on MLModel {
+                urn
+                type
+                name
+                description
+                origin
+                platform {
+                    name
+                    info {
+                        displayName
+                        logoUrl
+                    }
+                }
+                ...shallowLineageFields
             }
         }
     }
@@ -118,12 +147,41 @@ fragment downstreamRelationshipFields on DownstreamEntityRelationships {
                 ...shallowLineageFields
             }
             ... on Dataset {
-                urn
                 name
                 description
                 platform {
                     name
                     info {
+                        logoUrl
+                    }
+                }
+                ...shallowLineageFields
+            }
+            ... on MLModelGroup {
+                urn
+                type
+                name
+                description
+                origin
+                platform {
+                    name
+                    info {
+                        displayName
+                        logoUrl
+                    }
+                }
+                ...shallowLineageFields
+            }
+            ... on MLModel {
+                urn
+                type
+                name
+                description
+                origin
+                platform {
+                    name
+                    info {
+                        displayName
                         logoUrl
                     }
                 }

@@ -121,17 +121,55 @@ query getBrowseResults($input: BrowseInput!) {
                 ownership {
                     ...ownershipFields
                 }
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
             }
+            ... on MLModel {
+                name
+                origin
+                description
+                tags
+                ownership {
+                    ...ownershipFields
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+            }
+            ... on MLModelGroup {
+                name
+                origin
+                description
+                ownership {
+                    ...ownershipFields
+                }
+                platform {
+                    name
+                    info {
+                        logoUrl
+                    }
+                }
+            }
+        }
+        groups {
+            name
+            count
         }
         start
         count
         total
         metadata {
             path
-            groups {
-                name
-                count
-            }
             totalNumEntities
         }
     }

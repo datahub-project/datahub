@@ -76,7 +76,7 @@ export const SearchBar = ({
     const [searchQuery, setSearchQuery] = useState<string>();
     const [selected, setSelected] = useState<string>();
     const options = suggestions.map((entity: AutoCompleteResultForEntity) => ({
-        label: Object.keys(EntityType).find((key) => EntityType[key] === entity.type) || entity.type,
+        label: entityRegistry.getCollectionName(entity.type),
         options: [
             ...entity.suggestions.map((suggestion: string) =>
                 renderItem(suggestion, entityRegistry.getIcon(entity.type, 14, IconStyleType.TAB_VIEW), entity.type),
@@ -106,7 +106,7 @@ export const SearchBar = ({
                 defaultValue={initialQuery || undefined}
                 value={selected}
                 onChange={(v) => setSelected(filterSearchQuery(v))}
-                dropdownStyle={{ maxHeight: 1000, overflowY: 'visible' }}
+                dropdownStyle={{ maxHeight: 1000, overflowY: 'visible', position: 'fixed' }}
             >
                 <Input.Search
                     placeholder={placeholderText}

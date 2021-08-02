@@ -16,14 +16,14 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
-import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLFeatureTableSnapshotMapper;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import graphql.execution.DataFetcherResult;
 
@@ -39,7 +39,7 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>, BrowsableEntityType<MLFeatureTable> {
 
-    private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
+    private static final Set<String> FACET_FIELDS = ImmutableSet.of("platform", "name");
     private final EntityClient _mlFeatureTableClient;
 
     public MLFeatureTableType(final EntityClient mlFeatureTableClient) {
@@ -75,7 +75,7 @@ public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>,
                 .map(gmsMlFeatureTable -> gmsMlFeatureTable == null ? null
                     : DataFetcherResult.<MLFeatureTable>newResult()
                         .data(MLFeatureTableSnapshotMapper.map(gmsMlFeatureTable.getValue().getMLFeatureTableSnapshot()))
-                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsMlFeatureTable.getValue().getMLFeatureTableSnapshot()))
+                        .localContext(AspectExtractor.extractAspects(gmsMlFeatureTable.getValue().getMLFeatureTableSnapshot()))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {
@@ -119,18 +119,7 @@ public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>,
                 facetFilters,
                 start,
                 count);
-        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<MLFeatureTable> mlFeatureTables = batchLoad(urns, context)
-                .stream().map(mlFeatureTableDataFetcherResult -> mlFeatureTableDataFetcherResult.getData()).collect(Collectors.toList());
-        final BrowseResults browseResults = new BrowseResults();
-        browseResults.setStart(result.getFrom());
-        browseResults.setCount(result.getPageSize());
-        browseResults.setTotal(result.getNumEntities());
-        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
-        browseResults.setEntities(mlFeatureTables.stream()
-                .map(entity -> (com.linkedin.datahub.graphql.generated.Entity) entity)
-                .collect(Collectors.toList()));
-        return browseResults;
+        return BrowseResultMapper.map(result);
     }
 
     @Override

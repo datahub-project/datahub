@@ -1,4 +1,5 @@
 """Convenience functions for creating MCEs"""
+import logging
 import time
 from typing import List, Optional, Type, TypeVar, get_type_hints
 
@@ -18,12 +19,23 @@ DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
 
 
+logger = logging.getLogger(__name__)
+
+
 def get_sys_time() -> int:
     # TODO deprecate this
     return int(time.time() * 1000)
 
 
+def _check_data_platform_name(platform_name: str) -> None:
+    if not platform_name.isalpha():
+        logger.warning(f"improperly formatted data platform: {platform_name}")
+
+
 def make_data_platform_urn(platform: str) -> str:
+    if platform.startswith("urn:li:dataPlatform:"):
+        return platform
+    _check_data_platform_name(platform)
     return f"urn:li:dataPlatform:{platform}"
 
 
@@ -55,6 +67,18 @@ def make_data_job_urn(
     return make_data_job_urn_with_flow(
         make_data_flow_urn(orchestrator, flow_id, cluster), job_id
     )
+
+
+def make_dashboard_urn(platform: str, name: str) -> str:
+    # FIXME: dashboards don't currently include data platform urn prefixes.
+    _check_data_platform_name(platform)
+    return f"urn:li:dashboard:({platform},{name})"
+
+
+def make_chart_urn(platform: str, name: str) -> str:
+    # FIXME: charts don't currently include data platform urn prefixes.
+    _check_data_platform_name(platform)
+    return f"urn:li:chart:({platform},{name})"
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
@@ -120,10 +144,14 @@ def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> b
     SnapshotType = type(mce.proposedSnapshot)
 
     constructor_annotations = get_type_hints(SnapshotType.__init__)
-    aspect_list_union = constructor_annotations["aspects"]
-    supported_aspect_types = typing_inspect.get_args(
-        typing_inspect.get_args(aspect_list_union)[0]
-    )
+    aspect_list_union = typing_inspect.get_args(constructor_annotations["aspects"])[0]
+    if not isinstance(aspect_list_union, tuple):
+        supported_aspect_types = typing_inspect.get_args(aspect_list_union)
+    else:
+        # On Python 3.6, the union type is represented as a tuple, where
+        # the first item is typing.Union and the subsequent elements are
+        # the types within the union.
+        supported_aspect_types = aspect_list_union[1:]
 
     return issubclass(AspectType, supported_aspect_types)
 
