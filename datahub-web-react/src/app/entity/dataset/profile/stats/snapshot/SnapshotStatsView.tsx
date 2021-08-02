@@ -151,10 +151,10 @@ export default function DataProfileView({ profile }: Props) {
 
     const columnStatsColumns = buildColumnStatsColumns(columnStatsTableData);
 
-    const rowCount = isPresent(profile?.rowCount) ? profile?.rowCount : -1;
+    const rowCount = (isPresent(profile?.rowCount) ? profile?.rowCount : -1) as number;
     const rowCountTitle = (rowCount >= 0 && 'Rows') || 'Row Count Unknown';
 
-    const columnCount = isPresent(profile?.columnCount) ? profile?.columnCount : -1;
+    const columnCount = (isPresent(profile?.columnCount) ? profile?.columnCount : -1) as number;
     const columnCountTitle = (columnCount >= 0 && 'Columns') || 'Column Count Unknown';
 
     return (
