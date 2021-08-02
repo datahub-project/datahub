@@ -1,11 +1,17 @@
 import json
 import logging
 import pathlib
+from typing import Union
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +47,14 @@ class FileSink(Sink):
 
     def write_record_async(
         self,
-        record_envelope: RecordEnvelope[MetadataChangeEvent],
+        record_envelope: RecordEnvelope[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+                UsageAggregation,
+            ]
+        ],
         write_callback: WriteCallback,
     ) -> None:
         record = record_envelope.record

@@ -4030,7 +4030,91 @@
         } ]
       }
     } ]
-  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLFeatureTableKey", "com.linkedin.metadata.key.MLModelDeploymentKey", "com.linkedin.metadata.key.MLModelGroupKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.MLPrimaryKeyKey", "com.linkedin.metadata.key.TagKey", {
+  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", {
+    "type" : "record",
+    "name" : "BrowseResult",
+    "namespace" : "com.linkedin.metadata.browse",
+    "doc" : "The model for the result of a browse query",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "BrowseResultEntity",
+          "doc" : "Data model for an entity returned as part of a browse query",
+          "fields" : [ {
+            "name" : "name",
+            "type" : "string",
+            "doc" : "Name of the entity",
+            "optional" : true
+          }, {
+            "name" : "urn",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "URN of the entity"
+          } ]
+        }
+      },
+      "doc" : "A list of entities under the queried path"
+    }, {
+      "name" : "groups",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "BrowseResultGroup",
+          "fields" : [ {
+            "name" : "name",
+            "type" : "string",
+            "doc" : "Name of the group"
+          }, {
+            "name" : "count",
+            "type" : "long",
+            "doc" : "Number of entities that can be reached from this path"
+          } ]
+        }
+      },
+      "doc" : "A list of groups and total number of entities inside those groups under the queried path",
+      "default" : [ ]
+    }, {
+      "name" : "metadata",
+      "type" : {
+        "type" : "record",
+        "name" : "BrowseResultMetadata",
+        "doc" : "The model for browse result metadata",
+        "fields" : [ {
+          "name" : "path",
+          "type" : "string",
+          "doc" : "Path that is being browsed"
+        }, {
+          "name" : "totalNumEntities",
+          "type" : "long",
+          "doc" : "Total number of entities we can reach from path"
+        } ]
+      },
+      "doc" : "Metadata specific to the browse result of the queried path"
+    }, {
+      "name" : "from",
+      "type" : "int",
+      "doc" : "Offset of the first entity in the result"
+    }, {
+      "name" : "pageSize",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "numEntities",
+      "type" : "int",
+      "doc" : "The total number of entities directly under queried path"
+    }, {
+      "name" : "numGroups",
+      "type" : "int",
+      "doc" : "The total number of groups directly under queried path"
+    }, {
+      "name" : "numElements",
+      "type" : "int",
+      "doc" : "The total number of elements (entities + groups) directly under queried path"
+    } ]
+  }, "com.linkedin.metadata.browse.BrowseResultEntity", "com.linkedin.metadata.browse.BrowseResultGroup", "com.linkedin.metadata.browse.BrowseResultMetadata", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLFeatureTableKey", "com.linkedin.metadata.key.MLModelDeploymentKey", "com.linkedin.metadata.key.MLModelGroupKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.MLPrimaryKeyKey", "com.linkedin.metadata.key.TagKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -4064,82 +4148,6 @@
       "doc" : "A list of typeahead suggestions"
     } ]
   }, {
-    "type" : "record",
-    "name" : "BrowseResult",
-    "namespace" : "com.linkedin.metadata.query",
-    "doc" : "The model for the result of a browse query",
-    "fields" : [ {
-      "name" : "entities",
-      "type" : {
-        "type" : "array",
-        "items" : {
-          "type" : "record",
-          "name" : "BrowseResultEntity",
-          "doc" : "Data model for an entity returned as part of a browse query",
-          "fields" : [ {
-            "name" : "name",
-            "type" : "string",
-            "doc" : "Name of the entity",
-            "optional" : true
-          }, {
-            "name" : "urn",
-            "type" : "com.linkedin.common.Urn",
-            "doc" : "URN of the entity"
-          } ]
-        }
-      },
-      "doc" : "A list of entities under the queried path"
-    }, {
-      "name" : "metadata",
-      "type" : {
-        "type" : "record",
-        "name" : "BrowseResultMetadata",
-        "doc" : "The model for browse result metadata",
-        "fields" : [ {
-          "name" : "path",
-          "type" : "string",
-          "doc" : "Path that is being browsed"
-        }, {
-          "name" : "groups",
-          "type" : {
-            "type" : "array",
-            "items" : {
-              "type" : "record",
-              "name" : "BrowseResultGroup",
-              "fields" : [ {
-                "name" : "name",
-                "type" : "string",
-                "doc" : "Name of the group"
-              }, {
-                "name" : "count",
-                "type" : "long",
-                "doc" : "Number of entities that can be reached from this path"
-              } ]
-            }
-          },
-          "doc" : "A list of groups and total number of entities inside those groups under the queried path",
-          "default" : [ ]
-        }, {
-          "name" : "totalNumEntities",
-          "type" : "long",
-          "doc" : "Total number of entities we can reach from path"
-        } ]
-      },
-      "doc" : "Metadata specific to the browse result of the queried path"
-    }, {
-      "name" : "from",
-      "type" : "int",
-      "doc" : "Offset of the first entity in the result"
-    }, {
-      "name" : "pageSize",
-      "type" : "int",
-      "doc" : "Size of each page in the result"
-    }, {
-      "name" : "numEntities",
-      "type" : "int",
-      "doc" : "The total number of entities directly under queried path"
-    } ]
-  }, "com.linkedin.metadata.query.BrowseResultEntity", "com.linkedin.metadata.query.BrowseResultGroup", "com.linkedin.metadata.query.BrowseResultMetadata", {
     "type" : "enum",
     "name" : "Condition",
     "namespace" : "com.linkedin.metadata.query",
@@ -4290,7 +4298,42 @@
       },
       "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
     } ]
-  }, "com.linkedin.metadata.query.SortOrder", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.metadata.query.SortOrder", {
+    "type" : "record",
+    "name" : "DeleteEntityResponse",
+    "namespace" : "com.linkedin.metadata.run",
+    "fields" : [ {
+      "name" : "urn",
+      "type" : "string"
+    }, {
+      "name" : "rows",
+      "type" : "long"
+    } ]
+  }, "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
+    "type" : "record",
+    "name" : "SystemMetadata",
+    "namespace" : "com.linkedin.mxe",
+    "doc" : "Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.",
+    "fields" : [ {
+      "name" : "lastObserved",
+      "type" : "long",
+      "doc" : "The timestamp the metadata was observed at",
+      "optional" : true
+    }, {
+      "name" : "runId",
+      "type" : "string",
+      "doc" : "The run id that produced the metadata",
+      "optional" : true
+    }, {
+      "name" : "properties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "Additional properties",
+      "optional" : true
+    } ]
+  }, "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "entities",
     "namespace" : "com.linkedin.entity",
@@ -4341,10 +4384,21 @@
         } ],
         "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
       }, {
+        "name" : "batchGetTotalEntityCount",
+        "parameters" : [ {
+          "name" : "entities",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+        } ],
+        "returns" : "{ \"type\" : \"map\", \"values\" : \"long\" }"
+      }, {
         "name" : "batchIngest",
         "parameters" : [ {
           "name" : "entities",
           "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.entity.Entity\" }"
+        }, {
+          "name" : "systemMetadata",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.mxe.SystemMetadata\" }",
+          "optional" : true
         } ]
       }, {
         "name" : "browse",
@@ -4365,7 +4419,14 @@
           "name" : "limit",
           "type" : "int"
         } ],
-        "returns" : "com.linkedin.metadata.query.BrowseResult"
+        "returns" : "com.linkedin.metadata.browse.BrowseResult"
+      }, {
+        "name" : "delete",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        } ],
+        "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
       }, {
         "name" : "getBrowsePaths",
         "parameters" : [ {
@@ -4374,10 +4435,21 @@
         } ],
         "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
       }, {
+        "name" : "getTotalEntityCount",
+        "parameters" : [ {
+          "name" : "entity",
+          "type" : "string"
+        } ],
+        "returns" : "long"
+      }, {
         "name" : "ingest",
         "parameters" : [ {
           "name" : "entity",
           "type" : "com.linkedin.entity.Entity"
+        }, {
+          "name" : "systemMetadata",
+          "type" : "com.linkedin.mxe.SystemMetadata",
+          "optional" : true
         } ]
       }, {
         "name" : "search",

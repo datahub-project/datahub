@@ -39,6 +39,7 @@ services:
         APP_ENV: dev
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
+      - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
       - ../gms/war/build/libs/:/datahub/datahub-gms/bin
 
   datahub-frontend-react:

@@ -21,13 +21,13 @@ import com.linkedin.datahub.graphql.types.chart.mappers.ChartSnapshotMapper;
 import com.linkedin.datahub.graphql.types.chart.mappers.ChartUpdateInputSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
-import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.configs.ChartSearchConfig;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.ChartSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -89,7 +89,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                     .map(gmsChart -> gmsChart == null ? null
                         : DataFetcherResult.<Chart>newResult()
                             .data(ChartSnapshotMapper.map(gmsChart.getValue().getChartSnapshot()))
-                            .localContext(SnapshotToAspectMap.extractAspectMap(gmsChart.getValue().getChartSnapshot()))
+                            .localContext(AspectExtractor.extractAspects(gmsChart.getValue().getChartSnapshot()))
                             .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
@@ -134,18 +134,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                 facetFilters,
                 start,
                 count);
-        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<Chart> charts = batchLoad(urns, context).stream().map(chartResult -> chartResult.getData()).collect(
-            Collectors.toList());
-        final BrowseResults browseResults = new BrowseResults();
-        browseResults.setStart(result.getFrom());
-        browseResults.setCount(result.getPageSize());
-        browseResults.setTotal(result.getNumEntities());
-        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
-        browseResults.setEntities(charts.stream()
-                .map(chart -> (com.linkedin.datahub.graphql.generated.Entity) chart)
-                .collect(Collectors.toList()));
-        return browseResults;
+        return BrowseResultMapper.map(result);
     }
 
     @Override
