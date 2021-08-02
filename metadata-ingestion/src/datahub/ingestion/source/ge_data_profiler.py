@@ -218,7 +218,8 @@ class DatahubGEProfiler:
                 column_profile.uniqueProportion = res["observed_value"]
             elif exp == "expect_column_values_to_not_be_null":
                 column_profile.nullCount = res["unexpected_count"]
-                column_profile.nullProportion = res["unexpected_percent"] / 100
+                if "unexpected_percent" in res:
+                    column_profile.nullProportion = res["unexpected_percent"] / 100
             elif exp == "expect_column_values_to_not_match_regex":
                 # ignore; generally used for whitespace checks using regex r"^\s+|\s+$"
                 pass
@@ -233,35 +234,38 @@ class DatahubGEProfiler:
             elif exp == "expect_column_stdev_to_be_between":
                 column_profile.stdev = str(res["observed_value"])
             elif exp == "expect_column_quantile_values_to_be_between":
-                column_profile.quantiles = [
-                    QuantileClass(quantile=str(quantile), value=str(value))
-                    for quantile, value in zip(
-                        res["observed_value"]["quantiles"],
-                        res["observed_value"]["values"],
-                    )
-                ]
+                if "observed_value" in res:
+                    column_profile.quantiles = [
+                        QuantileClass(quantile=str(quantile), value=str(value))
+                        for quantile, value in zip(
+                            res["observed_value"]["quantiles"],
+                            res["observed_value"]["values"],
+                        )
+                    ]
             elif exp == "expect_column_values_to_be_in_set":
                 column_profile.sampleValues = [
                     str(v) for v in res["partial_unexpected_list"]
                 ]
             elif exp == "expect_column_kl_divergence_to_be_less_than":
-                partition = res["details"]["observed_partition"]
-                column_profile.histogram = HistogramClass(
-                    [str(v) for v in partition["bins"]],
-                    [
-                        partition["tail_weights"][0],
-                        *partition["weights"],
-                        partition["tail_weights"][1],
-                    ],
-                )
+                if "details" in res and "observed_partition" in res["details"]:
+                    partition = res["details"]["observed_partition"]
+                    column_profile.histogram = HistogramClass(
+                        [str(v) for v in partition["bins"]],
+                        [
+                            partition["tail_weights"][0],
+                            *partition["weights"],
+                            partition["tail_weights"][1],
+                        ],
+                    )
             elif exp == "expect_column_distinct_values_to_be_in_set":
-                # This can be used to produce a bar chart since it includes values and frequencies.
-                # As such, it is handled differently from expect_column_values_to_be_in_set, which
-                # is nonexhaustive.
-                column_profile.distinctValueFrequencies = [
-                    ValueFrequencyClass(value=str(value), frequency=count)
-                    for value, count in res["details"]["value_counts"].items()
-                ]
+                if "details" in res and "value_counts" in res["details"]:
+                    # This can be used to produce a bar chart since it includes values and frequencies.
+                    # As such, it is handled differently from expect_column_values_to_be_in_set, which
+                    # is nonexhaustive.
+                    column_profile.distinctValueFrequencies = [
+                        ValueFrequencyClass(value=str(value), frequency=count)
+                        for value, count in res["details"]["value_counts"].items()
+                    ]
             elif exp == "expect_column_values_to_be_in_type_list":
                 # ignore; we already know the types for each column via ingestion
                 pass
