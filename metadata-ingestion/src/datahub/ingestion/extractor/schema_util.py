@@ -85,6 +85,12 @@ class AvroToMceSchemaConverter:
     def _get_cur_field_path(self) -> str:
         return ".".join(self._prefix_name_stack)
 
+    @staticmethod
+    def _get_annotation_type(schema: avro.schema.Schema) -> str:
+        if isinstance(schema, avro.schema.RecordSchema):
+            return schema.name
+        return schema.type
+
     def _recordschema_to_mce_fields(
         self, schema: avro.schema.RecordSchema
     ) -> List[SchemaField]:
@@ -103,24 +109,23 @@ class AvroToMceSchemaConverter:
                     f"{description}\nField default value: {parsed_field.default}"
                 )
             # Add the field name to the prefix stack.
-            self._prefix_name_stack.append(parsed_field.name)
+            type_annotated_name = f"[type={AvroToMceSchemaConverter._get_annotation_type(parsed_field.type)}]{parsed_field.name}"
+            self._prefix_name_stack.append(type_annotated_name)
+            fields.append(
+                SchemaField(
+                    fieldPath=self._get_cur_field_path(),
+                    nativeDataType=str(parsed_field.type),
+                    type=self._get_column_type(parsed_field.type),
+                    description=description,
+                    recursive=False,
+                    nullable=self._is_nullable(parsed_field.type),
+                )
+            )
             cur_sub_fields: List[SchemaField] = []
             if self._should_recurse(parsed_field.type):
                 # Recursively explore sub-types.
                 cur_sub_fields = self._to_mce_fields(parsed_field.type)
                 fields.extend(cur_sub_fields)
-            if not cur_sub_fields:
-                # No subfields exist. So, this is the leaf field. Go ahead and construct the field and append it to the output.
-                fields.append(
-                    SchemaField(
-                        fieldPath=self._get_cur_field_path(),
-                        nativeDataType=str(parsed_field.type),
-                        type=self._get_column_type(parsed_field.type),
-                        description=description,
-                        recursive=False,
-                        nullable=self._is_nullable(parsed_field.type),
-                    )
-                )
             # Remove the name from prefix stack.
             self._prefix_name_stack.pop()
         return fields
@@ -130,9 +135,11 @@ class AvroToMceSchemaConverter:
     ) -> List[SchemaField]:
         fields: List[SchemaField] = []
         # Recurse if needed.
+        self._prefix_name_stack.append("[type=array]")
         if self._should_recurse(schema.items):
             # Recursively explore sub-types
             fields.extend(self._to_mce_fields(schema.items))
+        self._prefix_name_stack.pop()
         return fields
 
     def _mapschema_to_mce_fields(
@@ -140,8 +147,17 @@ class AvroToMceSchemaConverter:
     ) -> List[SchemaField]:
         fields: List[SchemaField] = []
         # Process the map schema
-        if self._should_recurse(schema.values):
-            fields.extend(self._to_mce_fields(schema.values))
+        # NOTE: The key type for AVRO is always a string. So, we don't explicitly emit it.
+        schema_values = (
+            schema.values if isinstance(schema.values, list) else [schema.values]
+        )
+        for schema_value in schema_values:
+            self._prefix_name_stack.append(
+                f"[value={AvroToMceSchemaConverter._get_annotation_type(schema_value)}]"
+            )
+            if self._should_recurse(schema_value):
+                fields.extend(self._to_mce_fields(schema_value))
+            self._prefix_name_stack.pop()
         return fields
 
     def _unionschema_to_mce_fields(
@@ -151,8 +167,12 @@ class AvroToMceSchemaConverter:
         # Process the union schemas.
         for sub_schema in schema.schemas:
             # Recursively explore sub-types
+            self._prefix_name_stack.append(
+                f"[type=union][member={AvroToMceSchemaConverter._get_annotation_type(sub_schema)}]"
+            )
             if self._should_recurse(sub_schema):
                 fields.extend(self._to_mce_fields(sub_schema))
+            self._prefix_name_stack.pop()
         return fields
 
     def _non_recursive_to_mce_fields(
