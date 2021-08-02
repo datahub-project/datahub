@@ -27,30 +27,30 @@ If you are deploying DataHub via docker compose, enabling connection to Confluen
 First, configure GMS to connect to Confluent Cloud by changing `docker/gms/env/docker.env`:
 
 ```
-KAFKA_BOOTSTRAP_SERVER=pkc-e8mp5.eu-west-1.aws.confluent.cloud:9092
-KAFKA_SCHEMAREGISTRY_URL=https://psrc-yorrp.us-east-2.aws.confluent.cloud
+KAFKA_BOOTSTRAP_SERVER=pkc-g4ml2.eu-west-2.aws.confluent.cloud:9092
+KAFKA_SCHEMAREGISTRY_URL=https://plrm-qwlpp.us-east-2.aws.confluent.cloud
 
 # Confluent Cloud Configs
 SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
-SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule   required username='XFA35EL7QFUQP2PA' password='zmkfP6Envr9TYutsjLB3ZYfrk+yfCXD8sQHCE3EMp57A2jNs4RR7J1bU9k6lM6rU';
+SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule   required username='XFA45EL1QFUQP4PA' password='ltyf96EvR1YYutsjLB3ZYfrk+yfCXD8sQHCE3EMp57A2jNs4RR7J1bU9k6lM6rU';
 SPRING_KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
 SPRING_KAFKA_PROPERTIES_CLIENT_DNS_LOOKUP=use_all_dns_ips
 SPRING_KAFKA_PROPERTIES_BASIC_AUTH_CREDENTIALS_SOURCE=USER_INFO
-SPRING_KAFKA_PROPERTIES_BASIC_AUTH_USER_INFO=U4UXEN6SP3KEWMO4:ESju8ZfETDm2RZo/6KO057hPYs2TGjFKmvMWUFnlJ3uKubFbB1Sfs7aOjUVT6CGe
+SPRING_KAFKA_PROPERTIES_BASIC_AUTH_USER_INFO=P2ETAN5QR2LCWL14:RTjqw7AfETDl0RZo/7R0123LhPYs2TGjFKmvMWUFnlJ3uKubFbB1Sfs7aOjjNi1m23
 ```
 
 Next, configure datahub-frontend to connect to Confluent Cloud by changing `docker/datahub-frontend/env/docker.env`:
 
 ```
-KAFKA_BOOTSTRAP_SERVER=pkc-e8mp5.eu-west-1.aws.confluent.cloud:9092
+KAFKA_BOOTSTRAP_SERVER=pkc-g4ml2.eu-west-2.aws.confluent.cloud:9092
 
 # Confluent Cloud Configs
 KAFKA_PROPERTIES_SECURITY_PROTOCOL=SASL_SSL
-KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule   required username='XFA35EL7QFUQP2PA' password='zmkfP6Envr9TYutsjLB3ZYfrk+yfCXD8sQHCE3EMp57A2jNs4RR7J1bU9k6lM6rU';
+KAFKA_PROPERTIES_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule   required username='XFA45EL1QFUQP4PA' password='ltyf96EvR1YYutsjLB3ZYfrk+yfCXD8sQHCE3EMp57A2jNs4RR7J1bU9k6lM6rU';
 KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN
 KAFKA_PROPERTIES_CLIENT_DNS_LOOKUP=use_all_dns_ips
 KAFKA_PROPERTIES_BASIC_AUTH_CREDENTIALS_SOURCE=USER_INFO
-KAFKA_PROPERTIES_BASIC_AUTH_USER_INFO=U4UXEN6SP3KEWMO4:ESju8ZfETDm2RZo/6KO057hPYs2TGjFKmvMWUFnlJ3uKubFbB1Sfs7aOjUVT6CGe
+KAFKA_PROPERTIES_BASIC_AUTH_USER_INFO=P2ETAN5QR2LCWL14:RTjqw7AfETDl0RZo/7R0123LhPYs2TGjFKmvMWUFnlJ3uKubFbB1Sfs7aOjjNi1m23
 ```
 
 Note that this step is only required if DATAHUB_ANALYTICS_ENABLED is not set to false.
@@ -80,9 +80,9 @@ Then, update the `kafka` configurations to point to your Confluent Cloud broker 
 ```
 kafka:
       bootstrap:
-        server: pkc-e8mp5.eu-west-1.aws.confluent.cloud:9092
+        server: pkc-g4ml2.eu-west-2.aws.confluent.cloud:9092
       schemaregistry:
-        url: https://psrc-yorrp.us-east-2.aws.confluent.cloud
+        url: https://plrm-qwlpp.us-east-2.aws.confluent.cloud
 ```
 
 Next, you'll want to create 2 new Kubernetes secrets, one for the JaaS configuration which contains the username and password for Confluent,
@@ -110,8 +110,8 @@ kubectl create secret generic confluent-secrets --from-literal=basic_auth_user_i
 With your config values substituted as appropriate. For example, in our case we'd run:
 
 ```shell
-kubectl create secret generic confluent-secrets --from-literal=sasl_jaas_config="org.apache.kafka.common.security.plain.PlainLoginModule   required username='FJCUYDUWVOW3N4ST'   password='SbjL1DS+dQGRc7s6AiAgqAhuWytSGWCpSyJHS7rgplrezvrr5hpDnzKuForBkw9F';"
-kubectl create secret generic confluent-secrets --from-literal=basic_auth_user_info="QZYGIXDYOSR2P22Z:jetgvk+1WKN19KnonC8zADP81h9UA8DWtZrRfnX9rc8BlK7c7CZw85iCr4z4cmns"
+kubectl create secret generic confluent-secrets --from-literal=sasl_jaas_config="org.apache.kafka.common.security.plain.PlainLoginModule   required username='XFA45EL1QFUQP4PA' password='ltyf96EvR1YYutsjLB3ZYfrk+yfCXD8sQHCE3EMp57A2jNs4RR7J1bU9k6lM6rU';"
+kubectl create secret generic confluent-secrets --from-literal=basic_auth_user_info="P2ETAN5QR2LCWL14:RTjqw7AfETDl0RZo/7R0123LhPYs2TGjFKmvMWUFnlJ3uKubFbB1Sfs7aOjjNi1m23"
 ```
 
 Finally, we'll configure our containers to pick up the Confluent Kafka Configs by changing two config blocks in our values.yaml file. You
