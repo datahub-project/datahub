@@ -12,7 +12,7 @@
     "supports" : [ "get" ],
     "methods" : [ {
       "method" : "get",
-      "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
+      "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.\n TODO: Get rid of this and migrate to getAspect.",
       "parameters" : [ {
         "name" : "aspect",
         "type" : "string",
@@ -21,6 +21,38 @@
         "name" : "version",
         "type" : "long",
         "optional" : true
+      } ]
+    } ],
+    "actions" : [ {
+      "name" : "getTimeseriesAspectValues",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "entity",
+        "type" : "string"
+      }, {
+        "name" : "aspect",
+        "type" : "string"
+      }, {
+        "name" : "startTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "limit",
+        "type" : "int",
+        "default" : "10000"
+      } ],
+      "returns" : "com.linkedin.aspect.GetTimeseriesAspectValuesResponse"
+    }, {
+      "name" : "ingestProposal",
+      "parameters" : [ {
+        "name" : "proposal",
+        "type" : "com.linkedin.mxe.MetadataChangeProposal"
       } ]
     } ],
     "entity" : {

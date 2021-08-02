@@ -4,9 +4,16 @@ import { EntityType, Exact, SearchInput } from '../../types.generated';
 import { GetSearchResultsQuery, useGetSearchResultsQuery } from '../../graphql/search.generated';
 import { useEntityRegistry } from '../../app/useEntityRegistry';
 
+type GetAllSearchResults<K> = Record<EntityType, K>;
 type AllEntityInput<T, K> = Pick<T, Exclude<keyof T, keyof K>> & K;
 
-export function useGetAllEntitySearchResults(input: AllEntityInput<SearchInput, { type?: EntityType }>) {
+export type GetAllEntitySearchResultsType = GetAllSearchResults<
+    QueryResult<GetSearchResultsQuery, Exact<{ input: SearchInput }>>
+>;
+
+export function useGetAllEntitySearchResults(
+    input: AllEntityInput<SearchInput, { type?: EntityType }>,
+): GetAllEntitySearchResultsType {
     const result: {
         [key in EntityType]: QueryResult<
             GetSearchResultsQuery,

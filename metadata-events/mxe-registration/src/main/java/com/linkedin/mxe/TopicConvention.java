@@ -32,6 +32,30 @@ public interface TopicConvention {
   String getFailedMetadataChangeEventTopicName();
 
   /**
+   * The name of the metadata change proposal kafka topic.
+   */
+  @Nonnull
+  String getMetadataChangeProposalTopicName();
+
+  /**
+   * The name of the metadata change log kafka topic.
+   */
+  @Nonnull
+  String getMetadataChangeLogVersionedTopicName();
+
+  /**
+   * The name of the metadata change log kafka topic with limited retention.
+   */
+  @Nonnull
+  String getMetadataChangeLogTimeseriesTopicName();
+
+  /**
+   * The name of the failed metadata change proposal kafka topic.
+   */
+  @Nonnull
+  String getFailedMetadataChangeProposalTopicName();
+
+  /**
    * Returns the name of the metadata change event (v5) kafka topic.
    *
    * @param urn the urn of the entity being updated

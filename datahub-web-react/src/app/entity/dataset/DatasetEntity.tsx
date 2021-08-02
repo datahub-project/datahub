@@ -69,7 +69,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 name={data.name}
                 origin={data.origin}
                 description={data.editableProperties?.description || data.description}
-                platformName={data.platform.name}
+                platformName={data.platform.displayName || data.platform.name}
                 platformLogo={data.platform.info?.logoUrl}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}

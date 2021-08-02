@@ -6,7 +6,9 @@ dependencies {
   compile project(path: ':metadata-models')
   compile externalDependency.lombok
   compile externalDependency.guava
-
+  compile externalDependency.jacksonDataBind
+  compile externalDependency.jacksonDataFormatYaml
+  compile externalDependency.reflections
   dataModel project(':li-utils')
   annotationProcessor externalDependency.lombok
 

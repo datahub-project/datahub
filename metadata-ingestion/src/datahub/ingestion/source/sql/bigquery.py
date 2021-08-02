@@ -65,6 +65,15 @@ class BigQuerySource(SQLAlchemySource):
         ):
             return super().get_workunits()
 
+    def prepare_profiler_args(self, schema: str, table: str) -> dict:
+        self.config: BigQueryConfig
+        return dict(
+            schema=self.config.project_id,
+            table=f"{schema}.{table}",
+            limit=self.config.profiling.limit,
+            offset=self.config.profiling.offset,
+        )
+
     @staticmethod
     @functools.lru_cache()
     def _get_project_id(inspector: Inspector) -> str:
