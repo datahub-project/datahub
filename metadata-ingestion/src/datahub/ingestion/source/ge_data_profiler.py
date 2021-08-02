@@ -218,7 +218,7 @@ class DatahubGEProfiler:
                 column_profile.uniqueProportion = res["observed_value"]
             elif exp == "expect_column_values_to_not_be_null":
                 column_profile.nullCount = res["unexpected_count"]
-                if res["unexpected_percent"]:
+                if "unexpected_percent" in res:
                     column_profile.nullProportion = res["unexpected_percent"] / 100
             elif exp == "expect_column_values_to_not_match_regex":
                 # ignore; generally used for whitespace checks using regex r"^\s+|\s+$"
@@ -234,7 +234,7 @@ class DatahubGEProfiler:
             elif exp == "expect_column_stdev_to_be_between":
                 column_profile.stdev = str(res["observed_value"])
             elif exp == "expect_column_quantile_values_to_be_between":
-                if res["observed_value"]:
+                if "observed_value" in res:
                     column_profile.quantiles = [
                         QuantileClass(quantile=str(quantile), value=str(value))
                         for quantile, value in zip(
@@ -247,7 +247,7 @@ class DatahubGEProfiler:
                     str(v) for v in res["partial_unexpected_list"]
                 ]
             elif exp == "expect_column_kl_divergence_to_be_less_than":
-                if res["observed_value"] and res["details"]["observed_partition"]:
+                if "details" in res and "observed_partition" in res["details"]:
                     partition = res["details"]["observed_partition"]
                     column_profile.histogram = HistogramClass(
                         [str(v) for v in partition["bins"]],
@@ -258,7 +258,7 @@ class DatahubGEProfiler:
                         ],
                     )
             elif exp == "expect_column_distinct_values_to_be_in_set":
-                if res["details"]["value_counts"]:
+                if "details" in res and "value_counts" in res["details"]:
                     # This can be used to produce a bar chart since it includes values and frequencies.
                     # As such, it is handled differently from expect_column_values_to_be_in_set, which
                     # is nonexhaustive.
