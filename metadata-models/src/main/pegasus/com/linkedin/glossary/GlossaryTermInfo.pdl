@@ -35,6 +35,7 @@ record GlossaryTermInfo {
    */
   @Searchable = {
     "fieldType": "KEYWORD"
+    
   }
   sourceRef: optional string
 
@@ -47,4 +48,9 @@ record GlossaryTermInfo {
    * A key-value map to capture any other non-standardized properties for the glossary term
    */
   customProperties: map[string, string] = { }
+
+  /**
+   * Schema definition of the glossary term
+   */
+  schemaDefinition: optional string
 }

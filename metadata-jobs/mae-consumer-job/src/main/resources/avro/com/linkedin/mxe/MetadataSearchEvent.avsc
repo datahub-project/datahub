@@ -1,0 +1,305 @@
+{
+  "type" : "record",
+  "name" : "MetadataSearchEvent",
+  "namespace" : "com.linkedin.mxe",
+  "doc" : "Kafka event for capturing update made to a list of search documents.",
+  "fields" : [ {
+    "name" : "auditHeader",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "KafkaAuditHeader",
+      "namespace" : "com.linkedin.avro2pegasus.events",
+      "doc" : "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application.  For more information see go/kafkaauditheader",
+      "fields" : [ {
+        "name" : "time",
+        "type" : "long",
+        "doc" : "The time at which the event was emitted into kafka.",
+        "compliance" : [ {
+          "policy" : "EVENT_TIME"
+        } ]
+      }, {
+        "name" : "server",
+        "type" : "string",
+        "doc" : "The fully qualified name of the host from which the event is being emitted.",
+        "compliance" : "NONE"
+      }, {
+        "name" : "instance",
+        "type" : [ "null", "string" ],
+        "doc" : "The instance on the server from which the event is being emitted. e.g. i001",
+        "default" : null,
+        "compliance" : "NONE"
+      }, {
+        "name" : "appName",
+        "type" : "string",
+        "doc" : "The name of the application from which the event is being emitted. see go/appname",
+        "compliance" : "NONE"
+      }, {
+        "name" : "messageId",
+        "type" : {
+          "type" : "fixed",
+          "name" : "UUID",
+          "size" : 16
+        },
+        "doc" : "A unique identifier for the message",
+        "compliance" : "NONE"
+      }, {
+        "name" : "auditVersion",
+        "type" : [ "null", "int" ],
+        "doc" : "The version that is being used for auditing. In version 0, the audit trail buckets events into 10 minute audit windows based on the EventHeader timestamp. In version 1, the audit trail buckets events as follows: if the schema has an outer KafkaAuditHeader, use the outer audit header timestamp for bucketing; else if the EventHeader has an inner KafkaAuditHeader use that inner audit header's timestamp for bucketing",
+        "default" : null,
+        "compliance" : "NONE"
+      }, {
+        "name" : "fabricUrn",
+        "type" : [ "null", "string" ],
+        "doc" : "The fabricUrn of the host from which the event is being emitted. Fabric Urn in the format of urn:li:fabric:{fabric_name}. See go/fabric.",
+        "default" : null,
+        "compliance" : "NONE"
+      }, {
+        "name" : "clusterConnectionString",
+        "type" : [ "null", "string" ],
+        "doc" : "This is a String that the client uses to establish some kind of connection with the Kafka cluster. The exact format of it depends on specific versions of clients and brokers. This information could potentially identify the fabric and cluster with which the client is producing to or consuming from.",
+        "default" : null,
+        "compliance" : "NONE"
+      } ]
+    } ],
+    "doc" : "Kafka audit header. See go/kafkaauditheader for more info.",
+    "default" : null
+  }, {
+    "name" : "upsertedDocuments",
+    "type" : {
+      "type" : "array",
+      "items" : [ {
+        "type" : "record",
+        "name" : "CorpUserInfoDocument",
+        "namespace" : "com.linkedin.metadata.search",
+        "doc" : "Data model for CorpUserInfo entity search",
+        "fields" : [ {
+          "name" : "removed",
+          "type" : [ "boolean", "null" ],
+          "doc" : "Whether the entity has been removed or not",
+          "default" : false
+        }, {
+          "name" : "browsePaths",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "All paths representing the hierarchy of this entity. This is essential for browsing various paths leading to this entity.",
+          "default" : null
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "doc" : "Urn for the CorpUser.",
+          "java" : {
+            "class" : "com.linkedin.common.urn.CorpuserUrn"
+          }
+        }, {
+          "name" : "ldap",
+          "type" : [ "null", "string" ],
+          "doc" : "ldap of the CorpUser",
+          "default" : null
+        }, {
+          "name" : "title",
+          "type" : [ "null", "string" ],
+          "doc" : "title of the CorpUser",
+          "default" : null
+        }, {
+          "name" : "managerLdap",
+          "type" : [ "null", "string" ],
+          "doc" : "direct manager's ldap of the CorpUser",
+          "default" : null
+        }, {
+          "name" : "fullName",
+          "type" : [ "null", "string" ],
+          "doc" : "Common name of the CorpUser, format is firstName + lastName (split by a whitespace)",
+          "default" : null
+        }, {
+          "name" : "aboutMe",
+          "type" : [ "null", "string" ],
+          "doc" : "About me section of the user",
+          "default" : null
+        }, {
+          "name" : "teams",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "Teams that the user belongs to e.g. Metadata",
+          "default" : null
+        }, {
+          "name" : "skills",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "Skills that the user possesses e.g. Machine Learning",
+          "default" : null
+        }, {
+          "name" : "active",
+          "type" : [ "null", "boolean" ],
+          "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+          "default" : null
+        }, {
+          "name" : "emails",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "The user's full email(s).",
+          "default" : null
+        } ]
+      }, {
+        "type" : "record",
+        "name" : "DatasetDocument",
+        "namespace" : "com.linkedin.metadata.search",
+        "doc" : "Data model for dataset entity search",
+        "fields" : [ {
+          "name" : "removed",
+          "type" : [ "boolean", "null" ],
+          "doc" : "Whether the entity has been removed or not",
+          "default" : false
+        }, {
+          "name" : "browsePaths",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "All paths representing the hierarchy of this entity. This is essential for browsing various paths leading to this entity.",
+          "default" : null
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "doc" : "Urn for the dataset",
+          "java" : {
+            "class" : "com.linkedin.common.urn.DatasetUrn"
+          }
+        }, {
+          "name" : "name",
+          "type" : [ "null", "string" ],
+          "doc" : "Dataset native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}",
+          "default" : null
+        }, {
+          "name" : "platform",
+          "type" : [ "null", "string" ],
+          "doc" : "Platform name for the dataset",
+          "default" : null
+        }, {
+          "name" : "origin",
+          "type" : [ "null", {
+            "type" : "enum",
+            "name" : "FabricType",
+            "namespace" : "com.linkedin.common",
+            "doc" : "Fabric group type",
+            "symbols" : [ "DEV", "EI", "PROD", "CORP" ],
+            "symbolDocs" : {
+              "CORP" : "Designates corporation fabrics",
+              "DEV" : "Designates development fabrics",
+              "EI" : "Designates early-integration (staging) fabrics",
+              "PROD" : "Designates production fabrics"
+            }
+          } ],
+          "doc" : "Fabric type where dataset belongs to or where it was generated",
+          "default" : null
+        }, {
+          "name" : "owners",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "LDAP usernames of corp users who are the owners of this dataset",
+          "default" : null
+        }, {
+          "name" : "deprecated",
+          "type" : [ "null", "boolean" ],
+          "doc" : "Flag to indicate if the dataset is deprecated.",
+          "default" : null
+        }, {
+          "name" : "description",
+          "type" : [ "null", "string" ],
+          "doc" : "Documentation of the dataset.",
+          "default" : null
+        }, {
+          "name" : "fieldPaths",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "Field paths of the dataset",
+          "default" : null
+        }, {
+          "name" : "hasOwners",
+          "type" : [ "null", "boolean" ],
+          "doc" : "Flag to indicate if the dataset has non empty corp users as owners or not.",
+          "default" : null
+        }, {
+          "name" : "hasSchema",
+          "type" : [ "null", "boolean" ],
+          "doc" : "Flag to indicate if the dataset has non-empty schema or not.",
+          "default" : null
+        }, {
+          "name" : "numDownstreamDatasets",
+          "type" : [ "null", "long" ],
+          "doc" : "Lineage information represented by the number of immediate downstream datasets of this dataset.",
+          "default" : null
+        }, {
+          "name" : "upstreams",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "List of upstreams for this dataset",
+          "default" : null
+        }, {
+          "name" : "tags",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "List of tags for this dataset",
+          "default" : null
+        }, {
+          "name" : "fieldDescriptions",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "List of field descriptions",
+          "default" : null
+        }, {
+          "name" : "fieldTags",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "List of tags applied to fields",
+          "default" : null
+        }, {
+          "name" : "editedFieldDescriptions",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "List of field descriptions",
+          "default" : null
+        }, {
+          "name" : "editedFieldTags",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "List of tags applied to fields",
+          "default" : null
+        }, {
+          "name" : "glossaryTerms",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "doc" : "List of terms for this dataset",
+          "default" : null
+        } ]
+      } ]
+    },
+    "doc" : "A list of search document updates-or-inserts. Only fields updated are set in the case of partial update."
+  } ]
+}

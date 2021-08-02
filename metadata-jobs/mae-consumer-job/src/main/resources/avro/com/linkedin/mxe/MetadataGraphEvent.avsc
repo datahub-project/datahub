@@ -1,0 +1,450 @@
+{
+  "type" : "record",
+  "name" : "MetadataGraphEvent",
+  "namespace" : "com.linkedin.mxe",
+  "doc" : "Kafka event for capturing update made to a list of entities and relationships.",
+  "fields" : [ {
+    "name" : "auditHeader",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "KafkaAuditHeader",
+      "namespace" : "com.linkedin.avro2pegasus.events",
+      "doc" : "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application.  For more information see go/kafkaauditheader",
+      "fields" : [ {
+        "name" : "time",
+        "type" : "long",
+        "doc" : "The time at which the event was emitted into kafka.",
+        "compliance" : [ {
+          "policy" : "EVENT_TIME"
+        } ]
+      }, {
+        "name" : "server",
+        "type" : "string",
+        "doc" : "The fully qualified name of the host from which the event is being emitted.",
+        "compliance" : "NONE"
+      }, {
+        "name" : "instance",
+        "type" : [ "null", "string" ],
+        "doc" : "The instance on the server from which the event is being emitted. e.g. i001",
+        "default" : null,
+        "compliance" : "NONE"
+      }, {
+        "name" : "appName",
+        "type" : "string",
+        "doc" : "The name of the application from which the event is being emitted. see go/appname",
+        "compliance" : "NONE"
+      }, {
+        "name" : "messageId",
+        "type" : {
+          "type" : "fixed",
+          "name" : "UUID",
+          "size" : 16
+        },
+        "doc" : "A unique identifier for the message",
+        "compliance" : "NONE"
+      }, {
+        "name" : "auditVersion",
+        "type" : [ "null", "int" ],
+        "doc" : "The version that is being used for auditing. In version 0, the audit trail buckets events into 10 minute audit windows based on the EventHeader timestamp. In version 1, the audit trail buckets events as follows: if the schema has an outer KafkaAuditHeader, use the outer audit header timestamp for bucketing; else if the EventHeader has an inner KafkaAuditHeader use that inner audit header's timestamp for bucketing",
+        "default" : null,
+        "compliance" : "NONE"
+      }, {
+        "name" : "fabricUrn",
+        "type" : [ "null", "string" ],
+        "doc" : "The fabricUrn of the host from which the event is being emitted. Fabric Urn in the format of urn:li:fabric:{fabric_name}. See go/fabric.",
+        "default" : null,
+        "compliance" : "NONE"
+      }, {
+        "name" : "clusterConnectionString",
+        "type" : [ "null", "string" ],
+        "doc" : "This is a String that the client uses to establish some kind of connection with the Kafka cluster. The exact format of it depends on specific versions of clients and brokers. This information could potentially identify the fabric and cluster with which the client is producing to or consuming from.",
+        "default" : null,
+        "compliance" : "NONE"
+      } ]
+    } ],
+    "doc" : "Kafka audit header. See go/kafkaauditheader for more info.",
+    "default" : null
+  }, {
+    "name" : "upsertedEntities",
+    "type" : {
+      "type" : "array",
+      "items" : [ {
+        "type" : "record",
+        "name" : "CorpUserEntity",
+        "namespace" : "com.linkedin.metadata.entity",
+        "doc" : "Data model for a CorpUser entity",
+        "fields" : [ {
+          "name" : "removed",
+          "type" : [ "boolean", "null" ],
+          "doc" : "Whether the entity has been removed or not",
+          "default" : false
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "doc" : "Urn for the LDAP User",
+          "java" : {
+            "class" : "com.linkedin.common.urn.CorpuserUrn"
+          }
+        }, {
+          "name" : "name",
+          "type" : [ "null", "string" ],
+          "doc" : "LDAP name(id) : e.g. hzhang2, ywang5 ..",
+          "default" : null
+        } ]
+      }, {
+        "type" : "record",
+        "name" : "DatasetEntity",
+        "namespace" : "com.linkedin.metadata.entity",
+        "doc" : "Data model for a dataset entity",
+        "fields" : [ {
+          "name" : "removed",
+          "type" : [ "boolean", "null" ],
+          "doc" : "Whether the entity has been removed or not",
+          "default" : false
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "doc" : "Urn for the dataset",
+          "java" : {
+            "class" : "com.linkedin.common.urn.DatasetUrn"
+          }
+        }, {
+          "name" : "name",
+          "type" : [ "null", "string" ],
+          "doc" : "Dataset native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}",
+          "default" : null
+        }, {
+          "name" : "platform",
+          "type" : [ "null", "string" ],
+          "doc" : "Platform urn for the dataset in the form of urn:li:platform:{platform_name}",
+          "default" : null,
+          "java" : {
+            "class" : "com.linkedin.common.urn.DataPlatformUrn"
+          }
+        }, {
+          "name" : "origin",
+          "type" : [ "null", {
+            "type" : "enum",
+            "name" : "FabricType",
+            "namespace" : "com.linkedin.common",
+            "doc" : "Fabric group type",
+            "symbols" : [ "DEV", "EI", "PROD", "CORP" ],
+            "symbolDocs" : {
+              "CORP" : "Designates corporation fabrics",
+              "DEV" : "Designates development fabrics",
+              "EI" : "Designates early-integration (staging) fabrics",
+              "PROD" : "Designates production fabrics"
+            }
+          } ],
+          "doc" : "Fabric type where dataset belongs to or where it was generated.",
+          "default" : null
+        } ]
+      }, {
+        "type" : "record",
+        "name" : "DataProcessEntity",
+        "namespace" : "com.linkedin.metadata.entity",
+        "doc" : "Data model for a Data Process entity",
+        "fields" : [ {
+          "name" : "urn",
+          "type" : "string",
+          "doc" : "Urn for the Data Process",
+          "java" : {
+            "class" : "com.linkedin.common.urn.DataProcessUrn"
+          }
+        }, {
+          "name" : "name",
+          "type" : [ "null", "string" ],
+          "doc" : "Data Process name(id)",
+          "default" : null
+        }, {
+          "name" : "orchestrator",
+          "type" : [ "null", "string" ],
+          "doc" : "Process Orchestrator for this process in the form. Options can be Airflow, Azkaban, Azure Data Factory",
+          "default" : null
+        }, {
+          "name" : "origin",
+          "type" : [ "null", "com.linkedin.common.FabricType" ],
+          "doc" : "Fabric type where dataset belongs to or where it was generated.",
+          "default" : null
+        } ]
+      }, {
+        "type" : "record",
+        "name" : "MLModelEntity",
+        "namespace" : "com.linkedin.metadata.entity",
+        "doc" : "Data model for a ML Model entity",
+        "fields" : [ {
+          "name" : "removed",
+          "type" : [ "boolean", "null" ],
+          "doc" : "Whether the entity has been removed or not",
+          "default" : false
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "doc" : "Urn for the ML Model",
+          "java" : {
+            "class" : "com.linkedin.common.urn.MLModelUrn"
+          }
+        }, {
+          "name" : "name",
+          "type" : [ "null", "string" ],
+          "doc" : "ML Model native name",
+          "default" : null
+        }, {
+          "name" : "platform",
+          "type" : [ "null", "string" ],
+          "doc" : "Platform urn for the ML Model in the form of urn:li:platform:{platform_name}",
+          "default" : null,
+          "java" : {
+            "class" : "com.linkedin.common.urn.DataPlatformUrn"
+          }
+        }, {
+          "name" : "origin",
+          "type" : [ "null", "com.linkedin.common.FabricType" ],
+          "doc" : "Fabric type where ML Model belongs to or where it was generated.",
+          "default" : null
+        } ]
+      }, {
+        "type" : "record",
+        "name" : "DataFlowEntity",
+        "namespace" : "com.linkedin.metadata.entity",
+        "doc" : "Data model for a DataFlow entity",
+        "fields" : [ {
+          "name" : "removed",
+          "type" : [ "boolean", "null" ],
+          "doc" : "Whether the entity has been removed or not",
+          "default" : false
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "doc" : "Urn for the DataFlow",
+          "java" : {
+            "class" : "com.linkedin.common.urn.DataFlowUrn"
+          }
+        }, {
+          "name" : "orchestrator",
+          "type" : [ "null", "string" ],
+          "doc" : "Workflow orchestrator ex: Azkaban, Airflow",
+          "default" : null
+        }, {
+          "name" : "flowId",
+          "type" : [ "null", "string" ],
+          "doc" : "Id of the flow",
+          "default" : null
+        }, {
+          "name" : "cluster",
+          "type" : [ "null", "string" ],
+          "doc" : "Cluster of the flow",
+          "default" : null
+        } ]
+      }, {
+        "type" : "record",
+        "name" : "DataJobEntity",
+        "namespace" : "com.linkedin.metadata.entity",
+        "doc" : "Data model for a DataJob entity",
+        "fields" : [ {
+          "name" : "removed",
+          "type" : [ "boolean", "null" ],
+          "doc" : "Whether the entity has been removed or not",
+          "default" : false
+        }, {
+          "name" : "urn",
+          "type" : "string",
+          "doc" : "Urn for the DataJob",
+          "java" : {
+            "class" : "com.linkedin.common.urn.DataJobUrn"
+          }
+        }, {
+          "name" : "flow",
+          "type" : [ "null", "string" ],
+          "doc" : "Urn of the associated DataFlow",
+          "default" : null,
+          "java" : {
+            "class" : "com.linkedin.common.urn.DataFlowUrn"
+          }
+        }, {
+          "name" : "jobId",
+          "type" : [ "null", "string" ],
+          "doc" : "Id of the job",
+          "default" : null
+        } ]
+      } ]
+    },
+    "doc" : "A list of entity updates-or-inserts. Only fields updated are set in the case of partial update."
+  }, {
+    "name" : "removedRelationships",
+    "type" : {
+      "type" : "array",
+      "items" : [ {
+        "type" : "record",
+        "name" : "Contains",
+        "namespace" : "com.linkedin.metadata.relationship",
+        "doc" : "A generic model for the Has-A relationship",
+        "fields" : [ {
+          "name" : "source",
+          "type" : "string",
+          "doc" : "Urn for the source of the relationship",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        }, {
+          "name" : "destination",
+          "type" : "string",
+          "doc" : "Urn for the destination of the relationship",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        } ],
+        "pairings" : [ {
+          "destination" : "com.linkedin.common.urn.ChartUrn",
+          "source" : "com.linkedin.common.urn.DashboardUrn"
+        }, {
+          "destination" : "com.linkedin.common.urn.GlossaryTermUrn",
+          "source" : "com.linkedin.common.urn.GlossaryNodeUrn"
+        }, {
+          "destination" : "com.linkedin.common.urn.GlossaryNodeUrn",
+          "source" : "com.linkedin.common.urn.GlossaryNodeUrn"
+        } ]
+      }, {
+        "type" : "record",
+        "name" : "IsPartOf",
+        "namespace" : "com.linkedin.metadata.relationship",
+        "doc" : "A generic model for the Is-Part-Of relationship",
+        "fields" : [ {
+          "name" : "source",
+          "type" : "string",
+          "doc" : "Urn for the source of the relationship",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        }, {
+          "name" : "destination",
+          "type" : "string",
+          "doc" : "Urn for the destination of the relationship",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        } ],
+        "pairings" : [ {
+          "destination" : "com.linkedin.common.urn.DataFlowUrn",
+          "source" : "com.linkedin.common.urn.DataJobUrn"
+        } ]
+      }, {
+        "type" : "record",
+        "name" : "OwnedBy",
+        "namespace" : "com.linkedin.metadata.relationship",
+        "doc" : "A generic model for the Owned-By relationship",
+        "fields" : [ {
+          "name" : "source",
+          "type" : "string",
+          "doc" : "Urn for the source of the relationship",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        }, {
+          "name" : "destination",
+          "type" : "string",
+          "doc" : "Urn for the destination of the relationship",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        }, {
+          "name" : "type",
+          "type" : {
+            "type" : "enum",
+            "name" : "OwnershipType",
+            "namespace" : "com.linkedin.common",
+            "doc" : "Owner category or owner role",
+            "symbols" : [ "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
+            "symbolDocs" : {
+              "CONSUMER" : "A person, group, or service that consumes the data",
+              "DATAOWNER" : "A person or group that is owning the data",
+              "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.",
+              "DEVELOPER" : "A person or group that is in charge of developing the code",
+              "PRODUCER" : "A person, group, or service that produces/generates the data",
+              "STAKEHOLDER" : "A person or a group that has direct business interest"
+            }
+          },
+          "doc" : "The type of the ownership"
+        } ],
+        "pairings" : [ {
+          "destination" : "com.linkedin.common.urn.CorpuserUrn",
+          "source" : "com.linkedin.common.urn.DatasetUrn"
+        }, {
+          "destination" : "com.linkedin.common.urn.CorpuserUrn",
+          "source" : "com.linkedin.common.urn.DataProcessUrn"
+        }, {
+          "destination" : "com.linkedin.common.urn.CorpuserUrn",
+          "source" : "com.linkedin.common.urn.MLModelUrn"
+        }, {
+          "destination" : "com.linkedin.common.urn.CorpuserUrn",
+          "source" : "com.linkedin.common.urn.DataJobUrn"
+        }, {
+          "destination" : "com.linkedin.common.urn.CorpuserUrn",
+          "source" : "com.linkedin.common.urn.DataFlowUrn"
+        }, {
+          "destination" : "com.linkedin.common.urn.CorpuserUrn",
+          "source" : "com.linkedin.common.urn.GlossaryTermUrn"
+        }, {
+          "destination" : "com.linkedin.common.urn.CorpuserUrn",
+          "source" : "com.linkedin.common.urn.GlossaryNodeUrn"
+        } ]
+      }, {
+        "type" : "record",
+        "name" : "Consumes",
+        "namespace" : "com.linkedin.metadata.relationship",
+        "doc" : "A generic model for the",
+        "fields" : [ {
+          "name" : "source",
+          "type" : "string",
+          "doc" : "Urn for the source of the relationship",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        }, {
+          "name" : "destination",
+          "type" : "string",
+          "doc" : "Urn for the destination of the relationship",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        } ],
+        "pairings" : [ {
+          "destination" : "com.linkedin.common.urn.DatasetUrn",
+          "source" : "com.linkedin.common.urn.DataJobUrn"
+        } ]
+      }, {
+        "type" : "record",
+        "name" : "Produces",
+        "namespace" : "com.linkedin.metadata.relationship",
+        "doc" : "A generic model for the",
+        "fields" : [ {
+          "name" : "source",
+          "type" : "string",
+          "doc" : "Urn for the source of the relationship",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        }, {
+          "name" : "destination",
+          "type" : "string",
+          "doc" : "Urn for the destination of the relationship",
+          "java" : {
+            "class" : "com.linkedin.common.urn.Urn"
+          }
+        } ],
+        "pairings" : [ {
+          "destination" : "com.linkedin.common.urn.DatasetUrn",
+          "source" : "com.linkedin.common.urn.DataJobUrn"
+        } ]
+      } ]
+    },
+    "doc" : "A list of removed relationships. Only fields used to identify the relationships to remove are set."
+  }, {
+    "name" : "upsertedRelationships",
+    "type" : {
+      "type" : "array",
+      "items" : [ "com.linkedin.metadata.relationship.Contains", "com.linkedin.metadata.relationship.IsPartOf", "com.linkedin.metadata.relationship.OwnedBy", "com.linkedin.metadata.relationship.Consumes", "com.linkedin.metadata.relationship.Produces" ]
+    },
+    "doc" : "A list of relationship updates-or-inserts."
+  } ]
+}
