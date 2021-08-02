@@ -1,0 +1,24 @@
+namespace com.linkedin.mxe
+
+import com.linkedin.avro2pegasus.events.KafkaAuditHeader
+
+/**
+ * Kafka event for capturing a failure to process a specific MetadataChangeEvent.
+ */
+record FailedMetadataChangeProposal {
+
+  /**
+   * Kafka audit header. See go/kafkaauditheader for more info.
+   */
+  auditHeader: optional KafkaAuditHeader
+
+  /**
+   * The even that failed to be processed.
+   */
+  metadataChangeProposal: MetadataChangeProposal
+
+  /**
+   * The error message or the stacktrace for the failure.
+   */
+  error: string
+}

@@ -69,7 +69,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         ]
     )
 
-    database: str = ".*"  # deprecated
+    database: Optional[str]  # deprecated
 
     @pydantic.validator("database")
     def note_database_opt_deprecation(cls, v, values, **kwargs):

@@ -2,5 +2,6 @@ apply plugin: 'pegasus'
 
 dependencies {
   compile spec.product.pegasus.data
+  dataModel project(':metadata-models')
   dataModel project(':li-utils')
 }

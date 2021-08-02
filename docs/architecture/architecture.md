@@ -31,7 +31,7 @@ DataHub's metadata infrastructure is stream-oriented, which allows for changes i
 DataHub comes with a single [metadata service (gms)](../../gms) as part of the open source repository. However, it also supports federated metadata services which can be owned and operated by different teams –– in fact that is how LinkedIn runs DataHub internally. The federated services communicate with the central search index and graph using Kafka, to support global search and discovery while still enabling decoupled ownership of metadata. This kind of architecture is very amenable for companies who are implementing [data mesh](https://martinfowler.com/articles/data-monolith-to-mesh.html).
 
 
-[metadata modeling]: ../how/metadata-modelling.md
+[metadata modeling]: ../modeling/metadata-model.md
 [PDL]: https://linkedin.github.io/rest.li/pdl_schema
 [metadata architectures blog post]: https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained
 [datahub-serving]: metadata-serving.md

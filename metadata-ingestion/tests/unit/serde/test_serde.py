@@ -5,6 +5,7 @@ import pathlib
 import fastavro
 import pytest
 from click.testing import CliRunner
+from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.json_file import check_mce_file
@@ -16,7 +17,10 @@ from datahub.metadata.schemas import getMetadataChangeEventSchema
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.type_helpers import PytestConfig
 
+FROZEN_TIME = "2021-07-22 18:54:06"
 
+
+@freeze_time(FROZEN_TIME)
 @pytest.mark.parametrize(
     "json_filename",
     [
@@ -26,6 +30,8 @@ from tests.test_helpers.type_helpers import PytestConfig
         "tests/unit/serde/test_serde_chart_snapshot.json",
         # Check usage stats as well.
         "tests/unit/serde/test_serde_usage.json",
+        # Profiles with the MetadataChangeProposal format.
+        "tests/unit/serde/test_serde_profile.json",
     ],
 )
 def test_serde_to_json(
@@ -40,6 +46,7 @@ def test_serde_to_json(
         {
             "source": {"type": "file", "config": {"filename": str(golden_file)}},
             "sink": {"type": "file", "config": {"filename": str(output_file)}},
+            "run_id": "serde_test",
         }
     )
     pipeline.run()
@@ -57,6 +64,7 @@ def test_serde_to_json(
         "tests/unit/serde/test_serde_chart_snapshot.json",
     ],
 )
+@freeze_time(FROZEN_TIME)
 def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
     # In this test, we want to read in from JSON -> MCE object.
     # Next we serialize from MCE to Avro and then deserialize back to MCE.
@@ -93,12 +101,15 @@ def test_serde_to_avro(pytestconfig: PytestConfig, json_filename: str) -> None:
         "tests/unit/serde/test_serde_backwards_compat.json",
         # Usage stats.
         "tests/unit/serde/test_serde_usage.json",
+        # Profiles with the MetadataChangeProposal format.
+        "tests/unit/serde/test_serde_profile.json",
         # Ensure sample MCE files are valid.
         "examples/mce_files/single_mce.json",
         "examples/mce_files/mce_list.json",
         "examples/mce_files/bootstrap_mce.json",
     ],
 )
+@freeze_time(FROZEN_TIME)
 def test_check_mce_schema(pytestconfig: PytestConfig, json_filename: str) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
