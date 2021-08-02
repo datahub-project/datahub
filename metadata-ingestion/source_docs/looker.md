@@ -20,14 +20,14 @@ source:
     platform_name: "looker" # Optional, default is "looker"
     actor: urn:li:corpuser:etl # Optional, defaults to urn:li:corpuser:etl
 
-    # regex pattern to allow/deny dashboards
+    # Regex pattern to allow/deny dashboards. If left blank, will ingest all.
     dashboard_pattern:
       deny:
         # ...
       allow:
         # ...
 
-    # regex pattern to allow/deny charts
+    # Regex pattern to allow/deny charts. If left blank, will ingest all.
     chart_pattern:
       deny:
         # ...

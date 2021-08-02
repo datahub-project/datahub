@@ -19,14 +19,14 @@ source:
 
     platform_name: "looker" # optional, default is "looker"
 
-    # regex pattern to allow/deny models
+    # Regex pattern to allow/deny models. If left blank, will ingest all.
     model_pattern:
       deny:
         # ...
       allow:
         # ...
 
-    # regex pattern to allow/deny views
+    # Regex pattern to allow/deny views. If left blank, will ingest all.
     view_pattern:
       deny:
         # ...

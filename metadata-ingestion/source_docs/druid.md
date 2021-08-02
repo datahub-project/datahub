@@ -26,7 +26,7 @@ source:
     options:
       # driver_option: some-option
 
-    # Tables to allow/deny
+    # Tables to allow/deny. If left blank, will ingest all.
     table_pattern:
       deny:
         # Note that the deny patterns take precedence over the allow patterns.
@@ -42,6 +42,8 @@ source:
     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
     # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
     # them out afterwards via the table_pattern.
+
+    # If left blank, will ingest all.
     schema_pattern:
       deny:
         # ...

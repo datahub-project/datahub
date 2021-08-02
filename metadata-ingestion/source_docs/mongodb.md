@@ -31,13 +31,13 @@ source:
 
     env: "PROD" # Optional, default is "PROD"
 
-    # regex pattern to allow/deny databases
+    # Regex pattern to allow/deny databases. If left blank, will ingest all.
     database_pattern:
       deny:
         # ...
       allow:
         # ...
-    # regex pattern to allow/deny collections
+    # Regex pattern to allow/deny collections. If left blank, will ingest all.
     collection_pattern:
       deny:
         # ...

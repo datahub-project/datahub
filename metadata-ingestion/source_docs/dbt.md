@@ -37,7 +37,7 @@ source:
     # (otherwise, only includes a simple list of tables)
     load_schemas: True or False
 
-    # regex pattern to allow/deny nodes
+    # Regex pattern to allow/deny nodes. If left blank, will ingest all.
     node_type_pattern: # optional
       deny:
         - ^test.*
