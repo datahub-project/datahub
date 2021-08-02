@@ -212,6 +212,7 @@ entry_points = {
         "glue = datahub.ingestion.source.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.sagemaker:SagemakerSource",
         "hive = datahub.ingestion.source.hive:HiveSource",
+        "cdh_hive = datahub.ingestion.source.cdh_hive:CDH_HiveSource",
         "kudu = datahub.ingestion.source.kudu:KuduSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",

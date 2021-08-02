@@ -33,7 +33,7 @@ from datahub.metadata.schema_classes import DatasetPropertiesClass, OwnerClass
 logger: logging.Logger = logging.getLogger(__name__)
 
 DEFAULT_ENV = "PROD"
-
+#note to self: the ingestion container needs to have JVM
 
 @dataclass
 class KuduDBSourceReport(SourceReport):
@@ -129,11 +129,11 @@ class KuduConfig(ConfigModel):
     scheme: str = "impala"
     host: str = "localhost:21050"
     kerberos: bool = False
-    truststore_loc: str = "/cert/path/is/missing.jks"
+    truststore_loc: str = "/opt/cloudera/security/pki/truststore.jks"
     kerberos_realm: str = ""
     KrbHostFQDN : str = ""    
     #for krbcontext
-    service_principal: str = "some service principal"
+    keytab_principal: str = "some service principal"
     keytab_location: str = ""    
     #for jar_file_location
     #If jar_location is "", then im using the dockerized ingest which will have the jar in a fixed loc
@@ -199,7 +199,7 @@ class KuduSource(Source):
         else:
             with krbContext(
                 using_keytab=True,
-                principal=sql_config.service_principal,
+                principal=sql_config.keytab_principal,
                 keytab_file=sql_config.keytab_location,
             ):
                 db_connection = jaydebeapi.connect(jclassname=classpath, url=url, jars = jar_loc)
