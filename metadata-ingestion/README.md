@@ -477,7 +477,7 @@ source:
     profiling:
       enabled: true
       limit: 1000 # optional - max rows to profile
-      offset: 100 # optional - offset of first row to profile
+      offset: 0 # optional - offset of first row to profile
     profile_pattern:
       deny:
         # Skip all tables ending with "_staging"
