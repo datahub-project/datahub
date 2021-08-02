@@ -11,15 +11,14 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
+    SchemaFieldClass,
     TagAssociationClass,
     SchemaMetadataClass
 )
 import logging
 logger = logging.getLogger(__name__)
 
-class IngestDictionaryConfig(ConfigModel):
-    # Workaround for https://github.com/python/mypy/issues/708.
-    # Suggested by https://stackoverflow.com/a/64528725/5004662.
+class IngestDictionaryConfig(ConfigModel):    
     dictionary_path: str
 
 
@@ -50,16 +49,36 @@ class InsertIngestionDictionary(Transformer):
         if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
             return mce
         #load data
-        if not os.path.exist(self.config.dictionary_path):
+        if not os.path.exists(self.config.dictionary_path):
             logger.error("dictionary file does not exist")
             return mce
-        # df = pd.read_csv(self.config.dictionary_path)
-        existing_schema = builder.get_or_add_aspect(
+        df = pd.read_csv(self.config.dictionary_path)
+        if not all(elem in df.columns.tolist() for elem in ["column_name", "tag", "description"]):        
+            logger.error("Dictionary does not have the correct format - missing column_name, tag or description")
+        df.set_index("column_name", inplace=True)
+        records = df.to_dict(orient="index")
+        
+        
+        
+        existing_schema = builder.get_aspect_if_available(
                 mce,
-                SchemaMetadataClass()
+                SchemaMetadataClass
             )
-        logger.error(existing_schema)            
+        fields = existing_schema.fields
+        
+        for item in fields:
+            col_name = item.fieldPath            
+            if col_name in records.keys():
+                item.description = records[col_name].get("description")
+                if self._check_tags_empty(item):
+                    tags = item.globalTags
+                
 
         return mce
+    def _check_tags_empty(self, item:SchemaFieldClass) -> bool:
+        if (item.globalTags!="") and (item.globalTags) and (item.globalTags.strip()!=""):
+            return True
+        else:
+            return False
 
 
