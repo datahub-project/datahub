@@ -10,3 +10,7 @@ source:
   config:
     filename: ./path/to/mce/file.json
 ```
+
+## Questions
+
+If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

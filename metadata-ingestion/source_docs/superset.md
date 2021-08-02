@@ -20,3 +20,7 @@ source:
 ```
 
 See documentation for superset's `/security/login` at https://superset.apache.org/docs/rest-api for more details on superset's login api.
+
+## Questions
+
+If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

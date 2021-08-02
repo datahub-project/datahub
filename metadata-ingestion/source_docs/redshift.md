@@ -79,3 +79,7 @@ source:
 ```
 
 </details>
+
+## Questions
+
+If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

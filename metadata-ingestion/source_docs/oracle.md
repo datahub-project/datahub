@@ -64,3 +64,7 @@ source:
     include_views: True # whether to include views, defaults to True
     include_tables: True # whether to include views, defaults to True
 ```
+
+## Questions
+
+If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

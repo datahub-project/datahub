@@ -34,3 +34,7 @@ sink:
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
 
 For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.yml).
+
+## Questions
+
+If you've got any questions on configuring this sink, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!
