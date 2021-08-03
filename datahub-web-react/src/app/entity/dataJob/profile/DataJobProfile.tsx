@@ -1,10 +1,6 @@
 import React from 'react';
 import { Alert } from 'antd';
-import {
-    useGetDataJobQuery,
-    GetDataJobDocument,
-    useUpdateDataJobMutation,
-} from '../../../../graphql/dataJob.generated';
+import { useGetDataJobQuery, useUpdateDataJobMutation } from '../../../../graphql/dataJob.generated';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import { DataJob, EntityType, GlobalTags } from '../../../../types.generated';
 import DataJobHeader from './DataJobHeader';

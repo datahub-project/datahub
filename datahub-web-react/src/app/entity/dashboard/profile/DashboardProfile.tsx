@@ -1,10 +1,6 @@
 import { Alert } from 'antd';
 import React from 'react';
-import {
-    GetDashboardDocument,
-    useGetDashboardQuery,
-    useUpdateDashboardMutation,
-} from '../../../../graphql/dashboard.generated';
+import { useGetDashboardQuery, useUpdateDashboardMutation } from '../../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, GlobalTags } from '../../../../types.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { EntityProfile } from '../../../shared/EntityProfile';
