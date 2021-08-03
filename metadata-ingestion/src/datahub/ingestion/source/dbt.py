@@ -470,6 +470,19 @@ class DBTSource(Source):
             self.report,
         )
 
+        additional_custom_props = {
+            "manifest_schema": manifest_schema,
+            "manifest_version": manifest_version,
+            "catalog_schema": catalog_schema,
+            "catalog_version": catalog_version,
+        }
+
+        additional_custom_props_filtered = {
+            key: value
+            for key, value in additional_custom_props.items()
+            if value is not None
+        }
+
         for node in nodes:
 
             dataset_snapshot = DatasetSnapshot(
@@ -486,15 +499,14 @@ class DBTSource(Source):
             elif node.description:
                 description = node.description
 
+            custom_props = {
+                **get_custom_properties(node),
+                **additional_custom_props_filtered,
+            }
+
             dbt_properties = DatasetPropertiesClass(
                 description=description,
-                customProperties={
-                    **get_custom_properties(node),
-                    "manifest_schema": manifest_schema,
-                    "manifest_version": manifest_version,
-                    "catalog_schema": catalog_schema,
-                    "catalog_version": catalog_version,
-                },
+                customProperties=custom_props,
                 tags=[],
             )
             dataset_snapshot.aspects.append(dbt_properties)
