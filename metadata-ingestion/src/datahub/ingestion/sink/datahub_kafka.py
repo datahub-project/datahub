@@ -1,10 +1,15 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
+from datahub.metadata.schema_classes import MetadataChangeProposalClass
 
 
 class KafkaSinkConfig(KafkaEmitterConfig):
@@ -55,24 +60,39 @@ class DatahubKafkaSink(Sink):
 
     def write_record_async(
         self,
-        record_envelope: RecordEnvelope[MetadataChangeEvent],
+        record_envelope: RecordEnvelope[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+            ]
+        ],
         write_callback: WriteCallback,
     ) -> None:
         record = record_envelope.record
-        if not isinstance(record, MetadataChangeEvent):
-            raise ValueError(
-                f"The datahub-kafka sink only supports MetadataChangeEvents, not {type(record)}"
+        if isinstance(record, MetadataChangeEvent):
+            self.emitter.emit_mce_async(
+                record,
+                callback=_KafkaCallback(
+                    self.report, record_envelope, write_callback
+                ).kafka_callback,
             )
-        self.emitter.emit_mce_async(
-            record,
-            callback=_KafkaCallback(
-                self.report, record_envelope, write_callback
-            ).kafka_callback,
-        )
+        elif isinstance(record, MetadataChangeProposalWrapper) or isinstance(
+            record, MetadataChangeProposalClass
+        ):
+            self.emitter.emit_mcp_async(
+                record,
+                callback=_KafkaCallback(
+                    self.report, record_envelope, write_callback
+                ).kafka_callback,
+            )
+        else:
+            raise ValueError(
+                f"The datahub-kafka sink only supports MetadataChangeEvent/MetadataChangeProposal[Wrapper] classes, not {type(record)}"
+            )
 
     def get_report(self):
         return self.report
 
     def close(self) -> None:
         self.emitter.flush()
-        # self.producer.close()
