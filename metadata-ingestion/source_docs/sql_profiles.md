@@ -52,22 +52,19 @@ source:
     # username, password, etc - varies by source type
     profiling:
       enabled: true
-      limit: 1000 # optional - max rows to profile
-      offset: 100 # optional - offset of first row to profile
-    profile_pattern:
-      deny:
-        # Skip all tables ending with "_staging"
-        - _staging\$
-      allow:
-        # Profile all tables in that start with "gold_" in "myschema"
-        - myschema\.gold_.*
-
-    # If you only want profiles (but no catalog information), set these to false
-    include_tables: true
-    include_views: true
 ```
 
 ## Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                   | Required | Default | Description |
+| ----------------------- | -------- | ------- | ----------- |
+| `profiling.enabled`     |          |         |             |
+| `profiling.limit`       |          |         |             |
+| `profiling.offset`      |          |         |             |
+| `profile_pattern.allow` |          |         |             |
+| `profile_pattern.deny`  |          |         |             |
 
 ## Questions
 

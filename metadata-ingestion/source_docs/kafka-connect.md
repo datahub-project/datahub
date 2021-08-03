@@ -12,6 +12,10 @@ This plugin extracts the following:
 - Creating individual `DataJobSnapshotClass` entity using `{connector_name}:{source_dataset}` naming
 - Lineage information between source database to Kafka topic
 
+Current limitations:
+
+- Currently works only for Debezium source connectors.
+
 ## Quickstart recipe
 
 Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
@@ -22,18 +26,18 @@ source:
   config:
     connect_uri: "http://localhost:8083"
     cluster_name: "connect-cluster"
-    connector_patterns:
-      deny:
-        - ^denied-connector.*
-      allow:
-        - ^allowed-connector.*
 ```
 
-Current limitations:
-
-- Currently works only for Debezium source connectors.
-
 ## Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                      | Required | Default | Description |
+| -------------------------- | -------- | ------- | ----------- |
+| `connect_uri`              |          |         |             |
+| `cluster_name`             |          |         |             |
+| `connector_patterns.deny`  |          |         |             |
+| `connector_patterns.allow` |          |         |             |
 
 ## Questions
 

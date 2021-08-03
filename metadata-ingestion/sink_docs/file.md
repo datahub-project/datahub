@@ -23,6 +23,11 @@ sink:
 
 ## Config details
 
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field | Required | Default | Description |
+| ----- | -------- | ------- | ----------- |
+
 ## Questions
 
 If you've got any questions on configuring this sink, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

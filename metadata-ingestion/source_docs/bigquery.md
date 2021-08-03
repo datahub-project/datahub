@@ -25,53 +25,26 @@ Use the below recipe to get started with ingestion. See [below](#config-details)
 source:
   type: bigquery
   config:
-    project_id: project # optional - can autodetect from environment
-
-    # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
-    # See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.
-    # Many of these options are specific to the underlying database driver, so that library's
-    # documentation will be a good reference for what is supported. To find which dialect is likely
-    # in use, consult this table: https://docs.sqlalchemy.org/en/14/dialects/index.html.
-    options:
-      # See https://github.com/mxmzdlv/pybigquery#authentication for details.
-      credentials_path: "/path/to/keyfile.json" # optional
-
-    # Tables to allow/deny. If left blank, will ingest all.
-    table_pattern:
-      deny:
-        # Note that the deny patterns take precedence over the allow patterns.
-        - "bad_table"
-        - "junk_table"
-        # Can also be a regular expression
-        - "(old|used|deprecated)_table"
-      allow:
-        - "good_table"
-        - "excellent_table"
-
-    # Although the 'table_pattern' enables you to skip everything from certain schemas,
-    # having another option to allow/deny on schema level is an optimization for the case when there is a large number
-    # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
-    # them out afterwards via the table_pattern.
-
-    # If left blank, will ingest all.
-    schema_pattern:
-      deny:
-        # ...
-      allow:
-        # ...
-
-    # Same format as table_pattern, used for filtering views. If left blank, will ingest all.
-    view_pattern:
-      deny:
-        # ...
-      allow:
-        # ...
-
-    include_views: True # whether to include views, defaults to True
-    include_tables: True # whether to include views, defaults to True
+    project_id: "my_project_id"
 ```
 
 ## Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                  | Required | Default  | Description                                                                                                                                                                             |
+| ---------------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `project_id`           |          |          |                                                                                                                                                                                         |
+| `env`                  | ❌       | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `options.<option>`     | ❌       |          | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
+| `table_pattern.allow`  | ❌       |          | Regex pattern for tables to include in ingestion.                                                                                                                                       |
+| `table_pattern.deny`   | ❌       |          | Regex pattern for tables to exclude from ingestion.                                                                                                                                     |
+| `schema_pattern.allow` | ❌       |          | Regex pattern for schemas to include in ingestion.                                                                                                                                      |
+| `schema_pattern.deny`  | ❌       |          | Regex pattern for schemas to exclude from ingestion.                                                                                                                                    |
+| `view_pattern.allow`   | ❌       |          | Regex pattern for views to include in ingestion.                                                                                                                                        |
+| `view_pattern.deny`    | ❌       |          | Regex pattern for views to exclude from ingestion.                                                                                                                                      |
+| `include_tables`       | ❌       | `True`   | Whether tables should be ingested.                                                                                                                                                      |
+| `include_views`        | ❌       | `True`   | Whether views should be ingested.                                                                                                                                                       |
 
 # BigQuery Usage Stats
 
@@ -141,6 +114,11 @@ source:
 ```
 
 ## Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field | Required | Default | Description |
+| ----- | -------- | ------- | ----------- |
 
 ## Questions
 

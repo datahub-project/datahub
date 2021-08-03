@@ -1,3 +1,5 @@
+
+
 # Superset
 
 ## Setup
@@ -30,6 +32,16 @@ source:
 ```
 
 ## Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field         | Required | Default | Description |
+| ------------- | -------- | ------- | ----------- |
+| `connect_uri` |          |         |             |
+| `username`    |          |         |             |
+| `password`    |          |         |             |
+| `provider`    |          |         |             |
+| `env`         |          |         |             |
 
 ## Questions
 

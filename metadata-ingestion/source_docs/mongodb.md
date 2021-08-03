@@ -55,6 +55,24 @@ source:
 
 ## Config details
 
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                      | Required | Default | Description |
+| -------------------------- | -------- | ------- | ----------- |
+| `connect_uri`              |          |         |             |
+| `username`                 |          |         |             |
+| `password`                 |          |         |             |
+| `authMechanism`            |          |         |             |
+| `options`                  |          |         |             |
+| `enableSchemaInference`    |          |         |             |
+| `schemaSamplingSize`       |          |         |             |
+| `useRandomSampling`        |          |         |             |
+| `env`                      |          |         |             |
+| `database_pattern.allow`   |          |         |             |
+| `database_pattern.deny`    |          |         |             |
+| `collection_pattern.allow` |          |         |             |
+| `collection_pattern.deny`  |          |         |             |
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

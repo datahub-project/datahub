@@ -26,12 +26,20 @@ Use the below recipe to get started with ingestion. See [below](#config-details)
 source:
   type: feast
   config:
-    core_url: localhost:6565 # default
-    env: "PROD" # Optional, default is "PROD"
-    use_local_build: False # Whether to build Feast ingestion image locally, default is False
+    core_url: "localhost:6565"
+    env: "PROD"
+    use_local_build: False
 ```
 
 ## Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field             | Required | Default            | Description |
+| ----------------- | -------- | ------------------ | ----------- |
+| `core_url`        |          | `"localhost:6565"` |             |
+| `env`             |          | `"PROD"`           |             |
+| `use_local_build` |          | `False`            |             |
 
 ## Questions
 

@@ -25,56 +25,6 @@ source:
     password: pass
     host_port: localhost:1433
     database: DemoDatabase
-
-    # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
-    # See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.
-    # Many of these options are specific to the underlying database driver, so that library's
-    # documentation will be a good reference for what is supported. To find which dialect is likely
-    # in use, consult this table: https://docs.sqlalchemy.org/en/14/dialects/index.html.
-    options:
-      charset: "utf8"
-
-    # Tables to allow/deny. If left blank, will ingest all.
-    table_pattern:
-      deny:
-        # Note that the deny patterns take precedence over the allow patterns.
-        - "^.*\\.sys_.*" # deny all tables that start with sys_
-        - "bad_table"
-        - "junk_table"
-        # Can also be a regular expression
-        - "(old|used|deprecated)_table"
-      allow:
-        - "good_table"
-        - "excellent_table"
-
-    # Although the 'table_pattern' enables you to skip everything from certain schemas,
-    # having another option to allow/deny on schema level is an optimization for the case when there is a large number
-    # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
-    # them out afterwards via the table_pattern.
-
-    # If left blank, will ingest all.
-    schema_pattern:
-      deny:
-        # ...
-      allow:
-        # ...
-
-    # Same format as table_pattern, used for filtering views. If left blank, will ingest all.
-    view_pattern:
-      deny:
-        # ...
-      allow:
-        # ...
-
-    include_views: True # whether to include views, defaults to True
-    include_tables: True # whether to include views, defaults to True
-
-    # If set to true, we'll use the pyodbc library. This requires you to have
-    # already installed the Microsoft ODBC Driver for SQL Server.
-    # See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
-    use_odbc: False
-    # args URL-encode and append to the mssql connection URL
-    uri_args: {}
 ```
 
 <details>
@@ -106,6 +56,27 @@ source:
 </details>
 
 ## Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                  | Required | Default  | Description                                                                                                                                                                             |
+| ---------------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `username`             |          |          |                                                                                                                                                                                         |
+| `password`             |          |          |                                                                                                                                                                                         |
+| `host_port`            |          |          |                                                                                                                                                                                         |
+| `database`             |          |          |                                                                                                                                                                                         |
+| `use_odbc`             |          |          |                                                                                                                                                                                         |
+| `uri_args.<uri_arg>`   |          |          |                                                                                                                                                                                         |
+| `env`                  | ❌       | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `options.<option>`     | ❌       |          | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
+| `table_pattern.allow`  | ❌       |          | Regex pattern for tables to include in ingestion.                                                                                                                                       |
+| `table_pattern.deny`   | ❌       |          | Regex pattern for tables to exclude from ingestion.                                                                                                                                     |
+| `schema_pattern.allow` | ❌       |          | Regex pattern for schemas to include in ingestion.                                                                                                                                      |
+| `schema_pattern.deny`  | ❌       |          | Regex pattern for schemas to exclude from ingestion.                                                                                                                                    |
+| `view_pattern.allow`   | ❌       |          | Regex pattern for views to include in ingestion.                                                                                                                                        |
+| `view_pattern.deny`    | ❌       |          | Regex pattern for views to exclude from ingestion.                                                                                                                                      |
+| `include_tables`       | ❌       | `True`   | Whether tables should be ingested.                                                                                                                                                      |
+| `include_views`        | ❌       | `True`   | Whether views should be ingested.                                                                                                                                                       |
 
 ## Questions
 

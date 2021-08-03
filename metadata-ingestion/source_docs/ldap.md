@@ -37,6 +37,18 @@ source:
 
 ## Config details
 
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                          | Required | Default | Description |
+| ------------------------------ | -------- | ------- | ----------- |
+| `ldap_server`                  |          |         |             |
+| `ldap_user`                    |          |         |             |
+| `ldap_password`                |          |         |             |
+| `base_dn`                      |          |         |             |
+| `filter`                       |          |         |             |
+| `drop_missing_first_last_name` |          |         |             |
+| `page_size`                    |          |         |             |
+
 The `drop_missing_first_last_name` should be set to true if you've got many "headless" user LDAP accounts
 for devices or services should be excluded when they do not contain a first and last name. This will only
 impact the ingestion of LDAP users, while LDAP groups will be unaffected by this config option.

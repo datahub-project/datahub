@@ -47,6 +47,21 @@ source:
 
 ## Config details
 
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                     | Required | Default | Description |
+| ------------------------- | -------- | ------- | ----------- |
+| `client_id`               |          |         |             |
+| `client_secret`           |          |         |             |
+| `base_url`                |          |         |             |
+| `platform_name`           |          |         |             |
+| `actor`                   |          |         |             |
+| `dashboard_pattern.allow` |          |         |             |
+| `dashboard_pattern.deny`  |          |         |             |
+| `chart_pattern.allow`     |          |         |             |
+| `chart_pattern.deny`      |          |         |             |
+| `env`                     |          |         |             |
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

@@ -47,6 +47,20 @@ source:
 
 ## Config details
 
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                                          | Required | Default | Description |
+| ---------------------------------------------- | -------- | ------- | ----------- |
+| `base_folder`                                  |          |         |             |
+| `connection_to_platform_map.<connection_name>` |          |         |             |
+| `platform_name`                                |          |         |             |
+| `model_pattern.allow`                          |          |         |             |
+| `model_pattern.deny`                           |          |         |             |
+| `view_pattern.allow`                           |          |         |             |
+| `view_pattern.deny`                            |          |         |             |
+| `env`                                          |          |         |             |
+| `parse_table_names_from_sql`                   |          |         |             |
+
 Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
 views depends on. As these SQL's can be complicated, and the package doesn't official support all the SQL dialects that
 Looker supports, the result might not be correct. This parsing is disabled by default, but can be enabled by setting

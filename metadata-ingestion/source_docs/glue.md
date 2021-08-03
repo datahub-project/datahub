@@ -32,28 +32,25 @@ source:
     aws_secret_access_key: # Optional.
     aws_session_token: # Optional.
     aws_role: # Optional (Role chaining supported by using a sorted list).
-
-    extract_transforms: True # whether to ingest Glue jobs, defaults to True
-
-    # Regex filters for databases to scan
-    database_pattern:
-      deny:
-        # Note that the deny patterns take precedence over the allow patterns.
-        - "bad_database"
-        - "junk_database"
-        # Can also be a regular expression
-        - "(old|used|deprecated)_database"
-      allow:
-        - "good_database"
-        - "excellent_database"
-    table_pattern: # Optional, to filter tables scanned, same as table_pattern above.
-      deny:
-        # ...
-      allow:
-        # ...
 ```
 
 ## Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                    | Required | Default | Description |
+| ------------------------ | -------- | ------- | ----------- |
+| `aws_region`             |          |         |             |
+| `env`                    |          |         |             |
+| `aws_access_key_id`      |          |         |             |
+| `aws_secret_access_key`  |          |         |             |
+| `aws_session_token`      |          |         |             |
+| `aws_role`               |          |         |             |
+| `extract_transforms`     |          |         |             |
+| `database_pattern.allow` |          |         |             |
+| `database_pattern.deny`  |          |         |             |
+| `table_pattern.allow`    |          |         |             |
+| `table_pattern.deny`     |          |         |             |
 
 ## Questions
 

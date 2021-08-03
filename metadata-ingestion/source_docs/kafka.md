@@ -43,6 +43,16 @@ source:
 
 ## Config details
 
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                             | Required | Default | Description |
+| --------------------------------- | -------- | ------- | ----------- |
+| `bootstrap`                       |          |         |             |
+| `schema_registry_url`             |          |         |             |
+| `schema_registry_config.<option>` |          |         |             |
+| `consumer_config`                 |          |         |             |
+| `producer_config`                 |          |         |             |
+
 The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.
 
 For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.yml).

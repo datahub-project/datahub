@@ -33,29 +33,28 @@ Use the below recipe to get started with ingestion. See [below](#config-details)
 source:
   type: "dbt"
   config:
-    # https://docs.getdbt.com/reference/artifacts/manifest-json
     manifest_path: "./path/dbt/manifest_file.json"
-    # https://docs.getdbt.com/reference/artifacts/catalog-json
     catalog_path: "./path/dbt/catalog_file.json"
-    # https://docs.getdbt.com/reference/artifacts/sources-json
-    sources_path: "./path/dbt/sources_file.json" # (optional, used for freshness checks)
+    sources_path: "./path/dbt/sources_file.json"
 
-    # the platform that dbt is loading onto
-    target_platform: "postgres" # optional, eg "postgres", "snowflake", etc.
+    target_platform: "my_target_platform_id"
 
-    # whether to load schemas of datasets from dbt
-    # (otherwise, only includes a simple list of tables)
-    load_schemas: True or False
-
-    # Regex pattern to allow/deny nodes. If left blank, will ingest all.
-    node_type_pattern: # optional
-      deny:
-        - ^test.*
-      allow:
-        - ^.*
+    load_schemas: True
 ```
 
 ## Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                     | Required | Default | Description                                                  |
+| ------------------------- | -------- | ------- | ------------------------------------------------------------ |
+| `manifest_path`           |          |         | See https://docs.getdbt.com/reference/artifacts/manifest-json |
+| `catalog_path`            |          |         | See https://docs.getdbt.com/reference/artifacts/catalog-json |
+| `sources_path`            |          |         | See https://docs.getdbt.com/reference/artifacts/sources-json |
+| `target_platform`         |          |         | The platform that dbt is loading onto                        |
+| `load_schemas`            |          |         |                                                              |
+| `node_type_pattern.allow` | ❌        |         |                                                              |
+| `node_type_pattern.deny`  | ❌        |         |                                                              |
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
 

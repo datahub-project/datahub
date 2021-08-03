@@ -24,6 +24,11 @@ sink:
 
 ### Config details
 
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field | Required | Default | Description |
+| ----- | -------- | ------- | ----------- |
+
 ## DataHub Kafka
 
 ### Setup
@@ -52,6 +57,11 @@ sink:
 ```
 
 ### Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field | Required | Default | Description |
+| ----- | -------- | ------- | ----------- |
 
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
 

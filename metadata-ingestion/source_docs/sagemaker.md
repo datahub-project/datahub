@@ -21,28 +21,30 @@ source:
   config:
     aws_region: # aws_region_name, i.e. "eu-west-1"
     env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
-
-    # Credentials. If not specified here, these are picked up according to boto3 rules.
-    # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
-    aws_access_key_id: # Optional.
-    aws_secret_access_key: # Optional.
-    aws_session_token: # Optional.
-    aws_role: # Optional (Role chaining supported by using a sorted list).
-
-    extract_feature_groups: True # if feature groups should be ingested, default True
-    extract_models: True # if models should be ingested, default True
-    extract_jobs: # if jobs should be ingested, default True for all
-      auto_ml: True
-      compilation: True
-      edge_packaging: True
-      hyper_parameter_tuning: True
-      labeling: True
-      processing: True
-      training: True
-      transform: True
 ```
 
 ## Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                                 | Required | Default | Description |
+| ------------------------------------- | -------- | ------- | ----------- |
+| `aws_region`                          |          |         |             |
+| `env`                                 |          |         |             |
+| `aws_access_key_id`                   |          |         |             |
+| `aws_secret_access_key`               |          |         |             |
+| `aws_session_token`                   |          |         |             |
+| `aws_role`                            |          |         |             |
+| `extract_feature_groups`              |          |         |             |
+| `extract_models`                      |          |         |             |
+| `extract_jobs.auto_ml`                |          |         |             |
+| `extract_jobs.compilation`            |          |         |             |
+| `extract_jobs.edge_packaging`         |          |         |             |
+| `extract_jobs.hyper_parameter_tuning` |          |         |             |
+| `extract_jobs.labeling`               |          |         |             |
+| `extract_jobs.processing`             |          |         |             |
+| `extract_jobs.training`               |          |         |             |
+| `extract_jobs.transform`              |          |         |             |
 
 ## Questions
 
