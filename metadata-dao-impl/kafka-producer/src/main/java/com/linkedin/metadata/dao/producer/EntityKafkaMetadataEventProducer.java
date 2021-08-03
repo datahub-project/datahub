@@ -95,7 +95,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
           metadataAuditEvent.toString()));
       record = EventUtils.pegasusToAvroMAE(metadataAuditEvent);
     } catch (IOException e) {
-      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()));
+      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()), e);
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 
@@ -103,7 +103,18 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
       _producer.send(new ProducerRecord(_topicConvention.getMetadataAuditEventTopicName(), urn.toString(), record),
           _callback.get());
     } else {
-      _producer.send(new ProducerRecord(_topicConvention.getMetadataAuditEventTopicName(), urn.toString(), record));
+      _producer.send(new ProducerRecord(_topicConvention.getMetadataAuditEventTopicName(), urn.toString(), record),
+          (metadata, e) -> {
+            if (e != null) {
+              log.error(String.format("Failed to emit MAE for entity with urn %s", urn), e);
+            } else {
+              log.debug(String.format("Successfully emitted MAE for entity with urn %s at offset %s, partition %s, topic %s",
+                  urn,
+                  metadata.offset(),
+                  metadata.partition(),
+                  metadata.topic()));
+            }
+          });
     }
   }
 
@@ -116,7 +127,7 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
           metadataChangeLog.toString()));
       record = EventUtils.pegasusToAvroMCL(metadataChangeLog);
     } catch (IOException e) {
-      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataChangeLog.toString()));
+      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataChangeLog.toString()), e);
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 
@@ -128,7 +139,17 @@ public class EntityKafkaMetadataEventProducer implements EntityEventProducer {
     if (_callback.isPresent()) {
       _producer.send(new ProducerRecord(topic, urn.toString(), record), _callback.get());
     } else {
-      _producer.send(new ProducerRecord(topic, urn.toString(), record));
+      _producer.send(new ProducerRecord(topic, urn.toString(), record), (metadata, e) -> {
+        if (e != null) {
+          log.error(String.format("Failed to emit MCL for entity with urn %s", urn), e);
+        } else {
+          log.debug(String.format("Successfully emitted MCL for entity with urn %s at offset %s, partition %s, topic %s",
+              urn,
+              metadata.offset(),
+              metadata.partition(),
+              metadata.topic()));
+        }
+      });
     }
   }
 
