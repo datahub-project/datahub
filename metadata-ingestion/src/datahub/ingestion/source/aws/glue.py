@@ -312,9 +312,9 @@ class GlueSource(Source):
                         # specify a few Glue-specific properties
                         customProperties={
                             "role": job["Role"],
-                            "created": str(job["CreatedOn"]),
-                            "modified": str(job["LastModifiedOn"]),
-                            "command": job["Command"]["ScriptLocation"],
+                            "created": str(job.get("CreatedOn")),
+                            "modified": str(job.get("LastModifiedOn")),
+                            "command": job.get("Command", {}).get("ScriptLocation"),
                         },
                     ),
                 ],
@@ -430,7 +430,13 @@ class GlueSource(Source):
                 self.report.report_workunit(flow_wu)
                 yield flow_wu
 
-                dag = self.get_dataflow_graph(job["Command"]["ScriptLocation"])
+                job_script_location = job.get("Command", {}).get("ScriptLocation")
+
+                dag: Optional[Dict[str, Any]] = None
+
+                if job_script_location is not None:
+
+                    dag = self.get_dataflow_graph(job_script_location)
 
                 dags[flow_urn] = dag
 
