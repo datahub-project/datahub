@@ -122,7 +122,7 @@ export const sampleSchemaWithTags: Schema = {
                             type: EntityType.GlossaryTerm,
                             urn: 'urn:li:glossaryTerm:sample-glossary-term',
                             name: 'sample-glossary-term',
-                            domain: 'example',
+                            hierarchicalName: 'example.sample-glossary-term',
                             glossaryTermInfo: {
                                 definition: 'sample definition',
                                 termSource: 'sample term source',

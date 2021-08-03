@@ -28,11 +28,10 @@ export default function GlossaryTermProfile() {
     const searchTypes = entityRegistry.getSearchEntityTypes();
     searchTypes.splice(searchTypes.indexOf(EntityType.GlossaryTerm), 1);
 
-    const glossaryTermName = data?.glossaryTerm?.name;
-    const glossaryTermDomain = data?.glossaryTerm?.domain;
+    const glossaryTermHierarchicalName = data?.glossaryTerm?.hierarchicalName;
     const entitySearchResult = useGetEntitySearchResults(
         {
-            query: `glossaryTerms:${glossaryTermDomain}.${glossaryTermName}`,
+            query: `glossaryTerms:${glossaryTermHierarchicalName}`,
         },
         searchTypes,
     );
