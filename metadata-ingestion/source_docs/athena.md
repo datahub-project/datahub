@@ -49,7 +49,7 @@ source:
       allow:
         # ...
 
-    # Same format as table_pattern, used for filtering views
+    # Same format as table_pattern, used for filtering views. If left blank, will ingest all.
     view_pattern:
       deny:
         # ...

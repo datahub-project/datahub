@@ -7,9 +7,7 @@ This plugin extracts the following:
 - List of databases, schema, and tables
 - Column types associated with each table
 
-**Note** It is important to define a explicitly define deny schema pattern for internal druid databases (lookup & sys)
-if adding a schema pattern otherwise the crawler may crash before processing relevant databases.
-This deny pattern is defined by default but is overriden by user-submitted configurations
+**Note**: It is important to explicitly define the deny schema pattern for internal Druid databases (lookup & sys) if adding a schema pattern. Otherwise, the crawler may crash before processing relevant databases. This deny pattern is defined by default but is overriden by user-submitted configurations.
 
 ```yml
 source:
@@ -46,11 +44,11 @@ source:
     # If left blank, will ingest all.
     schema_pattern:
       deny:
-        # ...
+        - "^(lookup|sys).*" # default, ignores internal Druid databases (see note below)
       allow:
         # ...
 
-    # Same format as table_pattern, used for filtering views
+    # Same format as table_pattern, used for filtering views. If left blank, will ingest all.
     view_pattern:
       deny:
         # ...

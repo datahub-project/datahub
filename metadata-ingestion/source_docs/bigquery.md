@@ -1,4 +1,4 @@
-# Google BigQuery
+# BigQuery
 
 To install this plugin, run `pip install 'acryl-datahub[bigquery]'`.
 
@@ -46,7 +46,7 @@ source:
       allow:
         # ...
 
-    # Same format as table_pattern, used for filtering views
+    # Same format as table_pattern, used for filtering views. If left blank, will ingest all.
     view_pattern:
       deny:
         # ...
@@ -63,7 +63,7 @@ You can also get fine-grained usage statistics for BigQuery using the `bigquery-
 
 :::
 
-# Google BigQuery Usage Stats
+# BigQuery Usage Stats
 
 To install this plugin, run `pip install 'acryl-datahub[bigquery-usage]'`.
 

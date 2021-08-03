@@ -1,4 +1,6 @@
-# DataHub Rest
+# DataHub
+
+## DataHub Rest
 
 To install this plugin, run `pip install 'acryl-datahub[datahub-rest]'`.
 
@@ -12,7 +14,7 @@ sink:
     server: "http://localhost:8080"
 ```
 
-# DataHub Kafka
+## DataHub Kafka
 
 To install this plugin, run `pip install 'acryl-datahub[datahub-kafka]'`.
 
