@@ -243,12 +243,12 @@ def test_avro_sample_payment_schema_to_mce_fields_with_nesting():
         "[type=Payment].[type=string]id",
         "[type=Payment].[type=double]amount",
         "[type=Payment].[type=string]name",
-        "[type=Payment].[type=union]phoneNumber",
-        "[type=Payment].[type=union]phoneNumber.[member=PhoneNumber].[type=PhoneNumber]",
-        "[type=Payment].[type=union]phoneNumber.[member=PhoneNumber].[type=PhoneNumber].[type=string]areaCode",
-        "[type=Payment].[type=union]phoneNumber.[member=PhoneNumber].[type=PhoneNumber].[type=string]countryCode",
-        "[type=Payment].[type=union]phoneNumber.[member=PhoneNumber].[type=PhoneNumber].[type=string]prefix",
-        "[type=Payment].[type=union]phoneNumber.[member=PhoneNumber].[type=PhoneNumber].[type=string]number",
+        "[type=Payment].[type=PhoneNumber]phoneNumber",
+        "[type=Payment].[type=PhoneNumber]phoneNumber.[type=PhoneNumber]",
+        "[type=Payment].[type=PhoneNumber]phoneNumber.[type=PhoneNumber].[type=string]areaCode",
+        "[type=Payment].[type=PhoneNumber]phoneNumber.[type=PhoneNumber].[type=string]countryCode",
+        "[type=Payment].[type=PhoneNumber]phoneNumber.[type=PhoneNumber].[type=string]prefix",
+        "[type=Payment].[type=PhoneNumber]phoneNumber.[type=PhoneNumber].[type=string]number",
     ]
     assret_field_paths_match(fields, expected_field_paths)
 
@@ -278,13 +278,13 @@ def test_avro_schema_to_mce_fields_with_nesting_across_records():
     fields = avro_schema_to_mce_fields(schema)
     expected_field_paths = [
         "[type=union]",
-        "[type=union].[member=Address].[type=Address]",
-        "[type=union].[member=Address].[type=Address].[type=string]streetAddress",
-        "[type=union].[member=Address].[type=Address].[type=string]city",
-        "[type=union].[member=Person].[type=Person]",
-        "[type=union].[member=Person].[type=Person].[type=string]firstname",
-        "[type=union].[member=Person].[type=Person].[type=string]lastname",
-        "[type=union].[member=Person].[type=Person].[type=Address]address",
+        "[type=union].[type=Address]",
+        "[type=union].[type=Address].[type=string]streetAddress",
+        "[type=union].[type=Address].[type=string]city",
+        "[type=union].[type=Person]",
+        "[type=union].[type=Person].[type=string]firstname",
+        "[type=union].[type=Person].[type=string]lastname",
+        "[type=union].[type=Person].[type=Address]address",
     ]
     assret_field_paths_match(fields, expected_field_paths)
 
@@ -383,8 +383,8 @@ def test_union_with_nested_record_of_union():
     expected_field_paths = [
         "[type=UnionSample]",
         "[type=UnionSample].[type=union]aUnion",
-        "[type=UnionSample].[type=union]aUnion.[member=Rcd].[type=Rcd]",
-        "[type=UnionSample].[type=union]aUnion.[member=Rcd].[type=Rcd].[type=union]aNullableStringField",
+        "[type=UnionSample].[type=union]aUnion.[type=Rcd]",
+        "[type=UnionSample].[type=union]aUnion.[type=Rcd].[type=string]aNullableStringField",
     ]
     assret_field_paths_match(fields, expected_field_paths)
 
@@ -422,9 +422,8 @@ def test_nested_arrays():
         "[type=NestedArray]",
         "[type=NestedArray].[type=array]ar",
         "[type=NestedArray].[type=array]ar.[type=array]",
-        "[type=NestedArray].[type=array]ar.[type=array].[type=union]",
-        "[type=NestedArray].[type=array]ar.[type=array].[type=union].[member=Foo].[type=Foo]",
-        "[type=NestedArray].[type=array]ar.[type=array].[type=union].[member=Foo].[type=Foo].[type=long]a",
+        "[type=NestedArray].[type=array]ar.[type=array].[type=Foo]",
+        "[type=NestedArray].[type=array]ar.[type=array].[type=Foo].[type=long]a",
     ]
     assret_field_paths_match(fields, expected_field_paths)
 
@@ -458,9 +457,9 @@ def test_map_of_union_of_int_and_record_of_union():
     expected_field_paths = [
         "[type=MapSample]",
         "[type=MapSample].[type=map]aMap",
-        "[type=MapSample].[type=map]aMap.[value=union].[type=union]",
-        "[type=MapSample].[type=map]aMap.[value=union].[type=union].[member=Rcd].[type=Rcd]",
-        "[type=MapSample].[type=map]aMap.[value=union].[type=union].[member=Rcd].[type=Rcd].[type=union]aUnion",
+        "[type=MapSample].[type=map]aMap.[type=union]",
+        "[type=MapSample].[type=map]aMap.[type=union].[type=Rcd]",
+        "[type=MapSample].[type=map]aMap.[type=union].[type=Rcd].[type=string]aUnion",
     ]
     assret_field_paths_match(fields, expected_field_paths)
 
@@ -531,15 +530,14 @@ def test_needs_disambiguation_nested_union_of_records_with_same_field_name():
     expected_field_paths: List[str] = [
         "[type=ABFooUnion]",
         "[type=ABFooUnion].[type=union]a",
-        "[type=ABFooUnion].[type=union]a.[member=A].[type=A]",
-        "[type=ABFooUnion].[type=union]a.[member=A].[type=A].[type=string]f",
-        "[type=ABFooUnion].[type=union]a.[member=B].[type=B]",
-        "[type=ABFooUnion].[type=union]a.[member=B].[type=B].[type=string]f",
-        "[type=ABFooUnion].[type=union]a.[member=array].[type=array]",
-        "[type=ABFooUnion].[type=union]a.[member=array].[type=array].[type=array]",
-        "[type=ABFooUnion].[type=union]a.[member=array].[type=array].[type=array].[type=union]",
-        "[type=ABFooUnion].[type=union]a.[member=array].[type=array].[type=array].[type=union].[member=Foo].[type=Foo]",
-        "[type=ABFooUnion].[type=union]a.[member=array].[type=array].[type=array].[type=union].[member=Foo].[type=Foo].[type=long]f",
+        "[type=ABFooUnion].[type=union]a.[type=A]",
+        "[type=ABFooUnion].[type=union]a.[type=A].[type=string]f",
+        "[type=ABFooUnion].[type=union]a.[type=B]",
+        "[type=ABFooUnion].[type=union]a.[type=B].[type=string]f",
+        "[type=ABFooUnion].[type=union]a.[type=array]",
+        "[type=ABFooUnion].[type=union]a.[type=array].[type=array]",
+        "[type=ABFooUnion].[type=union]a.[type=array].[type=array].[type=Foo]",
+        "[type=ABFooUnion].[type=union]a.[type=array].[type=array].[type=Foo].[type=long]f",
     ]
     assret_field_paths_match(fields, expected_field_paths)
 

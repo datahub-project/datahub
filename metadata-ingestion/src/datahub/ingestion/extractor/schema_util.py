@@ -96,6 +96,13 @@ class AvroToMceSchemaConverter:
 
     @staticmethod
     def _get_annotation_type(schema: avro.schema.Schema) -> str:
+        if isinstance(schema, avro.schema.UnionSchema) and len(schema.schemas) == 2:
+            # Optional types as unions in AVRO. Return underlying non-null sub-type.
+            (first, second) = schema.schemas
+            if first.type == avro.schema.NULL:
+                schema = second
+            elif second.type == avro.schema.NULL:
+                schema = first
         if isinstance(schema, avro.schema.RecordSchema):
             return schema.name
         return schema.type
@@ -114,6 +121,18 @@ class AvroToMceSchemaConverter:
             nullable=self._is_nullable(schema),
         )
         yield field
+
+    def _test_and_skip_next_if_optional_as_union(
+        self, schema: avro.schema.Schema
+    ) -> bool:
+        is_optional_as_union = (
+            isinstance(schema, avro.schema.UnionSchema)
+            and len(schema.schemas) == 2
+            and any(s.type == avro.schema.NULL for s in schema.schemas)
+        )
+        if is_optional_as_union:
+            self._skip_emit_next_complex_type_once = True
+        return is_optional_as_union
 
     def _gen_recordschema_to_mce_fields(
         self, schema: avro.schema.RecordSchema
@@ -181,14 +200,17 @@ class AvroToMceSchemaConverter:
             assert self._is_complex_type(schema)
         # Emit sub-schemas
         for sub_schema in sub_schemas:
-            if sub_item_prefix_gen:
+            gen_sub_schema = not self._test_and_skip_next_if_optional_as_union(
+                sub_schema
+            )
+            if sub_item_prefix_gen and gen_sub_schema:
                 self._prefix_name_stack.append(sub_item_prefix_gen(sub_schema))
-            if emit_sub_schema:
+            if emit_sub_schema and gen_sub_schema:
                 yield from self._emit_schema_field(sub_schema)
             # Recursively generate from sub-schemas
             if self._should_recurse(sub_schema):
                 yield from self._to_mce_fields(sub_schema)
-            if sub_item_prefix_gen:
+            if sub_item_prefix_gen and gen_sub_schema:
                 self._prefix_name_stack.pop()
         if emit_schema_node:
             self._prefix_name_stack.pop()
@@ -212,16 +234,10 @@ class AvroToMceSchemaConverter:
         def type_prefix_gen(x: avro.schema.MapSchema) -> str:
             return f"[type={AvroToMceSchemaConverter._get_annotation_type(x)}]"
 
-        def sub_item_prefix_gen(x: avro.schema.Schema) -> str:
-            # NOTE: The key type for AVRO is always a string. So, we don't explicitly emit it.
-            return f"[value={AvroToMceSchemaConverter._get_annotation_type(x)}]"
-
         sub_items = (
             schema.values if isinstance(schema.values, list) else [schema.values]
         )
-        yield from self._gen_nested_schema_helper(
-            schema, type_prefix_gen, sub_items, sub_item_prefix_gen
-        )
+        yield from self._gen_nested_schema_helper(schema, type_prefix_gen, sub_items)
 
     def _gen_unionschema_to_mce_fields(
         self, schema: avro.schema.UnionSchema
@@ -230,13 +246,8 @@ class AvroToMceSchemaConverter:
         def prefix_gen(x: avro.schema.UnionSchema) -> str:
             return f"[type={AvroToMceSchemaConverter._get_annotation_type(x)}]"
 
-        def sub_item_prefix_gen(x: avro.schema.Schema) -> str:
-            # NOTE: The key type for AVRO is always a string. So, we don't explicitly emit it.
-            return f"[member={AvroToMceSchemaConverter._get_annotation_type(x)}]"
-
-        yield from self._gen_nested_schema_helper(
-            schema, prefix_gen, schema.schemas, sub_item_prefix_gen
-        )
+        self._test_and_skip_next_if_optional_as_union(schema)
+        yield from self._gen_nested_schema_helper(schema, prefix_gen, schema.schemas)
 
     def _gen_non_recursive_to_mce_fields(
         self, schema: avro.schema.Schema
