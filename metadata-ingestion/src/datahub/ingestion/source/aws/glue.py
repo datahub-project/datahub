@@ -305,13 +305,11 @@ class GlueSource(Source):
             "role": job["Role"],
         }
 
-        created_date = job.get("CreatedOn")
-        if created_date is not None:
-            custom_props["created"] = str(created_date)
+        if job.get("CreatedOn") is not None:
+            custom_props["created"] = str(job["CreatedOn"])
 
-        modified_date = job.get("LastModifiedOn")
-        if modified_date is not None:
-            custom_props["modified"] = str(modified_date)
+        if job.get("LastModifiedOn") is not None:
+            custom_props["modified"] = str(job["LastModifiedOn"])
 
         command = job.get("Command", {}).get("ScriptLocation")
         if command is not None:
