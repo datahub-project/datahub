@@ -28,18 +28,7 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Charts, TabType.Properties
 export default function DashboardProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetDashboardQuery({ variables: { urn } });
     const [updateDashboard] = useUpdateDashboardMutation({
-        update(cache, { data: newDashboard }) {
-            cache.modify({
-                fields: {
-                    dashboard() {
-                        cache.writeQuery({
-                            query: GetDashboardDocument,
-                            data: { dashboard: { ...newDashboard?.updateDashboard } },
-                        });
-                    },
-                },
-            });
-        },
+        refetchQueries: () => ['getDashboard'],
     });
 
     if (error || (!loading && !error && !data)) {

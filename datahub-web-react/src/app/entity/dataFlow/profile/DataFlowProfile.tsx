@@ -29,18 +29,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
     };
     const { loading, error, data } = useGetDataFlowQuery({ variables: { urn } });
     const [updateDataFlow] = useUpdateDataFlowMutation({
-        update(cache, { data: newDataFlow }) {
-            cache.modify({
-                fields: {
-                    dataFlow() {
-                        cache.writeQuery({
-                            query: GetDataFlowDocument,
-                            data: { dataFlow: { ...newDataFlow?.updateDataFlow } },
-                        });
-                    },
-                },
-            });
-        },
+        refetchQueries: () => ['getDataFlow'],
     });
 
     if (error || (!loading && !error && !data)) {
