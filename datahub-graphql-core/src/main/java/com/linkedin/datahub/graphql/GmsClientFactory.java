@@ -25,7 +25,6 @@ public class GmsClientFactory {
     private static final String GMS_USE_SSL_ENV_VAR = "DATAHUB_GMS_USE_SSL";
     private static final String GMS_SSL_PROTOCOL_VAR = "DATAHUB_GMS_SSL_PROTOCOL";
 
-
     private static final Client REST_CLIENT = DefaultRestliClientFactory.getRestLiClient(
             Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR),
             Integer.valueOf(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR)),
@@ -41,17 +40,6 @@ public class GmsClientFactory {
 
 
     private GmsClientFactory() { }
-
-    public static DataPlatforms getDataPlatformsClient() {
-        if (_dataPlatforms == null) {
-            synchronized (GmsClientFactory.class) {
-                if (_dataPlatforms == null) {
-                    _dataPlatforms = new DataPlatforms(REST_CLIENT);
-                }
-            }
-        }
-        return _dataPlatforms;
-    }
 
     public static Lineages getLineagesClient() {
         if (_lineages == null) {

@@ -233,6 +233,7 @@ export default function SchemaTable({
     return (
         <TableContainer>
             <Table
+                bordered
                 columns={allColumns}
                 dataSource={rows}
                 rowClassName={(record) =>

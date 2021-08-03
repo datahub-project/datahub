@@ -2,7 +2,7 @@
 source:
   type: "file"
   config:
-    filename: ./examples/mce_files/mce.json
+    filename: ./examples/mce_files/nih_demo.json
 
 sink:
   type: "datahub-kafka"

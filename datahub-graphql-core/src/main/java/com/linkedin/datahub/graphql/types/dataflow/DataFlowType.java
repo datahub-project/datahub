@@ -23,15 +23,15 @@ import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowSnapshotMappe
 import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
-import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.DataFlowAspect;
 import com.linkedin.metadata.dao.utils.ModelUtils;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.DataFlowSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -92,7 +92,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
             return gmsResults.stream()
                 .map(gmsDataFlow -> gmsDataFlow == null ? null : DataFetcherResult.<DataFlow>newResult()
                     .data(DataFlowSnapshotMapper.map(gmsDataFlow.getValue().getDataFlowSnapshot()))
-                    .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataFlow.getValue().getDataFlowSnapshot()))
+                    .localContext(AspectExtractor.extractAspects(gmsDataFlow.getValue().getDataFlowSnapshot()))
                     .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {
@@ -141,18 +141,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                 facetFilters,
                 start,
                 count);
-        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<DataFlow> dataFlows = batchLoad(urns, context).stream().map(dataFlow -> dataFlow.getData()).collect(
-            Collectors.toList());
-        final BrowseResults browseResults = new BrowseResults();
-        browseResults.setStart(result.getFrom());
-        browseResults.setCount(result.getPageSize());
-        browseResults.setTotal(result.getNumEntities());
-        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
-        browseResults.setEntities(dataFlows.stream()
-                .map(dataset -> (com.linkedin.datahub.graphql.generated.Entity) dataset)
-                .collect(Collectors.toList()));
-        return browseResults;
+        return BrowseResultMapper.map(result);
     }
 
     @Override

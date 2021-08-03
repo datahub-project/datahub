@@ -5260,7 +5260,7 @@
   },
   {
     "type": "record",
-    "name": "MetadataAuditEvent",
+    "name": "MetadataChangeProposal",
     "namespace": "com.linkedin.pegasus2avro.mxe",
     "fields": [
       {
@@ -5273,91 +5273,98 @@
         "doc": "Kafka audit header. See go/kafkaauditheader for more info."
       },
       {
-        "type": [
-          "null",
-          "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataProcessSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot"
-        ],
-        "name": "oldSnapshot",
-        "default": null,
-        "doc": "Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot."
+        "type": "string",
+        "name": "entityType",
+        "doc": "Type of the entity being written to"
       },
       {
+        "java": {
+          "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+        },
         "type": [
           "null",
-          "com.linkedin.pegasus2avro.mxe.SystemMetadata"
+          "string"
         ],
-        "name": "oldSystemMetadata",
+        "name": "entityUrn",
         "default": null,
-        "doc": "Metadata around how the old snapshot was produced."
-      },
-      {
-        "type": [
-          "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataProcessSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot",
-          "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot"
-        ],
-        "name": "newSnapshot",
-        "doc": "Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot."
-      },
-      {
-        "type": [
-          "null",
-          "com.linkedin.pegasus2avro.mxe.SystemMetadata"
-        ],
-        "name": "newSystemMetadata",
-        "default": null,
-        "doc": "Metadata around how the new snapshot was produced."
+        "doc": "Urn of the entity being written\n"
       },
       {
         "type": [
           "null",
           {
-            "type": "enum",
-            "name": "MetadataAuditOperation",
+            "type": "record",
+            "name": "GenericAspect",
             "namespace": "com.linkedin.pegasus2avro.mxe",
-            "symbols": [
-              "UPDATE",
-              "DELETE"
-            ]
+            "fields": [
+              {
+                "type": "bytes",
+                "name": "value"
+              },
+              {
+                "type": "string",
+                "name": "contentType"
+              }
+            ],
+            "doc": "Generic record structure for serializing an Aspect\n"
           }
         ],
-        "name": "operation",
+        "name": "entityKeyAspect",
+        "default": null,
+        "doc": "Key aspect of the entity being written"
+      },
+      {
+        "type": {
+          "type": "enum",
+          "symbolDocs": {
+            "CREATE": "NOT SUPPORTED YET\ninsert if not exists. otherwise fail",
+            "DELETE": "NOT SUPPORTED YET\ndelete action",
+            "PATCH": "NOT SUPPORTED YET\npatch the changes instead of full replace",
+            "UPDATE": "NOT SUPPORTED YET\nupdate if exists. otherwise fail",
+            "UPSERT": "insert if not exists. otherwise update"
+          },
+          "name": "ChangeType",
+          "namespace": "com.linkedin.pegasus2avro.events.metadata",
+          "symbols": [
+            "UPSERT",
+            "CREATE",
+            "UPDATE",
+            "DELETE",
+            "PATCH"
+          ],
+          "doc": "Descriptor for a change action"
+        },
+        "name": "changeType",
+        "doc": "Type of change being proposed"
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "aspectName",
+        "default": null,
+        "doc": "Aspect of the entity being written to\nNot filling this out implies that the writer wants to affect the entire entity\nNote: This is only valid for CREATE and DELETE operations.\n"
+      },
+      {
+        "type": [
+          "null",
+          "com.linkedin.pegasus2avro.mxe.GenericAspect"
+        ],
+        "name": "aspect",
         "default": null
+      },
+      {
+        "type": [
+          "null",
+          "com.linkedin.pegasus2avro.mxe.SystemMetadata"
+        ],
+        "name": "systemMetadata",
+        "default": null,
+        "doc": "A string->string map of custom properties that one might want to attach to an event\n"
       }
     ],
-    "doc": "Kafka event for capturing update made to an entity's metadata."
+    "doc": "Kafka event for proposing a metadata change for an entity. A corresponding MetadataChangeLog is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeProposal will be emitted instead."
   },
   {
     "type": "record",
@@ -5508,5 +5515,220 @@
       }
     ],
     "doc": "Usage data for a given resource, rolled up into a bucket."
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "datasetProfile",
+      "type": "timeseries"
+    },
+    "name": "DatasetProfile",
+    "namespace": "com.linkedin.pegasus2avro.dataset",
+    "fields": [
+      {
+        "type": "long",
+        "name": "timestampMillis"
+      },
+      {
+        "type": [
+          "null",
+          "long"
+        ],
+        "name": "rowCount",
+        "default": null
+      },
+      {
+        "type": [
+          "null",
+          "long"
+        ],
+        "name": "columnCount",
+        "default": null
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": {
+              "type": "record",
+              "name": "DatasetFieldProfile",
+              "namespace": "com.linkedin.pegasus2avro.dataset",
+              "fields": [
+                {
+                  "type": "string",
+                  "name": "fieldPath"
+                },
+                {
+                  "type": [
+                    "null",
+                    "long"
+                  ],
+                  "name": "uniqueCount",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    "float"
+                  ],
+                  "name": "uniqueProportion",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    "long"
+                  ],
+                  "name": "nullCount",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    "float"
+                  ],
+                  "name": "nullProportion",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "name": "min",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "name": "max",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "name": "mean",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "name": "median",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "name": "stdev",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "record",
+                        "name": "Quantile",
+                        "namespace": "com.linkedin.pegasus2avro.dataset",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "quantile"
+                          },
+                          {
+                            "type": "string",
+                            "name": "value"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "name": "quantiles",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "record",
+                        "name": "ValueFrequency",
+                        "namespace": "com.linkedin.pegasus2avro.dataset",
+                        "fields": [
+                          {
+                            "type": "string",
+                            "name": "value"
+                          },
+                          {
+                            "type": "long",
+                            "name": "frequency"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "name": "distinctValueFrequencies",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    {
+                      "type": "record",
+                      "name": "Histogram",
+                      "namespace": "com.linkedin.pegasus2avro.dataset",
+                      "fields": [
+                        {
+                          "type": {
+                            "type": "array",
+                            "items": "string"
+                          },
+                          "name": "boundaries"
+                        },
+                        {
+                          "type": {
+                            "type": "array",
+                            "items": "float"
+                          },
+                          "name": "heights"
+                        }
+                      ]
+                    }
+                  ],
+                  "name": "histogram",
+                  "default": null
+                },
+                {
+                  "type": [
+                    "null",
+                    {
+                      "type": "array",
+                      "items": "string"
+                    }
+                  ],
+                  "name": "sampleValues",
+                  "default": null
+                }
+              ],
+              "doc": "Stats corresponding to fields in a dataset"
+            }
+          }
+        ],
+        "name": "fieldProfiles",
+        "default": null
+      }
+    ],
+    "doc": "Stats corresponding to datasets"
   }
 ]

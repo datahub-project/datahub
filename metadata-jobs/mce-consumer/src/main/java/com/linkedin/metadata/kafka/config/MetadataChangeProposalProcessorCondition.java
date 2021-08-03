@@ -6,12 +6,11 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 
 
-public class MetadataChangeEventsProcessorCondition implements Condition {
+public class MetadataChangeProposalProcessorCondition implements Condition {
   @Override
-  public boolean matches(
-      ConditionContext context,
-      AnnotatedTypeMetadata metadata) {
+  public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
     Environment env = context.getEnvironment();
-    return "true".equals(env.getProperty("MCE_CONSUMER_ENABLED"));
+    return "true".equals(env.getProperty("MCE_CONSUMER_ENABLED")) || "true".equals(
+        env.getProperty("MCP_CONSUMER_ENABLED"));
   }
 }

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.generated.Aspect;
+import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
@@ -29,13 +30,16 @@ import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
+import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
+import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -57,6 +61,7 @@ import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForAllResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.lineage.DownstreamLineageType;
 import com.linkedin.datahub.graphql.types.lineage.UpstreamLineageType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
@@ -107,7 +112,7 @@ public class GmsGraphQLEngine {
     public static final CorpGroupType CORP_GROUP_TYPE = new CorpGroupType(GmsClientFactory.getEntitiesClient());
     public static final ChartType CHART_TYPE = new ChartType(GmsClientFactory.getEntitiesClient());
     public static final DashboardType DASHBOARD_TYPE = new DashboardType(GmsClientFactory.getEntitiesClient());
-    public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getDataPlatformsClient());
+    public static final DataPlatformType DATA_PLATFORM_TYPE = new DataPlatformType(GmsClientFactory.getEntitiesClient());
     public static final DownstreamLineageType DOWNSTREAM_LINEAGE_TYPE = new DownstreamLineageType(
             GmsClientFactory.getLineagesClient()
     );
@@ -128,6 +133,7 @@ public class GmsGraphQLEngine {
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
     public static final AspectType ASPECT_TYPE = new AspectType(GmsClientFactory.getAspectsClient());
     public static final UsageType USAGE_TYPE = new UsageType(GmsClientFactory.getUsageClient());
+
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -216,6 +222,7 @@ public class GmsGraphQLEngine {
     public static void configureRuntimeWiring(final RuntimeWiring.Builder builder) {
         configureQueryResolvers(builder);
         configureMutationResolvers(builder);
+        configureSearchAndBrowseResolvers(builder);
         configureDatasetResolvers(builder);
         configureCorpUserResolvers(builder);
         configureCorpGroupResolvers(builder);
@@ -330,31 +337,57 @@ public class GmsGraphQLEngine {
         );
     }
 
+    private static void configureSearchAndBrowseResolvers(final RuntimeWiring.Builder builder) {
+        builder
+            .type("SearchResult", typeWiring -> typeWiring
+                .dataFetcher("entity", new AuthenticatedResolver<>(
+                    new EntityTypeResolver(
+                        ENTITY_TYPES.stream().collect(Collectors.toList()),
+                        (env) -> ((SearchResult) env.getSource()).getEntity()))
+                )
+            )
+            .type("BrowseResults", typeWiring -> typeWiring
+                .dataFetcher("entities", new AuthenticatedResolver<>(
+                    new EntityTypeBatchResolver(
+                        ENTITY_TYPES.stream().collect(Collectors.toList()),
+                        (env) -> ((BrowseResults) env.getSource()).getEntities()))
+                )
+            );
+    }
+
     /**
      * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.Dataset} type.
      */
     private static void configureDatasetResolvers(final RuntimeWiring.Builder builder) {
         builder
             .type("Dataset", typeWiring -> typeWiring
-                    .dataFetcher("platform", new AuthenticatedResolver<>(
-                            new LoadableTypeResolver<>(
-                                    DATA_PLATFORM_TYPE,
-                                    (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
+                .dataFetcher("platform", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                DATA_PLATFORM_TYPE,
+                                (env) -> ((Dataset) env.getSource()).getPlatform().getUrn()))
+                )
+                .dataFetcher("downstreamLineage", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                DOWNSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                )
+                .dataFetcher("upstreamLineage", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                UPSTREAM_LINEAGE_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                )
+                .dataFetcher("datasetProfiles", new AuthenticatedResolver<>(
+                    new TimeSeriesAspectResolver(
+                        GmsClientFactory.getAspectsClient(),
+                        "dataset",
+                        "datasetProfile",
+                        DatasetProfileMapper::map
                     )
-                    .dataFetcher("downstreamLineage", new AuthenticatedResolver<>(
-                            new LoadableTypeResolver<>(
-                                    DOWNSTREAM_LINEAGE_TYPE,
-                                    (env) -> ((Entity) env.getSource()).getUrn()))
-                    )
-                    .dataFetcher("upstreamLineage", new AuthenticatedResolver<>(
-                            new LoadableTypeResolver<>(
-                                    UPSTREAM_LINEAGE_TYPE,
-                                    (env) -> ((Entity) env.getSource()).getUrn()))
-                    )
+                ))
                 .dataFetcher("usageStats", new AuthenticatedResolver<>(new UsageTypeResolver()))
                 .dataFetcher("schemaMetadata", new AuthenticatedResolver<>(
-                        new AspectResolver())
-                    )
+                    new AspectResolver())
+                )
             )
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new AuthenticatedResolver<>(
@@ -383,13 +416,6 @@ public class GmsGraphQLEngine {
                                 ENTITY_TYPES.stream().collect(Collectors.toList()),
                                 (env) -> ((EntityRelationship) env.getSource()).getEntity()))
                 )
-            )
-            .type("SearchResult", typeWiring -> typeWiring
-                .dataFetcher("entity", new AuthenticatedResolver<>(
-                    new EntityTypeResolver(
-                        ENTITY_TYPES.stream().collect(Collectors.toList()),
-                        (env) -> ((SearchResult) env.getSource()).getEntity()))
-                ) 
             )
             .type("InstitutionalMemoryMetadata", typeWiring -> typeWiring
                 .dataFetcher("author", new AuthenticatedResolver<>(
@@ -529,6 +555,7 @@ public class GmsGraphQLEngine {
                     .typeResolver(new HyperParameterValueTypeResolver())
             )
             .type("Aspect", typeWiring -> typeWiring.typeResolver(new AspectInterfaceTypeResolver()))
+            .type("TimeSeriesAspect", typeWiring -> typeWiring.typeResolver(new TimeSeriesAspectInterfaceTypeResolver()))
             .type("ResultsType", typeWiring -> typeWiring
                     .typeResolver(new ResultsTypeResolver()));
     }

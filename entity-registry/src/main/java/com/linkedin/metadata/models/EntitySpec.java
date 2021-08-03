@@ -3,71 +3,28 @@ package com.linkedin.metadata.models;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
-import java.util.ArrayList;
+
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 
+public interface EntitySpec {
+    String getName();
 
-public class EntitySpec {
+    EntityAnnotation getEntityAnnotation();
 
-  private final EntityAnnotation _entityAnnotation;
-  private final Map<String, AspectSpec> _aspectSpecs;
+    String getKeyAspectName();
 
-  // Classpath & Pegasus-specific: Temporary.
-  private final RecordDataSchema _snapshotSchema;
-  private final TyperefDataSchema _aspectTyperefSchema;
+    AspectSpec getKeyAspectSpec();
 
-  public EntitySpec(
-      @Nonnull final List<AspectSpec> aspectSpecs,
-      @Nonnull final EntityAnnotation entityAnnotation,
-      @Nonnull final RecordDataSchema snapshotSchema,
-      @Nonnull final TyperefDataSchema aspectTyperefSchema) {
-    _aspectSpecs = aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
-    _entityAnnotation = entityAnnotation;
-    _snapshotSchema = snapshotSchema;
-    _aspectTyperefSchema = aspectTyperefSchema;
-  }
+    List<AspectSpec> getAspectSpecs();
 
-  public String getName() {
-    return _entityAnnotation.getName();
-  }
+    Map<String, AspectSpec> getAspectSpecMap();
 
-  public String getKeyAspectName() {
-    return _entityAnnotation.getKeyAspect();
-  }
+    AspectSpec getAspectSpec(String name);
 
-  public AspectSpec getKeyAspectSpec() {
-    return _aspectSpecs.get(_entityAnnotation.getKeyAspect());
-  }
+    RecordDataSchema getSnapshotSchema();
 
-  public List<AspectSpec> getAspectSpecs() {
-    return new ArrayList<>(_aspectSpecs.values());
-  }
+    TyperefDataSchema getAspectTyperefSchema();
 
-  public Map<String, AspectSpec> getAspectSpecMap() {
-    return _aspectSpecs;
-  }
-
-  public AspectSpec getAspectSpec(final String name) {
-    return _aspectSpecs.get(name);
-  }
-
-  public RecordDataSchema getSnapshotSchema() {
-    return _snapshotSchema;
-  }
-
-  public TyperefDataSchema getAspectTyperefSchema() {
-    return _aspectTyperefSchema;
-  }
-
-  public List<SearchableFieldSpec> getSearchableFieldSpecs() {
-    return _aspectSpecs.values()
-        .stream()
-        .map(AspectSpec::getSearchableFieldSpecs)
-        .flatMap(List::stream)
-        .collect(Collectors.toList());
-  }
+    List<SearchableFieldSpec> getSearchableFieldSpecs();
 }
