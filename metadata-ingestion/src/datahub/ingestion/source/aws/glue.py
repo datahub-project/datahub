@@ -307,7 +307,7 @@ class GlueSource(Source):
                 aspects=[
                     DataFlowInfoClass(
                         name=job["Name"],
-                        description=job["Description"],
+                        description=job.get("Description"),
                         externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
                         # specify a few Glue-specific properties
                         customProperties={
