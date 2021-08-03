@@ -301,6 +301,22 @@ class GlueSource(Source):
 
         region = self.source_config.aws_region
 
+        custom_props = {
+            "role": job["Role"],
+        }
+
+        created_date = job.get("CreatedOn")
+        if created_date is not None:
+            custom_props["created"] = str(created_date)
+
+        modified_date = job.get("LastModifiedOn")
+        if modified_date is not None:
+            custom_props["modified"] = str(modified_date)
+
+        command = job.get("Command", {}).get("ScriptLocation")
+        if command is not None:
+            custom_props["command"] = command
+
         mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
                 urn=flow_urn,
@@ -310,12 +326,7 @@ class GlueSource(Source):
                         description=job.get("Description"),
                         externalUrl=f"https://{region}.console.aws.amazon.com/gluestudio/home?region={region}#/editor/job/{job['Name']}/graph",
                         # specify a few Glue-specific properties
-                        customProperties={
-                            "role": job["Role"],
-                            "created": str(job.get("CreatedOn")),
-                            "modified": str(job.get("LastModifiedOn")),
-                            "command": job.get("Command", {}).get("ScriptLocation"),
-                        },
+                        customProperties=custom_props,
                     ),
                 ],
             )
