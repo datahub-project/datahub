@@ -1,13 +1,21 @@
 # LookML
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[lookml]'`.
 
 Note! This plugin uses a package that requires Python 3.7+!
+
+## Capabilities
 
 This plugin extracts the following:
 
 - LookML views from model files
 - Name, upstream table names, dimensions, measures, and dimension groups
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -36,6 +44,8 @@ source:
     env: "PROD" # optional, default is "PROD"
     parse_table_names_from_sql: False # see note below
 ```
+
+## Config details
 
 Note! The integration can use [`sql-metadata`](https://pypi.org/project/sql-metadata/) to try to parse the tables the
 views depends on. As these SQL's can be complicated, and the package doesn't official support all the SQL dialects that

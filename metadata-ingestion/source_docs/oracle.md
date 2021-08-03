@@ -1,6 +1,10 @@
 # Oracle
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[oracle]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
@@ -8,6 +12,10 @@ This plugin extracts the following:
 - Column types associated with each table
 
 Using the Oracle source requires that you've also installed the correct drivers; see the [cx_Oracle docs](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html). The easiest one is the [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html).
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -64,6 +72,8 @@ source:
     include_views: True # whether to include views, defaults to True
     include_tables: True # whether to include views, defaults to True
 ```
+
+## Config details
 
 ## Questions
 

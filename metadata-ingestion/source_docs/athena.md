@@ -1,11 +1,19 @@
-# AWS Athena
+# Athena
+
+## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[athena]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
 - List of databases and tables
 - Column types associated with each table
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -56,6 +64,8 @@ source:
       allow:
         # ...
 ```
+
+## Config details
 
 ## Questions
 

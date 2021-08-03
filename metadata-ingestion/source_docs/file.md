@@ -1,8 +1,18 @@
 # File
 
+## Setup
+
+Works with `acryl-datahub` out of the box.
+
+## Capabilities
+
 This plugin pulls metadata from a previously generated file. The [file sink](../sink_docs/file.md)
 can produce such files, and a number of samples are included in the
 [examples/mce_files](../examples/mce_files) directory.
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -10,6 +20,8 @@ source:
   config:
     filename: ./path/to/mce/file.json
 ```
+
+## Config details
 
 ## Questions
 

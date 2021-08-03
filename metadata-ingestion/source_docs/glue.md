@@ -1,8 +1,12 @@
 # AWS Glue
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[glue]'`.
 
 Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](../s3-ingestion.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
+
+## Capabilities
 
 This plugin extracts the following:
 
@@ -10,6 +14,10 @@ This plugin extracts the following:
 - Column types associated with each table
 - Table metadata, such as owner, description and parameters
 - Jobs and their component transformations, data sources, and data sinks
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -44,6 +52,8 @@ source:
       allow:
         # ...
 ```
+
+## Config details
 
 ## Questions
 

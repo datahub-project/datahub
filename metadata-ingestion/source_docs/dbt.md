@@ -1,5 +1,11 @@
 # dbt
 
+## Setup
+
+Works with `acryl-datahub` out of the box.
+
+## Capabilities
+
 This plugin pulls metadata from dbt's artifact files:
 
 - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
@@ -18,6 +24,10 @@ This plugin pulls metadata from dbt's artifact files:
   - Load schemas from dbt catalog file, not necessary when the underlying data platform already has this data.
 - node_type_pattern:
   - Use this filter to exclude and include node types using allow or deny method
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -44,6 +54,8 @@ source:
       allow:
         - ^.*
 ```
+
+## Config details
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
 

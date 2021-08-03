@@ -1,6 +1,10 @@
 # PostgreSQL
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[postgres]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
@@ -8,6 +12,10 @@ This plugin extracts the following:
 - Column types associated with each table
 - Also supports PostGIS extensions
 - database_alias (optional) can be used to change the name of database to be ingested
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -61,6 +69,8 @@ source:
     include_views: True # whether to include views, defaults to True
     include_tables: True # whether to include views, defaults to True
 ```
+
+## Config details
 
 ## Questions
 

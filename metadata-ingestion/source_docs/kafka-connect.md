@@ -1,10 +1,20 @@
-# Kafka Connect `kafka-connect`
+# Kafka Connect
+
+## Setup
+
+To install this plugin, run `pip install 'acryl-datahub[kafka-connect]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
 - Kafka Connect connector as individual `DataFlowSnapshotClass` entity
 - Creating individual `DataJobSnapshotClass` entity using `{connector_name}:{source_dataset}` naming
 - Lineage information between source database to Kafka topic
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -22,6 +32,8 @@ source:
 Current limitations:
 
 - Currently works only for Debezium source connectors.
+
+## Config details
 
 ## Questions
 

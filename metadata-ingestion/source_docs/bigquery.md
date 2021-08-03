@@ -1,11 +1,25 @@
 # BigQuery
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[bigquery]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
 - List of databases, schema, and tables
 - Column types associated with each table
+
+:::tip
+
+You can also get fine-grained usage statistics for BigQuery using the `bigquery-usage` source described below.
+
+:::
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -57,15 +71,15 @@ source:
     include_tables: True # whether to include views, defaults to True
 ```
 
-:::tip
-
-You can also get fine-grained usage statistics for BigQuery using the `bigquery-usage` source described below.
-
-:::
+## Config details
 
 # BigQuery Usage Stats
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[bigquery-usage]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
@@ -79,6 +93,16 @@ Note: the client must have one of the following OAuth scopes, and should be auth
 - https://www.googleapis.com/auth/logging.admin
 - https://www.googleapis.com/auth/cloud-platform.read-only
 - https://www.googleapis.com/auth/cloud-platform
+
+:::note
+
+This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` source described above.
+
+:::
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -116,11 +140,7 @@ source:
     max_query_duration:
 ```
 
-:::note
-
-This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` source described above.
-
-:::
+## Config details
 
 ## Questions
 

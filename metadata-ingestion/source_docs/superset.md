@@ -1,10 +1,20 @@
 # Superset
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[superset]'`.
+
+See documentation for superset's `/security/login` at https://superset.apache.org/docs/rest-api for more details on superset's login api.
+
+## Capabilities
 
 This plugin extracts the following:
 
 - List of charts and dashboards
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -19,7 +29,7 @@ source:
     env: "PROD" # Optional, default is "PROD"
 ```
 
-See documentation for superset's `/security/login` at https://superset.apache.org/docs/rest-api for more details on superset's login api.
+## Config details
 
 ## Questions
 

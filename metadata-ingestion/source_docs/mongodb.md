@@ -1,6 +1,10 @@
 # MongoDB
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[mongodb]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
@@ -11,6 +15,10 @@ By default, schema inference samples 1,000 documents from each collection. Setti
 Moreover, setting `useRandomSampling: False` will sample the first documents found without random selection, which may be faster for large collections.
 
 Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -44,6 +52,8 @@ source:
       allow:
         # ...
 ```
+
+## Config details
 
 ## Questions
 

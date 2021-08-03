@@ -2,10 +2,18 @@
 
 ## DataHub Rest
 
+### Setup
+
 To install this plugin, run `pip install 'acryl-datahub[datahub-rest]'`.
+
+### Capabilities
 
 Pushes metadata to DataHub using the GMA rest API. The advantage of the rest-based interface
 is that any errors can immediately be reported.
+
+### Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 sink:
@@ -14,13 +22,23 @@ sink:
     server: "http://localhost:8080"
 ```
 
+### Config details
+
 ## DataHub Kafka
 
+### Setup
+
 To install this plugin, run `pip install 'acryl-datahub[datahub-kafka]'`.
+
+### Capabilities
 
 Pushes metadata to DataHub by publishing messages to Kafka. The advantage of the Kafka-based
 interface is that it's asynchronous and can handle higher throughput. This requires the
 DataHub mce-consumer container to be running.
+
+### Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 sink:
@@ -32,6 +50,8 @@ sink:
       schema_registry_url: "http://localhost:8081"
       schema_registry_config: {} # passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
 ```
+
+### Config details
 
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
 

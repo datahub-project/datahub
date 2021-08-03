@@ -1,9 +1,22 @@
 # SQL Profiles
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[sql-profiles]'`.
 
 The SQL-based profiler does not run alone, but rather can be enabled for other SQL-based sources.
 Enabling profiling will slow down ingestion runs.
+
+:::caution
+
+Running profiling against many tables or over many rows can run up significant costs.
+While we've done our best to limit the expensiveness of the queries the profiler runs, you
+should be prudent about the set of tables profiling is enabled on or the frequency
+of the profiling runs.
+
+:::
+
+## Capabilities
 
 Extracts:
 
@@ -28,6 +41,10 @@ Supported SQL sources:
 - Snowflake
 - Generic SQLAlchemy source
 
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+
 ```yml
 source:
   type: <sql-source> # can be bigquery, snowflake, etc - see above for the list
@@ -50,14 +67,7 @@ source:
     include_views: true
 ```
 
-:::caution
-
-Running profiling against many tables or over many rows can run up significant costs.
-While we've done our best to limit the expensiveness of the queries the profiler runs, you
-should be prudent about the set of tables profiling is enabled on or the frequency
-of the profiling runs.
-
-:::
+## Config details
 
 ## Questions
 

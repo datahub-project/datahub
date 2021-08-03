@@ -1,4 +1,6 @@
-# Other databases using SQLAlchemy
+# Other SQLAlchemy databases
+
+## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[sqlalchemy]'`.
 
@@ -6,10 +8,16 @@ The `sqlalchemy` source is useful if we don't have a pre-built source for your c
 database system, but there is an [SQLAlchemy dialect](https://docs.sqlalchemy.org/en/14/dialects/)
 defined elsewhere. In order to use this, you must `pip install` the required dialect packages yourself.
 
+## Capabilities
+
 This plugin extracts the following:
 
 - List of schemas and tables
 - Column types associated with each table
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -60,6 +68,8 @@ source:
     include_views: True # whether to include views, defaults to True
     include_tables: True # whether to include views, defaults to True
 ```
+
+## Config details
 
 ## Questions
 

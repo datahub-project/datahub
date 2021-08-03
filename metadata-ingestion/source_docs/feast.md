@@ -1,8 +1,12 @@
 # Feast
 
+## Setup
+
 **Note: Feast ingestion requires Docker to be installed.**
 
 To install this plugin, run `pip install 'acryl-datahub[feast]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
@@ -14,6 +18,10 @@ This plugin extracts the following:
 Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then
 parsed to DataHub's native objects. This separation was performed because of a dependency conflict in the `feast` module.
 
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+
 ```yml
 source:
   type: feast
@@ -22,6 +30,8 @@ source:
     env: "PROD" # Optional, default is "PROD"
     use_local_build: False # Whether to build Feast ingestion image locally, default is False
 ```
+
+## Config details
 
 ## Questions
 

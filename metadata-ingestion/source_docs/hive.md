@@ -1,12 +1,20 @@
 # Hive
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[hive]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
 - List of databases, schema, and tables
 - Column types associated with each table
 - Detailed table and storage information
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -85,6 +93,8 @@ source:
 ```
 
 </details>
+
+## Config details
 
 ## Questions
 

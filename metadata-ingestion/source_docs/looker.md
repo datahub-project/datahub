@@ -1,6 +1,10 @@
 # Looker dashboards
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[looker]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
@@ -8,6 +12,10 @@ This plugin extracts the following:
 - Names, descriptions, URLs, chart types, input view for the charts
 
 See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -36,6 +44,8 @@ source:
 
     env: "PROD" # Optional, default is "PROD"
 ```
+
+## Config details
 
 ## Questions
 

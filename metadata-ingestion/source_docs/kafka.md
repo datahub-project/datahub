@@ -1,11 +1,19 @@
 # Kafka Metadata
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[kafka]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
 - List of topics - from the Kafka broker
 - Schemas associated with each topic - from the schema registry
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -32,6 +40,8 @@ source:
       # and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md.
       producer_config: {}
 ```
+
+## Config details
 
 The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.
 

@@ -1,11 +1,19 @@
 # MySQL
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[mysql]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
 - List of databases and tables
 - Column types and schema associated with each table
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -58,6 +66,8 @@ source:
     include_views: True # whether to include views, defaults to True
     include_tables: True # whether to include views, defaults to True
 ```
+
+## Config details
 
 ## Questions
 

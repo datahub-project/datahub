@@ -1,11 +1,25 @@
 # Snowflake
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[snowflake]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
 - List of databases, schema, and tables
 - Column types associated with each table
+
+:::tip
+
+You can also get fine-grained usage statistics for Snowflake using the `snowflake-usage` source described below.
+
+:::
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -71,15 +85,13 @@ source:
     include_tables: True # whether to include views, defaults to True
 ```
 
-:::tip
-
-You can also get fine-grained usage statistics for Snowflake using the `snowflake-usage` source described below.
-
-:::
-
 # Snowflake Usage Stats
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[snowflake-usage]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
@@ -90,6 +102,16 @@ This plugin extracts the following:
 Note: the user/role must have access to the account usage table. The "accountadmin" role has this by default, and other roles can be [granted this permission](https://docs.snowflake.com/en/sql-reference/account-usage.html#enabling-account-usage-for-other-roles).
 
 Note: the underlying access history views that we use are only available in Snowflake's enterprise edition or higher.
+
+:::note
+
+This source only does usage statistics. To get the tables, views, and schemas in your Snowflake warehouse, ingest using the `snowflake` source described above.
+
+:::
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -108,11 +130,7 @@ source:
     top_n_queries: 10 # number of queries to save for each table
 ```
 
-:::note
-
-This source only does usage statistics. To get the tables, views, and schemas in your Snowflake warehouse, ingest using the `snowflake` source described above.
-
-:::
+## Config details
 
 ## Questions
 

@@ -1,6 +1,10 @@
 # Druid
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[druid]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
@@ -8,6 +12,10 @@ This plugin extracts the following:
 - Column types associated with each table
 
 **Note**: It is important to explicitly define the deny schema pattern for internal Druid databases (lookup & sys) if adding a schema pattern. Otherwise, the crawler may crash before processing relevant databases. This deny pattern is defined by default but is overriden by user-submitted configurations.
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -58,6 +66,8 @@ source:
     include_views: True # whether to include views, defaults to True
     include_tables: True # whether to include views, defaults to True
 ```
+
+## Config details
 
 ## Questions
 

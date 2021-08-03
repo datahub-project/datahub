@@ -1,11 +1,19 @@
-# AWS SageMaker
+# SageMaker
+
+## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[sagemaker]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
 - Feature groups
 - Models, jobs, and lineage between the two (e.g. when jobs output a model or a model is used by a job)
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -33,6 +41,8 @@ source:
       training: True
       transform: True
 ```
+
+## Config details
 
 ## Questions
 

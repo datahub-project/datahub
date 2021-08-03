@@ -1,12 +1,20 @@
 # LDAP
 
+## Setup
+
 To install this plugin, run `pip install 'acryl-datahub[ldap]'`.
+
+## Capabilities
 
 This plugin extracts the following:
 
 - List of people
 - Names, emails, titles, and manager information for each person
 - List of groups
+
+## Quickstart recipe
+
+Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -26,6 +34,8 @@ source:
     # For creating LDAP controls
     page_size: # default is 20
 ```
+
+## Config details
 
 The `drop_missing_first_last_name` should be set to true if you've got many "headless" user LDAP accounts
 for devices or services should be excluded when they do not contain a first and last name. This will only
