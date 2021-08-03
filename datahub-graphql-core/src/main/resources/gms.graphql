@@ -25,6 +25,10 @@ interface Aspect {
     aspectVersion: Long
 }
 
+interface TimeSeriesAspect {
+    timestampMillis: Long!
+}
+
 interface EntityWithRelationships implements Entity {
     """
     GMS Entity urn
@@ -347,7 +351,16 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     glossaryTerms: GlossaryTerms
 
+    """
+    Statistics about how this Dataset is used
+    """
     usageStats(resource: String!, range: TimeRange): UsageQueryResult
+
+    """
+    Profile Stats resource. Get the events in a previous unit of time in descending order.
+    If no start / end time are provided, the most recent events will be returned.
+    """
+    datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
 }
 
 type GlossaryTerm implements Entity {
@@ -419,6 +432,11 @@ type DataPlatform implements Entity {
     Name of the data platform
     """
     name: String!
+
+    """
+    Display name of the data platform
+    """
+    displayName: String
 
     """
     Metadata associated with a dataplatform
@@ -3034,3 +3052,36 @@ enum TimeRange {
     YEAR
     ALL
 }
+
+type DatasetFieldProfile {
+	fieldPath: String!
+	uniqueCount: Long
+	uniqueProportion: Float
+	nullCount: Long
+	nullProportion: Float
+	min: String
+	max: String
+	mean: String
+	median: String
+	stdev: String
+	sampleValues: [String!]
+}
+
+type TimeWindow {
+  startTimeMillis: Long!
+  durationMillis: Long!
+}
+
+type PartitionSpec {
+  partition: String!
+  timePartition: TimeWindow
+}
+
+type DatasetProfile implements TimeSeriesAspect {
+  timestampMillis: Long!
+  rowCount: Long
+  columnCount: Long
+  fieldProfiles: [DatasetFieldProfile!]
+  partitionSpec: PartitionSpec
+}
+

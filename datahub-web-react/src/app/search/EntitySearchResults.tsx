@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { QueryResult } from '@apollo/client';
 import { FilterOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { Alert, Button, Card, Divider, Drawer, List, Pagination, Row, Typography } from 'antd';
 import { ListProps } from 'antd/lib/list';
 import { SearchCfg } from '../../conf';
-import { useGetSearchResultsQuery } from '../../graphql/search.generated';
-import { EntityType, FacetFilterInput, SearchResult } from '../../types.generated';
+import { useGetSearchResultsQuery, GetSearchResultsQuery } from '../../graphql/search.generated';
+import { EntityType, FacetFilterInput, SearchResult, Exact, SearchInput } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
 import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -45,9 +46,18 @@ interface Props {
     filters: Array<FacetFilterInput>;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
+    searchResult: QueryResult<GetSearchResultsQuery, Exact<{ input: SearchInput }>>;
 }
 
-export const EntitySearchResults = ({ type, query, page, filters, onChangeFilters, onChangePage }: Props) => {
+export const EntitySearchResults = ({
+    type,
+    query,
+    page,
+    filters,
+    onChangeFilters,
+    onChangePage,
+    searchResult,
+}: Props) => {
     const [isEditingFilters, setIsEditingFilters] = useState(false);
     const [selectedFilters, setSelectedFilters] = useState(filters);
     useEffect(() => {
@@ -69,10 +79,9 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
 
     const results = data?.search?.searchResults || [];
     const pageStart = data?.search?.start || 0;
-    const pageSize = data?.search?.count || 0;
+    const pageSize = data?.search?.count || searchResult.data?.search?.count || 0;
     const totalResults = data?.search?.total || 0;
-    const lastResultIndex =
-        pageStart * pageSize + pageSize > totalResults ? totalResults : pageStart * pageSize + pageSize;
+    const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize; // ToDo: need to confirm if fixes pagination issue
 
     useEffect(() => {
         if (!loading && !error) {
@@ -147,7 +156,7 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
             <Typography.Paragraph style={styles.resultSummary}>
                 Showing{' '}
                 <b>
-                    {(page - 1) * pageSize} - {lastResultIndex}
+                    {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
                 </b>{' '}
                 of <b>{totalResults}</b> results
             </Typography.Paragraph>
@@ -159,10 +168,10 @@ export const EntitySearchResults = ({ type, query, page, filters, onChangeFilter
                 }
                 dataSource={results}
                 split={false}
-                renderItem={(searchResult, index) => (
+                renderItem={(item, index) => (
                     <>
-                        <List.Item onClick={() => onResultClick(searchResult, index)}>
-                            {entityRegistry.renderSearchResult(type, searchResult)}
+                        <List.Item onClick={() => onResultClick(item, index)}>
+                            {entityRegistry.renderSearchResult(type, item)}
                         </List.Item>
                         {index < results.length - 1 && <Divider />}
                     </>

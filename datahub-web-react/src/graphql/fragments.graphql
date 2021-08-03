@@ -101,6 +101,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     platform {
         name
         info {
+            displayName
             logoUrl
         }
     }

@@ -1,7 +1,8 @@
 package com.linkedin.metadata.models.registry;
 
+import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
-import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 
 
@@ -13,17 +14,17 @@ import javax.annotation.Nonnull;
 public interface EntityRegistry {
 
   /**
-   * Given an entity name, returns an instance of {@link EntitySpec}
+   * Given an entity name, returns an instance of {@link DefaultEntitySpec}
    * @param entityName the name of the entity to be retrieved
-   * @return an {@link EntitySpec} corresponding to the entity name provided, null if none exists.
+   * @return an {@link DefaultEntitySpec} corresponding to the entity name provided, null if none exists.
    */
   @Nonnull
   EntitySpec getEntitySpec(@Nonnull final String entityName);
 
   /**
-   * Returns all {@link EntitySpec}s that the register is aware of.
-   * @return a list of {@link EntitySpec}s, empty list if none exists.
+   * Returns all {@link DefaultEntitySpec}s that the register is aware of.
+   * @return a list of {@link DefaultEntitySpec}s, empty list if none exists.
    */
   @Nonnull
-  List<EntitySpec> getEntitySpecs();
+  Map<String, EntitySpec> getEntitySpecs();
 }

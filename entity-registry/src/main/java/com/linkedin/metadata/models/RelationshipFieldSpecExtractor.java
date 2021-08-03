@@ -45,7 +45,7 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
       }
 
       // Next, check resolved properties for annotations on primitives.
-      final Map<String, Object> resolvedProperties = getResolvedProperties(currentSchema);
+      final Map<String, Object> resolvedProperties = FieldSpecUtils.getResolvedProperties(currentSchema);
       final Object resolvedAnnotationObj = resolvedProperties.get(RelationshipAnnotation.ANNOTATION_NAME);
 
       if (resolvedAnnotationObj != null) {
@@ -72,10 +72,6 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
   @Override
   public SchemaVisitorTraversalResult getSchemaVisitorTraversalResult() {
     return new SchemaVisitorTraversalResult();
-  }
-
-  private  Map<String, Object> getResolvedProperties(final DataSchema schema) {
-    return schema.getResolvedProperties();
   }
 
   private Boolean isValidPrimitiveType(final PrimitiveDataSchema schema) {

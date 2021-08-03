@@ -25,7 +25,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.configs.ChartSearchConfig;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -89,7 +89,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                     .map(gmsChart -> gmsChart == null ? null
                         : DataFetcherResult.<Chart>newResult()
                             .data(ChartSnapshotMapper.map(gmsChart.getValue().getChartSnapshot()))
-                            .localContext(SnapshotToAspectMap.extractAspectMap(gmsChart.getValue().getChartSnapshot()))
+                            .localContext(AspectExtractor.extractAspects(gmsChart.getValue().getChartSnapshot()))
                             .build())
                     .collect(Collectors.toList());
         } catch (Exception e) {

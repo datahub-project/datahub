@@ -15,7 +15,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLPrimaryKeySnapshotMapper;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
 import graphql.execution.DataFetcherResult;
@@ -66,7 +66,7 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey> {
                 .map(gmsMlPrimaryKey -> gmsMlPrimaryKey == null ? null
                     : DataFetcherResult.<MLPrimaryKey>newResult()
                         .data(MLPrimaryKeySnapshotMapper.map(gmsMlPrimaryKey.getValue().getMLPrimaryKeySnapshot()))
-                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsMlPrimaryKey.getValue().getMLPrimaryKeySnapshot()))
+                        .localContext(AspectExtractor.extractAspects(gmsMlPrimaryKey.getValue().getMLPrimaryKeySnapshot()))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {

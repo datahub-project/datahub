@@ -29,7 +29,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.dataset.client.Datasets;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -94,7 +94,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                 .map(gmsDataset ->
                     gmsDataset == null ? null : DataFetcherResult.<Dataset>newResult()
                         .data(DatasetSnapshotMapper.map(gmsDataset.getValue().getDatasetSnapshot()))
-                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataset.getValue().getDatasetSnapshot()))
+                        .localContext(AspectExtractor.extractAspects(gmsDataset.getValue().getDatasetSnapshot()))
                         .build()
                 )
                 .collect(Collectors.toList());
