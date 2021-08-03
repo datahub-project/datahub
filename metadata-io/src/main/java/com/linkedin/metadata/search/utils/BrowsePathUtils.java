@@ -1,13 +1,8 @@
 package com.linkedin.metadata.search.utils;
 
 import com.linkedin.common.BrowsePaths;
-import com.linkedin.common.urn.ChartUrn;
-import com.linkedin.common.urn.DashboardUrn;
-import com.linkedin.common.urn.DataFlowUrn;
-import com.linkedin.common.urn.DataJobUrn;
-import com.linkedin.common.urn.DatasetUrn;
-import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
@@ -23,19 +18,15 @@ import com.linkedin.metadata.aspect.DatasetAspect;
 import com.linkedin.metadata.aspect.DatasetAspectArray;
 import com.linkedin.metadata.aspect.GlossaryTermAspect;
 import com.linkedin.metadata.aspect.GlossaryTermAspectArray;
-import com.linkedin.metadata.builders.search.ChartIndexBuilder;
-import com.linkedin.metadata.builders.search.DashboardIndexBuilder;
-import com.linkedin.metadata.builders.search.DataFlowIndexBuilder;
-import com.linkedin.metadata.builders.search.DataJobIndexBuilder;
-import com.linkedin.metadata.builders.search.DatasetIndexBuilder;
-import com.linkedin.metadata.builders.search.GlossaryTermInfoIndexBuilder;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.key.DashboardKey;
 import com.linkedin.metadata.key.DataFlowKey;
 import com.linkedin.metadata.key.DataJobKey;
 import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.net.URISyntaxException;
@@ -49,8 +40,8 @@ public class BrowsePathUtils {
     //not called
   }
 
-  public static BrowsePaths buildBrowsePath(Urn urn) throws URISyntaxException {
-    String defaultBrowsePath = getDefaultBrowsePath(urn);
+  public static BrowsePaths buildBrowsePath(Urn urn, EntityRegistry registry) throws URISyntaxException {
+    String defaultBrowsePath = getDefaultBrowsePath(urn, registry);
     StringArray browsePaths = new StringArray();
     browsePaths.add(defaultBrowsePath);
     BrowsePaths browsePathAspect = new BrowsePaths();
@@ -85,11 +76,11 @@ public class BrowsePathUtils {
     }
   }
 
-  public static void addBrowsePathIfNotExists(Snapshot snapshot, @Nullable Entity browsePathEntity)
+  public static void addBrowsePathIfNotExists(Snapshot snapshot, @Nullable Entity browsePathEntity, EntityRegistry registry)
       throws URISyntaxException {
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshot);
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
-    final BrowsePaths defaultBrowsePaths = buildBrowsePath(urn);
+    final BrowsePaths defaultBrowsePaths = buildBrowsePath(urn, registry);
 
     if (urn.getEntityType().equals("dataset")) {
       final DatasetAspectArray aspects = snapshot.getDatasetSnapshot().getAspects();
@@ -175,5 +166,13 @@ public class BrowsePathUtils {
         aspects.add(DataFlowAspect.create(defaultBrowsePaths));
       }
     }
+  }
+
+  protected static RecordDataSchema getKeySchema(
+      final String entityName,
+      final EntityRegistry registry) {
+    final EntitySpec spec = registry.getEntitySpec(entityName);
+    final AspectSpec keySpec = spec.getKeyAspectSpec();
+    return keySpec.getPegasusSchema();
   }
 }

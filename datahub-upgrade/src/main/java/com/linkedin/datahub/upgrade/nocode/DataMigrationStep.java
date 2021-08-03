@@ -146,7 +146,7 @@ public class DataMigrationStep implements UpgradeStep {
             // Emit a browse path aspect.
             final BrowsePaths browsePaths;
             try {
-              browsePaths = BrowsePathUtils.buildBrowsePath(urn);
+              browsePaths = BrowsePathUtils.buildBrowsePath(urn, _entityService.getEntityRegistry());
 
               final AuditStamp browsePathsStamp = new AuditStamp();
               browsePathsStamp.setActor(Urn.createFromString("urn:li:principal:system"));
