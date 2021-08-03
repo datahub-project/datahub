@@ -30,6 +30,13 @@ import com.linkedin.metadata.builders.search.DataJobIndexBuilder;
 import com.linkedin.metadata.builders.search.DatasetIndexBuilder;
 import com.linkedin.metadata.builders.search.GlossaryTermInfoIndexBuilder;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.key.ChartKey;
+import com.linkedin.metadata.key.DashboardKey;
+import com.linkedin.metadata.key.DataFlowKey;
+import com.linkedin.metadata.key.DataJobKey;
+import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.metadata.models.EntityKeyUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.net.URISyntaxException;
 import javax.annotation.Nullable;
@@ -51,22 +58,29 @@ public class BrowsePathUtils {
     return browsePathAspect;
   }
 
-  public static String getDefaultBrowsePath(Urn urn) throws URISyntaxException {
+  public static String getDefaultBrowsePath(Urn urn, EntityRegistry entityRegistry) throws URISyntaxException {
     switch (urn.getEntityType()) {
       case "dataset":
-        return DatasetIndexBuilder.buildBrowsePath(DatasetUrn.createFromUrn(urn));
+        DatasetKey dsKey = (DatasetKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
+        return ("/" + dsKey.getOrigin() + "/" + dsKey.getPlatform() + "/"
+            + dsKey.getName()).replace('.', '/').toLowerCase();
       case "chart":
-        return ChartIndexBuilder.buildBrowsePath(ChartUrn.createFromUrn(urn));
+        ChartKey chartKey = (ChartKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
+        return ("/" + chartKey.getDashboardTool() + "/"  + chartKey.getChartId()).toLowerCase();
       case "dashboard":
-        return DashboardIndexBuilder.buildBrowsePath(DashboardUrn.createFromUrn(urn));
+        DashboardKey dashboardKey = (DashboardKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
+        return ("/" + dashboardKey.getDashboardTool() + "/"  + dashboardKey.getDashboardId()).toLowerCase();
       case "dataFlow":
-        return DataFlowIndexBuilder.buildBrowsePath(DataFlowUrn.createFromUrn(urn));
+        DataFlowKey dataFlowKey = (DataFlowKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
+        return ("/" + dataFlowKey.getOrchestrator() + "/" + dataFlowKey.getCluster() + "/" + dataFlowKey.getFlowId())
+            .toLowerCase();
       case "dataJob":
-        return DataJobIndexBuilder.buildBrowsePath(DataJobUrn.createFromUrn(urn));
-      case "glossaryTerm":
-        return GlossaryTermInfoIndexBuilder.buildBrowsePath(GlossaryTermUrn.createFromUrn(urn));
+        DataJobKey dataJobKey = (DataJobKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
+        DataFlowKey parentFlowKey = (DataFlowKey) EntityKeyUtils.convertUrnToEntityKey(dataJobKey.getFlow(),
+            getKeySchema(dataJobKey.getFlow().getEntityType(), entityRegistry));
+        return ("/" + parentFlowKey.getOrchestrator() + "/" + parentFlowKey.getFlowId() + "/"
+            + dataJobKey.getJobId()).toLowerCase();
       default:
-        log.debug(String.format("Failed to generate default browse path for unknown entity type %s", urn.getEntityType()));
         return "";
     }
   }
