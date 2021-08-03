@@ -35,11 +35,11 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field             | Required | Default            | Description |
-| ----------------- | -------- | ------------------ | ----------- |
-| `core_url`        |          | `"localhost:6565"` |             |
-| `env`             |          | `"PROD"`           |             |
-| `use_local_build` |          | `False`            |             |
+| Field             | Required | Default            | Description                                             |
+| ----------------- | -------- | ------------------ | ------------------------------------------------------- |
+| `core_url`        |          | `"localhost:6565"` | URL of Feast Core instance.                             |
+| `env`             |          | `"PROD"`           | Environment to use in namespace when constructing URNs. |
+| `use_local_build` |          | `False`            | Whether to build Feast ingestion Docker image locally.  |
 
 ## Questions
 

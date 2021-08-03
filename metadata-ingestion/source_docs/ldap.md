@@ -39,15 +39,15 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                          | Required | Default | Description |
-| ------------------------------ | -------- | ------- | ----------- |
-| `ldap_server`                  |          |         |             |
-| `ldap_user`                    |          |         |             |
-| `ldap_password`                |          |         |             |
-| `base_dn`                      |          |         |             |
-| `filter`                       |          |         |             |
-| `drop_missing_first_last_name` |          |         |             |
-| `page_size`                    |          |         |             |
+| Field                          | Required | Default             | Description                                                  |
+| ------------------------------ | -------- | ------------------- | ------------------------------------------------------------ |
+| `ldap_server`                  | ✅        |                     | LDAP server URL.                                             |
+| `ldap_user`                    | ✅        |                     | LDAP user.                                                   |
+| `ldap_password`                | ✅        |                     | LDAP password.                                               |
+| `base_dn`                      | ✅        |                     | LDAP DN.                                                     |
+| `filter`                       |          | `"(objectClass=*)"` | LDAP extractor filter.                                       |
+| `drop_missing_first_last_name` |          | `True`              | If set to true, any users without first and last names will be dropped. |
+| `page_size`                    |          | `20`                | Size of each page to fetch when extracting metadata.         |
 
 The `drop_missing_first_last_name` should be set to true if you've got many "headless" user LDAP accounts
 for devices or services should be excluded when they do not contain a first and last name. This will only

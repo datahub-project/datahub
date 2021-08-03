@@ -38,19 +38,19 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                    | Required | Default | Description |
-| ------------------------ | -------- | ------- | ----------- |
-| `aws_region`             |          |         |             |
-| `env`                    |          |         |             |
-| `aws_access_key_id`      |          |         |             |
-| `aws_secret_access_key`  |          |         |             |
-| `aws_session_token`      |          |         |             |
-| `aws_role`               |          |         |             |
-| `extract_transforms`     |          |         |             |
-| `database_pattern.allow` |          |         |             |
-| `database_pattern.deny`  |          |         |             |
-| `table_pattern.allow`    |          |         |             |
-| `table_pattern.deny`     |          |         |             |
+| Field                    | Required | Default      | Description                                                  |
+| ------------------------ | -------- | ------------ | ------------------------------------------------------------ |
+| `aws_region`             | ✅        |              |                                                              |
+| `env`                    |          | `"PROD"`     |                                                              |
+| `aws_access_key_id`      |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `aws_secret_access_key`  |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `aws_session_token`      |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `aws_role`               |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `extract_transforms`     |          | `True`       | Whether to extract Glue transform jobs.                      |
+| `database_pattern.allow` |          |              | Regex pattern for databases to include in ingestion.         |
+| `database_pattern.deny`  |          |              | Regex pattern for databases to exclude from ingestion.       |
+| `table_pattern.allow`    |          |              | Regex pattern for tables to include in ingestion.            |
+| `table_pattern.deny`     |          |              | Regex pattern for tables to exclude from ingestion.          |
 
 ## Questions
 

@@ -32,12 +32,15 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                      | Required | Default | Description |
-| -------------------------- | -------- | ------- | ----------- |
-| `connect_uri`              |          |         |             |
-| `cluster_name`             |          |         |             |
-| `connector_patterns.deny`  |          |         |             |
-| `connector_patterns.allow` |          |         |             |
+| Field                      | Required | Default                    | Description                                             |
+| -------------------------- | -------- | -------------------------- | ------------------------------------------------------- |
+| `connect_uri`              |          | `"http://localhost:8083/"` | URI to connect to.                                      |
+| `username`                 |          |                            | Kafka Connect username.                                 |
+| `password`                 |          |                            | Kafka Connect password.                                 |
+| `cluster_name`             |          | `"connect-cluster"`        | Cluster to ingest from.                                 |
+| `connector_patterns.deny`  |          |                            | Regex pattern for connectors to include in ingestion.   |
+| `connector_patterns.allow` |          |                            | Regex pattern for connectors to exclude from ingestion. |
+| `env`                      |          | `"PROD"`                   | Environment to use in namespace when constructing URNs. |
 
 ## Questions
 

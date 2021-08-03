@@ -23,21 +23,10 @@ source:
       bootstrap: "broker:9092"
       schema_registry_url: http://localhost:8081
 
-      # Extra schema registry config.
-      # These options will be passed into Kafka's SchemaRegistryClient.
-      # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html?#schemaregistryclient
       schema_registry_config: {}
 
-      # Extra consumer config.
-      # These options will be passed into Kafka's DeserializingConsumer.
-      # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#deserializingconsumer
-      # and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md.
       consumer_config: {}
 
-      # Extra producer config.
-      # These options will be passed into Kafka's SerializingProducer.
-      # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serializingproducer
-      # and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md.
       producer_config: {}
 ```
 
@@ -45,13 +34,15 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                             | Required | Default | Description |
-| --------------------------------- | -------- | ------- | ----------- |
-| `bootstrap`                       |          |         |             |
-| `schema_registry_url`             |          |         |             |
-| `schema_registry_config.<option>` |          |         |             |
-| `consumer_config`                 |          |         |             |
-| `producer_config`                 |          |         |             |
+| Field                                        | Required | Default                  | Description                                                  |
+| -------------------------------------------- | -------- | ------------------------ | ------------------------------------------------------------ |
+| `conection.bootstrap`                        |          | `"localhost:9092"`       | Bootstrap servers.                                           |
+| `connection.schema_registry_url`             |          | `http://localhost:8081"` | Schema registry location.                                    |
+| `connection.schema_registry_config.<option>` |          |                          | Extra schema registry config. These options will be passed into Kafka's SchemaRegistryClient. See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html?#schemaregistryclient. |
+| `connection.consumer_config.<option>`        |          |                          | Extra consumer config. These options will be passed into Kafka's DeserializingConsumer. See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#deserializingconsumer and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md. |
+| `connection.producer_config.<option>`        |          |                          | Extra producer config. These options will be passed into Kafka's SerializingProducer. See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serializingproducer and https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md. |
+| `topic_patterns.allow`                       |          |                          | Regex pattern for topics to include in ingestion.            |
+| `topic_patterns.deny`                        |          |                          | Regex pattern for topics to exclude from ingestion.          |
 
 The options in the consumer config and schema registry config are passed to the Kafka DeserializingConsumer and SchemaRegistryClient respectively.
 
