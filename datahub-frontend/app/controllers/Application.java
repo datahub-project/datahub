@@ -61,37 +61,6 @@ public class Application extends Controller {
     return ok("GOOD");
   }
 
-  @Nonnull
-  public Result printDeps() {
-    final String appHome = System.getenv("WHZ_APP_HOME");
-
-    String libPath = appHome + "/lib";
-    String commitFile = appHome + "/commit";
-    String commit = "";
-
-    if (appHome == null) {
-      return ok("WHZ_APP_HOME environmental variable not defined");
-    }
-
-    try (BufferedReader reader = new BufferedReader(new FileReader(commitFile))) {
-      commit = reader.readLine();
-    } catch (IOException ioe) {
-      _logger.error("Error while reading commit file. Error message: " + ioe.getMessage());
-    }
-
-    //get all the files from /libs directory
-    StringBuilder sb = new StringBuilder();
-
-    try (Stream<Path> paths = Files.list(Paths.get(libPath))) {
-      paths.filter(Files::isRegularFile).
-          forEach(f -> sb.append(f.getFileName()).append("\n"));
-    } catch (IOException ioe) {
-      _logger.error("Error while traversing the directory. Error message: " + ioe.getMessage());
-    }
-
-    return ok("commit: " + commit + "\n" + "libraries: " + sb.toString());
-  }
-
   /**
    * index Action proxies to serveAsset
    *
@@ -171,7 +140,6 @@ public class Application extends Controller {
    * @return Json object with internal wiki links
    */
   @Nonnull
-
   private ObjectNode wikiLinks() {
     final ObjectNode wikiLinks = Json.newObject();
     wikiLinks.put("appHelp", _config.getString("links.wiki.appHelp"));
@@ -206,75 +174,5 @@ public class Application extends Controller {
     trackingConfig.set("trackers", trackers);
     trackingConfig.put("isEnabled", true);
     return trackingConfig;
-  }
-
-  @Nonnull
-  public Result login() {
-    //You can generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
-    String csrfToken = "";
-    return serveAsset("");
-  }
-
-  @BodyParser.Of(BodyParser.Json.class)
-  @Nonnull
-  public Result authenticate() throws NamingException {
-    JsonNode json = request().body().asJson();
-    // Extract username and password as String from JsonNode,
-    //   null if they are not strings
-    String username = json.findPath("username").textValue();
-    String password = json.findPath("password").textValue();
-
-    if (StringUtils.isBlank(username)) {
-      return badRequest("Missing or invalid [username]");
-    }
-    if (password == null) {
-      password = "";
-    }
-
-    session().clear();
-
-    // Create a uuid string for this session if one doesn't already exist
-    //   to be appended to the Result object
-    String uuid = session("uuid");
-    if (uuid == null) {
-      uuid = java.util.UUID.randomUUID().toString();
-      session("uuid", uuid);
-    }
-
-    try {
-      AuthenticationManager.authenticateUser(username, password);
-    } catch (AuthenticationException e) {
-      _logger.warn("Authentication error!", e);
-      return badRequest("Invalid Credential");
-    }
-
-    // Adds the username to the session cookie
-    session("user", username);
-
-    String secretKey = _config.getString("play.http.secret.key");
-    try {
-      //store hashed username to PLAY_SESSION cookie
-      String hashedUserName = AuthUtil.generateHash(username, secretKey.getBytes());
-      session("auth_token", hashedUserName);
-    } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-      _logger.error("Failed to hash username", e);
-    }
-
-    // Construct an ObjectNode with the username and uuid token to be sent with the response
-    ObjectNode data = Json.newObject();
-    data.put("username", username);
-    data.put("uuid", uuid);
-
-    // Create a new response ObjectNode to return when authenticate request is successful
-    ObjectNode response = Json.newObject();
-    response.put("status", "ok");
-    response.set("data", data);
-    return ok(response);
-  }
-
-  @Nonnull
-  public Result logout() {
-    session().clear();
-    return ok();
   }
 }
