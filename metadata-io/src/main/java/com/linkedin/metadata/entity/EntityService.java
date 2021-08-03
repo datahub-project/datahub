@@ -402,7 +402,7 @@ public abstract class EntityService {
     _emitAspectSpecificAuditEvent = emitAspectSpecificAuditEvent;
   }
 
-  protected EntityRegistry getEntityRegistry() {
+  public EntityRegistry getEntityRegistry() {
     return _entityRegistry;
   }
 

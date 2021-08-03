@@ -147,7 +147,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
 
     final Entity browsePathEntity = _entityService.getEntity(urn, projectedAspects);
-    BrowsePathUtils.addBrowsePathIfNotExists(entity.getValue(), browsePathEntity);
+    BrowsePathUtils.addBrowsePathIfNotExists(entity.getValue(), browsePathEntity, _entityService.getEntityRegistry());
 
     // TODO Correctly audit ingestions.
     final AuditStamp auditStamp =

@@ -144,7 +144,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     if (browsePathAspect == null) {
       try {
         MetadataChangeProposal browsePathProposal = metadataChangeProposal.copy();
-        GenericAspect aspect = GenericAspectUtils.serializeAspect(BrowsePathUtils.buildBrowsePath(urn));
+        GenericAspect aspect = GenericAspectUtils.serializeAspect(BrowsePathUtils.buildBrowsePath(urn,
+            _entityService.getEntityRegistry()));
         browsePathProposal.setAspect(aspect);
         browsePathProposal.setAspectName("browsePaths");
         additionalChanges.add(browsePathProposal);
