@@ -464,7 +464,7 @@ const glossaryTerm1 = {
     urn: 'urn:li:glossaryTerm:1',
     type: EntityType.GlossaryTerm,
     name: 'Another glossary term',
-    domain: 'example',
+    hierarchicalName: 'example.AnotherGlossaryTerm',
     ownership: {
         owners: [
             {
