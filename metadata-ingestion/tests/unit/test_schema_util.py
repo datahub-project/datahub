@@ -1,9 +1,14 @@
+import logging
 import os
 from pathlib import Path
+from typing import List
 
 import pytest
 
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+
+logger = logging.getLogger(__name__)
 
 SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE = """
 {
@@ -51,6 +56,19 @@ SCHEMA_WITH_OPTIONAL_FIELD_VIA_PRIMITIVE_TYPE = """
 """
 
 
+def log_field_paths(fields: List[SchemaField]) -> None:
+    logger.debug('FieldPaths=\n"' + '",\n"'.join(f.fieldPath for f in fields) + '"')
+
+
+def assret_field_paths_match(
+    fields: List[SchemaField], expected_field_paths: List[str]
+) -> None:
+    log_field_paths(fields)
+    assert len(fields) == len(expected_field_paths)
+    for f, efp in zip(fields, expected_field_paths):
+        assert f.fieldPath == efp
+
+
 @pytest.mark.parametrize(
     "schema",
     [
@@ -66,8 +84,8 @@ SCHEMA_WITH_OPTIONAL_FIELD_VIA_PRIMITIVE_TYPE = """
 )
 def test_avro_schema_to_mce_fields_events_with_nullable_fields(schema):
     fields = avro_schema_to_mce_fields(schema)
-    assert 1 == len(fields)
-    assert fields[0].nullable
+    assert 2 == len(fields)
+    assert fields[1].nullable
 
 
 def test_avro_schema_to_mce_fields_sample_events_with_different_field_types():
@@ -88,8 +106,8 @@ def test_avro_schema_to_mce_fields_sample_events_with_different_field_types():
 }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert 1 == len(fields)
-    assert fields[0].fieldPath == "[type=map]a_map_of_longs_field"
+    expected_field_paths = ["[type=name]", "[type=name].[type=map]a_map_of_longs_field"]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_avro_schema_to_mce_fields_record_with_two_fields():
@@ -113,9 +131,12 @@ def test_avro_schema_to_mce_fields_record_with_two_fields():
 }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 2
-    assert fields[0].fieldPath == "[type=string]a"
-    assert fields[1].fieldPath == "[type=string]b"
+    expected_field_paths = [
+        "[type=name]",
+        "[type=name].[type=string]a",
+        "[type=name].[type=string]b",
+    ]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_avro_schema_to_mce_fields_toplevel_isnt_a_record():
@@ -125,8 +146,8 @@ def test_avro_schema_to_mce_fields_toplevel_isnt_a_record():
 }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 1
-    assert fields[0].fieldPath == ""
+    expected_field_paths = [""]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_avro_schema_to_mce_fields_with_default():
@@ -137,7 +158,7 @@ def test_avro_schema_to_mce_fields_with_default():
   "namespace": "some.event.namespace",
   "fields": [
     {
-      "name": "my.field",
+      "name": "aStringField",
       "type": "string",
       "doc": "some docs",
       "default": "this is custom, default value"
@@ -146,9 +167,9 @@ def test_avro_schema_to_mce_fields_with_default():
 }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 1
-    assert fields[0].fieldPath == "[type=string]my.field"
-    assert fields[0].description and "custom, default value" in fields[0].description
+    expected_field_paths = ["[type=name]", "[type=name].[type=string]aStringField"]
+    assret_field_paths_match(fields, expected_field_paths)
+    assert fields[1].description and "custom, default value" in fields[1].description
 
 
 def test_avro_schema_with_recursion():
@@ -169,9 +190,12 @@ def test_avro_schema_with_recursion():
 }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 2
-    assert fields[0].fieldPath == "[type=long]value"
-    assert fields[1].fieldPath == "[type=array]children"
+    expected_field_paths = [
+        "[type=TreeNode]",
+        "[type=TreeNode].[type=long]value",
+        "[type=TreeNode].[type=array]children",
+    ]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_avro_sample_payment_schema_to_mce_fields_with_nesting():
@@ -214,19 +238,19 @@ def test_avro_sample_payment_schema_to_mce_fields_with_nesting():
 }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 8
-    field_paths = [
-        "[type=string]id",
-        "[type=double]amount",
-        "[type=string]name",
-        "[type=union]phoneNumber",
-        "[type=union]phoneNumber.[type=union][member=PhoneNumber].[type=string]areaCode",
-        "[type=union]phoneNumber.[type=union][member=PhoneNumber].[type=string]countryCode",
-        "[type=union]phoneNumber.[type=union][member=PhoneNumber].[type=string]prefix",
-        "[type=union]phoneNumber.[type=union][member=PhoneNumber].[type=string]number",
+    expected_field_paths = [
+        "[type=Payment]",
+        "[type=Payment].[type=string]id",
+        "[type=Payment].[type=double]amount",
+        "[type=Payment].[type=string]name",
+        "[type=Payment].[type=union]phoneNumber",
+        "[type=Payment].[type=union]phoneNumber.[member=PhoneNumber].[type=PhoneNumber]",
+        "[type=Payment].[type=union]phoneNumber.[member=PhoneNumber].[type=PhoneNumber].[type=string]areaCode",
+        "[type=Payment].[type=union]phoneNumber.[member=PhoneNumber].[type=PhoneNumber].[type=string]countryCode",
+        "[type=Payment].[type=union]phoneNumber.[member=PhoneNumber].[type=PhoneNumber].[type=string]prefix",
+        "[type=Payment].[type=union]phoneNumber.[member=PhoneNumber].[type=PhoneNumber].[type=string]number",
     ]
-    for i, f in enumerate(fields):
-        assert f.fieldPath == field_paths[i]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_avro_schema_to_mce_fields_with_nesting_across_records():
@@ -252,16 +276,17 @@ def test_avro_schema_to_mce_fields_with_nesting_across_records():
 ]
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 5
     expected_field_paths = [
-        "[type=union][member=Address].[type=string]streetAddress",
-        "[type=union][member=Address].[type=string]city",
-        "[type=union][member=Person].[type=string]firstname",
-        "[type=union][member=Person].[type=string]lastname",
-        "[type=union][member=Person].[type=Address]address",
+        "[type=union]",
+        "[type=union].[member=Address].[type=Address]",
+        "[type=union].[member=Address].[type=Address].[type=string]streetAddress",
+        "[type=union].[member=Address].[type=Address].[type=string]city",
+        "[type=union].[member=Person].[type=Person]",
+        "[type=union].[member=Person].[type=Person].[type=string]firstname",
+        "[type=union].[member=Person].[type=Person].[type=string]lastname",
+        "[type=union].[member=Person].[type=Person].[type=Address]address",
     ]
-    for i, f in enumerate(fields):
-        assert f.fieldPath == expected_field_paths[i]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_simple_record_with_primitive_types():
@@ -290,28 +315,27 @@ def test_simple_record_with_primitive_types():
     }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 4
-    field_paths = [
-        "[type=string]stringField",
-        "[type=boolean]booleanField",
-        "[type=int]intField",
-        "[type=enum]enumField",
+    expected_field_paths = [
+        "[type=Simple]",
+        "[type=Simple].[type=string]stringField",
+        "[type=Simple].[type=boolean]booleanField",
+        "[type=Simple].[type=int]intField",
+        "[type=Simple].[type=enum]enumField",
     ]
-    for i, f in enumerate(fields):
-        assert f.fieldPath == field_paths[i]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_simple_nested_record_with_a_string_field():
     schema = """
     {
         "type": "record",
-        "name": "Simple",
+        "name": "SimpleNested",
         "namespace": "com.linkedin",
         "fields": [{
             "name": "nestedRcd",
             "type": {
                 "type": "record",
-                "name": "NestedRcd",
+                "name": "InnerRcd",
                 "fields": [{
                     "name": "aStringField",
                      "type": "string"
@@ -321,9 +345,12 @@ def test_simple_nested_record_with_a_string_field():
     }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 2
-    assert fields[0].fieldPath == "[type=NestedRcd]nestedRcd"
-    assert fields[1].fieldPath == "[type=NestedRcd]nestedRcd.[type=string]aStringField"
+    expected_field_paths: List[str] = [
+        "[type=SimpleNested]",
+        "[type=SimpleNested].[type=InnerRcd]nestedRcd",
+        "[type=SimpleNested].[type=InnerRcd]nestedRcd.[type=string]aStringField",
+    ]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_union_with_nested_record_of_union():
@@ -353,19 +380,20 @@ def test_union_with_nested_record_of_union():
     }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 2
-    assert fields[0].fieldPath == "[type=union]aUnion"
-    assert (
-        fields[1].fieldPath
-        == "[type=union]aUnion.[type=union][member=Rcd].[type=union]aNullableStringField"
-    )
+    expected_field_paths = [
+        "[type=UnionSample]",
+        "[type=UnionSample].[type=union]aUnion",
+        "[type=UnionSample].[type=union]aUnion.[member=Rcd].[type=Rcd]",
+        "[type=UnionSample].[type=union]aUnion.[member=Rcd].[type=Rcd].[type=union]aNullableStringField",
+    ]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_nested_arrays():
     schema = """
 {
     "type": "record",
-    "name": "nestedArrays",
+    "name": "NestedArray",
     "namespace": "com.linkedin",
     "fields": [{
         "name": "ar",
@@ -390,12 +418,15 @@ def test_nested_arrays():
 }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 2
-    assert fields[0].fieldPath == "[type=array]ar"
-    assert (
-        fields[1].fieldPath
-        == "[type=array]ar.[type=array].[type=array].[type=union][member=Foo].[type=long]a"
-    )
+    expected_field_paths: List[str] = [
+        "[type=NestedArray]",
+        "[type=NestedArray].[type=array]ar",
+        "[type=NestedArray].[type=array]ar.[type=array]",
+        "[type=NestedArray].[type=array]ar.[type=array].[type=union]",
+        "[type=NestedArray].[type=array]ar.[type=array].[type=union].[member=Foo].[type=Foo]",
+        "[type=NestedArray].[type=array]ar.[type=array].[type=union].[member=Foo].[type=Foo].[type=long]a",
+    ]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_map_of_union_of_int_and_record_of_union():
@@ -424,12 +455,14 @@ def test_map_of_union_of_int_and_record_of_union():
     }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 2
-    assert fields[0].fieldPath == "[type=map]aMap"
-    assert (
-        fields[1].fieldPath
-        == "[type=map]aMap.[value=union].[type=union][member=Rcd].[type=union]aUnion"
-    )
+    expected_field_paths = [
+        "[type=MapSample]",
+        "[type=MapSample].[type=map]aMap",
+        "[type=MapSample].[type=map]aMap.[value=union].[type=union]",
+        "[type=MapSample].[type=map]aMap.[value=union].[type=union].[member=Rcd].[type=Rcd]",
+        "[type=MapSample].[type=map]aMap.[value=union].[type=union].[member=Rcd].[type=Rcd].[type=union]aUnion",
+    ]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_recursive_avro():
@@ -452,10 +485,13 @@ def test_recursive_avro():
     }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 3
-    assert fields[0].fieldPath == "[type=R]r"
-    assert fields[1].fieldPath == "[type=R]r.[type=int]anIntegerField"
-    assert fields[2].fieldPath == "[type=R]r.[type=R]aRecursiveField"
+    expected_field_paths = [
+        "[type=Recursive]",
+        "[type=Recursive].[type=R]r",
+        "[type=Recursive].[type=R]r.[type=int]anIntegerField",
+        "[type=Recursive].[type=R]r.[type=R]aRecursiveField",
+    ]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_needs_disambiguation_nested_union_of_records_with_same_field_name():
@@ -492,14 +528,20 @@ def test_needs_disambiguation_nested_union_of_records_with_same_field_name():
     }
 """
     fields = avro_schema_to_mce_fields(schema)
-    assert len(fields) == 4
-    assert fields[0].fieldPath == "[type=union]a"
-    assert fields[1].fieldPath == "[type=union]a.[type=union][member=A].[type=string]f"
-    assert fields[2].fieldPath == "[type=union]a.[type=union][member=B].[type=string]f"
-    assert (
-        fields[3].fieldPath
-        == "[type=union]a.[type=union][member=array].[type=array].[type=array].[type=union][member=Foo].[type=long]f"
-    )
+    expected_field_paths: List[str] = [
+        "[type=ABFooUnion]",
+        "[type=ABFooUnion].[type=union]a",
+        "[type=ABFooUnion].[type=union]a.[member=A].[type=A]",
+        "[type=ABFooUnion].[type=union]a.[member=A].[type=A].[type=string]f",
+        "[type=ABFooUnion].[type=union]a.[member=B].[type=B]",
+        "[type=ABFooUnion].[type=union]a.[member=B].[type=B].[type=string]f",
+        "[type=ABFooUnion].[type=union]a.[member=array].[type=array]",
+        "[type=ABFooUnion].[type=union]a.[member=array].[type=array].[type=array]",
+        "[type=ABFooUnion].[type=union]a.[member=array].[type=array].[type=array].[type=union]",
+        "[type=ABFooUnion].[type=union]a.[member=array].[type=array].[type=array].[type=union].[member=Foo].[type=Foo]",
+        "[type=ABFooUnion].[type=union]a.[member=array].[type=array].[type=array].[type=union].[member=Foo].[type=Foo].[type=long]f",
+    ]
+    assret_field_paths_match(fields, expected_field_paths)
 
 
 def test_mce_avro_parses_okay():
@@ -517,5 +559,4 @@ def test_mce_avro_parses_okay():
     ).read_text()
     fields = avro_schema_to_mce_fields(schema)
     assert len(fields)
-    # Ensure that all fields have a unique path.
-    assert len({f.fieldPath for f in fields}) == len(fields)
+    log_field_paths(fields)

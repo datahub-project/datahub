@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Union
 
 import avro.schema
 
@@ -23,8 +23,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 
 logger = logging.getLogger(__name__)
 
+# ------------------------------------------------------------------------------
+
 
 class AvroToMceSchemaConverter:
+    """Converts an AVRO schema in JSON to MCE SchemaFields."""
+
     field_type_mapping: Dict[str, Any] = {
         "null": NullTypeClass,
         "bool": BooleanTypeClass,
@@ -47,8 +51,10 @@ class AvroToMceSchemaConverter:
         # Initialize the prefix name stack for nested name generation.
         self._prefix_name_stack: List[str] = []
         self._record_types_seen: List[str] = []
+        self._skip_emit_next_complex_type_once = False
 
-    def _should_recurse(self, schema: avro.schema.Schema) -> bool:
+    @staticmethod
+    def _is_complex_type(schema: avro.schema.Schema) -> bool:
         return isinstance(
             schema,
             (
@@ -57,7 +63,10 @@ class AvroToMceSchemaConverter:
                 avro.schema.ArraySchema,
                 avro.schema.MapSchema,
             ),
-        ) and (
+        )
+
+    def _should_recurse(self, schema: avro.schema.Schema) -> bool:
+        return self._is_complex_type(schema) and (
             not isinstance(schema, avro.schema.RecordSchema)
             or (schema.fullname not in self._record_types_seen)
         )
@@ -91,15 +100,45 @@ class AvroToMceSchemaConverter:
             return schema.name
         return schema.type
 
-    def _recordschema_to_mce_fields(
+    def _emit_schema_field(
+        self, schema: avro.schema.Schema, description: Optional[str] = None
+    ) -> Generator[SchemaField, None, None]:
+        if description is None:
+            description = schema.props.get("doc", None)
+        field = SchemaField(
+            fieldPath=self._get_cur_field_path(),
+            nativeDataType=str(schema.type),
+            type=self._get_column_type(schema.type),
+            description=description,
+            recursive=False,
+            nullable=self._is_nullable(schema),
+        )
+        yield field
+
+    def _gen_recordschema_to_mce_fields(
         self, schema: avro.schema.RecordSchema
-    ) -> List[SchemaField]:
-        fields: List[SchemaField] = []
+    ) -> Generator[SchemaField, None, None]:
         # Add the full name of this schema to the list of record types seen so far.
+        # This will be used to prevent repeated exploration of recursive record type references.
         self._record_types_seen.append(schema.fullname)
 
-        # Generate the fields from the record schema's fields
+        emit_schema_node: bool = True
+        if self._skip_emit_next_complex_type_once:
+            emit_schema_node = False
+            self._skip_emit_next_complex_type_once = False
+
+        if emit_schema_node:
+            # process the record itself
+            self._prefix_name_stack.append(
+                f"[type={AvroToMceSchemaConverter._get_annotation_type(schema)}]"
+            )
+            yield from self._emit_schema_field(schema)
+
+        # Process each field in the record schema.
         for parsed_field in schema.fields:
+            self._prefix_name_stack.append(
+                f"[type={AvroToMceSchemaConverter._get_annotation_type(parsed_field.type)}]{parsed_field.name}"
+            )
             # Generate the description.
             description: Optional[str] = (
                 parsed_field.doc if parsed_field.doc else "No description available."
@@ -108,116 +147,135 @@ class AvroToMceSchemaConverter:
                 description = (
                     f"{description}\nField default value: {parsed_field.default}"
                 )
-            # Add the field name to the prefix stack.
-            type_annotated_name = f"[type={AvroToMceSchemaConverter._get_annotation_type(parsed_field.type)}]{parsed_field.name}"
-            self._prefix_name_stack.append(type_annotated_name)
-            fields.append(
-                SchemaField(
-                    fieldPath=self._get_cur_field_path(),
-                    nativeDataType=str(parsed_field.type),
-                    type=self._get_column_type(parsed_field.type),
-                    description=description,
-                    recursive=False,
-                    nullable=self._is_nullable(parsed_field.type),
-                )
-            )
-            cur_sub_fields: List[SchemaField] = []
+            yield from self._emit_schema_field(parsed_field.type, description)
             if self._should_recurse(parsed_field.type):
+                if self._is_complex_type(parsed_field.type):
+                    # We already prepended the next complex type annotation as the field's type.
+                    # Prevent it from being emitted.
+                    self._skip_emit_next_complex_type_once = True
                 # Recursively explore sub-types.
-                cur_sub_fields = self._to_mce_fields(parsed_field.type)
-                fields.extend(cur_sub_fields)
+                yield from self._to_mce_fields(parsed_field.type)
             # Remove the name from prefix stack.
             self._prefix_name_stack.pop()
-        return fields
 
-    def _arrayschema_to_mce_fields(
+        if emit_schema_node:
+            self._prefix_name_stack.pop()
+
+    def _gen_nested_schema_helper(
+        self,
+        schema: avro.schema.Schema,
+        prefix_gen: Callable[[avro.schema.Schema], str],
+        sub_schemas: List[avro.schema.Schema],
+        sub_item_prefix_gen: Callable[[avro.schema.Schema], str] = None,
+        emit_sub_schema: bool = False,
+    ) -> Generator[SchemaField, None, None]:
+        emit_schema_node: bool = True
+        if self._skip_emit_next_complex_type_once:
+            emit_schema_node = False
+            self._skip_emit_next_complex_type_once = False
+        # Append to the field path tokens and emit the SchemaFiled corresponding to the schema itself.
+        if emit_schema_node:
+            self._prefix_name_stack.append(prefix_gen(schema))
+            yield from self._emit_schema_field(schema)
+        else:
+            assert self._is_complex_type(schema)
+        # Emit sub-schemas
+        for sub_schema in sub_schemas:
+            if sub_item_prefix_gen:
+                self._prefix_name_stack.append(sub_item_prefix_gen(sub_schema))
+            if emit_sub_schema:
+                yield from self._emit_schema_field(sub_schema)
+            # Recursively generate from sub-schemas
+            if self._should_recurse(sub_schema):
+                yield from self._to_mce_fields(sub_schema)
+            if sub_item_prefix_gen:
+                self._prefix_name_stack.pop()
+        if emit_schema_node:
+            self._prefix_name_stack.pop()
+
+    def _gen_arrayschema_to_mce_fields(
         self, schema: avro.schema.ArraySchema
-    ) -> List[SchemaField]:
-        fields: List[SchemaField] = []
-        # Recurse if needed.
-        self._prefix_name_stack.append("[type=array]")
-        if self._should_recurse(schema.items):
-            # Recursively explore sub-types
-            fields.extend(self._to_mce_fields(schema.items))
-        self._prefix_name_stack.pop()
-        return fields
+    ) -> Generator[SchemaField, None, None]:
+        """Generates SchemaFields from array schema."""
 
-    def _mapschema_to_mce_fields(
+        def type_prefix_gen(x: avro.schema.ArraySchema) -> str:
+            return f"[type={AvroToMceSchemaConverter._get_annotation_type(x)}]"
+
+        sub_items = schema.items if isinstance(schema.items, list) else [schema.items]
+        yield from self._gen_nested_schema_helper(schema, type_prefix_gen, sub_items)
+
+    def _gen_mapschema_to_mce_fields(
         self, schema: avro.schema.MapSchema
-    ) -> List[SchemaField]:
-        fields: List[SchemaField] = []
-        # Process the map schema
-        # NOTE: The key type for AVRO is always a string. So, we don't explicitly emit it.
-        schema_values = (
+    ) -> Generator[SchemaField, None, None]:
+        """Generates SchemaFields from map schema."""
+
+        def type_prefix_gen(x: avro.schema.MapSchema) -> str:
+            return f"[type={AvroToMceSchemaConverter._get_annotation_type(x)}]"
+
+        def sub_item_prefix_gen(x: avro.schema.Schema) -> str:
+            # NOTE: The key type for AVRO is always a string. So, we don't explicitly emit it.
+            return f"[value={AvroToMceSchemaConverter._get_annotation_type(x)}]"
+
+        sub_items = (
             schema.values if isinstance(schema.values, list) else [schema.values]
         )
-        for schema_value in schema_values:
-            self._prefix_name_stack.append(
-                f"[value={AvroToMceSchemaConverter._get_annotation_type(schema_value)}]"
-            )
-            if self._should_recurse(schema_value):
-                fields.extend(self._to_mce_fields(schema_value))
-            self._prefix_name_stack.pop()
-        return fields
+        yield from self._gen_nested_schema_helper(
+            schema, type_prefix_gen, sub_items, sub_item_prefix_gen
+        )
 
-    def _unionschema_to_mce_fields(
+    def _gen_unionschema_to_mce_fields(
         self, schema: avro.schema.UnionSchema
-    ) -> List[SchemaField]:
-        fields: List[SchemaField] = []
+    ) -> Generator[SchemaField, None, None]:
         # Process the union schemas.
-        for sub_schema in schema.schemas:
-            # Recursively explore sub-types
-            self._prefix_name_stack.append(
-                f"[type=union][member={AvroToMceSchemaConverter._get_annotation_type(sub_schema)}]"
-            )
-            if self._should_recurse(sub_schema):
-                fields.extend(self._to_mce_fields(sub_schema))
-            self._prefix_name_stack.pop()
-        return fields
+        def prefix_gen(x: avro.schema.UnionSchema) -> str:
+            return f"[type={AvroToMceSchemaConverter._get_annotation_type(x)}]"
 
-    def _non_recursive_to_mce_fields(
+        def sub_item_prefix_gen(x: avro.schema.Schema) -> str:
+            # NOTE: The key type for AVRO is always a string. So, we don't explicitly emit it.
+            return f"[member={AvroToMceSchemaConverter._get_annotation_type(x)}]"
+
+        yield from self._gen_nested_schema_helper(
+            schema, prefix_gen, schema.schemas, sub_item_prefix_gen
+        )
+
+    def _gen_non_recursive_to_mce_fields(
         self, schema: avro.schema.Schema
-    ) -> List[SchemaField]:
-        fields: List[SchemaField] = []
+    ) -> Generator[SchemaField, None, None]:
         # In the non-recursive case, only a single SchemaField will be returned
         # and the fieldPath will be set to empty to signal that the type refers to the
         # the whole object.
-        field = SchemaField(
-            fieldPath="",
-            nativeDataType=str(schema.type),
-            type=self._get_column_type(schema.type),
-            description=schema.props.get("doc", None),
-            recursive=False,
-            nullable=self._is_nullable(schema),
-        )
-        fields.append(field)
-        return fields
+        yield from self._emit_schema_field(schema)
 
-    def _to_mce_fields(self, avro_schema: avro.schema.Schema) -> List[SchemaField]:
+    def _to_mce_fields(
+        self, avro_schema: avro.schema.Schema
+    ) -> Generator[SchemaField, None, None]:
         # Map of avro schema type to the conversion handler
         avro_type_to_mce_converter_map: Dict[
-            avro.schema.RecordSchema, Callable[[avro.schema.Schema], List[SchemaField]]
+            avro.schema.Schema,
+            Callable[[avro.schema.Schema], Generator[SchemaField, None, None]],
         ] = {
-            avro.schema.RecordSchema: self._recordschema_to_mce_fields,
-            avro.schema.UnionSchema: self._unionschema_to_mce_fields,
-            avro.schema.ArraySchema: self._arrayschema_to_mce_fields,
-            avro.schema.MapSchema: self._mapschema_to_mce_fields,
-            avro.schema.PrimitiveSchema: self._non_recursive_to_mce_fields,
-            avro.schema.FixedSchema: self._non_recursive_to_mce_fields,
-            avro.schema.EnumSchema: self._non_recursive_to_mce_fields,
+            avro.schema.RecordSchema: self._gen_recordschema_to_mce_fields,
+            avro.schema.UnionSchema: self._gen_unionschema_to_mce_fields,
+            avro.schema.ArraySchema: self._gen_arrayschema_to_mce_fields,
+            avro.schema.MapSchema: self._gen_mapschema_to_mce_fields,
+            avro.schema.PrimitiveSchema: self._gen_non_recursive_to_mce_fields,
+            avro.schema.FixedSchema: self._gen_non_recursive_to_mce_fields,
+            avro.schema.EnumSchema: self._gen_non_recursive_to_mce_fields,
         }
         # Invoke the relevant conversion handler for the schema element type.
-        return avro_type_to_mce_converter_map[type(avro_schema)](avro_schema)
+        yield from avro_type_to_mce_converter_map[type(avro_schema)](avro_schema)
 
     @classmethod
-    def to_mce_fields(cls, avro_schema_string: str) -> List[SchemaField]:
+    def to_mce_fields(
+        cls, avro_schema_string: str
+    ) -> Generator[SchemaField, None, None]:
         # Prefer the `parse` function over the deprecated `Parse` function.
         avro_schema_parse_fn = getattr(avro.schema, "parse", "Parse")
         avro_schema = avro_schema_parse_fn(avro_schema_string)
         converter = cls()
-        return converter._to_mce_fields(avro_schema)
+        yield from converter._to_mce_fields(avro_schema)
 
 
 def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
     """Converts an avro schema into a schema compatible with MCE"""
-    return AvroToMceSchemaConverter.to_mce_fields(avro_schema_string)
+    return list(AvroToMceSchemaConverter.to_mce_fields(avro_schema_string))
