@@ -13,6 +13,9 @@ type Props = {
 };
 
 export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, size = 'default' }: Props) {
+    if (!owners || owners.length === 0) {
+        return null;
+    }
     return (
         <Avatar.Group maxCount={maxCount} size={size}>
             {(owners || [])?.map((owner, key) => (
