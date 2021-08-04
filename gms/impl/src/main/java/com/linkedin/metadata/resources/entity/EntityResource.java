@@ -131,26 +131,33 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     });
   }
 
+  private SystemMetadata addSystemMetadataIfEmpty(@Nullable SystemMetadata systemMetadata) {
+    SystemMetadata result = systemMetadata;
+    if (result == null) {
+      result = new SystemMetadata();
+    }
+
+    if (!result.hasLastObserved()) {
+      result.setLastObserved(System.currentTimeMillis());
+    }
+
+    if (!result.hasRunId()) {
+      result.setRunId(DEFAULT_RUN_ID);
+    }
+    return result;
+  }
+
+
   @Action(name = ACTION_INGEST)
   @Nonnull
   public Task<Void> ingest(
       @ActionParam(PARAM_ENTITY) @Nonnull Entity entity,
-      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata systemMetadata
+      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata providedSystemMetadata
   ) throws URISyntaxException {
 
     validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
 
-    if (systemMetadata == null) {
-      systemMetadata = new SystemMetadata();
-    }
-
-    if (!systemMetadata.hasLastObserved()) {
-      systemMetadata.setLastObserved(System.currentTimeMillis());
-    }
-
-    if (!systemMetadata.hasRunId()) {
-      systemMetadata.setRunId(DEFAULT_RUN_ID);
-    }
+    SystemMetadata systemMetadata = addSystemMetadataIfEmpty(providedSystemMetadata);
 
     final Set<String> projectedAspects = new HashSet<>(Arrays.asList("browsePaths"));
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(entity.getValue());
@@ -186,18 +193,22 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+
     if (systemMetadataList == null) {
-      final SystemMetadata generatedSystemMetadata = new SystemMetadata();
-      generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
-      generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
-      Stream.generate(() -> generatedSystemMetadata).limit(entities.length).collect(Collectors.toList());
+      systemMetadataList = new SystemMetadata[entities.length];
     }
-    if (systemMetadataList != null && entities.length != systemMetadataList.length) {
+
+    if (entities.length != systemMetadataList.length) {
       throw RestliUtils.invalidArgumentsException("entities and systemMetadata length must match");
     }
 
+    final SystemMetadata[] finalSystemMetadataList = Arrays.stream(systemMetadataList)
+        .map(systemMetadata -> addSystemMetadataIfEmpty(systemMetadata))
+        .collect(Collectors.toList())
+        .toArray(new SystemMetadata[0]);
+
     return RestliUtils.toTask(() -> {
-      _entityService.ingestEntities(Arrays.asList(entities), auditStamp, Arrays.asList(systemMetadataList));
+      _entityService.ingestEntities(Arrays.asList(entities), auditStamp, Arrays.asList(finalSystemMetadataList));
       return null;
     });
   }
