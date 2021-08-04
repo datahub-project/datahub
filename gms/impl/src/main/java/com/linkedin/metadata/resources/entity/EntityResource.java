@@ -33,6 +33,7 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -130,19 +131,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     });
   }
 
-  private SystemMetadata addSystemMetadataIfEmpty(@Nullable SystemMetadata systemMetadata) {
+  private SystemMetadata populateDefaultFieldsIfEmpty(@Nullable SystemMetadata systemMetadata) {
     SystemMetadata result = systemMetadata;
     if (result == null) {
       result = new SystemMetadata();
     }
 
-    if (!result.hasLastObserved()) {
+    if (result.getLastObserved() == 0) {
       result.setLastObserved(System.currentTimeMillis());
     }
 
-    if (!result.hasRunId()) {
-      result.setRunId(DEFAULT_RUN_ID);
-    }
     return result;
   }
 
@@ -156,7 +154,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
 
-    SystemMetadata systemMetadata = addSystemMetadataIfEmpty(providedSystemMetadata);
+    SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
 
     final Set<String> projectedAspects = new HashSet<>(Arrays.asList("browsePaths"));
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(entity.getValue());
@@ -201,13 +199,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throw RestliUtils.invalidArgumentsException("entities and systemMetadata length must match");
     }
 
-    final SystemMetadata[] finalSystemMetadataList = Arrays.stream(systemMetadataList)
-        .map(systemMetadata -> addSystemMetadataIfEmpty(systemMetadata))
-        .collect(Collectors.toList())
-        .toArray(new SystemMetadata[0]);
+    final List<SystemMetadata> finalSystemMetadataList = Arrays.stream(systemMetadataList)
+        .map(systemMetadata -> populateDefaultFieldsIfEmpty(systemMetadata))
+        .collect(Collectors.toList());
 
     return RestliUtils.toTask(() -> {
-      _entityService.ingestEntities(Arrays.asList(entities), auditStamp, Arrays.asList(finalSystemMetadataList));
+      _entityService.ingestEntities(Arrays.asList(entities), auditStamp, finalSystemMetadataList);
       return null;
     });
   }
