@@ -7,12 +7,12 @@ record SystemMetadata {
   /**
   * The timestamp the metadata was observed at
   */
-  lastObserved: optional long
+  lastObserved: optional long = 0
 
   /**
   * The run id that produced the metadata
   */
-  runId: optional string
+  runId: optional string = "no-run-id-provided"
 
   /**
   * Additional properties
