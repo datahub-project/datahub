@@ -38,16 +38,16 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final DateTime now = DateTime.now();
 
     final AnalyticsChartGroup lastWeekGroup = new AnalyticsChartGroup();
-    group.setTitle("Product Analytics (Last Week)");
+    lastWeekGroup.setTitle("Product Analytics (Last Week)");
     final DateRange dateRangeLastWeek =
         new DateRange(String.valueOf(now.minusWeeks(1).getMillis()), String.valueOf(now.getMillis()));
-    group.setCharts(getProductAnalyticsCharts(dateRangeLastWeek));
+    lastWeekGroup.setCharts(getProductAnalyticsCharts(dateRangeLastWeek));
 
     final AnalyticsChartGroup lastMonthGroup = new AnalyticsChartGroup();
-    group.setTitle("Product Analytics (Last Month)");
+    lastMonthGroup.setTitle("Product Analytics (Last Month)");
     final DateRange dateRangeLastMonth =
         new DateRange(String.valueOf(now.minusMonths(1).getMillis()), String.valueOf(now.getMillis()));
-    group.setCharts(getProductAnalyticsCharts(dateRangeLastMonth));
+    lastMonthGroup.setCharts(getProductAnalyticsCharts(dateRangeLastMonth));
     
     return ImmutableList.of(lastWeekGroup, lastMonthGroup);
   }
