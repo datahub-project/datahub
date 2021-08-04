@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.delete.DeleteResponse;
@@ -83,9 +84,14 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public void insert(SystemMetadata systemMetadata, String urn, String aspect) {
-    String document = toDocument(systemMetadata, urn, aspect);
+  public void insert(@Nullable SystemMetadata systemMetadata, String urn, String aspect) {
+    if (systemMetadata == null) {
+      return;
+    }
+
     String docId = toDocId(urn, aspect);
+
+    String document = toDocument(systemMetadata, urn, aspect);
     _esDAO.upsertDocument(docId, document);
   }
 

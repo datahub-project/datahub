@@ -4,6 +4,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.List;
+import javax.annotation.Nullable;
 
 
 public interface SystemMetadataService {
@@ -11,7 +12,7 @@ public interface SystemMetadataService {
 
   void deleteUrn(String finalOldUrn);
 
-  void insert(SystemMetadata systemMetadata, String urn, String aspect);
+  void insert(@Nullable SystemMetadata systemMetadata, String urn, String aspect);
 
   List<AspectRowSummary> findByRunId(String runId);
 
