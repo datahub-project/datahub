@@ -26,8 +26,9 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field | Required | Default | Description |
-| ----- | -------- | ------- | ----------- |
+| Field    | Required | Default | Description                  |
+| -------- | -------- | ------- | ---------------------------- |
+| `server` |          |         | URL of DataHub GMS endpoint. |
 
 ## DataHub Kafka
 
@@ -60,8 +61,12 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field | Required | Default | Description |
-| ----- | -------- | ------- | ----------- |
+| Field                                        | Required | Default | Description                                                                                                                                              |
+| -------------------------------------------- | -------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `connection.bootstrap`                       |          |         | Kafka bootstrap URL.                                                                                                                                     |
+| `connection.producer_config.<option>`        |          |         | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer                  |
+| `connection.schema_registry_url`             |          |         | URL of schema registry being used.                                                                                                                       |
+| `connection.schema_registry_config.<option>` |          |         | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient |
 
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
 
