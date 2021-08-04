@@ -11,6 +11,7 @@ import EntityRegistry from '../entity/EntityRegistry';
 
 const HeaderTitle = styled(Typography.Title)`
     && {
+        white-space: nowrap;
         color: ${(props) => props.theme.styles['layout-header-color']};
         padding-left: 12px;
         margin: 0;
