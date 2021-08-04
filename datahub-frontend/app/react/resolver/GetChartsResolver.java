@@ -34,24 +34,31 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
 
   @Override
   public final List<AnalyticsChartGroup> get(DataFetchingEnvironment environment) throws Exception {
-    final AnalyticsChartGroup group = new AnalyticsChartGroup();
-    group.setTitle("Product Analytics");
-    group.setCharts(getProductAnalyticsCharts());
-    return ImmutableList.of(group);
+
+    final DateTime now = DateTime.now();
+
+    final AnalyticsChartGroup lastWeekGroup = new AnalyticsChartGroup();
+    group.setTitle("Product Analytics (Last Week)");
+    final DateRange dateRangeLastWeek =
+        new DateRange(String.valueOf(now.minusWeeks(1).getMillis()), String.valueOf(now.getMillis()));
+    group.setCharts(getProductAnalyticsCharts(dateRangeLastWeek));
+
+    final AnalyticsChartGroup lastMonthGroup = new AnalyticsChartGroup();
+    group.setTitle("Product Analytics (Last Month)");
+    final DateRange dateRangeLastMonth =
+        new DateRange(String.valueOf(now.minusMonths(1).getMillis()), String.valueOf(now.getMillis()));
+    group.setCharts(getProductAnalyticsCharts(dateRangeLastMonth));
+    
+    return ImmutableList.of(lastWeekGroup, lastMonthGroup);
   }
 
   /**
    * TODO: Config Driven Charts Instead of Hardcoded.
    */
-  private List<AnalyticsChart> getProductAnalyticsCharts() {
+  private List<AnalyticsChart> getProductAnalyticsCharts(final DateRange dateRange) {
     final List<AnalyticsChart> charts = new ArrayList<>();
-    final DateTime endDate = DateTime.now();
-    final DateTime startDate = endDate.minusWeeks(1);
-    final DateRange dateRange =
-        new DateRange(String.valueOf(startDate.getMillis()), String.valueOf(endDate.getMillis()));
-
     // Chart 1:  Time Series Chart
-    String title = "Searches Last Week";
+    String title = "Searches";
     DateInterval granularity = DateInterval.DAY;
     String eventType = "SearchEvent";
 
@@ -98,6 +105,24 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
         _analyticsService.getTopNTableChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRange),
             "dataset_name.keyword", ImmutableMap.of("type", ImmutableList.of("EntityViewEvent")), Optional.empty(), 10);
     charts.add(TableChart.builder().setTitle(title5).setColumns(columns5).setRows(topViewedDatasets).build());
+    
+    // Chart 6: Table Chart
+    final String title6 = "Top Users";
+    final List<String> columns6 = ImmutableList.of("User", "Count");
+
+    final List<Row> topUsers =
+        _analyticsService.getTopNTableChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRange),
+            "corp_user_username.keyword", ImmutableMap.of("type", ImmutableList.of("EntityActionEvent")), Optional.empty(), 10);
+    charts.add(TableChart.builder().setTitle(title6).setColumns(columns6).setRows(topUsers).build());
+
+    // Chart 7: Table Chart
+    final String title7 = "Top Entity Viewers";
+    final List<String> columns7 = ImmutableList.of("User", "Count");
+
+    final List<Row> topUsers =
+        _analyticsService.getTopNTableChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRange),
+            "corp_user_username.keyword", ImmutableMap.of("type", ImmutableList.of("EntityViewEvent")), Optional.empty(), 10);
+    charts.add(TableChart.builder().setTitle(title7).setColumns(columns7).setRows(topUsers).build());
     
     return charts;
   }

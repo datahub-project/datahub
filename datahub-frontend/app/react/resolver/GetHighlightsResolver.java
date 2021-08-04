@@ -42,32 +42,9 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     DateRange dateRange = new DateRange(String.valueOf(startDate.getMillis()), String.valueOf(endDate.getMillis()));
     DateRange dateRangeLastWeek =
         new DateRange(String.valueOf(lastWeekStartDate.getMillis()), String.valueOf(startDate.getMillis()));
-
-    // Highlight 1: The Highlights!
-    String title = "Weekly Active Users";
-    String eventType = "SearchEvent";
-
-    int weeklyActiveUsers =
-        _analyticsService.getHighlights(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRange),
-            ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
-
-    int weeklyActiveUsersLastWeek =
-        _analyticsService.getHighlights(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRangeLastWeek),
-            ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
-
-    String bodyText = "";
-    if (weeklyActiveUsersLastWeek > 0) {
-      Double percentChange =
-          (Double.valueOf(weeklyActiveUsers) - Double.valueOf(weeklyActiveUsersLastWeek)) / Double.valueOf(
-              weeklyActiveUsersLastWeek) * 100;
-
-      String directionChange = percentChange > 0 ? "increase" : "decrease";
-
-      bodyText = Double.isInfinite(percentChange) ? ""
-          : String.format("%.2f%% %s from last week", percentChange, directionChange);
-    }
-
-    highlights.add(Highlight.builder().setTitle(title).setValue(weeklyActiveUsers).setBody(bodyText).build());
+    
+    highlights.add(getWeeklyChangeStats("Weekly Active Browsers", AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, "browserId"));
+    highlights.add(getWeeklyChangeStats("Weekly Active Users", AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, "corp_user_username"));
 
     // Entity metdata statistics
     highlights.add(getEntityMetadataStats("Datasets", AnalyticsService.DATASET_INDEX));
@@ -76,6 +53,29 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     highlights.add(getEntityMetadataStats("Pipelines", AnalyticsService.DATA_FLOW_INDEX));
     highlights.add(getEntityMetadataStats("Tasks", AnalyticsService.DATA_JOB_INDEX));
     return highlights;
+  }
+
+  private Highlight getWeeklyChangeStats(String title, String index, String property) {
+    int weeklyActive =
+        _analyticsService.getHighlights(index, Optional.of(dateRange),
+            ImmutableMap.of(), ImmutableMap.of(), Optional.of(property));
+
+    int weeklyActiveLastWeek =
+        _analyticsService.getHighlights(index, Optional.of(dateRangeLastWeek),
+            ImmutableMap.of(), ImmutableMap.of(), Optional.of(property));
+
+    String bodyText = "";
+    if (weeklyActiveLastWeek > 0) {
+      Double percentChange =
+          (Double.valueOf(weeklyActive) - Double.valueOf(weeklyActiveLastWeek)) / Double.valueOf(
+              weeklyActiveLastWeek) * 100;
+
+      String directionChange = percentChange > 0 ? "increase" : "decrease";
+
+      bodyText = Double.isInfinite(percentChange) ? ""
+          : String.format("%.2f%% %s from last week", percentChange, directionChange);
+    }
+    return Highlight.builder().setTitle(title).setValue(weeklyActive).setBody(bodyText).build()
   }
 
   private Highlight getEntityMetadataStats(String title, String index) {
