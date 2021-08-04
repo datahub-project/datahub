@@ -1,12 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, List
-
-from mypy_boto3_sagemaker import SageMakerClient
-from mypy_boto3_sagemaker.type_defs import (
-    DescribeFeatureGroupResponseTypeDef,
-    FeatureDefinitionTypeDef,
-    FeatureGroupSummaryTypeDef,
-)
+from typing import TYPE_CHECKING, Iterable, List
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -27,14 +20,23 @@ from datahub.metadata.schema_classes import (
     MLPrimaryKeyPropertiesClass,
 )
 
+if TYPE_CHECKING:
+
+    from mypy_boto3_sagemaker import SageMakerClient
+    from mypy_boto3_sagemaker.type_defs import (
+        DescribeFeatureGroupResponseTypeDef,
+        FeatureDefinitionTypeDef,
+        FeatureGroupSummaryTypeDef,
+    )
+
 
 @dataclass
 class FeatureGroupProcessor:
-    sagemaker_client: SageMakerClient
+    sagemaker_client: "SageMakerClient"
     env: str
     report: SagemakerSourceReport
 
-    def get_all_feature_groups(self) -> List[FeatureGroupSummaryTypeDef]:
+    def get_all_feature_groups(self) -> List["FeatureGroupSummaryTypeDef"]:
         """
         List all feature groups in SageMaker.
         """
@@ -50,7 +52,7 @@ class FeatureGroupProcessor:
 
     def get_feature_group_details(
         self, feature_group_name: str
-    ) -> DescribeFeatureGroupResponseTypeDef:
+    ) -> "DescribeFeatureGroupResponseTypeDef":
         """
         Get details of a feature group (including list of component features).
         """
@@ -74,7 +76,7 @@ class FeatureGroupProcessor:
         return feature_group
 
     def get_feature_group_wu(
-        self, feature_group_details: DescribeFeatureGroupResponseTypeDef
+        self, feature_group_details: "DescribeFeatureGroupResponseTypeDef"
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeatureTable workunit for a SageMaker feature group.
@@ -146,8 +148,8 @@ class FeatureGroupProcessor:
 
     def get_feature_wu(
         self,
-        feature_group_details: DescribeFeatureGroupResponseTypeDef,
-        feature: FeatureDefinitionTypeDef,
+        feature_group_details: "DescribeFeatureGroupResponseTypeDef",
+        feature: "FeatureDefinitionTypeDef",
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeature workunit for a SageMaker feature.
