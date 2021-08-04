@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.*;
 
-
 public class ElasticSearchSystemMetadataServiceTest {
 
   private ElasticsearchContainer _elasticsearchContainer;
@@ -185,5 +184,16 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     assertEquals(rows.size(), 2);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
+  }
+
+  @Test
+  public void testInsertNullData() throws Exception {
+    _client.insert(null, "urn:li:chart:1", "chartKey");
+
+    TimeUnit.SECONDS.sleep(5);
+
+    List<IngestionRunSummary> runs = _client.listRuns(0, 20);
+
+    assertEquals(runs.size(), 0);
   }
 }

@@ -90,7 +90,7 @@ const defaultColumns = [
             return (
                 <span>
                     <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
-                    {lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
+                    {!!lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
                 </span>
             );
         },
