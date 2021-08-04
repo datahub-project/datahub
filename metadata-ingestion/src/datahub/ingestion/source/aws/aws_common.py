@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
     from mypy_boto3_sagemaker import SageMakerClient
 
+
 def assume_role(
     role_arn: str, aws_region: str, credentials: Optional[dict] = None
 ) -> dict:
