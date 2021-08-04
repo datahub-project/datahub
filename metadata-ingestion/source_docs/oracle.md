@@ -35,23 +35,26 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
+Exactly one of `database` or `service_name` is required.
+
 | Field                  | Required | Default  | Description                                                                                                                                                                             |
 | ---------------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `username`             |          |          |                                                                                                                                                                                         |
-| `password`             |          |          |                                                                                                                                                                                         |
-| `host_port`            |          |          |                                                                                                                                                                                         |
-| `database`             |          |          |                                                                                                                                                                                         |
-| `service_name`         |          |          |                                                                                                                                                                                         |
-| `env`                  |        | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                                 |
-| `options.<option>`     |        |          | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
-| `table_pattern.allow`  |        |          | Regex pattern for tables to include in ingestion.                                                                                                                                       |
-| `table_pattern.deny`   |        |          | Regex pattern for tables to exclude from ingestion.                                                                                                                                     |
-| `schema_pattern.allow` |        |          | Regex pattern for schemas to include in ingestion.                                                                                                                                      |
-| `schema_pattern.deny`  |        |          | Regex pattern for schemas to exclude from ingestion.                                                                                                                                    |
-| `view_pattern.allow`   |        |          | Regex pattern for views to include in ingestion.                                                                                                                                        |
-| `view_pattern.deny`    |        |          | Regex pattern for views to exclude from ingestion.                                                                                                                                      |
-| `include_tables`       |        | `True`   | Whether tables should be ingested.                                                                                                                                                      |
-| `include_views`        |        | `True`   | Whether views should be ingested.                                                                                                                                                       |
+| `username`             |          |          | Oracle username.                                                                                                                                                                        |
+| `password`             |          |          | Oracle password.                                                                                                                                                                        |
+| `host_port`            |          |          | Oracle host URL.                                                                                                                                                                        |
+| `database`             | Kind of  |          | If using, omit `service_name`.                                                                                                                                                          |
+| `service_name`         | Kind of  |          | Oracle service name. If using, omit `database`.                                                                                                                                         |
+| `database_alias`       |          |          | Alias to apply to database when ingesting.                                                                                                                                              |
+| `env`                  |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                                 |
+| `options.<option>`     |          |          | Any options specified here will be passed to SQLAlchemy's `create_engine` as kwargs.<br />See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details. |
+| `table_pattern.allow`  |          |          | Regex pattern for tables to include in ingestion.                                                                                                                                       |
+| `table_pattern.deny`   |          |          | Regex pattern for tables to exclude from ingestion.                                                                                                                                     |
+| `schema_pattern.allow` |          |          | Regex pattern for schemas to include in ingestion.                                                                                                                                      |
+| `schema_pattern.deny`  |          |          | Regex pattern for schemas to exclude from ingestion.                                                                                                                                    |
+| `view_pattern.allow`   |          |          | Regex pattern for views to include in ingestion.                                                                                                                                        |
+| `view_pattern.deny`    |          |          | Regex pattern for views to exclude from ingestion.                                                                                                                                      |
+| `include_tables`       |          | `True`   | Whether tables should be ingested.                                                                                                                                                      |
+| `include_views`        |          | `True`   | Whether views should be ingested.                                                                                                                                                       |
 
 ## Questions
 

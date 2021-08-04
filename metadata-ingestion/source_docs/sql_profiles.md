@@ -58,13 +58,13 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                   | Required | Default | Description |
-| ----------------------- | -------- | ------- | ----------- |
-| `profiling.enabled`     |          |         |             |
-| `profiling.limit`       |          |         |             |
-| `profiling.offset`      |          |         |             |
-| `profile_pattern.allow` |          |         |             |
-| `profile_pattern.deny`  |          |         |             |
+| Field                   | Required | Default | Description                                                             |
+| ----------------------- | -------- | ------- | ----------------------------------------------------------------------- |
+| `profiling.enabled`     |          | `False` | Whether profiling should be done.                                       |
+| `profiling.limit`       |          |         | Max number of documents to profile. By default, profiles all documents. |
+| `profiling.offset`      |          |         | Offset in documents to profile. By default, uses no offset.             |
+| `profile_pattern.allow` |          |         | Regex pattern for tables to profile.                                    |
+| `profile_pattern.deny`  |          |         | Regex pattern for tables to not profile.                                |
 
 ## Questions
 

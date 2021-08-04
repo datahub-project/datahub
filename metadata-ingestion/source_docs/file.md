@@ -27,7 +27,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field      | Required | Default | Description             |
 | ---------- | -------- | ------- | ----------------------- |
-| `filename` | ✅        |         | Path to file to ingest. |
+| `filename` | ✅       |         | Path to file to ingest. |
 
 ## Questions
 

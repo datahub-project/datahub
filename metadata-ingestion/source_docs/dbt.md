@@ -46,16 +46,16 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                     | Required | Default  | Description                                                  |
-| ------------------------- | -------- | -------- | ------------------------------------------------------------ |
-| `manifest_path`           | ✅        |          | Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json |
-| `catalog_path`            | ✅        |          | Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json |
+| Field                     | Required | Default  | Description                                                                                                                                           |
+| ------------------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manifest_path`           | ✅       |          | Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json                                                              |
+| `catalog_path`            | ✅       |          | Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json                                                                |
 | `sources_path`            |          |          | Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not specified, last-modified fields will not be populated. |
-| `env`                     |          | `"PROD"` | Environment to use in namespace when constructing URNs.      |
-| `target_platform`         | ✅        |          | The platform that dbt is loading onto.                       |
-| `load_schemas`            | ✅        |          | Whether to load database schemas. If set to `False`, table schema details (e.g. columns) will not be ingested. |
-| `node_type_pattern.allow` |          |          | Regex pattern for dbt nodes to include in ingestion.         |
-| `node_type_pattern.deny`  |          |          | Regex pattern for dbt nodes to exclude from ingestion.       |
+| `env`                     |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                               |
+| `target_platform`         | ✅       |          | The platform that dbt is loading onto.                                                                                                                |
+| `load_schemas`            | ✅       |          | Whether to load database schemas. If set to `False`, table schema details (e.g. columns) will not be ingested.                                        |
+| `node_type_pattern.allow` |          |          | Regex pattern for dbt nodes to include in ingestion.                                                                                                  |
+| `node_type_pattern.deny`  |          |          | Regex pattern for dbt nodes to exclude from ingestion.                                                                                                |
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
 

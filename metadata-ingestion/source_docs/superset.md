@@ -1,5 +1,3 @@
-
-
 # Superset
 
 ## Setup
@@ -35,13 +33,13 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field         | Required | Default | Description |
-| ------------- | -------- | ------- | ----------- |
-| `connect_uri` |          |         |             |
-| `username`    |          |         |             |
-| `password`    |          |         |             |
-| `provider`    |          |         |             |
-| `env`         |          |         |             |
+| Field         | Required | Default            | Description                                             |
+| ------------- | -------- | ------------------ | ------------------------------------------------------- |
+| `connect_uri` |          | `"localhost:8088"` | Superset host URL.                                      |
+| `username`    |          |                    | Superset username.                                      |
+| `password`    |          |                    | Superset password.                                      |
+| `provider`    |          | `"db"`             | Superset provider.                                      |
+| `env`         |          | `"PROD"`           | Environment to use in namespace when constructing URNs. |
 
 ## Questions
 

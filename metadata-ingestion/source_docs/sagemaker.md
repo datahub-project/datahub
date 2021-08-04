@@ -27,24 +27,24 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                                 | Required | Default | Description |
-| ------------------------------------- | -------- | ------- | ----------- |
-| `aws_region`                          |          |         |             |
-| `env`                                 |          |         |             |
-| `aws_access_key_id`                   |          |         |             |
-| `aws_secret_access_key`               |          |         |             |
-| `aws_session_token`                   |          |         |             |
-| `aws_role`                            |          |         |             |
-| `extract_feature_groups`              |          |         |             |
-| `extract_models`                      |          |         |             |
-| `extract_jobs.auto_ml`                |          |         |             |
-| `extract_jobs.compilation`            |          |         |             |
-| `extract_jobs.edge_packaging`         |          |         |             |
-| `extract_jobs.hyper_parameter_tuning` |          |         |             |
-| `extract_jobs.labeling`               |          |         |             |
-| `extract_jobs.processing`             |          |         |             |
-| `extract_jobs.training`               |          |         |             |
-| `extract_jobs.transform`              |          |         |             |
+| Field                                 | Required | Default      | Description                                                                        |
+| ------------------------------------- | -------- | ------------ | ---------------------------------------------------------------------------------- |
+| `aws_region`                          | ✅       |              |                                                                                    |
+| `env`                                 |          | `"PROD"`     |                                                                                    |
+| `aws_access_key_id`                   |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `aws_secret_access_key`               |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `aws_session_token`                   |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `aws_role`                            |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
+| `extract_feature_groups`              |          | `True`       | Whether to extract feather groups.                                                 |
+| `extract_models`                      |          | `True`       | Whether to extract models.                                                         |
+| `extract_jobs.auto_ml`                |          | `True`       | Whether to extract AutoML jobs.                                                    |
+| `extract_jobs.compilation`            |          | `True`       | Whether to extract compilation jobs.                                               |
+| `extract_jobs.edge_packaging`         |          | `True`       | Whether to extract edge packaging jobs.                                            |
+| `extract_jobs.hyper_parameter_tuning` |          | `True`       | Whether to extract hyperparameter tuning jobs.                                     |
+| `extract_jobs.labeling`               |          | `True`       | Whether to extract labeling jobs.                                                  |
+| `extract_jobs.processing`             |          | `True`       | Whether to extract processing jobs.                                                |
+| `extract_jobs.training`               |          | `True`       | Whether to extract training jobs.                                                  |
+| `extract_jobs.transform`              |          | `True`       | Whether to extract transform jobs.                                                 |
 
 ## Questions
 

@@ -49,18 +49,18 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                     | Required | Default                 | Description                                                  |
-| ------------------------- | -------- | ----------------------- | ------------------------------------------------------------ |
-| `client_id`               | ✅        |                         | Looker API3 client ID.                                       |
-| `client_secret`           | ✅        |                         | Looker API3 client secret.                                   |
-| `base_url`                | ✅        |                         | Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. |
-| `platform_name`           |          | `"looker"`              | Platform to use in namespace when constructing URNs.         |
-| `actor`                   |          | `"urn:li:corpuser:etl"` | Actor to use in ownership properties of ingested metadata.   |
-| `dashboard_pattern.allow` |          |                         | Regex pattern for dashboards to include in ingestion.        |
-| `dashboard_pattern.deny`  |          |                         | Regex pattern for dashboards to exclude from ingestion.      |
-| `chart_pattern.allow`     |          |                         | Regex pattern for charts to include in ingestion.            |
-| `chart_pattern.deny`      |          |                         | Regex pattern for charts to exclude from ingestion.          |
-| `env`                     |          | `"PROD"`                | Environment to use in namespace when constructing URNs.      |
+| Field                     | Required | Default                 | Description                                                                                                  |
+| ------------------------- | -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `client_id`               | ✅       |                         | Looker API3 client ID.                                                                                       |
+| `client_secret`           | ✅       |                         | Looker API3 client secret.                                                                                   |
+| `base_url`                | ✅       |                         | Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. |
+| `platform_name`           |          | `"looker"`              | Platform to use in namespace when constructing URNs.                                                         |
+| `actor`                   |          | `"urn:li:corpuser:etl"` | Actor to use in ownership properties of ingested metadata.                                                   |
+| `dashboard_pattern.allow` |          |                         | Regex pattern for dashboards to include in ingestion.                                                        |
+| `dashboard_pattern.deny`  |          |                         | Regex pattern for dashboards to exclude from ingestion.                                                      |
+| `chart_pattern.allow`     |          |                         | Regex pattern for charts to include in ingestion.                                                            |
+| `chart_pattern.deny`      |          |                         | Regex pattern for charts to exclude from ingestion.                                                          |
+| `env`                     |          | `"PROD"`                | Environment to use in namespace when constructing URNs.                                                      |
 
 ## Questions
 
