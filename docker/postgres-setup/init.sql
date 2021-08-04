@@ -1,9 +1,8 @@
 -- create datahub database
 CREATE DATABASE IF NOT EXISTS DATAHUB_DB_NAME;
-USE DATAHUB_DB_NAME;
 
 -- create metadata aspect table
-CREATE TABLE metadata_aspect_v2 (
+CREATE TABLE IF NOT EXISTS DATAHUB_DB_NAME.metadata_aspect_v2 (
   urn                           varchar(500) not null,
   aspect                        varchar(200) not null,
   version                       bigint not null,
@@ -15,7 +14,7 @@ CREATE TABLE metadata_aspect_v2 (
   CONSTRAINT pk_metadata_aspect_v2 PRIMARY KEY (urn, aspect, version)
 );
 
-INSERT INTO metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
+INSERT INTO DATAHUB_DB_NAME.metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
   'corpUserInfo',
   0,
