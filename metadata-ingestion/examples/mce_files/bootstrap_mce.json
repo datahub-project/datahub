@@ -1332,7 +1332,7 @@
           },
           {
             "com.linkedin.pegasus2avro.common.Status": {
-              "boolean": false
+              "removed": false
             }
           },
           {
