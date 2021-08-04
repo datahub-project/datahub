@@ -75,7 +75,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
       bodyText = Double.isInfinite(percentChange) ? ""
           : String.format("%.2f%% %s from last week", percentChange, directionChange);
     }
-    return Highlight.builder().setTitle(title).setValue(weeklyActive).setBody(bodyText).build()
+    return Highlight.builder().setTitle(title).setValue(weeklyActive).setBody(bodyText).build();
   }
 
   private Highlight getEntityMetadataStats(String title, String index) {
