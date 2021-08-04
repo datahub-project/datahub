@@ -43,8 +43,8 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     DateRange dateRangeLastWeek =
         new DateRange(String.valueOf(lastWeekStartDate.getMillis()), String.valueOf(startDate.getMillis()));
     
-    highlights.add(getWeeklyChangeStats("Weekly Active Browsers", AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, "browserId"), dateRange, dateRangeLastWeek);
-    highlights.add(getWeeklyChangeStats("Weekly Active Users", AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, "corp_user_username"), dateRange, dateRangeLastWeek);
+    highlights.add(getWeeklyChangeStats("Weekly Active Browsers", AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, "browserId", dateRange, dateRangeLastWeek));
+    highlights.add(getWeeklyChangeStats("Weekly Active Users", AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, "corp_user_username", dateRange, dateRangeLastWeek));
 
     // Entity metdata statistics
     highlights.add(getEntityMetadataStats("Datasets", AnalyticsService.DATASET_INDEX));
