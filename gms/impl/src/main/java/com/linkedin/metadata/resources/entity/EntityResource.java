@@ -33,11 +33,11 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -131,21 +131,30 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     });
   }
 
+  private SystemMetadata populateDefaultFieldsIfEmpty(@Nullable SystemMetadata systemMetadata) {
+    SystemMetadata result = systemMetadata;
+    if (result == null) {
+      result = new SystemMetadata();
+    }
+
+    if (result.getLastObserved() == 0) {
+      result.setLastObserved(System.currentTimeMillis());
+    }
+
+    return result;
+  }
+
+
   @Action(name = ACTION_INGEST)
   @Nonnull
   public Task<Void> ingest(
       @ActionParam(PARAM_ENTITY) @Nonnull Entity entity,
-      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata systemMetadata
+      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata providedSystemMetadata
   ) throws URISyntaxException {
 
     validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
 
-    if (systemMetadata == null) {
-      SystemMetadata generatedSystemMetadata = new SystemMetadata();
-      generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
-      generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
-      systemMetadata = generatedSystemMetadata;
-    }
+    SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
 
     final Set<String> projectedAspects = new HashSet<>(Arrays.asList("browsePaths"));
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(entity.getValue());
@@ -181,18 +190,21 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+
     if (systemMetadataList == null) {
-      final SystemMetadata generatedSystemMetadata = new SystemMetadata();
-      generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
-      generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
-      Stream.generate(() -> generatedSystemMetadata).limit(entities.length).collect(Collectors.toList());
+      systemMetadataList = new SystemMetadata[entities.length];
     }
-    if (systemMetadataList != null && entities.length != systemMetadataList.length) {
+
+    if (entities.length != systemMetadataList.length) {
       throw RestliUtils.invalidArgumentsException("entities and systemMetadata length must match");
     }
 
+    final List<SystemMetadata> finalSystemMetadataList = Arrays.stream(systemMetadataList)
+        .map(systemMetadata -> populateDefaultFieldsIfEmpty(systemMetadata))
+        .collect(Collectors.toList());
+
     return RestliUtils.toTask(() -> {
-      _entityService.ingestEntities(Arrays.asList(entities), auditStamp, Arrays.asList(systemMetadataList));
+      _entityService.ingestEntities(Arrays.asList(entities), auditStamp, finalSystemMetadataList);
       return null;
     });
   }
