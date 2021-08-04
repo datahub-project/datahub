@@ -8,8 +8,8 @@ To install this plugin, run `pip install 'acryl-datahub[kafka]'`.
 
 This plugin extracts the following:
 
-- List of topics - from the Kafka broker
-- Schemas associated with each topic - from the schema registry
+- Topics from the Kafka broker
+- Schemas associated with each topic from the schema registry
 
 ## Quickstart recipe
 

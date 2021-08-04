@@ -20,8 +20,8 @@ of the profiling runs.
 
 Extracts:
 
-- row and column counts for each table
-- for each column, if applicable:
+- Row and column counts for each table
+- For each column, if applicable:
   - null counts and proportions
   - distinct counts and proportions
   - minimum, maximum, mean, median, standard deviation, some quantile values

@@ -8,7 +8,7 @@ To install this plugin, run `pip install 'acryl-datahub[postgres]'`.
 
 This plugin extracts the following:
 
-- List of databases, schema, and tables
+- Databases, schema, and tables and associated metadata
 - Column types associated with each table
 - Also supports PostGIS extensions
 - database_alias (optional) can be used to change the name of database to be ingested

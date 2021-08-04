@@ -67,9 +67,8 @@ To install this plugin, run `pip install 'acryl-datahub[snowflake-usage]'`.
 
 This plugin extracts the following:
 
-- Fetch a list of queries issued
-- Fetch a list of tables and columns accessed (excludes views)
-- Aggregate these statistics into buckets, by day or hour granularity
+- Statistics on queries issued and tables and columns accessed (excludes views)
+- Aggregation of these statistics into buckets, by day or hour granularity
 
 Note: the user/role must have access to the account usage table. The "accountadmin" role has this by default, and other roles can be [granted this permission](https://docs.snowflake.com/en/sql-reference/account-usage.html#enabling-account-usage-for-other-roles).
 

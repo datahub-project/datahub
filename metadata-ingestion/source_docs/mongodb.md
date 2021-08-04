@@ -8,8 +8,8 @@ To install this plugin, run `pip install 'acryl-datahub[mongodb]'`.
 
 This plugin extracts the following:
 
-- List of databases
-- List of collections in each database and infers schemas for each collection
+- Databases and associated metadata
+- Collections in each database and schemas for each collection (via schema inference)
 
 By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
 Moreover, setting `useRandomSampling: False` will sample the first documents found without random selection, which may be faster for large collections.

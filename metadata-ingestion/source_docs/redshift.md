@@ -8,7 +8,7 @@ To install this plugin, run `pip install 'acryl-datahub[redshift]'`.
 
 This plugin extracts the following:
 
-- List of databases, schema, and tables
+- Databases, schema, and tables and associated metadata
 - Column types associated with each table
 - Also supports PostGIS extensions
 

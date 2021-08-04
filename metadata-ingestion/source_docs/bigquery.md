@@ -8,7 +8,7 @@ To install this plugin, run `pip install 'acryl-datahub[bigquery]'`.
 
 This plugin extracts the following:
 
-- List of databases, schema, and tables
+- Metadata for databases, schemas, and tables
 - Column types associated with each table
 
 :::tip
@@ -56,9 +56,8 @@ To install this plugin, run `pip install 'acryl-datahub[bigquery-usage]'`.
 
 This plugin extracts the following:
 
-- Fetch a list of queries issued
-- Fetch a list of tables and columns accessed
-- Aggregate these statistics into buckets, by day or hour granularity
+- Statistics on queries issued and tables and columns accessed (excludes views)
+- Aggregation of these statistics into buckets, by day or hour granularity
 
 Note: the client must have one of the following OAuth scopes, and should be authorized on all projects you'd like to ingest usage stats from.
 

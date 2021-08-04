@@ -8,7 +8,7 @@ To install this plugin, run `pip install 'acryl-datahub[druid]'`.
 
 This plugin extracts the following:
 
-- List of databases, schema, and tables
+- Metadata for databases, schemas, and tables
 - Column types associated with each table
 
 **Note**: It is important to explicitly define the deny schema pattern for internal Druid databases (lookup & sys) if adding a schema pattern. Otherwise, the crawler may crash before processing relevant databases. This deny pattern is defined by default but is overriden by user-submitted configurations.

@@ -10,7 +10,7 @@ See documentation for superset's `/security/login` at https://superset.apache.or
 
 This plugin extracts the following:
 
-- List of charts and dashboards
+- Charts, dashboards, and associated metadata
 
 ## Quickstart recipe
 

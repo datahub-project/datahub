@@ -1,4 +1,4 @@
-# AWS Glue
+# Glue
 
 ## Setup
 
@@ -10,7 +10,7 @@ Note: if you also have files in S3 that you'd like to ingest, we recommend you u
 
 This plugin extracts the following:
 
-- List of tables
+- Tables in the Glue catalog
 - Column types associated with each table
 - Table metadata, such as owner, description and parameters
 - Jobs and their component transformations, data sources, and data sinks

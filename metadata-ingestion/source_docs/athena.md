@@ -8,7 +8,7 @@ To install this plugin, run `pip install 'acryl-datahub[athena]'`.
 
 This plugin extracts the following:
 
-- List of databases and tables
+- Database and table metadata
 - Column types associated with each table
 
 ## Quickstart recipe

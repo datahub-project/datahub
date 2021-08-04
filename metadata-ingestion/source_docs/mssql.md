@@ -10,7 +10,7 @@ We have two options for the underlying library used to connect to SQL Server: (1
 
 This plugin extracts the following:
 
-- List of databases, schema, tables and views
+- Databases, schema, tables and views and associated metadata
 - Column types associated with each table/view
 
 ## Quickstart recipe
