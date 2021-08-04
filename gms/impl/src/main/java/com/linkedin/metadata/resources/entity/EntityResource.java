@@ -141,10 +141,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
 
     if (systemMetadata == null) {
-      SystemMetadata generatedSystemMetadata = new SystemMetadata();
-      generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
-      generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
-      systemMetadata = generatedSystemMetadata;
+      systemMetadata = new SystemMetadata();
+    }
+
+    if (!systemMetadata.hasLastObserved()) {
+      systemMetadata.setLastObserved(System.currentTimeMillis());
+    }
+
+    if (!systemMetadata.hasRunId()) {
+      systemMetadata.setRunId(DEFAULT_RUN_ID);
     }
 
     final Set<String> projectedAspects = new HashSet<>(Arrays.asList("browsePaths"));
