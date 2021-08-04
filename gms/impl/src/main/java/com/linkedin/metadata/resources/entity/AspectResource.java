@@ -34,8 +34,8 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.metadata.resources.ResourceUtils.*;
 import static com.linkedin.metadata.restli.RestliConstants.*;
-
 
 /**
  * Single unified resource for fetching, updating, searching, & browsing DataHub entities
@@ -79,6 +79,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       final VersionedAspect aspect = _entityService.getVersionedAspect(urn, aspectName, version);
       if (aspect == null) {
         throw RestliUtils.resourceNotFoundException();
+      } else {
+        validateOrWarn(aspect);
       }
       return aspect;
     });
