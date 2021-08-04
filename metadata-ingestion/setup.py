@@ -137,6 +137,7 @@ base_dev_requirements = {
     "black>=19.10b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
+    "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
     "mypy>=0.901",
     "pytest>=6.2.2",
