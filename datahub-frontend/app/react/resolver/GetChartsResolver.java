@@ -119,10 +119,10 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final String title7 = "Top Entity Viewers";
     final List<String> columns7 = ImmutableList.of("User", "Count");
 
-    final List<Row> topUsers =
+    final List<Row> topEntityViewers =
         _analyticsService.getTopNTableChart(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX, Optional.of(dateRange),
             "corp_user_username.keyword", ImmutableMap.of("type", ImmutableList.of("EntityViewEvent")), Optional.empty(), 10);
-    charts.add(TableChart.builder().setTitle(title7).setColumns(columns7).setRows(topUsers).build());
+    charts.add(TableChart.builder().setTitle(title7).setColumns(columns7).setRows(topEntityViewers).build());
     
     return charts;
   }
