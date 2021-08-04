@@ -92,22 +92,31 @@ source:
     username: user
     password: pass
     host_port: account_name
-    role: ACCOUNTADMIN
-    env: PROD
+
+    warehouse: "COMPUTE_WH"
+    role: "sysadmin"
 
     bucket_duration: "DAY"
-    start_time: ~ # defaults to the last full day in UTC (or hour)
-    end_time: ~ # defaults to the last full day in UTC (or hour)
 
-    top_n_queries: 10 # number of queries to save for each table
+    top_n_queries: 10
 ```
 
 ## Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field | Required | Default | Description |
-| ----- | -------- | ------- | ----------- |
+| Field             | Required | Default                                                        | Description                                                     |
+| ----------------- | -------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
+| `username`        |          |                                                                | Snowflake username.                                             |
+| `password`        |          |                                                                | Snowflake password.                                             |
+| `host_port`       | ✅       |                                                                | Snowflake host URL.                                             |
+| `warehouse`       |          |                                                                | Snowflake warehouse.                                            |
+| `role`            |          |                                                                | Snowflake role.                                                 |
+| `env`             |          | `"PROD"`                                                       | Environment to use in namespace when constructing URNs.         |
+| `bucket_duration` |          | `"DAY"`                                                        | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`. |
+| `start_time`      |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                        |
+| `end_time`        |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                          |
+| `top_n_queries`   |          | `10`                                                           | Number of top queries to save to each table.                    |
 
 ## Questions
 

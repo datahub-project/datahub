@@ -81,44 +81,33 @@ Check out the following recipe to get started with ingestion! See [below](#confi
 source:
   type: bigquery-usage
   config:
-    projects: # optional - can autodetect a single project from the environment
+    projects:
       - project_id_1
       - project_id_2
-    options:
-      # See https://googleapis.dev/python/logging/latest/client.html for details.
-      credentials: ~ # optional - see docs
 
-    # Common usage stats options
     bucket_duration: "DAY"
-    start_time: ~ # defaults to the last full day in UTC (or hour)
-    end_time: ~ # defaults to the last full day in UTC (or hour)
 
-    top_n_queries: 10 # number of queries to save for each table
+    top_n_queries: 10
 
-    env: PROD
 
-    # Additional options to pass to google.cloud.logging_v2.client.Client
-    extra_client_options:
-
-    # To account for the possibility that the query event arrives after
-    # the read event in the audit logs, we wait for at least `query_log_delay`
-    # additional events to be processed before attempting to resolve BigQuery
-    # job information from the logs. If `query_log_delay` is None, it gets treated
-    # as an unlimited delay, which prioritizes correctness at the expense of memory usage.
-    query_log_delay:
-
-    # Correction to pad start_time and end_time with.
-    # For handling the case where the read happens within our time range but the query
-    # completion event is delayed and happens after the configured end time.
-    max_query_duration:
 ```
 
 ## Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field | Required | Default | Description |
-| ----- | -------- | ------- | ----------- |
+| Field                  | Required | Default                                                      | Description                                                  |
+| ---------------------- | -------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `projects`             |          |                                                              |                                                              |
+| `extra_client_options` |          |                                                              |                                                              |
+| `env`                  |          | `"PROD"`                                                     | Environment to use in namespace when constructing URNs.      |
+| `bucket_duration`      |          | `"DAY"`                                                      | Duration to bucket usage events by. Can be `"DAY"` or `"HOUR"`. |
+| `start_time`           |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                     |
+| `end_time`             |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                       |
+| `top_n_queries`        |          | `10`                                                         | Number of top queries to save to each table.                 |
+| `extra_client_options` |          |                                                              | Additional options to pass to `google.cloud.logging_v2.client.Client`. |
+| `query_log_deplay`     |          |                                                              | To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least `query_log_delay` additional events to be processed before attempting to resolve BigQuery job information from the logs. If `query_log_delay` is `None`, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage. |
+| `max_query_duration`   |          | `15`                                                         | Correction to pad `start_time` and `end_time` with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time. |
 
 ## Questions
 
