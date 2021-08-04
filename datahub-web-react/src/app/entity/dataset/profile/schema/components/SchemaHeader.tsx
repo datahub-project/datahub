@@ -8,9 +8,10 @@ const SchemaHeaderContainer = styled.div<{ edit?: string }>`
     ${(props) => (props.edit ? 'justify-content: flex-end; padding-bottom: 16px;' : 'justify-content: space-between;')}
 `;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// TODO(Gabe): undo display: none when dbt/bigquery flickering has been resolved
 const ShowVersionButton = styled(Button)`
     margin-right: 10px;
+    display: none;
 `;
 
 type Props = {
@@ -27,7 +28,6 @@ export default function SchemaHeader({
     maxVersion,
     fetchVersions,
     editMode,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     setEditMode,
     hasRow,
     showRaw,
@@ -44,13 +44,12 @@ export default function SchemaHeader({
         <SchemaHeaderContainer edit={editMode ? 'true' : undefined}>
             {maxVersion > 0 && !editMode && <CustomPagination onChange={onVersionChange} maxVersion={maxVersion} />}
             <div>
-                {/* TODO(Gabe): uncomment when dbt/bigquery flickering has been resolved */}
-                {/* {maxVersion > 0 &&
+                {maxVersion > 0 &&
                     (editMode ? (
                         <ShowVersionButton onClick={() => setEditMode(false)}>Version History</ShowVersionButton>
                     ) : (
                         <ShowVersionButton onClick={() => setEditMode(true)}>Back</ShowVersionButton>
-                    ))} */}
+                    ))}
                 {hasRow && <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>}
             </div>
         </SchemaHeaderContainer>
