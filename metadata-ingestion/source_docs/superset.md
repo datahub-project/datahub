@@ -14,7 +14,7 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -24,9 +24,7 @@ source:
 
     username: user
     password: pass
-    provider: db | ldap
-
-    env: "PROD" # Optional, default is "PROD"
+    provider: ldap
 ```
 
 ## Config details

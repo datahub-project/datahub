@@ -10,7 +10,7 @@ Simply prints each metadata event to stdout. Useful for experimentation and debu
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 sink:

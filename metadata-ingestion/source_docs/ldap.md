@@ -14,7 +14,7 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -24,15 +24,7 @@ source:
     ldap_user: "cn=admin,dc=example,dc=org"
     ldap_password: "admin"
 
-    # Extraction configuration.
     base_dn: "dc=example,dc=org"
-    filter: "(objectClass=*)" # optional field
-
-    # If set to true, any users without first and last names will be dropped.
-    drop_missing_first_last_name: False # optional
-
-    # For creating LDAP controls
-    page_size: # default is 20
 ```
 
 ## Config details

@@ -20,15 +20,13 @@ parsed to DataHub's native objects. This separation was performed because of a d
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
   type: feast
   config:
     core_url: "localhost:6565"
-    env: "PROD"
-    use_local_build: False
 ```
 
 ## Config details

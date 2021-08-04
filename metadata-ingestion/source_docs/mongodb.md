@@ -18,39 +18,19 @@ Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` i
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
   type: "mongodb"
   config:
-    # For advanced configurations, see the MongoDB docs.
-    # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
     connect_uri: "mongodb://localhost"
     username: admin
     password: password
-    # used for PyMongo
     authMechanism: "DEFAULT"
 
-    options: {} # kwargs to pass to pymongo.MongoClient
     enableSchemaInference: True
-    schemaSamplingSize: 1000 # number of samples for determining schema
-    useRandomSampling: True # whether to randomly sample docs for schema or just use the first ones, True by default
-
-    env: "PROD" # Optional, default is "PROD"
-
-    # Regex pattern to allow/deny databases. If left blank, will ingest all.
-    database_pattern:
-      deny:
-        # ...
-      allow:
-        # ...
-    # Regex pattern to allow/deny collections. If left blank, will ingest all.
-    collection_pattern:
-      deny:
-        # ...
-      allow:
-        # ...
+    useRandomSampling: True
 ```
 
 ## Config details

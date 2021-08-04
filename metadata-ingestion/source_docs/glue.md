@@ -17,21 +17,13 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
   type: glue
   config:
-    aws_region: # aws_region_name, i.e. "eu-west-1"
-    env: # environment for the DatasetSnapshot URN, one of "DEV", "EI", "PROD" or "CORP". Defaults to "PROD".
-
-    # Credentials. If not specified here, these are picked up according to boto3 rules.
-    # (see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
-    aws_access_key_id: # Optional.
-    aws_secret_access_key: # Optional.
-    aws_session_token: # Optional.
-    aws_role: # Optional (Role chaining supported by using a sorted list).
+    aws_region: "my-aws-region"
 ```
 
 ## Config details
@@ -40,8 +32,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                    | Required | Default      | Description                                                                        |
 | ------------------------ | -------- | ------------ | ---------------------------------------------------------------------------------- |
-| `aws_region`             | ✅       |              |                                                                                    |
-| `env`                    |          | `"PROD"`     |                                                                                    |
+| `aws_region`             | ✅       |              | AWS region code.                                                                   |
+| `env`                    |          | `"PROD"`     | Environment to use in namespace when constructing URNs.                            |
 | `aws_access_key_id`      |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
 | `aws_secret_access_key`  |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
 | `aws_session_token`      |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |

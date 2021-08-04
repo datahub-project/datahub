@@ -13,7 +13,7 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -21,11 +21,10 @@ source:
   config:
     username: root
     password: example
-    database: dbname
-    host_port: localhost:3306
 
-    include_views: True # whether to include views, defaults to True
-    include_tables: True # whether to include views, defaults to True
+    database: dbname
+
+    host_port: localhost:3306
 ```
 
 ## Config details

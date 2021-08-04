@@ -15,7 +15,7 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -23,8 +23,11 @@ source:
   config:
     username: user
     password: pass
+
     host_port: localhost:5432
+
     database: DemoDatabase
+
     database_alias: DatabaseNameToBeIngested
 ```
 
@@ -36,7 +39,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | ---------------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `username`             |          |          | PostgreSQL username.                                                                                                                                                                    |
 | `password`             |          |          | PostgreSQL password.                                                                                                                                                                    |
-| `host_port`            |          |          | PostgreSQL host URL.                                                                                                                                                                    |
+| `host_port`            | ✅       |          | PostgreSQL host URL.                                                                                                                                                                    |
 | `database`             |          |          | PostgreSQL database.                                                                                                                                                                    |
 | `database_alias`       |          |          | Alias to apply to database when ingesting.                                                                                                                                              |
 | `env`                  |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                                 |

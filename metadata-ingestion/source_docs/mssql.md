@@ -15,7 +15,7 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -37,20 +37,18 @@ See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-
 source:
   type: mssql
   config:
-    # See https://docs.sqlalchemy.org/en/14/dialects/mssql.html#module-sqlalchemy.dialects.mssql.pyodbc
-    use_odbc: True
-    username: user
-    password: pass
+    username: admin
+    password: password
+
     host_port: localhost:1433
+
     database: DemoDatabase
-    include_views: True # whether to include views, defaults to True
+
     uri_args:
-      # See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15
       driver: "ODBC Driver 17 for SQL Server"
       Encrypt: "yes"
       TrustServerCertificate: "Yes"
       ssl: "True"
-      # Trusted_Connection: "yes"
 ```
 
 </details>

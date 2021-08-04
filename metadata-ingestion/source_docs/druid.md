@@ -15,13 +15,16 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
   type: druid
   config:
     host_port: "localhost:8082"
+
+    username: admin
+    password: password
 ```
 
 ## Config details

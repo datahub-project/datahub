@@ -19,13 +19,13 @@ You can also get fine-grained usage statistics for BigQuery using the `bigquery-
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
   type: bigquery
   config:
-    project_id: "my_project_id"
+    project_id: my_project_id
 ```
 
 ## Config details
@@ -75,7 +75,7 @@ This source only does usage statistics. To get the tables, views, and schemas in
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:

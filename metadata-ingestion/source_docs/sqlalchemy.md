@@ -17,25 +17,13 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
   type: sqlalchemy
   config:
-    # See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls
     connect_uri: "dialect+driver://username:password@host:port/database"
-
-    # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
-    # See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.
-    # Many of these options are specific to the underlying database driver, so that library's
-    # documentation will be a good reference for what is supported. To find which dialect is likely
-    # in use, consult this table: https://docs.sqlalchemy.org/en/14/dialects/index.html.
-    options:
-      # driver_option: some-option
-
-    include_views: True # whether to include views, defaults to True
-    include_tables: True # whether to include views, defaults to True
 ```
 
 ## Config details

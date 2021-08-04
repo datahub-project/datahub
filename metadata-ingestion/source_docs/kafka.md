@@ -13,7 +13,7 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -21,13 +21,8 @@ source:
   config:
     connection:
       bootstrap: "broker:9092"
+
       schema_registry_url: http://localhost:8081
-
-      schema_registry_config: {}
-
-      consumer_config: {}
-
-      producer_config: {}
 ```
 
 ## Config details

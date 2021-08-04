@@ -15,34 +15,16 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
   type: "lookml"
   config:
-    base_folder: /path/to/model/files # where the *.model.lkml and *.view.lkml files are stored
-    connection_to_platform_map: # mappings between connection names in the model files to platform names
+    base_folder: /path/to/model/files
+
+    connection_to_platform_map:
       connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
-
-    platform_name: "looker" # optional, default is "looker"
-
-    # Regex pattern to allow/deny models. If left blank, will ingest all.
-    model_pattern:
-      deny:
-        # ...
-      allow:
-        # ...
-
-    # Regex pattern to allow/deny views. If left blank, will ingest all.
-    view_pattern:
-      deny:
-        # ...
-      allow:
-        # ...
-
-    env: "PROD" # optional, default is "PROD"
-    parse_table_names_from_sql: False # see note below
 ```
 
 ## Config details

@@ -14,7 +14,7 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -47,8 +47,8 @@ See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-
 source:
   type: redshift
   config:
-    # username, password, database, etc...
     host_port: my-proxy-hostname:5439
+
     options:
       connect_args:
         sslmode: "prefer" # or "require" or "verify-ca"
@@ -65,7 +65,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | ---------------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `username`             |          |          | Redshift username.                                                                                                                                                                      |
 | `password`             |          |          | Redshift password.                                                                                                                                                                      |
-| `host_port`            |          |          | Redshift host URL.                                                                                                                                                                      |
+| `host_port`            | ✅       |          | Redshift host URL.                                                                                                                                                                      |
 | `database`             |          |          | Redshift database.                                                                                                                                                                      |
 | `database_alias`       |          |          | Alias to apply to database when ingesting.                                                                                                                                              |
 | `env`                  |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                                                                 |

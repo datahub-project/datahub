@@ -15,34 +15,15 @@ See the [Looker authentication docs](https://docs.looker.com/reference/api-and-i
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
   type: "looker"
   config:
-    client_id: # Your Looker API3 client ID
-    client_secret: # Your Looker API3 client secret
-    base_url: # The url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
-
-    platform_name: "looker" # Optional, default is "looker"
-    actor: urn:li:corpuser:etl # Optional, defaults to urn:li:corpuser:etl
-
-    # Regex pattern to allow/deny dashboards. If left blank, will ingest all.
-    dashboard_pattern:
-      deny:
-        # ...
-      allow:
-        # ...
-
-    # Regex pattern to allow/deny charts. If left blank, will ingest all.
-    chart_pattern:
-      deny:
-        # ...
-      allow:
-        # ...
-
-    env: "PROD" # Optional, default is "PROD"
+    client_id: admin
+    client_secret: password
+    base_url: https://company.looker.com:19999
 ```
 
 ## Config details

@@ -13,25 +13,21 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
   type: athena
   config:
-    username: aws_access_key_id # Optional. If not specified, credentials are picked up according to boto3 rules.
-    # See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-    password: aws_secret_access_key # Optional.
-    database: database # Optional, defaults to "default"
+    username: my_aws_access_key_id
+    password: my_aws_secret_access_key
+    database: my_database
 
-    aws_region: aws_region_name # i.e. "eu-west-1"
+    aws_region: my_aws_region_name
 
-    s3_staging_dir: s3_location # "s3://<bucket-name>/prefix/"
-    # The s3_staging_dir parameter is needed because Athena always writes query results to S3.
-    # See https://docs.aws.amazon.com/athena/latest/ug/querying.html
-    # However, the athena driver will transparently fetch these results as you would expect from any other sql client.
+    s3_staging_dir: "s3://<bucket-name>/<folder>/"
 
-    work_group: athena_workgroup # "primary"
+    work_group: my_work_group
 ```
 
 ## Config details
@@ -43,7 +39,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `username`             |          | Autodetected | Username credential. If not specified, detected with boto3 rules. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                       |
 | `password`             |          | Autodetected | Same detection scheme as `username`                                                                                                                                                                        |
 | `database`             |          | Autodetected |                                                                                                                                                                                                            |
-| `aws_region`           | ✅       |              |                                                                                                                                                                                                            |
+| `aws_region`           | ✅       |              | AWS region code.                                                                                                                                                                                           |
 | `s3_staging_dir`       | ✅       |              | Of format `"s3://<bucket-name>/prefix/"`. The `s3_staging_dir` parameter is needed because Athena always writes query results to S3. <br />See https://docs.aws.amazon.com/athena/latest/ug/querying.html. |
 | `work_group`           | ✅       |              | Name of Athena workgroup. <br />See https://docs.aws.amazon.com/athena/latest/ug/manage-queries-control-costs-with-workgroups.html.                                                                        |
 | `env`                  |          | `"PROD"`     | Environment to use in namespace when constructing URNs.                                                                                                                                                    |

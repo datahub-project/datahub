@@ -18,7 +18,7 @@ Current limitations:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -26,6 +26,9 @@ source:
   config:
     connect_uri: "http://localhost:8083"
     cluster_name: "connect-cluster"
+
+    username: admin
+    password: password
 ```
 
 ## Config details

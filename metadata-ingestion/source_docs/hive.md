@@ -14,7 +14,7 @@ This plugin extracts the following:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
@@ -40,15 +40,14 @@ source:
 source:
   type: hive
   config:
-    scheme: "hive+https"
     host_port: <cluster_name>.azurehdinsight.net:443
     username: admin
-    password: "<password>"
+    password: password
+
     options:
       connect_args:
         http_path: "/hive2"
         auth: BASIC
-    # ... table_pattern/schema_pattern
 ```
 
 </details>

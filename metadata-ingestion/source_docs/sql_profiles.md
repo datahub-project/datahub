@@ -43,13 +43,13 @@ Supported SQL sources:
 
 ## Quickstart recipe
 
-Use the below recipe to get started with ingestion. See [below](#config-details) for full configuration options.
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
 source:
   type: <sql-source> # can be bigquery, snowflake, etc - see above for the list
   config:
-    # username, password, etc - varies by source type
+    # ... any other source-specific options ...
     profiling:
       enabled: true
 ```
