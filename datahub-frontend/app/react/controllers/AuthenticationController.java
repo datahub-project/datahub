@@ -65,9 +65,10 @@ public class AuthenticationController extends Controller {
     public Result authenticate() {
 
         final Optional<String> maybeRedirectPath = Optional.ofNullable(ctx().request().getQueryString(AUTH_REDIRECT_URI_PARAM));
+        final String redirectPath = maybeRedirectPath.orElse("/");
 
         if (AuthUtils.isAuthenticated(ctx())) {
-            return redirect(maybeRedirectPath.orElse("/"));
+            return redirect(redirectPath);
         }
 
         // 1. If indirect auth is enabled, redirect to IdP
@@ -80,16 +81,12 @@ public class AuthenticationController extends Controller {
 
         // 2. If JAAS auth is enabled, fallback to it
         if (_jaasConfigs.isJAASEnabled()) {
-            String loginRedirectPath = LOGIN_ROUTE;
-            if (maybeRedirectPath.isPresent()) {
-                loginRedirectPath = loginRedirectPath + String.format("?%s=%s", AUTH_REDIRECT_URI_PARAM,  encodeRedirectUri(maybeRedirectPath.get()));
-            }
-            return redirect(loginRedirectPath);
+            return redirect(LOGIN_ROUTE + String.format("?%s=%s", AUTH_REDIRECT_URI_PARAM,  encodeRedirectUri(redirectPath)));
         }
 
         // 3. If no auth enabled, fallback to using default user account & redirect.
         session().put(ACTOR, DEFAULT_ACTOR_URN.toString());
-        return redirect(maybeRedirectPath.orElse("/")).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
+        return redirect(redirectPath).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
                 ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
                 : DEFAULT_SESSION_TTL_HOURS));
     }
