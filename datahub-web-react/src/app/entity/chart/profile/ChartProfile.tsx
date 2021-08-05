@@ -4,7 +4,7 @@ import { Chart, EntityType, GlobalTags } from '../../../../types.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import ChartHeader from './ChartHeader';
-import { GetChartDocument, useGetChartQuery, useUpdateChartMutation } from '../../../../graphql/chart.generated';
+import { useGetChartQuery, useUpdateChartMutation } from '../../../../graphql/chart.generated';
 import ChartSources from './ChartSources';
 import ChartDashboards from './ChartDashboards';
 import { Message } from '../../../shared/Message';
@@ -24,18 +24,7 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources, TabType.Propertie
 export default function ChartProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetChartQuery({ variables: { urn } });
     const [updateChart] = useUpdateChartMutation({
-        update(cache, { data: newChart }) {
-            cache.modify({
-                fields: {
-                    chart() {
-                        cache.writeQuery({
-                            query: GetChartDocument,
-                            data: { chart: { ...newChart?.updateChart } },
-                        });
-                    },
-                },
-            });
-        },
+        refetchQueries: () => ['getChart'],
     });
 
     if (error || (!loading && !error && !data)) {

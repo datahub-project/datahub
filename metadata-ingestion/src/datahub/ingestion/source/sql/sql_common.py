@@ -276,7 +276,7 @@ class SQLAlchemySource(Source):
         if self.config.profiling.enabled and not self._can_run_profiler():
             raise ConfigurationError(
                 "Table profiles requested but profiler plugin is not enabled. "
-                f"Try running: pip install '{__package_name__}[sql-profiler]'"
+                f"Try running: pip install '{__package_name__}[sql-profiles]'"
             )
 
     def get_inspectors(self) -> Iterable[Inspector]:

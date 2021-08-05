@@ -1,10 +1,6 @@
 import React from 'react';
 import { Alert } from 'antd';
-import {
-    GetDataFlowDocument,
-    useGetDataFlowQuery,
-    useUpdateDataFlowMutation,
-} from '../../../../graphql/dataFlow.generated';
+import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../../graphql/dataFlow.generated';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import { DataFlow, EntityType, GlobalTags } from '../../../../types.generated';
 import DataFlowHeader from './DataFlowHeader';
@@ -29,18 +25,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
     };
     const { loading, error, data } = useGetDataFlowQuery({ variables: { urn } });
     const [updateDataFlow] = useUpdateDataFlowMutation({
-        update(cache, { data: newDataFlow }) {
-            cache.modify({
-                fields: {
-                    dataFlow() {
-                        cache.writeQuery({
-                            query: GetDataFlowDocument,
-                            data: { dataFlow: { ...newDataFlow?.updateDataFlow } },
-                        });
-                    },
-                },
-            });
-        },
+        refetchQueries: () => ['getDataFlow'],
     });
 
     if (error || (!loading && !error && !data)) {
