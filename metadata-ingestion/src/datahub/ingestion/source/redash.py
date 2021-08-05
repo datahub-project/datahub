@@ -174,13 +174,13 @@ class RedashSource(Source):
         return cls(ctx, config)
 
     @lru_cache(maxsize=None)
-    def _get_chart_data_source(self, data_source_id):
+    def _get_chart_data_source(self, data_source_id: int):
         url = f"/api/data_sources/{data_source_id}"
         resp = self.client._get(url).json()
         return resp
 
     @lru_cache(maxsize=None)
-    def _get_datasource_urn_from_data_source_id(self, data_source_id):
+    def _get_datasource_urn_from_data_source_id(self, data_source_id: int):
         data_source = self._get_chart_data_source(data_source_id)
         data_source_type = data_source.get("type")
         data_source_name = data_source.get("name")
@@ -245,8 +245,11 @@ class RedashSource(Source):
             # In Redash, chart is called visualization
             visualization = widget.get("visualization")
             if visualization:
-                visualization_id = visualization.get("id", "unknown")
-                chart_urns.append(f"urn:li:chart:({self.platform},{visualization_id})")
+                visualization_id = visualization.get("id", None)
+                if visualization_id is not None:
+                    chart_urns.append(
+                        f"urn:li:chart:({self.platform},{visualization_id})"
+                    )
 
         return chart_urns
 
@@ -258,7 +261,7 @@ class RedashSource(Source):
             aspects=[],
         )
 
-        modified_actor = f"urn:li:corpuser:{(dashboard_data.get('changed_by') or {}).get('username', 'unknown')}"
+        modified_actor = f"urn:li:corpuser:{(dashboard_data.get('changed_by', {})).get('username', 'unknown')}"
         modified_ts = int(
             dp.parse(dashboard_data.get("updated_at", "now")).timestamp() * 1000
         )
