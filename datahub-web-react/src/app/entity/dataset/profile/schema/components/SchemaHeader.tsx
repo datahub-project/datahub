@@ -26,11 +26,6 @@ const KeyValueButtonGroup = styled.div`
     display: inline-block;
 `;
 
-const SchemaControlContainer = styled.div`
-    width: 335px;
-    float: right;
-`;
-
 type Props = {
     maxVersion: number;
     fetchVersions: (version1: number, version2: number) => void;
@@ -66,7 +61,7 @@ export default function SchemaHeader({
     return (
         <SchemaHeaderContainer edit={editMode ? 'true' : undefined}>
             {maxVersion > 0 && !editMode && <CustomPagination onChange={onVersionChange} maxVersion={maxVersion} />}
-            <SchemaControlContainer>
+            <div>
                 {hasKeySchema && (
                     <KeyValueButtonGroup>
                         <KeyButton type={showKeySchema ? 'primary' : 'default'} onClick={() => setShowKeySchema(true)}>
@@ -87,7 +82,7 @@ export default function SchemaHeader({
                         <ShowVersionButton onClick={() => setEditMode(true)}>Back</ShowVersionButton>
                     ))}
                 {hasRaw && <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>}
-            </SchemaControlContainer>
+            </div>
         </SchemaHeaderContainer>
     );
 }
