@@ -7,6 +7,7 @@ import time
 from typing import Dict, List, Optional, Type, TypeVar, Union
 
 from datahub.ingestion.api import RecordEnvelope
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import *
 
 log = logging.getLogger(__name__)
