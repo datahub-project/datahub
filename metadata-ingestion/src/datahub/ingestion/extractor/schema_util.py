@@ -52,6 +52,7 @@ class AvroToMceSchemaConverter:
         self._prefix_name_stack: List[str] = []
         self._record_types_seen: List[str] = []
         self._skip_emit_next_complex_type_once = False
+        self._is_key_schema = is_key_schema
         if is_key_schema:
             self._prefix_name_stack.append("[key=True]")
 
@@ -121,6 +122,7 @@ class AvroToMceSchemaConverter:
             description=description,
             recursive=False,
             nullable=self._is_nullable(schema),
+            isPartOfKey=self._is_key_schema,
         )
         yield field
 
