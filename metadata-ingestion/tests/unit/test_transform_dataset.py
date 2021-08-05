@@ -8,7 +8,11 @@ from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
     SimpleAddDatasetTags,
 )
-
+from datahub.ingestion.transformer.ingest_dictionary import (
+    InsertIngestionDictionary
+)
+import logging
+logger = logging.getLogger(__name__)
 
 def make_generic_dataset():
     return models.MetadataChangeEventClass(
@@ -142,3 +146,70 @@ def test_import_resolver():
         )
     )
     assert output
+
+def make_complex_dataset():
+    return models.MetadataChangeEventClass(
+        proposedSnapshot=models.DatasetSnapshotClass(
+            urn="urn:li:dataset:(urn:li:dataPlatform:kudu,default.my_first_table,PROD)",
+            aspects=[
+                models.SchemaMetadataClass(
+                    schemaName="default.my_first_table",
+                    version=0,
+                    hash="",
+                    platform="urn:li:dataPlatform:kudu",
+                    platformSchema=models.SchemalessClass(),                            
+                    fields=[
+                        models.SchemaFieldClass(
+                            fieldPath="id",
+                            nativeDataType="BIGINT()",
+                            type=models.SchemaFieldDataTypeClass(
+                                type=models.NumberTypeClass()
+                            ),
+                            description=None,
+                            nullable=True,
+                            recursive=False,
+                        ),
+                        models.SchemaFieldClass(
+                            fieldPath="name",
+                            nativeDataType="String()",
+                            type=models.SchemaFieldDataTypeClass(
+                                type=models.StringTypeClass()
+                            ),
+                            description=None,
+                            nullable=True,
+                            recursive=False,
+                        ),
+                    ],
+                )
+            ],
+        ),
+    )
+
+
+def test_ingest_dictionary_transformation(mock_time):
+    """
+    creates a dataset using make_complex_dataset, and subjects it to transformation. then assert on the resultant dataset
+    """
+    dataset_mce = make_complex_dataset()
+
+    transformer = InsertIngestionDictionary.create(
+        {
+            "dictionary_path": "./tests/test_helpers/test_dictionary.csv"
+        },
+        PipelineContext(run_id="test-ingest"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
+        )
+    )
+    assert len(outputs) == 1
+    schema_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.SchemaMetadataClass
+    )    
+    assert schema_aspect.fields[1].globalTags.tags[0].tag == "urn:li:tag:given_name"
+    assert schema_aspect.fields[0].globalTags == None
+    assert schema_aspect.fields[0].description == "something about an id"
+    
+    
