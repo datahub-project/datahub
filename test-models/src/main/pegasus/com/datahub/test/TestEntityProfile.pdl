@@ -10,9 +10,14 @@ import com.linkedin.timeseries.TimeseriesAspectBase
   "type": "timeseries"
 }
 record TestEntityProfile includes TimeseriesAspectBase {
+  @TemporalStat = {}
   stat: long
 
+  @TemporalStat  = {}
   strStat: string
 
+  @TemporalStatCollection = {
+    "key":"key"
+  }
   componentProfiles: array[TestEntityComponentProfile]
 }

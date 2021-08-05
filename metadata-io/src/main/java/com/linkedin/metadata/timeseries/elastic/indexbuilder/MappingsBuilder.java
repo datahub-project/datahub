@@ -14,6 +14,7 @@ public class MappingsBuilder {
   public static final String TIMESTAMP_MILLIS_FIELD = "timestampMillis";
   public static final String EVENT_FIELD = "event";
   public static final String SYSTEM_METADATA_FIELD = "systemMetadata";
+  public static final String IS_EXPLODED_FIELD = "isExploded";
 
   private MappingsBuilder() {
   }
@@ -31,6 +32,7 @@ public class MappingsBuilder {
     mappings.put(TIMESTAMP_MILLIS_FIELD, ImmutableMap.of("type", "date"));
     mappings.put(EVENT_FIELD, ImmutableMap.of("type", "object", "enabled", false));
     mappings.put(SYSTEM_METADATA_FIELD, ImmutableMap.of("type", "object", "enabled", false));
+    mappings.put(IS_EXPLODED_FIELD, ImmutableMap.of("type", "boolean"));
 
     return ImmutableMap.of("properties", mappings);
   }

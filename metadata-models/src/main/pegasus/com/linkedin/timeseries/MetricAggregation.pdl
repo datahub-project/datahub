@@ -1,0 +1,9 @@
+namespace com.linkedin.timeseries
+
+typeref MetricAggregation = union [
+  LatestAggregation,
+  SumAggregation,
+  CardinalityAggregation,
+  TopHitsAggregation
+]
+

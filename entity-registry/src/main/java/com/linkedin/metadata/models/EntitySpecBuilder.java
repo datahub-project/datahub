@@ -1,5 +1,6 @@
 package com.linkedin.metadata.models;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
@@ -13,6 +14,8 @@ import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.TemporalStatAnnotation;
+import com.linkedin.metadata.models.annotation.TemporalStatCollectionAnnotation;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -34,22 +37,14 @@ public class EntitySpecBuilder {
       new PegasusSchemaAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _relationshipHandler =
       new PegasusSchemaAnnotationHandlerImpl(RelationshipAnnotation.ANNOTATION_NAME);
+  public static SchemaAnnotationHandler _temporalStatHandler =
+      new PegasusSchemaAnnotationHandlerImpl(TemporalStatAnnotation.ANNOTATION_NAME);
+  public static SchemaAnnotationHandler _temporalStatCollectionHandler =
+      new PegasusSchemaAnnotationHandlerImpl(TemporalStatCollectionAnnotation.ANNOTATION_NAME);
 
   private final AnnotationExtractionMode _extractionMode;
   private final Set<String> _entityNames = new HashSet<>();
   private final Set<RelationshipFieldSpec> _relationshipFieldSpecs = new HashSet<>();
-
-  public enum AnnotationExtractionMode {
-    /**
-     * Extract all annotations types, the default.
-     */
-    DEFAULT,
-    /**
-     * Skip annotations on aspect record fields, only
-     * parse entity + aspect annotations.
-     */
-    IGNORE_ASPECT_FIELDS
-  }
 
   public EntitySpecBuilder() {
     this(AnnotationExtractionMode.DEFAULT);
@@ -78,7 +73,7 @@ public class EntitySpecBuilder {
           spec.getValidDestinationTypes().stream().map(String::toLowerCase).collect(Collectors.toList()))) {
         failValidation(
             String.format("Found invalid relationship with name %s at path %s. Invalid entityType(s) provided.",
-                spec.getRelationshipName(), spec.getPath().toString()));
+                spec.getRelationshipName(), spec.getPath()));
       }
     }
 
@@ -165,7 +160,8 @@ public class EntitySpecBuilder {
 
       if (AnnotationExtractionMode.IGNORE_ASPECT_FIELDS.equals(_extractionMode)) {
         // Short Circuit.
-        return new AspectSpec(aspectAnnotation, Collections.emptyList(), Collections.emptyList(), aspectRecordSchema);
+        return new AspectSpec(aspectAnnotation, Collections.emptyList(), Collections.emptyList(),
+            Collections.emptyList(), Collections.emptyList(), aspectRecordSchema);
       }
 
       final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedSearchResult =
@@ -191,8 +187,19 @@ public class EntitySpecBuilder {
       // Capture the list of entity names from relationships extracted.
       _relationshipFieldSpecs.addAll(relationshipFieldSpecExtractor.getSpecs());
 
+      final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedTemporalStatResult =
+          SchemaAnnotationProcessor.process(ImmutableList.of(_temporalStatHandler, _temporalStatCollectionHandler),
+              aspectRecordSchema, new SchemaAnnotationProcessor.AnnotationProcessOption());
+
+      // Extract Temporal Stat / Stat Collection Field Specs
+      final TemporalStatFieldSpecExtractor temporalStatFieldSpecExtractor = new TemporalStatFieldSpecExtractor();
+      final DataSchemaRichContextTraverser temporalStatFieldSpecTraverser =
+          new DataSchemaRichContextTraverser(temporalStatFieldSpecExtractor);
+      temporalStatFieldSpecTraverser.traverse(processedTemporalStatResult.getResultSchema());
+
       return new AspectSpec(aspectAnnotation, searchableFieldSpecExtractor.getSpecs(),
-          relationshipFieldSpecExtractor.getSpecs(), aspectRecordSchema);
+          relationshipFieldSpecExtractor.getSpecs(), temporalStatFieldSpecExtractor.getTemporalStatFieldSpecs(),
+          temporalStatFieldSpecExtractor.getTemporalStatCollectionFieldSpecs(), aspectRecordSchema);
     }
 
     failValidation(String.format("Could not build aspect spec for aspect with name %s. Missing @Aspect annotation.",
@@ -236,8 +243,8 @@ public class EntitySpecBuilder {
   private void validateAspect(final AspectSpec aspectSpec) {
     if (aspectSpec.isTimeseries()) {
       if (aspectSpec.getPegasusSchema().contains(TIMESTAMP_FIELD_NAME)) {
-        DataSchema timstamp = aspectSpec.getPegasusSchema().getField(TIMESTAMP_FIELD_NAME).getType();
-        if (timstamp.getType() == DataSchema.Type.LONG) {
+        DataSchema timestamp = aspectSpec.getPegasusSchema().getField(TIMESTAMP_FIELD_NAME).getType();
+        if (timestamp.getType() == DataSchema.Type.LONG) {
           return;
         }
       }
@@ -313,5 +320,17 @@ public class EntitySpecBuilder {
 
   private void failValidation(@Nonnull final String message) {
     throw new ModelValidationException(message);
+  }
+
+  public enum AnnotationExtractionMode {
+    /**
+     * Extract all annotations types, the default.
+     */
+    DEFAULT,
+    /**
+     * Skip annotations on aspect record fields, only
+     * parse entity + aspect annotations.
+     */
+    IGNORE_ASPECT_FIELDS
   }
 }
