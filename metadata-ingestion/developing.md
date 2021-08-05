@@ -103,14 +103,21 @@ pytest -m 'integration'
 ### Sanity check code before committing
 
 ```shell
-# Assumes: pip install -e '.[dev]'
-black .
-isort .
-flake8 .
-mypy .
-pytest
+# Assumes: pip install -e '.[dev]' and venv is activated
+black src/ tests/
+isort src/ tests/
+flake8 src/ tests/
+mypy src/ tests/
+
+# If you want to run only the quicker subtests
+pytest -m 'not integration' -vv
+# Run the full testing suite
+pytest -vv
 
 # These steps are all included in the gradle build:
+../gradlew :metadata-ingestion:lint
 ../gradlew :metadata-ingestion:lintFix
+../gradlew :metadata-ingestion:testQuick
+../gradlew :metadata-ingestion:testFull
 ../gradlew :metadata-ingestion:check
 ```
