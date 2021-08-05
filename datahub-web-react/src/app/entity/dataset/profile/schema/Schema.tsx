@@ -15,11 +15,7 @@ import {
     EntityType,
     UsageQueryResult,
 } from '../../../../../types.generated';
-import {
-    convertEditableSchemaMetadataForUpdate,
-    ExtendedSchemaFields,
-    sortByFieldPathAndGrouping,
-} from '../../../shared/utils';
+import { convertEditableSchemaMetadataForUpdate, ExtendedSchemaFields, groupByFieldPath } from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import SchemaTable from './SchemaTable';
 import SchemaHeader from './components/SchemaHeader';
@@ -102,12 +98,12 @@ export default function SchemaView({
 
     const { rows, diffSummary } = useMemo(() => {
         if (editMode) {
-            return { rows: sortByFieldPathAndGrouping(schemaDiff.current?.fields), diffSummary: null };
+            return { rows: groupByFieldPath(schemaDiff.current?.fields), diffSummary: null };
         }
         const rowsAndDiffSummary = getDiffSummary(schemaDiff.current?.fields, schemaDiff.previous?.fields);
         return {
             ...rowsAndDiffSummary,
-            rows: sortByFieldPathAndGrouping(rowsAndDiffSummary.rows),
+            rows: groupByFieldPath(rowsAndDiffSummary.rows),
         };
     }, [schemaDiff, editMode]);
 

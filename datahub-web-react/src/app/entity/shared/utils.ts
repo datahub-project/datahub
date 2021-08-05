@@ -57,48 +57,27 @@ export function convertEditableSchemaMetadataForUpdate(
     };
 }
 
-function sortByFieldPath(row1: SchemaField, row2: SchemaField): number {
-    if (row1.fieldPath > row2.fieldPath) {
-        return 1;
-    }
-    if (row2.fieldPath > row1.fieldPath) {
-        return -1;
-    }
-    return 0;
-}
-
 // Sort schema fields by fieldPath and grouping for hierarchy in schema table
-export function sortByFieldPathAndGrouping(schemaRows?: Array<SchemaField>): Array<ExtendedSchemaFields> {
+export function groupByFieldPath(schemaRows?: Array<SchemaField>): Array<ExtendedSchemaFields> {
     const rows = [...(schemaRows || [])] as Array<ExtendedSchemaFields>;
-    if (rows.length > 1) {
-        rows.sort(sortByFieldPath); // sort rows by fieldPath value
-        // repeat rows from bottom to top
-        for (let rowIndex = rows.length; rowIndex--; rowIndex >= 0) {
-            const row = rows[rowIndex];
-            // check if fieldPath has . that indicates possibly children row or not
-            if (row.fieldPath.slice(1, -1).includes('.')) {
-                const fieldPaths = row.fieldPath.split(/\.(?=[^.]+$)/);
-                const parentFieldIndex = rows.findIndex((f) => f.fieldPath === fieldPaths[0]);
-                // add children rows into 'children' field of parent row to make the structure that antd table support
-                if (parentFieldIndex > -1) {
-                    if ('children' in rows[parentFieldIndex]) {
-                        rows[parentFieldIndex].children?.unshift(row);
-                    } else {
-                        rows[parentFieldIndex] = { ...rows[parentFieldIndex], children: [row] };
-                    }
-                    rows.splice(rowIndex, 1);
-                } else if (rowIndex > 0 && fieldPaths[0].includes(rows[rowIndex - 1].fieldPath)) {
-                    if ('children' in rows[rowIndex - 1]) {
-                        rows[rowIndex - 1].children?.unshift(row);
-                    } else {
-                        rows[rowIndex - 1] = { ...rows[rowIndex - 1], children: [row] };
-                    }
-                    rows.splice(rowIndex, 1);
-                }
-            }
+    const outputRows: Array<ExtendedSchemaFields> = [];
+    const outputRowByPath = {};
+
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+        const row = { children: undefined, ...rows[rowIndex] };
+
+        const [parentFieldPath] = row.fieldPath.split(/\.(?=[^.]+$)/);
+        const parentRow = outputRowByPath[parentFieldPath];
+
+        // if the parent field exists in the ouput, add the current row as a child
+        if (parentRow) {
+            parentRow.children = [...(parentRow.children || []), row];
+        } else {
+            outputRows.push(row);
         }
+        outputRowByPath[row.fieldPath] = row;
     }
-    return rows;
+    return outputRows;
 }
 
 export function diffMarkdown(oldStr: string, newStr: string) {
