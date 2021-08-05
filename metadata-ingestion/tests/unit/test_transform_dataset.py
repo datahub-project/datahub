@@ -1,3 +1,5 @@
+import logging
+
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -8,11 +10,10 @@ from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
     SimpleAddDatasetTags,
 )
-from datahub.ingestion.transformer.ingest_dictionary import (
-    InsertIngestionDictionary
-)
-import logging
+from datahub.ingestion.transformer.ingest_dictionary import InsertIngestionDictionary
+
 logger = logging.getLogger(__name__)
+
 
 def make_generic_dataset():
     return models.MetadataChangeEventClass(
@@ -147,6 +148,7 @@ def test_import_resolver():
     )
     assert output
 
+
 def make_complex_dataset():
     return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
@@ -157,7 +159,7 @@ def make_complex_dataset():
                     version=0,
                     hash="",
                     platform="urn:li:dataPlatform:kudu",
-                    platformSchema=models.SchemalessClass(),                            
+                    platformSchema=models.SchemalessClass(),
                     fields=[
                         models.SchemaFieldClass(
                             fieldPath="id",
@@ -193,9 +195,7 @@ def test_ingest_dictionary_transformation(mock_time):
     dataset_mce = make_complex_dataset()
 
     transformer = InsertIngestionDictionary.create(
-        {
-            "dictionary_path": "./tests/test_helpers/test_dictionary.csv"
-        },
+        {"dictionary_path": "./tests/test_helpers/test_dictionary.csv"},
         PipelineContext(run_id="test-ingest"),
     )
 
@@ -207,9 +207,7 @@ def test_ingest_dictionary_transformation(mock_time):
     assert len(outputs) == 1
     schema_aspect = builder.get_aspect_if_available(
         outputs[0].record, models.SchemaMetadataClass
-    )    
+    )
     assert schema_aspect.fields[1].globalTags.tags[0].tag == "urn:li:tag:given_name"
     assert schema_aspect.fields[0].globalTags == None
     assert schema_aspect.fields[0].description == "something about an id"
-    
-    
