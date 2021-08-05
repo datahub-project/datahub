@@ -12,11 +12,6 @@ import com.linkedin.common.GlossaryTermUrn
 record GlossaryRelatedTerms {
 
   /**
-   * Audit stamp containing who reported the lineage and when
-   */
-  auditStamp: AuditStamp
-
-  /**
    * The relationship Is A with glossary term
    */
   @Relationship = {
