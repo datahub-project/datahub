@@ -92,6 +92,8 @@ PLOTLY_CHART_MAP = {
 
 VISUALIZATION_TYPE_MAP = {
     # TODO: add more Redash visualization mapping here
+    # https://redash.io/help/user-guide/visualizations/visualization-types
+    # https://github.com/getredash/redash/blob/master/viz-lib/src/visualizations/registeredVisualizations.ts
     # TODO: need to add more ChartTypeClass in datahub schema_classes.py
     "BOXPLOT": ChartTypeClass.BOX_PLOT,
     "CHOROPLETH": DEFAULT_VISUALIZATION_TYPE,
