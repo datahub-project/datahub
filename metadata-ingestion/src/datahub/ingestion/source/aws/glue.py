@@ -125,7 +125,6 @@ class GlueSource(Source):
 
             return None
 
-
         # extract the script's bucket and key
         url = urlparse(script_path, allow_fragments=False)
         bucket = url.netloc
