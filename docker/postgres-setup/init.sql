@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS DATAHUB_DB_NAME.metadata_aspect_v2 (
   CONSTRAINT pk_metadata_aspect_v2 PRIMARY KEY (urn, aspect, version)
 );
 
-INSERT INTO DATAHUB_DB_NAME.metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
+-- create default records for datahub user if not exists
+CREATE TABLE temp_metadata_aspect_v2 LIKE metadata_aspect_v2;
+INSERT INTO temp_metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
   'corpUserInfo',
   0,
@@ -29,3 +31,8 @@ INSERT INTO DATAHUB_DB_NAME.metadata_aspect_v2 (urn, aspect, version, metadata, 
   now(),
   'urn:li:principal:datahub'
 );
+-- only add default records if metadata_aspect is empty
+INSERT INTO metadata_aspect_v2
+SELECT * FROM temp_metadata_aspect_v2
+WHERE NOT EXISTS (SELECT * from metadata_aspect_v2);
+DROP TABLE temp_metadata_aspect_v2;
