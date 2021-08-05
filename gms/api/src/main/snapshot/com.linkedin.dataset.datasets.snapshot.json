@@ -787,6 +787,11 @@
               "name" : "documentSchema",
               "type" : "string",
               "doc" : "The native kafka document schema. This is a human readable avro document schema."
+            }, {
+              "name" : "keySchema",
+              "type" : "string",
+              "doc" : "The native kafka key schema as retrieved from Schema Registry",
+              "optional" : true
             } ]
           }, {
             "type" : "record",
@@ -1007,6 +1012,11 @@
                 "type" : "com.linkedin.common.GlossaryTerms",
                 "doc" : "Glossary terms associated with the field",
                 "optional" : true
+              }, {
+                "name" : "isPartOfKey",
+                "type" : "boolean",
+                "doc" : "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields",
+                "default" : false
               } ]
             }
           },
