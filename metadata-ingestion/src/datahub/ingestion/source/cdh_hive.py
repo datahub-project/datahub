@@ -1,12 +1,11 @@
 # This import verifies that the dependencies are available.
 import logging
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterable, List, Type
+
 import jaydebeapi
 import jpype
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type
-
 from krbcontext.context import krbContext
-from sqlalchemy.sql import sqltypes as types
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.api.source import Source, SourceReport
@@ -17,27 +16,27 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
+    BytesTypeClass,
+    DatasetProperties,
     NullTypeClass,
     NumberTypeClass,
-    BytesTypeClass,
+    Owner,
+    OwnershipClass,
+    OwnershipType,
     SchemaField,
     SchemaFieldDataType,
     SchemalessClass,
     SchemaMetadata,
-    OwnershipClass,
-    OwnershipType,
     StringTypeClass,
     TimeTypeClass,
-    DatasetProperties,
-    Owner
 )
-from datahub.metadata.schema_classes import ArrayTypeClass, DatasetPropertiesClass, OwnerClass
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 DEFAULT_ENV = "PROD"
-#note to self: the ingestion container needs to have JVM
-#constraint, cannot find primary keys from <describe formatted table>.
+# note to self: the ingestion container needs to have JVM
+# constraint, cannot find primary keys from <describe formatted table>.
+
 
 @dataclass
 class CDH_HiveDBSourceReport(SourceReport):
@@ -57,20 +56,21 @@ class CDH_HiveDBSourceReport(SourceReport):
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
 
+
 mapping: Dict[str, Type] = {
-    "int":          NumberTypeClass,
-    "bigint" :      NumberTypeClass,
-    "tinyint":      NumberTypeClass,
-    "smallint":     NumberTypeClass,
-    "string":       StringTypeClass,
-    "boolean":      BooleanTypeClass,
-    "float":        NumberTypeClass,
-    "decimal":      NumberTypeClass,
-    "timestamp":    TimeTypeClass,
-    "binary":       BytesTypeClass,
-    "array":        ArrayTypeClass,
-    "struct":       StringTypeClass,
-    "maps":         StringTypeClass,
+    "int": NumberTypeClass,
+    "bigint": NumberTypeClass,
+    "tinyint": NumberTypeClass,
+    "smallint": NumberTypeClass,
+    "string": StringTypeClass,
+    "boolean": BooleanTypeClass,
+    "float": NumberTypeClass,
+    "decimal": NumberTypeClass,
+    "timestamp": TimeTypeClass,
+    "binary": BytesTypeClass,
+    "array": ArrayTypeClass,
+    "struct": StringTypeClass,
+    "maps": StringTypeClass,
 }
 
 
@@ -78,12 +78,12 @@ def get_column_type(
     sql_report: CDH_HiveDBSourceReport, dataset_name: str, column_type: str
 ) -> SchemaFieldDataType:
 
-    TypeClass: Optional[Type] = None
+    TypeClass: Type = NullTypeClass
     if column_type.lower().startswith("varchar"):
         TypeClass = StringTypeClass
     else:
         TypeClass = mapping.get(column_type, NullTypeClass)
-    
+
     if TypeClass == NullTypeClass:
         sql_report.report_warning(
             dataset_name, f"unable to map type {column_type} to metadata schema"
@@ -97,20 +97,20 @@ def get_schema_metadata(
     sql_report: CDH_HiveDBSourceReport,
     dataset_name: str,
     platform: str,
-    columns: List[Tuple],
-) -> SchemaMetadata:    
+    columns: List[Any],
+) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
     for column in columns:
         field = SchemaField(
             fieldPath=column[0],
             nativeDataType=repr(column[1]),
             type=get_column_type(sql_report, dataset_name, column[1]),
-            description=column[2],            
+            description=column[2],
         )
         canonical_schema.append(field)
 
     actor = "urn:li:corpuser:etl"
-    sys_time = 0    
+    sys_time = 0
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=f"urn:li:dataPlatform:{platform}",
@@ -129,15 +129,16 @@ class CDHHiveConfig(ConfigModel):
     scheme: str = "hive2"
     host: str = "localhost:10000"
     kerberos: bool = False
-    truststore_loc: str = "/opt/cloudera/security/pki/truststore.jks"    
-    KrbHostFQDN : str = ""
+    truststore_loc: str = "/opt/cloudera/security/pki/truststore.jks"
+    KrbHostFQDN: str = ""
     service_principal: str = "some service principal"
-    #for krbcontext
+    kerberos_realm: str = ""
+    # for krbcontext
     keytab_principal: str = "some principal to get ticket from in keytab"
-    keytab_location: str = ""        
-    jar_location: str = "/tmp/HiveJDBC42-2.6.15.1018.jar" #absolute path pls!
-    conf_file : str = "absolute path to gss-jaas.conf"
-    classpath : str = "com.cloudera.hive.jdbc.HS2Driver"
+    keytab_location: str = ""
+    jar_location: str = "/tmp/HiveJDBC42-2.6.15.1018.jar"  # absolute path pls!
+    conf_file: str = "absolute path to gss-jaas.conf"
+    classpath: str = "com.cloudera.hive.jdbc.HS2Driver"
     env: str = DEFAULT_ENV
     schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -149,7 +150,7 @@ class CDHHiveConfig(ConfigModel):
             return (url, self.jar_location, self.conf_file)
         else:
             url = f"""jdbc:{self.scheme}://{self.host}/default;"""
-            return (url, self.jar_location, None)            
+            return (url, self.jar_location, None)
 
 
 class CDH_HiveSource(Source):
@@ -170,25 +171,24 @@ class CDH_HiveSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         sql_config = self.config
-        if logger.isEnabledFor(logging.DEBUG):
-            # If debug logging is enabled, we also want to echo each SQL query issued.
-            sql_config.options["echo"] = True
 
         (url, jar_loc, conf_file) = sql_config.get_url()
         classpath = sql_config.classpath
-        #if keytab loc is specified, generate ticket using keytab first
+        # if keytab loc is specified, generate ticket using keytab first
         args = f"-Djava.class.path={sql_config.jar_location}"
         if not sql_config.kerberos:
             jvm_path = jpype.getDefaultJVMPath()
             if not jpype.isJVMStarted():
-                jpype.startJVM(jvm_path, args, convertStrings = True)
-            db_connection = jaydebeapi.connect(jclassname=classpath, url=url, jars = jar_loc)
+                jpype.startJVM(jvm_path, args, convertStrings=True)
+            db_connection = jaydebeapi.connect(
+                jclassname=classpath, url=url, jars=jar_loc
+            )
             logger.info("db connected!")
             db_cursor = db_connection.cursor()
             db_cursor.execute("show databases;")
             databases_raw = db_cursor.fetchall()
             databases = [item[0] for item in databases_raw]
-            for schema in databases:                            
+            for schema in databases:
                 if not sql_config.schema_pattern.allowed(schema):
                     self.report.report_dropped(schema)
                     logger.error(f"dropped {schema}")
@@ -204,8 +204,15 @@ class CDH_HiveSource(Source):
             ):
                 jvm_path = jpype.getDefaultJVMPath()
                 if not jpype.isJVMStarted():
-                    jpype.startJVM(jvm_path, args, f"-Djava.security.auth.login.config={conf_file}", convertStrings=True)
-                db_connection = jaydebeapi.connect(jclassname=classpath, url=url, jars = jar_loc)
+                    jpype.startJVM(
+                        jvm_path,
+                        args,
+                        f"-Djava.security.auth.login.config={conf_file}",
+                        convertStrings=True,
+                    )
+                db_connection = jaydebeapi.connect(
+                    jclassname=classpath, url=url, jars=jar_loc
+                )
                 logger.info("db connected!")
                 db_cursor = db_connection.cursor()
                 db_cursor.execute("show databases;")
@@ -221,7 +228,6 @@ class CDH_HiveSource(Source):
 
     def loop_tables(
         self, db_cursor: Any, schema: str, sql_config: CDHHiveConfig
-     
     ) -> Iterable[MetadataWorkUnit]:
         db_cursor.execute(f"show tables in {schema}")
         all_tables_raw = db_cursor.fetchall()
@@ -232,15 +238,15 @@ class CDH_HiveSource(Source):
                 self.report.report_dropped(dataset_name)
                 continue
             self.report.report_entity_scanned(dataset_name, ent_type="table")
-            #distinguish between hive and kudu table
-            #map out the schema
+            # distinguish between hive and kudu table
+            # map out the schema
             db_cursor.execute(f"describe {schema}.{table}")
-            schema_info_raw = db_cursor.fetchall()            
+            schema_info_raw = db_cursor.fetchall()
             table_schema = [(item[0], item[1], item[2]) for item in schema_info_raw]
-            
+
             db_cursor.execute(f"describe formatted {schema}.{table}")
             table_info_raw = db_cursor.fetchall()
-            table_info = table_info_raw[len(table_schema)+3:]            
+            table_info = table_info_raw[len(table_schema) + 3 :]
 
             properties = {}
 
@@ -250,26 +256,27 @@ class CDH_HiveSource(Source):
                 if item[0].strip() == "Table Type:":
                     properties["table_type"] = item[1].strip()
                 if item[0].strip() == "Owner:":
-                    table_owner = item[1].strip()                
-            for item in ["table_location","table_type"]:
+                    table_owner = item[1].strip()
+            for item in ["table_location", "table_type"]:
                 if item not in properties:
-                    properties[item]=""
-            
+                    properties[item] = ""
+
             dataset_snapshot = DatasetSnapshot(
                 urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.platform},{dataset_name},{self.config.env})",
                 aspects=[],
             )
             data_owner = f"urn:li:corpuser:{table_owner}"
-            owner_properties = OwnershipClass(owners=[Owner(owner=data_owner, type = OwnershipType.DATAOWNER)])
+            owner_properties = OwnershipClass(
+                owners=[Owner(owner=data_owner, type=OwnershipType.DATAOWNER)]
+            )
             dataset_snapshot.aspects.append(owner_properties)
-            #kudu has no table comments. 
+            # kudu has no table comments.
             dataset_properties = DatasetProperties(
                 description="",
                 customProperties=properties,
             )
             dataset_snapshot.aspects.append(dataset_properties)
-            
-            
+
             schema_metadata = get_schema_metadata(
                 self.report, dataset_name, self.platform, table_schema
             )
