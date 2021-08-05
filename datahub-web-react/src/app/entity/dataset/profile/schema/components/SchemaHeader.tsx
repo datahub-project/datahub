@@ -9,14 +9,26 @@ const SchemaHeaderContainer = styled.div<{ edit?: string }>`
 `;
 
 const ShowVersionButton = styled(Button)`
-    margin-right: 20px;
+    display: inline-block;
+    margin-right: 10px;
+`;
+
+const KeyButton = styled(Button)`
+    border-radius: 8px 0px 0px 8px;
+`;
+
+const ValueButton = styled(Button)`
+    border-radius: 0px 8px 8px 0px;
 `;
 
 const KeyValueButtonGroup = styled.div`
-    padding-right: 20px;
-    display: flex;
-    justify-content: space-between;
-    width: 150px;
+    margin-right: 10px;
+    display: inline-block;
+`;
+
+const SchemaControlContainer = styled.div`
+    width: 335px;
+    float: right;
 `;
 
 type Props = {
@@ -54,17 +66,20 @@ export default function SchemaHeader({
     return (
         <SchemaHeaderContainer edit={editMode ? 'true' : undefined}>
             {maxVersion > 0 && !editMode && <CustomPagination onChange={onVersionChange} maxVersion={maxVersion} />}
-            {hasKeySchema && (
-                <KeyValueButtonGroup>
-                    <Button type={showKeySchema ? 'primary' : 'default'} onClick={() => setShowKeySchema(true)}>
-                        Key
-                    </Button>
-                    <Button type={showKeySchema ? 'default' : 'primary'} onClick={() => setShowKeySchema(false)}>
-                        Value
-                    </Button>
-                </KeyValueButtonGroup>
-            )}
-            <div>
+            <SchemaControlContainer>
+                {hasKeySchema && (
+                    <KeyValueButtonGroup>
+                        <KeyButton type={showKeySchema ? 'primary' : 'default'} onClick={() => setShowKeySchema(true)}>
+                            Key
+                        </KeyButton>
+                        <ValueButton
+                            type={showKeySchema ? 'default' : 'primary'}
+                            onClick={() => setShowKeySchema(false)}
+                        >
+                            Value
+                        </ValueButton>
+                    </KeyValueButtonGroup>
+                )}
                 {maxVersion > 0 &&
                     (editMode ? (
                         <ShowVersionButton onClick={() => setEditMode(false)}>Version History</ShowVersionButton>
@@ -72,7 +87,7 @@ export default function SchemaHeader({
                         <ShowVersionButton onClick={() => setEditMode(true)}>Back</ShowVersionButton>
                     ))}
                 {hasRaw && <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>}
-            </div>
+            </SchemaControlContainer>
         </SchemaHeaderContainer>
     );
 }
