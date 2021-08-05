@@ -38,7 +38,13 @@
   overflow: hidden;
 }
 
-@media screen and (max-width: 966px) {
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: left;
+}
+
+@media screen and (max-width: 996px) {
   .heroBanner {
     padding: 2rem 0.5rem;
   }
@@ -70,16 +76,14 @@
   .bumpUpLogo {
     margin-top: 2rem;
   }
+
+  .buttons {
+    justify-content: center;
+  }
 }
 
 .not_bold_text {
   font-weight: 300;
-}
-
-.buttons {
-  display: flex;
-  align-items: center;
-  justify-content: left;
 }
 
 .hero_button {
