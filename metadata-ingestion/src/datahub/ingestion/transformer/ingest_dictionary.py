@@ -57,7 +57,7 @@ class InsertIngestionDictionary(Transformer):
         if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
             return mce
         if not os.path.exists(self.config.dictionary_path):
-            logger.error(f"dictionary file does not exist!")
+            logger.error("dictionary file does not exist!")
             return mce
         df = pd.read_csv(self.config.dictionary_path)
         if not all(
