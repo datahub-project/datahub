@@ -59,15 +59,16 @@ public class EntityClient {
         try {
             return _client.sendRequest(request).getResponse();
         } catch (RemoteInvocationException e) {
-            if (((RestLiResponseException) e).getStatus() == 404) {
-                _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
-                    + "Please update your gms to the latest Datahub release");
-                System.exit(1);
-            } else {
-                throw e;
-            }
+            if (e instanceof RestLiResponseException) {
+                RestLiResponseException restliException = (RestLiResponseException) e;
+                if (restliException.getStatus() == 404) {
+                    _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
+                        + "Please update your gms to the latest Datahub release");
+                    System.exit(1);
+                }
+             }
+            throw e;
         }
-        return null;
     }
 
     @Nonnull
