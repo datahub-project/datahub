@@ -1,0 +1,5 @@
+namespace com.linkedin.timeseries
+
+record SumAggregation{
+  type: MetricAggregationType = "SUM_AGG"
+}

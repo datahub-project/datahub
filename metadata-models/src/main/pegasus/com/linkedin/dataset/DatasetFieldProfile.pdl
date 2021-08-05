@@ -6,39 +6,52 @@ namespace com.linkedin.dataset
 record DatasetFieldProfile {
 	fieldPath: string
 
+  @TemporalStat = {}
 	uniqueCount: optional long
 
+  @TemporalStat = {}
 	uniqueProportion: optional float
 
+  @TemporalStat = {}
 	nullCount: optional long
 
+  @TemporalStat = {}
 	nullProportion: optional float
 
+  @TemporalStat = {}
 	min: optional string
 
+  @TemporalStat = {}
 	max: optional string
 
+  @TemporalStat = {}
 	mean: optional string
 
+  @TemporalStat = {}
 	median: optional string
 
+  @TemporalStat = {}
 	stdev: optional string
 
+  @TemporalStat = {}
   quantiles: optional array[record Quantile {
     quantile: string
     value: string
   }]
 
+  @TemporalStat = {}
   distinctValueFrequencies: optional array[record ValueFrequency {
     value: string
     frequency: long
   }]
 
+  @TemporalStat = {}
   // (k bin boundaries, k-1 frequencies); first+last frequency values are tail weights
   histogram: optional record Histogram {
     boundaries: array[string]
     heights: array[float]
   }
 
+  @TemporalStat = {}
 	sampleValues: optional array[string]
 }
