@@ -3996,7 +3996,7 @@
                     "doc" : "A key-value map to capture any other non-standardized properties for the glossary term",
                     "default" : { }
                   }, {
-                    "name" : "schemaDefinition",
+                    "name" : "rawSchema",
                     "type" : "string",
                     "doc" : "Schema definition of the glossary term",
                     "optional" : true
@@ -4010,10 +4010,6 @@
                   "namespace" : "com.linkedin.glossary",
                   "doc" : "Has A / Is A lineage information about a glossary Term reporting the lineage",
                   "fields" : [ {
-                    "name" : "auditStamp",
-                    "type" : "com.linkedin.common.AuditStamp",
-                    "doc" : "Audit stamp containing who reported the lineage and when"
-                  }, {
                     "name" : "isRelatedTerms",
                     "type" : {
                       "type" : "array",
