@@ -89,6 +89,8 @@
 .hero_button {
   margin-left: 0.25rem;
   margin-right: 0.25rem;
+  padding: 0.5rem 2rem;
+  font-size: 1.25rem;
 }
 
 .hero_button_cta {

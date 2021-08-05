@@ -346,7 +346,7 @@ function Home() {
                   )}
                   to={useBaseUrl("docs/")}
                 >
-                  Get Started
+                  Get Started →
                 </Link>
                 <Link
                   className={clsx(
