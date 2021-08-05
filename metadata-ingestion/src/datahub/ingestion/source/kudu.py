@@ -14,18 +14,20 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BooleanTypeClass,
-    DatasetProperties,
     NullTypeClass,
     NumberTypeClass,
-    Owner,
-    OwnershipClass,
-    OwnershipType,
     SchemaField,
     SchemaFieldDataType,
     SchemalessClass,
     SchemaMetadata,
     StringTypeClass,
     TimeTypeClass,
+)
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -279,11 +281,11 @@ class KuduSource(Source):
             if table_owner:
                 data_owner = f"urn:li:corpuser:{table_owner}"
                 owner_properties = OwnershipClass(
-                    owners=[Owner(owner=data_owner, type=OwnershipType.DATAOWNER)]
+                    owners=[OwnerClass(owner=data_owner, type=OwnershipTypeClass.DATAOWNER)]
                 )
                 dataset_snapshot.aspects.append(owner_properties)
             # kudu has no table comments.
-            dataset_properties = DatasetProperties(
+            dataset_properties = DatasetPropertiesClass(
                 description="",
                 customProperties=properties,
             )
