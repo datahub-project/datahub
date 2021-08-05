@@ -168,12 +168,6 @@ class RedashSource(Source):
             logger.info("Redash API connected succesfully")
             pass
 
-            # # Only for getting data source types available in Redash
-            # # We use this as source for `REDASH_DATA_SOURCE_TO_DATAHUB_MAP` variable
-            # data_source_types = self.client._get(f"/api/data_sources/types").json()
-            # for dst in data_source_types:
-            #     print(f'\'{dst["type"]}\'', ":", {"platform": None, }, ",")
-
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = RedashConfig.parse_obj(config_dict)
@@ -213,7 +207,7 @@ class RedashSource(Source):
             # Other Redash supported data source as in REDASH_DATA_SOURCE_TO_DATAHUB_MAP
             if db_name:
                 dataset_urn = (
-                    f"urn:li:dataset:(" f"{platform_urn},{db_name},{self.config.env})"
+                    f"urn:li:dataset:({platform_urn},{db_name},{self.config.env})"
                 )
                 return data_source_type, dataset_urn
         return data_source_type, None
@@ -225,13 +219,13 @@ class RedashSource(Source):
 
         for widget in dashboard_widgets:
             visualization = widget.get("visualization")
-            if not visualization:
+            if visualization is None:
                 options = widget.get("options")
                 text = widget.get("text")
                 isHidden = widget.get("isHidden")
 
                 # TRICKY: If top-left most widget is a Textbox, then we assume it is the Description
-                if options and text and not isHidden:
+                if options and text and isHidden is None:
                     position = options.get("position")
                     if position:
                         col = position.get("col")
