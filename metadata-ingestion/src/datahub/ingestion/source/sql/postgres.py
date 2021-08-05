@@ -15,7 +15,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MapTypeClass,
 )
 
-from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource, register_custom_type
+from .sql_common import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemySource,
+    get_identifier_three_layer_hierarchy,
+    register_custom_type,
+)
 
 register_custom_type(custom_types.ARRAY, ArrayTypeClass)
 register_custom_type(custom_types.JSON, BytesTypeClass)
@@ -27,13 +32,7 @@ class PostgresConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "postgresql+psycopg2"
 
-    def get_identifier(self, schema: str, table: str) -> str:
-        regular = f"{schema}.{table}"
-        if self.database_alias:
-            return f"{self.database_alias}.{regular}"
-        if self.database:
-            return f"{self.database}.{regular}"
-        return regular
+    get_identifier = get_identifier_three_layer_hierarchy
 
 
 class PostgresSource(SQLAlchemySource):

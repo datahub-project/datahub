@@ -143,3 +143,21 @@ def test_glue_ingest(tmp_path, pytestconfig):
         output_path=tmp_path / "glue_mces.json",
         golden_path=test_resources_dir / "glue_mces_golden.json",
     )
+
+
+def test_platform_alias_takes_precendence():
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2", platform_alias="data_warehouse"
+        ),
+    )
+    assert source.get_platform_name() == "data_warehouse"
+
+
+def test_without_platform_alias():
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-west-2"),
+    )
+    assert source.get_platform_name() == "glue"

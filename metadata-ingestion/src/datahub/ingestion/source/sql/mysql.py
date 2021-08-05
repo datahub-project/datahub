@@ -1,13 +1,19 @@
 # This import verifies that the dependencies are available.
 import pymysql  # noqa: F401
 
-from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
+from .sql_common import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemySource,
+    get_identifier_three_layer_hierarchy,
+)
 
 
 class MySQLConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port = "localhost:3306"
     scheme = "mysql+pymysql"
+
+    get_identifier = get_identifier_three_layer_hierarchy
 
 
 class MySQLSource(SQLAlchemySource):

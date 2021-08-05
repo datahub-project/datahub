@@ -153,6 +153,15 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
         )
 
 
+def get_identifier_three_layer_hierarchy(self, schema: str, table: str) -> str:
+    regular = f"{schema}.{table}"
+    if self.database_alias:
+        return f"{self.database_alias}.{regular}"
+    if self.database:
+        return f"{self.database}.{regular}"
+    return regular
+
+
 class SqlWorkUnit(MetadataWorkUnit):
     pass
 
