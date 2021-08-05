@@ -17,6 +17,11 @@
 3. Currently logs cannot capture a request that is rejected by Pydantic validation. 
 4. better to have mce_convenience return the subclasses and have main just emit 1 MCE per dataset, refer to glue ingestion for details  
 
+**setting up python dependencies**
+1. `conda create -n conda_env -y python=3.8`
+2. `cd metadata-ingestion && pip install -e .[dev]` #install avro and all related to ingestion under the library "datahub"
+3. `cd ingest-api && pip install -e .[all]` #install fastapi
+
 **Sample curl commands to api**
 `curl -X GET http://localhost:8001/hello` hello world should return something  
 
