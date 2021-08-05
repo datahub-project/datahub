@@ -3,7 +3,7 @@ import math
 import sys
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 from redash_toolbelt import Redash
@@ -174,14 +174,12 @@ class RedashSource(Source):
         return cls(ctx, config)
 
     @lru_cache(maxsize=None)
-    def _get_chart_data_source(self, data_source_id: int):
+    def _get_chart_data_source(self, data_source_id: int) -> Dict:
         url = f"/api/data_sources/{data_source_id}"
         resp = self.client._get(url).json()
         return resp
 
-    @lru_cache(maxsize=None)
-    def _get_datasource_urn_from_data_source_id(self, data_source_id: int):
-        data_source = self._get_chart_data_source(data_source_id)
+    def _get_datasource_urn_from_data_source(self, data_source: Dict) -> Optional[str]:
         data_source_type = data_source.get("type")
         data_source_name = data_source.get("name")
         data_source_options = data_source.get("options", {})
@@ -198,19 +196,16 @@ class RedashSource(Source):
 
             # Redash Query Results
             if data_source_type == "results":
-                dataset_urn = (
-                    f"urn:li:dataset:("
-                    f"{platform_urn},{data_source_name},{self.config.env})"
-                )
-                return data_source_type, dataset_urn
+                dataset_urn = f"urn:li:dataset:({platform_urn},{data_source_name},{self.config.env})"
+                return dataset_urn
 
             # Other Redash supported data source as in REDASH_DATA_SOURCE_TO_DATAHUB_MAP
             if db_name:
                 dataset_urn = (
                     f"urn:li:dataset:({platform_urn},{db_name},{self.config.env})"
                 )
-                return data_source_type, dataset_urn
-        return data_source_type, None
+                return dataset_urn
+        return None
 
     def _get_dashboard_description_from_widgets(
         self, dashboard_widgets: List[Dict]
@@ -387,13 +382,13 @@ class RedashSource(Source):
         chart_url = f"{self.config.connect_uri}/queries/{query_data.get('id')}#{viz_id}"
         description = viz_data.get("description") if viz_data.get("description") else ""
         data_source_id = query_data.get("data_source_id")
+        data_source = self._get_chart_data_source(data_source_id)
+        data_source_type = data_source.get("type")
 
         # TODO: Getting table lineage from SQL parsing
         # Currently we only get database level source from `data_source_id` which returns database name or Bigquery's projectId
         # query = query_data.get("query", "")
-        data_source_type, datasource_urn = self._get_datasource_urn_from_data_source_id(
-            data_source_id
-        )
+        datasource_urn = self._get_datasource_urn_from_data_source(data_source)
 
         if not datasource_urn:
             self.report.report_warning(
