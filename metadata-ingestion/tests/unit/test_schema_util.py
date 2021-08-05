@@ -325,7 +325,7 @@ def test_simple_record_with_primitive_types():
     assret_field_paths_match(fields, expected_field_paths)
 
 
-def test_simple_nested_record_with_a_string_field():
+def test_simple_nested_record_with_a_string_field_for_key_schema():
     schema = """
     {
         "type": "record",
@@ -344,11 +344,11 @@ def test_simple_nested_record_with_a_string_field():
         }]
     }
 """
-    fields = avro_schema_to_mce_fields(schema)
+    fields = avro_schema_to_mce_fields(schema, True)
     expected_field_paths: List[str] = [
-        "[type=SimpleNested]",
-        "[type=SimpleNested].[type=InnerRcd]nestedRcd",
-        "[type=SimpleNested].[type=InnerRcd]nestedRcd.[type=string]aStringField",
+        "[key=True].[type=SimpleNested]",
+        "[key=True].[type=SimpleNested].[type=InnerRcd]nestedRcd",
+        "[key=True].[type=SimpleNested].[type=InnerRcd]nestedRcd.[type=string]aStringField",
     ]
     assret_field_paths_match(fields, expected_field_paths)
 

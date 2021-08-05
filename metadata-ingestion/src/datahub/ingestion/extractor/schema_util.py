@@ -47,11 +47,13 @@ class AvroToMceSchemaConverter:
         "fixed": FixedTypeClass,
     }
 
-    def __init__(self):
+    def __init__(self, is_key_schema: bool):
         # Initialize the prefix name stack for nested name generation.
         self._prefix_name_stack: List[str] = []
         self._record_types_seen: List[str] = []
         self._skip_emit_next_complex_type_once = False
+        if is_key_schema:
+            self._prefix_name_stack.append("[key=True]")
 
     @staticmethod
     def _is_complex_type(schema: avro.schema.Schema) -> bool:
@@ -278,15 +280,19 @@ class AvroToMceSchemaConverter:
 
     @classmethod
     def to_mce_fields(
-        cls, avro_schema_string: str
+        cls, avro_schema_string: str, is_key_schema: bool
     ) -> Generator[SchemaField, None, None]:
         # Prefer the `parse` function over the deprecated `Parse` function.
         avro_schema_parse_fn = getattr(avro.schema, "parse", "Parse")
         avro_schema = avro_schema_parse_fn(avro_schema_string)
-        converter = cls()
+        converter = cls(is_key_schema)
         yield from converter._to_mce_fields(avro_schema)
 
 
-def avro_schema_to_mce_fields(avro_schema_string: str) -> List[SchemaField]:
+def avro_schema_to_mce_fields(
+    avro_schema_string: str, is_key_schema: bool = False
+) -> List[SchemaField]:
     """Converts an avro schema into a schema compatible with MCE"""
-    return list(AvroToMceSchemaConverter.to_mce_fields(avro_schema_string))
+    return list(
+        AvroToMceSchemaConverter.to_mce_fields(avro_schema_string, is_key_schema)
+    )
