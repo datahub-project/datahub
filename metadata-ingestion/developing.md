@@ -114,7 +114,7 @@ pytest -m 'not integration' -vv
 # Run the full testing suite
 pytest -vv
 
-# These steps are all included in the gradle build:
+# You can also run these steps via the gradle build:
 ../gradlew :metadata-ingestion:lint
 ../gradlew :metadata-ingestion:lintFix
 ../gradlew :metadata-ingestion:testQuick
