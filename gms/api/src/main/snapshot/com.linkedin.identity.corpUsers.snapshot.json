@@ -93,7 +93,7 @@
     "type" : "record",
     "name" : "Status",
     "namespace" : "com.linkedin.common",
-    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
     "fields" : [ {
       "name" : "removed",
       "type" : "boolean",
@@ -141,7 +141,7 @@
         "fields" : [ {
           "name" : "active",
           "type" : "boolean",
-          "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+          "doc" : "Whether the corpUser is active (Should be able to log in?)",
           "Searchable" : {
             "fieldType" : "BOOLEAN",
             "weightsPerFieldValue" : {
@@ -157,6 +157,7 @@
           "name" : "email",
           "type" : "com.linkedin.common.EmailAddress",
           "doc" : "email address of this user",
+          "optional" : true,
           "Searchable" : {
             "fieldType" : "KEYWORD",
             "queryByDefault" : true
@@ -300,6 +301,27 @@
       }
     } ]
   }, {
+    "type" : "record",
+    "name" : "GroupMembership",
+    "namespace" : "com.linkedin.identity",
+    "doc" : "Carries information about the CorpGroups a user is in.",
+    "fields" : [ {
+      "name" : "groups",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "corpGroup" ],
+          "name" : "IsMemberOfGroup"
+        }
+      }
+    } ],
+    "Aspect" : {
+      "name" : "groupMembership"
+    }
+  }, {
     "type" : "typeref",
     "name" : "CorpUserAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -323,7 +345,7 @@
       "Aspect" : {
         "name" : "corpUserKey"
       }
-    }, "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
+    }, "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.GroupMembership", "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
   }, "com.linkedin.metadata.key.CorpUserKey", {
     "type" : "record",
     "name" : "AggregationMetadata",

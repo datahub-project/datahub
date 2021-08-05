@@ -592,7 +592,7 @@
                     "type": "record",
                     "name": "Status",
                     "namespace": "com.linkedin.pegasus2avro.common",
-                    "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+                    "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
                     "fields": [
                       {
                         "name": "removed",
@@ -724,8 +724,12 @@
                     "fields": [
                       {
                         "name": "email",
-                        "type": "string",
-                        "doc": "email of this group"
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "email of this group",
+                        "default": null
                       },
                       {
                         "name": "admins",
@@ -774,6 +778,15 @@
                             "name": "IsPartOf"
                           }
                         }
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "A description of the group.",
+                        "default": null
                       }
                     ],
                     "Aspect": {
@@ -845,7 +858,7 @@
                       {
                         "name": "active",
                         "type": "boolean",
-                        "doc": "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+                        "doc": "Whether the corpUser is active (Should be able to log in?)",
                         "Searchable": {
                           "fieldType": "BOOLEAN",
                           "weightsPerFieldValue": {
@@ -864,8 +877,12 @@
                       },
                       {
                         "name": "email",
-                        "type": "string",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
                         "doc": "email address of this user",
+                        "default": null,
                         "Searchable": {
                           "fieldType": "KEYWORD",
                           "queryByDefault": true
@@ -1033,6 +1050,32 @@
                         "com.linkedin.pegasus2avro.common.CorpuserUrn"
                       ],
                       "name": "corpUserEditableInfo"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "GroupMembership",
+                    "namespace": "com.linkedin.pegasus2avro.identity",
+                    "doc": "Carries information about the CorpGroups a user is in.",
+                    "fields": [
+                      {
+                        "name": "groups",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "corpGroup"
+                            ],
+                            "name": "IsMemberOfGroup"
+                          }
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "groupMembership"
                     }
                   },
                   "com.linkedin.pegasus2avro.common.GlobalTags",
@@ -5163,20 +5206,20 @@
             {
               "name": "lastObserved",
               "type": [
-                "null",
-                "long"
+                "long",
+                "null"
               ],
               "doc": "The timestamp the metadata was observed at",
-              "default": null
+              "default": 0
             },
             {
               "name": "runId",
               "type": [
-                "null",
-                "string"
+                "string",
+                "null"
               ],
               "doc": "The run id that produced the metadata",
-              "default": null
+              "default": "no-run-id-provided"
             },
             {
               "name": "properties",

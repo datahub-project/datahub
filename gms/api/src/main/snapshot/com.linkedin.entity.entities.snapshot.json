@@ -1065,7 +1065,7 @@
     "type" : "record",
     "name" : "Status",
     "namespace" : "com.linkedin.common",
-    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
     "fields" : [ {
       "name" : "removed",
       "type" : "boolean",
@@ -1785,7 +1785,8 @@
                   "fields" : [ {
                     "name" : "email",
                     "type" : "com.linkedin.common.EmailAddress",
-                    "doc" : "email of this group"
+                    "doc" : "email of this group",
+                    "optional" : true
                   }, {
                     "name" : "admins",
                     "type" : {
@@ -1825,6 +1826,11 @@
                         "name" : "IsPartOf"
                       }
                     }
+                  }, {
+                    "name" : "description",
+                    "type" : "string",
+                    "doc" : "A description of the group.",
+                    "optional" : true
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
@@ -1883,7 +1889,7 @@
                   "fields" : [ {
                     "name" : "active",
                     "type" : "boolean",
-                    "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+                    "doc" : "Whether the corpUser is active (Should be able to log in?)",
                     "Searchable" : {
                       "fieldType" : "BOOLEAN",
                       "weightsPerFieldValue" : {
@@ -1899,6 +1905,7 @@
                     "name" : "email",
                     "type" : "com.linkedin.common.EmailAddress",
                     "doc" : "email address of this user",
+                    "optional" : true,
                     "Searchable" : {
                       "fieldType" : "KEYWORD",
                       "queryByDefault" : true
@@ -2011,6 +2018,27 @@
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
                     "name" : "corpUserEditableInfo"
+                  }
+                }, {
+                  "type" : "record",
+                  "name" : "GroupMembership",
+                  "namespace" : "com.linkedin.identity",
+                  "doc" : "Carries information about the CorpGroups a user is in.",
+                  "fields" : [ {
+                    "name" : "groups",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "corpGroup" ],
+                        "name" : "IsMemberOfGroup"
+                      }
+                    }
+                  } ],
+                  "Aspect" : {
+                    "name" : "groupMembership"
                   }
                 }, "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
               }
@@ -4030,7 +4058,7 @@
         } ]
       }
     } ]
-  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", {
+  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.GroupMembership", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", {
     "type" : "record",
     "name" : "BrowseResult",
     "namespace" : "com.linkedin.metadata.browse",
@@ -4318,11 +4346,13 @@
       "name" : "lastObserved",
       "type" : "long",
       "doc" : "The timestamp the metadata was observed at",
+      "default" : 0,
       "optional" : true
     }, {
       "name" : "runId",
       "type" : "string",
       "doc" : "The run id that produced the metadata",
+      "default" : "no-run-id-provided",
       "optional" : true
     }, {
       "name" : "properties",
