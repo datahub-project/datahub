@@ -1,6 +1,9 @@
 package com.linkedin.metadata.resources;
 
 import com.linkedin.common.urn.UrnValidator;
+import com.linkedin.data.schema.validation.CoercionMode;
+import com.linkedin.data.schema.validation.RequiredMode;
+import com.linkedin.data.schema.validation.UnrecognizedFieldMode;
 import com.linkedin.data.schema.validation.ValidateDataAgainstSchema;
 import com.linkedin.data.schema.validation.ValidationOptions;
 import com.linkedin.data.schema.validation.ValidationResult;
@@ -13,7 +16,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ResourceUtils {
 
-  private static final ValidationOptions DEFAULT_VALIDATION_OPTIONS = new ValidationOptions();
+  private static final ValidationOptions DEFAULT_VALIDATION_OPTIONS = new ValidationOptions(
+      RequiredMode.CAN_BE_ABSENT_IF_HAS_DEFAULT,
+      CoercionMode.NORMAL,
+      UnrecognizedFieldMode.DISALLOW
+  );
   private static final UrnValidator URN_VALIDATOR = new UrnValidator();
 
   /**
