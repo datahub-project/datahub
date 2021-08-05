@@ -1,5 +1,5 @@
 import React from 'react';
-import translateFieldPath from '../schema/translateFieldPath';
+import translateFieldPath from '../schema/utils/translateFieldPath';
 
 describe('translateFieldPath', () => {
     it('translates qualified unions', () => {

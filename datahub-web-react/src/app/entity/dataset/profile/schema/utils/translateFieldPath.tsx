@@ -1,9 +1,10 @@
+import { KEY_SCHEMA_PREFIX } from './constants';
 import translateFieldPathSegment from './translateFieldPathSegment';
 
 export default function translateFieldPath(fieldPath: string) {
     // fields that are part of a key schema are prefixed with [key=true]
     // we don't want to display this
-    const cleanedFieldPath = fieldPath.replace('[key=true]', '');
+    const cleanedFieldPath = fieldPath.replace(KEY_SCHEMA_PREFIX, '');
 
     const fieldPathParts = cleanedFieldPath.split('.');
 

@@ -9,7 +9,14 @@ const SchemaHeaderContainer = styled.div<{ edit?: string }>`
 `;
 
 const ShowVersionButton = styled(Button)`
-    margin-right: 10px;
+    margin-right: 20px;
+`;
+
+const KeyValueButtonGroup = styled.div`
+    padding-right: 20px;
+    display: flex;
+    justify-content: space-between;
+    width: 150px;
 `;
 
 type Props = {
@@ -17,9 +24,12 @@ type Props = {
     fetchVersions: (version1: number, version2: number) => void;
     editMode: boolean;
     setEditMode: (mode: boolean) => void;
-    hasRow: boolean;
+    hasRaw: boolean;
     showRaw: boolean;
     setShowRaw: (show: boolean) => void;
+    hasKeySchema: boolean;
+    showKeySchema: boolean;
+    setShowKeySchema: (show: boolean) => void;
 };
 
 export default function SchemaHeader({
@@ -27,9 +37,12 @@ export default function SchemaHeader({
     fetchVersions,
     editMode,
     setEditMode,
-    hasRow,
+    hasRaw,
     showRaw,
     setShowRaw,
+    hasKeySchema,
+    showKeySchema,
+    setShowKeySchema,
 }: Props) {
     const onVersionChange = (version1, version2) => {
         if (version1 === null || version2 === null) {
@@ -41,6 +54,16 @@ export default function SchemaHeader({
     return (
         <SchemaHeaderContainer edit={editMode ? 'true' : undefined}>
             {maxVersion > 0 && !editMode && <CustomPagination onChange={onVersionChange} maxVersion={maxVersion} />}
+            {hasKeySchema && (
+                <KeyValueButtonGroup>
+                    <Button type={showKeySchema ? 'primary' : 'default'} onClick={() => setShowKeySchema(true)}>
+                        Key
+                    </Button>
+                    <Button type={showKeySchema ? 'default' : 'primary'} onClick={() => setShowKeySchema(false)}>
+                        Value
+                    </Button>
+                </KeyValueButtonGroup>
+            )}
             <div>
                 {maxVersion > 0 &&
                     (editMode ? (
@@ -48,7 +71,7 @@ export default function SchemaHeader({
                     ) : (
                         <ShowVersionButton onClick={() => setEditMode(true)}>Back</ShowVersionButton>
                     ))}
-                {hasRow && <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>}
+                {hasRaw && <Button onClick={() => setShowRaw(!showRaw)}>{showRaw ? 'Tabular' : 'Raw'}</Button>}
             </div>
         </SchemaHeaderContainer>
     );

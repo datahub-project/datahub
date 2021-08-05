@@ -1,5 +1,5 @@
 import React from 'react';
-import translateFieldPathSegment from '../schema/translateFieldPathSegment';
+import translateFieldPathSegment from '../schema/utils/translateFieldPathSegment';
 
 describe('translateFieldPathSegment', () => {
     it('translates unions', () => {

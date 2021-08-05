@@ -15,10 +15,11 @@ import {
     GlossaryTerms,
     UsageQueryResult,
 } from '../../../../../types.generated';
-import { diffMarkdown, ExtendedSchemaFields } from '../../../shared/utils';
 import TagTermGroup from '../../../../shared/tags/TagTermGroup';
 import DescriptionField from './components/SchemaDescriptionField';
-import schemaTitleRenderer from './schemaTitleRenderer';
+import schemaTitleRenderer from './utils/schemaTitleRenderer';
+import { diffMarkdown } from './utils/utils';
+import { ExtendedSchemaFields } from './utils/types';
 
 const TableContainer = styled.div`
     & .table-red-row {
