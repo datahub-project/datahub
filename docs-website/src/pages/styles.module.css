@@ -10,6 +10,8 @@
 .browse_image {
   margin-left: -2rem;
   margin-right: 4rem;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .recipe_example {
@@ -23,10 +25,17 @@
 .how_third_image {
   margin-left: 4rem;
   margin-right: -2rem;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .bumpUpLogo {
   margin-top: -0.5rem;
+}
+
+.demo_image {
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 @media screen and (max-width: 966px) {
@@ -70,7 +79,7 @@
 .buttons {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: left;
 }
 
 .hero_button {
