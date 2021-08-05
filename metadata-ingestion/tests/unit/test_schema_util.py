@@ -558,3 +558,55 @@ def test_mce_avro_parses_okay():
     fields = avro_schema_to_mce_fields(schema)
     assert len(fields)
     log_field_paths(fields)
+
+
+def test_key_schema_handling():
+    """Tests key schema handling"""
+    schema = """
+    {
+        "type": "record",
+        "name": "ABFooUnion",
+        "namespace": "com.linkedin",
+        "fields": [{
+            "name": "a",
+            "type": [ {
+                "type": "record",
+                "name": "A",
+                "fields": [{ "name": "f", "type": "string" } ]
+                }, {
+                "type": "record",
+                "name": "B",
+                "fields": [{ "name": "f", "type": "string" } ]
+                }, {
+                "type": "array",
+                "items": {
+                    "type": "array",
+                    "items": [
+                        "null",
+                        {
+                            "type": "record",
+                            "name": "Foo",
+                            "fields": [{ "name": "f", "type": "long" }]
+                        }
+                    ]
+                }
+        }]
+        }]
+    }
+"""
+    fields: List[SchemaField] = avro_schema_to_mce_fields(schema, is_key_schema=True)
+    expected_field_paths: List[str] = [
+        "[key=True].[type=ABFooUnion]",
+        "[key=True].[type=ABFooUnion].[type=union]a",
+        "[key=True].[type=ABFooUnion].[type=union]a.[type=A]",
+        "[key=True].[type=ABFooUnion].[type=union]a.[type=A].[type=string]f",
+        "[key=True].[type=ABFooUnion].[type=union]a.[type=B]",
+        "[key=True].[type=ABFooUnion].[type=union]a.[type=B].[type=string]f",
+        "[key=True].[type=ABFooUnion].[type=union]a.[type=array]",
+        "[key=True].[type=ABFooUnion].[type=union]a.[type=array].[type=array]",
+        "[key=True].[type=ABFooUnion].[type=union]a.[type=array].[type=array].[type=Foo]",
+        "[key=True].[type=ABFooUnion].[type=union]a.[type=array].[type=array].[type=Foo].[type=long]f",
+    ]
+    assret_field_paths_match(fields, expected_field_paths)
+    for f in fields:
+        assert f.isPartOfKey == True

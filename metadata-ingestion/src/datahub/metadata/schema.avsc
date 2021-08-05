@@ -2419,6 +2419,15 @@
                                   "type": "string",
                                   "name": "documentSchema",
                                   "doc": "The native kafka document schema. This is a human readable avro document schema."
+                                },
+                                {
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "name": "keySchema",
+                                  "default": null,
+                                  "doc": "The native kafka key schema as retrieved from Schema Registry"
                                 }
                               ],
                               "doc": "Schema holder for kafka schema."
@@ -2768,6 +2777,12 @@
                                   "name": "glossaryTerms",
                                   "default": null,
                                   "doc": "Glossary terms associated with the field"
+                                },
+                                {
+                                  "type": "boolean",
+                                  "name": "isPartOfKey",
+                                  "default": false,
+                                  "doc": "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields"
                                 }
                               ],
                               "doc": "SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema"
