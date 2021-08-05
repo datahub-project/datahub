@@ -19,8 +19,9 @@ const ProtectedRoute = ({
 }: {
     isLoggedIn: boolean;
 } & RouteProps) => {
+    const currentPath = window.location.pathname + window.location.search;
     if (!isLoggedIn) {
-        window.location.replace(PageRoutes.AUTHENTICATE);
+        window.location.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
         return null;
     }
     return <Route {...props} />;

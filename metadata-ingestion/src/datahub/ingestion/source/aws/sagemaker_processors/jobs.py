@@ -2,6 +2,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
+    TYPE_CHECKING,
     Any,
     DefaultDict,
     Dict,
@@ -15,8 +16,6 @@ from typing import (
     TypeVar,
     Union,
 )
-
-from mypy_boto3_sagemaker import SageMakerClient
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -46,6 +45,9 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     JobStatusClass,
 )
+
+if TYPE_CHECKING:
+    from mypy_boto3_sagemaker import SageMakerClient
 
 JobInfo = TypeVar(
     "JobInfo",
@@ -151,7 +153,7 @@ class JobProcessor:
     """
 
     # boto3 SageMaker client
-    sagemaker_client: SageMakerClient
+    sagemaker_client: "SageMakerClient"
     env: str
     report: SagemakerSourceReport
     # config filter for specific job types to ingest (see metadata-ingestion README)

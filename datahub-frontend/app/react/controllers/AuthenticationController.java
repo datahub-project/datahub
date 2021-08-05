@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.typesafe.config.Config;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.context.session.SessionStore;
@@ -32,6 +35,8 @@ import static react.auth.AuthUtils.*;
 
 public class AuthenticationController extends Controller {
 
+    private static final String AUTH_REDIRECT_URI_PARAM = "redirect_uri";
+
     private final Logger _logger = LoggerFactory.getLogger(AuthenticationController.class.getName());
     private final Config _configs;
     private final OidcConfigs _oidcConfigs;
@@ -58,8 +63,12 @@ public class AuthenticationController extends Controller {
      */
     @Nonnull
     public Result authenticate() {
+
+        final Optional<String> maybeRedirectPath = Optional.ofNullable(ctx().request().getQueryString(AUTH_REDIRECT_URI_PARAM));
+        final String redirectPath = maybeRedirectPath.orElse("/");
+
         if (AuthUtils.isAuthenticated(ctx())) {
-            return redirect("/");
+            return redirect(redirectPath);
         }
 
         // 1. If indirect auth is enabled, redirect to IdP
@@ -72,12 +81,12 @@ public class AuthenticationController extends Controller {
 
         // 2. If JAAS auth is enabled, fallback to it
         if (_jaasConfigs.isJAASEnabled()) {
-            return redirect(LOGIN_ROUTE);
+            return redirect(LOGIN_ROUTE + String.format("?%s=%s", AUTH_REDIRECT_URI_PARAM,  encodeRedirectUri(redirectPath)));
         }
 
         // 3. If no auth enabled, fallback to using default user account & redirect.
         session().put(ACTOR, DEFAULT_ACTOR_URN.toString());
-        return redirect("/").withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
+        return redirect(redirectPath).withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), _configs.hasPath(SESSION_TTL_CONFIG_PATH)
                 ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
                 : DEFAULT_SESSION_TTL_HOURS));
     }
@@ -123,5 +132,13 @@ public class AuthenticationController extends Controller {
             .withHttpOnly(false)
             .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
             .build());
+    }
+
+    private String encodeRedirectUri(final String redirectUri) {
+        try {
+            return URLEncoder.encode(redirectUri, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(String.format("Failed to encode redirect URI %s", redirectUri), e);
+        }
     }
 }
