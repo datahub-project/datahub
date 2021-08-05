@@ -281,7 +281,9 @@ class KuduSource(Source):
             if table_owner:
                 data_owner = f"urn:li:corpuser:{table_owner}"
                 owner_properties = OwnershipClass(
-                    owners=[OwnerClass(owner=data_owner, type=OwnershipTypeClass.DATAOWNER)]
+                    owners=[
+                        OwnerClass(owner=data_owner, type=OwnershipTypeClass.DATAOWNER)
+                    ]
                 )
                 dataset_snapshot.aspects.append(owner_properties)
             # kudu has no table comments.
