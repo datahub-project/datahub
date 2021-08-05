@@ -79,7 +79,7 @@ class InsertIngestionDictionary(Transformer):
             for item in fields:
                 col_name = item.fieldPath
                 if col_name in records.keys():
-                    item.description = records[col_name].get("description")
+                    item.description = records[col_name].get("description").strip()
                     proposed_tags_list = records[col_name].get("tag")
                     if not proposed_tags_list:
                         continue

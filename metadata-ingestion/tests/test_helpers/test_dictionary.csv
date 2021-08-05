@@ -1,3 +1,3 @@
 sn,column_name,tag,description
-0,id,,"something about an id"
-1,name,"given_name, christian_names", "something about the name" 
+0,id,,something about an id
+1,name,"given_name, christian_names", something about the name
