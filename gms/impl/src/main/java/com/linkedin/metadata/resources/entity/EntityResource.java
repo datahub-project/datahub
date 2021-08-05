@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
@@ -32,11 +33,11 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -45,6 +46,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
 import static com.linkedin.metadata.entity.EntityService.*;
+import static com.linkedin.metadata.resources.ResourceUtils.*;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
@@ -102,6 +104,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       final Entity entity = _entityService.getEntity(urn, projectedAspects);
       if (entity == null) {
         throw RestliUtils.resourceNotFoundException();
+      } else {
+        validateOrWarn(entity);
       }
       return entity;
     });
@@ -122,23 +126,35 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       return _entityService.getEntities(urns, projectedAspects)
           .entrySet()
           .stream()
+          .peek(entry -> validateOrWarn(entry.getValue()))
           .collect(Collectors.toMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
     });
   }
+
+  private SystemMetadata populateDefaultFieldsIfEmpty(@Nullable SystemMetadata systemMetadata) {
+    SystemMetadata result = systemMetadata;
+    if (result == null) {
+      result = new SystemMetadata();
+    }
+
+    if (result.getLastObserved() == 0) {
+      result.setLastObserved(System.currentTimeMillis());
+    }
+
+    return result;
+  }
+
 
   @Action(name = ACTION_INGEST)
   @Nonnull
   public Task<Void> ingest(
       @ActionParam(PARAM_ENTITY) @Nonnull Entity entity,
-      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata systemMetadata
+      @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata providedSystemMetadata
   ) throws URISyntaxException {
 
-    if (systemMetadata == null) {
-      SystemMetadata generatedSystemMetadata = new SystemMetadata();
-      generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
-      generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
-      systemMetadata = generatedSystemMetadata;
-    }
+    validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
+
+    SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
 
     final Set<String> projectedAspects = new HashSet<>(Arrays.asList("browsePaths"));
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(entity.getValue());
@@ -167,20 +183,28 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_ENTITIES) @Nonnull Entity[] entities,
       @ActionParam(SYSTEM_METADATA) @Optional @Nullable SystemMetadata[] systemMetadataList
       ) throws URISyntaxException {
+
+    for (Entity entity : entities) {
+      validateOrThrow(entity, HttpStatus.S_422_UNPROCESSABLE_ENTITY);
+    }
+
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+
     if (systemMetadataList == null) {
-      final SystemMetadata generatedSystemMetadata = new SystemMetadata();
-      generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
-      generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
-      Stream.generate(() -> generatedSystemMetadata).limit(entities.length).collect(Collectors.toList());
+      systemMetadataList = new SystemMetadata[entities.length];
     }
-    if (systemMetadataList != null && entities.length != systemMetadataList.length) {
+
+    if (entities.length != systemMetadataList.length) {
       throw RestliUtils.invalidArgumentsException("entities and systemMetadata length must match");
     }
 
+    final List<SystemMetadata> finalSystemMetadataList = Arrays.stream(systemMetadataList)
+        .map(systemMetadata -> populateDefaultFieldsIfEmpty(systemMetadata))
+        .collect(Collectors.toList());
+
     return RestliUtils.toTask(() -> {
-      _entityService.ingestEntities(Arrays.asList(entities), auditStamp, Arrays.asList(systemMetadataList));
+      _entityService.ingestEntities(Arrays.asList(entities), auditStamp, finalSystemMetadataList);
       return null;
     });
   }

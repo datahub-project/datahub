@@ -16,7 +16,7 @@ export const SearchResults = ({ typeName, pageStart, pageSize, totalResults, res
             title={<h1 style={{ marginBottom: '0px' }}>{typeName}</h1>}
             extra={
                 <div style={{ color: 'grey' }}>
-                    Showing {pageStart * pageSize} - {pageStart * pageSize + pageSize} of {totalResults} results
+                    Showing {pageStart * pageSize + 1} - {pageStart * pageSize + pageSize} of {totalResults} results
                 </div>
             }
         >

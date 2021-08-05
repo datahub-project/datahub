@@ -46,7 +46,6 @@ function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: boolean
     const returnLines: NamedLine[] = [];
     chartData.lines.forEach((line) => {
         const newLine = [...line.data];
-        console.log(newLine, endDate);
         for (let i = endDate.getTime(); i > startDate.getTime(); i -= intervalMs) {
             const pointOverlap = line.data.filter((point) => {
                 return Math.abs(new Date(point.x).getTime() - i) > intervalMs;

@@ -1134,6 +1134,30 @@ export const mocks = [
     },
     {
         request: {
+            query: GetAutoCompleteAllResultsDocument,
+            variables: {
+                input: {
+                    query: 't',
+                    limit: 30,
+                },
+            },
+        },
+        result: {
+            data: {
+                autoCompleteForAll: {
+                    query: 't',
+                    suggestions: [
+                        {
+                            type: EntityType.Dataset,
+                            suggestions: ['The Great Test Dataset', 'Some other test'],
+                        },
+                    ],
+                },
+            },
+        },
+    },
+    {
+        request: {
             query: GetAutoCompleteResultsDocument,
             variables: {
                 input: {

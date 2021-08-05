@@ -17,6 +17,7 @@ RUN cd datahub-src && cp datahub-upgrade/build/libs/datahub-upgrade.jar ../datah
 
 FROM base as prod-install
 COPY --from=prod-build /datahub-upgrade.jar /datahub/datahub-upgrade/bin/
+COPY --from=prod-build /datahub-src/metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.

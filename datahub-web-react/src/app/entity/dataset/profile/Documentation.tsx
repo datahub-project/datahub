@@ -134,24 +134,18 @@ export default function Documentation({
 
     const tableColumns = [
         {
-            title: 'URL',
-            dataIndex: 'url',
-            render: (url: string, record: any) => {
-                return isEditing(record) ? (
-                    <FormInput name="url" placeholder="Enter a URL" type="url" />
-                ) : (
-                    <a href={url}>{url}</a>
-                );
-            },
-        },
-        {
-            title: 'Description',
+            title: 'Document',
             dataIndex: 'description',
             render: (description: string, record: any) => {
                 return isEditing(record) ? (
-                    <FormInput name="description" placeholder="Enter a description" type="string" />
+                    <Space>
+                        <FormInput name="description" placeholder="Enter a description" type="string" />
+                        <FormInput name="url" placeholder="Enter a URL" type="url" />
+                    </Space>
                 ) : (
-                    description
+                    <Typography.Link href={record.url} target="_blank">
+                        {description}
+                    </Typography.Link>
                 );
             },
         },
