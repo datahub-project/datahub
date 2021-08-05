@@ -1,0 +1,12 @@
+run_id: kafka-test
+
+source:
+  type: kafka
+  config:
+    connection:
+        bootstrap: "localhost:59092"
+
+sink:
+  type: file
+  config:
+    filename: "./kafka_mces.json"
