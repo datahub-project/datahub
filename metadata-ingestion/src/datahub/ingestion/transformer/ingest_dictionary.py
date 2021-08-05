@@ -73,25 +73,26 @@ class InsertIngestionDictionary(Transformer):
         records = df.to_dict(orient="index")
 
         existing_schema = builder.get_aspect_if_available(mce, SchemaMetadataClass)
-        fields = existing_schema.fields
-        # returns the list of SchemaField in the SchemaMetaData
-        for item in fields:
-            col_name = item.fieldPath
-            if col_name in records.keys():
-                item.description = records[col_name].get("description")
-                proposed_tags_list = records[col_name].get("tag")
-                if not proposed_tags_list:
-                    continue
-                proposed_tags_list = records[col_name].get("tag").split(",")
-                proposed_tags_list = [
-                    item.strip() for item in proposed_tags_list if item.strip()
-                ]
-                tags = []
-                for proposed_tag in proposed_tags_list:
-                    tag_id = builder.make_tag_urn(proposed_tag)
-                    tag = TagAssociationClass(tag_id)
-                    tags.append(tag)
-                field_tag = GlobalTagsClass(tags=tags)
-                item.globalTags = field_tag
+        if existing_schema:
+            fields = existing_schema.fields
+            # returns the list of SchemaField in the SchemaMetaData
+            for item in fields:
+                col_name = item.fieldPath
+                if col_name in records.keys():
+                    item.description = records[col_name].get("description")
+                    proposed_tags_list = records[col_name].get("tag")
+                    if not proposed_tags_list:
+                        continue
+                    proposed_tags_list = records[col_name].get("tag").split(",")
+                    proposed_tags_list = [
+                        item.strip() for item in proposed_tags_list if item.strip()
+                    ]
+                    tags = []
+                    for proposed_tag in proposed_tags_list:
+                        tag_id = builder.make_tag_urn(proposed_tag)
+                        tag = TagAssociationClass(tag_id)
+                        tags.append(tag)
+                    field_tag = GlobalTagsClass(tags=tags)
+                    item.globalTags = field_tag
 
         return mce

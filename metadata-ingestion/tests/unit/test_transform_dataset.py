@@ -208,8 +208,14 @@ def test_ingest_dictionary_transformation(mock_time):
     schema_aspect = builder.get_aspect_if_available(
         outputs[0].record, models.SchemaMetadataClass
     )
-    assert schema_aspect.fields[0].globalTags is None
-    assert schema_aspect.fields[1].globalTags.tags[0].tag == "urn:li:tag:given_name"
-
-    assert schema_aspect.fields[0].description == "something about an id"
-    assert schema_aspect.fields[1].description == "something about the name"
+    if schema_aspect:
+        assert schema_aspect.fields[0].globalTags is None
+        global_tags = schema_aspect.fields[1].globalTags
+        if global_tags:
+            assert global_tags.tags[0].tag == "urn:li:tag:given_name"
+        else:
+            assert False
+        assert schema_aspect.fields[0].description == "something about an id"
+        assert schema_aspect.fields[1].description == "something about the name"
+    else:
+        assert False
