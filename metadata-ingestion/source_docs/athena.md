@@ -2,8 +2,6 @@
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
-
 ## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[athena]'`.
@@ -18,6 +16,8 @@ This plugin extracts the following:
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
+
+For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
 
 ```yml
 source:

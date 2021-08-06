@@ -47,6 +47,8 @@ Supported SQL sources:
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
+For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
+
 ```yml
 source:
   type: <sql-source> # can be bigquery, snowflake, etc - see above for the list

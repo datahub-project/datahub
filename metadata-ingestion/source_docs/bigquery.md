@@ -23,6 +23,8 @@ You can also get fine-grained usage statistics for BigQuery using the `bigquery-
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
+For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
+
 ```yml
 source:
   type: bigquery
@@ -52,15 +54,15 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 Coming soon!
 
-# BigQuery Usage Stats
+## BigQuery Usage Stats
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-## Setup
+### Setup
 
 To install this plugin, run `pip install 'acryl-datahub[bigquery-usage]'`.
 
-## Capabilities
+### Capabilities
 
 This plugin extracts the following:
 
@@ -80,9 +82,11 @@ This source only does usage statistics. To get the tables, views, and schemas in
 
 :::
 
-## Quickstart recipe
+### Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
+
+For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
 
 ```yml
 source:
@@ -97,7 +101,7 @@ source:
     top_n_queries: 10
 ```
 
-## Config details
+### Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
@@ -115,7 +119,7 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `query_log_deplay`     |          |                                                                | To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least `query_log_delay` additional events to be processed before attempting to resolve BigQuery job information from the logs. If `query_log_delay` is `None`, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage. |
 | `max_query_duration`   |          | `15`                                                           | Correction to pad `start_time` and `end_time` with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.                                                                                                                                                                            |
 
-## Compatibility
+### Compatibility
 
 Coming soon!
 

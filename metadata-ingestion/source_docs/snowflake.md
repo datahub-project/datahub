@@ -23,6 +23,8 @@ You can also get fine-grained usage statistics for Snowflake using the `snowflak
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
+For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
+
 ```yml
 source:
   type: snowflake
@@ -63,15 +65,15 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 Coming soon!
 
-# Snowflake Usage Stats
+## Snowflake Usage Stats
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-## Setup
+### Setup
 
 To install this plugin, run `pip install 'acryl-datahub[snowflake-usage]'`.
 
-## Capabilities
+### Capabilities
 
 This plugin extracts the following:
 
@@ -88,9 +90,11 @@ This source only does usage statistics. To get the tables, views, and schemas in
 
 :::
 
-## Quickstart recipe
+### Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
+
+For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
 
 ```yml
 source:
@@ -108,7 +112,7 @@ source:
     top_n_queries: 10
 ```
 
-## Config details
+### Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
@@ -125,7 +129,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `end_time`        |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                          |
 | `top_n_queries`   |          | `10`                                                           | Number of top queries to save to each table.                    |
 
-## Compatibility
+### Compatibility
 
 Coming soon!
 
