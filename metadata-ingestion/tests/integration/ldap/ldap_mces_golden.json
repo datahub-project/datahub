@@ -10,7 +10,8 @@
                         "email": "simpons-group",
                         "admins": [],
                         "members": [],
-                        "groups": []
+                        "groups": [],
+                        "description": null
                     }
                 }
             ]
