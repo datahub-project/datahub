@@ -308,7 +308,9 @@ class LookerView:
 
         # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
         sql_table_name = (
-            sql_table_name.replace('"', "") if sql_table_name is not None else None
+            sql_table_name.replace('"', "").replace("`", "")
+            if sql_table_name is not None
+            else None
         )
         derived_table = looker_view.get("derived_table", None)
 
@@ -547,6 +549,9 @@ class LookMLSource(Source):
     def _get_upstream_lineage(self, looker_view: LookerView) -> UpstreamLineage:
         upstreams = []
         for sql_table_name in looker_view.sql_table_names:
+
+            sql_table_name = sql_table_name.replace('"', "").replace("`", "")
+
             upstream = UpstreamClass(
                 dataset=self._construct_datalineage_urn(
                     sql_table_name, looker_view.connection
@@ -617,7 +622,7 @@ class LookMLSource(Source):
         dataset_name = looker_view.view_name
 
         # Sanitize the urn creation.
-        dataset_name = dataset_name.replace("`", "")
+        dataset_name = dataset_name.replace('"', "").replace("`", "")
         dataset_snapshot = DatasetSnapshot(
             urn=builder.make_dataset_urn(
                 self.source_config.platform_name, dataset_name, self.source_config.env

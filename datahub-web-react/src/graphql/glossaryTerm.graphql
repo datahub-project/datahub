@@ -3,6 +3,7 @@ query getGlossaryTerm($urn: String!) {
         urn
         type
         name
+        hierarchicalName
         ownership {
             ...ownershipFields
         }
