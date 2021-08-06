@@ -28,10 +28,6 @@ sink:
 
 None!
 
-## Compatibility
-
-Coming soon!
-
 ## Questions
 
 If you've got any questions on configuring this sink, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

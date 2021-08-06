@@ -36,10 +36,6 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | -------- | -------- | ------- | ---------------------------- |
 | `server` | ✅       |         | URL of DataHub GMS endpoint. |
 
-### Compatibility
-
-Coming soon!
-
 ## DataHub Kafka
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
@@ -85,10 +81,6 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
 
 For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.yml).
-
-### Compatibility
-
-Coming soon!
 
 ## Questions
 

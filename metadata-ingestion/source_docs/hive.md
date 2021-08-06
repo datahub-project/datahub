@@ -24,16 +24,20 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: hive
   config:
+    # Coordinates
+    host_port: localhost:10000
+    database: DemoDatabase # optional, if not specified, ingests from all databases
+
+    # Credentials
+    username: user # optional
+    password: pass # optional
+
     # For more details on authentication, see the PyHive docs:
     # https://github.com/dropbox/PyHive#passing-session-configuration.
     # LDAP, Kerberos, etc. are supported using connect_args, which can be
     # added under the `options` config parameter.
     #scheme: 'hive+http' # set this if Thrift should use the HTTP transport
     #scheme: 'hive+https' # set this if Thrift should use the HTTP with SSL transport
-    username: user # optional
-    password: pass # optional
-    host_port: localhost:10000
-    database: DemoDatabase # optional, if not specified, ingests from all databases
 
 sink:
   # sink configs
