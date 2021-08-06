@@ -43,6 +43,10 @@ The options in the consumer config and schema registry config are passed to the 
 
 For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.yml).
 
+## Compatibility
+
+Coming soon!
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

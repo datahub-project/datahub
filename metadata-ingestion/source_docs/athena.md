@@ -8,7 +8,7 @@ To install this plugin, run `pip install 'acryl-datahub[athena]'`.
 
 This plugin extracts the following:
 
-- Database and table metadata
+- Metadata for databases, schemas, and tables
 - Column types associated with each table
 
 ## Quickstart recipe
@@ -51,6 +51,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `view_pattern.allow`   |          |              | Regex pattern for views to include in ingestion.                                                                                                                                                           |
 | `view_pattern.deny`    |          |              | Regex pattern for views to exclude from ingestion.                                                                                                                                                         |
 | `include_tables`       |          | `True`       | Whether tables should be ingested.                                                                                                                                                                         |
+
+## Compatibility
+
+Coming soon!
 
 ## Questions
 

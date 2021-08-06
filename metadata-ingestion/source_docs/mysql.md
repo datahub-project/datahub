@@ -8,7 +8,7 @@ To install this plugin, run `pip install 'acryl-datahub[mysql]'`.
 
 This plugin extracts the following:
 
-- List of databases and tables
+- Metadata for databases, schemas, and tables
 - Column types and schema associated with each table
 
 ## Quickstart recipe
@@ -48,6 +48,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `view_pattern.deny`    |          |                    | Regex pattern for views to exclude from ingestion.                                                                                                                                      |
 | `include_tables`       |          | `True`             | Whether tables should be ingested.                                                                                                                                                      |
 | `include_views`        |          | `True`             | Whether views should be ingested.                                                                                                                                                       |
+
+## Compatibility
+
+Coming soon!
 
 ## Questions
 

@@ -8,7 +8,7 @@ To install this plugin, run `pip install 'acryl-datahub[snowflake]'`.
 
 This plugin extracts the following:
 
-- List of databases, schema, and tables
+- Metadata for databases, schemas, views and tables
 - Column types associated with each table
 
 :::tip
@@ -56,6 +56,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `view_pattern.deny`      |          |                                                                      | Regex pattern for views to exclude from ingestion.                                                                                                                                      |
 | `include_tables`         |          | `True`                                                               | Whether tables should be ingested.                                                                                                                                                      |
 | `include_views`          |          | `True`                                                               | Whether views should be ingested.                                                                                                                                                       |
+
+## Compatibility
+
+Coming soon!
 
 # Snowflake Usage Stats
 
@@ -116,6 +120,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `start_time`      |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                        |
 | `end_time`        |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                          |
 | `top_n_queries`   |          | `10`                                                           | Number of top queries to save to each table.                    |
+
+## Compatibility
+
+Coming soon!
 
 ## Questions
 

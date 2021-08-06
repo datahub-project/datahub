@@ -45,6 +45,10 @@ The `drop_missing_first_last_name` should be set to true if you've got many "hea
 for devices or services should be excluded when they do not contain a first and last name. This will only
 impact the ingestion of LDAP users, while LDAP groups will be unaffected by this config option.
 
+## Compatibility
+
+Coming soon!
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

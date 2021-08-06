@@ -48,6 +48,10 @@ views depends on. As these SQL's can be complicated, and the package doesn't off
 Looker supports, the result might not be correct. This parsing is disabled by default, but can be enabled by setting
 `parse_table_names_from_sql: True`.
 
+## Compatibility
+
+Coming soon!
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

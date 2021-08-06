@@ -45,6 +45,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `table_pattern.deny`     |          |                             | Regex pattern for tables to exclude from ingestion.                                |
 | `underlying_platform`    |          | Override for platform name. |
 
+## Compatibility
+
+Coming soon!
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

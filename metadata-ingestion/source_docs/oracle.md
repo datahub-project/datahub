@@ -8,7 +8,7 @@ To install this plugin, run `pip install 'acryl-datahub[oracle]'`.
 
 This plugin extracts the following:
 
-- List of databases, schema, and tables
+- Metadata for databases, schemas, and tables
 - Column types associated with each table
 
 Using the Oracle source requires that you've also installed the correct drivers; see the [cx_Oracle docs](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html). The easiest one is the [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html).
@@ -55,6 +55,10 @@ Exactly one of `database` or `service_name` is required.
 | `view_pattern.deny`    |                                |          | Regex pattern for views to exclude from ingestion.                                                                                                                                                                                                                                |
 | `include_tables`       |                                | `True`   | Whether tables should be ingested.                                                                                                                                                                                                                                                |
 | `include_views`        |                                | `True`   | Whether views should be ingested.                                                                                                                                                                                                                                                 |
+
+## Compatibility
+
+Coming soon!
 
 ## Questions
 

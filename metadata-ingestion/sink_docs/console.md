@@ -13,6 +13,8 @@ Simply prints each metadata event to stdout. Useful for experimentation and debu
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
+source:
+  # source configs
 sink:
   type: "console"
 ```
@@ -20,6 +22,10 @@ sink:
 ## Config details
 
 None!
+
+## Compatibility
+
+Coming soon!
 
 ## Questions
 

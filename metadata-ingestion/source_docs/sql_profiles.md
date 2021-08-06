@@ -66,6 +66,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `profile_pattern.allow` |          |         | Regex pattern for tables to profile.                                    |
 | `profile_pattern.deny`  |          |         | Regex pattern for tables to not profile.                                |
 
+## Compatibility
+
+Coming soon!
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

@@ -53,6 +53,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `collection_pattern.allow` |          |                         | Regex pattern for collections to include in ingestion.                                                                   |
 | `collection_pattern.deny`  |          |                         | Regex pattern for collections to exclude from ingestion.                                                                 |
 
+## Compatibility
+
+Coming soon!
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

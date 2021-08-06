@@ -45,6 +45,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `connector_patterns.allow` |          |                            | Regex pattern for connectors to exclude from ingestion. |
 | `env`                      |          | `"PROD"`                   | Environment to use in namespace when constructing URNs. |
 
+## Compatibility
+
+Coming soon!
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

@@ -10,7 +10,7 @@ We have two options for the underlying library used to connect to SQL Server: (1
 
 This plugin extracts the following:
 
-- Databases, schema, tables and views and associated metadata
+- Metadata for databases, schemas, views and tables
 - Column types associated with each table/view
 
 ## Quickstart recipe
@@ -76,6 +76,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `view_pattern.deny`    |          |                    | Regex pattern for views to exclude from ingestion.                                                                                                                                      |
 | `include_tables`       |          | `True`             | Whether tables should be ingested.                                                                                                                                                      |
 | `include_views`        |          | `True`             | Whether views should be ingested.                                                                                                                                                       |
+
+## Compatibility
+
+Coming soon!
 
 ## Questions
 

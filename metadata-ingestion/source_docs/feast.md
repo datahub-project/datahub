@@ -39,6 +39,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `env`             |          | `"PROD"`           | Environment to use in namespace when constructing URNs. |
 | `use_local_build` |          | `False`            | Whether to build Feast ingestion Docker image locally.  |
 
+## Compatibility
+
+Coming soon!
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

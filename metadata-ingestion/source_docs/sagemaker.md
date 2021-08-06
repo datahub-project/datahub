@@ -45,6 +45,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `extract_jobs.training`               |          | `True`       | Whether to extract training jobs.                                                  |
 | `extract_jobs.transform`              |          | `True`       | Whether to extract transform jobs.                                                 |
 
+## Compatibility
+
+Coming soon!
+
 ## Questions
 
 If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

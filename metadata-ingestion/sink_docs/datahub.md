@@ -16,6 +16,8 @@ is that any errors can immediately be reported.
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
+source:
+  # source configs
 sink:
   type: "datahub-rest"
   config:
@@ -28,7 +30,11 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field    | Required | Default | Description                  |
 | -------- | -------- | ------- | ---------------------------- |
-| `server` |          |         | URL of DataHub GMS endpoint. |
+| `server` | ✅       |         | URL of DataHub GMS endpoint. |
+
+### Compatibility
+
+Coming soon!
 
 ## DataHub Kafka
 
@@ -39,14 +45,15 @@ To install this plugin, run `pip install 'acryl-datahub[datahub-kafka]'`.
 ### Capabilities
 
 Pushes metadata to DataHub by publishing messages to Kafka. The advantage of the Kafka-based
-interface is that it's asynchronous and can handle higher throughput. This requires the
-DataHub mce-consumer container to be running.
+interface is that it's asynchronous and can handle higher throughput.
 
 ### Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
+source:
+  # source configs
 sink:
   type: "datahub-kafka"
   config:
@@ -61,14 +68,18 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                                        | Required | Default | Description                                                                                                                                              |
 | -------------------------------------------- | -------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `connection.bootstrap`                       |          |         | Kafka bootstrap URL.                                                                                                                                     |
+| `connection.bootstrap`                       | ✅       |         | Kafka bootstrap URL.                                                                                                                                     |
 | `connection.producer_config.<option>`        |          |         | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer                  |
-| `connection.schema_registry_url`             |          |         | URL of schema registry being used.                                                                                                                       |
+| `connection.schema_registry_url`             | ✅       |         | URL of schema registry being used.                                                                                                                       |
 | `connection.schema_registry_config.<option>` |          |         | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient |
 
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
 
 For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.yml).
+
+### Compatibility
+
+Coming soon!
 
 ## Questions
 

@@ -8,7 +8,7 @@ To install this plugin, run `pip install 'acryl-datahub[redshift]'`.
 
 This plugin extracts the following:
 
-- Databases, schema, and tables and associated metadata
+- Metadata for databases, schemas, views and tables
 - Column types associated with each table
 - Also supports PostGIS extensions
 
@@ -78,6 +78,10 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `view_pattern.deny`    |          |          | Regex pattern for views to exclude from ingestion.                                                                                                                                      |
 | `include_tables`       |          | `True`   | Whether tables should be ingested.                                                                                                                                                      |
 | `include_views`        |          | `True`   | Whether views should be ingested.                                                                                                                                                       |
+
+## Compatibility
+
+Coming soon!
 
 ## Questions
 
