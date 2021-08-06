@@ -11,8 +11,7 @@ import javax.annotation.Nonnull;
 
 public class EntityKeyUtils {
 
-  private EntityKeyUtils() {
-  }
+  private EntityKeyUtils() { }
 
   /**
    * Implicitly converts a normal {@link Urn} into a {@link RecordTemplate} Entity Key given

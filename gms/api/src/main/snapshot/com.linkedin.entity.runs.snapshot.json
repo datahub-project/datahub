@@ -809,7 +809,7 @@
     "type" : "record",
     "name" : "Status",
     "namespace" : "com.linkedin.common",
-    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
     "fields" : [ {
       "name" : "removed",
       "type" : "boolean",
@@ -1285,7 +1285,8 @@
     "fields" : [ {
       "name" : "email",
       "type" : "com.linkedin.common.EmailAddress",
-      "doc" : "email of this group"
+      "doc" : "email of this group",
+      "optional" : true
     }, {
       "name" : "admins",
       "type" : {
@@ -1325,6 +1326,11 @@
           "name" : "IsPartOf"
         }
       }
+    }, {
+      "name" : "description",
+      "type" : "string",
+      "doc" : "A description of the group.",
+      "optional" : true
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
@@ -1384,7 +1390,7 @@
     "fields" : [ {
       "name" : "active",
       "type" : "boolean",
-      "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+      "doc" : "Whether the corpUser is active (Should be able to log in?)",
       "Searchable" : {
         "fieldType" : "BOOLEAN",
         "weightsPerFieldValue" : {
@@ -1400,6 +1406,7 @@
       "name" : "email",
       "type" : "com.linkedin.common.EmailAddress",
       "doc" : "email address of this user",
+      "optional" : true,
       "Searchable" : {
         "fieldType" : "KEYWORD",
         "queryByDefault" : true

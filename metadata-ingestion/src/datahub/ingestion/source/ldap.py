@@ -101,7 +101,7 @@ class LDAPSource(Source):
         ldap.set_option(ldap.OPT_REFERRALS, 0)
 
         self.ldap_client = ldap.initialize(self.config.ldap_server)
-        self.ldap_client.protocol_version = 3
+        self.ldap_client.protocol_version = 3  # Always uses LDAP Protocol 3.
 
         try:
             self.ldap_client.simple_bind_s(

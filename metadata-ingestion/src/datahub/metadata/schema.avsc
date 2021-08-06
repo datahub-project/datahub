@@ -616,7 +616,7 @@
                           "doc": "whether the entity is removed or not"
                         }
                       ],
-                      "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc."
+                      "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally."
                     },
                     {
                       "type": "record",
@@ -739,8 +739,12 @@
                       "namespace": "com.linkedin.pegasus2avro.identity",
                       "fields": [
                         {
-                          "type": "string",
+                          "type": [
+                            "null",
+                            "string"
+                          ],
                           "name": "email",
+                          "default": null,
                           "doc": "email of this group"
                         },
                         {
@@ -790,6 +794,15 @@
                           },
                           "name": "groups",
                           "doc": "List of groups in this group."
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "description",
+                          "default": null,
+                          "doc": "A description of the group."
                         }
                       ],
                       "doc": "group of corpUser, it may contains nested group"
@@ -867,7 +880,7 @@
                           },
                           "type": "boolean",
                           "name": "active",
-                          "doc": "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"
+                          "doc": "Whether the corpUser is active (Should be able to log in?)"
                         },
                         {
                           "type": [
@@ -883,8 +896,12 @@
                             "fieldType": "KEYWORD",
                             "queryByDefault": true
                           },
-                          "type": "string",
+                          "type": [
+                            "null",
+                            "string"
+                          ],
                           "name": "email",
+                          "default": null,
                           "doc": "email address of this user"
                         },
                         {
@@ -1045,6 +1062,32 @@
                         }
                       ],
                       "doc": "Linkedin corp user information that can be edited from UI"
+                    },
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "groupMembership"
+                      },
+                      "name": "GroupMembership",
+                      "namespace": "com.linkedin.pegasus2avro.identity",
+                      "fields": [
+                        {
+                          "Relationship": {
+                            "/*": {
+                              "entityTypes": [
+                                "corpGroup"
+                              ],
+                              "name": "IsMemberOfGroup"
+                            }
+                          },
+                          "type": {
+                            "type": "array",
+                            "items": "string"
+                          },
+                          "name": "groups"
+                        }
+                      ],
+                      "doc": "Carries information about the CorpGroups a user is in."
                     },
                     "com.linkedin.pegasus2avro.common.GlobalTags",
                     "com.linkedin.pegasus2avro.common.Status"
@@ -5219,20 +5262,20 @@
             "fields": [
               {
                 "type": [
-                  "null",
-                  "long"
+                  "long",
+                  "null"
                 ],
                 "name": "lastObserved",
-                "default": null,
+                "default": 0,
                 "doc": "The timestamp the metadata was observed at"
               },
               {
                 "type": [
-                  "null",
-                  "string"
+                  "string",
+                  "null"
                 ],
                 "name": "runId",
-                "default": null,
+                "default": "no-run-id-provided",
                 "doc": "The run id that produced the metadata"
               },
               {
