@@ -1,15 +1,18 @@
 from functools import reduce
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import boto3
 from boto3.session import Session
-from mypy_boto3_glue import GlueClient
-from mypy_boto3_s3 import S3Client
-from mypy_boto3_sagemaker import SageMakerClient
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import DEFAULT_ENV
+
+if TYPE_CHECKING:
+
+    from mypy_boto3_glue import GlueClient
+    from mypy_boto3_s3 import S3Client
+    from mypy_boto3_sagemaker import SageMakerClient
 
 
 def assume_role(
@@ -88,13 +91,13 @@ class AwsSourceConfig(ConfigModel):
         else:
             return Session(region_name=self.aws_region)
 
-    def get_s3_client(self) -> S3Client:
+    def get_s3_client(self) -> "S3Client":
         return self.get_session().client("s3")
 
-    def get_glue_client(self) -> GlueClient:
+    def get_glue_client(self) -> "GlueClient":
         return self.get_session().client("glue")
 
-    def get_sagemaker_client(self) -> SageMakerClient:
+    def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker")
 
 

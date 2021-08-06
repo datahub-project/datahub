@@ -190,6 +190,10 @@ public class EntityClient {
 
     public Response<Void> updateWithSystemMetadata(@Nonnull final Entity entity,
         @Nullable final SystemMetadata systemMetadata) throws RemoteInvocationException {
+        if (systemMetadata == null) {
+            return update(entity);
+        }
+
         EntitiesDoIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity).systemMetadataParam(systemMetadata);
 
