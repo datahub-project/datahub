@@ -262,3 +262,23 @@ SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
     "ARRAY": ArrayType,
     "GEOGRAPHY": None,
 }
+
+# see https://github.com/googleapis/python-bigquery-sqlalchemy/blob/master/pybigquery/sqlalchemy_bigquery.py#L111
+BIGQUERY_TYPES_MAP: Dict[str, Any] = {
+    "STRING": StringType,
+    "BOOL": BooleanType,
+    "BOOLEAN": BooleanType,
+    "INT64": NumberType,
+    "INTEGER": NumberType,
+    "FLOAT64": NumberType,
+    "FLOAT": NumberType,
+    "TIMESTAMP": TimeType,
+    "DATETIME": DateType,
+    "DATE": DateType,
+    "BYTES": BytesType,
+    "TIME": TimeType,
+    "RECORD": RecordType,
+    "NUMERIC": NumberType,
+    "BIGNUMERIC": NumberType,
+    "GEOGRAPHY": None,
+}
