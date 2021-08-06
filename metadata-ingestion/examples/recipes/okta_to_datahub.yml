@@ -1,10 +1,6 @@
 ---
 source:
   type: "okta"
-  config:
-    ingest_groups: True # Defaults to true. 
-    ingest_users: True # Defaults to true. 
-    # IDEALLY: clean_users: False # Defaults to false. This issues a soft delete against all Users that were created from Okta.
 sink:
   type: "datahub-rest"
   config:
