@@ -23,15 +23,18 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: athena
   config:
+    # Coordinates
+    aws_region: my_aws_region_name
+    work_group: my_work_group
+
+    # Credentials
     username: my_aws_access_key_id
     password: my_aws_secret_access_key
     database: my_database
 
-    aws_region: my_aws_region_name
-
+    # Options
     s3_staging_dir: "s3://<bucket-name>/<folder>/"
 
-    work_group: my_work_group
 sink:
   # sink configs
 ```

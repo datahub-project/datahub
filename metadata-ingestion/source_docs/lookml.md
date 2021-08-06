@@ -25,10 +25,13 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: "lookml"
   config:
+    # Coordinates
     base_folder: /path/to/model/files
 
+    # Options
     connection_to_platform_map:
       connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
+
 sink:
   # sink configs
 ```

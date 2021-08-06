@@ -34,6 +34,9 @@ source:
     password: pass # optional
     host_port: localhost:10000
     database: DemoDatabase # optional, if not specified, ingests from all databases
+
+sink:
+  # sink configs
 ```
 
 <details>
@@ -44,14 +47,21 @@ source:
 source:
   type: hive
   config:
+    # Coordinates
     host_port: <cluster_name>.azurehdinsight.net:443
+
+    # Credentials
     username: admin
     password: password
 
+    # Options
     options:
       connect_args:
         http_path: "/hive2"
         auth: BASIC
+
+sink:
+  # sink configs
 ```
 
 </details>

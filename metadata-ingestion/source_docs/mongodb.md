@@ -28,13 +28,18 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: "mongodb"
   config:
+    # Coordinates
     connect_uri: "mongodb://localhost"
+
+    # Credentials
     username: admin
     password: password
     authMechanism: "DEFAULT"
 
+    # Options
     enableSchemaInference: True
     useRandomSampling: True
+
 sink:
   # sink configs
 ```

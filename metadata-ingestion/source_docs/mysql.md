@@ -23,12 +23,14 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: mysql
   config:
+    # Coordinates
+    host_port: localhost:3306
+    database: dbname
+
+    # Credentials
     username: root
     password: example
 
-    database: dbname
-
-    host_port: localhost:3306
 sink:
   # sink configs
 ```

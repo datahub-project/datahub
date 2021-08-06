@@ -25,14 +25,17 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: postgres
   config:
+    # Coordinates
+    host_port: localhost:5432
+    database: DemoDatabase
+
+    # Credentials
     username: user
     password: pass
 
-    host_port: localhost:5432
-
-    database: DemoDatabase
-
+    # Options
     database_alias: DatabaseNameToBeIngested
+
 sink:
   # sink configs
 ```

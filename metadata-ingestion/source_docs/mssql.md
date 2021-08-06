@@ -25,10 +25,16 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: mssql
   config:
-    username: user
-    password: pass
+    # Coordinates
     host_port: localhost:1433
     database: DemoDatabase
+
+    # Credentials
+    username: user
+    password: pass
+
+sink:
+  # sink configs
 ```
 
 <details>
@@ -41,18 +47,23 @@ See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-
 source:
   type: mssql
   config:
+    # Coordinates
+    host_port: localhost:1433
+    database: DemoDatabase
+
+    # Credentials
     username: admin
     password: password
 
-    host_port: localhost:1433
-
-    database: DemoDatabase
-
+    # Options
     uri_args:
       driver: "ODBC Driver 17 for SQL Server"
       Encrypt: "yes"
       TrustServerCertificate: "Yes"
       ssl: "True"
+
+sink:
+  # sink configs
 ```
 
 </details>

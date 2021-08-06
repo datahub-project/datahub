@@ -25,10 +25,13 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: druid
   config:
+    # Coordinates
     host_port: "localhost:8082"
 
+    # Credentials
     username: admin
     password: password
+
 sink:
   # sink configs
 ```

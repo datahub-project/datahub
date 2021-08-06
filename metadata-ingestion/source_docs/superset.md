@@ -24,11 +24,14 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: superset
   config:
+    # Coordinates
     connect_uri: http://localhost:8088
 
+    # Credentials
     username: user
     password: pass
     provider: ldap
+
 sink:
   # sink configs
 ```

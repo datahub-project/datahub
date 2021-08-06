@@ -27,7 +27,9 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: glue
   config:
+    # Coordinates
     aws_region: "my-aws-region"
+
 sink:
   # sink configs
 ```

@@ -30,7 +30,9 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: feast
   config:
+    # Coordinates
     core_url: "localhost:6565"
+
 sink:
   # sink configs
 ```

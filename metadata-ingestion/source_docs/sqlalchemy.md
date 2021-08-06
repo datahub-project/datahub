@@ -27,7 +27,9 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: sqlalchemy
   config:
+    # Coordinates
     connect_uri: "dialect+driver://username:password@host:port/database"
+
 sink:
   # sink configs
 ```

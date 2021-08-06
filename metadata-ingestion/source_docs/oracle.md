@@ -25,14 +25,17 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: oracle
   config:
+    # Coordinates
+    host_port: localhost:5432
+    database: dbname
+
+    # Credentials
     username: user
     password: pass
 
-    host_port: localhost:5432
-
-    database: dbname
-
+    # Options
     service_name: svc # omit database if using this option
+
 sink:
   # sink configs
 ```

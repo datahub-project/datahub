@@ -29,12 +29,15 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: snowflake
   config:
+    # Coordinates
+    host_port: account_name
+    warehouse: "COMPUTE_WH"
+
+    # Credentials
     username: user
     password: pass
-    host_port: account_name
-
-    warehouse: "COMPUTE_WH"
     role: "sysadmin"
+
 sink:
   # sink configs
 ```
@@ -102,16 +105,18 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: snowflake-usage
   config:
+    # Coordinates
+    host_port: account_name
+    warehouse: "COMPUTE_WH"
+
+    # Credentials
     username: user
     password: pass
-    host_port: account_name
-
-    warehouse: "COMPUTE_WH"
     role: "sysadmin"
 
-    bucket_duration: "DAY"
-
+    # Options
     top_n_queries: 10
+
 sink:
   # sink configs
 ```

@@ -21,6 +21,7 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 ```yml
 source:
   # source configs
+
 sink:
   type: file
   config:

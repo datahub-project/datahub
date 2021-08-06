@@ -24,21 +24,23 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: redshift
   config:
-    username: user
-    password: pass
+    # Coordinates
     host_port: example.something.us-west-2.redshift.amazonaws.com:5439
     database: DemoDatabase
 
-    # Any options specified here will be passed to SQLAlchemy's create_engine as kwargs.
-    # See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.
-    # Many of these options are specific to the underlying database driver, so that library's
-    # documentation will be a good reference for what is supported. To find which dialect is likely
-    # in use, consult this table: https://docs.sqlalchemy.org/en/14/dialects/index.html.
+    # Credentials
+    username: user
+    password: pass
+
+    # Options
     options:
       # driver_option: some-option
 
     include_views: True # whether to include views, defaults to True
     include_tables: True # whether to include views, defaults to True
+
+sink:
+  # sink configs
 ```
 
 <details>
@@ -57,6 +59,9 @@ source:
       connect_args:
         sslmode: "prefer" # or "require" or "verify-ca"
         sslrootcert: ~ # needed to unpin the AWS Redshift certificate
+
+sink:
+  # sink configs
 ```
 
 </details>

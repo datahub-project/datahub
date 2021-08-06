@@ -23,10 +23,12 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: "kafka"
   config:
+    # Coordinates
     connection:
       bootstrap: "broker:9092"
 
       schema_registry_url: http://localhost:8081
+
 sink:
   # sink configs
 ```

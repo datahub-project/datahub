@@ -28,11 +28,14 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: "kafka-connect"
   config:
+    # Coordinates
     connect_uri: "http://localhost:8083"
     cluster_name: "connect-cluster"
 
+    # Credentials
     username: admin
     password: password
+
 sink:
   # sink configs
 ```

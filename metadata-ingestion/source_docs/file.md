@@ -22,7 +22,9 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: file
   config:
+    # Coordinates
     filename: ./path/to/mce/file.json
+
 sink:
   # sink configs
 ```

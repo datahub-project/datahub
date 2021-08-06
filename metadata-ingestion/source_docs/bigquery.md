@@ -29,7 +29,9 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: bigquery
   config:
+    # Coordinates
     project_id: my_project_id
+
 sink:
   # sink configs
 ```
@@ -94,13 +96,14 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: bigquery-usage
   config:
+    # Coordinates
     projects:
       - project_id_1
       - project_id_2
 
-    bucket_duration: "DAY"
-
+    # Options
     top_n_queries: 10
+
 sink:
   # sink configs
 ```

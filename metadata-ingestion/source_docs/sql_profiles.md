@@ -54,8 +54,11 @@ source:
   type: <sql-source> # can be bigquery, snowflake, etc - see above for the list
   config:
     # ... any other source-specific options ...
+
+    # Options
     profiling:
       enabled: true
+
 sink:
   # sink configs
 ```

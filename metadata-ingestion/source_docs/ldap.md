@@ -24,11 +24,16 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: "ldap"
   config:
+    # Coordinates
     ldap_server: ldap://localhost
+
+    # Credentials
     ldap_user: "cn=admin,dc=example,dc=org"
     ldap_password: "admin"
 
+    # Options
     base_dn: "dc=example,dc=org"
+
 sink:
   # sink configs
 ```

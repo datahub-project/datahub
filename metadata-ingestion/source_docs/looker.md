@@ -25,9 +25,13 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 source:
   type: "looker"
   config:
+    # Coordinates
+    base_url: https://company.looker.com:19999
+
+    # Credentials
     client_id: admin
     client_secret: password
-    base_url: https://company.looker.com:19999
+
 sink:
   # sink configs
 ```
