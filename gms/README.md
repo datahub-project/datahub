@@ -737,6 +737,64 @@ curl -X POST 'http://localhost:8080/entities?action=search' \
 }
 ```
 
+##### Exact Match Search
+
+You can use colon search for exact match searching on particular @Searchable fields of an Entity. 
+
+##### Example: Find assets by Tag 
+
+For example, to fetch all Datasets having a particular tag (Engineering), we can use the following query:
+
+```
+curl -X POST 'http://localhost:8080/entities?action=search' \
+--data '{
+    "input": "tags:Engineering",
+    "entity": "dataset",
+    "start": 0,
+    "count": 10
+}'
+
+{
+   "value":{
+      "numEntities":1,
+      "pageSize":10,
+      "metadata":{
+         "urns":[
+            "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"
+         ],
+         "matches":[
+            {
+               "matchedFields":[
+                  {
+                     "name":"tags",
+                     "value":"urn:li:tag:Engineering"
+                  }
+               ]
+            }
+         ],
+         "searchResultMetadatas":[
+            {
+               "name":"platform",
+               "aggregations":{
+                  "foo":1
+               }
+            },
+            {
+               "name":"origin",
+               "aggregations":{
+                  "PROD":1
+               }
+            }
+         ]
+      },
+      "from":0,
+      "entities":[
+         "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"
+      ]
+   }
+}
+```
+
 ##### Filtering
 
 In addition to performing full-text search, you can also filter explicitly against fields marked as @Searchable in the corresponding aspect PDLs.
