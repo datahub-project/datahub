@@ -46,54 +46,13 @@ const errorLink = onError(({ networkError }) => {
 });
 
 const client = new ApolloClient({
+    connectToDevTools: true,
     link: errorLink.concat(httpLink),
-    cache: new InMemoryCache({
-        typePolicies: {
-            Dataset: {
-                keyFields: ['urn'],
-            },
-            CorpUser: {
-                keyFields: ['urn'],
-            },
-            Dashboard: {
-                keyFields: ['urn'],
-            },
-            Chart: {
-                keyFields: ['urn'],
-            },
-            DataFlow: {
-                keyFields: ['urn'],
-            },
-            DataJob: {
-                keyFields: ['urn'],
-            },
-            MLFeatureTable: {
-                keyFields: ['urn'],
-            },
-            MLModel: {
-                keyFields: ['urn'],
-            },
-            MLModelGroup: {
-                keyFields: ['urn'],
-            },
-        },
-        possibleTypes: {
-            EntityWithRelationships: [
-                'Dataset',
-                'Chart',
-                'Dashboard',
-                'DataJob',
-                'MLFeature',
-                'MLPrimaryKey',
-                'MLModel',
-                'MLModelGroup',
-            ],
-        },
-    }),
+    cache: new InMemoryCache(),
     credentials: 'include',
     defaultOptions: {
         watchQuery: {
-            fetchPolicy: 'cache-and-network',
+            fetchPolicy: 'no-cache',
             nextFetchPolicy: 'cache-first',
         },
         query: {

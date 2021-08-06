@@ -10,7 +10,11 @@
                         "customProperties": {
                             "node_type": "model",
                             "materialization": "ephemeral",
-                            "dbt_file_path": "models/transform/customer_details.sql"
+                            "dbt_file_path": "models/transform/customer_details.sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -54,7 +58,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -68,7 +77,11 @@
                             "node_type": "model",
                             "materialization": "table",
                             "dbt_file_path": "models/billing/monthly_billing_with_cust.sql",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -103,7 +116,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -117,7 +135,11 @@
                             "node_type": "model",
                             "materialization": "view",
                             "dbt_file_path": "models/base/payments_base.sql",
-                            "catalog_type": "VIEW"
+                            "catalog_type": "VIEW",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -197,7 +219,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -211,7 +238,11 @@
                             "node_type": "model",
                             "materialization": "table",
                             "dbt_file_path": "models/transform/payments_by_customer_by_month.sql",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -237,7 +268,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -253,7 +289,11 @@
                             "some_other_property": "test 1",
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": "postgres comment: Actors table \u2013 from postgres\n\ndbt model description: description for actor table from dbt",
@@ -269,7 +309,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -282,7 +327,11 @@
                         "customProperties": {
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": "a user's address",
@@ -298,7 +347,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -311,7 +365,11 @@
                         "customProperties": {
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": "a user's category",
@@ -327,7 +385,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -340,7 +403,11 @@
                         "customProperties": {
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -356,7 +423,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -372,7 +444,11 @@
                             "some_other_property": "test 2",
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -388,7 +464,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -401,7 +482,11 @@
                         "customProperties": {
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": "description for customer table from dbt",
@@ -417,7 +502,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -430,7 +520,11 @@
                         "customProperties": {
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -446,7 +540,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -463,7 +562,11 @@
                             "some_other_property": "test 3",
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -479,7 +582,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -492,7 +600,11 @@
                         "customProperties": {
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -508,7 +620,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -521,7 +638,11 @@
                         "customProperties": {
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -537,7 +658,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -550,7 +676,11 @@
                         "customProperties": {
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": "a payment",
@@ -566,7 +696,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -579,7 +714,11 @@
                         "customProperties": {
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
-                            "catalog_type": "BASE TABLE"
+                            "catalog_type": "BASE TABLE",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v1.json",
+                            "manifest_version": "0.19.1",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
                         "description": null,
@@ -595,6 +734,11 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "dbt-test-without-schemas",
+        "properties": null
+    }
 }
 ]

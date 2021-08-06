@@ -90,7 +90,7 @@ const defaultColumns = [
             return (
                 <span>
                     <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
-                    {lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
+                    {!!lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
                 </span>
             );
         },
@@ -233,6 +233,7 @@ export default function SchemaTable({
     return (
         <TableContainer>
             <Table
+                bordered
                 columns={allColumns}
                 dataSource={rows}
                 rowClassName={(record) =>

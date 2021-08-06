@@ -233,7 +233,7 @@ public class Dataset extends Controller {
     if (schema == null) {
       return notFound(EMPTY_RESPONSE);
     }
-    return ok(Json.newObject().set("schema", Json.toJson(schema)));
+    return ok((JsonNode) Json.newObject().set("schema", Json.toJson(schema)));
   }
 
   @Security.Authenticated(Secured.class)

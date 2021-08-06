@@ -361,3 +361,62 @@ def test_frontend_user_info(frontend_session, platform, dataset_name, env):
     data = response.json()
 
     assert len(data["owners"]) >= 1
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_ingest_with_system_metadata():
+    response = requests.post(
+        f"{GMS_ENDPOINT}/entities?action=ingest",
+        headers=restli_default_headers,
+        json={
+          'entity':
+            {
+              'value':
+                {'com.linkedin.metadata.snapshot.CorpUserSnapshot':
+                  {'urn': 'urn:li:corpuser:datahub', 'aspects':
+                    [{'com.linkedin.identity.CorpUserInfo': {'active': True, 'displayName': 'Data Hub', 'email': 'datahub@linkedin.com', 'title': 'CEO', 'fullName': 'Data Hub'}}]
+                   }
+                  }
+                },
+              'systemMetadata': {'lastObserved': 1628097379571, 'runId': 'af0fe6e4-f547-11eb-81b2-acde48001122'}
+        },
+    )
+    response.raise_for_status()
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_ingest_with_blank_system_metadata():
+    response = requests.post(
+        f"{GMS_ENDPOINT}/entities?action=ingest",
+        headers=restli_default_headers,
+        json={
+          'entity':
+            {
+              'value':
+                {'com.linkedin.metadata.snapshot.CorpUserSnapshot':
+                  {'urn': 'urn:li:corpuser:datahub', 'aspects':
+                    [{'com.linkedin.identity.CorpUserInfo': {'active': True, 'displayName': 'Data Hub', 'email': 'datahub@linkedin.com', 'title': 'CEO', 'fullName': 'Data Hub'}}]
+                   }
+                  }
+                },
+              'systemMetadata': {}
+        },
+    )
+    response.raise_for_status()
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_ingest_without_system_metadata():
+    response = requests.post(
+        f"{GMS_ENDPOINT}/entities?action=ingest",
+        headers=restli_default_headers,
+        json={
+          'entity':
+            {
+              'value':
+                {'com.linkedin.metadata.snapshot.CorpUserSnapshot':
+                  {'urn': 'urn:li:corpuser:datahub', 'aspects':
+                    [{'com.linkedin.identity.CorpUserInfo': {'active': True, 'displayName': 'Data Hub', 'email': 'datahub@linkedin.com', 'title': 'CEO', 'fullName': 'Data Hub'}}]
+                   }
+                  }
+             },
+        },
+    )
+    response.raise_for_status()
