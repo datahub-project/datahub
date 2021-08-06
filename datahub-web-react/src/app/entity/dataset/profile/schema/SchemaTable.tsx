@@ -46,8 +46,11 @@ const TableContainer = styled.div`
     &&& .ant-table-row-indent.indent-level-3 {
         padding-left: 45px !important;
     }
+    &&& .ant-table-row-indent.indent-level-4 {
+        padding-left: 60px !important;
+    }
     &&& .ant-table-row-indent {
-        padding-left: 45px !important;
+        padding-left: 60px !important;
     }
 `;
 
