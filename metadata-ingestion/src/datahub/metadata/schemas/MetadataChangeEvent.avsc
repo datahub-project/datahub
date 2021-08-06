@@ -858,7 +858,7 @@
                       {
                         "name": "active",
                         "type": "boolean",
-                        "doc": "Whether the corpUser is active (Should be able to log in?)",
+                        "doc": "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
                         "Searchable": {
                           "fieldType": "BOOLEAN",
                           "weightsPerFieldValue": {
@@ -877,12 +877,8 @@
                       },
                       {
                         "name": "email",
-                        "type": [
-                          "null",
-                          "string"
-                        ],
+                        "type": "string",
                         "doc": "email address of this user",
-                        "default": null,
                         "Searchable": {
                           "fieldType": "KEYWORD",
                           "queryByDefault": true

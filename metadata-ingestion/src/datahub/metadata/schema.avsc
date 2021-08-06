@@ -880,7 +880,7 @@
                           },
                           "type": "boolean",
                           "name": "active",
-                          "doc": "Whether the corpUser is active (Should be able to log in?)"
+                          "doc": "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"
                         },
                         {
                           "type": [
@@ -896,12 +896,8 @@
                             "fieldType": "KEYWORD",
                             "queryByDefault": true
                           },
-                          "type": [
-                            "null",
-                            "string"
-                          ],
+                          "type": "string",
                           "name": "email",
-                          "default": null,
                           "doc": "email address of this user"
                         },
                         {
