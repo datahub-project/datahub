@@ -302,7 +302,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 }'
 ```
 
-To issue a hard delete, or undo a particular ingestion run, you can use the [DataHub CLI](../docs/how/delete-metadata). 
+To issue a hard delete, or undo a particular ingestion run, you can use the [DataHub CLI](../docs/how/delete-metadata.md). 
 
 *Note that soft deletes are coming soon to the DataHub CLI. 
 
