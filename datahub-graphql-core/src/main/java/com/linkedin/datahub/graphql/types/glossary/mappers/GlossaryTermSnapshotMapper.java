@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.glossary.GlossaryTermInfo;
+import com.linkedin.glossary.GlossaryRelatedTerms;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.snapshot.GlossaryTermSnapshot;
 import javax.annotation.Nonnull;
@@ -38,6 +39,9 @@ public class GlossaryTermSnapshotMapper implements ModelMapper<GlossaryTermSnaps
             }
             if (aspect instanceof Ownership) {
                 result.setOwnership(OwnershipMapper.map(Ownership.class.cast(aspect)));
+            }
+            if(aspect instanceof GlossaryRelatedTerms) {
+                result.setGlossaryRelatedTerms(GlossaryRelatedTermsMapper.map(GlossaryRelatedTerms.class.cast(aspect)));
             }
         });
         return result;

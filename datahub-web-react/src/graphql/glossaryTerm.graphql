@@ -12,9 +12,20 @@ query getGlossaryTerm($urn: String!) {
             termSource
             sourceRef
             sourceUrl
+            rawSchema
             customProperties {
                 key
                 value
+            }
+        }
+        glossaryRelatedTerms {
+            isRelatedTerms {
+                urn
+                name
+            }
+            hasRelatedTerms {
+                urn
+                name
             }
         }
     }

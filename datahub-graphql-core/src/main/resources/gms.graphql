@@ -393,6 +393,11 @@ type GlossaryTerm implements Entity {
     Details of the Glossary Term
     """
     glossaryTermInfo: GlossaryTermInfo!
+
+    """
+    Internal relationship of glossary terms
+    """
+    glossaryRelatedTerms: GlossaryRelatedTerms
 }
 
 type GlossaryTermInfo {
@@ -420,6 +425,23 @@ type GlossaryTermInfo {
     Properties of the glossary term
     """
     customProperties: [StringMapEntry!]
+
+    """
+    Schema definition of glossary term
+    """
+    rawSchema: String
+}
+
+type GlossaryRelatedTerms {
+    """
+    Glossary terms having isA relationship
+    """
+    isRelatedTerms: [GlossaryTerm]
+
+    """
+    Glossary terms having hasA relationship
+    """
+    hasRelatedTerms: [GlossaryTerm]
 }
 
 type DataPlatform implements Entity {
