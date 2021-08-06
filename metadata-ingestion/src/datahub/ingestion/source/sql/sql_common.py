@@ -153,7 +153,6 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
         )
 
 
-
 class SqlWorkUnit(MetadataWorkUnit):
     pass
 
