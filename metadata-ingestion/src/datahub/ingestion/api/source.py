@@ -2,9 +2,9 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, Generic, Iterable, List, TypeVar
 
-from .closeable import Closeable
-from .common import PipelineContext, RecordEnvelope, WorkUnit
-from .report import Report
+from datahub.ingestion.api.closeable import Closeable
+from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
+from datahub.ingestion.api.report import Report
 
 
 @dataclass

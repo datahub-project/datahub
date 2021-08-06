@@ -7,7 +7,7 @@ import pybigquery  # noqa: F401
 import pybigquery.sqlalchemy_bigquery
 from sqlalchemy.engine.reflection import Inspector
 
-from .sql_common import (
+from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
     make_sqlalchemy_type,
