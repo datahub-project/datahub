@@ -227,7 +227,7 @@ export default function SchemaTable({
                     record.isNewRow ? 'table-green-row' : `${record.isDeletedRow ? 'table-red-row' : ''}`
                 }
                 rowKey="fieldPath"
-                expandable={{ defaultExpandAllRows: true, expandRowByClick: false }}
+                expandable={{ defaultExpandAllRows: false, expandRowByClick: false }}
                 pagination={false}
             />
         </TableContainer>
