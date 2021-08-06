@@ -1,6 +1,9 @@
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+from datahub.ingestion.transformer.add_dataset_browse_path import (
+    AddDatasetBrowsePathTransformer,
+)
 from datahub.ingestion.transformer.add_dataset_ownership import (
     SimpleAddDatasetOwnership,
 )
@@ -12,9 +15,6 @@ from datahub.ingestion.transformer.clear_dataset_ownership import (
     SimpleClearDatasetOwnership,
 )
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
-from datahub.ingestion.transformer.set_dataset_browse_path import (
-    SetDatasetBrowsePathTransformer,
-)
 
 
 def make_generic_dataset():
@@ -151,10 +151,10 @@ def test_mark_status_dataset():
     assert status_aspect.removed is False
 
 
-def test_set_dataset_browse_paths():
+def test_add_dataset_browse_paths():
     dataset = make_generic_dataset()
 
-    transformer = SetDatasetBrowsePathTransformer.create(
+    transformer = AddDatasetBrowsePathTransformer.create(
         {"path_templates": ["/abc"]},
         PipelineContext(run_id="test"),
     )
@@ -165,7 +165,7 @@ def test_set_dataset_browse_paths():
     assert browse_path_aspect
     assert browse_path_aspect.paths == ["/abc"]
 
-    transformer = SetDatasetBrowsePathTransformer.create(
+    transformer = AddDatasetBrowsePathTransformer.create(
         {
             "path_templates": [
                 "/PLATFORM/foo/DATASET_PARTS/ENV",

@@ -76,6 +76,22 @@ transformers:
       removed: true
 ```
 
+### Add dataset browse paths
+
+If you would like to add to browse paths of dataset can use this transformer. There are 3 optional variables that you can use to get information from the dataset `urn`:
+- ENV: env passed (default: prod)
+- PLATFORM: `mysql`, `postgres` or different platform supported by datahub
+- DATASET_PARTS: slash separated parts of dataset name. e.g. `database_name/schema_name/[table_name]` for postgres
+
+
+```yaml
+transformers:
+  - type: "set_dataset_browse_path"
+    config:
+      path_templates:
+        - /ENV/PLATFORM/DATASET_PARTS/ 
+```
+
 ## Writing a custom transformer from scratch
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.

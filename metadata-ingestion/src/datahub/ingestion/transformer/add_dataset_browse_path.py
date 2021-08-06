@@ -11,25 +11,25 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class SetDatasetBrowsePathConfig(ConfigModel):
+class AddDatasetBrowsePathConfig(ConfigModel):
     path_templates: List[str]
 
 
-class SetDatasetBrowsePathTransformer(DatasetTransformer):
+class AddDatasetBrowsePathTransformer(DatasetTransformer):
     """Transformer that can be used to set browse paths through template replacement"""
 
     ctx: PipelineContext
-    config: SetDatasetBrowsePathConfig
+    config: AddDatasetBrowsePathConfig
 
-    def __init__(self, config: SetDatasetBrowsePathConfig, ctx: PipelineContext):
+    def __init__(self, config: AddDatasetBrowsePathConfig, ctx: PipelineContext):
         self.ctx = ctx
         self.config = config
 
     @classmethod
     def create(
         cls, config_dict: dict, ctx: PipelineContext
-    ) -> "SetDatasetBrowsePathTransformer":
-        config = SetDatasetBrowsePathConfig.parse_obj(config_dict)
+    ) -> "AddDatasetBrowsePathTransformer":
+        config = AddDatasetBrowsePathConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
