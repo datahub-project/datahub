@@ -1,5 +1,9 @@
 # Athena
 
+For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
+
+For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
+
 ## Setup
 
 To install this plugin, run `pip install 'acryl-datahub[athena]'`.

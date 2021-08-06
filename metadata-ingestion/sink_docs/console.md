@@ -1,5 +1,7 @@
 # Console
 
+For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
+
 ## Setup
 
 Works with `acryl-datahub` out of the box.

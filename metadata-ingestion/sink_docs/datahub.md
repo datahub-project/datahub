@@ -2,6 +2,8 @@
 
 ## DataHub Rest
 
+For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
+
 ### Setup
 
 To install this plugin, run `pip install 'acryl-datahub[datahub-rest]'`.
@@ -37,6 +39,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 Coming soon!
 
 ## DataHub Kafka
+
+For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
 ### Setup
 
