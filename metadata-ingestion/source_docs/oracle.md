@@ -33,6 +33,8 @@ source:
     database: dbname
 
     service_name: svc # omit database if using this option
+sink:
+  # sink configs
 ```
 
 ## Config details

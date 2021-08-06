@@ -28,6 +28,8 @@ source:
     client_id: admin
     client_secret: password
     base_url: https://company.looker.com:19999
+sink:
+  # sink configs
 ```
 
 ## Config details

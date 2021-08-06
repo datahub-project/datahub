@@ -28,6 +28,8 @@ source:
   type: sqlalchemy
   config:
     connect_uri: "dialect+driver://username:password@host:port/database"
+sink:
+  # sink configs
 ```
 
 ## Config details

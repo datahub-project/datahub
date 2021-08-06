@@ -30,6 +30,8 @@ source:
   type: bigquery
   config:
     project_id: my_project_id
+sink:
+  # sink configs
 ```
 
 ## Config details
@@ -99,6 +101,8 @@ source:
     bucket_duration: "DAY"
 
     top_n_queries: 10
+sink:
+  # sink configs
 ```
 
 ### Config details

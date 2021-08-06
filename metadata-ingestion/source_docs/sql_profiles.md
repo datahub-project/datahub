@@ -56,6 +56,8 @@ source:
     # ... any other source-specific options ...
     profiling:
       enabled: true
+sink:
+  # sink configs
 ```
 
 ## Config details

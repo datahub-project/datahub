@@ -29,6 +29,8 @@ source:
     username: user
     password: pass
     provider: ldap
+sink:
+  # sink configs
 ```
 
 ## Config details

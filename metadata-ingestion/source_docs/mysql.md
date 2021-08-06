@@ -29,6 +29,8 @@ source:
     database: dbname
 
     host_port: localhost:3306
+sink:
+  # sink configs
 ```
 
 ## Config details

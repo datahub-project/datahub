@@ -28,6 +28,8 @@ source:
   type: glue
   config:
     aws_region: "my-aws-region"
+sink:
+  # sink configs
 ```
 
 ## Config details

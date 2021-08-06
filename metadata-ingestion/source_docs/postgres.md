@@ -33,6 +33,8 @@ source:
     database: DemoDatabase
 
     database_alias: DatabaseNameToBeIngested
+sink:
+  # sink configs
 ```
 
 ## Config details

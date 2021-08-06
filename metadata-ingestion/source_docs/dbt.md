@@ -44,6 +44,8 @@ source:
     target_platform: "my_target_platform_id"
 
     load_schemas: True # note: if this is disabled
+sink:
+  # sink configs
 ```
 
 ## Config details

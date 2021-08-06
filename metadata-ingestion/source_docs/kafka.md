@@ -27,6 +27,8 @@ source:
       bootstrap: "broker:9092"
 
       schema_registry_url: http://localhost:8081
+sink:
+  # sink configs
 ```
 
 ## Config details

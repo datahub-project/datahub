@@ -35,6 +35,8 @@ source:
 
     enableSchemaInference: True
     useRandomSampling: True
+sink:
+  # sink configs
 ```
 
 ## Config details

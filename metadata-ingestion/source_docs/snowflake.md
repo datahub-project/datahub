@@ -35,6 +35,8 @@ source:
 
     warehouse: "COMPUTE_WH"
     role: "sysadmin"
+sink:
+  # sink configs
 ```
 
 ## Config details
@@ -110,6 +112,8 @@ source:
     bucket_duration: "DAY"
 
     top_n_queries: 10
+sink:
+  # sink configs
 ```
 
 ### Config details

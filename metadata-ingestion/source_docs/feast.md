@@ -31,6 +31,8 @@ source:
   type: feast
   config:
     core_url: "localhost:6565"
+sink:
+  # sink configs
 ```
 
 ## Config details

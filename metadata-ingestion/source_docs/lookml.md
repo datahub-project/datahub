@@ -29,6 +29,8 @@ source:
 
     connection_to_platform_map:
       connection_name: platform_name (or platform_name.database_name) # for ex. my_snowflake_conn: snowflake.my_database
+sink:
+  # sink configs
 ```
 
 ## Config details

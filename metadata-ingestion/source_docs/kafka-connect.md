@@ -33,6 +33,8 @@ source:
 
     username: admin
     password: password
+sink:
+  # sink configs
 ```
 
 ## Config details

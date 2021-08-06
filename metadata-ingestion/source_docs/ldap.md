@@ -29,6 +29,8 @@ source:
     ldap_password: "admin"
 
     base_dn: "dc=example,dc=org"
+sink:
+  # sink configs
 ```
 
 ## Config details

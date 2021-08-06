@@ -32,6 +32,8 @@ source:
     s3_staging_dir: "s3://<bucket-name>/<folder>/"
 
     work_group: my_work_group
+sink:
+  # sink configs
 ```
 
 ## Config details
