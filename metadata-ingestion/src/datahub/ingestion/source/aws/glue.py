@@ -111,6 +111,20 @@ class GlueSource(Source):
                 S3 path to the job's Python script.
         """
 
+        # handle a bug in AWS where script path has duplicate prefixes
+        if script_path.lower().startswith("s3://s3://"):
+            script_path = script_path[5:]
+
+        # catch any other cases where the script path is invalid
+        if not script_path.startswith("s3://"):
+
+            self.report.report_warning(
+                script_path,
+                f"Error parsing DAG for Glue job. The script {script_path} is not a valid S3 path.",
+            )
+
+            return None
+
         # extract the script's bucket and key
         url = urlparse(script_path, allow_fragments=False)
         bucket = url.netloc
