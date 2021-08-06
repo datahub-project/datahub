@@ -145,19 +145,27 @@ def test_glue_ingest(tmp_path, pytestconfig):
     )
 
 
-def test_platform_alias_takes_precendence():
+def test_underlying_platform_takes_precendence():
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-west-2", underlying_platform="athena"),
+    )
+    assert source.get_underlying_platform() == "athena"
+
+
+def test_underlying_platform_cannot_be_other_than_athena():
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
-            aws_region="us-west-2", platform_alias="data_warehouse"
+            aws_region="us-west-2", underlying_platform="data-warehouse"
         ),
     )
-    assert source.get_platform_name() == "data_warehouse"
+    assert source.get_underlying_platform() == "glue"
 
 
-def test_without_platform_alias():
+def test_without_underlying_platform():
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(aws_region="us-west-2"),
     )
-    assert source.get_platform_name() == "glue"
+    assert source.get_underlying_platform() == "glue"
