@@ -308,7 +308,9 @@ class LookerView:
 
         # Some sql_table_name fields contain quotes like: optimizely."group", just remove the quotes
         sql_table_name = (
-            sql_table_name.replace('"', "") if sql_table_name is not None else None
+            sql_table_name.replace('"', "").replace("`", "")
+            if sql_table_name is not None
+            else None
         )
         derived_table = looker_view.get("derived_table", None)
 
@@ -432,12 +434,39 @@ field_type_mapping = {
     **POSTGRES_TYPES_MAP,
     **SNOWFLAKE_TYPES_MAP,
     "date": DateTypeClass,
+    "date_day_of_month": NumberTypeClass,
+    "date_day_of_week": EnumTypeClass,
+    "date_day_of_week_index": EnumTypeClass,
+    "date_fiscal_month_num": NumberTypeClass,
+    "date_fiscal_quarter": DateTypeClass,
+    "date_fiscal_quarter_of_year": EnumTypeClass,
+    "date_hour": TimeTypeClass,
+    "date_hour_of_day": NumberTypeClass,
+    "date_month": DateTypeClass,
+    "date_month_num": NumberTypeClass,
+    "date_month_name": EnumTypeClass,
+    "date_quarter": DateTypeClass,
+    "date_quarter_of_year": EnumTypeClass,
     "date_time": TimeTypeClass,
+    "date_time_of_day": TimeTypeClass,
+    "date_microsecond": TimeTypeClass,
     "date_millisecond": TimeTypeClass,
     "date_minute": TimeTypeClass,
     "date_raw": TimeTypeClass,
+    "date_second": TimeTypeClass,
     "date_week": TimeTypeClass,
-    "duration_day": TimeTypeClass,
+    "date_year": DateTypeClass,
+    "date_day_of_year": NumberTypeClass,
+    "date_week_of_year": NumberTypeClass,
+    "date_fiscal_year": DateTypeClass,
+    "duration_day": StringTypeClass,
+    "duration_hour": StringTypeClass,
+    "duration_minute": StringTypeClass,
+    "duration_month": StringTypeClass,
+    "duration_quarter": StringTypeClass,
+    "duration_second": StringTypeClass,
+    "duration_week": StringTypeClass,
+    "duration_year": StringTypeClass,
     "distance": NumberTypeClass,
     "duration": NumberTypeClass,
     "location": UnionTypeClass,
@@ -520,6 +549,9 @@ class LookMLSource(Source):
     def _get_upstream_lineage(self, looker_view: LookerView) -> UpstreamLineage:
         upstreams = []
         for sql_table_name in looker_view.sql_table_names:
+
+            sql_table_name = sql_table_name.replace('"', "").replace("`", "")
+
             upstream = UpstreamClass(
                 dataset=self._construct_datalineage_urn(
                     sql_table_name, looker_view.connection
@@ -590,7 +622,7 @@ class LookMLSource(Source):
         dataset_name = looker_view.view_name
 
         # Sanitize the urn creation.
-        dataset_name = dataset_name.replace("`", "")
+        dataset_name = dataset_name.replace('"', "").replace("`", "")
         dataset_snapshot = DatasetSnapshot(
             urn=builder.make_dataset_urn(
                 self.source_config.platform_name, dataset_name, self.source_config.env

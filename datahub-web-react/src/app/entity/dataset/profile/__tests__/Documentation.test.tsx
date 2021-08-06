@@ -19,7 +19,12 @@ describe('Documentation', () => {
         );
         expect(getByText('Documentation')).toBeInTheDocument();
         expect(getByText('1')).toBeInTheDocument();
-        expect(getByText('https://www.google.com')).toBeInTheDocument();
+        expect(getByText('This doc spans the internet web')).toBeInTheDocument();
+        expect(getByText('This doc spans the internet web').closest('a')).toHaveAttribute(
+            'href',
+            'https://www.google.com',
+        );
+        expect(getByText('This doc spans the internet web')).toBeInTheDocument();
         expect(getByText('Add a link')).toBeInTheDocument();
     });
 });

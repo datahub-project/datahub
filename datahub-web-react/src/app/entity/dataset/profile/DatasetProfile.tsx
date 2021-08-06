@@ -39,7 +39,9 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
 
     const user = useGetAuthenticatedUser();
-    const [updateDataset] = useUpdateDatasetMutation();
+    const [updateDataset] = useUpdateDatasetMutation({
+        refetchQueries: () => ['getDataset'],
+    });
     const isLineageMode = useIsLineageMode();
 
     if (!loading && error) {

@@ -205,7 +205,7 @@ export default function SchemaView({
                 rows &&
                 rows.length > 0 && (
                     <>
-                        {!editMode && diffSummary && <SchemaVersionSummary diffSummary={diffSummary} />}
+                        {!editMode && diffSummary ? <SchemaVersionSummary diffSummary={diffSummary} /> : null}
                         <SchemaTable
                             rows={rows}
                             editMode={editMode}

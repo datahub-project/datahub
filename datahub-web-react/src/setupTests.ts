@@ -22,3 +22,4 @@ const { location } = window;
 delete window.location;
 window.location = { ...location, replace: () => {} };
 sinon.stub(window.location, 'replace');
+jest.mock('js-cookie', () => ({ get: () => 'urn:li:corpuser:2' }));

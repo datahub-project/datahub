@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import dateutil.parser
 
@@ -12,6 +12,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import (
+    BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
     resolve_postgres_modified_type,
@@ -234,7 +235,7 @@ def loadManifestAndCatalog(
     environment: str,
     node_type_pattern: AllowDenyPattern,
     report: SourceReport,
-) -> List[DBTNode]:
+) -> Tuple[List[DBTNode], Optional[str], Optional[str], Optional[str], Optional[str]]:
     with open(manifest_path, "r") as manifest:
         dbt_manifest_json = json.load(manifest)
 
@@ -247,6 +248,12 @@ def loadManifestAndCatalog(
             sources_results = dbt_sources_json["results"]
     else:
         sources_results = {}
+
+    manifest_schema = dbt_manifest_json.get("metadata", {}).get("dbt_schema_version")
+    manifest_version = dbt_manifest_json.get("metadata", {}).get("dbt_version")
+
+    catalog_schema = dbt_catalog_json.get("metadata", {}).get("dbt_schema_version")
+    catalog_version = dbt_catalog_json.get("metadata", {}).get("dbt_version")
 
     manifest_nodes = dbt_manifest_json["nodes"]
     manifest_sources = dbt_manifest_json["sources"]
@@ -269,7 +276,7 @@ def loadManifestAndCatalog(
         report,
     )
 
-    return nodes
+    return nodes, manifest_schema, manifest_version, catalog_schema, catalog_version
 
 
 def get_urn_from_dbtNode(
@@ -358,6 +365,7 @@ _field_type_mapping = {
     "float8": NumberTypeClass,
     **POSTGRES_TYPES_MAP,
     **SNOWFLAKE_TYPES_MAP,
+    **BIGQUERY_TYPES_MAP,
 }
 
 
@@ -447,7 +455,13 @@ class DBTSource(Source):
         self.report = SourceReport()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        nodes = loadManifestAndCatalog(
+        (
+            nodes,
+            manifest_schema,
+            manifest_version,
+            catalog_schema,
+            catalog_version,
+        ) = loadManifestAndCatalog(
             self.config.manifest_path,
             self.config.catalog_path,
             self.config.sources_path,
@@ -457,6 +471,19 @@ class DBTSource(Source):
             self.config.node_type_pattern,
             self.report,
         )
+
+        additional_custom_props = {
+            "manifest_schema": manifest_schema,
+            "manifest_version": manifest_version,
+            "catalog_schema": catalog_schema,
+            "catalog_version": catalog_version,
+        }
+
+        additional_custom_props_filtered = {
+            key: value
+            for key, value in additional_custom_props.items()
+            if value is not None
+        }
 
         for node in nodes:
 
@@ -474,9 +501,14 @@ class DBTSource(Source):
             elif node.description:
                 description = node.description
 
+            custom_props = {
+                **get_custom_properties(node),
+                **additional_custom_props_filtered,
+            }
+
             dbt_properties = DatasetPropertiesClass(
                 description=description,
-                customProperties=get_custom_properties(node),
+                customProperties=custom_props,
                 tags=[],
             )
             dataset_snapshot.aspects.append(dbt_properties)

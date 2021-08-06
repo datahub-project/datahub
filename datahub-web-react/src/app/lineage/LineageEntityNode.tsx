@@ -15,6 +15,17 @@ function truncate(input, length) {
     return input;
 }
 
+function getLastTokenOfTitle(title: string): string {
+    const lastToken = title?.split('.').slice(-1)[0];
+
+    // if the last token does not contain any content, the string should not be tokenized on `.`
+    if (lastToken.replace(/\s/g, '').length === 0) {
+        return title;
+    }
+
+    return lastToken;
+}
+
 export const width = 212;
 export const height = 80;
 const iconWidth = 42;
@@ -176,7 +187,7 @@ export default function LineageEntityNode({
                         textAnchor="start"
                         fill={isCenterNode ? '#304D85' : 'black'}
                     >
-                        {truncate(node.data.name?.split('.').slice(-1)[0], 16)}
+                        {truncate(getLastTokenOfTitle(node.data.name), 16)}
                     </text>
                 </Group>
                 {unexploredHiddenChildren && isHovered ? (

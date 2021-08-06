@@ -107,10 +107,12 @@ describe('SnapshotStatsView', () => {
         // Row Count
         expect(queryByText('1000')).toBeNull();
         expect(queryByText('Rows')).toBeNull();
+        expect(queryByText('Row Count Unknown')).toBeInTheDocument();
 
         // Column Count
         expect(queryByText('2000')).toBeNull();
         expect(queryByText('Columns')).toBeNull();
+        expect(queryByText('Column Count Unknown')).toBeInTheDocument();
 
         // Field Profiles
         // First column
