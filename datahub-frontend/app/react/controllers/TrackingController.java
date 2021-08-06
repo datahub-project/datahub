@@ -33,7 +33,8 @@ public class TrackingController extends Controller {
     private final Logger _logger = LoggerFactory.getLogger(TrackingController.class.getName());
 
     private static final List<String> KAFKA_SSL_PROTOCOLS = Collections.unmodifiableList(
-            Arrays.asList(SecurityProtocol.SSL.name(),SecurityProtocol.SASL_SSL.name()));
+            Arrays.asList(SecurityProtocol.SSL.name(),SecurityProtocol.SASL_SSL.name(),
+            SecurityProtocol.SASL_PLAINTEXT.name()));
 
     private final Boolean _isEnabled;
     private final Config _config;
@@ -118,9 +119,12 @@ public class TrackingController extends Controller {
             setConfig(props, SslConfigs.SSL_PROTOCOL_CONFIG, "analytics.kafka.ssl.protocol");
             setConfig(props, SslConfigs.SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, "analytics.kafka.ssl.endpoint.identification.algorithm");
 
-            if (_config.getString(securityProtocolConfig).equals(SecurityProtocol.SASL_SSL.name())) {
+            final String securityProtocol = _config.getString(securityProtocolConfig);
+            if (securityProtocol.equals(SecurityProtocol.SASL_SSL.name())
+                    || securityProtocol.equals(SecurityProtocol.SASL_PLAINTEXT.name())) {
                 setConfig(props, SaslConfigs.SASL_MECHANISM, "analytics.kafka.sasl.mechanism");
                 setConfig(props, SaslConfigs.SASL_JAAS_CONFIG, "analytics.kafka.sasl.jaas.config");
+                setConfig(props, SaslConfigs.SASL_KERBEROS_SERVICE_NAME, "analytics.kafka.sasl.kerberos.service.name");
             }
         }
 
