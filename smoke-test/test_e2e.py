@@ -422,7 +422,6 @@ def test_frontend_datasets(frontend_session, platform, dataset_name, env):
     assert res_data["data"]["dataset"]["urn"] == urn
     assert res_data["data"]["dataset"]["name"] == dataset_name
     assert res_data["data"]["dataset"]["platform"]["urn"] == platform
-    assert len(data["owners"]) >= 1
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_ingest_with_system_metadata():
