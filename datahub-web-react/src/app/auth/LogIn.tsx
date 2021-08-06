@@ -1,9 +1,10 @@
 import React, { useCallback, useState } from 'react';
+import * as QueryString from 'query-string';
 import { Input, Button, Form, message, Image } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
 import { useTheme } from 'styled-components';
-import { Redirect } from 'react-router';
+import { Redirect, useLocation } from 'react-router';
 import styles from './login.module.css';
 import { Message } from '../shared/Message';
 import { isLoggedInVar } from './checkAuthStatus';
@@ -18,6 +19,7 @@ export type LogInProps = Record<string, never>;
 
 export const LogIn: React.VFC<LogInProps> = () => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);
+    const location = useLocation();
 
     const themeConfig = useTheme();
     const [loading, setLoading] = useState(false);
@@ -47,7 +49,9 @@ export const LogIn: React.VFC<LogInProps> = () => {
     }, []);
 
     if (isLoggedIn) {
-        return <Redirect to="/" />;
+        const params = QueryString.parse(location.search);
+        const maybeRedirectUri = params.redirect_uri;
+        return <Redirect to={(maybeRedirectUri && decodeURIComponent(maybeRedirectUri as string)) || '/'} />;
     }
 
     return (

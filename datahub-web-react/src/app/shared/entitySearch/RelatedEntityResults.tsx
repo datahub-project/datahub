@@ -64,7 +64,7 @@ export default function RelatedEntityResults({ searchResult, emptyMessage }: Pro
                         </Menu>
                     </MenuWrapper>
                     <Content>
-                        {selectedKey && <RelatedEntity searchResult={searchResult} entityPath={selectedKey} />}
+                        {!!selectedKey && <RelatedEntity searchResult={searchResult} entityPath={selectedKey} />}
                     </Content>
                 </>
             ) : (
