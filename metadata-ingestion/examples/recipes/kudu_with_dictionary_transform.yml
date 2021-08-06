@@ -1,0 +1,21 @@
+---
+source:
+  type: kudu  #only kudu tables are processed in this recipe
+  config:
+    host: localhost:21050
+    jar_location: /home/admini/ImpalaJDBC42-2.6.23.1028.jar  #ask admin for cert        
+    schema_pattern:   #allowed schema will be processed. if not stated, will be dropped.
+      allow:
+      - "default"        
+    table_pattern:
+      allow:
+      - "default.my_second_table"
+transformers:
+  - type: "add_ingest_dictionary"
+    config:
+      dictionary_path: /home/admini/excel.csv
+
+sink:
+  type: "console"
+  # config:
+  #   filename: /home/admini/development/transformer_output.json
