@@ -47,7 +47,7 @@ python -c "import webbrowser; webbrowser.open('http://localhost:8080/restli/docs
 
 ## Sample API Calls
 
-### Ingest Entity API V1: Write Entity Snapshots
+### Ingesting Entities 
 
 The Entity Snapshot Ingest endpoints allow you to ingest multiple aspects about a particular entity at the same time. 
 
@@ -58,6 +58,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    "entity":{
       "value":{
          "com.linkedin.metadata.snapshot.CorpUserSnapshot":{
+            "urn":"urn:li:corpuser:footbarusername",
             "aspects":[
                {
                   "com.linkedin.identity.CorpUserInfo":{
@@ -67,8 +68,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
                      "email":"fbar@linkedin.com"
                   }
                }
-            ],
-            "urn":"urn:li:corpuser:footbarusername"
+            ]
          }
       }
    }
@@ -82,6 +82,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    "entity":{
       "value":{
          "com.linkedin.metadata.snapshot.CorpGroupSnapshot":{
+            "urn":"urn:li:corpGroup:dev",
             "aspects":[
                {
                   "com.linkedin.identity.CorpGroupInfo":{
@@ -98,8 +99,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
                      ]
                   }
                }
-            ],
-            "urn":"urn:li:corpGroup:dev"
+            ]
          }
       }
    }
@@ -112,6 +112,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    "entity":{
       "value":{
          "com.linkedin.metadata.snapshot.DatasetSnapshot":{
+            "urn":"urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
             "aspects":[
                {
                   "com.linkedin.common.Ownership":{
@@ -176,8 +177,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
                      ]
                   }
                }
-            ],
-            "urn":"urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)"
+            ]
          }
       }
    }
@@ -190,6 +190,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    "entity":{
       "value":{
          "com.linkedin.metadata.snapshot.ChartSnapshot":{
+            "urn":"urn:li:chart:(looker,baz1)",
             "aspects":[
                {
                   "com.linkedin.chart.ChartInfo":{
@@ -212,8 +213,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
                      }
                   }
                }
-            ],
-            "urn":"urn:li:chart:(looker,baz1)"
+            ]
          }
       }
    }
@@ -226,6 +226,7 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
    "entity":{
       "value":{
          "com.linkedin.metadata.snapshot.DashboardSnapshot":{
+            "urn":"urn:li:dashboard:(looker,baz)",
             "aspects":[
                {
                   "com.linkedin.dashboard.DashboardInfo":{
@@ -247,15 +248,96 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
                      }
                   }
                }
-            ],
-            "urn":"urn:li:dashboard:(looker,baz)"
+            ]
          }
       }
    }
 }'
 ```
 
-### Entity API V1: Get Entity Snapshots  
+#### Create Tags 
+
+To create a new tag called "Engineering", we can use the following curl. 
+
+```
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.TagSnapshot":{
+            "urn":"urn:li:tag:Engineering",
+            "aspects":[
+               {
+                  "com.linkedin.dashboard.TagProperties":{
+                     "name":"Engineering",
+                     "description":"The tag will be assigned to all assets owned by the Eng org."
+                  }
+               }
+            ]
+         }
+      }
+   }
+}'
+```
+
+This tag can subsequently be associated with a Data Asset using the "Global Tags" aspect associated with each. For example,
+to add a tag to a Dataset, you can use the following CURL:
+
+```
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.DatasetSnapshot":{
+            "urn":"urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+            "aspects":[
+               {
+                  "com.linkedin.common.GlobalTags":{
+                     "tags":[
+                        {
+                           "tag":"urn:li:tag:Engineering"
+                        }
+                     ]
+                  }
+               }
+            ]
+         }
+      }
+   }
+}'
+```
+
+And to add the tag to a field in a particular Dataset's schema, you can use a CURL to update the EditableSchemaMetadata Aspect:
+
+```
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.DatasetSnapshot":{
+            "urn":"urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
+            "aspects":[
+               {
+                  "com.linkedin.schema.EditableSchemaMetadata": { 
+                     "editableSchemaFieldInfo":[
+                        {
+                           "fieldPath":"myFieldName",
+                           "globalTags": {
+                              "tags":[
+                                 {
+                                     "tag":"urn:li:tag:Engineering"
+                                 }
+                              ]
+                           }
+                        }
+                     ]
+                  }
+               }
+            ]
+         }
+      }
+   }
+}'
+```
+
+### Retrieving Entities 
 
 The Entity Snapshot Get APIs allow to retrieve the latest version of each aspect associated with an Entity. 
 
@@ -727,7 +809,7 @@ where valid conditions include
 *Note that the search API only includes data corresponding to the latest snapshots of a particular Entity.
 
 
-#### Autocomplete against fields of an Entity 
+#### Autocomplete against fields of an entity 
 
 To autocomplete a query for a particular entity type, you can use a query of the following form: 
 
@@ -794,7 +876,7 @@ curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
 *Note that the autocomplete API only includes data corresponding to the latest snapshots of a particular Entity.
 
 
-#### Aspect API V1: Get a Versioned Aspect
+#### Get a Versioned Aspect
 
 In addition to fetching the set of latest Snapshot aspects for an entity, we also support doing a point lookup of an entity at a particular version.
 
@@ -856,11 +938,11 @@ Keep in mind that versions increase monotonically *after* version 0, which repre
 
 Note that this API will soon be deprecated and replaced by the V2 Aspect API, discussed below. 
 
-#### Aspect API V2: Get a range of Versioned Aspects
+#### Get a range of Versioned Aspects
 
 *Coming Soon*! 
 
-#### Aspect API V2: Get a range of Timeseries Aspects 
+#### Get a range of Timeseries Aspects 
 
 With the introduction of Timeseries Aspects, we've introduced a new API for fetching a series of aspects falling into a particular time range. For this, you'll
 use the `/aspects` endpoint. The V2 APIs are unique in that they return a new type of payload: an "Enveloped Aspect". This is essentially a serialized aspect along with
@@ -929,10 +1011,6 @@ To get relationships between entities, you can use the `/relationships` API. Do 
 3. The name of the Relationship (This can be found in Aspect PDLs within the @Relationship annotation)
 
 For example, to get all entities owned by `urn:li:corpuser:fbar`, we could issue the following query: 
-
-urn:li:chart:(Looker,dashboard_elements.92)
-
-relationships?direction=OUTGOING&urn=urn%3Ali%3Achart%3A(Looker%2Cdashboard_elements.92)&types=Consumes
 
 ```
 curl 'http://localhost:8080/relationships?direction=INCOMING&urn=urn%3Ali%3Acorpuser%3Auser1&types=OwnedBy'
