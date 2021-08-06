@@ -47,6 +47,7 @@ from datahub.metadata.schema_classes import (
 class GlueSourceConfig(AwsSourceConfig):
 
     extract_transforms: Optional[bool] = True
+    underlying_platform: Optional[str] = None
 
     @property
     def glue_client(self):
@@ -80,12 +81,18 @@ class GlueSource(Source):
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
+        self.underlying_platform = config.underlying_platform
         self.env = config.env
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = GlueSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_underlying_platform(self):
+        if self.underlying_platform in ["athena"]:
+            return self.underlying_platform
+        return "glue"
 
     def get_all_jobs(self):
         """
@@ -195,7 +202,7 @@ class GlueSource(Source):
                 full_table_name = f"{node_args['database']}.{node_args['table_name']}"
 
                 # we know that the table will already be covered when ingesting Glue tables
-                node_urn = f"urn:li:dataset:(urn:li:dataPlatform:glue,{full_table_name},{self.env})"
+                node_urn = f"urn:li:dataset:(urn:li:dataPlatform:{self.get_underlying_platform()},{full_table_name},{self.env})"
 
             # if data object is S3 bucket
             elif node_args.get("connection_type") == "s3":
@@ -447,7 +454,9 @@ class GlueSource(Source):
 
             for job in self.get_all_jobs():
 
-                flow_urn = mce_builder.make_data_flow_urn("glue", job["Name"], self.env)
+                flow_urn = mce_builder.make_data_flow_urn(
+                    self.get_underlying_platform(), job["Name"], self.env
+                )
 
                 flow_wu = self.get_dataflow_wu(flow_urn, job)
                 self.report.report_workunit(flow_wu)
@@ -550,13 +559,13 @@ class GlueSource(Source):
                 schemaName=table_name,
                 version=0,
                 fields=fields,
-                platform="urn:li:dataPlatform:glue",
+                platform=f"urn:li:dataPlatform:{self.get_underlying_platform()}",
                 hash="",
                 platformSchema=MySqlDDL(tableSchema=""),
             )
 
         dataset_snapshot = DatasetSnapshot(
-            urn=f"urn:li:dataset:(urn:li:dataPlatform:glue,{table_name},{self.env})",
+            urn=f"urn:li:dataset:(urn:li:dataPlatform:{self.get_underlying_platform()},{table_name},{self.env})",
             aspects=[],
         )
 
