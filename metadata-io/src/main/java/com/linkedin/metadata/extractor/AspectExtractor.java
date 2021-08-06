@@ -33,6 +33,9 @@ public class AspectExtractor {
     final Map<String, DataElement> aspectsByName = new HashMap<>();
 
     for (DataElement dataElement = iterator.next(); dataElement != null; dataElement = iterator.next()) {
+      if (dataElement.getSchemaPathSpec() == null) {
+        continue;
+      }
       final PathSpec pathSpec = dataElement.getSchemaPathSpec();
       List<String> pathComponents = pathSpec.getPathComponents();
       // three components representing /aspect/*/<aspectClassName>

@@ -2,8 +2,10 @@
 import pydruid  # noqa: F401
 
 from datahub.configuration.common import AllowDenyPattern
-
-from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
+from datahub.ingestion.source.sql.sql_common import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemySource,
+)
 
 
 class DruidConfig(BasicSQLAlchemyConfig):
