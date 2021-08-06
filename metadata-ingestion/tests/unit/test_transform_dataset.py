@@ -12,6 +12,9 @@ from datahub.ingestion.transformer.clear_dataset_ownership import (
     SimpleClearDatasetOwnership,
 )
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
+from datahub.ingestion.transformer.set_dataset_browse_path import (
+    SetDatasetBrowsePathTransformer,
+)
 
 
 def make_generic_dataset():
@@ -146,6 +149,41 @@ def test_mark_status_dataset():
     )
     assert status_aspect
     assert status_aspect.removed is False
+
+
+def test_set_dataset_browse_paths():
+    dataset = make_generic_dataset()
+
+    transformer = SetDatasetBrowsePathTransformer.create(
+        {"path_templates": ["/abc"]},
+        PipelineContext(run_id="test"),
+    )
+    transformed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    browse_path_aspect = builder.get_aspect_if_available(
+        transformed[0].record, models.BrowsePathsClass
+    )
+    assert browse_path_aspect
+    assert browse_path_aspect.paths == ["/abc"]
+
+    transformer = SetDatasetBrowsePathTransformer.create(
+        {
+            "path_templates": [
+                "/PLATFORM/foo/DATASET_PARTS/ENV",
+                "/ENV/PLATFORM/bar/DATASET_PARTS/",
+            ]
+        },
+        PipelineContext(run_id="test"),
+    )
+    transformed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    browse_path_aspect = builder.get_aspect_if_available(
+        transformed[0].record, models.BrowsePathsClass
+    )
+    assert browse_path_aspect
+    assert browse_path_aspect.paths == [
+        "/abc",
+        "/bigquery/foo/example1/prod",
+        "/prod/bigquery/bar/example1/",
+    ]
 
 
 def test_simple_dataset_tags_transformation(mock_time):
