@@ -75,13 +75,13 @@ REDASH_DATA_SOURCE_TO_DATAHUB_MAP = {
 # We assume the default chart type is TABLE
 DEFAULT_VISUALIZATION_TYPE = ChartTypeClass.TABLE
 
-# https://github.com/getredash/redash/tree/master/viz-lib/src/visualizations
+# https://github.com/getredash/redash/blob/master/viz-lib/src/visualizations/chart/Editor/ChartTypeSelect.tsx
 # TODO: add more mapping on ChartTypeClass
 PLOTLY_CHART_MAP = {
     # TODO: add more Plotly visualization mapping here
     # TODO: need to add more ChartTypeClass in datahub schema_classes.py
     "line": ChartTypeClass.LINE,
-    "bar": ChartTypeClass.BAR,
+    "column": ChartTypeClass.BAR,
     "area": ChartTypeClass.AREA,
     "pie": ChartTypeClass.PIE,
     "scatter": ChartTypeClass.SCATTER,
@@ -256,7 +256,7 @@ class RedashSource(Source):
             aspects=[],
         )
 
-        modified_actor = f"urn:li:corpuser:{(dashboard_data.get('changed_by', {})).get('username', 'unknown')}"
+        modified_actor = f"urn:li:corpuser:{dashboard_data.get('changed_by', {}).get('username', 'unknown')}"
         modified_ts = int(
             dp.parse(dashboard_data.get("updated_at", "now")).timestamp() * 1000
         )
@@ -326,7 +326,7 @@ class RedashSource(Source):
 
                 yield wu
 
-    def _get_chart_type_from_viz_data(self, viz_data):
+    def _get_chart_type_from_viz_data(self, viz_data: Dict) -> str:
         """
         https://redash.io/help/user-guide/visualizations/visualization-types
         Redash has multiple visualization types. Chart type is actually Plotly.
@@ -339,26 +339,23 @@ class RedashSource(Source):
 
         # handle Plotly chart types
         if viz_type == "CHART":
-            chart_type = PLOTLY_CHART_MAP.get(
-                globalSeriesType, DEFAULT_VISUALIZATION_TYPE
-            )
-            if not chart_type:
-                self.report.report_warning(
-                    key=report_key,
-                    reason=f"ChartTypeClass={viz_data['type']} with options.globalSeriesType={globalSeriesType} is missing. Setting to None",
-                )
-
-        chart_type = VISUALIZATION_TYPE_MAP.get(viz_type, DEFAULT_VISUALIZATION_TYPE)
-
-        if not chart_type:
-            self.report.report_warning(
-                key=report_key,
-                reason=f"ChartTypeClass={viz_data['type']} is missing. Setting to None",
-            )
+            chart_type = PLOTLY_CHART_MAP.get(globalSeriesType)
+            if chart_type is None:
+                chart_type = DEFAULT_VISUALIZATION_TYPE
+                message = f"ChartTypeClass for Redash Visualization Type={viz_type} with options.globalSeriesType={globalSeriesType} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
+                self.report.report_warning(key=report_key, reason=message)
+                logger.warning(message)
+        else:
+            chart_type = VISUALIZATION_TYPE_MAP.get(viz_type)
+            if chart_type is None:
+                chart_type = DEFAULT_VISUALIZATION_TYPE
+                message = f"ChartTypeClass for Redash Visualization Type={viz_type} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
+                self.report.report_warning(key=report_key, reason=message)
+                logger.warning(message)
 
         return chart_type
 
-    def _get_chart_snapshot(self, query_data, viz_data):
+    def _get_chart_snapshot(self, query_data: Dict, viz_data: Dict) -> ChartSnapshot:
         viz_id = viz_data["id"]
         chart_urn = f"urn:li:chart:({self.platform},{viz_id})"
         chart_snapshot = ChartSnapshot(
@@ -366,7 +363,7 @@ class RedashSource(Source):
             aspects=[],
         )
 
-        modified_actor = f"urn:li:corpuser:{(viz_data.get('changed_by') or {}).get('username', 'unknown')}"
+        modified_actor = f"urn:li:corpuser:{viz_data.get('changed_by', {}).get('username', 'unknown')}"
         modified_ts = int(
             dp.parse(viz_data.get("updated_at", "now")).timestamp() * 1000
         )
@@ -380,7 +377,9 @@ class RedashSource(Source):
         # Getting chart type
         chart_type = self._get_chart_type_from_viz_data(viz_data)
         chart_url = f"{self.config.connect_uri}/queries/{query_data.get('id')}#{viz_id}"
-        description = viz_data.get("description") if viz_data.get("description") else ""
+        description = (
+            viz_data.get("description", "") if viz_data.get("description", "") else ""
+        )
         data_source_id = query_data.get("data_source_id")
         data_source = self._get_chart_data_source(data_source_id)
         data_source_type = data_source.get("type")
@@ -443,7 +442,7 @@ class RedashSource(Source):
                 query_id = query_response["id"]
                 query_data = self.client._get(f"/api/queries/{query_id}").json()
 
-                # In Redash, chart is called vlsualization
+                # In Redash, chart is called visualization
                 for visualization in query_data.get("visualizations", []):
                     chart_snapshot = self._get_chart_snapshot(query_data, visualization)
                     mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
