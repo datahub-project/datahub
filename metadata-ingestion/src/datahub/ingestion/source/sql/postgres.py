@@ -27,7 +27,7 @@ class PostgresConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = "postgresql+psycopg2"
 
-    def get_identifier(self, schema: str, table: str) -> str:
+    def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
         if self.database_alias:
             return f"{self.database_alias}.{regular}"
