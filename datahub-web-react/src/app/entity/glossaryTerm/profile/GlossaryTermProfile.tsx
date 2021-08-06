@@ -28,32 +28,54 @@ export default function GlossaryTermProfile() {
     const searchTypes = entityRegistry.getSearchEntityTypes();
     searchTypes.splice(searchTypes.indexOf(EntityType.GlossaryTerm), 1);
 
-    const glossaryTermName = data?.glossaryTerm?.name;
-    const entitySearchResult = useGetEntitySearchResults(
+    const glossaryTermHierarchicalName = data?.glossaryTerm?.hierarchicalName;
+    const termSearchResult = useGetEntitySearchResults(
         {
-            query: `${glossaryTermName}`,
+            query: `glossaryTerms:"${glossaryTermHierarchicalName}"`,
+        },
+        searchTypes,
+    );
+
+    const fieldTermSearchResult = useGetEntitySearchResults(
+        {
+            query: `fieldGlossaryTerms:"${glossaryTermHierarchicalName}"`,
         },
         searchTypes,
     );
 
     const contentLoading =
-        Object.keys(entitySearchResult).some((type) => {
-            return entitySearchResult[type].loading;
-        }) || loading;
+        Object.keys(termSearchResult).some((type) => {
+            return termSearchResult[type].loading;
+        }) ||
+        Object.keys(fieldTermSearchResult).some((type) => {
+            return termSearchResult[type].loading;
+        }) ||
+        loading;
 
     const entitySearchForDetails = useMemo(() => {
         const filteredSearchResult: {
             [key in EntityType]?: Array<SearchResult>;
         } = {};
 
-        Object.keys(entitySearchResult).forEach((type) => {
-            const entities = entitySearchResult[type].data?.search?.searchResults;
+        Object.keys(termSearchResult).forEach((type) => {
+            const entities = termSearchResult[type].data?.search?.searchResults;
             if (entities && entities.length > 0) {
-                filteredSearchResult[type] = entitySearchResult[type].data?.search?.searchResults;
+                filteredSearchResult[type] = entities;
+            }
+        });
+
+        Object.keys(fieldTermSearchResult).forEach((type) => {
+            const entities = fieldTermSearchResult[type].data?.search?.searchResults;
+            if (entities && entities.length > 0) {
+                if (filteredSearchResult[type]) {
+                    filteredSearchResult[type] = [...filteredSearchResult[type], ...entities];
+                } else {
+                    filteredSearchResult[type] = entities;
+                }
             }
         });
         return filteredSearchResult;
-    }, [entitySearchResult]);
+    }, [termSearchResult, fieldTermSearchResult]);
 
     const getTabs = ({ glossaryTermInfo }: GlossaryTerm) => {
         return [
