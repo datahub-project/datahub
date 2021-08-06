@@ -4,9 +4,18 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.ByteString;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.query.*;
+import com.linkedin.metadata.query.Criterion;
+import com.linkedin.metadata.query.CriterionArray;
+import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.query.RelationshipFilter;
 import io.dgraph.DgraphClient;
-import io.dgraph.DgraphProto.*;
+import io.dgraph.DgraphProto.Mutation;
+import io.dgraph.DgraphProto.NQuad;
+import io.dgraph.DgraphProto.Operation;
+import io.dgraph.DgraphProto.Request;
+import io.dgraph.DgraphProto.Response;
+import io.dgraph.DgraphProto.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -14,7 +23,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -37,10 +45,10 @@ public class DgraphGraphService implements GraphService {
 
         if (this._schema.isEmpty()) {
             Operation setSchema = Operation.newBuilder()
-                    .setSchema("" +
-                            "<urn>: string @index(hash) @upsert .\n" +
-                            "<type>: string @index(hash) .\n" +
-                            "<key>: string @index(hash) .\n"
+                    .setSchema(""
+                            + "<urn>: string @index(hash) @upsert .\n"
+                            + "<type>: string @index(hash) .\n"
+                            + "<key>: string @index(hash) .\n"
                     )
                     .build();
             this._client.alter(setSchema);
@@ -58,50 +66,60 @@ public class DgraphGraphService implements GraphService {
         Map<String, Object> data = getDataFromResponseJson(json);
 
         Object schemaObj = data.get("schema");
-        if (! (schemaObj instanceof List<?>))
+        if (!(schemaObj instanceof List<?>)) {
             throw new IllegalArgumentException(
                     "The result from Dgraph did not contain a 'schema' field, or that field is not a List"
             );
+        }
 
-        List<?> schemaList = (List<?>)schemaObj;
+        List<?> schemaList = (List<?>) schemaObj;
         Set<String> fieldNames = schemaList.stream().flatMap(fieldObj -> {
-            if (!(fieldObj instanceof Map))
+            if (!(fieldObj instanceof Map)) {
                 return Stream.empty();
+            }
 
             Map<?, ?> fieldMap = (Map<?, ?>) fieldObj;
-            if ( ! (fieldMap.containsKey("predicate") && fieldMap.get("predicate") instanceof String))
+            if (!(fieldMap.containsKey("predicate") && fieldMap.get("predicate") instanceof String)) {
                 return Stream.empty();
+            }
 
             String fieldName = (String) fieldMap.get("predicate");
             return Stream.of(fieldName);
         }).filter(f -> !f.startsWith("dgraph.")).collect(Collectors.toSet());
 
         Object typesObj = data.get("types");
-        if (! (typesObj instanceof List<?>))
+        if (!(typesObj instanceof List<?>)) {
             throw new IllegalArgumentException(
                     "The result from Dgraph did not contain a 'types' field, or that field is not a List"
             );
+        }
 
-        List<?> types = (List<?>)typesObj;
+        List<?> types = (List<?>) typesObj;
         Map<String, Set<String>> typeFields = types.stream().flatMap(typeObj -> {
-            if (!(typeObj instanceof Map))
+            if (!(typeObj instanceof Map)) {
                 return Stream.empty();
+            }
 
             Map<?, ?> typeMap = (Map<?, ?>) typeObj;
-            if ( ! (typeMap.containsKey("fields") && typeMap.containsKey("name") &&
-                    typeMap.get("fields") instanceof List<?> && typeMap.get("name") instanceof String))
+            if (!(typeMap.containsKey("fields")
+                    && typeMap.containsKey("name")
+                    && typeMap.get("fields") instanceof List<?>
+                    && typeMap.get("name") instanceof String)) {
                 return Stream.empty();
+            }
 
             String typeName = (String) typeMap.get("name");
             List<?> fieldsList = (List<?>) typeMap.get("fields");
 
             Set<String> fields = fieldsList.stream().flatMap(fieldObj -> {
-                if (!(fieldObj instanceof Map<?, ?>))
+                if (!(fieldObj instanceof Map<?, ?>)) {
                     return Stream.empty();
+                }
 
                 Map<?, ?> fieldMap = (Map<?, ?>) fieldObj;
-                if (! (fieldMap.containsKey("name") && fieldMap.get("name") instanceof String))
+                if (!(fieldMap.containsKey("name") && fieldMap.get("name") instanceof String)) {
                     return Stream.empty();
+                }
 
                 String fieldName = (String) fieldMap.get("name");
                 return Stream.of(fieldName);
@@ -124,16 +142,16 @@ public class DgraphGraphService implements GraphService {
         // TODO: cache the schema and only mutate if relationship is new
         String sourceEntityType = getDgraphType(edge.getSource());
         String relationshipType = edge.getRelationshipType();
-        if (! _schema.hasField(sourceEntityType, relationshipType)) {
+        if (!_schema.hasField(sourceEntityType, relationshipType)) {
             StringJoiner schema = new StringJoiner("\n");
 
             // is the field known at all?
-            if (! _schema.hasField(relationshipType)) {
+            if (!_schema.hasField(relationshipType)) {
                 schema.add(String.format("<%s>: [uid] @reverse .", relationshipType));
             }
 
             // is the type known at all?
-            if (! _schema.hasType(sourceEntityType)) {
+            if (!_schema.hasType(sourceEntityType)) {
                 _schema.addField(sourceEntityType, "urn");
                 _schema.addField(sourceEntityType, "type");
                 _schema.addField(sourceEntityType, "key");
@@ -153,10 +171,10 @@ public class DgraphGraphService implements GraphService {
 
         // lookup the source and destination nodes
         // TODO: add escape for string values
-        String query = String.format("query {\n" +
-                " src as var(func: eq(urn, \"%s\"))\n" +
-                " dst as var(func: eq(urn, \"%s\"))\n" +
-                "}", edge.getSource(), edge.getDestination());
+        String query = String.format("query {\n"
+                + " src as var(func: eq(urn, \"%s\"))\n"
+                + " dst as var(func: eq(urn, \"%s\"))\n"
+                + "}", edge.getSource(), edge.getDestination());
         // create source and destination nodes if they do not exist
         // and create the new edge between them
         // TODO: add escape for string values
@@ -276,8 +294,9 @@ public class DgraphGraphService implements GraphService {
 
         // the source node filter is the first filter that is being applied on the source node
         // we can add multiple filters, they will combine as OR
-        if (sourceTypeFilterName != null)
+        if (sourceTypeFilterName != null) {
             sourceNodeFilterNames.add(sourceTypeFilterName);
+        }
         sourceNodeFilterNames.addAll(sourceFilterNames);
         sourceNodeFilterNames.addAll(relationshipTypeFilterNames);
 
@@ -309,17 +328,17 @@ public class DgraphGraphService implements GraphService {
         StringJoiner relationshipJoiner = new StringJoiner("\n    ");
         directedRelationshipTypes.forEach(relationshipType -> relationshipJoiner.add(String.format("<%s> { uid <urn> <type> <key> }", relationshipType)));
         String relationships = relationshipJoiner.toString();
-        return String.format("query {\n" +
-                        "  %s\n" +
-                        "\n" +
-                        "  result (func: uid(%s), first: %d, offset: %d) %s {\n" +
-                        "    uid\n" +
-                        "    <urn>\n" +
-                        "    <type>\n" +
-                        "    <key>\n" +
-                        "    %s\n" +
-                        "  }\n" +
-                        "}",
+        return String.format("query {\n"
+                        + "  %s\n"
+                        + "\n"
+                        + "  result (func: uid(%s), first: %d, offset: %d) %s {\n"
+                        + "    uid\n"
+                        + "    <urn>\n"
+                        + "    <type>\n"
+                        + "    <key>\n"
+                        + "    %s\n"
+                        + "  }\n"
+                        + "}",
                 filterExpressions,
                 sourceNodeFilter,
                 count, offset,
@@ -367,17 +386,23 @@ public class DgraphGraphService implements GraphService {
                                                          @Nonnull List<String> destinationFilterNames,
                                                          @Nonnull List<String> relationshipTypeFilterNames,
                                                          @Nonnull List<String> relationshipTypes) {
-        if (relationshipTypes.size() != relationshipTypeFilterNames.size())
-            throw new IllegalArgumentException("relationshipTypeFilterNames and relationshipTypes " +
-                    "must have same size: " + relationshipTypeFilterNames + " vs. " + relationshipTypes);
+        if (relationshipTypes.size() != relationshipTypeFilterNames.size()) {
+            throw new IllegalArgumentException("relationshipTypeFilterNames and relationshipTypes "
+                    + "must have same size: " + relationshipTypeFilterNames + " vs. " + relationshipTypes);
+        }
 
-        if (sourceTypeFilterName== null && destinationTypeFilterName == null &&
-                sourceFilterNames.isEmpty() && destinationFilterNames.isEmpty() &&
-                relationshipTypeFilterNames.isEmpty())
+        if (sourceTypeFilterName == null
+                && destinationTypeFilterName == null
+                && sourceFilterNames.isEmpty()
+                && destinationFilterNames.isEmpty()
+                && relationshipTypeFilterNames.isEmpty()) {
             return "";
+        }
 
         StringJoiner andJoiner = new StringJoiner(" AND\n    ");
-        if (sourceTypeFilterName != null) andJoiner.add(String.format("uid(%s)", sourceTypeFilterName));
+        if (sourceTypeFilterName != null) {
+            andJoiner.add(String.format("uid(%s)", sourceTypeFilterName));
+        }
 
         sourceFilterNames.forEach(filter -> andJoiner.add(String.format("uid(%s)", filter)));
 
@@ -401,15 +426,16 @@ public class DgraphGraphService implements GraphService {
                                                      @Nonnull List<String> destinationFilterNames) {
         StringJoiner andJoiner = new StringJoiner(" AND ");
         andJoiner.add(String.format("uid(%s)", relationshipTypeFilterName));
-        if (destinationTypeFilterName != null)
+        if (destinationTypeFilterName != null) {
             andJoiner.add(String.format("uid_in(<%s>, uid(%s))", relationshipType, destinationTypeFilterName));
+        }
         destinationFilterNames.forEach(filter -> andJoiner.add(String.format("uid_in(<%s>, uid(%s))", relationshipType, filter)));
         return andJoiner.toString();
     }
 
     protected static Map<String, Object> getDataFromResponseJson(String json) {
         ObjectMapper mapper = new ObjectMapper();
-        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() {};
+        TypeReference<HashMap<String, Object>> typeRef = new TypeReference<HashMap<String, Object>>() { };
         try {
             return mapper.readValue(json, typeRef);
         } catch (IOException e) {
@@ -419,31 +445,36 @@ public class DgraphGraphService implements GraphService {
 
     protected static List<String> getDestinationUrnsFromResponseData(Map<String, Object> data, List<String> relationshipTypes) {
         Object obj = data.get("result");
-        if (! (obj instanceof List<?>))
+        if (!(obj instanceof List<?>)) {
             throw new IllegalArgumentException(
                     "The result from Dgraph did not contain a 'result' field, or that field is not a List"
             );
+        }
 
-        List<?> results = (List<?>)obj;
+        List<?> results = (List<?>) obj;
         return results.stream().flatMap(sourceObj -> {
-            if (!(sourceObj instanceof Map))
+            if (!(sourceObj instanceof Map)) {
                 return Stream.empty();
+            }
 
             Map<?, ?> source = (Map<?, ?>) sourceObj;
             return relationshipTypes.stream().flatMap(relationship -> {
                 Object destinationObjs = source.get(relationship);
-                if (!(destinationObjs instanceof List))
+                if (!(destinationObjs instanceof List)) {
                     return Stream.empty();
+                }
 
-                List<?> destinations = (List<?>)destinationObjs;
+                List<?> destinations = (List<?>) destinationObjs;
                 return destinations.stream().flatMap(destinationObj -> {
-                    if (!(destinationObj instanceof Map))
+                    if (!(destinationObj instanceof Map)) {
                         return Stream.empty();
+                    }
 
                     Map<?, ?> destination = (Map<?, ?>) destinationObj;
                     Object destinationUrnObj = destination.get("urn");
-                    if (!(destinationUrnObj instanceof String))
+                    if (!(destinationUrnObj instanceof String)) {
                         return Stream.empty();
+                    }
 
                     return Stream.of((String) destinationUrnObj);
                 });
@@ -453,9 +484,9 @@ public class DgraphGraphService implements GraphService {
 
     @Override
     public void removeNode(@Nonnull Urn urn) {
-        String query = String.format("query {\n" +
-                " node as var(func: eq(urn, \"%s\"))\n" +
-                "}", urn);
+        String query = String.format("query {\n"
+                + " node as var(func: eq(urn, \"%s\"))\n"
+                + "}", urn);
         String deletion = "uid(node) * * .";
 
         log.debug("Query: " + query);
@@ -479,19 +510,21 @@ public class DgraphGraphService implements GraphService {
                                     @Nonnull RelationshipFilter relationshipFilter) {
         RelationshipDirection direction = relationshipFilter.getDirection();
 
-        if (direction == RelationshipDirection.OUTGOING || direction == RelationshipDirection.UNDIRECTED)
+        if (direction == RelationshipDirection.OUTGOING || direction == RelationshipDirection.UNDIRECTED) {
             removeOutgoingEdgesFromNode(urn, relationshipTypes);
+        }
 
-        if (direction == RelationshipDirection.INCOMING || direction == RelationshipDirection.UNDIRECTED)
+        if (direction == RelationshipDirection.INCOMING || direction == RelationshipDirection.UNDIRECTED) {
             removeIncomingEdgesFromNode(urn, relationshipTypes);
+        }
     }
 
     private void removeOutgoingEdgesFromNode(@Nonnull Urn urn,
                                              @Nonnull List<String> relationshipTypes) {
         // TODO: add escape for string values
-        String query = String.format("query {\n" +
-                "  node as var(func: eq(<urn>, \"%s\"))\n" +
-                "}", urn);
+        String query = String.format("query {\n"
+                + "  node as var(func: eq(<urn>, \"%s\"))\n"
+                + "}", urn);
 
         Value star = Value.newBuilder().setDefaultVal("_STAR_ALL").build();
         List<NQuad> deletions = relationshipTypes.stream().map(relationshipType ->
@@ -522,15 +555,15 @@ public class DgraphGraphService implements GraphService {
         // TODO: add escape for string values
         StringJoiner reverseEdges = new StringJoiner("\n    ");
         IntStream.range(0, relationshipTypes.size()).forEach(idx ->
-                reverseEdges.add("<~" + relationshipTypes.get(idx) + "> { uids" + ( idx+1 ) + " as uid }")
+                reverseEdges.add("<~" + relationshipTypes.get(idx) + "> { uids" + (idx + 1) + " as uid }")
         );
-        String query = String.format("query {\n" +
-                "  node as var(func: eq(<urn>, \"%s\"))\n" +
-                "\n" +
-                "  var(func: uid(node)) @normalize {\n" +
-                "    %s\n" +
-                "  }\n" +
-                "}", urn, reverseEdges);
+        String query = String.format("query {\n"
+                + "  node as var(func: eq(<urn>, \"%s\"))\n"
+                + "\n"
+                + "  var(func: uid(node)) @normalize {\n"
+                + "    %s\n"
+                + "  }\n"
+                + "}", urn, reverseEdges);
 
         StringJoiner deletions = new StringJoiner("\n");
         IntStream.range(0, relationshipTypes.size()).forEach(idx ->

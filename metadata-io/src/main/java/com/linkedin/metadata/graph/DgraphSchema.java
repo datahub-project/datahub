@@ -1,7 +1,10 @@
 package com.linkedin.metadata.graph;
 
 import javax.annotation.Nonnull;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class DgraphSchema {
@@ -51,8 +54,9 @@ public class DgraphSchema {
     }
 
     public void addField(String typeName, String fieldName) {
-        if (!types.containsKey(typeName))
+        if (!types.containsKey(typeName)) {
             types.put(typeName, new HashSet<>());
+        }
         types.get(typeName).add(fieldName);
         fields.add(fieldName);
     }

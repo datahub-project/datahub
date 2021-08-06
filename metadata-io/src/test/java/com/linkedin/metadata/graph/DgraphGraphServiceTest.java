@@ -6,13 +6,16 @@ import io.dgraph.DgraphClient;
 import io.dgraph.DgraphGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import org.junit.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nonnull;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
@@ -49,48 +52,48 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
     @Test
     public void testGetSchema() {
-        DgraphSchema schema = DgraphGraphService.getSchema("{\n" +
-                "    \"schema\": [\n" +
-                "      {\n" +
-                "        \"predicate\": \"PredOne\"\n" +
-                "      },\n" +
-                "      {\n" +
-                "        \"predicate\": \"PredTwo\"\n" +
-                "      },\n" +
-                "      {\n" +
-                "        \"predicate\": \"dgraph.type\"\n" +
-                "      }\n" +
-                "    ],\n" +
-                "    \"types\": [\n" +
-                "      {\n" +
-                "        \"fields\": [\n" +
-                "          {\n" +
-                "            \"name\": \"dgraph.type\"\n" +
-                "          }\n" +
-                "        ],\n" +
-                "        \"name\": \"dgraph.meta\"\n" +
-                "      },\n" +
-                "      {\n" +
-                "        \"fields\": [\n" +
-                "          {\n" +
-                "            \"name\": \"PredOne\"\n" +
-                "          },\n" +
-                "          {\n" +
-                "            \"name\": \"PredTwo\"\n" +
-                "          }\n" +
-                "        ],\n" +
-                "        \"name\": \"ns:typeOne\"\n" +
-                "      },\n" +
-                "      {\n" +
-                "        \"fields\": [\n" +
-                "          {\n" +
-                "            \"name\": \"PredTwo\"\n" +
-                "          }\n" +
-                "        ],\n" +
-                "        \"name\": \"ns:typeTwo\"\n" +
-                "      }\n" +
-                "    ]\n" +
-                "  }");
+        DgraphSchema schema = DgraphGraphService.getSchema("{\n"
+                + "    \"schema\": [\n"
+                + "      {\n"
+                + "        \"predicate\": \"PredOne\"\n"
+                + "      },\n"
+                + "      {\n"
+                + "        \"predicate\": \"PredTwo\"\n"
+                + "      },\n"
+                + "      {\n"
+                + "        \"predicate\": \"dgraph.type\"\n"
+                + "      }\n"
+                + "    ],\n"
+                + "    \"types\": [\n"
+                + "      {\n"
+                + "        \"fields\": [\n"
+                + "          {\n"
+                + "            \"name\": \"dgraph.type\"\n"
+                + "          }\n"
+                + "        ],\n"
+                + "        \"name\": \"dgraph.meta\"\n"
+                + "      },\n"
+                + "      {\n"
+                + "        \"fields\": [\n"
+                + "          {\n"
+                + "            \"name\": \"PredOne\"\n"
+                + "          },\n"
+                + "          {\n"
+                + "            \"name\": \"PredTwo\"\n"
+                + "          }\n"
+                + "        ],\n"
+                + "        \"name\": \"ns:typeOne\"\n"
+                + "      },\n"
+                + "      {\n"
+                + "        \"fields\": [\n"
+                + "          {\n"
+                + "            \"name\": \"PredTwo\"\n"
+                + "          }\n"
+                + "        ],\n"
+                + "        \"name\": \"ns:typeTwo\"\n"
+                + "      }\n"
+                + "    ]\n"
+                + "  }");
         assertEquals(schema.getFields(), new HashSet<>(Arrays.asList("PredOne", "PredTwo")));
 
         assertEquals(schema.getTypes(), new HashMap<String, Set<String>>() {{
@@ -150,9 +153,9 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         Collections.emptyList(),
                         Collections.emptyList(),
                         Collections.emptyList()),
-                "@filter(\n" +
-                        "    uid(sourceTypeFilter)\n" +
-                        "  )"
+                "@filter(\n"
+                        + "    uid(sourceTypeFilter)\n"
+                        + "  )"
         );
 
         // destination type not supported without restricting relationship types
@@ -165,11 +168,11 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         Collections.emptyList(),
                         Arrays.asList("RelationshipTypeFilter"),
                         Arrays.asList("relationship")),
-                "@filter(\n" +
-                        "    (\n" +
-                        "      uid(RelationshipTypeFilter) AND uid_in(<relationship>, uid(destinationTypeFilter))\n" +
-                        "    )\n" +
-                        "  )"
+                "@filter(\n"
+                        + "    (\n"
+                        + "      uid(RelationshipTypeFilter) AND uid_in(<relationship>, uid(destinationTypeFilter))\n"
+                        + "    )\n"
+                        + "  )"
         );
 
         // source filters
@@ -181,9 +184,9 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         Collections.emptyList(),
                         Collections.emptyList(),
                         Collections.emptyList()),
-                "@filter(\n" +
-                        "    uid(sourceFilter)\n" +
-                        "  )"
+                "@filter(\n"
+                        + "    uid(sourceFilter)\n"
+                        + "  )"
         );
         assertEquals(
                 DgraphGraphService.getFilterConditions(
@@ -193,10 +196,10 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         Collections.emptyList(),
                         Collections.emptyList(),
                         Collections.emptyList()),
-                "@filter(\n" +
-                        "    uid(sourceFilter1) AND\n" +
-                        "    uid(sourceFilter2)\n" +
-                        "  )"
+                "@filter(\n"
+                        + "    uid(sourceFilter1) AND\n"
+                        + "    uid(sourceFilter2)\n"
+                        + "  )"
         );
 
         // destination filter not supported without restricting relationship types
@@ -209,11 +212,11 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         Arrays.asList("destinationFilter"),
                         Arrays.asList("RelationshipTypeFilter"),
                         Arrays.asList("relationship")),
-                "@filter(\n" +
-                        "    (\n" +
-                        "      uid(RelationshipTypeFilter) AND uid_in(<relationship>, uid(destinationFilter))\n" +
-                        "    )\n" +
-                        "  )"
+                "@filter(\n"
+                        + "    (\n"
+                        + "      uid(RelationshipTypeFilter) AND uid_in(<relationship>, uid(destinationFilter))\n"
+                        + "    )\n"
+                        + "  )"
         );
         assertEquals(
                 DgraphGraphService.getFilterConditions(
@@ -223,11 +226,12 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         Arrays.asList("destinationFilter1", "destinationFilter2"),
                         Arrays.asList("RelationshipTypeFilter"),
                         Arrays.asList("relationship")),
-                "@filter(\n" +
-                        "    (\n" +
-                        "      uid(RelationshipTypeFilter) AND uid_in(<relationship>, uid(destinationFilter1)) AND uid_in(<relationship>, uid(destinationFilter2))\n" +
-                        "    )\n" +
-                        "  )"
+                "@filter(\n"
+                        + "    (\n"
+                        + "      uid(RelationshipTypeFilter) AND uid_in(<relationship>, uid(destinationFilter1)) AND "
+                        + "uid_in(<relationship>, uid(destinationFilter2))\n"
+                        + "    )\n"
+                        + "  )"
         );
         assertEquals(
                 DgraphGraphService.getFilterConditions(
@@ -237,12 +241,14 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         Arrays.asList("destinationFilter1", "destinationFilter2"),
                         Arrays.asList("RelationshipTypeFilter1", "RelationshipTypeFilter2"),
                         Arrays.asList("relationship1", "relationship2")),
-                "@filter(\n" +
-                        "    (\n" +
-                        "      uid(RelationshipTypeFilter1) AND uid_in(<relationship1>, uid(destinationFilter1)) AND uid_in(<relationship1>, uid(destinationFilter2)) OR\n" +
-                        "      uid(RelationshipTypeFilter2) AND uid_in(<relationship2>, uid(destinationFilter1)) AND uid_in(<relationship2>, uid(destinationFilter2))\n" +
-                        "    )\n" +
-                        "  )"
+                "@filter(\n"
+                        + "    (\n"
+                        + "      uid(RelationshipTypeFilter1) AND uid_in(<relationship1>, uid(destinationFilter1)) AND "
+                        + "uid_in(<relationship1>, uid(destinationFilter2)) OR\n"
+                        + "      uid(RelationshipTypeFilter2) AND uid_in(<relationship2>, uid(destinationFilter1)) AND "
+                        + "uid_in(<relationship2>, uid(destinationFilter2))\n"
+                        + "    )\n"
+                        + "  )"
         );
 
         // relationship type filters require relationship types
@@ -254,12 +260,12 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         Collections.emptyList(),
                         Arrays.asList("relationshipTypeFilter1", "relationshipTypeFilter2"),
                         Arrays.asList("relationship1", "relationship2")),
-                "@filter(\n" +
-                        "    (\n" +
-                        "      uid(relationshipTypeFilter1) OR\n" +
-                        "      uid(relationshipTypeFilter2)\n" +
-                        "    )\n" +
-                        "  )"
+                "@filter(\n"
+                        + "    (\n"
+                        + "      uid(relationshipTypeFilter1) OR\n"
+                        + "      uid(relationshipTypeFilter2)\n"
+                        + "    )\n"
+                        + "  )"
         );
 
         // all filters at once
@@ -271,15 +277,17 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         Arrays.asList("destinationFilter1", "destinationFilter2"),
                         Arrays.asList("relationshipTypeFilter1", "relationshipTypeFilter2"),
                         Arrays.asList("relationship1", "relationship2")),
-                "@filter(\n" +
-                        "    uid(sourceTypeFilter) AND\n" +
-                        "    uid(sourceFilter1) AND\n" +
-                        "    uid(sourceFilter2) AND\n" +
-                        "    (\n" +
-                        "      uid(relationshipTypeFilter1) AND uid_in(<relationship1>, uid(destinationTypeFilter)) AND uid_in(<relationship1>, uid(destinationFilter1)) AND uid_in(<relationship1>, uid(destinationFilter2)) OR\n" +
-                        "      uid(relationshipTypeFilter2) AND uid_in(<relationship2>, uid(destinationTypeFilter)) AND uid_in(<relationship2>, uid(destinationFilter1)) AND uid_in(<relationship2>, uid(destinationFilter2))\n" +
-                        "    )\n" +
-                        "  )"
+                "@filter(\n"
+                        + "    uid(sourceTypeFilter) AND\n"
+                        + "    uid(sourceFilter1) AND\n"
+                        + "    uid(sourceFilter2) AND\n"
+                        + "    (\n"
+                        + "      uid(relationshipTypeFilter1) AND uid_in(<relationship1>, uid(destinationTypeFilter)) AND "
+                        + "uid_in(<relationship1>, uid(destinationFilter1)) AND uid_in(<relationship1>, uid(destinationFilter2)) OR\n"
+                        + "      uid(relationshipTypeFilter2) AND uid_in(<relationship2>, uid(destinationTypeFilter)) AND "
+                        + "uid_in(<relationship2>, uid(destinationFilter1)) AND uid_in(<relationship2>, uid(destinationFilter2))\n"
+                        + "    )\n"
+                        + "  )"
         );
 
         // TODO: check getFilterConditions throws an exception when relationshipTypes and
@@ -312,7 +320,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         "relationshipFilter",
                         "destinationTypeFilter",
                         Arrays.asList("destinationFilter")),
-                "uid(relationshipFilter) AND uid_in(<relationship>, uid(destinationTypeFilter)) AND uid_in(<relationship>, uid(destinationFilter))"
+                "uid(relationshipFilter) AND uid_in(<relationship>, uid(destinationTypeFilter)) AND "
+                        + "uid_in(<relationship>, uid(destinationFilter))"
         );
 
         assertEquals(
@@ -321,7 +330,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         "relationshipFilter",
                         "destinationTypeFilter",
                         Arrays.asList("destinationFilter1", "destinationFilter2")),
-                "uid(relationshipFilter) AND uid_in(<relationship>, uid(destinationTypeFilter)) AND uid_in(<relationship>, uid(destinationFilter1)) AND uid_in(<relationship>, uid(destinationFilter2))"
+                "uid(relationshipFilter) AND uid_in(<relationship>, uid(destinationTypeFilter)) AND "
+                        + "uid_in(<relationship>, uid(destinationFilter1)) AND uid_in(<relationship>, uid(destinationFilter2))"
         );
 
         assertEquals(
@@ -330,112 +340,124 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         "relationshipFilter",
                         null,
                         Arrays.asList("destinationFilter1", "destinationFilter2")),
-                "uid(relationshipFilter) AND uid_in(<relationship>, uid(destinationFilter1)) AND uid_in(<relationship>, uid(destinationFilter2))"
+                "uid(relationshipFilter) AND uid_in(<relationship>, uid(destinationFilter1)) AND "
+                        + "uid_in(<relationship>, uid(destinationFilter2))"
         );
     }
 
     @Test
     public void testGetQueryForRelatedUrnsOutgoing() {
         doTestGetQueryForRelatedUrnsDirection(RelationshipDirection.OUTGOING,
-                "query {\n" +
-                        "  sourceType as var(func: eq(<type>, \"sourceType\"))\n" +
-                        "  destinationTypeType as var(func: eq(<type>, \"destinationType\"))\n" +
-                        "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n" +
-                        "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n" +
-                        "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n" +
-                        "  destinationFilter2 as var(func: eq(<key>, \"dest-key\"))\n" +
-                        "  relationshipType1 as var(func: has(<relationship1>))\n" +
-                        "  relationshipType2 as var(func: has(<relationship2>))\n" +
-                        "\n" +
-                        "  result (func: uid(relationshipType1, relationshipType2, sourceFilter1, sourceFilter2, sourceType), first: 100, offset: 0) @filter(\n" +
-                        "    uid(sourceType) AND\n" +
-                        "    uid(sourceFilter1) AND\n" +
-                        "    uid(sourceFilter2) AND\n" +
-                        "    (\n" +
-                        "      uid(relationshipType1) AND uid_in(<relationship1>, uid(destinationTypeType)) AND uid_in(<relationship1>, uid(destinationFilter1)) AND uid_in(<relationship1>, uid(destinationFilter2)) OR\n" +
-                        "      uid(relationshipType2) AND uid_in(<relationship2>, uid(destinationTypeType)) AND uid_in(<relationship2>, uid(destinationFilter1)) AND uid_in(<relationship2>, uid(destinationFilter2))\n" +
-                        "    )\n" +
-                        "  ) {\n" +
-                        "    uid\n" +
-                        "    <urn>\n" +
-                        "    <type>\n" +
-                        "    <key>\n" +
-                        "    <relationship1> { uid <urn> <type> <key> }\n" +
-                        "    <relationship2> { uid <urn> <type> <key> }\n" +
-                        "  }\n" +
-                        "}"
+                "query {\n"
+                        + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
+                        + "  destinationTypeType as var(func: eq(<type>, \"destinationType\"))\n"
+                        + "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n"
+                        + "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n"
+                        + "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n"
+                        + "  destinationFilter2 as var(func: eq(<key>, \"dest-key\"))\n"
+                        + "  relationshipType1 as var(func: has(<relationship1>))\n"
+                        + "  relationshipType2 as var(func: has(<relationship2>))\n"
+                        + "\n"
+                        + "  result (func: uid(relationshipType1, relationshipType2, sourceFilter1, sourceFilter2, sourceType), "
+                        + "first: 100, offset: 0) @filter(\n"
+                        + "    uid(sourceType) AND\n"
+                        + "    uid(sourceFilter1) AND\n"
+                        + "    uid(sourceFilter2) AND\n"
+                        + "    (\n"
+                        + "      uid(relationshipType1) AND uid_in(<relationship1>, uid(destinationTypeType)) AND "
+                        + "uid_in(<relationship1>, uid(destinationFilter1)) AND uid_in(<relationship1>, uid(destinationFilter2)) OR\n"
+                        + "      uid(relationshipType2) AND uid_in(<relationship2>, uid(destinationTypeType)) AND "
+                        + "uid_in(<relationship2>, uid(destinationFilter1)) AND uid_in(<relationship2>, uid(destinationFilter2))\n"
+                        + "    )\n"
+                        + "  ) {\n"
+                        + "    uid\n"
+                        + "    <urn>\n"
+                        + "    <type>\n"
+                        + "    <key>\n"
+                        + "    <relationship1> { uid <urn> <type> <key> }\n"
+                        + "    <relationship2> { uid <urn> <type> <key> }\n"
+                        + "  }\n"
+                        + "}"
         );
     }
 
     @Test
     public void testGetQueryForRelatedUrnsIncoming() {
         doTestGetQueryForRelatedUrnsDirection(RelationshipDirection.INCOMING,
-                "query {\n" +
-                        "  sourceType as var(func: eq(<type>, \"sourceType\"))\n" +
-                        "  destinationTypeType as var(func: eq(<type>, \"destinationType\"))\n" +
-                        "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n" +
-                        "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n" +
-                        "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n" +
-                        "  destinationFilter2 as var(func: eq(<key>, \"dest-key\"))\n" +
-                        "  relationshipType1 as var(func: has(<~relationship1>))\n" +
-                        "  relationshipType2 as var(func: has(<~relationship2>))\n" +
-                        "\n" +
-                        "  result (func: uid(relationshipType1, relationshipType2, sourceFilter1, sourceFilter2, sourceType), first: 100, offset: 0) @filter(\n" +
-                        "    uid(sourceType) AND\n" +
-                        "    uid(sourceFilter1) AND\n" +
-                        "    uid(sourceFilter2) AND\n" +
-                        "    (\n" +
-                        "      uid(relationshipType1) AND uid_in(<~relationship1>, uid(destinationTypeType)) AND uid_in(<~relationship1>, uid(destinationFilter1)) AND uid_in(<~relationship1>, uid(destinationFilter2)) OR\n" +
-                        "      uid(relationshipType2) AND uid_in(<~relationship2>, uid(destinationTypeType)) AND uid_in(<~relationship2>, uid(destinationFilter1)) AND uid_in(<~relationship2>, uid(destinationFilter2))\n" +
-                        "    )\n" +
-                        "  ) {\n" +
-                        "    uid\n" +
-                        "    <urn>\n" +
-                        "    <type>\n" +
-                        "    <key>\n" +
-                        "    <~relationship1> { uid <urn> <type> <key> }\n" +
-                        "    <~relationship2> { uid <urn> <type> <key> }\n" +
-                        "  }\n" +
-                        "}"
+                "query {\n"
+                        + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
+                        + "  destinationTypeType as var(func: eq(<type>, \"destinationType\"))\n"
+                        + "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n"
+                        + "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n"
+                        + "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n"
+                        + "  destinationFilter2 as var(func: eq(<key>, \"dest-key\"))\n"
+                        + "  relationshipType1 as var(func: has(<~relationship1>))\n"
+                        + "  relationshipType2 as var(func: has(<~relationship2>))\n"
+                        + "\n"
+                        + "  result (func: uid(relationshipType1, relationshipType2, sourceFilter1, sourceFilter2, sourceType), "
+                        + "first: 100, offset: 0) @filter(\n"
+                        + "    uid(sourceType) AND\n"
+                        + "    uid(sourceFilter1) AND\n"
+                        + "    uid(sourceFilter2) AND\n"
+                        + "    (\n"
+                        + "      uid(relationshipType1) AND uid_in(<~relationship1>, uid(destinationTypeType)) AND "
+                        + "uid_in(<~relationship1>, uid(destinationFilter1)) AND uid_in(<~relationship1>, uid(destinationFilter2)) OR\n"
+                        + "      uid(relationshipType2) AND uid_in(<~relationship2>, uid(destinationTypeType)) AND "
+                        + "uid_in(<~relationship2>, uid(destinationFilter1)) AND uid_in(<~relationship2>, uid(destinationFilter2))\n"
+                        + "    )\n"
+                        + "  ) {\n"
+                        + "    uid\n"
+                        + "    <urn>\n"
+                        + "    <type>\n"
+                        + "    <key>\n"
+                        + "    <~relationship1> { uid <urn> <type> <key> }\n"
+                        + "    <~relationship2> { uid <urn> <type> <key> }\n"
+                        + "  }\n"
+                        + "}"
         );
     }
 
     @Test
     public void testGetQueryForRelatedUrnsUndirected() {
         doTestGetQueryForRelatedUrnsDirection(RelationshipDirection.UNDIRECTED,
-                "query {\n" +
-                        "  sourceType as var(func: eq(<type>, \"sourceType\"))\n" +
-                        "  destinationTypeType as var(func: eq(<type>, \"destinationType\"))\n" +
-                        "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n" +
-                        "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n" +
-                        "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n" +
-                        "  destinationFilter2 as var(func: eq(<key>, \"dest-key\"))\n" +
-                        "  relationshipType1 as var(func: has(<relationship1>))\n" +
-                        "  relationshipType2 as var(func: has(<relationship2>))\n" +
-                        "  relationshipType3 as var(func: has(<~relationship1>))\n" +
-                        "  relationshipType4 as var(func: has(<~relationship2>))\n" +
-                        "\n" +
-                        "  result (func: uid(relationshipType1, relationshipType2, relationshipType3, relationshipType4, sourceFilter1, sourceFilter2, sourceType), first: 100, offset: 0) @filter(\n" +
-                        "    uid(sourceType) AND\n" +
-                        "    uid(sourceFilter1) AND\n" +
-                        "    uid(sourceFilter2) AND\n" +
-                        "    (\n" +
-                        "      uid(relationshipType1) AND uid_in(<relationship1>, uid(destinationTypeType)) AND uid_in(<relationship1>, uid(destinationFilter1)) AND uid_in(<relationship1>, uid(destinationFilter2)) OR\n" +
-                        "      uid(relationshipType2) AND uid_in(<relationship2>, uid(destinationTypeType)) AND uid_in(<relationship2>, uid(destinationFilter1)) AND uid_in(<relationship2>, uid(destinationFilter2)) OR\n" +
-                        "      uid(relationshipType3) AND uid_in(<~relationship1>, uid(destinationTypeType)) AND uid_in(<~relationship1>, uid(destinationFilter1)) AND uid_in(<~relationship1>, uid(destinationFilter2)) OR\n" +
-                        "      uid(relationshipType4) AND uid_in(<~relationship2>, uid(destinationTypeType)) AND uid_in(<~relationship2>, uid(destinationFilter1)) AND uid_in(<~relationship2>, uid(destinationFilter2))\n" +
-                        "    )\n" +
-                        "  ) {\n" +
-                        "    uid\n" +
-                        "    <urn>\n" +
-                        "    <type>\n" +
-                        "    <key>\n" +
-                        "    <relationship1> { uid <urn> <type> <key> }\n" +
-                        "    <relationship2> { uid <urn> <type> <key> }\n" +
-                        "    <~relationship1> { uid <urn> <type> <key> }\n" +
-                        "    <~relationship2> { uid <urn> <type> <key> }\n" +
-                        "  }\n" +
-                        "}"
+                "query {\n"
+                        + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
+                        + "  destinationTypeType as var(func: eq(<type>, \"destinationType\"))\n"
+                        + "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n"
+                        + "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n"
+                        + "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n"
+                        + "  destinationFilter2 as var(func: eq(<key>, \"dest-key\"))\n"
+                        + "  relationshipType1 as var(func: has(<relationship1>))\n"
+                        + "  relationshipType2 as var(func: has(<relationship2>))\n"
+                        + "  relationshipType3 as var(func: has(<~relationship1>))\n"
+                        + "  relationshipType4 as var(func: has(<~relationship2>))\n"
+                        + "\n"
+                        + "  result (func: uid(relationshipType1, relationshipType2, relationshipType3, relationshipType4, "
+                        + "sourceFilter1, sourceFilter2, sourceType), first: 100, offset: 0) @filter(\n"
+                        + "    uid(sourceType) AND\n"
+                        + "    uid(sourceFilter1) AND\n"
+                        + "    uid(sourceFilter2) AND\n"
+                        + "    (\n"
+                        + "      uid(relationshipType1) AND uid_in(<relationship1>, uid(destinationTypeType)) AND "
+                        + "uid_in(<relationship1>, uid(destinationFilter1)) AND uid_in(<relationship1>, uid(destinationFilter2)) OR\n"
+                        + "      uid(relationshipType2) AND uid_in(<relationship2>, uid(destinationTypeType)) AND "
+                        + "uid_in(<relationship2>, uid(destinationFilter1)) AND uid_in(<relationship2>, uid(destinationFilter2)) OR\n"
+                        + "      uid(relationshipType3) AND uid_in(<~relationship1>, uid(destinationTypeType)) AND "
+                        + "uid_in(<~relationship1>, uid(destinationFilter1)) AND uid_in(<~relationship1>, uid(destinationFilter2)) OR\n"
+                        + "      uid(relationshipType4) AND uid_in(<~relationship2>, uid(destinationTypeType)) AND "
+                        + "uid_in(<~relationship2>, uid(destinationFilter1)) AND uid_in(<~relationship2>, uid(destinationFilter2))\n"
+                        + "    )\n"
+                        + "  ) {\n"
+                        + "    uid\n"
+                        + "    <urn>\n"
+                        + "    <type>\n"
+                        + "    <key>\n"
+                        + "    <relationship1> { uid <urn> <type> <key> }\n"
+                        + "    <relationship2> { uid <urn> <type> <key> }\n"
+                        + "    <~relationship1> { uid <urn> <type> <key> }\n"
+                        + "    <~relationship2> { uid <urn> <type> <key> }\n"
+                        + "  }\n"
+                        + "}"
         );
     }
 
