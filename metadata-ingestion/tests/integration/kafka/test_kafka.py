@@ -19,9 +19,10 @@ def test_kafka_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "kafka"
     ) as docker_services:
+
         wait_for_port(docker_services, "test_broker", 9092, timeout=120)
 
-        #TODO Set up topics and produce some data
+        # Set up topics and produce some data
         command = f"source {test_resources_dir}/send_records.sh"
         subprocess.run(command, shell=True, check=True)
 
@@ -33,13 +34,9 @@ def test_kafka_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
             assert result.exit_code == 0
 
         # Verify the output.
-        #mce_helpers.check_golden_file(
-        #    pytestconfig,
-        #    output_path=tmp_path / "hive_mces.json",
-        #    golden_path=test_resources_dir / "hive_mces_golden.json",
-        #    ignore_paths=[
-                # example: root[1]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][0]['com.linkedin.pegasus2avro.dataset.DatasetProperties']['customProperties']['CreateTime:']
-                # example: root[2]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][0]['com.linkedin.pegasus2avro.dataset.DatasetProperties']['customProperties']['Table Parameters: transient_lastDdlTime']
-        #        r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.dataset\.DatasetProperties'\]\['customProperties'\]\['.*Time.*'\]"
-        #    ],
-        #)
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "kafka_mces.json",
+            golden_path=test_resources_dir / "kafka_mces_golden.json",
+            ignore_paths=[],
+        )

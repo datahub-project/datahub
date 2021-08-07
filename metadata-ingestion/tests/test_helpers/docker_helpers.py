@@ -7,7 +7,7 @@ import pytest_docker.plugin
 
 def is_responsive(container_name: str, port: int) -> bool:
     ret = subprocess.run(
-        f"docker exec {container_name} /bin/bash -c 'echo -n > /dev/tcp/localhost/{port}'",
+        f"docker exec {container_name} /bin/bash -c 'echo -n > /dev/tcp/{container_name}/{port}'",
         shell=True,
     )
     return ret.returncode == 0
@@ -19,6 +19,9 @@ def wait_for_port(
     container_port: int,
     timeout: float = 30.0,
 ) -> None:
+    # import pdb
+
+    # breakpoint()
     try:
         # port = docker_services.port_for(container_name, container_port)
         docker_services.wait_until_responsive(
