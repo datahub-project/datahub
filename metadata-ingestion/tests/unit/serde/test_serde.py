@@ -53,9 +53,9 @@ def test_serde_to_json(
     pipeline.raise_from_status()
 
     mce_helpers.check_golden_file(
-                pytestconfig,
-                output_path= f"{tmp_path}/{output_filename}",
-                golden_path=golden_file,
+        pytestconfig,
+        output_path=f"{tmp_path}/{output_filename}",
+        golden_path=golden_file,
     )
 
 
