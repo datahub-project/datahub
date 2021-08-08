@@ -141,9 +141,6 @@ class RedashSource(Source):
     report: RedashSourceReport
     platform = "redash"
 
-    def __hash__(self):
-        return id(self)
-
     def __init__(self, ctx: PipelineContext, config: RedashConfig):
         super().__init__(ctx)
         self.config = config
