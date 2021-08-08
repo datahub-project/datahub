@@ -1,7 +1,9 @@
 import json
 import uuid
 from argparse import ArgumentParser
+from typing import Tuple
 
+from avro.schema import Schema
 from confluent_kafka import avro
 from confluent_kafka.avro import AvroProducer
 
@@ -39,7 +41,9 @@ def parse_command_line_args():
     return arg_parser.parse_args()
 
 
-def load_avro_schema_from_file(key_schema_file, value_schema_file):
+def load_avro_schema_from_file(
+    key_schema_file: str, value_schema_file: str
+) -> Tuple[Schema, Schema]:
     key_schema = avro.load(key_schema_file)
     value_schema = avro.load(value_schema_file)
 
