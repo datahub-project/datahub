@@ -2,13 +2,14 @@ package com.linkedin.datahub.graphql.types.mlmodel;
 
 import com.linkedin.common.urn.Urn;
 
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelSnapshotMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.query.SearchResult;
-import com.linkedin.metadata.query.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResult;
 import graphql.execution.DataFetcherResult;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +34,6 @@ import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
-import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -77,7 +77,7 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
                 .map(gmsMlModel -> gmsMlModel == null ? null
                     : DataFetcherResult.<MLModel>newResult()
                         .data(MLModelSnapshotMapper.map(gmsMlModel.getValue().getMLModelSnapshot()))
-                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsMlModel.getValue().getMLModelSnapshot()))
+                        .localContext(AspectExtractor.extractAspects(gmsMlModel.getValue().getMLModelSnapshot()))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {
@@ -121,18 +121,7 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
                 facetFilters,
                 start,
                 count);
-        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<MLModel> mlModels = batchLoad(urns, context)
-                .stream().map(mlModelDataFetcherResult -> mlModelDataFetcherResult.getData()).collect(Collectors.toList());
-        final BrowseResults browseResults = new BrowseResults();
-        browseResults.setStart(result.getFrom());
-        browseResults.setCount(result.getPageSize());
-        browseResults.setTotal(result.getNumEntities());
-        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
-        browseResults.setEntities(mlModels.stream()
-                .map(entity -> (com.linkedin.datahub.graphql.generated.Entity) entity)
-                .collect(Collectors.toList()));
-        return browseResults;
+        return BrowseResultMapper.map(result);
     }
 
     @Override

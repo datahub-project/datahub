@@ -7,6 +7,7 @@ import { Highlight as HighlightType } from '../../../types.generated';
 
 type Props = {
     highlight: HighlightType;
+    shortenValue?: boolean;
 };
 
 const HighlightCard = styled(Card)`
@@ -45,10 +46,12 @@ function convertNumber(n) {
     return '';
 }
 
-export const Highlight = ({ highlight }: Props) => {
+export const Highlight = ({ highlight, shortenValue }: Props) => {
     return (
         <HighlightCard>
-            <Typography.Title level={1}>{convertNumber(highlight.value)}</Typography.Title>
+            <Typography.Title level={1}>
+                {(shortenValue && convertNumber(highlight.value)) || highlight.value}
+            </Typography.Title>
             <TitleContainer>
                 <TitleText strong>{highlight.title}</TitleText>
             </TitleContainer>

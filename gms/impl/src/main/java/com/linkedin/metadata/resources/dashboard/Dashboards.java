@@ -34,6 +34,7 @@ import com.linkedin.metadata.search.DashboardDocument;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.snapshot.DashboardSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.BrowseUtil;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -319,7 +320,8 @@ public class Dashboards extends BaseBrowsableEntityResource<
   public Task<BrowseResult> browse(@ActionParam(PARAM_PATH) @Nonnull String path,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_LIMIT) int limit) {
-    return RestliUtils.toTask(() -> _searchService.browse("dashboard", path, filter, start, limit));
+    return RestliUtils.toTask(
+        () -> BrowseUtil.convertToLegacyResult(_searchService.browse("dashboard", path, filter, start, limit)));
   }
 
   @Action(name = ACTION_GET_BROWSE_PATHS)
