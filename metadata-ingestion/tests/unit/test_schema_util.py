@@ -609,4 +609,4 @@ def test_key_schema_handling():
     ]
     assret_field_paths_match(fields, expected_field_paths)
     for f in fields:
-        assert f.isPartOfKey == True
+        assert f.isPartOfKey

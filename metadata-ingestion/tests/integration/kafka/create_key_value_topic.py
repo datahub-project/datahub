@@ -40,10 +40,6 @@ def parse_command_line_args():
 
 
 def load_avro_schema_from_file(key_schema_file, value_schema_file):
-    key_schema_string = """
-    {"type": "string"}
-    """
-
     key_schema = avro.load(key_schema_file)
     value_schema = avro.load(value_schema_file)
 
