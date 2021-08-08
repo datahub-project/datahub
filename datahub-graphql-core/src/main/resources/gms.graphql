@@ -385,6 +385,11 @@ type GlossaryTerm implements Entity {
     name: String!
 
     """
+    hierarchicalName of glossary term
+    """
+    hierarchicalName: String!
+
+    """
     Details of the Glossary Term
     """
     glossaryTermInfo: GlossaryTermInfo!

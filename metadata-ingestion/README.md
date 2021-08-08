@@ -646,6 +646,7 @@ source:
     aws_secret_access_key: # Optional.
     aws_session_token: # Optional.
     aws_role: # Optional (Role chaining supported by using a sorted list).
+    underlying_platform: #Optional (Can change platform name to be athena)
 ```
 
 ### Druid `druid`

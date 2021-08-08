@@ -1,18 +1,19 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, DefaultDict, Dict, List, Set
-
-from mypy_boto3_sagemaker import SageMakerClient
-from mypy_boto3_sagemaker.type_defs import (
-    ActionSummaryTypeDef,
-    ArtifactSummaryTypeDef,
-    AssociationSummaryTypeDef,
-    ContextSummaryTypeDef,
-)
+from typing import TYPE_CHECKING, Any, DefaultDict, Dict, List, Set
 
 from datahub.ingestion.source.aws.sagemaker_processors.common import (
     SagemakerSourceReport,
 )
+
+if TYPE_CHECKING:
+    from mypy_boto3_sagemaker import SageMakerClient
+    from mypy_boto3_sagemaker.type_defs import (
+        ActionSummaryTypeDef,
+        ArtifactSummaryTypeDef,
+        AssociationSummaryTypeDef,
+        ContextSummaryTypeDef,
+    )
 
 
 @dataclass
@@ -42,13 +43,13 @@ class LineageInfo:
 
 @dataclass
 class LineageProcessor:
-    sagemaker_client: SageMakerClient
+    sagemaker_client: "SageMakerClient"
     env: str
     report: SagemakerSourceReport
     nodes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     lineage_info: LineageInfo = field(default_factory=LineageInfo)
 
-    def get_all_actions(self) -> List[ActionSummaryTypeDef]:
+    def get_all_actions(self) -> List["ActionSummaryTypeDef"]:
         """
         List all actions in SageMaker.
         """
@@ -62,7 +63,7 @@ class LineageProcessor:
 
         return actions
 
-    def get_all_artifacts(self) -> List[ArtifactSummaryTypeDef]:
+    def get_all_artifacts(self) -> List["ArtifactSummaryTypeDef"]:
         """
         List all artifacts in SageMaker.
         """
@@ -76,7 +77,7 @@ class LineageProcessor:
 
         return artifacts
 
-    def get_all_contexts(self) -> List[ContextSummaryTypeDef]:
+    def get_all_contexts(self) -> List["ContextSummaryTypeDef"]:
         """
         List all contexts in SageMaker.
         """
@@ -90,7 +91,7 @@ class LineageProcessor:
 
         return contexts
 
-    def get_incoming_edges(self, node_arn: str) -> List[AssociationSummaryTypeDef]:
+    def get_incoming_edges(self, node_arn: str) -> List["AssociationSummaryTypeDef"]:
         """
         Get all incoming edges for a node in the lineage graph.
         """
@@ -104,7 +105,7 @@ class LineageProcessor:
 
         return edges
 
-    def get_outgoing_edges(self, node_arn: str) -> List[AssociationSummaryTypeDef]:
+    def get_outgoing_edges(self, node_arn: str) -> List["AssociationSummaryTypeDef"]:
         """
         Get all outgoing edges for a node in the lineage graph.
         """

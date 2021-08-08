@@ -7381,14 +7381,22 @@ class SystemMetadataClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.SystemMetadata")
     def __init__(self,
-        lastObserved: Union[None, int]=None,
-        runId: Union[None, str]=None,
+        lastObserved: Optional[Union[int, None]]=None,
+        runId: Optional[Union[str, None]]=None,
         properties: Union[None, Dict[str, str]]=None,
     ):
         super().__init__()
         
-        self.lastObserved = lastObserved
-        self.runId = runId
+        if lastObserved is None:
+            # default: 0
+            self.lastObserved = self.RECORD_SCHEMA.field_map["lastObserved"].default
+        else:
+            self.lastObserved = lastObserved
+        if runId is None:
+            # default: 'no-run-id-provided'
+            self.runId = self.RECORD_SCHEMA.field_map["runId"].default
+        else:
+            self.runId = runId
         self.properties = properties
     
     @classmethod
@@ -7405,23 +7413,23 @@ class SystemMetadataClass(DictWrapper):
     
     
     @property
-    def lastObserved(self) -> Union[None, int]:
+    def lastObserved(self) -> Union[int, None]:
         """Getter: The timestamp the metadata was observed at"""
         return self._inner_dict.get('lastObserved')  # type: ignore
     
     @lastObserved.setter
-    def lastObserved(self, value: Union[None, int]) -> None:
+    def lastObserved(self, value: Union[int, None]) -> None:
         """Setter: The timestamp the metadata was observed at"""
         self._inner_dict['lastObserved'] = value
     
     
     @property
-    def runId(self) -> Union[None, str]:
+    def runId(self) -> Union[str, None]:
         """Getter: The run id that produced the metadata"""
         return self._inner_dict.get('runId')  # type: ignore
     
     @runId.setter
-    def runId(self, value: Union[None, str]) -> None:
+    def runId(self, value: Union[str, None]) -> None:
         """Setter: The run id that produced the metadata"""
         self._inner_dict['runId'] = value
     

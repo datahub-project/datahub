@@ -1,16 +1,15 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import DefaultDict, Dict, Iterable, List, Optional, Set, Tuple
-
-from mypy_boto3_sagemaker import SageMakerClient
-from mypy_boto3_sagemaker.type_defs import (
-    DescribeEndpointOutputTypeDef,
-    DescribeModelOutputTypeDef,
-    DescribeModelPackageGroupOutputTypeDef,
-    EndpointSummaryTypeDef,
-    ModelPackageGroupSummaryTypeDef,
-    ModelSummaryTypeDef,
+from typing import (
+    TYPE_CHECKING,
+    DefaultDict,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
 )
 
 import datahub.emitter.mce_builder as builder
@@ -43,6 +42,17 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 
+if TYPE_CHECKING:
+    from mypy_boto3_sagemaker import SageMakerClient
+    from mypy_boto3_sagemaker.type_defs import (
+        DescribeEndpointOutputTypeDef,
+        DescribeModelOutputTypeDef,
+        DescribeModelPackageGroupOutputTypeDef,
+        EndpointSummaryTypeDef,
+        ModelPackageGroupSummaryTypeDef,
+        ModelSummaryTypeDef,
+    )
+
 ENDPOINT_STATUS_MAP: Dict[str, str] = {
     "OutOfService": DeploymentStatusClass.OUT_OF_SERVICE,
     "Creating": DeploymentStatusClass.CREATING,
@@ -58,7 +68,7 @@ ENDPOINT_STATUS_MAP: Dict[str, str] = {
 
 @dataclass
 class ModelProcessor:
-    sagemaker_client: SageMakerClient
+    sagemaker_client: "SageMakerClient"
     env: str
     report: SagemakerSourceReport
     lineage: LineageInfo
@@ -81,7 +91,7 @@ class ModelProcessor:
 
     group_arn_to_name: Dict[str, str] = field(default_factory=dict)
 
-    def get_all_models(self) -> List[ModelSummaryTypeDef]:
+    def get_all_models(self) -> List["ModelSummaryTypeDef"]:
         """
         List all models in SageMaker.
         """
@@ -95,7 +105,7 @@ class ModelProcessor:
 
         return models
 
-    def get_model_details(self, model_name: str) -> DescribeModelOutputTypeDef:
+    def get_model_details(self, model_name: str) -> "DescribeModelOutputTypeDef":
         """
         Get details of a model.
         """
@@ -103,7 +113,7 @@ class ModelProcessor:
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_model
         return self.sagemaker_client.describe_model(ModelName=model_name)
 
-    def get_all_groups(self) -> List[ModelPackageGroupSummaryTypeDef]:
+    def get_all_groups(self) -> List["ModelPackageGroupSummaryTypeDef"]:
         """
         List all model groups in SageMaker.
         """
@@ -118,7 +128,7 @@ class ModelProcessor:
 
     def get_group_details(
         self, group_name: str
-    ) -> DescribeModelPackageGroupOutputTypeDef:
+    ) -> "DescribeModelPackageGroupOutputTypeDef":
         """
         Get details of a model group.
         """
@@ -128,7 +138,7 @@ class ModelProcessor:
             ModelPackageGroupName=group_name
         )
 
-    def get_all_endpoints(self) -> List[EndpointSummaryTypeDef]:
+    def get_all_endpoints(self) -> List["EndpointSummaryTypeDef"]:
 
         endpoints = []
 
@@ -140,7 +150,9 @@ class ModelProcessor:
 
         return endpoints
 
-    def get_endpoint_details(self, endpoint_name: str) -> DescribeEndpointOutputTypeDef:
+    def get_endpoint_details(
+        self, endpoint_name: str
+    ) -> "DescribeEndpointOutputTypeDef":
 
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_endpoint
         return self.sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
@@ -162,7 +174,7 @@ class ModelProcessor:
         return endpoint_status
 
     def get_endpoint_wu(
-        self, endpoint_details: DescribeEndpointOutputTypeDef
+        self, endpoint_details: "DescribeEndpointOutputTypeDef"
     ) -> MetadataWorkUnit:
         """a
         Get a workunit for an endpoint.
@@ -206,7 +218,7 @@ class ModelProcessor:
 
     def get_model_endpoints(
         self,
-        model_details: DescribeModelOutputTypeDef,
+        model_details: "DescribeModelOutputTypeDef",
         endpoint_arn_to_name: Dict[str, str],
         model_image: Optional[str],
         model_uri: Optional[str],
@@ -235,7 +247,7 @@ class ModelProcessor:
         return model_endpoints_sorted
 
     def get_group_wu(
-        self, group_details: DescribeModelPackageGroupOutputTypeDef
+        self, group_details: "DescribeModelPackageGroupOutputTypeDef"
     ) -> MetadataWorkUnit:
         """
         Get a workunit for a model group.
@@ -285,7 +297,7 @@ class ModelProcessor:
         return MetadataWorkUnit(id=group_name, mce=mce)
 
     def match_model_jobs(
-        self, model_details: DescribeModelOutputTypeDef
+        self, model_details: "DescribeModelOutputTypeDef"
     ) -> Tuple[Set[str], Set[str], List[MLHyperParamClass], List[MLMetricClass]]:
 
         model_training_jobs: Set[str] = set()
@@ -380,7 +392,7 @@ class ModelProcessor:
 
     def get_model_wu(
         self,
-        model_details: DescribeModelOutputTypeDef,
+        model_details: "DescribeModelOutputTypeDef",
         endpoint_arn_to_name: Dict[str, str],
     ) -> MetadataWorkUnit:
         """

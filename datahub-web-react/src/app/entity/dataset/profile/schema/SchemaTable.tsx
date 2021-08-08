@@ -84,7 +84,32 @@ const defaultColumns = [
         dataIndex: 'fieldPath',
         key: 'fieldPath',
         width: 100,
-        render: schemaTitleRenderer,
+        render: (fieldPath: string) => {
+            if (!fieldPath.includes('.')) {
+                return <Typography.Text strong>{fieldPath}</Typography.Text>;
+            }
+            let [firstPath, lastPath] = fieldPath.split(/\.(?=[^.]+$)/);
+            const isOverflow = fieldPath.length > MAX_FIELD_PATH_LENGTH;
+            if (isOverflow) {
+                if (lastPath.length >= MAX_FIELD_PATH_LENGTH) {
+                    lastPath = `..${lastPath.substring(lastPath.length - MAX_FIELD_PATH_LENGTH)}`;
+                    firstPath = '';
+                } else {
+                    firstPath = firstPath.substring(fieldPath.length - MAX_FIELD_PATH_LENGTH);
+                    if (firstPath.includes('.')) {
+                        firstPath = `..${firstPath.substring(firstPath.indexOf('.'))}`;
+                    } else {
+                        firstPath = '..';
+                    }
+                }
+            }
+            return (
+                <span>
+                    <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
+                    {!!lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
+                </span>
+            );
+        },
         filtered: true,
     },
 ];

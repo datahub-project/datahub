@@ -83,7 +83,7 @@ export default function LineageExplorer({ urn, type }: Props) {
     return (
         <>
             {loading && <LoadingMessage type="loading" content="Loading..." />}
-            {data && (
+            {!!data && (
                 <div>
                     <LineageViz
                         selectedEntity={selectedEntity}
