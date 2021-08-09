@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, Generator, List, Optional, Union, get_args
+from typing import Any, Callable, Dict, Generator, List, Optional, Union
 
 import avro.schema
 
@@ -168,9 +168,17 @@ class AvroToMceSchemaConverter:
             return self
 
         def emit(self) -> Generator[SchemaField, None, None]:
-
             if (
-                not isinstance(self._actual_schema, get_args(ExtendedAvroNestedSchemas))
+                not isinstance(
+                    self._actual_schema,
+                    (
+                        avro.schema.ArraySchema,
+                        avro.schema.Field,
+                        avro.schema.MapSchema,
+                        avro.schema.UnionSchema,
+                        avro.schema.RecordSchema,
+                    ),
+                )
                 and self._converter._fields_stack
             ):
                 # We are in the context of a non-nested(simple) field.
