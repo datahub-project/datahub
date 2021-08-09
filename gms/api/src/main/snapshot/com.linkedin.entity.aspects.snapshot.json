@@ -1438,6 +1438,11 @@
     "namespace" : "com.linkedin.identity",
     "doc" : "group of corpUser, it may contains nested group",
     "fields" : [ {
+      "name" : "displayName",
+      "type" : "string",
+      "doc" : "The name to use when displaying the group.",
+      "optional" : true
+    }, {
       "name" : "email",
       "type" : "com.linkedin.common.EmailAddress",
       "doc" : "email of this group",
@@ -1664,7 +1669,7 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "The name of the AD/LDAP group."
+        "doc" : "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
       } ],
       "Aspect" : {
         "name" : "corpGroupKey"

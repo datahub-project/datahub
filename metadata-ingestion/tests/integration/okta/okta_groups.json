@@ -9,7 +9,7 @@
         ],
         "type": "OKTA_GROUP",
         "profile": {
-          "name": "AllEmployees",
+          "name": "All Employees",
           "description": "All Employees in the Test Company."
         }
     },

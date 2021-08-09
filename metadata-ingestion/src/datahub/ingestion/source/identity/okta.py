@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import urllib
 from dataclasses import dataclass, field
 from time import sleep
 from typing import Dict, Iterable, List, Union
@@ -133,6 +134,8 @@ class OktaSource(Source):
                         continue
 
                     # Either update or create the GroupMembership aspect for this group member.
+                    # TODO: Production of the GroupMembership aspect will overwrite the existing
+                    # group membership for the DataHub user.
                     if (
                         datahub_corp_user_urn
                         in datahub_corp_user_urn_to_group_membership
@@ -284,19 +287,33 @@ class OktaSource(Source):
         self, okta_group_profile: GroupProfile
     ) -> Union[str, None]:
         # Profile is a required field as per https://developer.okta.com/docs/reference/api/groups/#group-attributes
-        group_name = self._extract_regex_match_from_dict_value(
-            okta_group_profile.as_dict(),
-            self.config.okta_profile_to_group_name_attr,
-            self.config.okta_profile_to_group_name_regex,
-        )
+        group_name = self._map_okta_group_profile_to_group_name(okta_group_profile)
         if group_name is None:
             return None
-        return self._make_corp_group_urn(group_name)
+        # URL Encode the Group Name to deal with potential spaces.
+        # TODO: Modeling - Need to figure out a better way to generate a stable identifier for the group.
+        url_encoded_group_name = urllib.parse.quote(group_name)
+        return self._make_corp_group_urn(url_encoded_group_name)
 
     # Converts Okta Group Profile Object into a DataHub CorpGroupInfo Aspect.
     def _map_okta_group_profile(self, profile: GroupProfile) -> CorpGroupInfoClass:
         return CorpGroupInfoClass(
-            description=profile.description, members=[], groups=[], admins=[]
+            displayName=self._map_okta_group_profile_to_group_name(profile),
+            description=profile.description,
+            members=[],
+            groups=[],
+            admins=[],
+        )
+
+    # Converts Okta Group Profile Object into a DataHub Group Name.
+    def _map_okta_group_profile_to_group_name(
+        self, okta_group_profile: GroupProfile
+    ) -> Union[str, None]:
+        # Profile is a required field as per https://developer.okta.com/docs/reference/api/groups/#group-attributes
+        return self._extract_regex_match_from_dict_value(
+            okta_group_profile.as_dict(),
+            self.config.okta_profile_to_group_name_attr,
+            self.config.okta_profile_to_group_name_regex,
         )
 
     # Converts Okta User Objects into DataHub CorpUserSnapshots.
@@ -321,17 +338,26 @@ class OktaSource(Source):
         self, okta_user_profile: UserProfile
     ) -> Union[str, None]:
         # Profile is a required field as per https://developer.okta.com/docs/reference/api/users/#user-attributes
-        username = self._extract_regex_match_from_dict_value(
-            okta_user_profile.as_dict(),
-            self.config.okta_profile_to_username_attr,
-            self.config.okta_profile_to_username_regex,
-        )
+        username = self._map_okta_user_profile_to_username(okta_user_profile)
         if username is None:
             return None
         return self._make_corp_user_urn(username)
 
+    # Converts Okta User Profile Object into a DataHub User name.
+    def _map_okta_user_profile_to_username(
+        self, okta_user_profile: UserProfile
+    ) -> Union[str, None]:
+        # Profile is a required field as per https://developer.okta.com/docs/reference/api/users/#user-attributes
+        return self._extract_regex_match_from_dict_value(
+            okta_user_profile.as_dict(),
+            self.config.okta_profile_to_username_attr,
+            self.config.okta_profile_to_username_regex,
+        )
+
     # Converts Okta User Profile into a CorpUserInfo.
     def _map_okta_user_profile(self, profile: UserProfile) -> CorpUserInfoClass:
+        # TODO: Extract user's manager if provided. 
+        # Source: https://developer.okta.com/docs/reference/api/users/#default-profile-properties
         return CorpUserInfoClass(
             active=True,
             displayName=profile.displayName,
@@ -339,6 +365,9 @@ class OktaSource(Source):
             lastName=profile.lastName,
             fullName=profile.firstName + profile.lastName,
             email=profile.email,
+            title=profile.title,
+            countryCode=profile.countryCode,
+            departmentName=profile.department
         )
 
     def _make_corp_group_urn(self, name: str) -> str:
