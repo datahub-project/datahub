@@ -72,7 +72,7 @@ This is a known limitation in our data model that is being tracked by [this tick
 
 ## Quickstart recipe
 
-Note that as a prerequisite, you should [create a DataHub Application](https://developer.okta.com/docs/guides/sign-into-web-app/aspnet/create-okta-application/) within the Okta Developer Console with full permissions
+As a prerequisite, you should [create a DataHub Application](https://developer.okta.com/docs/guides/sign-into-web-app/aspnet/create-okta-application/) within the Okta Developer Console with full permissions
 to read your organization's Users and Groups. 
 
 You can use the following recipe to get started with Okta ingestion! See [below](#config-details) for full configuration options.
@@ -104,14 +104,14 @@ Note that a `.` is used to denote nested fields in the YAML configuration block.
 | `ingest_users`                     | bool   |          | `True`      | Whether users should be ingested into DataHub.                                                                  |  |
 | `ingest_groups`                    | bool   |          | `True`      | Whether groups should be ingested into DataHub.                                                                 |  |
 | `ingest_group_membership`          | bool   |          | `True`      | Whether group membership should be ingested into DataHub. ingest_groups must be True if this is True.           |  |
-| `okta_profile_to_username_attr`    | string |          | `"login""`  | Which Okta User Profile attribute to use as input to DataHub username mapping.                                  |  |
+| `okta_profile_to_username_attr`    | string |          | `"login"`   | Which Okta User Profile attribute to use as input to DataHub username mapping.                                  |  |
 | `okta_profile_to_username_regex`   | string |          | `"([^@]+)"` | A regex used to parse the DataHub username from the attribute specified in `okta_profile_to_username_attr`.     |  |
 | `okta_profile_to_group_name_attr`  | string |          | `"name"`    | Which Okta Group Profile attribute to use as input to DataHub group name mapping.                               |  |
 | `okta_profile_to_group_name_regex` | string |          | `"(.*)"`    | A regex used to parse the DataHub group name from the attribute specified in `okta_profile_to_group_name_attr`. |  |
 | `include_deprovisioned_users`      | bool   |          | `False`     | Whether to ingest users in the DEPROVISIONED state from Okta.                                                   |  |
 | `include_suspended_users`          | bool   |          | `False`     | Whether to ingest users in the SUSPENDED state from Okta.                                                       |  |
-| `page_size`                        | number |          | 100         | The number of entities requested from Okta's REST APIs in one request.                                          |  |
-| `delay_seconds`                    | number |          | 0.01 (10ms) | Number of seconds to wait between calls to Okta's REST APIs. (Okta rate limits)                                 |  |
+| `page_size`                        | number |          | `100`       | The number of entities requested from Okta's REST APIs in one request.                                          |  |
+| `delay_seconds`                    | number |          | `0.01`      | Number of seconds to wait between calls to Okta's REST APIs. (Okta rate limits). Defaults to 10ms.                                  |  |
 
 ## Compatibility
 
