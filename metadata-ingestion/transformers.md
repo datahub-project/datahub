@@ -6,12 +6,6 @@ Oftentimes we want to modify metadata before it reaches the ingestion sink – f
 
 Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the ingestion framework's code yourself. Instead, you can write your own module that can take MCEs however you like. To configure the recipe, all that's needed is a module name as well as any arguments.
 
-## Note about transformers use
-
-The naming of the transformers is based on what they do to the data created by ingestion sources. It is not based on what finally happens in datahub. e.g. `simple_add_dataset_tags` adds a set of tags to the data created by ingestion sources. So if source did not add any tags you can use `simple_add_dataset_tags` to add any tags using this transformer. But this will overwrite any tags already present in the system. If you have done an ingestion once and then added some tags through the UI this will overwrite those tags. 
-
-This replacement applies to tags, owners, browse paths etc. If you are using the UI to add these things be careful while using the transformers or your data might get overwritten.
-
 ## Provided transformers
 
 Aside from the option of writing your own transformer (see below), we provide two simple transformers for the use cases of adding dataset tags and ownership information.
@@ -41,15 +35,15 @@ transformers:
 ```
 ### Change owners
 
-If we wanted to clear existing owners sent by ingestion source we can use the `simple_clear_dataset_ownership` module which removes all owners sent by the ingestion source.
+If we wanted to clear existing owners sent by ingestion source we can use the `simple_remove_dataset_ownership` module which removes all owners sent by the ingestion source.
 
 ```yaml
 transformers:
-  - type: "simple_clear_dataset_ownership"
+  - type: "simple_remove_dataset_ownership"
     config: {}
 ```
 
-The main use case of `simple_clear_dataset_ownership` is to remove incorrect owners present in the source. You can use it along with the next `simple_add_dataset_ownership` to remove wrong owners and add the correct ones.
+The main use case of `simple_remove_dataset_ownership` is to remove incorrect owners present in the source. You can use it along with the next `simple_add_dataset_ownership` to remove wrong owners and add the correct ones.
 
 Let’s suppose we’d like to append a series of users who we know to own a dataset but aren't detected during normal ingestion. To do so, we can use the `simple_add_dataset_ownership` module that’s included in the ingestion framework.
 
@@ -73,6 +67,8 @@ transformers:
     config:
       get_owners_to_add: "<your_module>.<your_function>"
 ```
+
+Note that whatever owners you send via this will overwrite the owners present in the UI.
 
 ### Mark dataset status
 
@@ -121,6 +117,8 @@ transformers:
         - /data_warehouse/DATASET_PARTS/
 ```
 This will add 2 browse paths like `/mysql/marketing_db/sales/orders` and `/data_warehouse/sales/orders` for a table `sales.orders` in `mysql` database instance.
+
+Note that whatever browse paths you send via this will overwrite the owners present in the UI.
 ## Writing a custom transformer from scratch
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.

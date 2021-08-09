@@ -11,10 +11,10 @@ from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
     SimpleAddDatasetTags,
 )
-from datahub.ingestion.transformer.clear_dataset_ownership import (
-    SimpleClearDatasetOwnership,
-)
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
+from datahub.ingestion.transformer.remove_dataset_ownership import (
+    SimpleRemoveDatasetOwnership,
+)
 
 
 def make_generic_dataset():
@@ -107,10 +107,10 @@ def test_simple_dataset_ownership_tranformation(mock_time):
     assert inputs[2] == outputs[2].record
 
 
-def test_simple_clear_dataset_ownership():
+def test_simple_remove_dataset_ownership():
     with_owner_aspect = make_dataset_with_owner()
 
-    transformer = SimpleClearDatasetOwnership.create(
+    transformer = SimpleRemoveDatasetOwnership.create(
         {},
         PipelineContext(run_id="test"),
     )
