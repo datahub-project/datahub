@@ -195,6 +195,7 @@ full_test_dev_requirements = {
             "mongodb",
             "mssql",
             "mysql",
+            "okta",
             "snowflake",
             "sql-profiles",
         ]

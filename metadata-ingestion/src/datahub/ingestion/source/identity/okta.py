@@ -91,14 +91,14 @@ class OktaSource(Source):
         super().__init__(ctx)
         self.config = config
         self.report = OktaSourceReport()
-        self.okta_client = self.create_okta_client()
+        self.okta_client = self._create_okta_client()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
         # Step 1: Produce MetadataWorkUnits for CorpGroups.
         if self.config.ingest_groups:
-            okta_groups = list(self.get_okta_groups())
-            datahub_corp_group_snapshots = self.map_okta_groups(okta_groups)
+            okta_groups = list(self._get_okta_groups())
+            datahub_corp_group_snapshots = self._map_okta_groups(okta_groups)
             for datahub_corp_group_snapshot in datahub_corp_group_snapshots:
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_group_snapshot)
                 wu = MetadataWorkUnit(id=datahub_corp_group_snapshot.urn, mce=mce)
@@ -111,7 +111,7 @@ class OktaSource(Source):
 
             # Fetch membership for each group.
             for okta_group in okta_groups:
-                datahub_corp_group_urn = self.map_okta_group_profile_to_urn(
+                datahub_corp_group_urn = self._map_okta_group_profile_to_urn(
                     okta_group.profile
                 )
                 if datahub_corp_group_urn is None:
@@ -121,9 +121,9 @@ class OktaSource(Source):
                     continue
 
                 # Extract and map users for each group.
-                okta_group_users = self.get_okta_group_users(okta_group)
+                okta_group_users = self._get_okta_group_users(okta_group)
                 for okta_user in okta_group_users:
-                    datahub_corp_user_urn = self.map_okta_user_profile_to_urn(
+                    datahub_corp_user_urn = self._map_okta_user_profile_to_urn(
                         okta_user.profile
                     )
                     if datahub_corp_user_urn is None:
@@ -147,9 +147,9 @@ class OktaSource(Source):
 
         # Step 3: Produce MetadataWorkUnits for CorpUsers.
         if self.config.ingest_users:
-            okta_users = self.get_okta_users()
-            filtered_okta_users = filter(self.filter_okta_user, okta_users)
-            datahub_corp_user_snapshots = self.map_okta_users(filtered_okta_users)
+            okta_users = self._get_okta_users()
+            filtered_okta_users = filter(self._filter_okta_user, okta_users)
+            datahub_corp_user_snapshots = self._map_okta_users(filtered_okta_users)
             for datahub_corp_user_snapshot in datahub_corp_user_snapshots:
 
                 # Add GroupMembership aspect populated in Step 2 if applicable.
@@ -169,8 +169,14 @@ class OktaSource(Source):
                 self.report.report_workunit(wu)
                 yield wu
 
+    def get_report(self):
+        return self.report
+
+    def close(self):
+        pass
+
     # Instantiates Okta SDK Client.
-    def create_okta_client(self):
+    def _create_okta_client(self):
         config = {
             "orgUrl": f"https://{self.config.okta_domain}",
             "token": f"{self.config.okta_api_token}",
@@ -178,7 +184,7 @@ class OktaSource(Source):
         return OktaClient(config)
 
     # Retrieves all Okta Group Objects in batches.
-    def get_okta_groups(self) -> Iterable[Group]:
+    def _get_okta_groups(self) -> Iterable[Group]:
         # Note that this is not taking full advantage of Python AsyncIO, as we are blocking on calls.
         query_parameters = {"limit": self.config.page_size}
         groups, resp, err = asyncio.get_event_loop().run_until_complete(
@@ -199,7 +205,7 @@ class OktaSource(Source):
                 break
 
     # Retrieves Okta User Objects in a particular Okta Group in batches.
-    def get_okta_group_users(self, group: Group) -> Iterable[User]:
+    def _get_okta_group_users(self, group: Group) -> Iterable[User]:
         # Note that this is not taking full advantage of Python AsyncIO; we are blocking on calls.
         query_parameters = {"limit": self.config.page_size}
         users, resp, err = asyncio.get_event_loop().run_until_complete(
@@ -221,7 +227,7 @@ class OktaSource(Source):
                 break
 
     # Retrieves all Okta User Objects in batches.
-    def get_okta_users(self) -> Iterable[User]:
+    def _get_okta_users(self) -> Iterable[User]:
         query_parameters = {"limit": self.config.page_size}
         users, resp, err = asyncio.get_event_loop().run_until_complete(
             self.okta_client.list_users(query_parameters)
@@ -241,7 +247,7 @@ class OktaSource(Source):
                 break
 
     # Filters Okta User Objects based on provided configuration.
-    def filter_okta_user(self, okta_user: User) -> bool:
+    def _filter_okta_user(self, okta_user: User) -> bool:
         if (
             self.config.include_deprovisioned_users is False
             and okta_user.status == UserStatus.DEPROVISIONED
@@ -255,11 +261,11 @@ class OktaSource(Source):
         return True
 
     # Converts Okta Group Objects into DataHub CorpGroupSnapshots.
-    def map_okta_groups(
+    def _map_okta_groups(
         self, okta_groups: Iterable[Group]
     ) -> Iterable[CorpGroupSnapshot]:
         for okta_group in okta_groups:
-            corp_group_urn = self.map_okta_group_profile_to_urn(okta_group.profile)
+            corp_group_urn = self._map_okta_group_profile_to_urn(okta_group.profile)
             if corp_group_urn is None:
                 error_str = f"Failed to extract DataHub Group Name from Okta Group: Invalid regex pattern provided or missing profile attribute for group named {okta_group.profile.name}. Skipping..."
                 logger.error(error_str)
@@ -269,34 +275,34 @@ class OktaSource(Source):
                 urn=corp_group_urn,
                 aspects=[],
             )
-            corp_group_info = self.map_okta_group_profile(okta_group.profile)
+            corp_group_info = self._map_okta_group_profile(okta_group.profile)
             corp_group_snapshot.aspects.append(corp_group_info)
             yield corp_group_snapshot
 
     # Creates DataHub CorpGroup Urn from Okta Group Object.
-    def map_okta_group_profile_to_urn(
+    def _map_okta_group_profile_to_urn(
         self, okta_group_profile: GroupProfile
     ) -> Union[str, None]:
         # Profile is a required field as per https://developer.okta.com/docs/reference/api/groups/#group-attributes
-        group_name = self.extract_regex_match_from_dict_value(
+        group_name = self._extract_regex_match_from_dict_value(
             okta_group_profile.as_dict(),
             self.config.okta_profile_to_group_name_attr,
             self.config.okta_profile_to_group_name_regex,
         )
         if group_name is None:
             return None
-        return self.make_group_urn(group_name)
+        return self._make_corp_group_urn(group_name)
 
     # Converts Okta Group Profile Object into a DataHub CorpGroupInfo Aspect.
-    def map_okta_group_profile(self, profile: GroupProfile) -> CorpGroupInfoClass:
+    def _map_okta_group_profile(self, profile: GroupProfile) -> CorpGroupInfoClass:
         return CorpGroupInfoClass(
             description=profile.description, members=[], groups=[], admins=[]
         )
 
     # Converts Okta User Objects into DataHub CorpUserSnapshots.
-    def map_okta_users(self, okta_users: Iterable[User]) -> Iterable[CorpUserSnapshot]:
+    def _map_okta_users(self, okta_users: Iterable[User]) -> Iterable[CorpUserSnapshot]:
         for okta_user in okta_users:
-            corp_user_urn = self.map_okta_user_profile_to_urn(okta_user.profile)
+            corp_user_urn = self._map_okta_user_profile_to_urn(okta_user.profile)
             if corp_user_urn is None:
                 error_str = f"Failed to extract DataHub Username from Okta User: Invalid regex pattern provided or missing profile attribute for User with login {okta_user.profile.login}. Skipping..."
                 logger.error(error_str)
@@ -306,26 +312,26 @@ class OktaSource(Source):
                 urn=corp_user_urn,
                 aspects=[],
             )
-            corp_user_info = self.map_okta_user_profile(okta_user.profile)
+            corp_user_info = self._map_okta_user_profile(okta_user.profile)
             corp_user_snapshot.aspects.append(corp_user_info)
             yield corp_user_snapshot
 
     # Creates DataHub CorpUser Urn from Okta User Profile
-    def map_okta_user_profile_to_urn(
+    def _map_okta_user_profile_to_urn(
         self, okta_user_profile: UserProfile
     ) -> Union[str, None]:
         # Profile is a required field as per https://developer.okta.com/docs/reference/api/users/#user-attributes
-        username = self.extract_regex_match_from_dict_value(
+        username = self._extract_regex_match_from_dict_value(
             okta_user_profile.as_dict(),
             self.config.okta_profile_to_username_attr,
             self.config.okta_profile_to_username_regex,
         )
         if username is None:
             return None
-        return self.make_corp_user_urn(username)
+        return self._make_corp_user_urn(username)
 
     # Converts Okta User Profile into a CorpUserInfo.
-    def map_okta_user_profile(self, profile: UserProfile) -> CorpUserInfoClass:
+    def _map_okta_user_profile(self, profile: UserProfile) -> CorpUserInfoClass:
         return CorpUserInfoClass(
             active=True,
             displayName=profile.displayName,
@@ -335,13 +341,13 @@ class OktaSource(Source):
             email=profile.email,
         )
 
-    def make_group_urn(self, name: str) -> str:
+    def _make_corp_group_urn(self, name: str) -> str:
         return f"urn:li:corpGroup:{name}"
 
-    def make_corp_user_urn(self, username: str) -> str:
+    def _make_corp_user_urn(self, username: str) -> str:
         return f"urn:li:corpuser:{username}"
 
-    def extract_regex_match_from_dict_value(
+    def _extract_regex_match_from_dict_value(
         self, str_dict: Dict[str, str], key: str, pattern: str
     ) -> Union[str, None]:
         raw_value = str_dict.get(key)
@@ -351,9 +357,3 @@ class OktaSource(Source):
         if match is None:
             return None
         return match.group()
-
-    def get_report(self):
-        return self.report
-
-    def close(self):
-        pass
