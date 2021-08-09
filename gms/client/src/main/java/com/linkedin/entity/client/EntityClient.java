@@ -59,15 +59,16 @@ public class EntityClient {
         try {
             return _client.sendRequest(request).getResponse();
         } catch (RemoteInvocationException e) {
-            if (((RestLiResponseException) e).getStatus() == 404) {
-                _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
-                    + "Please update your gms to the latest Datahub release");
-                System.exit(1);
-            } else {
-                throw e;
-            }
+            if (e instanceof RestLiResponseException) {
+                RestLiResponseException restliException = (RestLiResponseException) e;
+                if (restliException.getStatus() == 404) {
+                    _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
+                        + "Please update your gms to the latest Datahub release");
+                    System.exit(1);
+                }
+             }
+            throw e;
         }
-        return null;
     }
 
     @Nonnull
@@ -190,6 +191,10 @@ public class EntityClient {
 
     public Response<Void> updateWithSystemMetadata(@Nonnull final Entity entity,
         @Nullable final SystemMetadata systemMetadata) throws RemoteInvocationException {
+        if (systemMetadata == null) {
+            return update(entity);
+        }
+
         EntitiesDoIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity).systemMetadataParam(systemMetadata);
 
