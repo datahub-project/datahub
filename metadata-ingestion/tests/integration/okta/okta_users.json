@@ -1,0 +1,36 @@
+[
+    {
+        "id": "0",
+        "status": "STAGED",
+        "created": "2013-07-02T21:36:25.344Z",
+        "activated": null,
+        "statusChanged": null,
+        "lastLogin": null,
+        "lastUpdated": "2013-07-02T21:36:25.344Z",
+        "passwordChanged": null,
+        "profile": {
+            "firstName": "John",
+            "lastName": "Doe",
+            "email": "john.doe@test.com",
+            "login": "john.doe@test.com",
+            "mobilePhone": "555-415-1337"
+        }   
+    },
+    {
+        "id": "1",
+        "status": "ACTIVE",
+        "created": "2013-07-02T21:37:25.344Z",
+        "activated": null,
+        "statusChanged": null,
+        "lastLogin": null,
+        "lastUpdated": "2013-07-02T21:37:25.344Z",
+        "passwordChanged": null,
+        "profile": {
+            "firstName": "Mary",
+            "lastName": "Jane",
+            "email": "mary.jane@test.com",
+            "login": "mary.jane@test.com",
+            "mobilePhone": "666-415-1337"
+        }   
+    }
+]
