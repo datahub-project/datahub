@@ -168,27 +168,12 @@ class AvroToMceSchemaConverter:
             return self
 
         def emit(self) -> Generator[SchemaField, None, None]:
-            # Emit the schema field provided in the Ctor.
-            description = self._description
-            if description is None:
-                description = self._schema.props.get("doc", None)
 
-            field = SchemaField(
-                fieldPath=self._converter._get_cur_field_path(),
-                nativeDataType=str(self._actual_schema.type),
-                type=self._converter._get_column_type(self._actual_schema.type),
-                description=description,
-                recursive=False,
-                nullable=self._converter._is_nullable(self._schema),
-                isPartOfKey=self._converter._is_key_schema,
-            )
-            yield field
-
-            # Emit the most recent record field that has triggered the previous yield if any.
             if (
                 not isinstance(self._actual_schema, get_args(ExtendedAvroNestedSchemas))
                 and self._converter._fields_stack
             ):
+                # We are in the context of a non-nested(simple) field.
                 last_field_schema = self._converter._fields_stack[-1]
                 description = (
                     last_field_schema.doc
@@ -201,6 +186,22 @@ class AvroToMceSchemaConverter:
                     last_field_schema, last_field_schema, self._converter, description
                 ) as field_emitter:
                     yield from field_emitter.emit()
+            else:
+                # Emit the schema field provided in the Ctor.
+                description = self._description
+                if description is None:
+                    description = self._schema.props.get("doc", None)
+
+                field = SchemaField(
+                    fieldPath=self._converter._get_cur_field_path(),
+                    nativeDataType=str(self._actual_schema.type),
+                    type=self._converter._get_column_type(self._actual_schema.type),
+                    description=description,
+                    recursive=False,
+                    nullable=self._converter._is_nullable(self._schema),
+                    isPartOfKey=self._converter._is_key_schema,
+                )
+                yield field
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             self._converter._prefix_name_stack.pop()
@@ -289,7 +290,7 @@ class AvroToMceSchemaConverter:
         with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
             schema, actual_schema, self
         ) as fe_schema:
-            # Always emit non-AVRO field complex schemas(even optional unions that become primitives).
+            # Emit non-AVRO field complex schemas(even optional unions that become primitives).
             yield from fe_schema.emit()
 
             if (
