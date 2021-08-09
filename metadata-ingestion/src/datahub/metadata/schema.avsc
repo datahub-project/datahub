@@ -722,7 +722,7 @@
                         {
                           "type": "string",
                           "name": "name",
-                          "doc": "The name of the AD/LDAP group."
+                          "doc": "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
                         }
                       ],
                       "doc": "Key for a CorpGroup"
@@ -738,6 +738,15 @@
                       "name": "CorpGroupInfo",
                       "namespace": "com.linkedin.pegasus2avro.identity",
                       "fields": [
+                        {
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "displayName",
+                          "default": null,
+                          "doc": "The name to use when displaying the group."
+                        },
                         {
                           "type": [
                             "null",

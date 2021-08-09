@@ -3538,11 +3538,13 @@ class CorpGroupInfoClass(DictWrapper):
         admins: List[str],
         members: List[str],
         groups: List[str],
+        displayName: Union[None, str]=None,
         email: Union[None, str]=None,
         description: Union[None, str]=None,
     ):
         super().__init__()
         
+        self.displayName = displayName
         self.email = email
         self.admins = admins
         self.members = members
@@ -3557,11 +3559,23 @@ class CorpGroupInfoClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
+        self.displayName = self.RECORD_SCHEMA.field_map["displayName"].default
         self.email = self.RECORD_SCHEMA.field_map["email"].default
         self.admins = list()
         self.members = list()
         self.groups = list()
         self.description = self.RECORD_SCHEMA.field_map["description"].default
+    
+    
+    @property
+    def displayName(self) -> Union[None, str]:
+        """Getter: The name to use when displaying the group."""
+        return self._inner_dict.get('displayName')  # type: ignore
+    
+    @displayName.setter
+    def displayName(self, value: Union[None, str]) -> None:
+        """Setter: The name to use when displaying the group."""
+        self._inner_dict['displayName'] = value
     
     
     @property
@@ -3983,12 +3997,12 @@ class CorpGroupKeyClass(DictWrapper):
     
     @property
     def name(self) -> str:
-        """Getter: The name of the AD/LDAP group."""
+        """Getter: The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."""
         return self._inner_dict.get('name')  # type: ignore
     
     @name.setter
     def name(self, value: str) -> None:
-        """Setter: The name of the AD/LDAP group."""
+        """Setter: The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."""
         self._inner_dict['name'] = value
     
     
