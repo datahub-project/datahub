@@ -93,7 +93,8 @@ sink:
 
 For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
 
-## Config details
+
+## Configuration
 
 Note that a `.` is used to denote nested fields in the YAML configuration block.
 
