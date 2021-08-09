@@ -118,7 +118,7 @@ transformers:
 ```
 This will add 2 browse paths like `/mysql/marketing_db/sales/orders` and `/data_warehouse/sales/orders` for a table `sales.orders` in `mysql` database instance.
 
-Note that whatever browse paths you send via this will overwrite the owners present in the UI.
+Note that whatever browse paths you send via this will overwrite the browse paths present in the UI.
 ## Writing a custom transformer from scratch
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.
