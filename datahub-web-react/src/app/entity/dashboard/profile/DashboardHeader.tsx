@@ -53,7 +53,7 @@ export default function DashboardHeader({
                 urn={urn}
             />
             <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
-            {info?.lastModified ? (
+            {info?.lastModified?.time ? (
                 <Typography.Text type="secondary">
                     Last modified at {new Date(info?.lastModified.time).toLocaleDateString('en-US')}
                 </Typography.Text>

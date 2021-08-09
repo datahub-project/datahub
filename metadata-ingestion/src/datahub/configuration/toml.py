@@ -2,7 +2,7 @@ from typing import IO, cast
 
 import toml
 
-from .common import ConfigurationMechanism
+from datahub.configuration.common import ConfigurationMechanism
 
 
 class TomlConfigurationMechanism(ConfigurationMechanism):

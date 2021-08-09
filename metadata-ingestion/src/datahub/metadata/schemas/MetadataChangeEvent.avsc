@@ -2701,7 +2701,7 @@
                                                 "doc": "Urn of the applied glossary term",
                                                 "Searchable": {
                                                   "fieldName": "glossaryTerms",
-                                                  "fieldType": "TEXT_PARTIAL"
+                                                  "fieldType": "URN_PARTIAL"
                                                 },
                                                 "java": {
                                                   "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
