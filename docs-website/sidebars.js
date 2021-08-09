@@ -56,6 +56,7 @@ module.exports = {
       //"docs/what/gms",
     ],
     "Metadata Ingestion": [
+      { Quickstart: "metadata-ingestion/README" },
       {
         Sources: list_ids_in_directory("metadata-ingestion/source_docs"),
       },
