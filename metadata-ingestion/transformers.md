@@ -33,8 +33,17 @@ transformers:
     config:
       get_tags_to_add: "<your_module>.<your_function>"
 ```
+### Change owners
 
-### Setting ownership
+If we wanted to clear existing owners sent by ingestion source we can use the `simple_remove_dataset_ownership` module which removes all owners sent by the ingestion source.
+
+```yaml
+transformers:
+  - type: "simple_remove_dataset_ownership"
+    config: {}
+```
+
+The main use case of `simple_remove_dataset_ownership` is to remove incorrect owners present in the source. You can use it along with the next `simple_add_dataset_ownership` to remove wrong owners and add the correct ones.
 
 Let’s suppose we’d like to append a series of users who we know to own a dataset but aren't detected during normal ingestion. To do so, we can use the `simple_add_dataset_ownership` module that’s included in the ingestion framework.
 
@@ -59,6 +68,57 @@ transformers:
       get_owners_to_add: "<your_module>.<your_function>"
 ```
 
+Note that whatever owners you send via this will overwrite the owners present in the UI.
+
+### Mark dataset status
+
+If you would like to stop a dataset from appearing in the UI then you need to mark the status of the dataset as removed. You can use this transformer after filtering for the specific datasets that you want to mark as removed.
+
+```yaml
+transformers:
+  - type: "mark_dataset_status"
+    config:
+      removed: true
+```
+
+### Add dataset browse paths
+
+If you would like to add to browse paths of dataset can use this transformer. There are 3 optional variables that you can use to get information from the dataset `urn`:
+- ENV: env passed (default: prod)
+- PLATFORM: `mysql`, `postgres` or different platform supported by datahub
+- DATASET_PARTS: slash separated parts of dataset name. e.g. `database_name/schema_name/[table_name]` for postgres
+
+e.g. this can be used to create browse paths like `/prod/postgres/superset/public/logs` for table `superset.public.log` in a `postgres` database
+```yaml
+transformers:
+  - type: "set_dataset_browse_path"
+    config:
+      path_templates:
+        - /ENV/PLATFORM/DATASET_PARTS/ 
+```
+
+If you don't want the environment but wanted to add something static in the browse path like the database instance name you can use this.
+```yaml
+transformers:
+  - type: "set_dataset_browse_path"
+    config:
+      path_templates:
+        - /PLATFORM/marketing_db/DATASET_PARTS/ 
+```
+It will create browse path like `/mysql/marketing_db/sales/orders` for a table `sales.orders` in `mysql` database instance.
+
+You can use this to add multiple browse paths. Different people might know same data assets with different name
+```yaml
+transformers:
+  - type: "set_dataset_browse_path"
+    config:
+      path_templates:
+        - /PLATFORM/marketing_db/DATASET_PARTS/
+        - /data_warehouse/DATASET_PARTS/
+```
+This will add 2 browse paths like `/mysql/marketing_db/sales/orders` and `/data_warehouse/sales/orders` for a table `sales.orders` in `mysql` database instance.
+
+Note that whatever browse paths you send via this will overwrite the browse paths present in the UI.
 ## Writing a custom transformer from scratch
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.
