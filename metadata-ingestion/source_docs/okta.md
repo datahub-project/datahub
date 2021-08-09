@@ -120,10 +120,10 @@ Note that a `.` is used to denote nested fields in the YAML configuration block.
    - `2021.07.2`
 
  Validated against load:
-   - User Count: 1000
-   - Group Count: 100
-   - Group Membership Edges: 1000 (1 per User)
-   - Run Time (Wall Clock): 2min 7sec
+   - User Count: `1000`
+   - Group Count: `100`
+   - Group Membership Edges: `1000` (1 per User)
+   - Run Time (Wall Clock): `2min 7sec`
 
 ## Questions
 
