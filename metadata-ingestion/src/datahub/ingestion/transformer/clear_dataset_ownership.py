@@ -2,11 +2,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
-from datahub.metadata.schema_classes import (
-    DatasetSnapshotClass,
-    MetadataChangeEventClass,
-    OwnershipClass,
-)
+from datahub.metadata.schema_classes import MetadataChangeEventClass, OwnershipClass
 
 
 class ClearDatasetOwnershipConfig(ConfigModel):
@@ -27,8 +23,6 @@ class SimpleClearDatasetOwnership(DatasetTransformer):
         return cls(config, ctx)
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
-            return mce
 
         ownership = builder.get_or_add_aspect(
             mce,

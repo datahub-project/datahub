@@ -40,8 +40,6 @@ class AddDatasetTags(DatasetTransformer):
         return cls(config, ctx)
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
-            return mce
 
         tags_to_add = self.config.get_tags_to_add(mce.proposedSnapshot)
         if tags_to_add:

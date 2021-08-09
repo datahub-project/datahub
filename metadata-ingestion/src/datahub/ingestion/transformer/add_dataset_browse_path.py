@@ -4,11 +4,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
-from datahub.metadata.schema_classes import (
-    BrowsePathsClass,
-    DatasetSnapshotClass,
-    MetadataChangeEventClass,
-)
+from datahub.metadata.schema_classes import BrowsePathsClass, MetadataChangeEventClass
 
 
 class AddDatasetBrowsePathConfig(ConfigModel):
@@ -33,8 +29,6 @@ class AddDatasetBrowsePathTransformer(DatasetTransformer):
         return cls(config, ctx)
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
-            return mce
 
         platform_part, dataset_fqdn, env = (
             mce.proposedSnapshot.urn.replace("urn:li:dataset:(", "")

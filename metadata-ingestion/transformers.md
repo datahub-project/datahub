@@ -6,6 +6,12 @@ Oftentimes we want to modify metadata before it reaches the ingestion sink – f
 
 Moreover, a transformer allows one to have fine-grained control over the metadata that’s ingested without having to modify the ingestion framework's code yourself. Instead, you can write your own module that can take MCEs however you like. To configure the recipe, all that's needed is a module name as well as any arguments.
 
+## Note about transformers use
+
+The naming of the transformers is based on what they do to the data created by ingestion sources. It is not based on what finally happens in datahub. e.g. `simple_add_dataset_tags` adds a set of tags to the data created by ingestion sources. So if source did not add any tags you can use `simple_add_dataset_tags` to add any tags using this transformer. But this will overwrite any tags already present in the system. If you have done an ingestion once and then added some tags through the UI this will overwrite those tags. 
+
+This replacement applies to tags, owners, browse paths etc. If you are using the UI to add these things be careful while using the transformers or your data might get overwritten.
+
 ## Provided transformers
 
 Aside from the option of writing your own transformer (see below), we provide two simple transformers for the use cases of adding dataset tags and ownership information.
@@ -42,6 +48,8 @@ transformers:
   - type: "simple_clear_dataset_ownership"
     config: {}
 ```
+
+The main use case of `simple_clear_dataset_ownership` is to remove incorrect owners present in the source. You can use it along with the next `simple_add_dataset_ownership` to remove wrong owners and add the correct ones.
 
 Let’s suppose we’d like to append a series of users who we know to own a dataset but aren't detected during normal ingestion. To do so, we can use the `simple_add_dataset_ownership` module that’s included in the ingestion framework.
 
@@ -83,7 +91,7 @@ If you would like to add to browse paths of dataset can use this transformer. Th
 - PLATFORM: `mysql`, `postgres` or different platform supported by datahub
 - DATASET_PARTS: slash separated parts of dataset name. e.g. `database_name/schema_name/[table_name]` for postgres
 
-
+e.g. this can be used to create browse paths like `/prod/postgres/superset/public/logs` for table `superset.public.log` in a `postgres` database
 ```yaml
 transformers:
   - type: "set_dataset_browse_path"
@@ -92,6 +100,26 @@ transformers:
         - /ENV/PLATFORM/DATASET_PARTS/ 
 ```
 
+If you don't want the environment but wanted to add something static in the browse path like the database instance name you can use this.
+```yaml
+transformers:
+  - type: "set_dataset_browse_path"
+    config:
+      path_templates:
+        - /PLATFORM/marketing_db/DATASET_PARTS/ 
+```
+It will create browse path like `/mysql/marketing_db/sales/orders` for a table `sales.orders` in `mysql` database instance.
+
+You can use this to add multiple browse paths. Different people might know same data assets with different name
+```yaml
+transformers:
+  - type: "set_dataset_browse_path"
+    config:
+      path_templates:
+        - /PLATFORM/marketing_db/DATASET_PARTS/
+        - /data_warehouse/DATASET_PARTS/
+```
+This will add 2 browse paths like `/mysql/marketing_db/sales/orders` and `/data_warehouse/sales/orders` for a table `sales.orders` in `mysql` database instance.
 ## Writing a custom transformer from scratch
 
 In the above couple of examples, we use classes that have already been implemented in the ingestion framework. However, it’s common for more advanced cases to pop up where custom code is required, for instance if you'd like to utilize conditional logic or rewrite properties. In such cases, we can add our own modules and define the arguments it takes as a custom transformer.

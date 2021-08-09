@@ -3,7 +3,10 @@ from typing import Iterable
 
 from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
-from datahub.metadata.schema_classes import MetadataChangeEventClass
+from datahub.metadata.schema_classes import (
+    DatasetSnapshotClass,
+    MetadataChangeEventClass,
+)
 
 
 class DatasetTransformer(Transformer):
@@ -13,8 +16,10 @@ class DatasetTransformer(Transformer):
         self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         for envelope in record_envelopes:
-            if isinstance(envelope.record, MetadataChangeEventClass):
-                envelope.record = self.transform_one(envelope.record)
+            record = envelope.record
+            if isinstance(record, MetadataChangeEventClass):
+                if isinstance(record.proposedSnapshot, DatasetSnapshotClass):
+                    envelope.record = self.transform_one(record)
             yield envelope
 
     @abstractmethod
