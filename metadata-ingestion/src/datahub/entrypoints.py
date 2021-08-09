@@ -70,7 +70,9 @@ def init() -> None:
         "Enter your DataHub host", type=str, default="http://localhost:8080"
     )
     token = click.prompt(
-        "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)", type=str, default=""
+        "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)",
+        type=str,
+        default="",
     )
     write_datahub_config(host, token)
 
