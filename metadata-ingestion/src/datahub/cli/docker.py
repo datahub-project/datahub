@@ -269,6 +269,10 @@ def quickstart(
         "or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.",
         fg="green",
     )
+    click.secho(
+        "Need support? Get in touch on Slack: https://slack.datahubproject.io/",
+        fg="magenta",
+    )
 
 
 @docker.command()

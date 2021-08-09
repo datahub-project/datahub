@@ -37,6 +37,13 @@ datahub_rest_connection_config = Connection(
     host="http://test_host:8080/",
     extra=None,
 )
+datahub_rest_connection_config_with_timeout = Connection(
+    conn_id="datahub_rest_test",
+    conn_type="datahub_rest",
+    host="http://test_host:8080/",
+    extra=json.dumps({"timeout_sec": 5}),
+)
+
 datahub_kafka_connection_config = Connection(
     conn_id="datahub_kafka_test",
     conn_type="datahub_kafka",
@@ -97,7 +104,20 @@ def test_datahub_rest_hook(mock_emitter):
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
-        mock_emitter.assert_called_once_with(config.host, None)
+        mock_emitter.assert_called_once_with(config.host, None, None)
+        instance = mock_emitter.return_value
+        instance.emit_mce.assert_called_with(lineage_mce)
+
+
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
+def test_datahub_rest_hook_with_timeout(mock_emitter):
+    with patch_airflow_connection(
+        datahub_rest_connection_config_with_timeout
+    ) as config:
+        hook = DatahubRestHook(config.conn_id)
+        hook.emit_mces([lineage_mce])
+
+        mock_emitter.assert_called_once_with(config.host, None, 5)
         instance = mock_emitter.return_value
         instance.emit_mce.assert_called_with(lineage_mce)
 

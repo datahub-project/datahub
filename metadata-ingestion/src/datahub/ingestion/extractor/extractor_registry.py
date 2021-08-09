@@ -1,7 +1,6 @@
 from datahub.ingestion.api.registry import Registry
 from datahub.ingestion.api.source import Extractor
-
-from .mce_extractor import WorkUnitRecordExtractor
+from datahub.ingestion.extractor.mce_extractor import WorkUnitRecordExtractor
 
 extractor_registry = Registry[Extractor]()
 
