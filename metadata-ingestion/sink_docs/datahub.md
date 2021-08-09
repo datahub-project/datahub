@@ -10,7 +10,7 @@ To install this plugin, run `pip install 'acryl-datahub[datahub-rest]'`.
 
 ### Capabilities
 
-Pushes metadata to DataHub using the GMA rest API. The advantage of the rest-based interface
+Pushes metadata to DataHub using the GMS REST API. The advantage of the REST-based interface
 is that any errors can immediately be reported.
 
 ### Quickstart recipe
@@ -35,6 +35,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | Field    | Required | Default | Description                  |
 | -------- | -------- | ------- | ---------------------------- |
 | `server` | ✅       |         | URL of DataHub GMS endpoint. |
+| `timeout_sec` |     | 2       | Per-HTTP request timeout.    |
 
 ## DataHub Kafka
 
