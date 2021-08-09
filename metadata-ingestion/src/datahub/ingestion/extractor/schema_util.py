@@ -58,6 +58,9 @@ FieldStack = List[avro.schema.Field]
 class AvroToMceSchemaConverter:
     """Converts an AVRO schema in JSON to MCE SchemaFields."""
 
+    # FieldPath format version.
+    version_string: str = "[version=2.0]"
+
     field_type_mapping: Dict[str, Any] = {
         "null": NullTypeClass,
         "bool": BooleanTypeClass,
@@ -78,7 +81,7 @@ class AvroToMceSchemaConverter:
 
     def __init__(self, is_key_schema: bool) -> None:
         # Tracks the prefix name stack for nested name generation.
-        self._prefix_name_stack: PrefixNameStack = []
+        self._prefix_name_stack: PrefixNameStack = [self.version_string]
         # Tracks the fields on the current path.
         self._fields_stack: FieldStack = []
         # Tracks the record types seen so far. Used to prevent infinite recursion with recursive types.
