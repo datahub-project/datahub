@@ -1,4 +1,3 @@
-import React from 'react';
 import translateFieldPath from '../schema/utils/translateFieldPath';
 
 describe('translateFieldPath', () => {

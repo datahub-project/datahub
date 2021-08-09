@@ -1,4 +1,3 @@
-import React from 'react';
 import translateFieldPathSegment from '../schema/utils/translateFieldPathSegment';
 
 describe('translateFieldPathSegment', () => {
