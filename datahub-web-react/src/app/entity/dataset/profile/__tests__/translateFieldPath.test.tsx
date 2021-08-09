@@ -19,7 +19,9 @@ describe('translateFieldPath', () => {
 
     it('cleans the [key=true] prefix', () => {
         expect(
-            translateFieldPath('[key=true][type=array]MyArray.[type=array].[type=Struct]field.[type=long]nested_field'),
+            translateFieldPath(
+                '[key=True].[type=array]MyArray.[type=array].[type=Struct]field.[type=long]nested_field',
+            ),
         ).toEqual('MyArray[][].field.nested_field');
     });
 });
