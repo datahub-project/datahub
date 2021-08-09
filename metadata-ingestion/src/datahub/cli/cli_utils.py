@@ -23,7 +23,7 @@ class DatahubConfig(BaseModel):
     gms: GmsConfig
 
 
-def write_datahub_config(host: str, token: Optional[str]):
+def write_datahub_config(host: str, token: Optional[str]) -> None:
     config = {
         "gms": {
             "server": host,
@@ -32,6 +32,7 @@ def write_datahub_config(host: str, token: Optional[str]):
     }
     with open(DATAHUB_CONFIG_PATH, "w+") as outfile:
         yaml.dump(config, outfile, default_flow_style=False)
+    return None
 
 
 def get_session_and_host():
@@ -72,7 +73,9 @@ def get_session_and_host():
         }
     )
     if isinstance(gms_token, str) and len(gms_token) > 0:
-        session.headers.update({"Authorization": f"Bearer {gms_token}"})
+        session.headers.update(
+            {"Authorization": f"Bearer {gms_token.format(**os.environ)}"}
+        )
 
     return session, gms_host
 
@@ -97,8 +100,8 @@ def parse_run_restli_response(response):
 
 
 def post_rollback_endpoint(
-        payload_obj: dict,
-        path: str,
+    payload_obj: dict,
+    path: str,
 ) -> typing.Tuple[typing.List[typing.List[str]], int, int]:
     session, gms_host = get_session_and_host()
     url = gms_host + path
@@ -130,8 +133,8 @@ def post_rollback_endpoint(
 
 
 def post_delete_endpoint(
-        payload_obj: dict,
-        path: str,
+    payload_obj: dict,
+    path: str,
 ) -> typing.Tuple[str, int]:
     session, gms_host = get_session_and_host()
     url = gms_host + path
