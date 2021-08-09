@@ -43,7 +43,8 @@
                                 "nativeDataType": "VARCHAR(length=500)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "aspect",
@@ -58,7 +59,8 @@
                                 "nativeDataType": "VARCHAR(length=200)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "version",
@@ -73,7 +75,8 @@
                                 "nativeDataType": "BIGINT()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "metadata",
@@ -88,7 +91,8 @@
                                 "nativeDataType": "LONGTEXT()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "createdon",
@@ -103,7 +107,8 @@
                                 "nativeDataType": "DATETIME(fsp=6)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "createdby",
@@ -118,7 +123,8 @@
                                 "nativeDataType": "VARCHAR(length=255)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "createdfor",
@@ -133,7 +139,8 @@
                                 "nativeDataType": "VARCHAR(length=255)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": null,
@@ -203,7 +210,8 @@
                                 "nativeDataType": "BIGINT()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "urn",
@@ -218,7 +226,8 @@
                                 "nativeDataType": "VARCHAR(length=200)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "aspect",
@@ -233,7 +242,8 @@
                                 "nativeDataType": "VARCHAR(length=150)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "path",
@@ -248,7 +258,8 @@
                                 "nativeDataType": "VARCHAR(length=150)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "longVal",
@@ -263,7 +274,8 @@
                                 "nativeDataType": "BIGINT()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "stringVal",
@@ -278,7 +290,8 @@
                                 "nativeDataType": "VARCHAR(length=200)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "doubleVal",
@@ -293,7 +306,8 @@
                                 "nativeDataType": "DOUBLE(asdecimal=True)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": null,
@@ -366,7 +380,8 @@
                                 "nativeDataType": "BIGINT()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "urn",
@@ -381,7 +396,8 @@
                                 "nativeDataType": "VARCHAR(length=200)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "path",
@@ -396,7 +412,8 @@
                                 "nativeDataType": "VARCHAR(length=150)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "doubleVal",
@@ -411,7 +428,8 @@
                                 "nativeDataType": "DOUBLE(asdecimal=True)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": null,
@@ -472,7 +490,8 @@
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "company",
@@ -487,7 +506,8 @@
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "last_name",
@@ -502,7 +522,8 @@
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "first_name",
@@ -517,7 +538,8 @@
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "email_address",
@@ -532,7 +554,8 @@
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": null,
