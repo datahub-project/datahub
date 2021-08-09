@@ -22,6 +22,7 @@ import play.mvc.Result;
 import react.auth.AuthUtils;
 import react.auth.JAASConfigs;
 import react.auth.OidcConfigs;
+import react.auth.SsoManager;
 import security.AuthenticationManager;
 
 import javax.annotation.Nonnull;
@@ -49,6 +50,9 @@ public class AuthenticationController extends Controller {
     private SessionStore _playSessionStore;
 
     @Inject
+    private SsoManager _ssoManager;
+
+    @Inject
     public AuthenticationController(@Nonnull Config configs) {
         _configs = configs;
         _oidcConfigs = new OidcConfigs(configs);
@@ -72,9 +76,9 @@ public class AuthenticationController extends Controller {
         }
 
         // 1. If indirect auth is enabled, redirect to IdP
-        if (_oidcConfigs.isOidcEnabled()) {
+        if (_ssoManager.isSsoEnabled()) {
             final PlayWebContext playWebContext = new PlayWebContext(ctx(), _playSessionStore);
-            final Client client = _ssoConfig.getClients().findClient(_oidcConfigs.getClientName());
+            final Client client = _ssoManager.getSsoProvider().getClient();
             final HttpAction action = client.redirect(playWebContext);
             return new PlayHttpActionAdapter().adapt(action.getCode(), playWebContext);
         }

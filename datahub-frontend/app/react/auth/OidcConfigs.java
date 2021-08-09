@@ -8,8 +8,6 @@ import static react.auth.ConfigUtil.*;
  */
 public class OidcConfigs extends SsoConfigs {
 
-    public static final String OIDC_ENABLED_CONFIG_PATH = "auth.oidc.enabled";
-
     /**
      * Required configs
      */
@@ -53,35 +51,24 @@ public class OidcConfigs extends SsoConfigs {
     private boolean _extractGroupsEnabled;
     private String _groupsClaimName;
 
-    private Boolean _isEnabled = false;
-
     public OidcConfigs(final com.typesafe.config.Config configs) {
         super(configs);
-        if (configs.hasPath(OIDC_ENABLED_CONFIG_PATH)
-                && Boolean.TRUE.equals(
-                        Boolean.parseBoolean(configs.getString(OIDC_ENABLED_CONFIG_PATH)))) {
-            _isEnabled = true;
-            _clientId = getRequired(configs, OIDC_CLIENT_ID_CONFIG_PATH);
-            _clientSecret = getRequired(configs, OIDC_CLIENT_SECRET_CONFIG_PATH);
-            _discoveryUri = getRequired(configs, OIDC_DISCOVERY_URI_CONFIG_PATH);
-            _userNameClaim = getOptional(configs, OIDC_USERNAME_CLAIM_CONFIG_PATH, DEFAULT_OIDC_USERNAME_CLAIM);
-            _userNameClaimRegex =
-                getOptional(configs, OIDC_USERNAME_CLAIM_REGEX_CONFIG_PATH, DEFAULT_OIDC_USERNAME_CLAIM_REGEX);
-            _scope = getOptional(configs, OIDC_SCOPE_CONFIG_PATH, DEFAULT_OIDC_SCOPE);
-            _clientName = getOptional(configs, OIDC_CLIENT_NAME_CONFIG_PATH, DEFAULT_OIDC_CLIENT_NAME);
-            _clientAuthenticationMethod = getOptional(configs, OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH,
-                DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD);
-            _jitProvisioningEnabled = Boolean.parseBoolean(
-                getOptional(configs, OIDC_JIT_USER_PROVISIONING_ENABLED_CONFIG_PATH,
-                    DEFAULT_OIDC_JIT_USER_PROVISIONING_ENABLED));
-            _extractGroupsEnabled = Boolean.parseBoolean(
-                getOptional(configs, OIDC_EXTRACT_GROUPS_ENABLED, DEFAULT_OIDC_EXTRACT_GROUPS_ENABLED));
-            _groupsClaimName = getOptional(configs, OIDC_GROUPS_CLAIM_CONFIG_PATH_CONFIG_PATH, DEFAULT_OIDC_GROUPS_CLAIM);
-        }
-    }
-
-    public boolean isOidcEnabled() {
-        return _isEnabled;
+        _clientId = getRequired(configs, OIDC_CLIENT_ID_CONFIG_PATH);
+        _clientSecret = getRequired(configs, OIDC_CLIENT_SECRET_CONFIG_PATH);
+        _discoveryUri = getRequired(configs, OIDC_DISCOVERY_URI_CONFIG_PATH);
+        _userNameClaim = getOptional(configs, OIDC_USERNAME_CLAIM_CONFIG_PATH, DEFAULT_OIDC_USERNAME_CLAIM);
+        _userNameClaimRegex =
+            getOptional(configs, OIDC_USERNAME_CLAIM_REGEX_CONFIG_PATH, DEFAULT_OIDC_USERNAME_CLAIM_REGEX);
+        _scope = getOptional(configs, OIDC_SCOPE_CONFIG_PATH, DEFAULT_OIDC_SCOPE);
+        _clientName = getOptional(configs, OIDC_CLIENT_NAME_CONFIG_PATH, DEFAULT_OIDC_CLIENT_NAME);
+        _clientAuthenticationMethod = getOptional(configs, OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH,
+            DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD);
+        _jitProvisioningEnabled = Boolean.parseBoolean(
+            getOptional(configs, OIDC_JIT_USER_PROVISIONING_ENABLED_CONFIG_PATH,
+                DEFAULT_OIDC_JIT_USER_PROVISIONING_ENABLED));
+        _extractGroupsEnabled = Boolean.parseBoolean(
+            getOptional(configs, OIDC_EXTRACT_GROUPS_ENABLED, DEFAULT_OIDC_EXTRACT_GROUPS_ENABLED));
+        _groupsClaimName = getOptional(configs, OIDC_GROUPS_CLAIM_CONFIG_PATH_CONFIG_PATH, DEFAULT_OIDC_GROUPS_CLAIM);
     }
 
     public boolean isJitUserProvisioningEnabled() {

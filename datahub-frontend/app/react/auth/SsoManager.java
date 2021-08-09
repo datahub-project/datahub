@@ -47,7 +47,7 @@ public class SsoManager {
    * Gets the active {@link SsoProvider} instance.
    *
    * @return the {@SsoProvider} that should be used during authentication and on
-   * IdP callback.
+   * IdP callback, or null if SSO is not enabled.
    */
   public SsoProvider getSsoProvider() {
     return _provider;
