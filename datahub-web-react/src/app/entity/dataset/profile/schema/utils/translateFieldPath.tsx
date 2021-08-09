@@ -15,9 +15,9 @@ export default function translateFieldPath(fieldPath: string) {
 
     // clean up artifacts from unions and arrays nested within one another
     fieldPathWithoutAnnotations = fieldPathWithoutAnnotations
-        .replaceAll(/\.\./g, '.')
-        .replaceAll(/\. /g, ' ')
-        .replaceAll(/\[\]\.\[\]/g, '[][]');
+        .replace(/\.\./g, '.')
+        .replace(/\. /g, ' ')
+        .replace(/\[\]\.\[\]/g, '[][]');
 
     // removing a hanging dot if present
     if (fieldPathWithoutAnnotations.endsWith('.')) {
