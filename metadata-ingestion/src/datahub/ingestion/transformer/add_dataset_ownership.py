@@ -42,7 +42,7 @@ class AddDatasetOwnership(DatasetTransformer):
         return cls(config, ctx)
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        if not self.is_proposed_dataset_snapshot(mce):
+        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
             return mce
         owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
         if owners_to_add:

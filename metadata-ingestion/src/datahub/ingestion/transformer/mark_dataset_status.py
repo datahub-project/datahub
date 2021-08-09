@@ -2,7 +2,11 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
-from datahub.metadata.schema_classes import MetadataChangeEventClass, StatusClass
+from datahub.metadata.schema_classes import (
+    DatasetSnapshotClass,
+    MetadataChangeEventClass,
+    StatusClass,
+)
 
 
 class MarkDatasetStatusConfig(ConfigModel):
@@ -25,7 +29,7 @@ class MarkDatasetStatus(DatasetTransformer):
         return cls(config, ctx)
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-        if not self.is_proposed_dataset_snapshot(mce):
+        if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
             return mce
         status_aspect = builder.get_or_add_aspect(
             mce,

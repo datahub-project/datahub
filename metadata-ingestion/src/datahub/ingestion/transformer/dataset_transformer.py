@@ -3,10 +3,7 @@ from typing import Iterable
 
 from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.transform import Transformer
-from datahub.metadata.schema_classes import (
-    DatasetSnapshotClass,
-    MetadataChangeEventClass,
-)
+from datahub.metadata.schema_classes import MetadataChangeEventClass
 
 
 class DatasetTransformer(Transformer):
@@ -19,9 +16,6 @@ class DatasetTransformer(Transformer):
             if isinstance(envelope.record, MetadataChangeEventClass):
                 envelope.record = self.transform_one(envelope.record)
             yield envelope
-
-    def is_proposed_dataset_snapshot(self, mce: MetadataChangeEventClass) -> bool:
-        return isinstance(mce.proposedSnapshot, DatasetSnapshotClass)
 
     @abstractmethod
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
