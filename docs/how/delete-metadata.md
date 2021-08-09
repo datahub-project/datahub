@@ -2,6 +2,17 @@
 
 There are a two ways to delete data from DataHub.
 
+
+## Configuring DataHub CLI
+
+By default, the CLI will point to localhost DataHub. To point to a different instance, 
+you'll need to configure your CLI by running
+
+```aidl
+datahub init
+```
+
+
 ## Delete By Urn
 
 To delete all the data related to a single entity, run

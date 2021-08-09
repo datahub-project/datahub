@@ -13,13 +13,6 @@ from pydantic import BaseModel, ValidationError
 CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
 DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
 
-DEFAULT_DATAHUB_CONFIG = {
-    "gms": {
-        "server": "http://localhost:8080",
-        "token": "",
-    }
-}
-
 
 class GmsConfig(BaseModel):
     server: str
@@ -28,6 +21,17 @@ class GmsConfig(BaseModel):
 
 class DatahubConfig(BaseModel):
     gms: GmsConfig
+
+
+def write_datahub_config(host: str, token: Optional[str]):
+    config = {
+        "gms": {
+            "server": host,
+            "token": token,
+        }
+    }
+    with open(DATAHUB_CONFIG_PATH, "w+") as outfile:
+        yaml.dump(config, outfile, default_flow_style=False)
 
 
 def get_session_and_host():
@@ -40,9 +44,7 @@ def get_session_and_host():
             f"No {CONDENSED_DATAHUB_CONFIG_PATH} file found, generating one for you...",
             bold=True,
         )
-
-        with open(DATAHUB_CONFIG_PATH, "w+") as outfile:
-            yaml.dump(DEFAULT_DATAHUB_CONFIG, outfile, default_flow_style=False)
+        write_datahub_config(gms_host, gms_token)
 
     with open(DATAHUB_CONFIG_PATH, "r") as stream:
         try:
@@ -95,8 +97,8 @@ def parse_run_restli_response(response):
 
 
 def post_rollback_endpoint(
-    payload_obj: dict,
-    path: str,
+        payload_obj: dict,
+        path: str,
 ) -> typing.Tuple[typing.List[typing.List[str]], int, int]:
     session, gms_host = get_session_and_host()
     url = gms_host + path
@@ -128,8 +130,8 @@ def post_rollback_endpoint(
 
 
 def post_delete_endpoint(
-    payload_obj: dict,
-    path: str,
+        payload_obj: dict,
+        path: str,
 ) -> typing.Tuple[str, int]:
     session, gms_host = get_session_and_host()
     url = gms_host + path
