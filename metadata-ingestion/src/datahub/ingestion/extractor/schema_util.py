@@ -76,7 +76,7 @@ class AvroToMceSchemaConverter:
         "fixed": FixedTypeClass,
     }
 
-    def __init__(self, is_key_schema: bool):
+    def __init__(self, is_key_schema: bool) -> None:
         # Tracks the prefix name stack for nested name generation.
         self._prefix_name_stack: PrefixNameStack = []
         # Tracks the fields on the current path.
@@ -245,7 +245,9 @@ class AvroToMceSchemaConverter:
             if is_option_as_union_type is not None:
                 yield is_option_as_union_type
             else:
-                yield from gen_items_from_list_tuple_or_scalar(schema.schemas)
+                for sub_schema in schema.schemas:
+                    if sub_schema.type != avro.schema.NULL:
+                        yield sub_schema
         # Record type
         elif isinstance(schema, avro.schema.RecordSchema):
             yield from gen_items_from_list_tuple_or_scalar(schema.fields)

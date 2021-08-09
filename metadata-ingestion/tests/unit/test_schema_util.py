@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from pathlib import Path
 from typing import List
 
@@ -60,6 +61,14 @@ def log_field_paths(fields: List[SchemaField]) -> None:
     logger.debug('FieldPaths=\n"' + '",\n"'.join(f.fieldPath for f in fields) + '"')
 
 
+def assert_field_paths_are_unique(fields: List[SchemaField]) -> None:
+    avro_fields_paths = [
+        f.fieldPath for f in fields if re.match(".*[^]]$", f.fieldPath)
+    ]
+    if avro_fields_paths:
+        assert len(avro_fields_paths) == len(set(avro_fields_paths))
+
+
 def assret_field_paths_match(
     fields: List[SchemaField], expected_field_paths: List[str]
 ) -> None:
@@ -67,6 +76,7 @@ def assret_field_paths_match(
     assert len(fields) == len(expected_field_paths)
     for f, efp in zip(fields, expected_field_paths):
         assert f.fieldPath == efp
+    assert_field_paths_are_unique(fields)
 
 
 @pytest.mark.parametrize(
@@ -502,8 +512,6 @@ def test_map_of_union_of_int_and_record_of_union():
         "[type=MapSample].[type=map].[type=union].[type=Rcd]",
         "[type=MapSample].[type=map].[type=union].[type=Rcd].aMap",
         "[type=MapSample].[type=map].[type=union].[type=Rcd].aMap.[type=union]",
-        "[type=MapSample].[type=map].[type=union].[type=Rcd].aMap.[type=union].[type=null]",
-        "[type=MapSample].[type=map].[type=union].[type=Rcd].aMap.[type=union].[type=null].aUnion",
         "[type=MapSample].[type=map].[type=union].[type=Rcd].aMap.[type=union].[type=string]",
         "[type=MapSample].[type=map].[type=union].[type=Rcd].aMap.[type=union].[type=string].aUnion",
         "[type=MapSample].[type=map].[type=union].[type=Rcd].aMap.[type=union].[type=int]",
@@ -614,6 +622,8 @@ def test_mce_avro_parses_okay():
     ).read_text()
     fields = avro_schema_to_mce_fields(schema)
     assert len(fields)
+    # Ensure that all the paths corresponding to the AVRO fields are unique.
+    assert_field_paths_are_unique(fields)
     log_field_paths(fields)
 
 
