@@ -1,1 +1,1 @@
-from .common import RecordEnvelope
+from datahub.ingestion.api.common import RecordEnvelope

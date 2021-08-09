@@ -55,6 +55,14 @@ module.exports = {
       "docs/architecture/metadata-serving",
       //"docs/what/gms",
     ],
+    "Metadata Ingestion": [
+      {
+        Sources: list_ids_in_directory("metadata-ingestion/source_docs"),
+      },
+      {
+        Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
+      },
+    ],
     "Metadata Modeling": [
       "docs/modeling/metadata-model",
       "docs/modeling/extending-the-metadata-model",

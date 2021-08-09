@@ -84,7 +84,9 @@ public class ChartSnapshotMapper implements ModelMapper<ChartSnapshot, Chart> {
         if (info.getLastModified().hasDeleted()) {
             result.setDeleted(AuditStampMapper.map(info.getLastModified().getDeleted()));
         }
-        if (info.hasChartUrl()) {
+        if (info.hasExternalUrl()) {
+            result.setExternalUrl(info.getExternalUrl().toString());
+        } else if (info.hasChartUrl()) {
             // TODO: Migrate to using the External URL field for consistency.
             result.setExternalUrl(info.getChartUrl().toString());
         }

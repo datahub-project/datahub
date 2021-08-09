@@ -12,6 +12,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import (
+    BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
     resolve_postgres_modified_type,
@@ -364,6 +365,7 @@ _field_type_mapping = {
     "float8": NumberTypeClass,
     **POSTGRES_TYPES_MAP,
     **SNOWFLAKE_TYPES_MAP,
+    **BIGQUERY_TYPES_MAP,
 }
 
 
