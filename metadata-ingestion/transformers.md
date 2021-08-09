@@ -76,7 +76,8 @@ transformers:
 
 ### Mark dataset status
 
-If you would like to stop a dataset from appearing in the UI then you need to mark the status of the dataset
+If you would like to stop a dataset from appearing in the UI then you need to mark the status of the dataset as removed. You can use this transformer after filtering for the specific datasets that you want to mark as removed.
+
 ```yaml
 transformers:
   - type: "mark_dataset_status"
