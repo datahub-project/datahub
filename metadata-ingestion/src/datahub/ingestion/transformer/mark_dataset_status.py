@@ -25,6 +25,8 @@ class MarkDatasetStatus(DatasetTransformer):
         return cls(config, ctx)
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
+        if not self.is_proposed_dataset_snapshot(mce):
+            return mce
         status_aspect = builder.get_or_add_aspect(
             mce,
             StatusClass(

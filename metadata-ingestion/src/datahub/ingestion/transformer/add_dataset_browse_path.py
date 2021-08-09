@@ -29,7 +29,8 @@ class AddDatasetBrowsePathTransformer(DatasetTransformer):
         return cls(config, ctx)
 
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-
+        if not self.is_proposed_dataset_snapshot(mce):
+            return mce
         platform_part, dataset_fqdn, env = (
             mce.proposedSnapshot.urn.replace("urn:li:dataset:(", "")
             .replace(")", "")

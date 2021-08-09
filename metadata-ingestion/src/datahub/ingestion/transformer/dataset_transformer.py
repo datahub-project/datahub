@@ -16,11 +16,12 @@ class DatasetTransformer(Transformer):
         self, record_envelopes: Iterable[RecordEnvelope]
     ) -> Iterable[RecordEnvelope]:
         for envelope in record_envelopes:
-            record = envelope.record
-            if isinstance(record, MetadataChangeEventClass):
-                if isinstance(record.proposedSnapshot, DatasetSnapshotClass):
-                    envelope.record = self.transform_one(record)
+            if isinstance(envelope.record, MetadataChangeEventClass):
+                envelope.record = self.transform_one(envelope.record)
             yield envelope
+
+    def is_proposed_dataset_snapshot(self, mce: MetadataChangeEventClass) -> bool:
+        return isinstance(mce.proposedSnapshot, DatasetSnapshotClass)
 
     @abstractmethod
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
