@@ -24,21 +24,21 @@ import static react.auth.OidcConfigs.*;
  */
 public class AuthModule extends AbstractModule {
 
-    private final SsoClient _ssoClient;
+    private final SsoProvider _ssoProvider;
     private final Config _pac4jConfig;
 
     public AuthModule(final Environment environment, final com.typesafe.config.Config configs) {
-        _ssoClient = initSsoClient(configs);
+        _ssoProvider = initSsoClient(configs);
         _pac4jConfig = buildPac4jConfig(configs);
     }
 
-    private SsoClient initSsoClient(com.typesafe.config.Config configs) {
+    private SsoProvider initSsoClient(com.typesafe.config.Config configs) {
         if (isSsoEnabled(configs)) {
             SsoConfigs ssoConfigs = new SsoConfigs(configs);
             if (ssoConfigs.isOidcEnabled()) {
                 // Register OIDC Manager, add to list of managers.
                 OidcConfigs oidcConfigs = new OidcConfigs(configs);
-                return new OidcClient(oidcConfigs);
+                return new OidcProvider(oidcConfigs);
             }
         }
         return null;
@@ -49,7 +49,7 @@ public class AuthModule extends AbstractModule {
             SsoConfigs ssoConfigs = new SsoConfigs(configs);
             final Clients clients = new Clients(ssoConfigs.getAuthBaseUrl() + ssoConfigs.getAuthBaseCallbackPath());
             final List<Client> clientList = new ArrayList<>();
-            clientList.add(_ssoClient.getClient());
+            clientList.add(_ssoProvider.getClient());
             clients.setClients(clientList);
             final Config config = new Config(clients);
             config.setHttpActionAdapter(new PlayHttpActionAdapter());
@@ -66,7 +66,7 @@ public class AuthModule extends AbstractModule {
 
         final CallbackController callbackController = new CallbackController() {};
         callbackController.setDefaultUrl("/"); // Redirect to HomePage on Authentication.
-        callbackController.setCallbackLogic(new SsoCallbackHandler(_ssoClient));
+        callbackController.setCallbackLogic(new SsoCallbackHandler(_ssoProvider));
         bind(CallbackController.class).toInstance(callbackController);
     }
 

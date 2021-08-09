@@ -7,34 +7,44 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.pac4j.core.client.Client;
+import org.pac4j.core.engine.CallbackLogic;
+import org.pac4j.core.engine.DefaultCallbackLogic;
 import org.pac4j.core.http.callback.PathParameterCallbackUrlResolver;
 import org.pac4j.core.profile.CommonProfile;
 import org.pac4j.core.profile.ProfileManager;
 import org.pac4j.oidc.config.OidcConfiguration;
+import org.pac4j.oidc.credentials.OidcCredentials;
+import org.pac4j.oidc.profile.OidcProfile;
 import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
 
 import static react.auth.AuthUtils.*;
 
 
-public class OidcClient implements SsoClient {
+public class OidcProvider implements SsoProvider {
 
   private final EntityClient _entityClient = GmsClientFactory.getEntitiesClient();
   private final OidcConfigs _oidcConfigs;
-  private final Client _oidcClient;
+  private final Client<OidcCredentials, OidcProfile> _oidcClient;
 
-  public OidcClient(OidcConfigs configs) {
+  public OidcProvider(OidcConfigs configs) {
     _oidcConfigs = configs;
     _oidcClient = createOidcClient();
   }
 
   @Override
-  public Client getClient() {
+  public Client<OidcCredentials, OidcProfile> getClient() {
     return _oidcClient;
   }
 
   @Override
-  public Result handleCallback(final Result result, final PlayWebContext context, ProfileManager<?> profileManager) {
+  public CallbackLogic<Result, PlayWebContext> getCallback() {
+
+    return new DefaultCallbackLogic<>() {
+
+    }
+
+    final Result result = super.perform(context, config, httpActionAdapter, inputDefaultUrl, inputSaveInSession, inputMultiProfile, inputRenewSession, client);
     if (profileManager.isAuthenticated()) {
       final CommonProfile profile = profileManager.get(true).get();
 
@@ -106,7 +116,7 @@ public class OidcClient implements SsoClient {
     // nothing yet.
   }
 
-  private Client createOidcClient() {
+  private Client<OidcCredentials, OidcProfile> createOidcClient() {
     final OidcConfiguration oidcConfiguration = new OidcConfiguration();
     oidcConfiguration.setClientId(_oidcConfigs.getClientId());
     oidcConfiguration.setSecret(_oidcConfigs.getClientSecret());
@@ -114,7 +124,7 @@ public class OidcClient implements SsoClient {
     oidcConfiguration.setClientAuthenticationMethodAsString(_oidcConfigs.getClientAuthenticationMethod());
     oidcConfiguration.setScope(_oidcConfigs.getScope());
 
-    final org.pac4j.oidc.client.OidcClient oidcClient = new org.pac4j.oidc.client.OidcClient(oidcConfiguration);
+    final org.pac4j.oidc.client.OidcClient<OidcProfile, OidcConfiguration>  oidcClient = new org.pac4j.oidc.client.OidcClient<>(oidcConfiguration);
     oidcClient.setName(_oidcConfigs.getClientName());
     oidcClient.setCallbackUrlResolver(new PathParameterCallbackUrlResolver());
     return oidcClient;

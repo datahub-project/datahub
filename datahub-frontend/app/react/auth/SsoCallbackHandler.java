@@ -7,12 +7,20 @@ import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
 
 
+/**
+ * An extension of the Pac4j default Callback Logic invoked by the
+ * CallbackController when the Identity Provider redirects back to DataHub
+ * post-authentication.
+ *
+ * This implementation leverages the {@link SsoManager} to delegate handling of a
+ * callback to an {@link SsoProvider}.
+ */
 public class SsoCallbackHandler extends DefaultCallbackLogic<Result, PlayWebContext> {
 
-    private final SsoClient _ssoClient;
+    private final SsoManager _ssoManager;
 
-    public SsoCallbackHandler(final SsoClient ssoClient) {
-      _ssoClient = ssoClient;
+    public SsoCallbackHandler(final SsoManager ssoManager) {
+      _ssoManager = ssoManager;
     }
 
     @Override
@@ -25,12 +33,11 @@ public class SsoCallbackHandler extends DefaultCallbackLogic<Result, PlayWebCont
         final Boolean inputMultiProfile,
         final Boolean inputRenewSession,
         final String client) {
-      final Result result = super.perform(context, config, httpActionAdapter, inputDefaultUrl, inputSaveInSession, inputMultiProfile, inputRenewSession, client);
-        // NPE WARNING
-        if (client.equals(_ssoClient.getClient().getName())) {
-          return _ssoClient.handleCallback(result, context, getProfileManager(context, config));
-        }
-      // Should never occur.
-        throw new RuntimeException(String.format("Unrecognized client with name %s provided to callback URL.", client));
+      if (_ssoManager.isSsoEnabled()) {
+        return _ssoManager.getSsoProvider().getCallbackLogic().perform(
+            context, config, httpActionAdapter, inputDefaultUrl, inputSaveInSession, inputMultiProfile, inputRenewSession, client
+        );
+      }
+      throw new RuntimeException("Failed to perform Callback Logic: SSO is not enabled.");
     }
 }
