@@ -29,7 +29,7 @@ Our open sourcing [blog post](https://engineering.linkedin.com/blog/2020/open-so
 - **Basic information**: ownership, location. Link to external service for viewing the dashboard.
 - **Institutional knowledge**: support for adding free form doc to any dashboards [*coming soon*]
 
-### Tasks & Pipelines 
+### Tasks & Pipelines
  - **Search**: full-text & advanced search, search ranking
  - **Browse**: browsing through a configurable hierarchy
  - **Basic information**: 

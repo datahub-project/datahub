@@ -1,1 +1,5 @@
-from .common import ConfigModel, ConfigurationMechanism, DynamicTypedConfig
+from datahub.configuration.common import (
+    ConfigModel,
+    ConfigurationMechanism,
+    DynamicTypedConfig,
+)

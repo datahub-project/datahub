@@ -31,7 +31,7 @@ public class GlossaryTermSnapshotMapper implements ModelMapper<GlossaryTermSnaps
         result.setUrn(glossaryTerm.getUrn().toString());
         result.setType(EntityType.GLOSSARY_TERM);
         result.setName(GlossaryTermUtils.getGlossaryTermName(glossaryTerm.getUrn().getNameEntity()));
-
+        result.setHierarchicalName(glossaryTerm.getUrn().getNameEntity());
         ModelUtils.getAspectsFromSnapshot(glossaryTerm).forEach(aspect -> {
             if (aspect instanceof GlossaryTermInfo) {
                 result.setGlossaryTermInfo(GlossaryTermInfoMapper.map(GlossaryTermInfo.class.cast(aspect)));
