@@ -72,7 +72,7 @@ This is a known limitation in our data model that is being tracked by [this tick
 
 ## Quickstart recipe
 
-Note that as a prerequisite, you should [create a DataHub Application](https://developer.okta.com/docs/guides/sign-into-web-app/aspnet/create-okta-application/) within the Okta Developer Console with full permissions
+As a prerequisite, you should [create a DataHub Application](https://developer.okta.com/docs/guides/sign-into-web-app/aspnet/create-okta-application/) within the Okta Developer Console with full permissions
 to read your organization's Users and Groups. 
 
 You can use the following recipe to get started with Okta ingestion! See [below](#config-details) for full configuration options.
