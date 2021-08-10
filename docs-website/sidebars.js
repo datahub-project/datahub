@@ -1,6 +1,10 @@
 const fs = require("fs");
 
-function list_ids_in_directory(directory) {
+function list_ids_in_directory(directory, hardcoded_labels) {
+  if (hardcoded_labels === undefined) {
+    hardcoded_labels = {};
+  }
+
   const files = fs.readdirSync(`../${directory}`).sort();
   let ids = [];
   for (const name of files) {
@@ -15,7 +19,13 @@ function list_ids_in_directory(directory) {
         if (id.match(/\/\d+-.+/)) {
           id = id.replace(/\/\d+-/, "/");
         }
-        ids.push(id);
+
+        if (id in hardcoded_labels) {
+          label = hardcoded_labels[id];
+          ids.push({ type: "doc", id, label });
+        } else {
+          ids.push({ type: "doc", id });
+        }
       }
     }
   }
@@ -55,10 +65,18 @@ module.exports = {
       "docs/architecture/metadata-serving",
       //"docs/what/gms",
     ],
-    "Ingestion Home": [
-      "metadata-ingestion/README",
+    "Metadata Ingestion": [
+      // add a custom label since the default is 'Metadata Ingestion'
+      // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
       {
-        Sources: list_ids_in_directory("metadata-ingestion/source_docs"),
+        type: "doc",
+        label: "Quickstart",
+        id: "metadata-ingestion/README",
+      },
+      {
+        Sources: list_ids_in_directory("metadata-ingestion/source_docs", {
+          "metadata-ingestion/source_docs/s3": "S3",
+        }),
       },
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
@@ -82,7 +100,11 @@ module.exports = {
       "docs/developers",
       "docs/docker/development",
       "metadata-ingestion/adding-source",
-      "metadata-ingestion/s3-ingestion",
+      {
+        type: "doc",
+        label: "Ingesting files from S3",
+        id: "metadata-ingestion/source_docs/s3",
+      },
       //"metadata-ingestion/examples/transforms/README"
       "metadata-ingestion/transformers",
       //"docs/what/graph",
