@@ -158,6 +158,7 @@ base_dev_requirements = {
             "bigquery-usage",
             "looker",
             "glue",
+            "okta",
             "oracle",
             "postgres",
             "sagemaker",
@@ -196,7 +197,6 @@ full_test_dev_requirements = {
             "mongodb",
             "mssql",
             "mysql",
-            "okta",
             "snowflake",
             "sql-profiles",
         ]
