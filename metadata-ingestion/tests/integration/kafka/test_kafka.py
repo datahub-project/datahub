@@ -21,7 +21,7 @@ def test_kafka_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     ) as docker_services:
 
         wait_for_port(
-            docker_services, "test_broker", 9092, hostname="test_broker", timeout=120
+            docker_services, "test_broker", 9092, timeout=120
         )
 
         # Set up topics and produce some data
