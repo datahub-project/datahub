@@ -356,7 +356,7 @@ class OktaSource(Source):
 
     # Converts Okta User Profile into a CorpUserInfo.
     def _map_okta_user_profile(self, profile: UserProfile) -> CorpUserInfoClass:
-        # TODO: Extract user's manager if provided. 
+        # TODO: Extract user's manager if provided.
         # Source: https://developer.okta.com/docs/reference/api/users/#default-profile-properties
         return CorpUserInfoClass(
             active=True,
@@ -367,7 +367,7 @@ class OktaSource(Source):
             email=profile.email,
             title=profile.title,
             countryCode=profile.countryCode,
-            departmentName=profile.department
+            departmentName=profile.department,
         )
 
     def _make_corp_group_urn(self, name: str) -> str:
