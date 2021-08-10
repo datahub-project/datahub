@@ -123,7 +123,10 @@ const hardcoded_titles = {
 };
 // titles that have been hardcoded in sidebars.js
 // (for cases where doc is reference multiple times with different titles)
-const sidebarsjs_hardcoded_titles = ["metadata-ingestion/README.md"];
+const sidebarsjs_hardcoded_titles = [
+  "metadata-ingestion/README.md",
+  "metadata-ingestion/source_docs/s3.md",
+];
 const hardcoded_hide_title = ["README.md"];
 
 const hardcoded_descriptions = {

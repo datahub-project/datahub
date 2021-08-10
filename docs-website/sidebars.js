@@ -1,6 +1,10 @@
 const fs = require("fs");
 
-function list_ids_in_directory(directory) {
+function list_ids_in_directory(directory, hardcoded_labels) {
+  if (hardcoded_labels === undefined) {
+    hardcoded_labels = {};
+  }
+
   const files = fs.readdirSync(`../${directory}`).sort();
   let ids = [];
   for (const name of files) {
@@ -15,7 +19,13 @@ function list_ids_in_directory(directory) {
         if (id.match(/\/\d+-.+/)) {
           id = id.replace(/\/\d+-/, "/");
         }
-        ids.push({ type: "doc", id });
+
+        if (id in hardcoded_labels) {
+          label = hardcoded_labels[id];
+          ids.push({ type: "doc", id, label });
+        } else {
+          ids.push({ type: "doc", id });
+        }
       }
     }
   }
@@ -64,7 +74,9 @@ module.exports = {
         id: "metadata-ingestion/README",
       },
       {
-        Sources: list_ids_in_directory("metadata-ingestion/source_docs"),
+        Sources: list_ids_in_directory("metadata-ingestion/source_docs", {
+          "metadata-ingestion/source_docs/s3": "S3",
+        }),
       },
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
