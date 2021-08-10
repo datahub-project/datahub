@@ -18,7 +18,6 @@ dependencies {
     compile project(':metadata-events:mxe-avro-1.7')
     compile project(':metadata-events:mxe-registration')
     compile project(':metadata-events:mxe-utils-avro-1.7')
-    compile project(':metadata-dao-impl:restli-dao')
     compile project(':metadata-io')
     compile project(':gms:client')
     compile spec.product.pegasus.restliClient

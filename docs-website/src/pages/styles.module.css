@@ -10,6 +10,8 @@
 .browse_image {
   margin-left: -2rem;
   margin-right: 4rem;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .recipe_example {
@@ -23,13 +25,26 @@
 .how_third_image {
   margin-left: 4rem;
   margin-right: -2rem;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .bumpUpLogo {
   margin-top: -0.5rem;
 }
 
-@media screen and (max-width: 966px) {
+.demo_image {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: left;
+}
+
+@media screen and (max-width: 996px) {
   .heroBanner {
     padding: 2rem 0.5rem;
   }
@@ -61,21 +76,21 @@
   .bumpUpLogo {
     margin-top: 2rem;
   }
+
+  .buttons {
+    justify-content: center;
+  }
 }
 
 .not_bold_text {
   font-weight: 300;
 }
 
-.buttons {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .hero_button {
   margin-left: 0.25rem;
   margin-right: 0.25rem;
+  padding: 0.5rem 2rem;
+  font-size: 1.25rem;
 }
 
 .hero_button_cta {

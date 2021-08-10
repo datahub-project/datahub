@@ -2740,7 +2740,7 @@
                                                 {
                                                   "Searchable": {
                                                     "fieldName": "glossaryTerms",
-                                                    "fieldType": "TEXT_PARTIAL"
+                                                    "fieldType": "URN_PARTIAL"
                                                   },
                                                   "java": {
                                                     "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
@@ -5219,20 +5219,20 @@
             "fields": [
               {
                 "type": [
-                  "null",
-                  "long"
+                  "long",
+                  "null"
                 ],
                 "name": "lastObserved",
-                "default": null,
+                "default": 0,
                 "doc": "The timestamp the metadata was observed at"
               },
               {
                 "type": [
-                  "null",
-                  "string"
+                  "string",
+                  "null"
                 ],
                 "name": "runId",
-                "default": null,
+                "default": "no-run-id-provided",
                 "doc": "The run id that produced the metadata"
               },
               {

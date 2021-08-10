@@ -185,20 +185,20 @@
             {
               "name": "lastObserved",
               "type": [
-                "null",
-                "long"
+                "long",
+                "null"
               ],
               "doc": "The timestamp the metadata was observed at",
-              "default": null
+              "default": 0
             },
             {
               "name": "runId",
               "type": [
-                "null",
-                "string"
+                "string",
+                "null"
               ],
               "doc": "The run id that produced the metadata",
-              "default": null
+              "default": "no-run-id-provided"
             },
             {
               "name": "properties",
