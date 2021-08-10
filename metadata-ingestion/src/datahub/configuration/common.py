@@ -54,11 +54,21 @@ class AllowDenyPattern(ConfigModel):
 
     allow: List[str] = [".*"]
     deny: List[str] = []
+    ignoreCase: Optional[
+        bool
+    ] = True  # Name comparisons should default to ignoring case
     alphabet: str = "[A-Za-z0-9 _.-]"
 
     @property
     def alphabet_pattern(self) -> Pattern:
         return re.compile(f"^{self.alphabet}+$")
+
+    @property
+    def regex_flags(self) -> int:
+        if self.ignoreCase:
+            return re.IGNORECASE
+        else:
+            return 0
 
     @classmethod
     def allow_all(cls) -> "AllowDenyPattern":
@@ -66,11 +76,11 @@ class AllowDenyPattern(ConfigModel):
 
     def allowed(self, string: str) -> bool:
         for deny_pattern in self.deny:
-            if re.match(deny_pattern, string):
+            if re.match(deny_pattern, string, self.regex_flags):
                 return False
 
         for allow_pattern in self.allow:
-            if re.match(allow_pattern, string):
+            if re.match(allow_pattern, string, self.regex_flags):
                 return True
 
         return False
