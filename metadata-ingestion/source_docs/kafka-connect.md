@@ -50,8 +50,9 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `username`                 |          |                            | Kafka Connect username.                                 |
 | `password`                 |          |                            | Kafka Connect password.                                 |
 | `cluster_name`             |          | `"connect-cluster"`        | Cluster to ingest from.                                 |
-| `connector_patterns.deny`  |          |                            | Regex pattern for connectors to include in ingestion.   |
-| `connector_patterns.allow` |          |                            | Regex pattern for connectors to exclude from ingestion. |
+| `connector_patterns.deny`  |          |                            | List of regex patterns for connectors to include in ingestion.   |
+| `connector_patterns.allow` |          |                            | List of regex patterns for connectors to exclude from ingestion. |
+| `connector_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
 | `env`                      |          | `"PROD"`                   | Environment to use in namespace when constructing URNs. |
 
 ## Compatibility

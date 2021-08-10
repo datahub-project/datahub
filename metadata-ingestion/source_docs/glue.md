@@ -47,10 +47,12 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `aws_session_token`      |          | Autodetected                | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
 | `aws_role`               |          | Autodetected                | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
 | `extract_transforms`     |          | `True`                      | Whether to extract Glue transform jobs.                                            |
-| `database_pattern.allow` |          |                             | Regex pattern for databases to include in ingestion.                               |
-| `database_pattern.deny`  |          |                             | Regex pattern for databases to exclude from ingestion.                             |
-| `table_pattern.allow`    |          |                             | Regex pattern for tables to include in ingestion.                                  |
-| `table_pattern.deny`     |          |                             | Regex pattern for tables to exclude from ingestion.                                |
+| `database_pattern.allow` |          |                             | List of regex patterns for databases to include in ingestion.                               |
+| `database_pattern.deny`  |          |                             | List of regex patterns for databases to exclude from ingestion.                             |
+| `database_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
+| `table_pattern.allow`    |          |                             | List of regex patterns for tables to include in ingestion.                                  |
+| `table_pattern.deny`     |          |                             | List of regex patterns for tables to exclude from ingestion.                                |
+| `table_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
 | `underlying_platform`    |          | `glue`                      | Override for platform name. Allowed values - `glue`, `athena`                      |
 
 ## Compatibility
