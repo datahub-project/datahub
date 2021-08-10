@@ -5,9 +5,10 @@ import pytest
 import pytest_docker.plugin
 
 
-def is_responsive(container_name: str, port: int) -> bool:
+def is_responsive(container_name: str, port: int, hostname: str) -> bool:
+    ''' A cheap way to figure out if a port is responsive on a container '''
     ret = subprocess.run(
-        f"docker exec {container_name} /bin/bash -c 'echo -n > /dev/tcp/{container_name}/{port}'",
+        f"docker exec {container_name} /bin/bash -c 'echo -n > /dev/tcp/{hostname}/{port}'",
         shell=True,
     )
     return ret.returncode == 0
@@ -17,6 +18,7 @@ def wait_for_port(
     docker_services: pytest_docker.plugin.Services,
     container_name: str,
     container_port: int,
+    hostname: str = "localhost",
     timeout: float = 30.0,
 ) -> None:
     # import pdb
@@ -27,7 +29,7 @@ def wait_for_port(
         docker_services.wait_until_responsive(
             timeout=timeout,
             pause=0.5,
-            check=lambda: is_responsive(container_name, container_port),
+            check=lambda: is_responsive(container_name, container_port, hostname),
         )
     finally:
         # use check=True to raise an error if command gave bad exit code
