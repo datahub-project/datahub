@@ -271,7 +271,12 @@ def _init_mock_okta_client(test_resources_dir, MockClient):
     users_resp_mock.next.return_value = users_next_future
 
     # users, resp, err
-    MockClient().list_users.return_value = (users[0:-1], users_resp_mock, None)
+    list_users_future = asyncio.Future() # type: asyncio.Future
+    list_users_future.set_result(
+        # users, resp, err
+        (users[0:-1], users_resp_mock, None)
+    )
+    MockClient().list_users.return_value = list_users_future
 
     # Mock Client Init
     groups_resp_mock = Mock()
@@ -284,7 +289,11 @@ def _init_mock_okta_client(test_resources_dir, MockClient):
     groups_resp_mock.next.return_value = groups_next_future
 
     # groups, resp, err
-    MockClient().list_groups.return_value = (groups[0:-1], groups_resp_mock, None)
+    list_groups_future = asyncio.Future() # type: asyncio.Future
+    list_groups_future.set_result(
+        (groups[0:-1], groups_resp_mock, None)
+    )
+    MockClient().list_groups.return_value = list_groups_future
 
     # Create a separate response mock for each group in our sample data.
     list_group_users_result_values = []
@@ -300,8 +309,12 @@ def _init_mock_okta_client(test_resources_dir, MockClient):
         )
         group_users_resp_mock.next.return_value = group_users_next_future
         # users, resp, err
-        list_group_users_result_values.append(
+        list_group_users_future = asyncio.Future() # type: asyncio.Future
+        list_group_users_future.set_result(
             (users[0:-1], group_users_resp_mock, None)
+        )
+        list_group_users_result_values.append(
+            list_group_users_future
         )
 
     MockClient().list_group_users.side_effect = list_group_users_result_values
