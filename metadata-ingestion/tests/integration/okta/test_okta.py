@@ -3,13 +3,15 @@ import pathlib
 from unittest.mock import Mock, patch
 
 import jsonpickle
-from okta.models import Group, User
 from freezegun import freeze_time
+from okta.models import Group, User
+
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.identity.okta import OktaConfig
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
+
 
 def test_okta_config():
     config = OktaConfig.parse_obj(
@@ -32,6 +34,7 @@ def test_okta_config():
     assert config.include_suspended_users is False
     assert config.page_size == 100
     assert config.delay_seconds == 0.01
+
 
 @freeze_time(FROZEN_TIME)
 def test_okta_source_default_configs(pytestconfig, tmp_path):
@@ -83,6 +86,7 @@ def test_okta_source_default_configs(pytestconfig, tmp_path):
         golden_path=test_resources_dir / "okta_mces_golden_default_config.json",
     )
 
+
 @freeze_time(FROZEN_TIME)
 def test_okta_source_ingestion_disabled(pytestconfig, tmp_path):
 
@@ -132,6 +136,7 @@ def test_okta_source_ingestion_disabled(pytestconfig, tmp_path):
         output_path=tmp_path / "okta_mces_ingestion_disabled.json",
         golden_path=test_resources_dir / "okta_mces_golden_ingestion_disabled.json",
     )
+
 
 @freeze_time(FROZEN_TIME)
 def test_okta_source_include_deprovisioned_suspended_users(pytestconfig, tmp_path):
@@ -184,6 +189,7 @@ def test_okta_source_include_deprovisioned_suspended_users(pytestconfig, tmp_pat
         / "okta_mces_golden_include_deprovisioned_suspended_users.json",
     )
 
+
 @freeze_time(FROZEN_TIME)
 def test_okta_source_custom_user_name_regex(pytestconfig, tmp_path):
 
@@ -194,7 +200,7 @@ def test_okta_source_custom_user_name_regex(pytestconfig, tmp_path):
     ) as MockClient:
 
         _init_mock_okta_client(test_resources_dir, MockClient)
-        
+
         # Run an Okta usage ingestion run.
         pipeline = Pipeline.create(
             {
@@ -234,7 +240,8 @@ def test_okta_source_custom_user_name_regex(pytestconfig, tmp_path):
         golden_path=test_resources_dir / "okta_mces_golden_custom_user_name_regex.json",
     )
 
-# Initializes a Mock Okta Client to return users from okta_users.json and groups from okta_groups.json. 
+
+# Initializes a Mock Okta Client to return users from okta_users.json and groups from okta_groups.json.
 def _init_mock_okta_client(test_resources_dir, MockClient):
 
     okta_users_json_file = test_resources_dir / "okta_users.json"
