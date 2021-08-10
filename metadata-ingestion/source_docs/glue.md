@@ -51,7 +51,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `database_pattern.deny`  |          |                             | Regex pattern for databases to exclude from ingestion.                             |
 | `table_pattern.allow`    |          |                             | Regex pattern for tables to include in ingestion.                                  |
 | `table_pattern.deny`     |          |                             | Regex pattern for tables to exclude from ingestion.                                |
-| `underlying_platform`    |          | Override for platform name. |
+| `underlying_platform`    |          | `glue`                      | Override for platform name. Allowed values - `glue`, `athena`                      |
 
 ## Compatibility
 
