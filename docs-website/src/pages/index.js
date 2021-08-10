@@ -346,7 +346,7 @@ function Home() {
                   )}
                   to={useBaseUrl("docs/")}
                 >
-                  Get Started
+                  Get Started →
                 </Link>
                 <Link
                   className={clsx(
@@ -360,7 +360,7 @@ function Home() {
               </div>
             </div>
             <div className={clsx("col col--6", styles.bumpUpLogo)}>
-              <div className={clsx("item shadow--tl")}>
+              <div className={clsx("item shadow--tl", styles.demo_image)}>
                 <img
                   src={useBaseUrl("img/screenshots/demo.gif")}
                   alt="Demo GIF"

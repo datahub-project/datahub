@@ -17,8 +17,6 @@ omitted_services = [
 # Note that these are upper bounds on memory usage. Once exceeded, the container is killed.
 # Each service will be configured to use much less Java heap space than allocated here.
 mem_limits = {
-    "datahub-gms": "512m",
-    "datahub-frontend-react": "512m",
     "elasticsearch": "1g",
 }
 

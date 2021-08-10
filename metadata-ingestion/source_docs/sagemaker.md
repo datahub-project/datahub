@@ -42,7 +42,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `aws_secret_access_key`               |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
 | `aws_session_token`                   |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
 | `aws_role`                            |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html |
-| `extract_feature_groups`              |          | `True`       | Whether to extract feather groups.                                                 |
+| `extract_feature_groups`              |          | `True`       | Whether to extract feature groups.                                                 |
 | `extract_models`                      |          | `True`       | Whether to extract models.                                                         |
 | `extract_jobs.auto_ml`                |          | `True`       | Whether to extract AutoML jobs.                                                    |
 | `extract_jobs.compilation`            |          | `True`       | Whether to extract compilation jobs.                                               |
