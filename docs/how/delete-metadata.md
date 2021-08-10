@@ -13,6 +13,7 @@ datahub init
 
 will allow you to customize the datahub instance you are communicating with.
 
+_Note: Provide your GMS instance's host when the prompt asks you for the DataHub host._
 
 ## Delete By Urn
 
