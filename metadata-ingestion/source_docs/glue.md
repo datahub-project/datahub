@@ -53,7 +53,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `table_pattern.allow`    |          |                             | List of regex patterns for tables to include in ingestion.                                  |
 | `table_pattern.deny`     |          |                             | List of regex patterns for tables to exclude from ingestion.                                |
 | `table_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
-| `underlying_platform`    |          | Override for platform name. |
+| `underlying_platform`    |          | `glue`                      | Override for platform name. Allowed values - `glue`, `athena`                      |
 
 ## Compatibility
 

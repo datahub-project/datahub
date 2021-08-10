@@ -88,7 +88,7 @@ If you would like to add to browse paths of dataset can use this transformer. Th
 - PLATFORM: `mysql`, `postgres` or different platform supported by datahub
 - DATASET_PARTS: slash separated parts of dataset name. e.g. `database_name/schema_name/[table_name]` for postgres
 
-e.g. this can be used to create browse paths like `/prod/postgres/superset/public/logs` for table `superset.public.log` in a `postgres` database
+e.g. this can be used to create browse paths like `/prod/postgres/superset/public/logs` for table `superset.public.logs` in a `postgres` database
 ```yaml
 transformers:
   - type: "set_dataset_browse_path"
