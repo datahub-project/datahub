@@ -15,7 +15,7 @@ function list_ids_in_directory(directory) {
         if (id.match(/\/\d+-.+/)) {
           id = id.replace(/\/\d+-/, "/");
         }
-        ids.push(id);
+        ids.push({ type: "doc", id });
       }
     }
   }
@@ -55,8 +55,14 @@ module.exports = {
       "docs/architecture/metadata-serving",
       //"docs/what/gms",
     ],
-    "Ingestion Home": [
-      "metadata-ingestion/README",
+    "Metadata Ingestion": [
+      // add a custom label since the default is 'Metadata Ingestion'
+      // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
+      {
+        type: "doc",
+        label: "Quickstart",
+        id: "metadata-ingestion/README",
+      },
       {
         Sources: list_ids_in_directory("metadata-ingestion/source_docs"),
       },
@@ -82,7 +88,11 @@ module.exports = {
       "docs/developers",
       "docs/docker/development",
       "metadata-ingestion/adding-source",
-      "metadata-ingestion/s3-ingestion",
+      {
+        type: "doc",
+        label: "Ingesting files from S3",
+        id: "metadata-ingestion/source_docs/s3",
+      },
       //"metadata-ingestion/examples/transforms/README"
       "metadata-ingestion/transformers",
       //"docs/what/graph",
