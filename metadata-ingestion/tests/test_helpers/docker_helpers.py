@@ -6,7 +6,7 @@ import pytest_docker.plugin
 
 
 def is_responsive(container_name: str, port: int, hostname: str) -> bool:
-    ''' A cheap way to figure out if a port is responsive on a container '''
+    """A cheap way to figure out if a port is responsive on a container"""
     ret = subprocess.run(
         f"docker exec {container_name} /bin/bash -c 'echo -n > /dev/tcp/{hostname}/{port}'",
         shell=True,
