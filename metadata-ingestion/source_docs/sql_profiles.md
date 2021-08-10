@@ -72,8 +72,9 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `profiling.enabled`     |          | `False` | Whether profiling should be done.                                       |
 | `profiling.limit`       |          |         | Max number of documents to profile. By default, profiles all documents. |
 | `profiling.offset`      |          |         | Offset in documents to profile. By default, uses no offset.             |
-| `profile_pattern.allow` |          |         | Regex pattern for tables to profile.                                    |
-| `profile_pattern.deny`  |          |         | Regex pattern for tables to not profile.                                |
+| `profile_pattern.allow` |          |         | List of regex patterns for tables to profile.                                    |
+| `profile_pattern.deny`  |          |         | List of regex patterns for tables to not profile.                                |
+| `profile_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
 
 ## Compatibility
 

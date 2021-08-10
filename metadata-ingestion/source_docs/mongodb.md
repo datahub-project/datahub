@@ -59,10 +59,12 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `schemaSamplingSize`       |          | `1000`                  | Number of documents to use when inferring schema size. If set to `0`, all documents will be scanned.                     |
 | `useRandomSampling`        |          | `True`                  | If documents for schema inference should be randomly selected. If `False`, documents will be selected from start.        |
 | `env`                      |          | `"PROD"`                | Environment to use in namespace when constructing URNs.                                                                  |
-| `database_pattern.allow`   |          |                         | Regex pattern for databases to include in ingestion.                                                                     |
-| `database_pattern.deny`    |          |                         | Regex pattern for databases to exclude from ingestion.                                                                   |
-| `collection_pattern.allow` |          |                         | Regex pattern for collections to include in ingestion.                                                                   |
-| `collection_pattern.deny`  |          |                         | Regex pattern for collections to exclude from ingestion.                                                                 |
+| `database_pattern.allow`   |          |                         | List of regex patterns for databases to include in ingestion.                                                                     |
+| `database_pattern.deny`    |          |                         | List of regex patterns for databases to exclude from ingestion.                                                                   |
+| `database_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
+| `collection_pattern.allow` |          |                         | List of regex patterns for collections to include in ingestion.                                                                   |
+| `collection_pattern.deny`  |          |                         | List of regex patterns for collections to exclude from ingestion.                                                                 |
+| `collection_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
 
 ## Compatibility
 
