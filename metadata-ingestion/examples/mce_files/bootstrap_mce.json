@@ -116,7 +116,7 @@
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "description": null,
               "uri": null,
-              "tags": ["myfaketags"],
+              "tags": [],
               "customProperties": {
                 "prop1": "fakeprop",
                 "prop2": "pikachu"
