@@ -31,17 +31,17 @@ Extracts:
 
 Supported SQL sources:
 
-- AWS Athena
-- BigQuery
-- Druid
-- Hive
-- Microsoft SQL Server
-- MySQL
-- Oracle
-- Postgres
-- Redshift
-- Snowflake
-- Generic SQLAlchemy source
+- [AWS Athena](./athena.md)
+- [BigQuery](./bigquery.md)
+- [Druid](./druid.md)
+- [Hive](./hive.md)
+- [Microsoft SQL Server](./mssql.md)
+- [MySQL](./mysql.md)
+- [Oracle](./oracle.md)
+- [Postgres](./postgres.md)
+- [Redshift](./redshift.md)
+- [Snowflake](./snowflake.md)
+- [Generic SQLAlchemy source](./sqlalchemy.md)
 
 ## Quickstart recipe
 
@@ -67,14 +67,14 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                   | Required | Default | Description                                                             |
-| ----------------------- | -------- | ------- | ----------------------------------------------------------------------- |
-| `profiling.enabled`     |          | `False` | Whether profiling should be done.                                       |
-| `profiling.limit`       |          |         | Max number of documents to profile. By default, profiles all documents. |
-| `profiling.offset`      |          |         | Offset in documents to profile. By default, uses no offset.             |
-| `profile_pattern.allow` |          |         | List of regex patterns for tables to profile.                                    |
-| `profile_pattern.deny`  |          |         | List of regex patterns for tables to not profile.                                |
-| `profile_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
+| Field                        | Required | Default | Description                                                             |
+| ---------------------------- | -------- | ------- | ----------------------------------------------------------------------- |
+| `profiling.enabled`          |          | `False` | Whether profiling should be done.                                       |
+| `profiling.limit`            |          |         | Max number of documents to profile. By default, profiles all documents. |
+| `profiling.offset`           |          |         | Offset in documents to profile. By default, uses no offset.             |
+| `profile_pattern.allow`      |          |         | List of regex patterns for tables to profile.                           |
+| `profile_pattern.deny`       |          |         | List of regex patterns for tables to not profile.                       |
+| `profile_pattern.ignoreCase` |          | `True`  | Whether to ignore case sensitivity during pattern matching.             |
 
 ## Compatibility
 
