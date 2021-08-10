@@ -42,7 +42,7 @@ def test_okta_source_default_configs(pytestconfig, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
     with patch(
-        "datahub.ingestion.source.identity.okta.OktaClient", autospec=True
+        "datahub.ingestion.source.identity.okta.OktaClient"
     ) as MockClient:
 
         _init_mock_okta_client(test_resources_dir, MockClient)
@@ -93,7 +93,7 @@ def test_okta_source_ingestion_disabled(pytestconfig, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
     with patch(
-        "datahub.ingestion.source.identity.okta.OktaClient", autospec=True
+        "datahub.ingestion.source.identity.okta.OktaClient"
     ) as MockClient:
 
         _init_mock_okta_client(test_resources_dir, MockClient)
@@ -144,7 +144,7 @@ def test_okta_source_include_deprovisioned_suspended_users(pytestconfig, tmp_pat
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
     with patch(
-        "datahub.ingestion.source.identity.okta.OktaClient", autospec=True
+        "datahub.ingestion.source.identity.okta.OktaClient"
     ) as MockClient:
 
         _init_mock_okta_client(test_resources_dir, MockClient)
@@ -196,7 +196,7 @@ def test_okta_source_custom_user_name_regex(pytestconfig, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
     with patch(
-        "datahub.ingestion.source.identity.okta.OktaClient", autospec=True
+        "datahub.ingestion.source.identity.okta.OktaClient"
     ) as MockClient:
 
         _init_mock_okta_client(test_resources_dir, MockClient)
@@ -271,7 +271,7 @@ def _init_mock_okta_client(test_resources_dir, MockClient):
     users_resp_mock.next.return_value = users_next_future
 
     # users, resp, err
-    list_users_future = asyncio.Future() # type: asyncio.Future
+    list_users_future = asyncio.Future()  # type: asyncio.Future
     list_users_future.set_result(
         # users, resp, err
         (users[0:-1], users_resp_mock, None)
@@ -289,7 +289,7 @@ def _init_mock_okta_client(test_resources_dir, MockClient):
     groups_resp_mock.next.return_value = groups_next_future
 
     # groups, resp, err
-    list_groups_future = asyncio.Future() # type: asyncio.Future
+    list_groups_future = asyncio.Future()  # type: asyncio.Future
     list_groups_future.set_result(
         (groups[0:-1], groups_resp_mock, None)
     )
@@ -309,7 +309,7 @@ def _init_mock_okta_client(test_resources_dir, MockClient):
         )
         group_users_resp_mock.next.return_value = group_users_next_future
         # users, resp, err
-        list_group_users_future = asyncio.Future() # type: asyncio.Future
+        list_group_users_future = asyncio.Future()  # type: asyncio.Future
         list_group_users_future.set_result(
             (users[0:-1], group_users_resp_mock, None)
         )
