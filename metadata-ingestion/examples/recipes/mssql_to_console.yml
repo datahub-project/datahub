@@ -1,4 +1,5 @@
 ---
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/mssql for complete documentation
 source:
   type: mssql
   config:
@@ -12,6 +13,6 @@ source:
 #        deny:
 #            - "^.*\.sys_.*" # deny all tables that start with sys_
 
-
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/console for complete documentation
 sink:
   type: console

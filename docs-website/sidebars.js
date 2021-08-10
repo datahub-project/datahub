@@ -55,7 +55,8 @@ module.exports = {
       "docs/architecture/metadata-serving",
       //"docs/what/gms",
     ],
-    "Metadata Ingestion": [
+    "Ingestion Home": [
+      "metadata-ingestion/README",
       {
         Sources: list_ids_in_directory("metadata-ingestion/source_docs"),
       },

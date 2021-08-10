@@ -57,7 +57,7 @@ Sources:
 | [sagemaker](./source_docs/sagemaker.md)         | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
 | [snowflake](./source_docs/snowflake.md)         | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
 | [snowflake-usage](./source_docs/snowflake.md)   | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
-| sql-profiles                                    | `pip install 'acryl-datahub[sql-profiles]'`                | Data profiles for SQL-based systems |
+| [sql-profiles](./source_docs/sql_profiles.md)   | `pip install 'acryl-datahub[sql-profiles]'`                | Data profiles for SQL-based systems |
 | [sqlalchemy](./source_docs/sqlalchemy.md)       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
 | [superset](./source_docs/superset.md)           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
 

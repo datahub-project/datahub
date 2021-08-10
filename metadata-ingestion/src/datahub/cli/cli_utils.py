@@ -13,13 +13,6 @@ from pydantic import BaseModel, ValidationError
 CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
 DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
 
-DEFAULT_DATAHUB_CONFIG = {
-    "gms": {
-        "server": "http://localhost:8080",
-        "token": "",
-    }
-}
-
 
 class GmsConfig(BaseModel):
     server: str
@@ -28,6 +21,18 @@ class GmsConfig(BaseModel):
 
 class DatahubConfig(BaseModel):
     gms: GmsConfig
+
+
+def write_datahub_config(host: str, token: Optional[str]) -> None:
+    config = {
+        "gms": {
+            "server": host,
+            "token": token,
+        }
+    }
+    with open(DATAHUB_CONFIG_PATH, "w+") as outfile:
+        yaml.dump(config, outfile, default_flow_style=False)
+    return None
 
 
 def get_session_and_host():
@@ -40,9 +45,7 @@ def get_session_and_host():
             f"No {CONDENSED_DATAHUB_CONFIG_PATH} file found, generating one for you...",
             bold=True,
         )
-
-        with open(DATAHUB_CONFIG_PATH, "w+") as outfile:
-            yaml.dump(DEFAULT_DATAHUB_CONFIG, outfile, default_flow_style=False)
+        write_datahub_config(gms_host, gms_token)
 
     with open(DATAHUB_CONFIG_PATH, "r") as stream:
         try:
@@ -70,7 +73,9 @@ def get_session_and_host():
         }
     )
     if isinstance(gms_token, str) and len(gms_token) > 0:
-        session.headers.update({"Authorization": f"Bearer {gms_token}"})
+        session.headers.update(
+            {"Authorization": f"Bearer {gms_token.format(**os.environ)}"}
+        )
 
     return session, gms_host
 
