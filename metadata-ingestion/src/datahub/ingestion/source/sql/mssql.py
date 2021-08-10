@@ -6,7 +6,10 @@ import pydantic
 # This import verifies that the dependencies are available.
 import sqlalchemy_pytds  # noqa: F401
 
-from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource
+from datahub.ingestion.source.sql.sql_common import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemySource,
+)
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig):

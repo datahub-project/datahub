@@ -1,6 +1,7 @@
 ---
 run_id: kafka-connect-test
 
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/kafka-connect for complete documentation
 source:
   type: "kafka-connect"
   config:
@@ -12,6 +13,7 @@ source:
       allow:
         - ^allowed-connector.*
 
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:

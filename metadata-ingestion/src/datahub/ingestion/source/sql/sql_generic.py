@@ -1,6 +1,5 @@
 from datahub.ingestion.api.common import PipelineContext
-
-from .sql_common import SQLAlchemyConfig, SQLAlchemySource
+from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig, SQLAlchemySource
 
 
 class SQLAlchemyGenericConfig(SQLAlchemyConfig):

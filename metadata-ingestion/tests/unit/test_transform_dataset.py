@@ -1,12 +1,19 @@
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+from datahub.ingestion.transformer.add_dataset_browse_path import (
+    AddDatasetBrowsePathTransformer,
+)
 from datahub.ingestion.transformer.add_dataset_ownership import (
     SimpleAddDatasetOwnership,
 )
 from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
     SimpleAddDatasetTags,
+)
+from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
+from datahub.ingestion.transformer.remove_dataset_ownership import (
+    SimpleRemoveDatasetOwnership,
 )
 
 
@@ -21,10 +28,8 @@ def make_generic_dataset():
     )
 
 
-def test_simple_dataset_ownership_tranformation(mock_time):
-    no_owner_aspect = make_generic_dataset()
-
-    with_owner_aspect = models.MetadataChangeEventClass(
+def make_dataset_with_owner():
+    return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)",
             aspects=[
@@ -42,6 +47,12 @@ def test_simple_dataset_ownership_tranformation(mock_time):
             ],
         ),
     )
+
+
+def test_simple_dataset_ownership_tranformation(mock_time):
+    no_owner_aspect = make_generic_dataset()
+
+    with_owner_aspect = make_dataset_with_owner()
 
     not_a_dataset = models.MetadataChangeEventClass(
         proposedSnapshot=models.DataJobSnapshotClass(
@@ -94,6 +105,85 @@ def test_simple_dataset_ownership_tranformation(mock_time):
 
     # Verify that the third entry is unchanged.
     assert inputs[2] == outputs[2].record
+
+
+def test_simple_remove_dataset_ownership():
+    with_owner_aspect = make_dataset_with_owner()
+
+    transformer = SimpleRemoveDatasetOwnership.create(
+        {},
+        PipelineContext(run_id="test"),
+    )
+    outputs = list(
+        transformer.transform([RecordEnvelope(with_owner_aspect, metadata={})])
+    )
+
+    ownership_aspect = builder.get_aspect_if_available(
+        outputs[0].record, models.OwnershipClass
+    )
+    assert ownership_aspect
+    assert len(ownership_aspect.owners) == 0
+
+
+def test_mark_status_dataset():
+    dataset = make_generic_dataset()
+
+    transformer = MarkDatasetStatus.create(
+        {"removed": True},
+        PipelineContext(run_id="test"),
+    )
+    removed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    status_aspect = builder.get_aspect_if_available(
+        removed[0].record, models.StatusClass
+    )
+    assert status_aspect
+    assert status_aspect.removed is True
+
+    transformer = MarkDatasetStatus.create(
+        {"removed": False},
+        PipelineContext(run_id="test"),
+    )
+    not_removed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    status_aspect = builder.get_aspect_if_available(
+        not_removed[0].record, models.StatusClass
+    )
+    assert status_aspect
+    assert status_aspect.removed is False
+
+
+def test_add_dataset_browse_paths():
+    dataset = make_generic_dataset()
+
+    transformer = AddDatasetBrowsePathTransformer.create(
+        {"path_templates": ["/abc"]},
+        PipelineContext(run_id="test"),
+    )
+    transformed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    browse_path_aspect = builder.get_aspect_if_available(
+        transformed[0].record, models.BrowsePathsClass
+    )
+    assert browse_path_aspect
+    assert browse_path_aspect.paths == ["/abc"]
+
+    transformer = AddDatasetBrowsePathTransformer.create(
+        {
+            "path_templates": [
+                "/PLATFORM/foo/DATASET_PARTS/ENV",
+                "/ENV/PLATFORM/bar/DATASET_PARTS/",
+            ]
+        },
+        PipelineContext(run_id="test"),
+    )
+    transformed = list(transformer.transform([RecordEnvelope(dataset, metadata={})]))
+    browse_path_aspect = builder.get_aspect_if_available(
+        transformed[0].record, models.BrowsePathsClass
+    )
+    assert browse_path_aspect
+    assert browse_path_aspect.paths == [
+        "/abc",
+        "/bigquery/foo/example1/prod",
+        "/prod/bigquery/bar/example1/",
+    ]
 
 
 def test_simple_dataset_tags_transformation(mock_time):

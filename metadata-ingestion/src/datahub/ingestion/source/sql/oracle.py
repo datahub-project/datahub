@@ -6,7 +6,11 @@ import cx_Oracle  # noqa: F401
 import pydantic
 from sqlalchemy.dialects.oracle.base import OracleDialect
 
-from .sql_common import BasicSQLAlchemyConfig, SQLAlchemySource, make_sqlalchemy_type
+from datahub.ingestion.source.sql.sql_common import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemySource,
+    make_sqlalchemy_type,
+)
 
 extra_oracle_types = {
     make_sqlalchemy_type("SDO_GEOMETRY"),
