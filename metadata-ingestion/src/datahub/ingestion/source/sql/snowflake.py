@@ -12,8 +12,7 @@ from sqlalchemy.sql import text
 from sqlalchemy.sql.elements import quoted_name
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-
-from .sql_common import (
+from datahub.ingestion.source.sql.sql_common import (
     RecordTypeClass,
     SQLAlchemyConfig,
     SQLAlchemySource,

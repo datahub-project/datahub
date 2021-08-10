@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Iterable
 
-from .common import PipelineContext, RecordEnvelope
+from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 
 
 class Transformer:

@@ -38,7 +38,6 @@ services:
     - ELASTIC_CLIENT_PORT=9200
     hostname: datahub-frontend-react
     image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
-    mem_limit: 512m
     ports:
     - 9002:9002
   datahub-gms:
@@ -63,7 +62,6 @@ services:
     - MCE_CONSUMER_ENABLED=true
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
-    mem_limit: 512m
     ports:
     - 8080:8080
   elasticsearch:
