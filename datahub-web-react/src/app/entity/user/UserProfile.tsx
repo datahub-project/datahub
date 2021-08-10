@@ -65,7 +65,7 @@ export default function UserProfile() {
 
     const getHeader = ({ editableInfo, info }: CorpUser) => {
         return (
-            <UserHeadercountCod
+            <UserHeader
                 profileSrc={editableInfo?.pictureLink}
                 name={info?.displayName}
                 title={info?.title}

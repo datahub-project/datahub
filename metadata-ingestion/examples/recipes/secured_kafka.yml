@@ -1,3 +1,4 @@
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/kafka for complete documentation
 source:
   type: "kafka"
   config:
@@ -20,6 +21,7 @@ source:
         ssl.key.password: "XXXXXXX"
         basic.auth.user.info: "user:secret" # optional
 
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-kafka"
   config:

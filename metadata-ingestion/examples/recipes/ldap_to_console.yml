@@ -1,3 +1,4 @@
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/ldap for complete documentation
 source:
   type: "ldap"
   config:
@@ -6,5 +7,6 @@ source:
     ldap_password: "admin"
     base_dn: "dc=example,dc=org"
 
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/console for complete documentation
 sink:
   type: "console"

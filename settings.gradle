@@ -1,4 +1,3 @@
-include 'datahub-dao'
 include 'datahub-frontend'
 include 'datahub-graphql-core'
 include 'datahub-gms-graphql-service'

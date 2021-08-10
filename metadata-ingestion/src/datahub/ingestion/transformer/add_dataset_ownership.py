@@ -1,10 +1,10 @@
-from typing import Callable, Iterable, List, Union
+from typing import Callable, List, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.import_resolver import pydantic_resolve_key
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
-from datahub.ingestion.api.transform import Transformer
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -26,7 +26,7 @@ class AddDatasetOwnershipConfig(ConfigModel):
     _resolve_owner_fn = pydantic_resolve_key("get_owners_to_add")
 
 
-class AddDatasetOwnership(Transformer):
+class AddDatasetOwnership(DatasetTransformer):
     """Transformer that adds owners to datasets according to a callback function."""
 
     ctx: PipelineContext
@@ -41,18 +41,9 @@ class AddDatasetOwnership(Transformer):
         config = AddDatasetOwnershipConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def transform(
-        self, record_envelopes: Iterable[RecordEnvelope]
-    ) -> Iterable[RecordEnvelope]:
-        for envelope in record_envelopes:
-            if isinstance(envelope.record, MetadataChangeEventClass):
-                envelope.record = self.transform_one(envelope.record)
-            yield envelope
-
     def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
         if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
             return mce
-
         owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
         if owners_to_add:
             ownership = builder.get_or_add_aspect(
