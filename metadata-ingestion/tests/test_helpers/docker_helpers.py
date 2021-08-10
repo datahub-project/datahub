@@ -1,15 +1,20 @@
 import contextlib
 import subprocess
+from typing import Optional
 
 import pytest
 import pytest_docker.plugin
 
 
-def is_responsive(container_name: str, port: int, hostname: str) -> bool:
+def is_responsive(container_name: str, port: int, hostname: Optional[str]) -> bool:
     """A cheap way to figure out if a port is responsive on a container"""
-    print(hostname)
+    if hostname:
+        cmd = f"docker exec {container_name} /bin/bash -c 'echo -n > /dev/tcp/{hostname}/{port}'"
+    else:
+        # use the hostname of the container
+        cmd = f"docker exec {container_name} /bin/bash -c 'c_host=`hostname`;echo -n > /dev/tcp/$c_host/{port}'"
     ret = subprocess.run(
-        f"docker exec {container_name} /bin/bash -c 'c_host=`hostname`;echo -n > /dev/tcp/$c_host/{port}'",
+        cmd,
         shell=True,
     )
     return ret.returncode == 0
@@ -19,7 +24,7 @@ def wait_for_port(
     docker_services: pytest_docker.plugin.Services,
     container_name: str,
     container_port: int,
-    hostname: str = "localhost",
+    hostname: str = None,
     timeout: float = 30.0,
 ) -> None:
     # import pdb
