@@ -264,13 +264,13 @@ public class DgraphGraphService implements GraphService {
         List<String> destinationFilterNames = new ArrayList<>();
         List<String> relationshipTypeFilterNames = new ArrayList<>();
 
-        if (sourceType != null && !sourceType.isEmpty()) {
+        if (sourceType != null) {
             sourceTypeFilterName = "sourceType";
             // TODO: escape string value
             filters.add(String.format("%s as var(func: eq(<type>, \"%s\"))", sourceTypeFilterName, sourceType));
         }
 
-        if (destinationType != null && !destinationType.isEmpty()) {
+        if (destinationType != null) {
             destinationTypeFilterName = "destinationType";
             // TODO: escape string value
             filters.add(String.format("%s as var(func: eq(<type>, \"%s\"))", destinationTypeFilterName, destinationType));
