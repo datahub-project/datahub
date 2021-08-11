@@ -71,7 +71,9 @@ plugins: Dict[str, Set[str]] = {
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests"},
     # Integrations.
-    "airflow": {"apache-airflow >= 1.10.2"},
+    "airflow": {
+        "apache-airflow >= 1.10.2",
+    },
     # Source plugins
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests"},
@@ -177,11 +179,13 @@ if is_py37_or_newer:
 dev_requirements = {
     *base_dev_requirements,
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
+    "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
 }
 dev_requirements_airflow_1 = {
     *base_dev_requirements,
     "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",
+    "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
 }
 
 full_test_dev_requirements = {
