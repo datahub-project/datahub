@@ -227,3 +227,4 @@ In order to use this example, you must first configure the Datahub hook. Like in
 ## Developing
 
 See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./transformers.md).
+

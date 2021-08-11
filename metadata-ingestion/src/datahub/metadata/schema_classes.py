@@ -7903,10 +7903,12 @@ class KafkaSchemaClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.schema.KafkaSchema")
     def __init__(self,
         documentSchema: str,
+        keySchema: Union[None, str]=None,
     ):
         super().__init__()
         
         self.documentSchema = documentSchema
+        self.keySchema = keySchema
     
     @classmethod
     def construct_with_defaults(cls) -> "KafkaSchemaClass":
@@ -7917,6 +7919,7 @@ class KafkaSchemaClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.documentSchema = str()
+        self.keySchema = self.RECORD_SCHEMA.field_map["keySchema"].default
     
     
     @property
@@ -7928,6 +7931,17 @@ class KafkaSchemaClass(DictWrapper):
     def documentSchema(self, value: str) -> None:
         """Setter: The native kafka document schema. This is a human readable avro document schema."""
         self._inner_dict['documentSchema'] = value
+    
+    
+    @property
+    def keySchema(self) -> Union[None, str]:
+        """Getter: The native kafka key schema as retrieved from Schema Registry"""
+        return self._inner_dict.get('keySchema')  # type: ignore
+    
+    @keySchema.setter
+    def keySchema(self, value: Union[None, str]) -> None:
+        """Setter: The native kafka key schema as retrieved from Schema Registry"""
+        self._inner_dict['keySchema'] = value
     
     
 class KeyValueSchemaClass(DictWrapper):
@@ -8263,6 +8277,7 @@ class SchemaFieldClass(DictWrapper):
         recursive: Optional[bool]=None,
         globalTags: Union[None, "GlobalTagsClass"]=None,
         glossaryTerms: Union[None, "GlossaryTermsClass"]=None,
+        isPartOfKey: Optional[bool]=None,
     ):
         super().__init__()
         
@@ -8283,6 +8298,11 @@ class SchemaFieldClass(DictWrapper):
             self.recursive = recursive
         self.globalTags = globalTags
         self.glossaryTerms = glossaryTerms
+        if isPartOfKey is None:
+            # default: False
+            self.isPartOfKey = self.RECORD_SCHEMA.field_map["isPartOfKey"].default
+        else:
+            self.isPartOfKey = isPartOfKey
     
     @classmethod
     def construct_with_defaults(cls) -> "SchemaFieldClass":
@@ -8301,6 +8321,7 @@ class SchemaFieldClass(DictWrapper):
         self.recursive = self.RECORD_SCHEMA.field_map["recursive"].default
         self.globalTags = self.RECORD_SCHEMA.field_map["globalTags"].default
         self.glossaryTerms = self.RECORD_SCHEMA.field_map["glossaryTerms"].default
+        self.isPartOfKey = self.RECORD_SCHEMA.field_map["isPartOfKey"].default
     
     
     @property
@@ -8400,6 +8421,19 @@ class SchemaFieldClass(DictWrapper):
     def glossaryTerms(self, value: Union[None, "GlossaryTermsClass"]) -> None:
         """Setter: Glossary terms associated with the field"""
         self._inner_dict['glossaryTerms'] = value
+    
+    
+    @property
+    def isPartOfKey(self) -> bool:
+        """Getter: For schema fields that are part of complex keys, set this field to true
+    We do this to easily distinguish between value and key fields"""
+        return self._inner_dict.get('isPartOfKey')  # type: ignore
+    
+    @isPartOfKey.setter
+    def isPartOfKey(self, value: bool) -> None:
+        """Setter: For schema fields that are part of complex keys, set this field to true
+    We do this to easily distinguish between value and key fields"""
+        self._inner_dict['isPartOfKey'] = value
     
     
 class SchemaFieldDataTypeClass(DictWrapper):
