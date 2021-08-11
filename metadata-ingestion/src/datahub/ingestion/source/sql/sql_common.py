@@ -293,16 +293,16 @@ class SQLAlchemySource(Source):
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
 
-    def get_schema_names(self, inspector):
-        return inspector.get_schema_names()
-
-    def get_workunits(self) -> Iterable[SqlWorkUnit]:
+    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
             sql_config.options.setdefault("echo", True)
 
         for inspector in self.get_inspectors():
+            if sql_config.profiling.enabled:
+                profiler = self._get_profiler_instance(inspector)
+
             for schema in self.get_schema_names(inspector):
                 if not sql_config.schema_pattern.allowed(schema):
                     self.report.report_dropped(f"{schema}.*")
