@@ -7,7 +7,10 @@ from typing import List
 import pytest
 
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    SchemaField,
+    StringTypeClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -412,6 +415,7 @@ def test_union_with_nested_record_of_union():
         "[version=2.0].[type=UnionSample].[type=union].[type=Rcd].aUnion.[type=string].aNullableStringField",
     ]
     assret_field_paths_match(fields, expected_field_paths)
+    assert isinstance(fields[5].type.type, StringTypeClass)
 
 
 def test_nested_arrays():

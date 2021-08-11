@@ -186,30 +186,47 @@ class AvroToMceSchemaConverter:
             ):
                 # We are in the context of a non-nested(simple) field.
                 last_field_schema = self._converter._fields_stack[-1]
+
                 description = (
                     last_field_schema.doc
                     if last_field_schema.doc
                     else "No description available."
                 )
+
                 if last_field_schema.has_default:
                     description = f"{description}\nField default value: {last_field_schema.default}"
+
                 with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
-                    last_field_schema, last_field_schema, self._converter, description
+                    last_field_schema,
+                    last_field_schema,
+                    self._converter,
+                    description,
                 ) as field_emitter:
                     yield from field_emitter.emit()
             else:
+                schema = self._schema
+                actual_schema = self._actual_schema
+                if isinstance(schema, avro.schema.Field):
+                    # Field's schema is actually it's type.
+                    schema = schema.type
+                    actual_schema = (
+                        self._converter._get_underlying_type_if_option_as_union(
+                            schema, schema
+                        )
+                    )
                 # Emit the schema field provided in the Ctor.
                 description = self._description
                 if description is None:
-                    description = self._schema.props.get("doc", None)
+                    description = schema.props.get("doc", None)
 
                 field = SchemaField(
                     fieldPath=self._converter._get_cur_field_path(),
-                    nativeDataType=str(self._actual_schema.type),
-                    type=self._converter._get_column_type(self._actual_schema.type),
+                    # Not populating this field for Avro, since this is blowing up the KAFKA message size.
+                    nativeDataType="",
+                    type=self._converter._get_column_type(actual_schema.type),
                     description=description,
                     recursive=False,
-                    nullable=self._converter._is_nullable(self._schema),
+                    nullable=self._converter._is_nullable(schema),
                     isPartOfKey=self._converter._is_key_schema,
                 )
                 yield field
@@ -219,15 +236,15 @@ class AvroToMceSchemaConverter:
 
     @staticmethod
     def _get_underlying_type_if_option_as_union(
-        schema: AvroNestedSchemas,
-    ) -> Optional[AvroNestedSchemas]:
+        schema: AvroNestedSchemas, default: Optional[AvroNestedSchemas] = None
+    ) -> AvroNestedSchemas:
         if isinstance(schema, avro.schema.UnionSchema) and len(schema.schemas) == 2:
             (first, second) = schema.schemas
             if first.type == avro.schema.NULL:
                 return second
             elif second.type == avro.schema.NULL:
                 return first
-        return None
+        return default
 
     def _get_sub_schemas(
         self, schema: ExtendedAvroNestedSchemas
@@ -293,10 +310,7 @@ class AvroToMceSchemaConverter:
                 recurse = False
 
         # Adjust actual schema if needed
-        actual_schema = schema
-        optional_type = self._get_underlying_type_if_option_as_union(schema)
-        if optional_type is not None:
-            actual_schema = optional_type
+        actual_schema = self._get_underlying_type_if_option_as_union(schema, schema)
 
         with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
             schema, actual_schema, self
