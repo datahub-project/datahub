@@ -16,7 +16,7 @@ This plugin extracts the following:
 
 Current limitations:
 
-- Currently works only for Debezium source connectors.
+- Currently works for JDBC and Debezium source connectors only.
 
 ## Quickstart recipe
 
@@ -52,7 +52,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `cluster_name`             |          | `"connect-cluster"`        | Cluster to ingest from.                                 |
 | `connector_patterns.deny`  |          |                            | List of regex patterns for connectors to include in ingestion.   |
 | `connector_patterns.allow` |          |                            | List of regex patterns for connectors to exclude from ingestion. |
-| `connector_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
+| `connector_pattern.ignoreCase`  |     | `True`      | Whether to ignore case sensitivity during pattern matching.            |
 | `env`                      |          | `"PROD"`                   | Environment to use in namespace when constructing URNs. |
 
 ## Compatibility
