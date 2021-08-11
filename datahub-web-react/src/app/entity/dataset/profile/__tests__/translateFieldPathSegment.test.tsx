@@ -19,7 +19,7 @@ describe('translateFieldPathSegment', () => {
         ).toEqual('(QualifyingStruct) ');
     });
 
-    it('translates qualifying structs in the middle', () => {
+    it('translates qualifying structs in the end', () => {
         expect(
             translateFieldPathSegment('[type=QualifyingStruct]', 1, ['[type=union]', '[type=QualifyingStruct]']),
         ).toEqual(' QualifyingStruct');
