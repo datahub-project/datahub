@@ -184,9 +184,9 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
 
 1. You need to install the required dependency in your airflow. See https://registry.astronomer.io/providers/datahub/modules/datahublineagebackend
 
-```shell
+  ```shell
   pip install acryl-datahub[airflow]
-```
+  ```
 
 2. You must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
 
