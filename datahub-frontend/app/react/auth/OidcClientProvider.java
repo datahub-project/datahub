@@ -7,27 +7,43 @@ import org.pac4j.oidc.credentials.OidcCredentials;
 import org.pac4j.oidc.profile.OidcProfile;
 
 
-public class OidcProvider implements SsoProvider<OidcConfigs> {
+/**
+ * Implementation of {@link SsoProvider} supporting the OIDC protocol.
+ *
+ * This class is a thin wrapper over a Pac4J {@link Client} object and all DataHub-specific OIDC related
+ * configuration options, which reside in an instance of {@link OidcConfigs}.
+ *
+ * It is responsible for initializing this client from a configuration object ({@link OidcConfigs}. Note that
+ * this class is not related to the logic performed when an IdP performs a callback to DataHub.
+ */
+public class OidcClientProvider implements SsoProvider<OidcConfigs> {
+
+  private static final String OIDC_CLIENT_NAME = "oidc";
 
   private final OidcConfigs _oidcConfigs;
-  private final Client<OidcCredentials, OidcProfile> _oidcClient;
+  private final Client<OidcCredentials, OidcProfile> _oidcClient; // Used primarily for redirecting to IdP.
 
-  public OidcProvider(OidcConfigs configs) {
+  public OidcClientProvider(final OidcConfigs configs) {
     _oidcConfigs = configs;
-    _oidcClient = createOidcClient();
+    _oidcClient = createPac4jClient();
   }
 
   @Override
-  public OidcConfigs getConfigs() {
+  public Client<OidcCredentials, OidcProfile> client() {
+    return _oidcClient;
+  }
+
+  @Override
+  public OidcConfigs configs() {
     return _oidcConfigs;
   }
 
   @Override
-  public Client<OidcCredentials, OidcProfile> getClient() {
-    return _oidcClient;
+  public SsoProtocol protocol() {
+    return SsoProtocol.OIDC;
   }
 
-  private Client<OidcCredentials, OidcProfile> createOidcClient() {
+  private Client<OidcCredentials, OidcProfile> createPac4jClient() {
     final OidcConfiguration oidcConfiguration = new OidcConfiguration();
     oidcConfiguration.setClientId(_oidcConfigs.getClientId());
     oidcConfiguration.setSecret(_oidcConfigs.getClientSecret());
@@ -36,7 +52,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     oidcConfiguration.setScope(_oidcConfigs.getScope());
 
     final org.pac4j.oidc.client.OidcClient<OidcProfile, OidcConfiguration>  oidcClient = new org.pac4j.oidc.client.OidcClient<>(oidcConfiguration);
-    oidcClient.setName(_oidcConfigs.getClientName());
+    oidcClient.setName(OIDC_CLIENT_NAME);
     oidcClient.setCallbackUrl(_oidcConfigs.getAuthBaseUrl() + _oidcConfigs.getAuthBaseCallbackPath());
     oidcClient.setCallbackUrlResolver(new PathParameterCallbackUrlResolver());
     return oidcClient;

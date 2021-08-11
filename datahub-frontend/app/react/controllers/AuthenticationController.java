@@ -75,12 +75,9 @@ public class AuthenticationController extends Controller {
             return redirect(redirectPath);
         }
 
-        // 1. If indirect auth is enabled, redirect to IdP
+        // 1. If SSO is enabled, redirect to IdP if not authenticated.
         if (_ssoManager.isSsoEnabled()) {
-            final PlayWebContext playWebContext = new PlayWebContext(ctx(), _playSessionStore);
-            final Client client = _ssoManager.getSsoProvider().getClient();
-            final HttpAction action = client.redirect(playWebContext);
-            return new PlayHttpActionAdapter().adapt(action.getCode(), playWebContext);
+            return redirectToIdentityProvider();
         }
 
         // 2. If JAAS auth is enabled, fallback to it
@@ -136,6 +133,13 @@ public class AuthenticationController extends Controller {
             .withHttpOnly(false)
             .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
             .build());
+    }
+
+    private Result redirectToIdentityProvider() {
+        final PlayWebContext playWebContext = new PlayWebContext(ctx(), _playSessionStore);
+        final Client client = _ssoManager.getSsoProvider().client();
+        final HttpAction action = client.redirect(playWebContext);
+        return new PlayHttpActionAdapter().adapt(action.getCode(), playWebContext);
     }
 
     private String encodeRedirectUri(final String redirectUri) {

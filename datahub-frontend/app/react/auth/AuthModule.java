@@ -14,6 +14,7 @@ import play.Environment;
 
 import java.util.ArrayList;
 import java.util.List;
+import react.controllers.OidcCallbackController;
 
 import static react.auth.OidcConfigs.*;
 
@@ -27,20 +28,6 @@ public class AuthModule extends AbstractModule {
 
     public AuthModule(final Environment environment, final com.typesafe.config.Config configs) {
         _configs = configs;
-        initSsoManager(configs);
-    }
-
-    private void initSsoManager(com.typesafe.config.Config configs) {
-        if (isSsoEnabled(configs)) {
-            SsoConfigs ssoConfigs = new SsoConfigs(configs);
-            if (ssoConfigs.isOidcEnabled()) {
-                // Register OIDC Provider, add to list of managers.
-                OidcConfigs oidcConfigs = new OidcConfigs(configs);
-                OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
-                // Set the default SSO provider to this OIDC client.
-                SsoManager.instance().setSsoProvider(oidcProvider);
-            }
-        }
     }
 
     @Override
@@ -50,16 +37,16 @@ public class AuthModule extends AbstractModule {
         bind(PlaySessionStore.class).toInstance(playCacheCookieStore);
 
         // Configure Oidc Callback Controller
-        final OidcCallbackController oidcController = new OidcCallbackController(SsoManager.instance());
+        final OidcCallbackController oidcController = new OidcCallbackController();
         bind(OidcCallbackController.class).toInstance(oidcController);
     }
 
     @Provides @Singleton
-    protected Config provideConfig() {
-        if (SsoManager.instance().isSsoEnabled()) {
+    protected Config provideConfig(SsoManager ssoManager) {
+        if (ssoManager.isSsoEnabled()) {
             final Clients clients = new Clients();
             final List<Client> clientList = new ArrayList<>();
-            clientList.add(SsoManager.instance().getSsoProvider().getClient());
+            clientList.add(SsoManager.instance().getSsoProvider().client());
             clients.setClients(clientList);
             final Config config = new Config(clients);
             config.setHttpActionAdapter(new PlayHttpActionAdapter());
@@ -70,7 +57,19 @@ public class AuthModule extends AbstractModule {
 
     @Provides @Singleton
     protected SsoManager provideSsoManager() {
-        return SsoManager.instance();
+        SsoManager manager = new SsoManager();
+        // Seed the SSO manager with a default SSO provider.
+        if (isSsoEnabled(_configs)) {
+            SsoConfigs ssoConfigs = new SsoConfigs(_configs);
+            if (ssoConfigs.isOidcEnabled()) {
+                // Register OIDC Provider, add to list of managers.
+                OidcConfigs oidcConfigs = new OidcConfigs(_configs);
+                OidcClientProvider oidcProvider = new OidcClientProvider(oidcConfigs);
+                // Set the default SSO provider to this OIDC client.
+                manager.setSsoProvider(oidcProvider);
+            }
+        }
+        return manager;
     }
 
     protected boolean isSsoEnabled(com.typesafe.config.Config configs) {

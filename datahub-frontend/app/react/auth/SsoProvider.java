@@ -2,19 +2,27 @@ package react.auth;
 
 import org.pac4j.core.client.Client;
 
-/**
- * Wrapper around Pac4j abstractions of a {@link Client}.
- */
+
 public interface SsoProvider<C extends SsoConfigs> {
 
   /**
-   * Returns the configurations associated with the current SsoProvider.
+   * The protocol used for SSO.
    */
-  C getConfigs();
+  enum SsoProtocol {
+    OIDC,
+    // SAML -- not yet supported.
+  }
+
+  C configs();
 
   /**
-   * Returns the Pac4j {@link Client} object associated with the flavor of Sso (e.g. OIDC or SAML)
+   * Retrieves an initialized Pac4j client.
    */
-  Client<?, ?> getClient();
+  SsoProtocol protocol();
+
+  /**
+   * Retrieves an initialized Pac4j client.
+   */
+  Client<?, ?> client();
 
 }
