@@ -9,7 +9,7 @@ import {
 } from '../../../../../../types.generated';
 import { convertTagsForUpdate } from '../../../../../shared/tags/utils/convertTagsForUpdate';
 import { SchemaDiffSummary } from '../components/SchemaVersionSummary';
-import { KEY_SCHEMA_PREFIX } from './constants';
+import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from './constants';
 import { ExtendedSchemaFields } from './types';
 
 export function convertEditableSchemaMeta(
@@ -49,6 +49,25 @@ export function filterKeyFieldPath(showKeySchema: boolean, field: SchemaField) {
     return field.fieldPath.startsWith(KEY_SCHEMA_PREFIX) ? showKeySchema : !showKeySchema;
 }
 
+export function downgradeV2FieldPath(fieldPath?: string | null) {
+    if (!fieldPath) {
+        return fieldPath;
+    }
+
+    const cleanedFieldPath = fieldPath.replace(KEY_SCHEMA_PREFIX, '').replace(VERSION_PREFIX, '');
+
+    // strip out all annotation segments
+    return cleanedFieldPath
+        .split('.')
+        .map((segment) => (segment.startsWith('[') ? null : segment))
+        .filter(Boolean)
+        .join('.');
+}
+
+export function pathMatchesNewPath(fieldPathA?: string | null, fieldPathB?: string | null) {
+    return fieldPathA === fieldPathB || fieldPathA === downgradeV2FieldPath(fieldPathB);
+}
+
 // group schema fields by fieldPath and grouping for hierarchy in schema table
 export function groupByFieldPath(
     schemaRows?: Array<SchemaField>,
@@ -62,10 +81,15 @@ export function groupByFieldPath(
     const outputRowByPath = {};
 
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+        let parentRow: null | ExtendedSchemaFields = null;
         const row = { children: undefined, ...rows[rowIndex] };
 
-        const [parentFieldPath] = row.fieldPath.split(/\.(?=[^.]+$)/);
-        const parentRow = outputRowByPath[parentFieldPath];
+        for (let j = rowIndex - 1; j >= 0; j--) {
+            if (row.fieldPath.indexOf(rows[j].fieldPath) >= 0) {
+                parentRow = outputRowByPath[rows[j].fieldPath];
+                break;
+            }
+        }
 
         // if the parent field exists in the ouput, add the current row as a child
         if (parentRow) {

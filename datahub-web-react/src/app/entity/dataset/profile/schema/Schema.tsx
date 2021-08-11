@@ -21,7 +21,12 @@ import SchemaRawView from './components/SchemaRawView';
 import SchemaVersionSummary from './components/SchemaVersionSummary';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { KEY_SCHEMA_PREFIX } from './utils/constants';
-import { convertEditableSchemaMetadataForUpdate, getDiffSummary, groupByFieldPath } from './utils/utils';
+import {
+    convertEditableSchemaMetadataForUpdate,
+    getDiffSummary,
+    groupByFieldPath,
+    pathMatchesNewPath,
+} from './utils/utils';
 import { ExtendedSchemaFields } from './utils/types';
 
 const SchemaContainer = styled.div`
@@ -59,7 +64,7 @@ export default function SchemaView({
     });
 
     const hasKeySchema = useMemo(
-        () => schema?.fields?.findIndex((field) => field.fieldPath.startsWith(KEY_SCHEMA_PREFIX)) !== -1,
+        () => (schema?.fields?.findIndex((field) => field.fieldPath.startsWith(KEY_SCHEMA_PREFIX)) || -1) !== -1,
         [schema],
     );
 
@@ -90,13 +95,28 @@ export default function SchemaView({
     const updateSchema = (newFieldInfo: EditableSchemaFieldInfoUpdate, record?: EditableSchemaFieldInfo) => {
         let existingMetadataAsUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
 
-        if (existingMetadataAsUpdate.editableSchemaFieldInfo.some((field) => field.fieldPath === record?.fieldPath)) {
+        if (
+            existingMetadataAsUpdate.editableSchemaFieldInfo.some((field) =>
+                pathMatchesNewPath(field.fieldPath, record?.fieldPath),
+            )
+        ) {
             // if we already have a record for this field, update the record
             existingMetadataAsUpdate = {
                 editableSchemaFieldInfo: existingMetadataAsUpdate.editableSchemaFieldInfo.map((fieldUpdate) => {
-                    if (fieldUpdate.fieldPath === record?.fieldPath) {
+                    if (pathMatchesNewPath(fieldUpdate.fieldPath, record?.fieldPath)) {
                         return newFieldInfo;
                     }
+
+                    // migrate any old fields that exist
+                    const upgradedFieldPath = schema?.fields.find((field) =>
+                        pathMatchesNewPath(fieldUpdate.fieldPath, field.fieldPath),
+                    )?.fieldPath;
+
+                    if (upgradedFieldPath) {
+                        // eslint-disable-next-line no-param-reassign
+                        fieldUpdate.fieldPath = upgradedFieldPath;
+                    }
+
                     return fieldUpdate;
                 }),
             };

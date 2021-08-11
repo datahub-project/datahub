@@ -18,7 +18,7 @@ import {
 import TagTermGroup from '../../../../shared/tags/TagTermGroup';
 import DescriptionField from './components/SchemaDescriptionField';
 import schemaTitleRenderer from './utils/schemaTitleRenderer';
-import { diffMarkdown } from './utils/utils';
+import { diffMarkdown, pathMatchesNewPath } from './utils/utils';
 import { ExtendedSchemaFields } from './utils/types';
 
 const TableContainer = styled.div`
@@ -117,7 +117,7 @@ export default function SchemaTable({
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
     const descriptionRender = (description: string, record: ExtendedSchemaFields) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
-            (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
+            (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
 
         if (!editMode && record.previousDescription) {
@@ -144,8 +144,9 @@ export default function SchemaTable({
 
     const tagAndTermRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
-            (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
+            (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
+
         return (
             <TagTermGroup
                 uneditableTags={tags}
@@ -162,8 +163,8 @@ export default function SchemaTable({
     };
 
     const usageStatsRenderer = (fieldPath: string) => {
-        const relevantUsageStats = usageStats?.aggregations?.fields?.find(
-            (fieldStats) => fieldStats?.fieldName === fieldPath,
+        const relevantUsageStats = usageStats?.aggregations?.fields?.find((fieldStats) =>
+            pathMatchesNewPath(fieldStats?.fieldName, fieldPath),
         );
 
         if (!relevantUsageStats) {

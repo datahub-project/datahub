@@ -1,19 +1,31 @@
+const ARRAY_TOKEN = '[type=array]';
+const UNION_TOKEN = '[type=union]';
+
 export default function translateFieldPathSegment(fieldPathSegment, i, fieldPathParts) {
     // for each segment, convert its fieldPath representation into a human readable version
     // We leave the annotations present and strip them out in a second pass
     const previousSegment = fieldPathParts[i - 1];
-    // arrays are represented as [type=array]array_field_name
-    // we convert into array_field_name[]
-    if (fieldPathSegment.indexOf('[type=array]') >= 0) {
-        fieldPathSegment.replace('[type=array]', '');
-        return `${fieldPathSegment.replace('[type=array]', '')}[].`;
+
+    // we need to look back to see how many arrays there were previously to display the array indexing notation after the field
+    let previousArrayCount = 0;
+    for (let j = i - 1; j >= 0; j--) {
+        if (fieldPathParts[j] === ARRAY_TOKEN) {
+            previousArrayCount++;
+        }
+        if (fieldPathParts[j].indexOf('[') === -1) {
+            break;
+        }
     }
-    // unions are represented as [type=union]union_field_name
-    // we convert into union_field_name.
-    if (fieldPathSegment.indexOf('[type=union]') >= 0) {
-        fieldPathSegment.replace('[type=union]', '');
-        return `${fieldPathSegment.replace('[type=union]', '')}.`;
+
+    // strip out the version prefix
+    if (
+        fieldPathSegment.startsWith('[version=') ||
+        fieldPathSegment === ARRAY_TOKEN ||
+        fieldPathSegment === UNION_TOKEN
+    ) {
+        return '';
     }
+
     // structs that qualify a union are represented as [union]union_field.[type=QualifiedStruct].qualified_struct_field
     // we convert into union_field. (QualifiedStruct) qualified_struct_field
     if (fieldPathSegment.startsWith('[type=') && fieldPathSegment.endsWith(']')) {
@@ -24,7 +36,7 @@ export default function translateFieldPathSegment(fieldPathSegment, i, fieldPath
         }
 
         // if the qualified struct is not the last element, surround with parens
-        if (previousSegment?.startsWith('[type=union]')) {
+        if (previousSegment === UNION_TOKEN) {
             return `(${typeName}) `;
         }
 
@@ -32,7 +44,11 @@ export default function translateFieldPathSegment(fieldPathSegment, i, fieldPath
         return '';
     }
 
-    // replace any remaining annotations
-    // eslint-disable-next-line no-useless-escape
-    return `${fieldPathSegment}.`.replace(/([\[]).+?([\]])/g, '');
+    // arrays are represented as [type=array]array_field_name
+    // we convert into array_field_name[]
+    if (previousArrayCount > 0) {
+        return `${fieldPathSegment}${'[]'.repeat(previousArrayCount)}.`;
+    }
+
+    return `${fieldPathSegment}.`;
 }
