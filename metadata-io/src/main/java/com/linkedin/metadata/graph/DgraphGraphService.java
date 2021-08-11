@@ -23,6 +23,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -211,18 +212,20 @@ public class DgraphGraphService implements GraphService {
         return urn.getNamespace() + ":" + urn.getEntityType();
     }
 
+    // Returns reversed and directed relationship types:
+    // <rel> returns <~rel> on outgoing and <rel> on incoming and both on undirected
     private static List<String> getDirectedRelationshipTypes(List<String> relationships,
                                                              RelationshipDirection direction) {
 
-        if (direction == RelationshipDirection.INCOMING || direction == RelationshipDirection.UNDIRECTED) {
-            List<String> incomingRelationships = relationships.stream()
+        if (direction == RelationshipDirection.OUTGOING || direction == RelationshipDirection.UNDIRECTED) {
+            List<String> outgoingRelationships = relationships.stream()
                     .map(type -> "~" + type).collect(Collectors.toList());
 
-            if (direction == RelationshipDirection.INCOMING) {
-                return incomingRelationships;
+            if (direction == RelationshipDirection.OUTGOING) {
+                return outgoingRelationships;
             } else {
                 relationships = new ArrayList<>(relationships);
-                relationships.addAll(incomingRelationships);
+                relationships.addAll(outgoingRelationships);
             }
         }
 
@@ -238,15 +241,23 @@ public class DgraphGraphService implements GraphService {
                                                    int offset,
                                                    int count) {
         // TODO: verify assumptions: criterions in filters are AND
-        // TODO: support destinationEntityFilter
 
+        if (relationshipTypes.isEmpty()) {
+            // we would have to construct a query that never returns an results
+            // just do not call this method in the first place
+            throw new IllegalArgumentException("The relationship types must not be empty");
+        }
+
+        // We are not querying for <src> <relationship> <dest> and return <dest>
+        // but we reverse the relationship and query for <dest> <~relationship> <src>
+        // this guarantees there are no duplicates among the returned <dest>s
         final List<String> directedRelationshipTypes = getDirectedRelationshipTypes(
                 relationshipTypes, relationshipFilter.getDirection()
         );
 
         List<String> filters = new ArrayList<>();
 
-        Set<String> sourceNodeFilterNames = new HashSet<>();
+        Set<String> destinationNodeFilterNames = new HashSet<>();
         String sourceTypeFilterName = null;
         String destinationTypeFilterName = null;
         List<String> sourceFilterNames = new ArrayList<>();
@@ -260,7 +271,7 @@ public class DgraphGraphService implements GraphService {
         }
 
         if (destinationType != null && !destinationType.isEmpty()) {
-            destinationTypeFilterName = "destinationTypeType";
+            destinationTypeFilterName = "destinationType";
             // TODO: escape string value
             filters.add(String.format("%s as var(func: eq(<type>, \"%s\"))", destinationTypeFilterName, destinationType));
         }
@@ -292,28 +303,17 @@ public class DgraphGraphService implements GraphService {
                     filters.add(String.format("%s as var(func: has(<%s>))", relationshipTypeFilterName, directedRelationshipTypes.get(idx)));
                 });
 
-        // the source node filter is the first filter that is being applied on the source node
+        // the destination node filter is the first filter that is being applied on the destination node
         // we can add multiple filters, they will combine as OR
-        if (sourceTypeFilterName != null) {
-            sourceNodeFilterNames.add(sourceTypeFilterName);
+        if (destinationTypeFilterName != null) {
+            destinationNodeFilterNames.add(destinationTypeFilterName);
         }
-        sourceNodeFilterNames.addAll(sourceFilterNames);
-        sourceNodeFilterNames.addAll(relationshipTypeFilterNames);
+        destinationNodeFilterNames.addAll(destinationFilterNames);
+        destinationNodeFilterNames.addAll(relationshipTypeFilterNames);
 
-        // TODO: we can only retrieve all relationships (non given) when we add all relationships to a node type
-        //       then we would also have to move the destination type filter to a different place in the query
-        //       better not support such a broad query
-        // TODO: throw exception when no relationship type given (test for that exception)
-        //       then, condition if (bootstrapFilterName == null) can be removed
-        // if there is still no bootstrap filter, we filter for all nodes
-        if (sourceNodeFilterNames.isEmpty()) {
-            sourceNodeFilterNames.add("allNodes");
-            String sourceNodeFilter = String.format("%s as var(func: has(<urn>))", sourceNodeFilterNames);
-            filters.add(sourceNodeFilter);
-        }
-        StringJoiner sourceNodeFilterJoiner = new StringJoiner(", ");
-        sourceNodeFilterNames.stream().sorted().forEach(sourceNodeFilterJoiner::add);
-        String sourceNodeFilter = sourceNodeFilterJoiner.toString();
+        StringJoiner destinationNodeFilterJoiner = new StringJoiner(", ");
+        destinationNodeFilterNames.stream().sorted().forEach(destinationNodeFilterJoiner::add);
+        String destinationNodeFilter = destinationNodeFilterJoiner.toString();
 
         String filterConditions = getFilterConditions(
                 sourceTypeFilterName, destinationTypeFilterName,
@@ -325,25 +325,17 @@ public class DgraphGraphService implements GraphService {
         filters.forEach(filterJoiner::add);
         String filterExpressions = filterJoiner.toString();
 
-        StringJoiner relationshipJoiner = new StringJoiner("\n    ");
-        directedRelationshipTypes.forEach(relationshipType -> relationshipJoiner.add(String.format("<%s> { uid <urn> <type> <key> }", relationshipType)));
-        String relationships = relationshipJoiner.toString();
         return String.format("query {\n"
                         + "  %s\n"
                         + "\n"
                         + "  result (func: uid(%s), first: %d, offset: %d) %s {\n"
-                        + "    uid\n"
                         + "    <urn>\n"
-                        + "    <type>\n"
-                        + "    <key>\n"
-                        + "    %s\n"
                         + "  }\n"
                         + "}",
                 filterExpressions,
-                sourceNodeFilter,
+                destinationNodeFilter,
                 count, offset,
-                filterConditions,
-                relationships);
+                filterConditions);
     }
 
     @Nonnull
@@ -356,6 +348,10 @@ public class DgraphGraphService implements GraphService {
                                         @Nonnull RelationshipFilter relationshipFilter,
                                         int offset,
                                         int count) {
+        if (relationshipTypes.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         String query = getQueryForRelatedUrns(
                 sourceType, sourceEntityFilter,
                 destinationType, destinationEntityFilter,
@@ -363,7 +359,7 @@ public class DgraphGraphService implements GraphService {
                 offset, count
         );
 
-        log.debug("Query: " + query);
+        System.out.println("Query: " + query);
 
         Request request = Request.newBuilder()
                 .setQuery(query)
@@ -373,13 +369,10 @@ public class DgraphGraphService implements GraphService {
         String json = response.getJson().toStringUtf8();
         Map<String, Object> data = getDataFromResponseJson(json);
 
-        List<String> directedRelationshipTypes = getDirectedRelationshipTypes(
-                relationshipTypes, relationshipFilter.getDirection()
-        );
-
-        return getDestinationUrnsFromResponseData(data, directedRelationshipTypes);
+        return getDestinationUrnsFromResponseData(data);
     }
 
+    // Creates filter conditions from destination to source nodes
     protected static @Nonnull String getFilterConditions(String sourceTypeFilterName,
                                                          String destinationTypeFilterName,
                                                          @Nonnull List<String> sourceFilterNames,
@@ -400,17 +393,17 @@ public class DgraphGraphService implements GraphService {
         }
 
         StringJoiner andJoiner = new StringJoiner(" AND\n    ");
-        if (sourceTypeFilterName != null) {
-            andJoiner.add(String.format("uid(%s)", sourceTypeFilterName));
+        if (destinationTypeFilterName != null) {
+            andJoiner.add(String.format("uid(%s)", destinationTypeFilterName));
         }
 
-        sourceFilterNames.forEach(filter -> andJoiner.add(String.format("uid(%s)", filter)));
+        destinationFilterNames.forEach(filter -> andJoiner.add(String.format("uid(%s)", filter)));
 
         if (!relationshipTypes.isEmpty()) {
             StringJoiner orJoiner = new StringJoiner(" OR\n      ");
             IntStream.range(0, relationshipTypes.size()).forEach(idx -> orJoiner.add(getRelationshipCondition(
                     relationshipTypes.get(idx), relationshipTypeFilterNames.get(idx),
-                    destinationTypeFilterName, destinationFilterNames
+                    sourceTypeFilterName, sourceFilterNames
             )));
             String relationshipCondition = orJoiner.toString();
             andJoiner.add(String.format("(\n      %s\n    )", relationshipCondition));
@@ -422,12 +415,12 @@ public class DgraphGraphService implements GraphService {
 
     protected static String getRelationshipCondition(@Nonnull String relationshipType,
                                                      @Nonnull String relationshipTypeFilterName,
-                                                     String destinationTypeFilterName,
+                                                     String objectFilterName,
                                                      @Nonnull List<String> destinationFilterNames) {
         StringJoiner andJoiner = new StringJoiner(" AND ");
         andJoiner.add(String.format("uid(%s)", relationshipTypeFilterName));
-        if (destinationTypeFilterName != null) {
-            andJoiner.add(String.format("uid_in(<%s>, uid(%s))", relationshipType, destinationTypeFilterName));
+        if (objectFilterName != null) {
+            andJoiner.add(String.format("uid_in(<%s>, uid(%s))", relationshipType, objectFilterName));
         }
         destinationFilterNames.forEach(filter -> andJoiner.add(String.format("uid_in(<%s>, uid(%s))", relationshipType, filter)));
         return andJoiner.toString();
@@ -443,7 +436,7 @@ public class DgraphGraphService implements GraphService {
         }
     }
 
-    protected static List<String> getDestinationUrnsFromResponseData(Map<String, Object> data, List<String> relationshipTypes) {
+    protected static List<String> getDestinationUrnsFromResponseData(Map<String, Object> data) {
         Object obj = data.get("result");
         if (!(obj instanceof List<?>)) {
             throw new IllegalArgumentException(
@@ -452,33 +445,16 @@ public class DgraphGraphService implements GraphService {
         }
 
         List<?> results = (List<?>) obj;
-        return results.stream().flatMap(sourceObj -> {
-            if (!(sourceObj instanceof Map)) {
+        return results.stream().flatMap(destinationObj -> {
+            if (!(destinationObj instanceof Map)) {
                 return Stream.empty();
             }
 
-            Map<?, ?> source = (Map<?, ?>) sourceObj;
-            return relationshipTypes.stream().flatMap(relationship -> {
-                Object destinationObjs = source.get(relationship);
-                if (!(destinationObjs instanceof List)) {
-                    return Stream.empty();
-                }
-
-                List<?> destinations = (List<?>) destinationObjs;
-                return destinations.stream().flatMap(destinationObj -> {
-                    if (!(destinationObj instanceof Map)) {
-                        return Stream.empty();
-                    }
-
-                    Map<?, ?> destination = (Map<?, ?>) destinationObj;
-                    Object destinationUrnObj = destination.get("urn");
-                    if (!(destinationUrnObj instanceof String)) {
-                        return Stream.empty();
-                    }
-
-                    return Stream.of((String) destinationUrnObj);
-                });
-            });
+            Map<?, ?> destination = (Map<?, ?>) destinationObj;
+            if (destination.containsKey("urn") && destination.get("urn") instanceof String) {
+                return Stream.of((String) destination.get("urn"));
+            }
+            return Stream.empty();
         }).collect(Collectors.toList());
     }
 
