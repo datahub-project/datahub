@@ -1,5 +1,5 @@
 # This "container" is a workaround to pre-create topics
-FROM confluentinc/cp-kafka:5.4.0
+FROM confluentinc/cp-kafka:6.2.0
 
 ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
 ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"
