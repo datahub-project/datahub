@@ -26,4 +26,8 @@ describe('translateFieldPath', () => {
             ),
         ).toEqual('MyArray[][].field.nested_field');
     });
+
+    it('leaves old fieldpaths as is', () => {
+        expect(translateFieldPath('a.b.c')).toEqual('a.b.c');
+    });
 });
