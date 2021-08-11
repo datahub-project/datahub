@@ -58,6 +58,21 @@ transformers:
         - "urn:li:corpuser:username2"
         - "urn:li:corpGroup:groupname"
 ```
+### Setting ownership by dataset urn pattern
+
+Let’s suppose we’d like to append a series of users who we know to own different dataset from a data source but aren't detected during normal ingestion. To do so, we can use the `pattern_add_dataset_ownership` module that’s included in the ingestion framework. it match pattern with `urn` of dataset and assign the respective owners
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+transformers:
+  - type: "pattern_add_dataset_ownership"
+    config:
+      owner_pattern:
+        rules:
+          ".*example1.*": ["urn:li:corpuser:username1"]
+          ".*example2.*": ["urn:li:corpuser:username2"]
+```
 
 If you'd like to add more complex logic for assigning ownership, you can use the more generic `add_dataset_ownership` transformer, which calls a user-provided function to determine the ownership of each dataset.
 
@@ -88,7 +103,7 @@ If you would like to add to browse paths of dataset can use this transformer. Th
 - PLATFORM: `mysql`, `postgres` or different platform supported by datahub
 - DATASET_PARTS: slash separated parts of dataset name. e.g. `database_name/schema_name/[table_name]` for postgres
 
-e.g. this can be used to create browse paths like `/prod/postgres/superset/public/logs` for table `superset.public.log` in a `postgres` database
+e.g. this can be used to create browse paths like `/prod/postgres/superset/public/logs` for table `superset.public.logs` in a `postgres` database
 ```yaml
 transformers:
   - type: "set_dataset_browse_path"

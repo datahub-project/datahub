@@ -7,6 +7,7 @@ import stackprinter
 
 import datahub as datahub_package
 from datahub.cli.check_cli import check
+from datahub.cli.cli_utils import DATAHUB_CONFIG_PATH, write_datahub_config
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker import docker
 from datahub.cli.ingest_cli import ingest
@@ -56,6 +57,26 @@ def version() -> None:
     """Print version number and exit."""
     click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
     click.echo(f"Python version: {sys.version}")
+
+
+@datahub.command()
+def init() -> None:
+    """Configure which datahub instance to connect to"""
+    if os.path.isfile(DATAHUB_CONFIG_PATH):
+        click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
+
+    click.echo("Configure which datahub instance to connect to")
+    host = click.prompt(
+        "Enter your DataHub host", type=str, default="http://localhost:8080"
+    )
+    token = click.prompt(
+        "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)",
+        type=str,
+        default="",
+    )
+    write_datahub_config(host, token)
+
+    click.echo(f"Written to {DATAHUB_CONFIG_PATH}")
 
 
 datahub.add_command(check)

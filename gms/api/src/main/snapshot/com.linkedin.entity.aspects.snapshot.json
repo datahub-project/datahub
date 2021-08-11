@@ -57,15 +57,18 @@
               "type" : "record",
               "name" : "SystemMetadata",
               "namespace" : "com.linkedin.mxe",
+              "doc" : "Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.",
               "fields" : [ {
                 "name" : "lastObserved",
                 "type" : "long",
                 "doc" : "The timestamp the metadata was observed at",
+                "default" : 0,
                 "optional" : true
               }, {
                 "name" : "runId",
                 "type" : "string",
-                "doc" : "The timestamp the metadata was observed at",
+                "doc" : "The run id that produced the metadata",
+                "default" : "no-run-id-provided",
                 "optional" : true
               }, {
                 "name" : "properties",
@@ -737,7 +740,7 @@
       "doc" : "Urn of the applied glossary term",
       "Searchable" : {
         "fieldName" : "glossaryTerms",
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "URN_PARTIAL"
       }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {

@@ -1,6 +1,6 @@
 buildscript {
   ext.junitJupiterVersion = '5.6.1'
-  ext.gmaVersion = '0.2.49'
+  ext.gmaVersion = '0.2.80'
   ext.pegasusVersion = '28.3.7'
 
   apply from: './repositories.gradle'

@@ -62,8 +62,9 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `env`                     |          | `"PROD"` | Environment to use in namespace when constructing URNs.                                                                                               |
 | `target_platform`         | ✅       |          | The platform that dbt is loading onto.                                                                                                                |
 | `load_schemas`            | ✅       |          | Whether to load database schemas. If set to `False`, table schema details (e.g. columns) will not be ingested.                                        |
-| `node_type_pattern.allow` |          |          | Regex pattern for dbt nodes to include in ingestion.                                                                                                  |
-| `node_type_pattern.deny`  |          |          | Regex pattern for dbt nodes to exclude from ingestion.                                                                                                |
+| `node_type_pattern.allow` |          |          | List of regex patterns for dbt nodes to include in ingestion.                                                                                                  |
+| `node_type_pattern.deny`  |          |          | List of regex patterns for dbt nodes to exclude from ingestion.                                                                                                |
+| `node_type_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
 
 Note: when `load_schemas` is False, models that use [identifiers](https://docs.getdbt.com/reference/resource-properties/identifier) to reference their source tables are ingested using the model identifier as the model name to preserve the lineage.
 
