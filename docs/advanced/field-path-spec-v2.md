@@ -1,17 +1,16 @@
 # SchemaFieldPath Specification (Version 2)
 
-As we have started adding support for more complex nested schemas such
-as [Avro](https://avro.apache.org/docs/current/spec.html), we have realized the need for a richer normalized
-representation of the `fieldPath` member
-of [SchemaField](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaField.pdl)
-, and hence this specification document.
+This document outlines the formal specification for the fieldPath member of
+the [SchemaField](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaField.pdl)
+model. This specification (version 2) takes into account the unique requirements of supporting a wide variety of nested
+types, unions and optional fields and is a substantial improvement over the current implementation (version 1).
 
 ## Requirements
 
 The `fieldPath` field is currently used by datahub for not just rendering the schema fields in the UI, but also as a
 primary identifier of a field in other places such
-as [EditableSchemaFieldInfo](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaFieldInfo.pdl#L12) (
-TODO --- where else?). Therefore, it must satisfy the following requirements.
+as [EditableSchemaFieldInfo](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaFieldInfo.pdl#L12),
+usage stats and data profiles. Therefore, it must satisfy the following requirements.
 
 * must be unique across all fields within a schema.
 * make schema navigation in the UI more intuitive.
@@ -48,7 +47,7 @@ the record type `A` or `B`.
 ## The FieldPath encoding scheme(v2)
 
 The syntax for V2 encoding of the `fieldPath` is captured in the following grammar. The `FieldPathSpec` is essentially
-the type annotated path prefix of the member, with each token along the path representing one level of nested member,
+the type annotated path of the member, with each token along the path representing one level of nested member,
 starting from the most-enclosing type, leading up to the member. In the case of `unions` that have `one-of` semantics,
 the corresponding field will be emitted once for each `member` of the union as its `type`.
 
@@ -69,9 +68,9 @@ the corresponding field will be emitted once for each `member` of the union as i
 <SimpleType> := int | float | double | string | fixed | enum
 ```
 
-For the [example above](#example-ambiguous-field-path), this encoding would produce the following 5
-unique field paths. Notice that there are 3 unique intermediate types and 2 unique fields corresponding to `A.f`
-and `B.f`.
+For the [example above](#example-ambiguous-field-path), this encoding would produce the following 5 unique field paths.
+Notice that there are 3 unique paths corresponding to the `union`, record `A`, and record `B` intermediate types, and 2
+unique paths corresponding to the `A.f` and `B.f` fields.
 
 ```python
 unique_v2_field_paths = [
@@ -89,7 +88,7 @@ NOTE:
   in the fieldPath itself.
 - field paths that end with an intermediate type allow us to capture details at record/struct level as well, in addition
   to the fields themselves.
-- processing a fieldPath, such as from UI, gets simplified simply by walking each token on the path from left-to-right.
+- processing a fieldPath, such as from UI, gets simplified simply by walking each token along the path from left-to-right.
 - adding PartOfKeySchemaToken allows for identifying if the field is part of key-schema.
 - adding VersionToken allows for future evolvability.
 - to represent `optional` fields, which sometimes are modeled as `unions` in formats like `Avro`, instead of treating it
