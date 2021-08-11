@@ -46,17 +46,17 @@ source:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                      | Required | Default                | Description                                             |
-| -------------------------- | -------- | ---------------------- | ------------------------------------------------------- |
-| `connect_uri`              | ✅       | http://localhost:5000/ | Redash base URL.                                        |
-| `api_key`                  | ✅       |                        | Redash user API key.                                    |
-| `api_page_limit`           |          | `None`                 | limit on ingested dashboards and charts API pagination. |
-| `skip_draft`               |          | `true`                 | Platform to use in namespace when constructing URNs.    |
-| `dashboard_patterns.allow` |          |                        | Regex pattern for dashboards to include in ingestion.   |
-| `dashboard_patterns.deny`  |          |                        | Regex pattern for dashboards to exclude from ingestion. |
-| `chart_patterns.allow`     |          |                        | Regex pattern for charts to include in ingestion.       |
-| `chart_patterns.deny`      |          |                        | Regex pattern for charts to exclude from ingestion.     |
-| `env`                      |          | `"PROD"`               | Environment to use in namespace when constructing URNs. |
+| Field                      | Required | Default                | Description                                                      |
+| -------------------------- | -------- | ---------------------- | ---------------------------------------------------------------- |
+| `connect_uri`              | ✅       | http://localhost:5000/ | Redash base URL.                                                 |
+| `api_key`                  | ✅       |                        | Redash user API key.                                             |
+| `api_page_limit`           |          | `None`                 | Limit on ingested dashboards and charts API pagination.          |
+| `skip_draft`               |          | `true`                 | Only ingest published dashboards and charts.                     |
+| `dashboard_patterns.allow` |          |                        | List of regex patterns for dashboards to include in ingestion.   |
+| `dashboard_patterns.deny`  |          |                        | List of regex patterns for dashboards to exclude from ingestion. |
+| `chart_patterns.allow`     |          |                        | List of regex patterns for charts to include in ingestion.       |
+| `chart_patterns.deny`      |          |                        | List of regex patterns for charts to exclude from ingestion.     |
+| `env`                      |          | `"PROD"`               | Environment to use in namespace when constructing URNs.          |
 
 
 ## Compatibility
