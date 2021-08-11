@@ -32,6 +32,7 @@ public class SchemaFieldMapper implements ModelMapper<com.linkedin.schema.Schema
         if (input.hasGlossaryTerms()) {
             result.setGlossaryTerms(GlossaryTermsMapper.map(input.getGlossaryTerms()));
         }
+        result.setIsPartOfKey(input.isIsPartOfKey());
         return result;
     }
 

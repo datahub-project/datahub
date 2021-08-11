@@ -5,7 +5,6 @@ import { Message } from '../../../../shared/Message';
 import { useGetDatasetSchemaVersionsLazyQuery, UpdateDatasetMutation } from '../../../../../graphql/dataset.generated';
 import {
     Schema,
-    SchemaField,
     SchemaMetadata,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
@@ -15,17 +14,20 @@ import {
     EntityType,
     UsageQueryResult,
 } from '../../../../../types.generated';
-import {
-    convertEditableSchemaMetadataForUpdate,
-    ExtendedSchemaFields,
-    sortByFieldPathAndGrouping,
-} from '../../../shared/utils';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
 import SchemaTable from './SchemaTable';
 import SchemaHeader from './components/SchemaHeader';
 import SchemaRawView from './components/SchemaRawView';
-import SchemaVersionSummary, { SchemaDiffSummary } from './components/SchemaVersionSummary';
+import SchemaVersionSummary from './components/SchemaVersionSummary';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
+import { KEY_SCHEMA_PREFIX } from './utils/constants';
+import {
+    convertEditableSchemaMetadataForUpdate,
+    getDiffSummary,
+    groupByFieldPath,
+    pathMatchesNewPath,
+} from './utils/utils';
+import { ExtendedSchemaFields } from './utils/types';
 
 const SchemaContainer = styled.div`
     margin-bottom: 100px;
@@ -40,45 +42,6 @@ export type Props = {
     updateEditableSchema: (
         update: EditableSchemaMetadataUpdate,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
-};
-
-// Get diff summary between two versions and prepare to visualize description diff changes
-const getDiffSummary = (
-    currentVersionRows?: Array<SchemaField>,
-    previousVersionRows?: Array<SchemaField>,
-): { rows: Array<ExtendedSchemaFields>; diffSummary: SchemaDiffSummary } => {
-    let rows = [...(currentVersionRows || [])] as Array<ExtendedSchemaFields>;
-    const diffSummary: SchemaDiffSummary = {
-        added: 0,
-        removed: 0,
-        updated: 0,
-    };
-
-    if (previousVersionRows && previousVersionRows.length > 0) {
-        const previousRows = [...previousVersionRows] as Array<ExtendedSchemaFields>;
-        rows.forEach((field, rowIndex) => {
-            const relevantPastFieldIndex = previousRows.findIndex(
-                (pf) => pf.type === rows[rowIndex].type && pf.fieldPath === rows[rowIndex].fieldPath,
-            );
-            if (relevantPastFieldIndex > -1) {
-                if (previousRows[relevantPastFieldIndex].description !== rows[rowIndex].description) {
-                    rows[rowIndex] = {
-                        ...rows[rowIndex],
-                        previousDescription: previousRows[relevantPastFieldIndex].description,
-                    };
-                    diffSummary.updated++; // Increase updated row number in diff summary
-                }
-                previousRows.splice(relevantPastFieldIndex, 1);
-            } else {
-                rows[rowIndex] = { ...rows[rowIndex], isNewRow: true };
-                diffSummary.added++; // Increase added row number in diff summary
-            }
-        });
-        rows = [...rows, ...previousRows.map((pf) => ({ ...pf, isDeletedRow: true }))];
-        diffSummary.removed = previousRows.length; // removed row number in diff summary
-    }
-
-    return { rows, diffSummary };
 };
 
 export default function SchemaView({
@@ -100,16 +63,25 @@ export default function SchemaView({
         fetchPolicy: 'no-cache',
     });
 
+    const hasKeySchema = useMemo(
+        () => (schema?.fields?.findIndex((field) => field.fieldPath.startsWith(KEY_SCHEMA_PREFIX)) || -1) !== -1,
+        [schema],
+    );
+
+    const [showKeySchema, setShowKeySchema] = useState(false);
+
     const { rows, diffSummary } = useMemo(() => {
         if (editMode) {
-            return { rows: sortByFieldPathAndGrouping(schemaDiff.current?.fields), diffSummary: null };
+            return { rows: groupByFieldPath(schemaDiff.current?.fields, { showKeySchema }), diffSummary: null };
         }
-        const rowsAndDiffSummary = getDiffSummary(schemaDiff.current?.fields, schemaDiff.previous?.fields);
+        const rowsAndDiffSummary = getDiffSummary(schemaDiff.current?.fields, schemaDiff.previous?.fields, {
+            showKeySchema,
+        });
         return {
             ...rowsAndDiffSummary,
-            rows: sortByFieldPathAndGrouping(rowsAndDiffSummary.rows),
+            rows: groupByFieldPath(rowsAndDiffSummary.rows, { showKeySchema }),
         };
-    }, [schemaDiff, editMode]);
+    }, [schemaDiff, editMode, showKeySchema]);
 
     useEffect(() => {
         if (!loading && !error && schemaVersions) {
@@ -123,13 +95,28 @@ export default function SchemaView({
     const updateSchema = (newFieldInfo: EditableSchemaFieldInfoUpdate, record?: EditableSchemaFieldInfo) => {
         let existingMetadataAsUpdate = convertEditableSchemaMetadataForUpdate(editableSchemaMetadata);
 
-        if (existingMetadataAsUpdate.editableSchemaFieldInfo.some((field) => field.fieldPath === record?.fieldPath)) {
+        if (
+            existingMetadataAsUpdate.editableSchemaFieldInfo.some((field) =>
+                pathMatchesNewPath(field.fieldPath, record?.fieldPath),
+            )
+        ) {
             // if we already have a record for this field, update the record
             existingMetadataAsUpdate = {
                 editableSchemaFieldInfo: existingMetadataAsUpdate.editableSchemaFieldInfo.map((fieldUpdate) => {
-                    if (fieldUpdate.fieldPath === record?.fieldPath) {
+                    if (pathMatchesNewPath(fieldUpdate.fieldPath, record?.fieldPath)) {
                         return newFieldInfo;
                     }
+
+                    // migrate any old fields that exist
+                    const upgradedFieldPath = schema?.fields.find((field) =>
+                        pathMatchesNewPath(fieldUpdate.fieldPath, field.fieldPath),
+                    )?.fieldPath;
+
+                    if (upgradedFieldPath) {
+                        // eslint-disable-next-line no-param-reassign
+                        fieldUpdate.fieldPath = upgradedFieldPath;
+                    }
+
                     return fieldUpdate;
                 }),
             };
@@ -195,12 +182,15 @@ export default function SchemaView({
                 setEditMode={setEditMode}
                 showRaw={showRaw}
                 setShowRaw={setShowRaw}
-                hasRow={
+                hasRaw={
                     schema?.platformSchema?.__typename === 'TableSchema' && schema?.platformSchema?.schema?.length > 0
                 }
+                hasKeySchema={hasKeySchema}
+                showKeySchema={showKeySchema}
+                setShowKeySchema={setShowKeySchema}
             />
             {showRaw ? (
-                <SchemaRawView schemaDiff={schemaDiff} editMode={editMode} />
+                <SchemaRawView schemaDiff={schemaDiff} editMode={editMode} showKeySchema={showKeySchema} />
             ) : (
                 rows &&
                 rows.length > 0 && (
