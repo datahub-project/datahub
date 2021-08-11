@@ -23,7 +23,7 @@ def test_kafka_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
         wait_for_port(docker_services, "test_broker", 9092, timeout=120)
 
         # Set up topics and produce some data
-        command = f"source {test_resources_dir}/send_records.sh"
+        command = f"{test_resources_dir}/send_records.sh"
         subprocess.run(command, shell=True, check=True)
 
         # Run the metadata ingestion pipeline.
