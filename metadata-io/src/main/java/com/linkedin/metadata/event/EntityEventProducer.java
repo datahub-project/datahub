@@ -47,21 +47,4 @@ public interface EntityEventProducer {
       @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog
   );
-
-  /**
-   * Produces an aspect-specific {@link com.linkedin.mxe.MetadataAuditEvent} from a
-   * new & previous Entity Aspect.
-   *
-   * @param urn the urn associated with the entity changed
-   * @param oldValue a {@link RecordTemplate} corresponding to the old aspect.
-   * @param newValue a {@link RecordTemplate} corresponding to the new aspect.
-   */
-  void produceAspectSpecificMetadataAuditEvent(
-      @Nonnull final Urn urn,
-      @Nullable final RecordTemplate oldValue,
-      @Nonnull final RecordTemplate newValue,
-      SystemMetadata oldSystemMetadata,
-      SystemMetadata newSystemMetadata,
-      MetadataAuditOperation operation
-  );
 }
