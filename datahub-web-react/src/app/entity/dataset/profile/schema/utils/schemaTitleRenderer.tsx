@@ -31,6 +31,10 @@ export default function schemaTitleRenderer(fieldPath: string) {
         }
     }
 
+    if (!lastPath) {
+        return <Typography.Text strong>{firstPath}</Typography.Text>;
+    }
+
     return (
         <span>
             <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
