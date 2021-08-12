@@ -21,7 +21,7 @@ import play.mvc.Http;
 import play.mvc.Result;
 import react.auth.AuthUtils;
 import react.auth.JAASConfigs;
-import react.auth.SsoManager;
+import react.auth.sso.SsoManager;
 import security.AuthenticationManager;
 
 import javax.annotation.Nonnull;

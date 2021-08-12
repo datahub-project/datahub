@@ -1,4 +1,6 @@
-package react.auth;
+package react.auth.sso.oidc;
+
+import react.auth.sso.SsoConfigs;
 
 import static react.auth.ConfigUtil.*;
 

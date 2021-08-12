@@ -10,9 +10,9 @@ import org.pac4j.core.http.adapter.HttpActionAdapter;
 import org.pac4j.play.CallbackController;
 import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
-import react.auth.OidcCallbackLogic;
-import react.auth.SsoManager;
-import react.auth.SsoProvider;
+import react.auth.sso.oidc.OidcCallbackLogic;
+import react.auth.sso.SsoManager;
+import react.auth.sso.SsoProvider;
 
 
 @Slf4j

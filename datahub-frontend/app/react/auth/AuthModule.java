@@ -14,9 +14,13 @@ import play.Environment;
 
 import java.util.ArrayList;
 import java.util.List;
+import react.auth.sso.oidc.OidcClientProvider;
+import react.auth.sso.oidc.OidcConfigs;
+import react.auth.sso.SsoConfigs;
+import react.auth.sso.SsoManager;
 import react.controllers.SsoCallbackController;
 
-import static react.auth.OidcConfigs.*;
+import static react.auth.sso.oidc.OidcConfigs.*;
 
 
 /**
@@ -37,14 +41,15 @@ public class AuthModule extends AbstractModule {
         bind(PlaySessionStore.class).toInstance(playCacheCookieStore);
 
         try {
-            bind(SsoCallbackController.class).toConstructor(SsoCallbackController.class.getConstructor(SsoManager.class));
+            bind(SsoCallbackController.class).toConstructor(SsoCallbackController.class.getConstructor(
+                react.auth.sso.SsoManager.class));
         } catch (NoSuchMethodException | SecurityException e) {
             System.out.println("Required constructor missing");
         }
     }
 
     @Provides @Singleton
-    protected Config provideConfig(SsoManager ssoManager) {
+    protected Config provideConfig(react.auth.sso.SsoManager ssoManager) {
         if (ssoManager.isSsoEnabled()) {
             final Clients clients = new Clients();
             final List<Client> clientList = new ArrayList<>();
@@ -58,11 +63,11 @@ public class AuthModule extends AbstractModule {
     }
 
     @Provides @Singleton
-    protected SsoManager provideSsoManager() {
-        SsoManager manager = new SsoManager();
+    protected react.auth.sso.SsoManager provideSsoManager() {
+        react.auth.sso.SsoManager manager = new SsoManager();
         // Seed the SSO manager with a default SSO provider.
         if (isSsoEnabled(_configs)) {
-            SsoConfigs ssoConfigs = new SsoConfigs(_configs);
+            react.auth.sso.SsoConfigs ssoConfigs = new SsoConfigs(_configs);
             if (ssoConfigs.isOidcEnabled()) {
                 // Register OIDC Provider, add to list of managers.
                 OidcConfigs oidcConfigs = new OidcConfigs(_configs);

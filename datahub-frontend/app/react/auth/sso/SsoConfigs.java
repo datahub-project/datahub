@@ -1,4 +1,4 @@
-package react.auth;
+package react.auth.sso;
 
 import static react.auth.AuthUtils.*;
 import static react.auth.ConfigUtil.*;

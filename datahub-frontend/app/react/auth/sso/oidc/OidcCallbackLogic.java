@@ -1,4 +1,4 @@
-package react.auth;
+package react.auth.sso.oidc;
 
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -44,6 +44,7 @@ import org.pac4j.core.profile.CommonProfile;
 import org.pac4j.core.profile.ProfileManager;
 import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
+import react.auth.sso.SsoManager;
 
 import static play.mvc.Results.*;
 import static react.auth.AuthUtils.*;

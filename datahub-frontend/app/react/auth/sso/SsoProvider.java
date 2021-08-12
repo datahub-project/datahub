@@ -1,4 +1,4 @@
-package react.auth;
+package react.auth.sso;
 
 import org.pac4j.core.client.Client;
 
