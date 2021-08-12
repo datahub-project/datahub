@@ -1,7 +1,10 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.entity.client.AspectClient;
+import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
+import com.linkedin.gms.factory.kafka.KafkaEventProducerFactory;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.kafka.config.EntityClientConfig;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -18,6 +21,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -27,6 +31,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Conditional(MetadataChangeProposalProcessorCondition.class)
 @EnableKafka
+@Import({EntityClientConfig.class, KafkaEventConsumerFactory.class, KafkaEventProducerFactory.class})
 @RequiredArgsConstructor
 public class MetadataChangeProposalsProcessor {
 

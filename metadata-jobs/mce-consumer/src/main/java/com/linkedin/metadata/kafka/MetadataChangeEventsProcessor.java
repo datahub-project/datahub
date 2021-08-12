@@ -1,8 +1,11 @@
 package com.linkedin.metadata.kafka;
 
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
+import com.linkedin.gms.factory.kafka.KafkaEventProducerFactory;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.kafka.config.EntityClientConfig;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
@@ -24,7 +27,6 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 
@@ -32,6 +34,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Conditional(MetadataChangeProposalProcessorCondition.class)
 @EnableKafka
+@Import({EntityClientConfig.class, KafkaEventConsumerFactory.class, KafkaEventProducerFactory.class})
 @RequiredArgsConstructor
 public class MetadataChangeEventsProcessor {
 
@@ -84,7 +87,8 @@ public class MetadataChangeEventsProcessor {
     return fmce;
   }
 
-  private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws RemoteInvocationException {
+  private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent)
+      throws RemoteInvocationException {
     final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
     final Entity entity = new Entity().setValue(snapshotUnion);
     entityClient.updateWithSystemMetadata(entity, metadataChangeEvent.getSystemMetadata());
