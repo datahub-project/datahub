@@ -30,13 +30,13 @@ export default function translateFieldPathSegment(fieldPathSegment, i, fieldPath
     // we convert into union_field. (QualifiedStruct) qualified_struct_field
     if (fieldPathSegment.startsWith('[type=') && fieldPathSegment.endsWith(']')) {
         const typeName = fieldPathSegment.replace('[type=', '').replace(']', '');
-        // if the qualified struct is the last element, just show the qualified struct
-        if (i === fieldPathParts.length - 1) {
-            return ` ${typeName}`;
-        }
 
         // if the qualified struct is not the last element, surround with parens
         if (previousSegment === UNION_TOKEN) {
+            // if the qualified struct is the last element, just show the qualified struct
+            if (i === fieldPathParts.length - 1) {
+                return ` ${typeName}`;
+            }
             return `(${typeName}) `;
         }
 

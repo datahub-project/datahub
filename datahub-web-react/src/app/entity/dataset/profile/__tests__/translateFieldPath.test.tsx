@@ -30,4 +30,8 @@ describe('translateFieldPath', () => {
     it('leaves old fieldpaths as is', () => {
         expect(translateFieldPath('a.b.c')).toEqual('a.b.c');
     });
+
+    it('does not return struct names if there are no field names', () => {
+        expect(translateFieldPath('[type=ParentStruct].[type=ChildStruct]')).toEqual('');
+    });
 });
