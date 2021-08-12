@@ -129,25 +129,42 @@ class AvroToMceSchemaConverter:
         return ".".join(self._prefix_name_stack)
 
     @staticmethod
-    def _get_type_annotation(schema: ExtendedAvroNestedSchemas) -> str:
-        if isinstance(schema, avro.schema.RecordSchema):
-            return f"[type={schema.name}]"
-
-        # For fields, just return the plain name.
-        if isinstance(schema, avro.schema.Field):
-            return f"{schema.name}"
+    def _get_simple_native_type(schema: ExtendedAvroNestedSchemas) -> str:
+        if isinstance(schema, (avro.schema.RecordSchema, avro.schema.Field)):
+            # For Records, fields, always return the name.
+            return schema.name
 
         # For optional, use the underlying non-null type
         if isinstance(schema, avro.schema.UnionSchema) and len(schema.schemas) == 2:
             # Optional types as unions in AVRO. Return underlying non-null sub-type.
             (first, second) = schema.schemas
             if first.type == avro.schema.NULL:
-                return f"[type={second.type}]"
+                return second.type
             elif second.type == avro.schema.NULL:
-                return f"[type={first.type}]"
+                return first.type
 
         # For everything else, use the schema's type
-        return f"[type={schema.type}]"
+        return schema.type
+
+    @staticmethod
+    def _get_type_annotation(schema: ExtendedAvroNestedSchemas) -> str:
+        simple_native_type = AvroToMceSchemaConverter._get_simple_native_type(schema)
+        if isinstance(schema, avro.schema.Field):
+            return simple_native_type
+        else:
+            return f"[type={simple_native_type}]"
+
+    @staticmethod
+    def _get_underlying_type_if_option_as_union(
+        schema: AvroNestedSchemas, default: Optional[AvroNestedSchemas] = None
+    ) -> AvroNestedSchemas:
+        if isinstance(schema, avro.schema.UnionSchema) and len(schema.schemas) == 2:
+            (first, second) = schema.schemas
+            if first.type == avro.schema.NULL:
+                return second
+            elif second.type == avro.schema.NULL:
+                return first
+        return default
 
     class SchemaFieldEmissionContextManager:
         """Context Manager for MCE SchemaFiled emission
@@ -178,32 +195,16 @@ class AvroToMceSchemaConverter:
                         avro.schema.ArraySchema,
                         avro.schema.Field,
                         avro.schema.MapSchema,
-                        avro.schema.UnionSchema,
                         avro.schema.RecordSchema,
                     ),
                 )
                 and self._converter._fields_stack
             ):
-                # We are in the context of a non-nested(simple) field.
-                last_field_schema = self._converter._fields_stack[-1]
-
-                description = (
-                    last_field_schema.doc
-                    if last_field_schema.doc
-                    else "No description available."
-                )
-
-                if last_field_schema.has_default:
-                    description = f"{description}\nField default value: {last_field_schema.default}"
-
-                with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
-                    last_field_schema,
-                    last_field_schema,
-                    self._converter,
-                    description,
-                ) as field_emitter:
-                    yield from field_emitter.emit()
+                # We are in the context of a non-nested(simple) field or the special-cased union.
+                yield from self._converter._gen_from_last_field()
             else:
+                # Just emit the SchemaField from schema provided in the Ctor.
+
                 schema = self._schema
                 actual_schema = self._actual_schema
                 if isinstance(schema, avro.schema.Field):
@@ -214,15 +215,24 @@ class AvroToMceSchemaConverter:
                             schema, schema
                         )
                     )
-                # Emit the schema field provided in the Ctor.
+
                 description = self._description
                 if description is None:
                     description = schema.props.get("doc", None)
 
+                native_data_type = self._converter._prefix_name_stack[-1]
+                if isinstance(schema, (avro.schema.Field, avro.schema.UnionSchema)):
+                    native_data_type = self._converter._prefix_name_stack[-2]
+                type_prefix = "[type="
+                if native_data_type.startswith(type_prefix):
+                    native_data_type = native_data_type[
+                        slice(len(type_prefix), len(native_data_type) - 1)
+                    ]
+
                 field = SchemaField(
                     fieldPath=self._converter._get_cur_field_path(),
-                    # Not populating this field for Avro, since this is blowing up the KAFKA message size.
-                    nativeDataType="",
+                    # Populate it with the simple native type for now.
+                    nativeDataType=native_data_type,
                     type=self._converter._get_column_type(actual_schema.type),
                     description=description,
                     recursive=False,
@@ -233,18 +243,6 @@ class AvroToMceSchemaConverter:
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             self._converter._prefix_name_stack.pop()
-
-    @staticmethod
-    def _get_underlying_type_if_option_as_union(
-        schema: AvroNestedSchemas, default: Optional[AvroNestedSchemas] = None
-    ) -> AvroNestedSchemas:
-        if isinstance(schema, avro.schema.UnionSchema) and len(schema.schemas) == 2:
-            (first, second) = schema.schemas
-            if first.type == avro.schema.NULL:
-                return second
-            elif second.type == avro.schema.NULL:
-                return first
-        return default
 
     def _get_sub_schemas(
         self, schema: ExtendedAvroNestedSchemas
@@ -290,12 +288,40 @@ class AvroToMceSchemaConverter:
     ) -> Generator[SchemaField, None, None]:
         """Handles generation of MCE SchemaFields for an AVRO Field type."""
         # NOTE: Here we only manage the field stack and trigger MCE Field generation from this field's type.
-        # The actual emitting of a field happens
-        #  (a) when another nested record is encountered or (b) a non-nested type has been reached.
+        # The actual emitting of a field happens when
+        #  (a) another nested record is encountered or
+        #  (b) a non-nested type has been reached or
+        #  (c) during the special-casing for unions.
         self._fields_stack.append(field)
         for sub_schema in self._get_sub_schemas(field):
             yield from self._to_mce_fields(sub_schema)
         self._fields_stack.pop()
+
+    def _gen_from_last_field(
+        self, schema_to_recurse: Optional[AvroNestedSchemas] = None
+    ) -> Generator[SchemaField, None, None]:
+        """Emits the field most-recent field, optionally triggering sub-schema generation under the field."""
+        last_field_schema = self._fields_stack[-1]
+        # Generate the custom-description for the field.
+        description = (
+            last_field_schema.doc
+            if last_field_schema.doc
+            else "No description available."
+        )
+        if last_field_schema.has_default:
+            description = (
+                f"{description}\nField default value: {last_field_schema.default}"
+            )
+
+        with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
+            last_field_schema, last_field_schema, self, description
+        ) as f_emit:
+            yield from f_emit.emit()
+
+            if schema_to_recurse is not None:
+                # Generate the nested sub-schemas under the most-recent field.
+                for sub_schema in self._get_sub_schemas(schema_to_recurse):
+                    yield from self._to_mce_fields(sub_schema)
 
     def _gen_from_non_field_nested_schemas(
         self, schema: AvroNestedSchemas
@@ -315,30 +341,24 @@ class AvroToMceSchemaConverter:
         with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
             schema, actual_schema, self
         ) as fe_schema:
-            # Emit non-AVRO field complex schemas(even optional unions that become primitives).
-            yield from fe_schema.emit()
+            if isinstance(
+                actual_schema,
+                (
+                    avro.schema.UnionSchema,
+                    avro.schema.PrimitiveSchema,
+                    avro.schema.FixedSchema,
+                    avro.schema.EnumSchema,
+                ),
+            ):
+                # Emit non-AVRO field complex schemas(even optional unions that become primitives) and special-casing for extra union emission.
+                yield from fe_schema.emit()
 
             if (
                 isinstance(actual_schema, avro.schema.RecordSchema)
                 and self._fields_stack
             ):
                 # We have encountered a nested record, emit the most-recently seen field.
-                last_field_schema = self._fields_stack[-1]
-                description = (
-                    last_field_schema.doc
-                    if last_field_schema.doc
-                    else "No description available."
-                )
-                if last_field_schema.has_default:
-                    description = f"{description}\nField default value: {last_field_schema.default}"
-                with AvroToMceSchemaConverter.SchemaFieldEmissionContextManager(
-                    last_field_schema, last_field_schema, self, description
-                ) as f_emit:
-                    yield from f_emit.emit()
-                    # Generate the nested sub-schemas under the most-recent field.
-                    if recurse:
-                        for sub_schema in self._get_sub_schemas(actual_schema):
-                            yield from self._to_mce_fields(sub_schema)
+                yield from self._gen_from_last_field(actual_schema if recurse else None)
             else:
                 # We are not yet in the context of any field. Generate all nested sub-schemas under the complex type.
                 if recurse:
