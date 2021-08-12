@@ -178,7 +178,7 @@ class AvroToMceSchemaConverter:
                         avro.schema.ArraySchema,
                         avro.schema.Field,
                         avro.schema.MapSchema,
-                        avro.schema.UnionSchema,
+                        #avro.schema.UnionSchema,
                         avro.schema.RecordSchema,
                     ),
                 )
@@ -214,6 +214,7 @@ class AvroToMceSchemaConverter:
                             schema, schema
                         )
                     )
+
                 # Emit the schema field provided in the Ctor.
                 description = self._description
                 if description is None:
@@ -316,7 +317,9 @@ class AvroToMceSchemaConverter:
             schema, actual_schema, self
         ) as fe_schema:
             # Emit non-AVRO field complex schemas(even optional unions that become primitives).
-            yield from fe_schema.emit()
+            #   yield from fe_schema.emit()
+            if isinstance(actual_schema, avro.schema.UnionSchema):
+                yield from fe_schema.emit()
 
             if (
                 isinstance(actual_schema, avro.schema.RecordSchema)
