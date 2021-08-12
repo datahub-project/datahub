@@ -337,7 +337,60 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 }'
 ```
 
-### Retrieving Entities 
+
+#### Soft Deleting an Entity
+
+DataHub uses a special "Status" aspect associated with each entity to represent the lifecycle state of an Entity.
+To soft delete an entire Entity, such that it no longer appears in the UI, you can use the special "Status" aspect.
+
+For example, to delete a particular chart:
+
+```
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.ChartSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.common.Status":{
+                     "removed": true
+                  }
+               }
+            ],
+            "urn":"urn:li:chart:(looker,baz1)"
+         }
+      }
+   }
+}'
+```
+
+To re-enable the Entity, you can make a similar request:
+
+```
+curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
+   "entity":{
+      "value":{
+         "com.linkedin.metadata.snapshot.ChartSnapshot":{
+            "aspects":[
+               {
+                  "com.linkedin.common.Status":{
+                     "removed": false
+                  }
+               }
+            ],
+            "urn":"urn:li:chart:(looker,baz1)"
+         }
+      }
+   }
+}'
+```
+
+To issue a hard delete, or undo a particular ingestion run, you can use the [DataHub CLI](../docs/how/delete-metadata.md). 
+
+*Note that soft deletes are coming soon to the DataHub CLI. 
+
+
+### Retrieving Entities
 
 The Entity Snapshot Get APIs allow to retrieve the latest version of each aspect associated with an Entity. 
 
