@@ -121,6 +121,12 @@ const hardcoded_titles = {
   "README.md": "Introduction",
   "docs/demo.md": "Demo",
 };
+// titles that have been hardcoded in sidebars.js
+// (for cases where doc is reference multiple times with different titles)
+const sidebarsjs_hardcoded_titles = [
+  "metadata-ingestion/README.md",
+  "metadata-ingestion/source_docs/s3.md",
+];
 const hardcoded_hide_title = ["README.md"];
 
 const hardcoded_descriptions = {
@@ -142,6 +148,10 @@ function markdown_guess_title(
   contents: matter.GrayMatterFile<string>,
   filepath: string
 ): void {
+  if (sidebarsjs_hardcoded_titles.includes(filepath)) {
+    return;
+  }
+
   if (contents.data.title) {
     contents.data.sidebar_label = contents.data.title;
     return;
