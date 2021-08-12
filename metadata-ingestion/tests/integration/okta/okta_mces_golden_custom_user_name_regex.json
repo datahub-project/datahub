@@ -68,7 +68,7 @@
                         "departmentName": null,
                         "firstName": "John",
                         "lastName": "Doe",
-                        "fullName": "JohnDoe",
+                        "fullName": "John Doe",
                         "countryCode": null
                     }
                 },
@@ -99,7 +99,7 @@
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
                         "active": true,
-                        "displayName": null,
+                        "displayName": "Mary Jane",
                         "email": "mary.jane@test.com",
                         "title": "Software Engineer",
                         "managerUrn": null,
@@ -107,7 +107,7 @@
                         "departmentName": "Engineering",
                         "firstName": "Mary",
                         "lastName": "Jane",
-                        "fullName": "MaryJane",
+                        "fullName": "Mary Jane",
                         "countryCode": "us"
                     }
                 },

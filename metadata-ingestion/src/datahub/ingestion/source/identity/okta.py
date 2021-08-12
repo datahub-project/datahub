@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 class OktaConfig(ConfigModel):
 
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
-    okta_domain = "dev-33231928.okta.com"
+    okta_domain = "dev-44231988.okta.com"
     # Required: An API token generated from Okta.
-    okta_api_token = "00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx51"
+    okta_api_token = "00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00"
 
     # Optional: Whether to ingest users, groups, or both.
     ingest_users: bool = True
@@ -358,12 +358,15 @@ class OktaSource(Source):
     def _map_okta_user_profile(self, profile: UserProfile) -> CorpUserInfoClass:
         # TODO: Extract user's manager if provided.
         # Source: https://developer.okta.com/docs/reference/api/users/#default-profile-properties
+        full_name = f"{profile.firstName} {profile.lastName}"
         return CorpUserInfoClass(
             active=True,
-            displayName=profile.displayName,
+            displayName=profile.displayName
+            if profile.displayName is not None
+            else full_name,
             firstName=profile.firstName,
             lastName=profile.lastName,
-            fullName=profile.firstName + profile.lastName,
+            fullName=full_name,
             email=profile.email,
             title=profile.title,
             countryCode=profile.countryCode,
