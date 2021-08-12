@@ -217,12 +217,6 @@ public abstract class EntityService {
     }
 
     _producer.produceMetadataAuditEvent(urn, oldSnapshot, newSnapshot, oldSystemMetadata, newSystemMetadata, operation);
-
-    // 4.1 Produce aspect specific MAE after a successful update
-    if (_emitAspectSpecificAuditEvent) {
-      _producer.produceAspectSpecificMetadataAuditEvent(urn, oldAspectValue, newAspectValue, oldSystemMetadata,
-          newSystemMetadata, operation);
-    }
   }
 
   /**

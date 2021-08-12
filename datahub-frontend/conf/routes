@@ -7,36 +7,7 @@
 GET           /                                                               controllers.Application.index(path="index.html")
 
 GET           /admin                                                          controllers.Application.healthcheck()
-POST          /authenticate                                                   controllers.Application.authenticate()
 GET           /config                                                         controllers.Application.appConfig()
-GET           /deps                                                           controllers.Application.printDeps()
-GET           /login                                                          controllers.Application.login()
-GET           /logout                                                         controllers.Application.logout()
-
-GET           /api/v1/owner/types                                             controllers.api.v1.Dataset.getDatasetOwnerTypes()
-GET           /api/v1/party/employees                                         controllers.api.v1.User.getAllCompanyUsers()
-GET           /api/v1/party/entities                                          controllers.api.v1.User.getAllUserEntities()
-GET           /api/v1/party/groups                                            controllers.api.v1.User.getAllGroups()
-GET           /api/v1/user/me                                                 controllers.api.v1.User.getLoggedInUser()
-
-GET           /api/v2/autocomplete                                            controllers.api.v2.Search.autoComplete()
-GET           /api/v2/browse                                                  controllers.api.v2.Browse.browse()
-GET           /api/v2/browsePaths                                             controllers.api.v2.Browse.getBrowsePaths()
-GET           /api/v2/corpusers/:urn                                          controllers.api.v2.CorpUser.getCorpUser(urn: String)
-POST          /api/v2/corpusers/:urn/editableInfo                             controllers.api.v2.CorpUser.updateCorpUserEditableInfo(urn: String)
-GET           /api/v2/datasets/:urn                                           controllers.api.v2.Dataset.getDataset(urn: String)
-PUT           /api/v2/datasets/:urn/deprecate                                 controllers.api.v2.Dataset.updateDatasetDeprecation(urn: String)
-GET           /api/v2/datasets/:urn/downstreams                               controllers.api.v2.Dataset.getDatasetDownstreams(urn: String)
-GET           /api/v2/datasets/:urn/institutionalmemory                       controllers.api.v2.Dataset.getInstitutionalMemory(urn: String)
-POST          /api/v2/datasets/:urn/institutionalmemory                       controllers.api.v2.Dataset.updateInstitutionalMemory(urn: String)
-GET           /api/v2/datasets/:urn/owners                                    controllers.api.v2.Dataset.getDatasetOwners(urn: String)
-POST          /api/v2/datasets/:urn/owners                                    controllers.api.v2.Dataset.updateDatasetOwners(urn: String)
-GET           /api/v2/datasets/:urn/owners/suggestion                         controllers.api.v2.Dataset.getDatasetSuggestedOwners(urn: String)
-GET           /api/v2/datasets/:urn/schema                                    controllers.api.v2.Dataset.getDatasetSchema(urn: String)
-GET           /api/v2/datasets/:urn/snapshot                                  controllers.api.v2.Dataset.getDatasetSnapshot(urn: String)
-GET           /api/v2/datasets/:urn/upstreams                                 controllers.api.v2.Dataset.getDatasetUpstreams(urn: String)
-GET           /api/v2/list/platforms                                          controllers.api.v2.Dataset.getDataPlatforms
-GET           /api/v2/search                                                  controllers.api.v2.Search.search()
 
 # Routes used exclusively by the React application.
 

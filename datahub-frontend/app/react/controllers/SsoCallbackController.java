@@ -10,6 +10,7 @@ import org.pac4j.core.http.adapter.HttpActionAdapter;
 import org.pac4j.play.CallbackController;
 import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
+import react.auth.sso.oidc.OidcResponseErrorHandler;
 import react.auth.sso.oidc.OidcCallbackLogic;
 import react.auth.sso.SsoManager;
 import react.auth.sso.SsoProvider;
@@ -49,6 +50,9 @@ public class SsoCallbackController extends CallbackController {
         HttpActionAdapter<Result, PlayWebContext> httpActionAdapter, String defaultUrl, Boolean saveInSession,
         Boolean multiProfile, Boolean renewSession, String defaultClient) {
       if (SsoProvider.SsoProtocol.OIDC.equals(_ssoManager.getSsoProvider().protocol())) {
+        if (OidcResponseErrorHandler.isError(context)) {
+          return OidcResponseErrorHandler.handleError(context);
+        }
         return _oidcCallbackLogic.perform(context, config, httpActionAdapter, defaultUrl, saveInSession, multiProfile, renewSession, defaultClient);
       }
       // Should never occur.

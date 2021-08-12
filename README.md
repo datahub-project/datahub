@@ -53,7 +53,7 @@ HOSTED_DOCS_ONLY-->
 
 ---
 
-> 📣 Next DataHub town hall meeting on Jul 23rd, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
+> 📣 Next DataHub town hall meeting on Aug 27th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 >
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
 > - Signup to get a calendar invite: [here](https://docs.google.com/forms/d/1r9bObXKS3tgKpISqqO3rw4yQog5zwuaFxg8IrJGUbvQ/)
@@ -62,10 +62,9 @@ HOSTED_DOCS_ONLY-->
 
 > ✨ Latest Update:
 >
-> - Monthly project update: [May 2021 Edition](https://medium.com/datahub-project/linkedin-datahub-project-updates-ed98cdf913c1?source=friends_link&sk=9930ec5579299b155ea87c747683d1ad).
+> - Monthly project update: [June 2021 Edition](https://medium.com/datahub-project/datahub-project-updates-ed3155476408?source=friends_link&sk=02816a16ff2acd688e6db8eb55808d31).
 > - Unleashing Excellent DataOps with LinkedIn DataHub: [DataOps Unleashed Talk](https://www.youtube.com/watch?v=ccsIKK9nVxk).
 > - Latest blog post [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog.
-> - We've released v0.8.3. You can find release notes [here](https://github.com/linkedin/datahub/releases/tag/v0.8.3)
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
 
 ## Introduction

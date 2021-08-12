@@ -63,7 +63,8 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "city",
@@ -78,7 +79,8 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "is_latest",
@@ -93,7 +95,8 @@
                                 "nativeDataType": "yesno",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "timestamp",
@@ -108,7 +111,8 @@
                                 "nativeDataType": "time",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "average_measurement",
@@ -123,7 +127,8 @@
                                 "nativeDataType": "average",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": [],
@@ -269,7 +274,8 @@
                                 "nativeDataType": "count",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": [],

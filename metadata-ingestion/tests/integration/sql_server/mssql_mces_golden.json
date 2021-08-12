@@ -43,7 +43,8 @@
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "ProductName",
@@ -58,7 +59,8 @@
                                 "nativeDataType": "NVARCHAR()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": null,
@@ -119,7 +121,8 @@
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "ItemName",
@@ -134,7 +137,8 @@
                                 "nativeDataType": "NVARCHAR()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": null,

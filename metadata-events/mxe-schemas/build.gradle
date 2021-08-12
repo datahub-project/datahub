@@ -5,12 +5,7 @@ dependencies {
   dataModel project(path: ':li-utils', configuration: 'dataTemplate')
 }
 
-task copyGeneratedPdl(type: Copy, dependsOn: ':metadata-models-ext:build') {
-  from("../../metadata-models-ext/src/mainGeneratedPdl/pegasus/com/linkedin/mxe")
-  into file("src/main/pegasus/com/linkedin/mxe")
-}
-
-task copyMetadataModels(type: Copy, dependsOn: copyGeneratedPdl) {
+task copyMetadataModels(type: Copy) {
   from("../../metadata-models/src/main/pegasus/")
   into file("src/main/pegasus")
 }

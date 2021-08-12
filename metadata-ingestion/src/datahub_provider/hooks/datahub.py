@@ -60,12 +60,13 @@ class DatahubRestHook(BaseHook):
             },
         }
 
-    def _get_config(self) -> Tuple[str, Optional[str]]:
+    def _get_config(self) -> Tuple[str, Optional[str], Optional[int]]:
         conn = self.get_connection(self.datahub_rest_conn_id)
         host = conn.host
         if host is None:
             raise AirflowException("host parameter is required")
-        return (host, conn.password)
+        timeout_sec = conn.extra_dejson.get("timeout_sec")
+        return (host, conn.password, timeout_sec)
 
     def make_emitter(self) -> "DatahubRestEmitter":
         import datahub.emitter.rest_emitter

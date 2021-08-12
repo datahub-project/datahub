@@ -52,9 +52,11 @@ def test_serde_to_json(
     pipeline.run()
     pipeline.raise_from_status()
 
-    output = mce_helpers.load_json_file(tmp_path / output_filename)
-    golden = mce_helpers.load_json_file(golden_file)
-    assert golden == output
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/{output_filename}",
+        golden_path=golden_file,
+    )
 
 
 @pytest.mark.parametrize(
