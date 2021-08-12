@@ -17,14 +17,14 @@ import react.auth.sso.SsoProvider;
  * It is responsible for initializing this client from a configuration object ({@link OidcConfigs}. Note that
  * this class is not related to the logic performed when an IdP performs a callback to DataHub.
  */
-public class OidcClientProvider implements SsoProvider<OidcConfigs> {
+public class OidcProvider implements SsoProvider<OidcConfigs> {
 
   private static final String OIDC_CLIENT_NAME = "oidc";
 
   private final OidcConfigs _oidcConfigs;
   private final Client<OidcCredentials, OidcProfile> _oidcClient; // Used primarily for redirecting to IdP.
 
-  public OidcClientProvider(final OidcConfigs configs) {
+  public OidcProvider(final OidcConfigs configs) {
     _oidcConfigs = configs;
     _oidcClient = createPac4jClient();
   }

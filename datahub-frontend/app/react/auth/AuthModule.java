@@ -14,7 +14,7 @@ import play.Environment;
 
 import java.util.ArrayList;
 import java.util.List;
-import react.auth.sso.oidc.OidcClientProvider;
+import react.auth.sso.oidc.OidcProvider;
 import react.auth.sso.oidc.OidcConfigs;
 import react.auth.sso.SsoConfigs;
 import react.auth.sso.SsoManager;
@@ -71,7 +71,7 @@ public class AuthModule extends AbstractModule {
             if (ssoConfigs.isOidcEnabled()) {
                 // Register OIDC Provider, add to list of managers.
                 OidcConfigs oidcConfigs = new OidcConfigs(_configs);
-                OidcClientProvider oidcProvider = new OidcClientProvider(oidcConfigs);
+                OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
                 // Set the default SSO provider to this OIDC client.
                 manager.setSsoProvider(oidcProvider);
             }
