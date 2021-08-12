@@ -1,5 +1,4 @@
-const ARRAY_TOKEN = '[type=array]';
-const UNION_TOKEN = '[type=union]';
+import { ARRAY_TOKEN, UNION_TOKEN } from './constants';
 
 export default function translateFieldPathSegment(fieldPathSegment, i, fieldPathParts) {
     // for each segment, convert its fieldPath representation into a human readable version
