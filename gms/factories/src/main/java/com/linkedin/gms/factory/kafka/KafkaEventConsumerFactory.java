@@ -3,14 +3,11 @@ package com.linkedin.gms.factory.kafka;
 import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
-import io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.IndexedRecord;
-import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -24,6 +21,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+
 
 @Slf4j
 @Configuration
