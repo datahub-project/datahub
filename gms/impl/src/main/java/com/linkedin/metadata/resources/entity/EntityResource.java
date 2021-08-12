@@ -45,7 +45,6 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
-import static com.linkedin.metadata.entity.EntityService.*;
 import static com.linkedin.metadata.resources.ResourceUtils.*;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_AUTOCOMPLETE;
 import static com.linkedin.metadata.restli.RestliConstants.ACTION_BROWSE;

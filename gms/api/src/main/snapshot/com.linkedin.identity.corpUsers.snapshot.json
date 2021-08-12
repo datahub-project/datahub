@@ -93,7 +93,7 @@
     "type" : "record",
     "name" : "Status",
     "namespace" : "com.linkedin.common",
-    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
     "fields" : [ {
       "name" : "removed",
       "type" : "boolean",
@@ -300,6 +300,27 @@
       }
     } ]
   }, {
+    "type" : "record",
+    "name" : "GroupMembership",
+    "namespace" : "com.linkedin.identity",
+    "doc" : "Carries information about the CorpGroups a user is in.",
+    "fields" : [ {
+      "name" : "groups",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "corpGroup" ],
+          "name" : "IsMemberOfGroup"
+        }
+      }
+    } ],
+    "Aspect" : {
+      "name" : "groupMembership"
+    }
+  }, {
     "type" : "typeref",
     "name" : "CorpUserAspect",
     "namespace" : "com.linkedin.metadata.aspect",
@@ -323,7 +344,7 @@
       "Aspect" : {
         "name" : "corpUserKey"
       }
-    }, "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
+    }, "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.GroupMembership", "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
   }, "com.linkedin.metadata.key.CorpUserKey", {
     "type" : "record",
     "name" : "AggregationMetadata",

@@ -760,6 +760,8 @@ type SchemaField {
     Glossary terms associated with the field
     """
     glossaryTerms: GlossaryTerms
+
+    isPartOfKey: Boolean
 }
 
 type EditableSchemaMetadata {

@@ -69,4 +69,10 @@ record SchemaField {
    * Glossary terms associated with the field
    */
   glossaryTerms: optional GlossaryTerms
+
+  /**
+   * For schema fields that are part of complex keys, set this field to true
+   * We do this to easily distinguish between value and key fields
+   */
+  isPartOfKey: boolean = false
 }

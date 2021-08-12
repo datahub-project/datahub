@@ -7,9 +7,11 @@
 from .....schema_classes import CorpGroupInfoClass
 from .....schema_classes import CorpUserEditableInfoClass
 from .....schema_classes import CorpUserInfoClass
+from .....schema_classes import GroupMembershipClass
 
 
 CorpGroupInfo = CorpGroupInfoClass
 CorpUserEditableInfo = CorpUserEditableInfoClass
 CorpUserInfo = CorpUserInfoClass
+GroupMembership = GroupMembershipClass
 # fmt: on
