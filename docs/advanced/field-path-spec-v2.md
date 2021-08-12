@@ -14,7 +14,6 @@ usage stats and data profiles. Therefore, it must satisfy the following requirem
 
 * must be unique across all fields within a schema.
 * make schema navigation in the UI more intuitive.
-* allow for capturing and editing documentation of intermediate structs/records leading to a filed, and not just fields.
 * allow for identifying the type of schema the field is part of, such as a `key-schema` or a `value-schema`.
 * allow for future-evolution
 
@@ -49,7 +48,8 @@ the record type `A` or `B`.
 The syntax for V2 encoding of the `fieldPath` is captured in the following grammar. The `FieldPathSpec` is essentially
 the type annotated path of the member, with each token along the path representing one level of nested member,
 starting from the most-enclosing type, leading up to the member. In the case of `unions` that have `one-of` semantics,
-the corresponding field will be emitted once for each `member` of the union as its `type`.
+the corresponding field will be emitted once for each `member` of the union as its `type`, along with one path
+corresponding to the `union` itself.
 
 ### Formal Spec:
 
@@ -58,9 +58,8 @@ the corresponding field will be emitted once for each `member` of the union as i
                    | <VersionToken>.<FieldPathSpec> // when part of a value schema
 <VersionToken> := [version=<VersionId>] // [version=2.0] for v2
 <PartOfKeySchemaToken> := [key=True]  // when part of a key schema
-<FieldPathSpec> := <PathTokenPrefix>+  // this is the type prefixed path upto the intermediate type or a field.
-<PathTokenPrefix> := <TypePrefixToken> | <FieldToken> // intermeidate type, or a field
-<FieldToken> := <TypePrefixToken>.<name_of_the_field> // type of field + field name
+<FieldPathSpec> := <FieldToken>+  // this is the type prefixed path field (nested if repeats).
+<FieldToken> := <TypePrefixToken>.<name_of_the_field> // type prefixed path of a field.
 <TypePrefixToken> := <NestedTypePrefixToken>.<SimpleTypeToken> | <SimpleTypeToken>
 <NestedTypePrefixToken> := [type=<NestedType>]
 <SimpleTypeToken> := [type=<SimpleType>]
@@ -68,16 +67,12 @@ the corresponding field will be emitted once for each `member` of the union as i
 <SimpleType> := int | float | double | string | fixed | enum
 ```
 
-For the [example above](#example-ambiguous-field-path), this encoding would produce the following 5 unique field paths.
-Notice that there are 3 unique paths corresponding to the `union`, record `A`, and record `B` intermediate types, and 2
-unique paths corresponding to the `A.f` and `B.f` fields.
+For the [example above](#example-ambiguous-field-path), this encoding would produce the following 2 unique paths
+corresponding to the `A.f` and `B.f` fields.
 
 ```python
 unique_v2_field_paths = [
- "[version=2.0].[type=union]",
- "[version=2.0].[type=union].[type=A]",
  "[version=2.0].[type=union].[type=A].[type=string].f",
- "[version=2.0].[type=union].[type=B]",
  "[version=2.0].[type=union].[type=B].[type=string].f"
 ]
 ```
@@ -86,9 +81,8 @@ NOTE:
 
 - this encoding always ensures uniqueness within a schema since the full type annotation leading to a field is encoded
   in the fieldPath itself.
-- field paths that end with an intermediate type allow us to capture details at record/struct level as well, in addition
-  to the fields themselves.
-- processing a fieldPath, such as from UI, gets simplified simply by walking each token along the path from left-to-right.
+- processing a fieldPath, such as from UI, gets simplified simply by walking each token along the path from
+  left-to-right.
 - adding PartOfKeySchemaToken allows for identifying if the field is part of key-schema.
 - adding VersionToken allows for future evolvability.
 - to represent `optional` fields, which sometimes are modeled as `unions` in formats like `Avro`, instead of treating it
@@ -133,7 +127,6 @@ avro_schema = """
 """
 
 unique_v2_field_paths = [
-    "[version=2.0].[type=E]", # this is the record E itself that we can maintain documentation for!
     "[version=2.0].[type=E].[type=string].a",
     "[version=2.0].[type=E].[type=string].b",
 ]
@@ -160,8 +153,6 @@ avro_schema = """
 """
 
 unique_v2_field_paths = [
-  "[version=2.0].[key=True].[type=SimpleNested]",
-  "[version=2.0].[key=True].[type=SimpleNested].[type=InnerRcd]",
   "[version=2.0].[key=True].[type=SimpleNested].[type=InnerRcd].nestedRcd",
   "[version=2.0].[key=True].[type=SimpleNested].[type=InnerRcd].nestedRcd.[type=string].aStringField",
 ]
@@ -189,11 +180,8 @@ avro_schema = """
 """
 
 unique_v2_field_paths = [
-  "[version=2.0].[type=Recursive]",
-  "[version=2.0].[type=Recursive].[type=R]",
   "[version=2.0].[type=Recursive].[type=R].r",
   "[version=2.0].[type=Recursive].[type=R].r.[type=int].anIntegerField",
-  "[version=2.0].[type=Recursive].[type=R].r.[type=R]",
   "[version=2.0].[type=Recursive].[type=R].r.[type=R].aRecursiveField"
 ]
 ```
@@ -216,10 +204,7 @@ avro_schema ="""
 }
 """
 unique_v2_field_paths = [
- "[version=2.0].[type=TreeNode]",
  "[version=2.0].[type=TreeNode].[type=long].value",
- "[version=2.0].[type=TreeNode].[type=array]",
- "[version=2.0].[type=TreeNode].[type=array].[type=TreeNode]",
  "[version=2.0].[type=TreeNode].[type=array].[type=TreeNode].children",
 ]
 ```
@@ -246,14 +231,11 @@ avro_schema = """
 }
 """
 unique_v2_field_paths: List[str] = [
-    "[version=2.0].[key=True].[type=ABFooUnion]",
-    "[version=2.0].[key=True].[type=ABFooUnion].[type=union]",
-    "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=A]",
-    "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=A].a",
-    "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=A].a.[type=string].f",
-    "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=B]",
-    "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=B].a",
-    "[version=2.0].[key=True].[type=ABFooUnion].[type=union].[type=B].a.[type=string].f",
+    "[version=2.0].[key=True].[type=ABUnion].[type=union].a",
+    "[version=2.0].[key=True].[type=ABUnion].[type=union].[type=A].a",
+    "[version=2.0].[key=True].[type=ABUnion].[type=union].[type=A].a.[type=string].f",
+    "[version=2.0].[key=True].[type=ABUnion].[type=union].[type=B].a",
+    "[version=2.0].[key=True].[type=ABUnion].[type=union].[type=B].a.[type=string].f",
 ]
 ```
 ### Arrays
@@ -286,10 +268,6 @@ avro_schema = """
 }
 """
 unique_v2_field_paths: List[str] = [
-  "[version=2.0].[type=NestedArray]",
-  "[version=2.0].[type=NestedArray].[type=array]",
-  "[version=2.0].[type=NestedArray].[type=array].[type=array]",
-  "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo]",
   "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar",
   "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar.[type=long].a",
 ]
@@ -313,8 +291,6 @@ avro_schema = """
 }
 """
 unique_v2_field_paths = [
-  "[version=2.0].[type=R]",
-  "[version=2.0].[type=R].[type=map]",
   "[version=2.0].[type=R].[type=map].[type=long].a_map_of_longs_field",
 ]
 
@@ -357,25 +333,18 @@ avro_schema = """
 """
 
 unique_v2_field_paths: List[str] = [
-  "[version=2.0].[type=ABFooUnion]",
-  "[version=2.0].[type=ABFooUnion].[type=union]",
-  "[version=2.0].[type=ABFooUnion].[type=union].[type=A]",
+  "[version=2.0].[type=ABFooUnion].[type=union].a",
   "[version=2.0].[type=ABFooUnion].[type=union].[type=A].a",
   "[version=2.0].[type=ABFooUnion].[type=union].[type=A].a.[type=string].f",
-  "[version=2.0].[type=ABFooUnion].[type=union].[type=B]",
   "[version=2.0].[type=ABFooUnion].[type=union].[type=B].a",
   "[version=2.0].[type=ABFooUnion].[type=union].[type=B].a.[type=string].f",
-  "[version=2.0].[type=ABFooUnion].[type=union].[type=array]",
-  "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array]",
-  "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo]",
   "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a",
   "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=long].f",
 ]
 ```
 
 For more examples, see
-the [unit-tests for AvroToMceSchemaConverter](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/tests/unit/test_schema_util.py)
-.
+the [unit-tests for AvroToMceSchemaConverter](https://github.com/linkedin/datahub/blob/master/metadata-ingestion/tests/unit/test_schema_util.py).
 
 ### Backward-compatibility
 
