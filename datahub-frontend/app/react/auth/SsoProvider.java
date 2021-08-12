@@ -9,8 +9,19 @@ public interface SsoProvider<C extends SsoConfigs> {
    * The protocol used for SSO.
    */
   enum SsoProtocol {
-    OIDC,
+    OIDC("oidc");
     // SAML -- not yet supported.
+
+    // Common name appears in the Callback URL itself.
+    private final String _commonName;
+
+    public String getCommonName() {
+      return _commonName;
+    }
+
+    SsoProtocol(String commonName) {
+      _commonName = commonName;
+    }
   }
 
   C configs();

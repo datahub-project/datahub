@@ -14,7 +14,7 @@ import play.Environment;
 
 import java.util.ArrayList;
 import java.util.List;
-import react.controllers.OidcCallbackController;
+import react.controllers.SsoCallbackController;
 
 import static react.auth.OidcConfigs.*;
 
@@ -36,9 +36,11 @@ public class AuthModule extends AbstractModule {
         bind(SessionStore.class).toInstance(playCacheCookieStore);
         bind(PlaySessionStore.class).toInstance(playCacheCookieStore);
 
-        // Configure Oidc Callback Controller
-        final OidcCallbackController oidcController = new OidcCallbackController();
-        bind(OidcCallbackController.class).toInstance(oidcController);
+        try {
+            bind(SsoCallbackController.class).toConstructor(SsoCallbackController.class.getConstructor(SsoManager.class));
+        } catch (NoSuchMethodException | SecurityException e) {
+            System.out.println("Required constructor missing");
+        }
     }
 
     @Provides @Singleton
@@ -46,7 +48,7 @@ public class AuthModule extends AbstractModule {
         if (ssoManager.isSsoEnabled()) {
             final Clients clients = new Clients();
             final List<Client> clientList = new ArrayList<>();
-            clientList.add(SsoManager.instance().getSsoProvider().client());
+            clientList.add(ssoManager.getSsoProvider().client());
             clients.setClients(clientList);
             final Config config = new Config(clients);
             config.setHttpActionAdapter(new PlayHttpActionAdapter());

@@ -23,7 +23,8 @@ public class OidcConfigs extends SsoConfigs {
     public static final String OIDC_SCOPE_CONFIG_PATH = "auth.oidc.scope";
     public static final String OIDC_CLIENT_NAME_CONFIG_PATH = "auth.oidc.clientName";
     public static final String OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH = "auth.oidc.clientAuthenticationMethod";
-    public static final String OIDC_JIT_USER_PROVISIONING_ENABLED_CONFIG_PATH = "auth.oidc.jitUserProvisioningEnabled";
+    public static final String OIDC_JIT_PROVISIONING_ENABLED_CONFIG_PATH = "auth.oidc.jitProvisioningEnabled";
+    public static final String OIDC_PRE_PROVISIONING_REQUIRED_CONFIG_PATH = "auth.oidc.preProvisioningRequired";
     public static final String OIDC_EXTRACT_GROUPS_ENABLED = "auth.oidc.extractGroupsEnabled";
     public static final String OIDC_GROUPS_CLAIM_CONFIG_PATH_CONFIG_PATH = "auth.oidc.groupsClaim"; // Claim expected to be an array of group names.
 
@@ -32,10 +33,11 @@ public class OidcConfigs extends SsoConfigs {
      */
     private static final String DEFAULT_OIDC_USERNAME_CLAIM = "preferred_username";
     private static final String DEFAULT_OIDC_USERNAME_CLAIM_REGEX = "(.*)";
-    private static final String DEFAULT_OIDC_SCOPE = "openid profile email";
+    private static final String DEFAULT_OIDC_SCOPE = "openid profile email"; // Often "group" must be included for groups.
     private static final String DEFAULT_OIDC_CLIENT_NAME = "oidc";
     private static final String DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD = "client_secret_basic";
-    private static final String DEFAULT_OIDC_JIT_USER_PROVISIONING_ENABLED = "true";
+    private static final String DEFAULT_OIDC_JIT_PROVISIONING_ENABLED = "true";
+    private static final String DEFAULT_OIDC_PRE_PROVISIONING_REQUIRED = "false";
     private static final String DEFAULT_OIDC_EXTRACT_GROUPS_ENABLED = "true";
     private static final String DEFAULT_OIDC_GROUPS_CLAIM = "groups";
 
@@ -48,6 +50,7 @@ public class OidcConfigs extends SsoConfigs {
     private String _clientName;
     private String _clientAuthenticationMethod;
     private boolean _jitProvisioningEnabled;
+    private boolean _preProvisioningRequired;
     private boolean _extractGroupsEnabled;
     private String _groupsClaimName;
 
@@ -64,15 +67,20 @@ public class OidcConfigs extends SsoConfigs {
         _clientAuthenticationMethod = getOptional(configs, OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH,
             DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD);
         _jitProvisioningEnabled = Boolean.parseBoolean(
-            getOptional(configs, OIDC_JIT_USER_PROVISIONING_ENABLED_CONFIG_PATH,
-                DEFAULT_OIDC_JIT_USER_PROVISIONING_ENABLED));
+            getOptional(configs, OIDC_JIT_PROVISIONING_ENABLED_CONFIG_PATH, DEFAULT_OIDC_JIT_PROVISIONING_ENABLED));
+        _preProvisioningRequired = Boolean.parseBoolean(
+            getOptional(configs, OIDC_PRE_PROVISIONING_REQUIRED_CONFIG_PATH, DEFAULT_OIDC_PRE_PROVISIONING_REQUIRED));
         _extractGroupsEnabled = Boolean.parseBoolean(
             getOptional(configs, OIDC_EXTRACT_GROUPS_ENABLED, DEFAULT_OIDC_EXTRACT_GROUPS_ENABLED));
         _groupsClaimName = getOptional(configs, OIDC_GROUPS_CLAIM_CONFIG_PATH_CONFIG_PATH, DEFAULT_OIDC_GROUPS_CLAIM);
     }
 
-    public boolean isJitUserProvisioningEnabled() {
+    public boolean isJitProvisioningEnabled() {
         return _jitProvisioningEnabled;
+    }
+
+    public boolean isPreProvisioningRequired() {
+        return _preProvisioningRequired;
     }
 
     public String getClientId() {

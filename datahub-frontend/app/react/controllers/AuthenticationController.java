@@ -21,7 +21,6 @@ import play.mvc.Http;
 import play.mvc.Result;
 import react.auth.AuthUtils;
 import react.auth.JAASConfigs;
-import react.auth.OidcConfigs;
 import react.auth.SsoManager;
 import security.AuthenticationManager;
 
@@ -34,13 +33,13 @@ import java.time.temporal.ChronoUnit;
 
 import static react.auth.AuthUtils.*;
 
+// TODO add logging.
 public class AuthenticationController extends Controller {
 
     private static final String AUTH_REDIRECT_URI_PARAM = "redirect_uri";
 
     private final Logger _logger = LoggerFactory.getLogger(AuthenticationController.class.getName());
     private final Config _configs;
-    private final OidcConfigs _oidcConfigs;
     private final JAASConfigs _jaasConfigs;
 
     @Inject
@@ -55,7 +54,6 @@ public class AuthenticationController extends Controller {
     @Inject
     public AuthenticationController(@Nonnull Config configs) {
         _configs = configs;
-        _oidcConfigs = new OidcConfigs(configs);
         _jaasConfigs = new JAASConfigs(configs);
     }
 

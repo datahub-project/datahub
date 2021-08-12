@@ -11,21 +11,10 @@ import javax.annotation.Nonnull;
  */
 public class SsoManager {
 
-  // Singleton instance of the SsoManager.
-  private static final SsoManager _instance = new SsoManager();
-
   // The active SSO provider. There can only be 1 registered.
   private SsoProvider<?> _provider;
 
   public SsoManager() { }
-
-  /**
-   * Returns a singleton instance of the {@link SsoManager} serving as the source
-   * of truth for SSO related logic, but on the authentication and callback paths.
-   */
-  public static SsoManager instance() {
-    return _instance;
-  }
 
   /**
    * Returns true if SSO is enabled, meaning a non-null {@link SsoProvider} has been
