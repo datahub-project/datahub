@@ -8,12 +8,13 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
 
+import java.util.List;
 import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
 
-public class Relationships extends BaseClient {
+public class RelationshipClient extends BaseClient {
 
-    public Relationships(@Nonnull Client restliClient) {
+    public RelationshipClient(@Nonnull Client restliClient) {
         super(restliClient);
     }
     private static final RelationshipsRequestBuilders RELATIONSHIPS_REQUEST_BUILDERS =
@@ -23,7 +24,7 @@ public class Relationships extends BaseClient {
      * Gets a specific version of downstream {@link EntityRelationships} for the given dataset.
      */
     @Nonnull
-    public EntityRelationships getRelationships(@Nonnull String rawUrn, @Nonnull RelationshipDirection direction, @Nonnull String types)
+    public EntityRelationships getRelationships(@Nonnull String rawUrn, @Nonnull RelationshipDirection direction, @Nonnull List<String> types)
             throws RemoteInvocationException, URISyntaxException {
 
         final GetRequest<EntityRelationships> request = RELATIONSHIPS_REQUEST_BUILDERS.get()
