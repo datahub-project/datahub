@@ -1380,7 +1380,8 @@ class OwnershipTypeClass(object):
     
     
 class StatusClass(DictWrapper):
-    """The status metadata of an entity, e.g. dataset, metric, feature, etc."""
+    """The status metadata of an entity, e.g. dataset, metric, feature, etc.
+    This aspect is used to represent soft deletes conventionally."""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.Status")
     def __init__(self,
@@ -3534,17 +3535,21 @@ class CorpGroupInfoClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.CorpGroupInfo")
     def __init__(self,
-        email: str,
         admins: List[str],
         members: List[str],
         groups: List[str],
+        displayName: Union[None, str]=None,
+        email: Union[None, str]=None,
+        description: Union[None, str]=None,
     ):
         super().__init__()
         
+        self.displayName = displayName
         self.email = email
         self.admins = admins
         self.members = members
         self.groups = groups
+        self.description = description
     
     @classmethod
     def construct_with_defaults(cls) -> "CorpGroupInfoClass":
@@ -3554,19 +3559,32 @@ class CorpGroupInfoClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.email = str()
+        self.displayName = self.RECORD_SCHEMA.field_map["displayName"].default
+        self.email = self.RECORD_SCHEMA.field_map["email"].default
         self.admins = list()
         self.members = list()
         self.groups = list()
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
     
     
     @property
-    def email(self) -> str:
+    def displayName(self) -> Union[None, str]:
+        """Getter: The name to use when displaying the group."""
+        return self._inner_dict.get('displayName')  # type: ignore
+    
+    @displayName.setter
+    def displayName(self, value: Union[None, str]) -> None:
+        """Setter: The name to use when displaying the group."""
+        self._inner_dict['displayName'] = value
+    
+    
+    @property
+    def email(self) -> Union[None, str]:
         """Getter: email of this group"""
         return self._inner_dict.get('email')  # type: ignore
     
     @email.setter
-    def email(self, value: str) -> None:
+    def email(self, value: Union[None, str]) -> None:
         """Setter: email of this group"""
         self._inner_dict['email'] = value
     
@@ -3602,6 +3620,17 @@ class CorpGroupInfoClass(DictWrapper):
     def groups(self, value: List[str]) -> None:
         """Setter: List of groups in this group."""
         self._inner_dict['groups'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Getter: A description of the group."""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        """Setter: A description of the group."""
+        self._inner_dict['description'] = value
     
     
 class CorpUserEditableInfoClass(DictWrapper):
@@ -3864,6 +3893,39 @@ class CorpUserInfoClass(DictWrapper):
         self._inner_dict['countryCode'] = value
     
     
+class GroupMembershipClass(DictWrapper):
+    """Carries information about the CorpGroups a user is in."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.GroupMembership")
+    def __init__(self,
+        groups: List[str],
+    ):
+        super().__init__()
+        
+        self.groups = groups
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "GroupMembershipClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.groups = list()
+    
+    
+    @property
+    def groups(self) -> List[str]:
+        # No docs available.
+        return self._inner_dict.get('groups')  # type: ignore
+    
+    @groups.setter
+    def groups(self, value: List[str]) -> None:
+        # No docs available.
+        self._inner_dict['groups'] = value
+    
+    
 class ChartKeyClass(DictWrapper):
     """Key for a Chart"""
     
@@ -3935,12 +3997,12 @@ class CorpGroupKeyClass(DictWrapper):
     
     @property
     def name(self) -> str:
-        """Getter: The name of the AD/LDAP group."""
+        """Getter: The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."""
         return self._inner_dict.get('name')  # type: ignore
     
     @name.setter
     def name(self, value: str) -> None:
-        """Setter: The name of the AD/LDAP group."""
+        """Setter: The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."""
         self._inner_dict['name'] = value
     
     
@@ -4812,7 +4874,7 @@ class CorpUserSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass", "StatusClass"]],
+        aspects: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]],
     ):
         super().__init__()
         
@@ -4843,12 +4905,12 @@ class CorpUserSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass", "StatusClass"]]:
+    def aspects(self) -> List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]]:
         """Getter: The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     @aspects.setter
-    def aspects(self, value: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass", "StatusClass"]]) -> None:
+    def aspects(self, value: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -9189,6 +9251,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.identity.CorpGroupInfo': CorpGroupInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpUserEditableInfo': CorpUserEditableInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpUserInfo': CorpUserInfoClass,
+    'com.linkedin.pegasus2avro.identity.GroupMembership': GroupMembershipClass,
     'com.linkedin.pegasus2avro.metadata.key.ChartKey': ChartKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.CorpGroupKey': CorpGroupKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.CorpUserKey': CorpUserKeyClass,
@@ -9353,6 +9416,7 @@ __SCHEMA_TYPES = {
     'CorpGroupInfo': CorpGroupInfoClass,
     'CorpUserEditableInfo': CorpUserEditableInfoClass,
     'CorpUserInfo': CorpUserInfoClass,
+    'GroupMembership': GroupMembershipClass,
     'ChartKey': ChartKeyClass,
     'CorpGroupKey': CorpGroupKeyClass,
     'CorpUserKey': CorpUserKeyClass,

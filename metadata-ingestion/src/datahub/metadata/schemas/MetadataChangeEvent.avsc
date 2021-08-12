@@ -592,7 +592,7 @@
                     "type": "record",
                     "name": "Status",
                     "namespace": "com.linkedin.pegasus2avro.common",
-                    "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+                    "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
                     "fields": [
                       {
                         "name": "removed",
@@ -709,7 +709,7 @@
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "The name of the AD/LDAP group."
+                        "doc": "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
                       }
                     ],
                     "Aspect": {
@@ -723,9 +723,22 @@
                     "doc": "group of corpUser, it may contains nested group",
                     "fields": [
                       {
+                        "name": "displayName",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The name to use when displaying the group.",
+                        "default": null
+                      },
+                      {
                         "name": "email",
-                        "type": "string",
-                        "doc": "email of this group"
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "email of this group",
+                        "default": null
                       },
                       {
                         "name": "admins",
@@ -774,6 +787,15 @@
                             "name": "IsPartOf"
                           }
                         }
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "A description of the group.",
+                        "default": null
                       }
                     ],
                     "Aspect": {
@@ -1033,6 +1055,32 @@
                         "com.linkedin.pegasus2avro.common.CorpuserUrn"
                       ],
                       "name": "corpUserEditableInfo"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "GroupMembership",
+                    "namespace": "com.linkedin.pegasus2avro.identity",
+                    "doc": "Carries information about the CorpGroups a user is in.",
+                    "fields": [
+                      {
+                        "name": "groups",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "corpGroup"
+                            ],
+                            "name": "IsMemberOfGroup"
+                          }
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "groupMembership"
                     }
                   },
                   "com.linkedin.pegasus2avro.common.GlobalTags",
