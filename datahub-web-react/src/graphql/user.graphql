@@ -28,44 +28,9 @@ query getUserGroup($urn: String!) {
         type
         name
         info {
+            displayName
+            description
             email
-            admins {
-                urn
-                username
-                info {
-                    active
-                    displayName
-                    title
-                    email
-                    firstName
-                    lastName
-                    fullName
-                }
-                editableInfo {
-                    pictureLink
-                    teams
-                    skills
-                }
-            }
-            members {
-                urn
-                username
-                info {
-                    active
-                    displayName
-                    title
-                    email
-                    firstName
-                    lastName
-                    fullName
-                }
-                editableInfo {
-                    pictureLink
-                    teams
-                    skills
-                }
-            }
-            groups
         }
     }
 }

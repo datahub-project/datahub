@@ -68,6 +68,15 @@ query getSearchResults($input: SearchInput!) {
                         pictureLink
                     }
                 }
+                ... on CorpGroup {
+                    urn
+                    type
+                    name
+                    info {
+                        displayName
+                        description
+                    }
+                }
                 ... on Dashboard {
                     urn
                     type

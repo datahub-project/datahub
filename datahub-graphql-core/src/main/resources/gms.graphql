@@ -1140,9 +1140,9 @@ type CorpGroup implements Entity {
     type: EntityType!
 
     """
-    group name e.g. wherehows-dev, ask_metadata
+    URL-encoded group name e.g. wherehows-dev, ask_metadata
     """
-    name: String
+    name: String!
 
     """
     Information of the corp group
@@ -1151,6 +1151,17 @@ type CorpGroup implements Entity {
 }
 
 type CorpGroupInfo {
+
+    """
+    The name to display when rendering the group
+    """
+    displayName: String
+
+    """
+    The description provided for the group.
+    """
+    description: String
+
     """
     email of this group
     """

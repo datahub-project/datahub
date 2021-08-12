@@ -63,7 +63,7 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((CorpUser) partialEntity).setUrn(input.toString());
     }
     if (input.getEntityType().equals("corpGroup")) {
-      partialEntity = new CorpUser();
+      partialEntity = new CorpGroup();
       ((CorpGroup) partialEntity).setUrn(input.toString());
     }
     if (input.getEntityType().equals("mlFeature")) {
