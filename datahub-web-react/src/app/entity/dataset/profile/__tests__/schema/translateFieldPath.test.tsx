@@ -1,4 +1,4 @@
-import translateFieldPath from '../schema/utils/translateFieldPath';
+import translateFieldPath from '../../schema/utils/translateFieldPath';
 
 describe('translateFieldPath', () => {
     it('translates qualified unions', () => {

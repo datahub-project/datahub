@@ -46,7 +46,7 @@ export function convertEditableSchemaMetadataForUpdate(
 }
 
 export function filterKeyFieldPath(showKeySchema: boolean, field: SchemaField) {
-    return field.fieldPath.startsWith(KEY_SCHEMA_PREFIX) ? showKeySchema : !showKeySchema;
+    return field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1 ? showKeySchema : !showKeySchema;
 }
 
 export function downgradeV2FieldPath(fieldPath?: string | null) {
