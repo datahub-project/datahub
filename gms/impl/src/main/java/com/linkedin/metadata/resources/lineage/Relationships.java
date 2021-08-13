@@ -79,11 +79,11 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     @RestMethod.Get
     public Task<EntityRelationships> get(
             @QueryParam("urn") @Nonnull String rawUrn,
-            @QueryParam("types") @Nonnull String relationshipTypesParam,
-            @QueryParam("direction") @Nonnull  String rawDirection
+            @QueryParam("types") @Nonnull String[] relationshipTypesParam,
+            @QueryParam("direction") @Nonnull String rawDirection
     ) {
         RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
-        final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam.split(","));
+        final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam);
         return RestliUtils.toTask(() -> {
             final List<Urn> relatedEntities = getRelatedEntities(rawUrn, relationshipTypes, direction);
 

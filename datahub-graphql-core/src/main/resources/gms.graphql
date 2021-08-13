@@ -19,6 +19,28 @@ interface Entity {
     GMS Entity Type
     """
     type: EntityType!
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+}
+
+"""
+An edge between 2 entities.
+"""
+type Relationship {
+  type: String!
+  entity: Entity!
+  direction: RelationshipDirection!
+}
+
+"""
+Direction between a source and destination node.
+"""
+enum RelationshipDirection {
+  INCOMING,
+  OUTGOING
 }
 
 interface Aspect {
@@ -49,6 +71,11 @@ interface EntityWithRelationships implements Entity {
     Entities downstream of the given entity
     """
     downstreamLineage: DownstreamEntityRelationships
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 """
@@ -361,6 +388,11 @@ type Dataset implements EntityWithRelationships & Entity {
     If no start / end time are provided, the most recent events will be returned.
     """
     datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type GlossaryTerm implements Entity {
@@ -393,6 +425,11 @@ type GlossaryTerm implements Entity {
     Details of the Glossary Term
     """
     glossaryTermInfo: GlossaryTermInfo!
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type GlossaryTermInfo {
@@ -447,6 +484,11 @@ type DataPlatform implements Entity {
     Metadata associated with a dataplatform
     """
     info: DataPlatformInfo
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type DataPlatformInfo {
@@ -1047,6 +1089,11 @@ type CorpUser implements Entity {
     The structured tags associated with the user
     """
     globalTags: GlobalTags
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type CorpUserInfo {
@@ -1140,17 +1187,33 @@ type CorpGroup implements Entity {
     type: EntityType!
 
     """
-    group name e.g. wherehows-dev, ask_metadata
+    URL-encoded group name e.g. wherehows-dev, ask_metadata
     """
-    name: String
+    name: String!
 
     """
     Information of the corp group
     """
     info: CorpGroupInfo
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type CorpGroupInfo {
+
+    """
+    The name to display when rendering the group
+    """
+    displayName: String
+
+    """
+    The description provided for the group.
+    """
+    description: String
+
     """
     email of this group
     """
@@ -1220,6 +1283,11 @@ type Tag implements Entity {
     Ownership metadata of the dataset
     """
     ownership: Ownership
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type TagAssociation {
@@ -1846,6 +1914,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     Editable properties
     """
     editableProperties: DashboardEditableProperties
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type DashboardInfo {
@@ -1972,6 +2045,11 @@ type Chart implements EntityWithRelationships & Entity {
     Editable properties
     """
     editableProperties: ChartEditableProperties
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type ChartInfo {
@@ -2211,6 +2289,11 @@ type MLModel implements EntityWithRelationships & Entity {
     Entities downstream of the given entity
     """
     downstreamLineage: DownstreamEntityRelationships
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type MLModelGroup implements EntityWithRelationships & Entity {
@@ -2271,6 +2354,11 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     Entities downstream of the given entity
     """
     downstreamLineage: DownstreamEntityRelationships
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type MLModelGroupProperties {
@@ -2338,6 +2426,11 @@ type MLFeature implements Entity {
     Deprecation
     """
     deprecation: Deprecation
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type MLHyperParam {
@@ -2452,6 +2545,11 @@ type MLPrimaryKey implements Entity {
     Deprecation
     """
     deprecation: Deprecation
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type MLPrimaryKeyProperties {
@@ -2516,6 +2614,11 @@ type MLFeatureTable implements Entity {
     Deprecation
     """
     deprecation: Deprecation
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type MLFeatureTableProperties {
@@ -2875,6 +2978,11 @@ type DataFlow implements Entity {
     Editable properties
     """
     editableProperties: DataFlowEditableProperties
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type DataFlowInfo {
@@ -2964,6 +3072,11 @@ type DataJob implements EntityWithRelationships & Entity {
     Editable properties
     """
     editableProperties: DataJobEditableProperties
+
+    """
+    Edges extending from this entity.
+    """
+    relationships(type: String!, direction: RelationshipDirection): [Relationship]
 }
 
 type DataJobInfo {
