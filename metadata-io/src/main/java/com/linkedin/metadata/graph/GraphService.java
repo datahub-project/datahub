@@ -12,7 +12,7 @@ public interface GraphService {
   void addEdge(final Edge edge);
 
   @Nonnull
-  List<String> findRelatedUrns(
+  RelatedEntitiesResult findRelatedEntities(
       @Nullable final String sourceType,
       @Nonnull final Filter sourceEntityFilter,
       @Nullable final String destinationType,

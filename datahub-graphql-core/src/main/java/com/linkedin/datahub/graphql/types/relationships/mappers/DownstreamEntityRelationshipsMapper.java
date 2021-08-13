@@ -19,7 +19,7 @@ public class DownstreamEntityRelationshipsMapper implements
     @Override
     public DownstreamEntityRelationships apply(@Nonnull final com.linkedin.common.EntityRelationships input) {
         final DownstreamEntityRelationships result = new DownstreamEntityRelationships();
-        result.setEntities(input.getEntities().stream().map(
+        result.setEntities(input.getRelationships().stream().map(
                 EntityRelationshipMapper::map
         ).collect(Collectors.toList()));
         return result;

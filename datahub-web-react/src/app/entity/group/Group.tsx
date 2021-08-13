@@ -50,7 +50,7 @@ export class GroupEntity implements Entity<CorpGroup> {
             urn={data.urn}
             name={data.info?.displayName || data.name || ''}
             description={data.info?.description}
-            members={data?.relationships?.map((rel) => rel?.entity as CorpUser)}
+            members={data?.relationships?.relationships?.map((rel) => rel?.entity as CorpUser)}
         />
     );
 

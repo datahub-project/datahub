@@ -19,7 +19,7 @@ public class DataFlowDataJobsRelationshipsMapper implements
     @Override
     public DataFlowDataJobsRelationships apply(@Nonnull final com.linkedin.common.EntityRelationships input) {
         final DataFlowDataJobsRelationships result = new DataFlowDataJobsRelationships();
-        result.setEntities(input.getEntities().stream().map(
+        result.setEntities(input.getRelationships().stream().map(
             EntityRelationshipMapper::map
         ).collect(Collectors.toList()));
         return result;

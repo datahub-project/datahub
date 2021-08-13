@@ -23,16 +23,59 @@ interface Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 """
-An edge between 2 entities.
+Result storing relationship information associated with a particular entity.
 """
-type Relationship {
-  type: String!
-  entity: Entity!
-  direction: RelationshipDirection!
+type EntityRelationshipsResult {
+
+  """
+  Start offset of the result set
+  """
+  start: Int
+
+  """
+  Number of results in the returned result set
+  """
+  count: Int
+
+  """
+  Total number of results in the result set
+  """
+  total: Int
+
+  """
+  Relationship edges in the result set
+  """
+  relationships: [EntityRelationshipV2!]!
+}
+
+"""
+The second version of EntityRelationship model, where Entity can be any entity.
+TODO - Migrate all entity relationships to this more generic model
+"""
+type EntityRelationshipV2 {
+    """
+    The type of the relationship
+    """
+    type: String!
+
+    """
+    The direction of the relationship relative to the source entity.
+    """
+    direction: RelationshipDirection!
+
+    """
+    Entity that is related via lineage
+    """
+    entity: Entity!
+
+    """
+    An AuditStamp corresponding to the last modification of this relationship
+    """
+    created: AuditStamp
 }
 
 """
@@ -75,7 +118,7 @@ interface EntityWithRelationships implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 """
@@ -392,7 +435,7 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type GlossaryTerm implements Entity {
@@ -429,7 +472,7 @@ type GlossaryTerm implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type GlossaryTermInfo {
@@ -488,7 +531,7 @@ type DataPlatform implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type DataPlatformInfo {
@@ -875,14 +918,14 @@ type DataFlowEditableProperties {
 
 type EntityRelationship {
     """
-    An AuditStamp corresponding to the last modification of this relationship
-    """
-    created: AuditStamp
-
-    """
     Entity that is related via lineage
     """
     entity: EntityWithRelationships
+
+    """
+    An AuditStamp corresponding to the last modification of this relationship
+    """
+    created: AuditStamp
 }
 
 type UpstreamEntityRelationships {
@@ -1093,7 +1136,7 @@ type CorpUser implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type CorpUserInfo {
@@ -1199,7 +1242,7 @@ type CorpGroup implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type CorpGroupInfo {
@@ -1287,7 +1330,7 @@ type Tag implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type TagAssociation {
@@ -1918,7 +1961,7 @@ type Dashboard implements EntityWithRelationships & Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type DashboardInfo {
@@ -2049,7 +2092,7 @@ type Chart implements EntityWithRelationships & Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type ChartInfo {
@@ -2293,7 +2336,7 @@ type MLModel implements EntityWithRelationships & Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type MLModelGroup implements EntityWithRelationships & Entity {
@@ -2358,7 +2401,7 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type MLModelGroupProperties {
@@ -2430,7 +2473,7 @@ type MLFeature implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type MLHyperParam {
@@ -2549,7 +2592,7 @@ type MLPrimaryKey implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type MLPrimaryKeyProperties {
@@ -2618,7 +2661,7 @@ type MLFeatureTable implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type MLFeatureTableProperties {
@@ -2982,7 +3025,7 @@ type DataFlow implements Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type DataFlowInfo {
@@ -3076,7 +3119,7 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     Edges extending from this entity.
     """
-    relationships(type: String!, direction: RelationshipDirection): [Relationship]
+    relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
 type DataJobInfo {
