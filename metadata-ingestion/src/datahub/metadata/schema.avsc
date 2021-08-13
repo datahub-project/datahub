@@ -616,7 +616,7 @@
                           "doc": "whether the entity is removed or not"
                         }
                       ],
-                      "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc."
+                      "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally."
                     },
                     {
                       "type": "record",
@@ -722,7 +722,7 @@
                         {
                           "type": "string",
                           "name": "name",
-                          "doc": "The name of the AD/LDAP group."
+                          "doc": "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
                         }
                       ],
                       "doc": "Key for a CorpGroup"
@@ -739,8 +739,21 @@
                       "namespace": "com.linkedin.pegasus2avro.identity",
                       "fields": [
                         {
-                          "type": "string",
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "displayName",
+                          "default": null,
+                          "doc": "The name to use when displaying the group."
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "string"
+                          ],
                           "name": "email",
+                          "default": null,
                           "doc": "email of this group"
                         },
                         {
@@ -790,6 +803,15 @@
                           },
                           "name": "groups",
                           "doc": "List of groups in this group."
+                        },
+                        {
+                          "type": [
+                            "null",
+                            "string"
+                          ],
+                          "name": "description",
+                          "default": null,
+                          "doc": "A description of the group."
                         }
                       ],
                       "doc": "group of corpUser, it may contains nested group"
@@ -1045,6 +1067,32 @@
                         }
                       ],
                       "doc": "Linkedin corp user information that can be edited from UI"
+                    },
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "groupMembership"
+                      },
+                      "name": "GroupMembership",
+                      "namespace": "com.linkedin.pegasus2avro.identity",
+                      "fields": [
+                        {
+                          "Relationship": {
+                            "/*": {
+                              "entityTypes": [
+                                "corpGroup"
+                              ],
+                              "name": "IsMemberOfGroup"
+                            }
+                          },
+                          "type": {
+                            "type": "array",
+                            "items": "string"
+                          },
+                          "name": "groups"
+                        }
+                      ],
+                      "doc": "Carries information about the CorpGroups a user is in."
                     },
                     "com.linkedin.pegasus2avro.common.GlobalTags",
                     "com.linkedin.pegasus2avro.common.Status"
@@ -2419,6 +2467,15 @@
                                   "type": "string",
                                   "name": "documentSchema",
                                   "doc": "The native kafka document schema. This is a human readable avro document schema."
+                                },
+                                {
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "name": "keySchema",
+                                  "default": null,
+                                  "doc": "The native kafka key schema as retrieved from Schema Registry"
                                 }
                               ],
                               "doc": "Schema holder for kafka schema."
@@ -2768,6 +2825,12 @@
                                   "name": "glossaryTerms",
                                   "default": null,
                                   "doc": "Glossary terms associated with the field"
+                                },
+                                {
+                                  "type": "boolean",
+                                  "name": "isPartOfKey",
+                                  "default": false,
+                                  "doc": "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields"
                                 }
                               ],
                               "doc": "SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema"

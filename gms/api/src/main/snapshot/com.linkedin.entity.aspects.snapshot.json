@@ -951,7 +951,7 @@
     "type" : "record",
     "name" : "Status",
     "namespace" : "com.linkedin.common",
-    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
     "fields" : [ {
       "name" : "removed",
       "type" : "boolean",
@@ -1438,9 +1438,15 @@
     "namespace" : "com.linkedin.identity",
     "doc" : "group of corpUser, it may contains nested group",
     "fields" : [ {
+      "name" : "displayName",
+      "type" : "string",
+      "doc" : "The name to use when displaying the group.",
+      "optional" : true
+    }, {
       "name" : "email",
       "type" : "com.linkedin.common.EmailAddress",
-      "doc" : "email of this group"
+      "doc" : "email of this group",
+      "optional" : true
     }, {
       "name" : "admins",
       "type" : {
@@ -1480,6 +1486,11 @@
           "name" : "IsPartOf"
         }
       }
+    }, {
+      "name" : "description",
+      "type" : "string",
+      "doc" : "A description of the group.",
+      "optional" : true
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
@@ -1658,7 +1669,7 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "The name of the AD/LDAP group."
+        "doc" : "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
       } ],
       "Aspect" : {
         "name" : "corpGroupKey"
@@ -1859,6 +1870,11 @@
             "name" : "documentSchema",
             "type" : "string",
             "doc" : "The native kafka document schema. This is a human readable avro document schema."
+          }, {
+            "name" : "keySchema",
+            "type" : "string",
+            "doc" : "The native kafka key schema as retrieved from Schema Registry",
+            "optional" : true
           } ]
         }, {
           "type" : "record",
@@ -2073,6 +2089,11 @@
               "type" : "com.linkedin.common.GlossaryTerms",
               "doc" : "Glossary terms associated with the field",
               "optional" : true
+            }, {
+              "name" : "isPartOfKey",
+              "type" : "boolean",
+              "doc" : "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields",
+              "default" : false
             } ]
           }
         },

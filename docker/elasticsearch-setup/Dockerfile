@@ -3,9 +3,10 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM jwilder/dockerize:0.6.1 AS base
-
-RUN apk add --no-cache curl jq
+FROM alpine:3 as base
+ENV DOCKERIZE_VERSION v0.6.1
+RUN apk add --no-cache curl jq tar \
+    && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 FROM base AS prod-install
 

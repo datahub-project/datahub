@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Table, Tooltip, Typography } from 'antd';
+import { Table, Tooltip } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
@@ -15,15 +15,11 @@ import {
     GlossaryTerms,
     UsageQueryResult,
 } from '../../../../../types.generated';
-import { diffMarkdown, ExtendedSchemaFields } from '../../../shared/utils';
 import TagTermGroup from '../../../../shared/tags/TagTermGroup';
 import DescriptionField from './components/SchemaDescriptionField';
-
-const MAX_FIELD_PATH_LENGTH = 100;
-
-const LighterText = styled(Typography.Text)`
-    color: rgba(0, 0, 0, 0.45);
-`;
+import schemaTitleRenderer from './utils/schemaTitleRenderer';
+import { diffMarkdown, pathMatchesNewPath } from './utils/utils';
+import { ExtendedSchemaFields } from './utils/types';
 
 const TableContainer = styled.div`
     & .table-red-row {
@@ -38,7 +34,27 @@ const TableContainer = styled.div`
             background-color: #b7eb8faa;
         }
     }
+    &&& .ant-table-row-indent.indent-level-0 {
+        padding-left: 0px !important;
+    }
+    &&& .ant-table-row-indent.indent-level-1 {
+        padding-left: 15px !important;
+    }
+    &&& .ant-table-row-indent.indent-level-2 {
+        padding-left: 30px !important;
+    }
+    &&& .ant-table-row-indent.indent-level-3 {
+        padding-left: 45px !important;
+    }
+    &&& .ant-table-row-indent.indent-level-4 {
+        padding-left: 60px !important;
+    }
+    &&& .ant-table-row-indent {
+        padding-left: 60px !important;
+    }
 `;
+
+// indent-level-8
 
 const UsageBar = styled.div<{ width: number }>`
     width: ${(props) => props.width}px;
@@ -54,7 +70,7 @@ const UsageBarContainer = styled.div`
 
 const defaultColumns = [
     {
-        width: 100,
+        width: 150,
         title: 'Type',
         dataIndex: 'type',
         key: 'type',
@@ -68,32 +84,7 @@ const defaultColumns = [
         dataIndex: 'fieldPath',
         key: 'fieldPath',
         width: 100,
-        render: (fieldPath: string) => {
-            if (!fieldPath.includes('.')) {
-                return <Typography.Text strong>{fieldPath}</Typography.Text>;
-            }
-            let [firstPath, lastPath] = fieldPath.split(/\.(?=[^.]+$)/);
-            const isOverflow = fieldPath.length > MAX_FIELD_PATH_LENGTH;
-            if (isOverflow) {
-                if (lastPath.length >= MAX_FIELD_PATH_LENGTH) {
-                    lastPath = `..${lastPath.substring(lastPath.length - MAX_FIELD_PATH_LENGTH)}`;
-                    firstPath = '';
-                } else {
-                    firstPath = firstPath.substring(fieldPath.length - MAX_FIELD_PATH_LENGTH);
-                    if (firstPath.includes('.')) {
-                        firstPath = `..${firstPath.substring(firstPath.indexOf('.'))}`;
-                    } else {
-                        firstPath = '..';
-                    }
-                }
-            }
-            return (
-                <span>
-                    <LighterText>{`${firstPath}${lastPath ? '.' : ''}`}</LighterText>
-                    {!!lastPath && <Typography.Text strong>{lastPath}</Typography.Text>}
-                </span>
-            );
-        },
+        render: schemaTitleRenderer,
         filtered: true,
     },
 ];
@@ -126,7 +117,7 @@ export default function SchemaTable({
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
     const descriptionRender = (description: string, record: ExtendedSchemaFields) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
-            (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
+            (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
 
         if (!editMode && record.previousDescription) {
@@ -153,8 +144,9 @@ export default function SchemaTable({
 
     const tagAndTermRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
-            (candidateEditableFieldInfo) => candidateEditableFieldInfo.fieldPath === record.fieldPath,
+            (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
+
         return (
             <TagTermGroup
                 uneditableTags={tags}
@@ -171,8 +163,8 @@ export default function SchemaTable({
     };
 
     const usageStatsRenderer = (fieldPath: string) => {
-        const relevantUsageStats = usageStats?.aggregations?.fields?.find(
-            (fieldStats) => fieldStats?.fieldName === fieldPath,
+        const relevantUsageStats = usageStats?.aggregations?.fields?.find((fieldStats) =>
+            pathMatchesNewPath(fieldStats?.fieldName, fieldPath),
         );
 
         if (!relevantUsageStats) {
@@ -240,7 +232,7 @@ export default function SchemaTable({
                     record.isNewRow ? 'table-green-row' : `${record.isDeletedRow ? 'table-red-row' : ''}`
                 }
                 rowKey="fieldPath"
-                expandable={{ defaultExpandAllRows: true, expandRowByClick: true }}
+                expandable={{ defaultExpandAllRows: false, expandRowByClick: false }}
                 pagination={false}
             />
         </TableContainer>
