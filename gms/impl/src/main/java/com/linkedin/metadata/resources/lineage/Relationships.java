@@ -80,7 +80,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     public Task<EntityRelationships> get(
             @QueryParam("urn") @Nonnull String rawUrn,
             @QueryParam("types") @Nonnull String[] relationshipTypesParam,
-            @QueryParam("direction") @Nonnull  String rawDirection
+            @QueryParam("direction") @Nonnull String rawDirection
     ) {
         RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
         final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam);
