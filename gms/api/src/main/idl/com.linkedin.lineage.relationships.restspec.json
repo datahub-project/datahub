@@ -17,6 +17,14 @@
       }, {
         "name" : "direction",
         "type" : "string"
+      }, {
+        "name" : "start",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "count",
+        "type" : "int",
+        "optional" : true
       } ]
     }, {
       "method" : "delete",

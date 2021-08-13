@@ -60,7 +60,7 @@ abstract public class GraphServiceTestBase {
     relationshipFilter.setDirection(RelationshipDirection.OUTGOING);
     relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
 
-    List<String> relatedUrns = client.findRelatedUrns(
+    List<String> relatedUrns = client.findRelatedEntities(
         "",
         newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
         "",
@@ -68,7 +68,7 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10);
+        10).getUrns();
 
     assertEquals(relatedUrns.size(), 1);
   }
@@ -91,7 +91,7 @@ abstract public class GraphServiceTestBase {
     relationshipFilter.setDirection(RelationshipDirection.INCOMING);
     relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
 
-    List<String> relatedUrns = client.findRelatedUrns(
+    List<String> relatedUrns = client.findRelatedEntities(
         "",
         newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
         "",
@@ -99,7 +99,7 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10);
+        10).getUrns();
 
     assertEquals(relatedUrns.size(), 1);
   }
@@ -122,7 +122,7 @@ abstract public class GraphServiceTestBase {
     relationshipFilter.setDirection(RelationshipDirection.INCOMING);
     relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
 
-    List<String> relatedUrns = client.findRelatedUrns(
+    List<String> relatedUrns = client.findRelatedEntities(
         "",
         newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
         "",
@@ -130,7 +130,7 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10);
+        10).getUrns();
 
     assertEquals(relatedUrns.size(), 1);
 
@@ -140,7 +140,7 @@ abstract public class GraphServiceTestBase {
         relationshipFilter);
     syncAfterWrite();
 
-    List<String> relatedUrnsPostDelete = client.findRelatedUrns(
+    List<String> relatedUrnsPostDelete = client.findRelatedEntities(
         "",
         newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
         "",
@@ -148,7 +148,7 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10);
+        10).getUrns();
 
     assertEquals(relatedUrnsPostDelete.size(), 0);
   }

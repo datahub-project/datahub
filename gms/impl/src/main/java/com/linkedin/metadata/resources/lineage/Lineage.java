@@ -72,14 +72,14 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
 
     private List<Urn> getRelatedEntities(String rawUrn, List<String> relationshipTypes, RelationshipDirection direction) {
         return
-            _graphService.findRelatedUrns("", newFilter("urn", rawUrn),
+            _graphService.findRelatedEntities("", newFilter("urn", rawUrn),
                 "", EMPTY_FILTER,
                 relationshipTypes, createRelationshipFilter(EMPTY_FILTER, direction),
                 0, MAX_DOWNSTREAM_CNT)
-                .stream().map(
-                rawRelatedUrn -> {
+                .getEntities().stream().map(
+                entity -> {
                     try {
-                        return Urn.createFromString(rawRelatedUrn);
+                        return Urn.createFromString(entity.getUrn());
                     } catch (URISyntaxException e) {
                         e.printStackTrace();
                     }
@@ -109,7 +109,7 @@ public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
                         .collect(Collectors.toList())
                 );
 
-            return new EntityRelationships().setEntities(entityArray);
+            return new EntityRelationships().setRelationships(entityArray);
         });
     }
 }

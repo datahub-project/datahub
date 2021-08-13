@@ -74,23 +74,25 @@ query getSearchResults($input: SearchInput!) {
                         displayName
                         description
                     }
-                    relationships(type: "IsMemberOfGroup", direction: INCOMING) {
-                        type
-                        direction
-                        entity {
-                            urn
+                    relationships(types: ["IsMemberOfGroup"], direction: INCOMING) {
+                        relationships {
                             type
-                            ... on CorpUser {
-                                username
-                                info {
-                                    active
-                                    displayName
-                                    title
-                                    firstName
-                                    lastName
-                                }
-                                editableInfo {
-                                    pictureLink
+                            direction
+                            entity {
+                                urn
+                                type
+                                ... on CorpUser {
+                                    username
+                                    info {
+                                        active
+                                        displayName
+                                        title
+                                        firstName
+                                        lastName
+                                    }
+                                    editableInfo {
+                                        pictureLink
+                                    }
                                 }
                             }
                         }

@@ -1,4 +1,4 @@
-import { Divider, List, Space, Typography } from 'antd';
+import { Divider, List, Pagination, Row, Space, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { CorpUser, EntityType } from '../../../types.generated';
@@ -7,6 +7,10 @@ import { PreviewType } from '../Entity';
 
 type Props = {
     members?: Array<CorpUser> | null;
+    page: number;
+    pageSize: number;
+    totalResults: number;
+    onChangePage: (page: number) => void;
 };
 
 const MemberList = styled(List)`
@@ -20,18 +24,22 @@ const MemberList = styled(List)`
     }
 `;
 
-export default function GroupMembers({ members }: Props) {
+const MembersView = styled(Space)`
+    width: 100%;
+    margin-bottom: 32px;
+    padding-top: 28px;
+`;
+
+export default function GroupMembers({ members, page, onChangePage, pageSize, totalResults }: Props) {
     const entityRegistry = useEntityRegistry();
     const list = members || [];
 
     // todo: group membership should be paginated or limited in some way. currently we are fetching all users.
 
     return (
-        <>
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                <Typography.Title style={{ marginTop: 28 }} level={3}>
-                    Group Membership
-                </Typography.Title>
+        <MembersView direction="vertical" size="middle">
+            <Typography.Title level={3}>Group Membership</Typography.Title>
+            <Row justify="center">
                 <MemberList
                     dataSource={list}
                     split={false}
@@ -45,7 +53,15 @@ export default function GroupMembers({ members }: Props) {
                     )}
                     bordered
                 />
-            </Space>
-        </>
+                <Pagination
+                    current={page}
+                    pageSize={pageSize}
+                    total={totalResults}
+                    showLessItems
+                    onChange={onChangePage}
+                    showSizeChanger={false}
+                />
+            </Row>
+        </MembersView>
     );
 }
