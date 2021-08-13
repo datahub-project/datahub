@@ -6,6 +6,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
+import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.gms.factory.search.SearchServiceFactory;
 import com.linkedin.gms.factory.usage.UsageServiceFactory;
 import com.linkedin.metadata.EventUtils;
@@ -59,7 +60,7 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
 @Import({GraphServiceFactory.class, SearchServiceFactory.class, UsageServiceFactory.class,
-    SystemMetadataServiceFactory.class, KafkaEventConsumerFactory.class})
+    SystemMetadataServiceFactory.class, KafkaEventConsumerFactory.class, SimpleKafkaConsumerFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {
 

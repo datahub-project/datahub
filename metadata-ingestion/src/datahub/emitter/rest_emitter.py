@@ -39,9 +39,9 @@ def _make_curl_command(
 
 
 class DatahubRestEmitter:
-    DEFAULT_CONNECT_TIMEOUT_SEC = 10  # 10 seconds should be plenty to connect
+    DEFAULT_CONNECT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
     DEFAULT_READ_TIMEOUT_SEC = (
-        2  # Any ingest call taking longer than 2 seconds should be abandoned
+        30  # Any ingest call taking longer than 30 seconds should be abandoned
     )
 
     _gms_server: str
