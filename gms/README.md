@@ -75,23 +75,6 @@ curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
 }'
 ```
 
-```curl 'http://localhost:8080/entities?action=ingest' -X POST --data '{
-   "entity":{
-      "value":{
-         "com.linkedin.metadata.snapshot.CorpUserSnapshot":{
-            "urn":"urn:li:corpuser:datahub",
-            "aspects":[
-               {
-                  "com.linkedin.identity.GroupMembership":{
-                     "groups": ["urn:li:corpGroup:bfoo"]
-                  }
-               }
-            ]
-         }
-      }
-   }
-}'```
-
 #### Create a group
 
 ```
