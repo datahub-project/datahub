@@ -45,10 +45,12 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `base_folder`                                  | ✅       |            | Where the `*.model.lkml` and `*.view.lkml` files are stored.            |
 | `connection_to_platform_map.<connection_name>` | ✅       |            | Mappings between connection names in the model files to platform names. |
 | `platform_name`                                |          | `"looker"` | Platform to use in namespace when constructing URNs.                    |
-| `model_pattern.allow`                          |          |            | Regex pattern for models to include in ingestion.                       |
-| `model_pattern.deny`                           |          |            | Regex pattern for models to exclude from ingestion.                     |
-| `view_pattern.allow`                           |          |            | Regex pattern for views to include in ingestion.                        |
-| `view_pattern.deny`                            |          |            | Regex pattern for views to exclude from ingestion.                      |
+| `model_pattern.allow`                          |          |            | List of regex patterns for models to include in ingestion.                       |
+| `model_pattern.deny`                           |          |            | List of regex patterns for models to exclude from ingestion.                     |
+| `model_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
+| `view_pattern.allow`                           |          |            | List of regex patterns for views to include in ingestion.                        |
+| `view_pattern.deny`                            |          |            | List of regex patterns for views to exclude from ingestion.                      |
+| `view_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
 | `env`                                          |          | `"PROD"`   | Environment to use in namespace when constructing URNs.                 |
 | `parse_table_names_from_sql`                   |          | `False`    | See note below.                                                         |
 

@@ -43,7 +43,8 @@
                                 "nativeDataType": "VARCHAR(length=16777216)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "entity",
@@ -58,7 +59,8 @@
                                 "nativeDataType": "VARCHAR(length=16777216)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "version",
@@ -73,7 +75,8 @@
                                 "nativeDataType": "DECIMAL(precision=38, scale=0)",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "metadata",
@@ -88,7 +91,8 @@
                                 "nativeDataType": "VARIANT()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "createdon",
@@ -103,7 +107,8 @@
                                 "nativeDataType": "TIMESTAMP_NTZ()",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": null,
@@ -114,9 +119,9 @@
         }
     },
     "proposedDelta": null,
-    "systemMetadata":  {
-        "runId": "serde_test",
+    "systemMetadata": {
         "lastObserved": 1626980046000,
+        "runId": "serde_test",
         "properties": null
     }
 },
