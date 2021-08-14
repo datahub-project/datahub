@@ -809,7 +809,7 @@
     "type" : "record",
     "name" : "Status",
     "namespace" : "com.linkedin.common",
-    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
     "fields" : [ {
       "name" : "removed",
       "type" : "boolean",
@@ -1283,9 +1283,15 @@
     "namespace" : "com.linkedin.identity",
     "doc" : "group of corpUser, it may contains nested group",
     "fields" : [ {
+      "name" : "displayName",
+      "type" : "string",
+      "doc" : "The name to use when displaying the group.",
+      "optional" : true
+    }, {
       "name" : "email",
       "type" : "com.linkedin.common.EmailAddress",
-      "doc" : "email of this group"
+      "doc" : "email of this group",
+      "optional" : true
     }, {
       "name" : "admins",
       "type" : {
@@ -1325,6 +1331,11 @@
           "name" : "IsPartOf"
         }
       }
+    }, {
+      "name" : "description",
+      "type" : "string",
+      "doc" : "A description of the group.",
+      "optional" : true
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
@@ -1503,7 +1514,7 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "The name of the AD/LDAP group."
+        "doc" : "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
       } ],
       "Aspect" : {
         "name" : "corpGroupKey"

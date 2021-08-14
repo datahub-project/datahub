@@ -93,6 +93,9 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 # Install, including all dev requirements.
 pip install -e '.[dev]'
 
+# For running integration tests, you can use 
+pip install -e '.[integration-tests]'
+
 # Run unit tests.
 pytest -m 'not integration'
 
