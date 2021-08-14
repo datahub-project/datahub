@@ -1,4 +1,4 @@
-# DataHub Metadata Ingestion
+# Metadata Ingestion
 
 ![Python version 3.6+](https://img.shields.io/badge/python-3.6%2B-blue)
 
@@ -28,7 +28,7 @@ If you run into an error, try checking the [_common setup issues_](./developing.
 
 #### Installing Plugins
 
-We use a plugin architecture so that you can install only the dependencies you actually need.
+We use a plugin architecture so that you can install only the dependencies you actually need. Click the plugin name to learn more about the specific source recipe and any FAQs!
 
 Sources:
 

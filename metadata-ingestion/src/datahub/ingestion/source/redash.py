@@ -2,7 +2,6 @@ import logging
 import math
 import sys
 from dataclasses import dataclass, field
-from functools import lru_cache
 from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
@@ -29,6 +28,7 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 PAGE_SIZE = 25
 
@@ -85,8 +85,8 @@ PLOTLY_CHART_MAP = {
     "area": ChartTypeClass.AREA,
     "pie": ChartTypeClass.PIE,
     "scatter": ChartTypeClass.SCATTER,
-    "bubble": DEFAULT_VISUALIZATION_TYPE,
-    "heatmap": DEFAULT_VISUALIZATION_TYPE,
+    "bubble": None,
+    "heatmap": None,
     "box": ChartTypeClass.BOX_PLOT,
 }
 
@@ -96,16 +96,16 @@ VISUALIZATION_TYPE_MAP = {
     # https://github.com/getredash/redash/blob/master/viz-lib/src/visualizations/registeredVisualizations.ts
     # TODO: need to add more ChartTypeClass in datahub schema_classes.py
     "BOXPLOT": ChartTypeClass.BOX_PLOT,
-    "CHOROPLETH": DEFAULT_VISUALIZATION_TYPE,
-    "COUNTER": DEFAULT_VISUALIZATION_TYPE,
+    "CHOROPLETH": None,
+    "COUNTER": ChartTypeClass.TABLE,
     "DETAILS": ChartTypeClass.TABLE,
-    "FUNNEL": DEFAULT_VISUALIZATION_TYPE,
-    "MAP": DEFAULT_VISUALIZATION_TYPE,
-    "PIVOT": DEFAULT_VISUALIZATION_TYPE,
-    "SANKEY": DEFAULT_VISUALIZATION_TYPE,
-    "SUNBURST_SEQUENCE": DEFAULT_VISUALIZATION_TYPE,
+    "FUNNEL": None,
+    "MAP": None,
+    "PIVOT": ChartTypeClass.TABLE,
+    "SANKEY": None,
+    "SUNBURST_SEQUENCE": None,
     "TABLE": ChartTypeClass.TABLE,
-    "WORD_CLOUD": DEFAULT_VISUALIZATION_TYPE,
+    "WORD_CLOUD": None,
 }
 
 
@@ -129,7 +129,7 @@ class RedashSourceReport(SourceReport):
     items_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
 
-    def report_topic_scanned(self, item: str) -> None:
+    def report_item_scanned(self) -> None:
         self.items_scanned += 1
 
     def report_dropped(self, item: str) -> None:
@@ -159,21 +159,23 @@ class RedashSource(Source):
 
         self.api_page_limit = self.config.api_page_limit or math.inf
 
-        # Test the connection
+    def test_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")
         if test_response.status_code == 200:
             logger.info("Redash API connected succesfully")
             pass
+        else:
+            raise ValueError(f"Failed to connect to {self.config.connect_uri}/api")
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = RedashConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    @lru_cache(maxsize=None)
-    def _get_chart_data_source(self, data_source_id: int) -> Dict:
+    def _get_chart_data_source(self, data_source_id: int = None) -> Dict:
         url = f"/api/data_sources/{data_source_id}"
         resp = self.client._get(url).json()
+        logger.debug(resp)
         return resp
 
     def _get_datasource_urn_from_data_source(self, data_source: Dict) -> Optional[str]:
@@ -307,6 +309,8 @@ class RedashSource(Source):
 
                 dashboard_name = dashboard_response["name"]
 
+                self.report.report_item_scanned()
+
                 if (not self.config.dashboard_patterns.allowed(dashboard_name)) or (
                     skip_draft and dashboard_response["is_draft"]
                 ):
@@ -316,6 +320,7 @@ class RedashSource(Source):
                 # Continue producing MCE
                 dashboard_slug = dashboard_response["slug"]
                 dashboard_data = self.client.dashboard(dashboard_slug)
+                logger.debug(dashboard_data)
                 dashboard_snapshot = self._get_dashboard_snapshot(dashboard_data)
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
                 wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
@@ -430,6 +435,8 @@ class RedashSource(Source):
 
                 chart_name = query_response["name"]
 
+                self.report.report_item_scanned()
+
                 if (not self.config.chart_patterns.allowed(chart_name)) or (
                     skip_draft and query_response["is_draft"]
                 ):
@@ -438,6 +445,7 @@ class RedashSource(Source):
 
                 query_id = query_response["id"]
                 query_data = self.client._get(f"/api/queries/{query_id}").json()
+                logger.debug(query_data)
 
                 # In Redash, chart is called visualization
                 for visualization in query_data.get("visualizations", []):
@@ -449,8 +457,12 @@ class RedashSource(Source):
                     yield wu
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        self.test_connection()
         yield from self._emit_dashboard_mces()
         yield from self._emit_chart_mces()
 
     def get_report(self) -> SourceReport:
         return self.report
+
+    def close(self):
+        pass
