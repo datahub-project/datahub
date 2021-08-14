@@ -2,6 +2,7 @@ package react.auth.sso.oidc;
 
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -13,6 +14,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.aspect.CorpGroupAspect;
 import com.linkedin.metadata.aspect.CorpGroupAspectArray;
 import com.linkedin.metadata.aspect.CorpUserAspect;
@@ -95,17 +97,22 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
           log.debug("Just-in-time provisioning is enabled. Beginning provisioning proces...");
 
+          // TODO: Create new GroupMembership association entity once it exists.
           CorpUserSnapshot extractedUser = extractUser(corpUserUrn, profile);
-          tryProvisionUser(extractedUser);
 
           if (oidcConfigs.isExtractGroupsEnabled()) {
-            // Extract groups & provision them as well.
+            // Extract groups & provision them.
             List<CorpGroupSnapshot> extractedGroups = extractGroups(profile);
             tryProvisionGroups(extractedGroups);
 
-            // Now, update GroupMembership aspect of the user to include them in the group.
-            // TODO Once GroupMembership aspect is committed.
+            if (extractedGroups.size() > 0) {
+              // Associate group with the user logging in.
+              extractedUser.getAspects().add(CorpUserAspect.create(createGroupMembership(extractedGroups)));
+            }
           }
+
+          tryProvisionUser(extractedUser);
+
 
         } else if (oidcConfigs.isPreProvisioningRequired()) {
           // We should only allow logins for user accounts that have been pre-provisioned
@@ -164,7 +171,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     // https://developer.okta.com/blog/2017/07/25/oidc-primer-part-1
     String firstName = profile.getFirstName();
     String lastName = profile.getFamilyName();
-    String email = profile.getEmail() == null ? "" : profile.getEmail(); // TODO Remove once email not required field.
+    String email = profile.getEmail();
     URI picture = profile.getPictureUrl();
     String displayName = profile.getDisplayName();
 
@@ -208,9 +215,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     final String groupsClaimName = configs.groupsClaimName();
     if (profile.containsAttribute(groupsClaimName)) {
       try {
+        final List<CorpGroupSnapshot> groupSnapshots = new ArrayList<>();
         // We found some groups. Note that we assume it is an array of strings!
         final Collection<String> groupNames = (Collection<String>) profile.getAttribute(groupsClaimName, Collection.class);
-        final List<CorpGroupSnapshot> groupSnapshots = new ArrayList<>();
         for (String groupName : groupNames) {
           // Create a basic CorpGroupSnapshot from the information.
           // TODO: once okta PR is in, finish this.
@@ -247,6 +254,13 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     }
     log.warn(String.format("Failed to extract groups: No OIDC claim with name %s found", groupsClaimName));
     return Collections.emptyList();
+  }
+
+  private GroupMembership createGroupMembership(final List<CorpGroupSnapshot> extractedGroups) {
+    final GroupMembership groupMembershipAspect = new GroupMembership();
+    groupMembershipAspect.setGroups(new UrnArray(extractedGroups.stream().map(CorpGroupSnapshot::getUrn).collect(
+        Collectors.toList())));
+    return groupMembershipAspect;
   }
 
   private void tryProvisionUser(CorpUserSnapshot corpUserSnapshot) {
