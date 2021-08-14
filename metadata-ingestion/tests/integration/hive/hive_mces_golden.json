@@ -10,7 +10,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Tue Jul 27 23:07:21 UTC 2021",
+                            "CreateTime:": "Mon Aug 09 22:20:40 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
@@ -20,7 +20,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1627427241",
+                            "Table Parameters: transient_lastDdlTime": "1628547640",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -74,7 +74,8 @@
                                 "nativeDataType": "int",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "bar",
@@ -89,7 +90,8 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": null,
@@ -117,7 +119,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Tue Jul 27 23:07:21 UTC 2021",
+                            "CreateTime:": "Mon Aug 09 22:20:41 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
@@ -127,7 +129,7 @@
                             "Table Parameters: numRows": "1",
                             "Table Parameters: rawDataSize": "32",
                             "Table Parameters: totalSize": "33",
-                            "Table Parameters: transient_lastDdlTime": "1627427244",
+                            "Table Parameters: transient_lastDdlTime": "1628547648",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -181,7 +183,8 @@
                                 "nativeDataType": "int",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "service",
@@ -196,7 +199,8 @@
                                 "nativeDataType": "array<struct<type:string,provider:array<int>>>",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": null,
@@ -224,7 +228,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Tue Jul 27 23:07:18 UTC 2021",
+                            "CreateTime:": "Mon Aug 09 22:20:35 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
@@ -233,7 +237,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "5812",
-                            "Table Parameters: transient_lastDdlTime": "1627427240",
+                            "Table Parameters: transient_lastDdlTime": "1628547638",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -287,7 +291,8 @@
                                 "nativeDataType": "int",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "bar",
@@ -302,7 +307,8 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": null,
@@ -330,7 +336,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Tue Jul 27 23:07:21 UTC 2021",
+                            "CreateTime:": "Mon Aug 09 22:20:40 UTC 2021",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test",
@@ -340,7 +346,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1627427241",
+                            "Table Parameters: transient_lastDdlTime": "1628547640",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -394,7 +400,8 @@
                                 "nativeDataType": "int",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "service",
@@ -409,7 +416,8 @@
                                 "nativeDataType": "struct<type:string,provider:array<int>>",
                                 "recursive": false,
                                 "globalTags": null,
-                                "glossaryTerms": null
+                                "glossaryTerms": null,
+                                "isPartOfKey": false
                             }
                         ],
                         "primaryKeys": null,

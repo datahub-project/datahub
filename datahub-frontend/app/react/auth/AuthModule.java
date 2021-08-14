@@ -125,7 +125,10 @@ public class AuthModule extends AbstractModule {
     }
 
     private Result handleOidcCallback(final Result result, final PlayWebContext context, ProfileManager<CommonProfile> profileManager) {
-        if (profileManager.isAuthenticated() && profileManager.get(true).isPresent()) {
+        if (OidcResponseErrorHandler.isError(context)) {
+            return OidcResponseErrorHandler.handleError(context);
+        }
+        else if (profileManager.isAuthenticated() && profileManager.get(true).isPresent()) {
             final CommonProfile profile = profileManager.get(true).get();
             if (!profile.containsAttribute(_oidcConfigs.getUserNameClaim())) {
                 throw new RuntimeException(

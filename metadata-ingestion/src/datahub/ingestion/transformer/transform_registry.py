@@ -5,6 +5,7 @@ from datahub.ingestion.transformer.add_dataset_browse_path import (
 )
 from datahub.ingestion.transformer.add_dataset_ownership import (
     AddDatasetOwnership,
+    PatternAddDatasetOwnership,
     SimpleAddDatasetOwnership,
 )
 from datahub.ingestion.transformer.add_dataset_tags import (
@@ -26,6 +27,7 @@ transform_registry.register("set_dataset_browse_path", AddDatasetBrowsePathTrans
 
 transform_registry.register("add_dataset_ownership", AddDatasetOwnership)
 transform_registry.register("simple_add_dataset_ownership", SimpleAddDatasetOwnership)
+transform_registry.register("pattern_add_dataset_ownership", PatternAddDatasetOwnership)
 
 transform_registry.register("add_dataset_tags", AddDatasetTags)
 transform_registry.register("simple_add_dataset_tags", SimpleAddDatasetTags)

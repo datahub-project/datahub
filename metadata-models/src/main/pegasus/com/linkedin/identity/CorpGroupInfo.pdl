@@ -14,9 +14,14 @@ import com.linkedin.common.EmailAddress
 record CorpGroupInfo {
 
   /**
+   * The name to use when displaying the group.
+   */
+  displayName: optional string
+
+  /**
    * email of this group
    */
-  email: EmailAddress
+  email: optional EmailAddress
 
   /**
    * owners of this group
@@ -50,4 +55,10 @@ record CorpGroupInfo {
      }
    }
   groups: array[CorpGroupUrn]
+
+  /**
+   * A description of the group.
+   */
+  description: optional string
+
 }

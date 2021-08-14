@@ -121,7 +121,7 @@
     "type" : "record",
     "name" : "Status",
     "namespace" : "com.linkedin.common",
-    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
     "fields" : [ {
       "name" : "removed",
       "type" : "boolean",
@@ -170,9 +170,15 @@
         "name" : "CorpGroupInfo",
         "doc" : "group of corpUser, it may contains nested group",
         "fields" : [ {
+          "name" : "displayName",
+          "type" : "string",
+          "doc" : "The name to use when displaying the group.",
+          "optional" : true
+        }, {
           "name" : "email",
           "type" : "com.linkedin.common.EmailAddress",
-          "doc" : "email of this group"
+          "doc" : "email of this group",
+          "optional" : true
         }, {
           "name" : "admins",
           "type" : {
@@ -212,6 +218,11 @@
               "name" : "IsPartOf"
             }
           }
+        }, {
+          "name" : "description",
+          "type" : "string",
+          "doc" : "A description of the group.",
+          "optional" : true
         } ],
         "Aspect" : {
           "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
@@ -234,7 +245,7 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "The name of the AD/LDAP group."
+        "doc" : "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
       } ],
       "Aspect" : {
         "name" : "corpGroupKey"
@@ -278,13 +289,14 @@
     "name" : "Condition",
     "namespace" : "com.linkedin.metadata.query",
     "doc" : "The matching condition in a filter criterion",
-    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
+    "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH" ],
     "symbolDocs" : {
       "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
       "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
       "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
       "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
       "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
+      "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
       "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",
       "LESS_THAN_OR_EQUAL_TO" : "Represent the relation less than or equal to, e.g. ownerCount <= 3",
       "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView"
