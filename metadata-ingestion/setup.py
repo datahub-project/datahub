@@ -174,9 +174,9 @@ base_dev_requirements = {
 }
 
 if is_py37_or_newer:
-    # The lookml plugin only works on Python 3.7 or newer.
+    # The lookml, redash plugin only works on Python 3.7 or newer.
     base_dev_requirements = base_dev_requirements.union(
-        {dependency for plugin in ["lookml"] for dependency in plugins[plugin]}
+        {dependency for plugin in ["lookml", "redash"] for dependency in plugins[plugin]}
     )
 
 dev_requirements = {
