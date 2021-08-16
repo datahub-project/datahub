@@ -5,9 +5,11 @@
 
 # fmt: off
 from .....schema_classes import GlossaryNodeInfoClass
+from .....schema_classes import GlossaryRelatedTermsClass
 from .....schema_classes import GlossaryTermInfoClass
 
 
 GlossaryNodeInfo = GlossaryNodeInfoClass
+GlossaryRelatedTerms = GlossaryRelatedTermsClass
 GlossaryTermInfo = GlossaryTermInfoClass
 # fmt: on
