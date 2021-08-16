@@ -16,6 +16,7 @@ import org.pac4j.core.profile.ProfileManager;
 import org.pac4j.oidc.client.OidcClient;
 import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.play.CallbackController;
+import org.pac4j.play.LogoutController;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.http.PlayHttpActionAdapter;
 import org.pac4j.play.store.PlayCookieSessionStore;
@@ -93,6 +94,10 @@ public class AuthModule extends AbstractModule {
             callbackController.setDefaultClient(_oidcConfigs.getClientName());
         }
         bind(CallbackController.class).toInstance(callbackController);
+        // logout
+        final LogoutController logoutController = new LogoutController();
+        logoutController.setDefaultUrl("/");
+        bind(LogoutController.class).toInstance(logoutController);
     }
 
     @Provides @Singleton
