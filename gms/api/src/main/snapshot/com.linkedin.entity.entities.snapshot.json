@@ -3995,11 +3995,67 @@
                     },
                     "doc" : "A key-value map to capture any other non-standardized properties for the glossary term",
                     "default" : { }
+                  }, {
+                    "name" : "rawSchema",
+                    "type" : "string",
+                    "doc" : "Schema definition of the glossary term",
+                    "optional" : true
                   } ],
                   "Aspect" : {
                     "name" : "glossaryTermInfo"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.BrowsePaths" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.BrowsePaths", {
+                  "type" : "record",
+                  "name" : "GlossaryRelatedTerms",
+                  "namespace" : "com.linkedin.glossary",
+                  "doc" : "Has A / Is A lineage information about a glossary Term reporting the lineage",
+                  "fields" : [ {
+                    "name" : "isRelatedTerms",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.GlossaryTermUrn"
+                    },
+                    "doc" : "The relationship Is A with glossary term",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "glossaryTerm" ],
+                        "name" : "IsA"
+                      }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "boostScore" : 2.0,
+                        "fieldName" : "isRelatedTerms",
+                        "fieldType" : "URN"
+                      }
+                    }
+                  }, {
+                    "name" : "hasRelatedTerms",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.GlossaryTermUrn"
+                    },
+                    "doc" : "The relationship Has A with glossary term",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "glossaryTerm" ],
+                        "name" : "HasA"
+                      }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "boostScore" : 2.0,
+                        "fieldName" : "hasRelatedTerms",
+                        "fieldType" : "URN"
+                      }
+                    }
+                  } ],
+                  "Aspect" : {
+                    "name" : "glossaryRelatedTerms"
+                  }
+                } ]
               }
             },
             "doc" : "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4072,7 +4128,7 @@
         } ]
       }
     } ]
-  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.GroupMembership", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", {
+  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryRelatedTerms", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", {
     "type" : "record",
     "name" : "BrowseResult",
     "namespace" : "com.linkedin.metadata.browse",

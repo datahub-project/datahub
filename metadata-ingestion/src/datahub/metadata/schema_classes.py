@@ -3423,6 +3423,53 @@ class GlossaryNodeInfoClass(DictWrapper):
         self._inner_dict['parentNode'] = value
     
     
+class GlossaryRelatedTermsClass(DictWrapper):
+    """Has A / Is A lineage information about a glossary Term reporting the lineage"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms")
+    def __init__(self,
+        isRelatedTerms: Union[None, List[str]]=None,
+        hasRelatedTerms: Union[None, List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.isRelatedTerms = isRelatedTerms
+        self.hasRelatedTerms = hasRelatedTerms
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "GlossaryRelatedTermsClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.isRelatedTerms = self.RECORD_SCHEMA.field_map["isRelatedTerms"].default
+        self.hasRelatedTerms = self.RECORD_SCHEMA.field_map["hasRelatedTerms"].default
+    
+    
+    @property
+    def isRelatedTerms(self) -> Union[None, List[str]]:
+        """Getter: The relationship Is A with glossary term"""
+        return self._inner_dict.get('isRelatedTerms')  # type: ignore
+    
+    @isRelatedTerms.setter
+    def isRelatedTerms(self, value: Union[None, List[str]]) -> None:
+        """Setter: The relationship Is A with glossary term"""
+        self._inner_dict['isRelatedTerms'] = value
+    
+    
+    @property
+    def hasRelatedTerms(self) -> Union[None, List[str]]:
+        """Getter: The relationship Has A with glossary term"""
+        return self._inner_dict.get('hasRelatedTerms')  # type: ignore
+    
+    @hasRelatedTerms.setter
+    def hasRelatedTerms(self, value: Union[None, List[str]]) -> None:
+        """Setter: The relationship Has A with glossary term"""
+        self._inner_dict['hasRelatedTerms'] = value
+    
+    
 class GlossaryTermInfoClass(DictWrapper):
     """Properties associated with a GlossaryTerm"""
     
@@ -3434,6 +3481,7 @@ class GlossaryTermInfoClass(DictWrapper):
         sourceRef: Union[None, str]=None,
         sourceUrl: Union[None, str]=None,
         customProperties: Optional[Dict[str, str]]=None,
+        rawSchema: Union[None, str]=None,
     ):
         super().__init__()
         
@@ -3447,6 +3495,7 @@ class GlossaryTermInfoClass(DictWrapper):
             self.customProperties = dict()
         else:
             self.customProperties = customProperties
+        self.rawSchema = rawSchema
     
     @classmethod
     def construct_with_defaults(cls) -> "GlossaryTermInfoClass":
@@ -3462,6 +3511,7 @@ class GlossaryTermInfoClass(DictWrapper):
         self.sourceRef = self.RECORD_SCHEMA.field_map["sourceRef"].default
         self.sourceUrl = self.RECORD_SCHEMA.field_map["sourceUrl"].default
         self.customProperties = dict()
+        self.rawSchema = self.RECORD_SCHEMA.field_map["rawSchema"].default
     
     
     @property
@@ -3528,6 +3578,17 @@ class GlossaryTermInfoClass(DictWrapper):
     def customProperties(self, value: Dict[str, str]) -> None:
         """Setter: A key-value map to capture any other non-standardized properties for the glossary term"""
         self._inner_dict['customProperties'] = value
+    
+    
+    @property
+    def rawSchema(self) -> Union[None, str]:
+        """Getter: Schema definition of the glossary term"""
+        return self._inner_dict.get('rawSchema')  # type: ignore
+    
+    @rawSchema.setter
+    def rawSchema(self, value: Union[None, str]) -> None:
+        """Setter: Schema definition of the glossary term"""
+        self._inner_dict['rawSchema'] = value
     
     
 class CorpGroupInfoClass(DictWrapper):
@@ -5250,7 +5311,7 @@ class GlossaryTermSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass"]],
+        aspects: List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass", "GlossaryRelatedTermsClass"]],
     ):
         super().__init__()
         
@@ -5281,12 +5342,12 @@ class GlossaryTermSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass"]]:
+    def aspects(self) -> List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass", "GlossaryRelatedTermsClass"]]:
         """Getter: The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     @aspects.setter
-    def aspects(self, value: List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass"]]) -> None:
+    def aspects(self, value: List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass", "GlossaryRelatedTermsClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -9247,6 +9308,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataset.ValueFrequency': ValueFrequencyClass,
     'com.linkedin.pegasus2avro.events.metadata.ChangeType': ChangeTypeClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo': GlossaryNodeInfoClass,
+    'com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms': GlossaryRelatedTermsClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryTermInfo': GlossaryTermInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpGroupInfo': CorpGroupInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpUserEditableInfo': CorpUserEditableInfoClass,
@@ -9412,6 +9474,7 @@ __SCHEMA_TYPES = {
     'ValueFrequency': ValueFrequencyClass,
     'ChangeType': ChangeTypeClass,
     'GlossaryNodeInfo': GlossaryNodeInfoClass,
+    'GlossaryRelatedTerms': GlossaryRelatedTermsClass,
     'GlossaryTermInfo': GlossaryTermInfoClass,
     'CorpGroupInfo': CorpGroupInfoClass,
     'CorpUserEditableInfo': CorpUserEditableInfoClass,
