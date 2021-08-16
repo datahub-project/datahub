@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.load;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.EntityRelationshipV2;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipsResult;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
@@ -77,10 +76,10 @@ public class EntityRelationshipsResultResolver implements DataFetcher<Completabl
     return result;
   }
 
-  private EntityRelationshipV2 mapEntityRelationship(
+  private com.linkedin.datahub.graphql.generated.EntityRelationship mapEntityRelationship(
       final com.linkedin.datahub.graphql.generated.RelationshipDirection direction,
       final EntityRelationship entityRelationship) {
-    final EntityRelationshipV2 result = new EntityRelationshipV2();
+    final com.linkedin.datahub.graphql.generated.EntityRelationship result = new com.linkedin.datahub.graphql.generated.EntityRelationship();
     final Entity partialEntity = UrnToEntityMapper.map(entityRelationship.getEntity());
     if (partialEntity != null) {
       result.setEntity(partialEntity);

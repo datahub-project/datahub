@@ -1,4 +1,4 @@
-import { Divider, List, Pagination, Row, Space, Typography } from 'antd';
+import { List, Pagination, Row, Space, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { CorpUser, EntityType } from '../../../types.generated';
@@ -22,6 +22,13 @@ const MemberList = styled(List)`
         padding: 24px 32px;
         box-shadow: ${(props) => props.theme.styles['box-shadow']};
     }
+    & li {
+        padding-top: 28px;
+        padding-bottom: 28px;
+    }
+    & li:not(:last-child) {
+        border-bottom: 1.5px solid #ededed;
+    }
 `;
 
 const MembersView = styled(Space)`
@@ -34,8 +41,6 @@ export default function GroupMembers({ members, page, onChangePage, pageSize, to
     const entityRegistry = useEntityRegistry();
     const list = members || [];
 
-    // todo: group membership should be paginated or limited in some way. currently we are fetching all users.
-
     return (
         <MembersView direction="vertical" size="middle">
             <Typography.Title level={3}>Group Membership</Typography.Title>
@@ -43,13 +48,10 @@ export default function GroupMembers({ members, page, onChangePage, pageSize, to
                 <MemberList
                     dataSource={list}
                     split={false}
-                    renderItem={(item, index) => (
-                        <>
-                            <List.Item>
-                                {entityRegistry.renderPreview(EntityType.CorpUser, PreviewType.PREVIEW, item)}
-                            </List.Item>
-                            {index < list.length - 1 && <Divider />}
-                        </>
+                    renderItem={(item, _) => (
+                        <List.Item>
+                            {entityRegistry.renderPreview(EntityType.CorpUser, PreviewType.PREVIEW, item)}
+                        </List.Item>
                     )}
                     bordered
                 />

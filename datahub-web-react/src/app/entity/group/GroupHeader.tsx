@@ -18,6 +18,7 @@ const AvatarWrapper = styled.div`
 `;
 
 export default function GroupHeader({ name, description, email }: Props) {
+    // TODO: Add Optional Group Image URLs
     return (
         <>
             <Row>

@@ -19,7 +19,7 @@ export enum TabType {
 
 const ENABLED_TAB_TYPES = [TabType.Members, TabType.Ownership];
 
-const MEMBER_PAGE_SIZE = 2;
+const MEMBER_PAGE_SIZE = 20;
 
 /**
  * Responsible for reading & writing users.
