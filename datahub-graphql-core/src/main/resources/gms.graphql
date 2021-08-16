@@ -49,14 +49,14 @@ type EntityRelationshipsResult {
   """
   Relationship edges in the result set
   """
-  relationships: [EntityRelationshipV2!]!
+  relationships: [EntityRelationship!]!
 }
 
 """
 The second version of EntityRelationship model, where Entity can be any entity.
 TODO - Migrate all entity relationships to this more generic model
 """
-type EntityRelationshipV2 {
+type EntityRelationship {
     """
     The type of the relationship
     """
@@ -916,7 +916,7 @@ type DataFlowEditableProperties {
     description: String
 }
 
-type EntityRelationship {
+type EntityRelationshipLegacy {
     """
     Entity that is related via lineage
     """
@@ -929,15 +929,15 @@ type EntityRelationship {
 }
 
 type UpstreamEntityRelationships {
-    entities: [EntityRelationship]
+    entities: [EntityRelationshipLegacy]
 }
 
 type DownstreamEntityRelationships {
-    entities: [EntityRelationship]
+    entities: [EntityRelationshipLegacy]
 }
 
 type DataFlowDataJobsRelationships {
-    entities: [EntityRelationship]
+    entities: [EntityRelationshipLegacy]
 }
 
 type UpstreamLineage {
@@ -1230,7 +1230,7 @@ type CorpGroup implements Entity {
     type: EntityType!
 
     """
-    URL-encoded group name e.g. wherehows-dev, ask_metadata
+    Group name e.g. wherehows-dev, ask_metadata
     """
     name: String!
 

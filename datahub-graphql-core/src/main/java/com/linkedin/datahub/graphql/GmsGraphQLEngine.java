@@ -11,7 +11,7 @@ import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
-import com.linkedin.datahub.graphql.generated.EntityRelationshipV2;
+import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.RelatedDataset;
 import com.linkedin.datahub.graphql.generated.SearchResult;
@@ -356,24 +356,19 @@ public class GmsGraphQLEngine {
                         (env) -> ((BrowseResults) env.getSource()).getEntities()))
                 )
             )
+            .type("EntityRelationshipLegacy", typeWiring -> typeWiring
+                .dataFetcher("entity", new AuthenticatedResolver<>(
+                    new EntityTypeResolver(
+                        new ArrayList<>(ENTITY_TYPES),
+                        (env) -> ((EntityRelationshipLegacy) env.getSource()).getEntity()))
+                )
+            )
             .type("EntityRelationship", typeWiring -> typeWiring
                 .dataFetcher("entity", new AuthenticatedResolver<>(
                     new EntityTypeResolver(
                         new ArrayList<>(ENTITY_TYPES),
                         (env) -> ((EntityRelationship) env.getSource()).getEntity()))
                 )
-            )
-            .type("EntityRelationshipV2", typeWiring -> typeWiring
-                .dataFetcher("entity", new AuthenticatedResolver<>(
-                    new EntityTypeResolver(
-                        new ArrayList<>(ENTITY_TYPES),
-                        (env) -> ((EntityRelationshipV2) env.getSource()).getEntity()))
-                )
-            )
-            .type("Entity", typeWiring -> typeWiring
-                .dataFetcher("relationships", new AuthenticatedResolver<>(
-                    new EntityRelationshipsResultResolver(GmsClientFactory.getRelationshipsClient())
-                ))
             );
     }
 

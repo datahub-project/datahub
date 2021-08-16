@@ -1,7 +1,7 @@
 import { List, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { EntityType, EntityRelationship } from '../../../../types.generated';
+import { EntityType, EntityRelationshipLegacy } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 
@@ -24,7 +24,7 @@ const DataJobItem = styled(List.Item)`
 `;
 
 export type Props = {
-    dataJobs?: (EntityRelationship | null)[] | null;
+    dataJobs?: (EntityRelationshipLegacy | null)[] | null;
 };
 
 export default function DataFlowDataJobs({ dataJobs }: Props) {

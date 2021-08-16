@@ -20,7 +20,7 @@ public class DownstreamEntityRelationshipsMapper implements
     public DownstreamEntityRelationships apply(@Nonnull final com.linkedin.common.EntityRelationships input) {
         final DownstreamEntityRelationships result = new DownstreamEntityRelationships();
         result.setEntities(input.getRelationships().stream().map(
-                EntityRelationshipMapper::map
+                EntityRelationshipLegacyMapper::map
         ).collect(Collectors.toList()));
         return result;
     }
