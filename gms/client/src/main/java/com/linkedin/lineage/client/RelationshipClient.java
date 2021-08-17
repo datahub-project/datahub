@@ -7,7 +7,6 @@ import com.linkedin.lineage.RelationshipsRequestBuilders;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
-import com.linkedin.restli.client.GetRequest;
 
 import java.util.List;
 import javax.annotation.Nonnull;

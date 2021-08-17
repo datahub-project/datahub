@@ -1,11 +1,11 @@
 import { Alert } from 'antd';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import GroupHeader from './GroupHeader';
-import { useGetGroupQuery, useGetGroupMembersLazyQuery } from '../../../graphql/group.generated';
+import { useGetGroupQuery } from '../../../graphql/group.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { EntityProfile } from '../../shared/EntityProfile';
-import { CorpUser, EntityType, SearchResult } from '../../../types.generated';
+import { EntityRelationshipsResult, EntityType, SearchResult } from '../../../types.generated';
 import RelatedEntityResults from '../../shared/entitySearch/RelatedEntityResults';
 import { Message } from '../../shared/Message';
 import GroupMembers from './GroupMembers';
@@ -26,11 +26,7 @@ const MEMBER_PAGE_SIZE = 20;
  */
 export default function GroupProfile() {
     const { urn } = useUserParams();
-
-    const [page, setPage] = useState(1);
-
     const { loading, error, data } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
-    const [getMembers, { data: membersData }] = useGetGroupMembersLazyQuery();
 
     const name = data?.corpGroup?.name;
 
@@ -62,16 +58,7 @@ export default function GroupProfile() {
         return <Alert type="error" message={error?.message || 'Group failed to load :('} />;
     }
 
-    const onChangeMembersPage = (newPage: number) => {
-        setPage(newPage);
-        const start = (newPage - 1) * MEMBER_PAGE_SIZE;
-        getMembers({ variables: { urn, start, count: MEMBER_PAGE_SIZE } });
-    };
-
-    const groupMemberData = membersData || data;
-    const groupMemberRelationships = groupMemberData?.corpGroup?.relationships;
-    const total = groupMemberRelationships?.total || 0;
-    const groupMembers = groupMemberRelationships?.relationships?.map((rel) => rel.entity as CorpUser) || [];
+    const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
 
     const getTabs = () => {
         return [
@@ -80,11 +67,9 @@ export default function GroupProfile() {
                 path: TabType.Members.toLocaleLowerCase(),
                 content: (
                     <GroupMembers
-                        members={groupMembers}
-                        page={page}
+                        urn={urn}
+                        initialRelationships={groupMemberRelationships}
                         pageSize={MEMBER_PAGE_SIZE}
-                        totalResults={total}
-                        onChangePage={onChangeMembersPage}
                     />
                 ),
             },
