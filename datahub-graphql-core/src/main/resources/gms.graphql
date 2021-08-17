@@ -967,11 +967,11 @@ type DataFlowDataJobsRelationships {
 }
 
 type GlossaryTermIsARelationships {
-    entities: [EntityRelationship]
+    entities: [EntityRelationshipLegacy]
 }
 
 type GlossaryTermHasARelationships {
-    entities: [EntityRelationship]
+    entities: [EntityRelationshipLegacy]
 }
  
 

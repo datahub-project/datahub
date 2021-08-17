@@ -18,7 +18,6 @@ public class GlossaryTermIsARelationshipMapper implements
     @Override
     public GlossaryTermIsARelationships apply(com.linkedin.common.EntityRelationships input) {
         final GlossaryTermIsARelationships result = new GlossaryTermIsARelationships();
-        System.out.println(input.toString());
         result.setEntities(input.getRelationships().stream().map(
                 EntityRelationshipLegacyMapper::map
         ).collect(Collectors.toList()));
