@@ -44,6 +44,10 @@
       "name" : "entity",
       "type" : "Urn",
       "doc" : "The downstream dataset the lineage points to"
+    }, {
+      "name" : "type",
+      "type" : "string",
+      "doc" : "The type of the relationship"
     } ]
   }, {
     "type" : "record",
@@ -51,12 +55,24 @@
     "namespace" : "com.linkedin.common",
     "doc" : "Downstream lineage of a dataset",
     "fields" : [ {
-      "name" : "entities",
+      "name" : "relationships",
       "type" : {
         "type" : "array",
         "items" : "EntityRelationship"
       },
       "doc" : "List of related entities"
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "doc" : "The start of the result set"
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "doc" : "The start of the result set"
+    }, {
+      "name" : "total",
+      "type" : "int",
+      "doc" : "Total number of edges found."
     } ]
   }, "com.linkedin.common.Time", "com.linkedin.common.Urn" ],
   "schema" : {
@@ -74,10 +90,18 @@
           "type" : "string"
         }, {
           "name" : "types",
-          "type" : "string"
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
         }, {
           "name" : "direction",
           "type" : "string"
+        }, {
+          "name" : "start",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "count",
+          "type" : "int",
+          "optional" : true
         } ]
       }, {
         "method" : "delete",

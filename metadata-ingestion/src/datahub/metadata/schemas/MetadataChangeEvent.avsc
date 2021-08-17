@@ -709,7 +709,10 @@
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
+                        "doc": "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub.",
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       }
                     ],
                     "Aspect": {
@@ -729,7 +732,10 @@
                           "string"
                         ],
                         "doc": "The name to use when displaying the group.",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       },
                       {
                         "name": "email",
@@ -795,7 +801,10 @@
                           "string"
                         ],
                         "doc": "A description of the group.",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       }
                     ],
                     "Aspect": {

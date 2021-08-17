@@ -1,14 +1,14 @@
 import { UserOutlined } from '@ant-design/icons';
 import * as React from 'react';
-import { CorpGroup, EntityType, SearchResult } from '../../../types.generated';
+import { CorpGroup, CorpUser, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
-import UserGroupProfile from './UserGroupProfile';
+import GroupProfile from './GroupProfile';
 
 /**
  * Definition of the DataHub CorpGroup entity.
  */
-export class UserGroupEntity implements Entity<CorpGroup> {
+export class GroupEntity implements Entity<CorpGroup> {
     type: EntityType = EntityType.CorpGroup;
 
     // TODO: update icons for UserGroup
@@ -31,7 +31,7 @@ export class UserGroupEntity implements Entity<CorpGroup> {
         );
     };
 
-    isSearchEnabled = () => false;
+    isSearchEnabled = () => true;
 
     isBrowseEnabled = () => false;
 
@@ -39,14 +39,19 @@ export class UserGroupEntity implements Entity<CorpGroup> {
 
     getAutoCompleteFieldName = () => 'name';
 
-    getPathName: () => string = () => 'userGroup';
+    getPathName: () => string = () => 'group';
 
-    getCollectionName: () => string = () => 'UserGroups';
+    getCollectionName: () => string = () => 'Groups';
 
-    renderProfile: (urn: string) => JSX.Element = (_) => <UserGroupProfile />;
+    renderProfile: (urn: string) => JSX.Element = (_) => <GroupProfile />;
 
     renderPreview = (_: PreviewType, data: CorpGroup) => (
-        <Preview urn={data.urn} name={data.name || data.urn || ''} title={data.name || data.urn || ''} />
+        <Preview
+            urn={data.urn}
+            name={data.info?.displayName || data.name || ''}
+            description={data.info?.description}
+            members={data?.relationships?.relationships?.map((rel) => rel?.entity as CorpUser)}
+        />
     );
 
     renderSearch = (result: SearchResult) => {

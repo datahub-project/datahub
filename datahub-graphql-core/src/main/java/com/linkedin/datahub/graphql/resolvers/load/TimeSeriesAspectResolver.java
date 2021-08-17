@@ -53,11 +53,9 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
       // Max number of aspects to return.
       final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
 
-      List<EnvelopedAspect> aspects;
       try {
-
-        // Step 1: Get profile aspects.
-        aspects =
+        // Step 1: Get aspects.
+        List<EnvelopedAspect> aspects =
             _client.getTimeseriesAspectValues(urn, _entityName, _aspectName, maybeStartTimeMillis, maybeEndTimeMillis,
                 maybeLimit);
 
