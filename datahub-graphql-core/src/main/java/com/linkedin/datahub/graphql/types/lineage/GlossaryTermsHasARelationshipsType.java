@@ -32,7 +32,7 @@ public class GlossaryTermsHasARelationshipsType implements LoadableType<Glossary
             return keys.stream().map(urn -> {
                 try {
                     com.linkedin.common.EntityRelationships relationships =
-                            _relationshipsClient.getRelationships(urn, _direction, "HasA");
+                            _relationshipsClient.getRelationships(urn, _direction, ImmutableList.of("HasA"), null, null);
                     System.out.println("relationships is " + relationships.toString());
                     return DataFetcherResult.<GlossaryTermHasARelationships>newResult().data(GlossaryTermHasARelationshipMapper.map(relationships)).build();
                 } catch (RemoteInvocationException | URISyntaxException e) {

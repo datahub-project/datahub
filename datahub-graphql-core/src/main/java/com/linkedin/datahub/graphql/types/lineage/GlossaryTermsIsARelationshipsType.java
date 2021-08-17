@@ -32,7 +32,7 @@ public class GlossaryTermsIsARelationshipsType implements LoadableType<GlossaryT
             return keys.stream().map(urn -> {
                 try {
                     com.linkedin.common.EntityRelationships relationships =
-                            _relationshipsClient.getRelationships(urn, _direction, "IsA");
+                            _relationshipsClient.getRelationships(urn, _direction, ImmutableList.of("IsA"), null, null);
                     return DataFetcherResult.<GlossaryTermIsARelationships>newResult().data(GlossaryTermIsARelationshipMapper.map(relationships)).build();
                 } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(String.format("Failed to batch load isA term for glossary %s", urn), e);

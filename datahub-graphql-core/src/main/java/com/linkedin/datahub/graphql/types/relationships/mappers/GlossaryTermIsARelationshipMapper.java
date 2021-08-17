@@ -19,7 +19,7 @@ public class GlossaryTermIsARelationshipMapper implements
     public GlossaryTermIsARelationships apply(com.linkedin.common.EntityRelationships input) {
         final GlossaryTermIsARelationships result = new GlossaryTermIsARelationships();
         System.out.println(input.toString());
-        result.setEntities(input.getEntities().stream().map(
+        result.setEntities(input.getRelationships().stream().map(
                 EntityRelationshipMapper::map
         ).collect(Collectors.toList()));
         return result;
