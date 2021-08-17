@@ -18,7 +18,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -26,7 +25,6 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Slf4j
 @Configuration
-@EnableKafka
 @EnableConfigurationProperties(KafkaProperties.class)
 @Import({KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class})
 public class KafkaEventConsumerFactory {
