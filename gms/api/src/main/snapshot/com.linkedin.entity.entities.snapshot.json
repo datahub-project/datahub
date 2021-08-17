@@ -2586,7 +2586,14 @@
                           "name" : "glossaryTerms",
                           "type" : "com.linkedin.common.GlossaryTerms",
                           "doc" : "Glossary terms associated with the field",
-                          "optional" : true
+                          "optional" : true,
+                          "Searchable" : {
+                            "/terms/*/urn" : {
+                              "boostScore" : 0.5,
+                              "fieldName" : "fieldGlossaryTerms",
+                              "fieldType" : "URN_PARTIAL"
+                            }
+                          }
                         }, {
                           "name" : "isPartOfKey",
                           "type" : "boolean",
@@ -4137,7 +4144,7 @@
         } ]
       }
     } ]
-  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryRelatedTerms", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", {
+  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryRelatedTerms", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.GroupMembership", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", {
     "type" : "record",
     "name" : "BrowseResult",
     "namespace" : "com.linkedin.metadata.browse",

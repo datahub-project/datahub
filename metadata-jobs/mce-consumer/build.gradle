@@ -12,6 +12,9 @@ dependencies {
     avro project(path: ':metadata-models', configuration: 'avroSchema')
 
     compile project(':li-utils')
+    compile (project(':gms:factories')) {
+        exclude group: 'org.neo4j.test'
+    }
     compile project(':metadata-utils')
     compile project(':metadata-builders')
     compile project(':metadata-events:mxe-schemas')
@@ -20,9 +23,6 @@ dependencies {
     compile project(':metadata-events:mxe-utils-avro-1.7')
     compile project(':metadata-io')
     compile project(':gms:client')
-    compile (project(':gms:factories')) {
-        exclude group: 'org.neo4j.test'
-    }
     compile spec.product.pegasus.restliClient
     compile spec.product.pegasus.restliCommon
     compile externalDependency.elasticSearchRest
