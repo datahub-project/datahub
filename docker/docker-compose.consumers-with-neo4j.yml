@@ -11,7 +11,7 @@ services:
       context: ../
       dockerfile: docker/datahub-mae-consumer/Dockerfile
     image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-head}
-    env_file: datahub-mae-consumer/env/docker-without-neo4j.env
+    env_file: datahub-mae-consumer/env/docker-with-neo4j.env
     hostname: datahub-mae-consumer
     container_name: datahub-mae-consumer
     ports:
@@ -19,6 +19,7 @@ services:
     depends_on:
       - kafka-setup
       - elasticsearch-setup
+      - neo4j
 
   datahub-mce-consumer:
     build:
@@ -33,3 +34,4 @@ services:
     depends_on:
       - kafka-setup
       - datahub-gms
+

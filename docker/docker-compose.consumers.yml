@@ -19,7 +19,6 @@ services:
     depends_on:
       - kafka-setup
       - elasticsearch-setup
-      - neo4j
 
   datahub-mce-consumer:
     build:
