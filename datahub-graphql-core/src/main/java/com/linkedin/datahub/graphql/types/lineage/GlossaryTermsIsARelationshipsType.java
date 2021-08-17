@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.types.lineage;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.GlossaryTermIsARelationships;
 import com.linkedin.datahub.graphql.types.relationships.mappers.GlossaryTermIsARelationshipMapper;
-import com.linkedin.lineage.client.Relationships;
+import com.linkedin.lineage.client.RelationshipClient;
 import com.linkedin.metadata.query.RelationshipDirection;
 
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 import com.linkedin.r2.RemoteInvocationException;
 
 public class GlossaryTermsIsARelationshipsType implements LoadableType<GlossaryTermIsARelationships> {
-    private final Relationships _relationshipsClient;
+    private final RelationshipClient _relationshipsClient;
     private final RelationshipDirection _direction =  RelationshipDirection.OUTGOING;
 
     public GlossaryTermsIsARelationshipsType(final Relationships relationshipsClient) {
