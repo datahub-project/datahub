@@ -8,7 +8,7 @@ namespace com.linkedin.metadata.key
 }
 record CorpGroupKey {
   /**
-  * The name of the AD/LDAP group.
+  * The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub.
   */
   name: string
 }

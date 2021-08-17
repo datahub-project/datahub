@@ -71,11 +71,10 @@ plugins: Dict[str, Set[str]] = {
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests"},
     # Integrations.
-    "airflow": {"apache-airflow >= 1.10.2"},
+    "airflow": {
+        "apache-airflow >= 1.10.2",
+    },
     # Source plugins
-    "kafka": kafka_common,
-    "kafka-connect": {"requests"},
-    "sqlalchemy": sql_common,
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": {"google-cloud-logging", "cachetools"},
@@ -89,6 +88,8 @@ plugins: Dict[str, Set[str]] = {
         # and column comments, and also releases HTTP and HTTPS transport schemes.
         "acryl-pyhive[hive]>=0.6.10"
     },
+    "kafka": kafka_common,
+    "kafka-connect": sql_common | {"requests"},
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
     "lookml": {"lkml>=1.1.0", "sql-metadata==2.2.1"},
@@ -96,12 +97,14 @@ plugins: Dict[str, Set[str]] = {
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
     "mysql": sql_common | {"pymysql>=1.0.2"},
+    "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
     "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
     "snowflake-usage": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
+    "sqlalchemy": sql_common,
     "sql-profiles": sql_common | {"great-expectations"},
     "superset": {"requests"},
 }
@@ -157,6 +160,7 @@ base_dev_requirements = {
             "bigquery-usage",
             "looker",
             "glue",
+            "okta",
             "oracle",
             "postgres",
             "sagemaker",
@@ -177,11 +181,13 @@ if is_py37_or_newer:
 dev_requirements = {
     *base_dev_requirements,
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
+    "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
 }
 dev_requirements_airflow_1 = {
     *base_dev_requirements,
     "apache-airflow==1.10.15",
     "apache-airflow-backport-providers-snowflake",
+    "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
 }
 
 full_test_dev_requirements = {
@@ -224,6 +230,7 @@ entry_points = {
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
+        "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
         "redshift = datahub.ingestion.source.sql.redshift:RedshiftSource",

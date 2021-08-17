@@ -59,6 +59,8 @@ public class TagUpdateSnapshotMapper implements InputModelMapper<TagUpdate, TagS
       aspects.add(TagAspect.create(tagProperties));
     }
 
+    result.setAspects(aspects);
+
     return result;
   }
 }

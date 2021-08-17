@@ -1,7 +1,7 @@
 from typing import Callable, List, Union
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, KeyValuePattern
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
@@ -82,4 +82,38 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleAddDatasetOwnership":
         config = SimpleDatasetOwnershipConfig.parse_obj(config_dict)
+        return cls(config, ctx)
+
+
+class PatternDatasetOwnershipConfig(ConfigModel):
+    owner_pattern: KeyValuePattern = KeyValuePattern.all()
+    default_actor: str = builder.make_user_urn("etl")
+
+
+class PatternAddDatasetOwnership(AddDatasetOwnership):
+    """Transformer that adds a specified set of owners to each dataset."""
+
+    def getOwners(self, key, owner_pattern):
+        owners = [
+            OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
+            for owner in owner_pattern.value(key)
+        ]
+        return owners
+
+    def __init__(self, config: PatternDatasetOwnershipConfig, ctx: PipelineContext):
+        owner_pattern = config.owner_pattern
+        generic_config = AddDatasetOwnershipConfig(
+            get_owners_to_add=lambda _: [
+                OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
+                for owner in owner_pattern.value(_.urn)
+            ],
+            default_actor=config.default_actor,
+        )
+        super().__init__(generic_config, ctx)
+
+    @classmethod
+    def create(
+        cls, config_dict: dict, ctx: PipelineContext
+    ) -> "PatternAddDatasetOwnership":
+        config = PatternDatasetOwnershipConfig.parse_obj(config_dict)
         return cls(config, ctx)

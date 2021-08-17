@@ -47,10 +47,12 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `base_url`                | ✅       |                         | Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. |
 | `platform_name`           |          | `"looker"`              | Platform to use in namespace when constructing URNs.                                                         |
 | `actor`                   |          | `"urn:li:corpuser:etl"` | Actor to use in ownership properties of ingested metadata.                                                   |
-| `dashboard_pattern.allow` |          |                         | Regex pattern for dashboards to include in ingestion.                                                        |
-| `dashboard_pattern.deny`  |          |                         | Regex pattern for dashboards to exclude from ingestion.                                                      |
-| `chart_pattern.allow`     |          |                         | Regex pattern for charts to include in ingestion.                                                            |
-| `chart_pattern.deny`      |          |                         | Regex pattern for charts to exclude from ingestion.                                                          |
+| `dashboard_pattern.allow` |          |                         | List of regex patterns for dashboards to include in ingestion.                                                        |
+| `dashboard_pattern.deny`  |          |                         | List of regex patterns for dashboards to exclude from ingestion.                                                      |
+| `dashboard_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
+| `chart_pattern.allow`     |          |                         | List of regex patterns for charts to include in ingestion.                                                            |
+| `chart_pattern.deny`      |          |                         | List of regex patterns for charts to exclude from ingestion.                                                          |
+| `chart_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
 | `env`                     |          | `"PROD"`                | Environment to use in namespace when constructing URNs.                                                      |
 
 ## Compatibility
