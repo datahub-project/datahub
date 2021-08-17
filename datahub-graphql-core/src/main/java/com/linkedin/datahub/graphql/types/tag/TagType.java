@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.tag;
 
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
@@ -27,6 +26,7 @@ import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.r2.RemoteInvocationException;
 
 import graphql.execution.DataFetcherResult;
+import java.util.Collections;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 
 public class TagType implements com.linkedin.datahub.graphql.types.SearchableEntityType<Tag>, MutableType<TagUpdate> {
 
-    private static final Set<String> FACET_FIELDS = ImmutableSet.of();
+    private static final Set<String> FACET_FIELDS = Collections.emptySet();
 
     private final EntityClient _tagClient;
 
