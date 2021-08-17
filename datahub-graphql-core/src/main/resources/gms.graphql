@@ -438,7 +438,7 @@ type Dataset implements EntityWithRelationships & Entity {
     relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
-type GlossaryTerm implements EntityWithRelationships & Entity {
+type GlossaryTerm implements Entity {
     """
     Urn of the data platform
     """
@@ -468,16 +468,6 @@ type GlossaryTerm implements EntityWithRelationships & Entity {
     Details of the Glossary Term
     """
     glossaryTermInfo: GlossaryTermInfo!
-
-    """
-    Entities upstream of the given entity
-    """
-    upstreamLineage: UpstreamEntityRelationships
-
-    """
-    Entities downstream of the given entity
-    """
-    downstreamLineage: DownstreamEntityRelationships
 
     """
     Edges extending from this entity.
