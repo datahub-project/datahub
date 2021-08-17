@@ -63,6 +63,8 @@ import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.lineage.DownstreamLineageType;
+import com.linkedin.datahub.graphql.types.lineage.GlossaryTermsIsARelationshipsType;
+import com.linkedin.datahub.graphql.types.lineage.GlossaryTermsHasARelationshipsType;
 import com.linkedin.datahub.graphql.types.lineage.UpstreamLineageType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
@@ -130,6 +132,12 @@ public class GmsGraphQLEngine {
     public static final DataFlowDataJobsRelationshipsType DATAFLOW_DATAJOBS_TYPE = new DataFlowDataJobsRelationshipsType(
             GmsClientFactory.getRelationshipsClient()
     );
+    public static final GlossaryTermsIsARelationshipsType GLOSSARY_TERM_ISA_TYPE = new GlossaryTermsIsARelationshipsType(
+            GmsClientFactory.getRelationshipsClient()
+    );
+    public static final GlossaryTermsHasARelationshipsType GLOSSARY_TERM_HASA_TYPE = new GlossaryTermsHasARelationshipsType(
+            GmsClientFactory.getRelationshipsClient()
+    );
     public static final GlossaryTermType GLOSSARY_TERM_TYPE = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
     public static final AspectType ASPECT_TYPE = new AspectType(GmsClientFactory.getAspectsClient());
     public static final UsageType USAGE_TYPE = new UsageType(GmsClientFactory.getUsageClient());
@@ -162,7 +170,9 @@ public class GmsGraphQLEngine {
     public static final List<LoadableType<?>> RELATIONSHIP_TYPES = ImmutableList.of(
             DOWNSTREAM_LINEAGE_TYPE,
             UPSTREAM_LINEAGE_TYPE,
-            DATAFLOW_DATAJOBS_TYPE
+            DATAFLOW_DATAJOBS_TYPE,
+            GLOSSARY_TERM_ISA_TYPE,
+            GLOSSARY_TERM_HASA_TYPE
     );
 
     /**
@@ -233,6 +243,7 @@ public class GmsGraphQLEngine {
         configureTagAssociationResolver(builder);
         configureDataJobResolvers(builder);
         configureMLFeatureTableResolvers(builder);
+        configureGlossaryRelationshipResolvers(builder);
     }
 
     public static GraphQLEngine.Builder builder() {
@@ -704,6 +715,18 @@ public class GmsGraphQLEngine {
                                 (env) -> ((Entity) env.getSource()).getUrn()))
                         )
                 );
+    private static void configureGlossaryRelationshipResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("GlossaryTerm", typeWiring -> typeWiring
+                .dataFetcher("isRelatedTerms", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                GLOSSARY_TERM_ISA_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                ).dataFetcher("hasRelatedTerms", new AuthenticatedResolver<>(
+                        new LoadableTypeResolver<>(
+                                GLOSSARY_TERM_HASA_TYPE,
+                                (env) -> ((Entity) env.getSource()).getUrn()))
+                )
+        );
     }
 
 

@@ -363,7 +363,7 @@ type Dataset implements EntityWithRelationships & Entity {
     datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
 }
 
-type GlossaryTerm implements Entity {
+type GlossaryTerm implements EntityWithRelationships & Entity {
     """
     Urn of the data platform
     """
@@ -393,6 +393,26 @@ type GlossaryTerm implements Entity {
     Details of the Glossary Term
     """
     glossaryTermInfo: GlossaryTermInfo!
+
+    """
+    Is related terms
+    """
+    isRelatedTerms: GlossaryTermIsARelationships
+
+    """
+    Has related terms
+    """
+    hasRelatedTerms: GlossaryTermHasARelationships
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
 }
 
 type GlossaryTermInfo {
@@ -420,7 +440,13 @@ type GlossaryTermInfo {
     Properties of the glossary term
     """
     customProperties: [StringMapEntry!]
+
+    """
+    Schema definition of glossary term
+    """
+    rawSchema: String
 }
+
 
 type DataPlatform implements Entity {
     """
@@ -854,6 +880,15 @@ type DownstreamEntityRelationships {
 type DataFlowDataJobsRelationships {
     entities: [EntityRelationship]
 }
+
+type GlossaryTermIsARelationships {
+    entities: [EntityRelationship]
+}
+
+type GlossaryTermHasARelationships {
+    entities: [EntityRelationship]
+}
+ 
 
 type UpstreamLineage {
     """
