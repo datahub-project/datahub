@@ -6,7 +6,7 @@ import com.linkedin.lineage.client.RelationshipClient;
 import com.linkedin.metadata.query.RelationshipDirection;
 
 import com.linkedin.datahub.graphql.types.LoadableType;
-
+import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,14 +26,14 @@ public class GlossaryTermsIsARelationshipsType implements LoadableType<GlossaryT
     }
 
     @Override
-    public List<GlossaryTermIsARelationships> batchLoad(final List<String> keys, final QueryContext context) {
+    public List<DataFetcherResult<GlossaryTermIsARelationships>> batchLoad(final List<String> keys, final QueryContext context) {
 
         try {
             return keys.stream().map(urn -> {
                 try {
                     com.linkedin.common.EntityRelationships relationships =
                             _relationshipsClient.getRelationships(urn, _direction, "IsA");
-                    return GlossaryTermIsARelationshipMapper.map(relationships);
+                    return DataFetcherResult.<GlossaryTermIsARelationships>newResult().data(GlossaryTermIsARelationshipMapper.map(relationships)).build();
                 } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(String.format("Failed to batch load isA term for glossary %s", urn), e);
                 }
