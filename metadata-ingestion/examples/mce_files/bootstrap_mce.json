@@ -93,7 +93,8 @@
               "email": "bfoo@linkedin.com",
               "admins": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
               "members": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
-              "groups": ["urn:li:corpGroup:jdoe"]
+              "groups": ["urn:li:corpGroup:jdoe"],
+              "description": "This group is full of bfoos!"
             }
           }
         ]
