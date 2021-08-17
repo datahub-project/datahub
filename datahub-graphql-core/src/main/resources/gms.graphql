@@ -438,7 +438,7 @@ type Dataset implements EntityWithRelationships & Entity {
     relationships(types: [String!]!, direction: RelationshipDirection!, start: Int, count: Int): EntityRelationshipsResult
 }
 
-type GlossaryTerm implements Entity {
+type GlossaryTerm implements EntityWithRelationships & Entity {
     """
     Urn of the data platform
     """
@@ -468,6 +468,26 @@ type GlossaryTerm implements Entity {
     Details of the Glossary Term
     """
     glossaryTermInfo: GlossaryTermInfo!
+
+    """
+    Is related terms
+    """
+    isRelatedTerms: GlossaryTermIsARelationships
+
+    """
+    Has related terms
+    """
+    hasRelatedTerms: GlossaryTermHasARelationships
+
+    """
+    Entities upstream of the given entity
+    """
+    upstreamLineage: UpstreamEntityRelationships
+
+    """
+    Entities downstream of the given entity
+    """
+    downstreamLineage: DownstreamEntityRelationships
 
     """
     Edges extending from this entity.
@@ -500,7 +520,13 @@ type GlossaryTermInfo {
     Properties of the glossary term
     """
     customProperties: [StringMapEntry!]
+
+    """
+    Schema definition of glossary term
+    """
+    rawSchema: String
 }
+
 
 type DataPlatform implements Entity {
     """
@@ -939,6 +965,15 @@ type DownstreamEntityRelationships {
 type DataFlowDataJobsRelationships {
     entities: [EntityRelationshipLegacy]
 }
+
+type GlossaryTermIsARelationships {
+    entities: [EntityRelationship]
+}
+
+type GlossaryTermHasARelationships {
+    entities: [EntityRelationship]
+}
+ 
 
 type UpstreamLineage {
     """

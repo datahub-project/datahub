@@ -67,7 +67,7 @@ configurations {
 }
 
 distZip {
-  dependsOn yarnBuild
+  // dependsOn yarnBuild
   baseName 'datahub-web-react'
   from 'dist'
 }
