@@ -470,16 +470,6 @@ type GlossaryTerm implements EntityWithRelationships & Entity {
     glossaryTermInfo: GlossaryTermInfo!
 
     """
-    Is related terms
-    """
-    isRelatedTerms: GlossaryTermIsARelationships
-
-    """
-    Has related terms
-    """
-    hasRelatedTerms: GlossaryTermHasARelationships
-
-    """
     Entities upstream of the given entity
     """
     upstreamLineage: UpstreamEntityRelationships
