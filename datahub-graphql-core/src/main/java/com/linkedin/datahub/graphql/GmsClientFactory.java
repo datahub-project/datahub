@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql;
 
-import com.linkedin.dataplatform.client.DataPlatforms;
 import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.lineage.client.Lineages;
@@ -31,7 +30,6 @@ public class GmsClientFactory {
             Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, "False")),
             Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR));
 
-    private static DataPlatforms _dataPlatforms;
     private static Lineages _lineages;
     private static RelationshipClient _relationshipClient;
     private static EntityClient _entities;

@@ -8,11 +8,9 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.resources.dashboard.Charts;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Optional;
-import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
@@ -42,7 +40,6 @@ import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 @RestLiSimpleResource(name = "lineage", namespace = "com.linkedin.lineage")
 public final class Lineage extends SimpleResourceTemplate<EntityRelationships> {
 
-    private static final String CHART_KEY = Charts.class.getAnnotation(RestLiCollection.class).keyName();
     private static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
     private static final Integer MAX_DOWNSTREAM_CNT = 100;
 
