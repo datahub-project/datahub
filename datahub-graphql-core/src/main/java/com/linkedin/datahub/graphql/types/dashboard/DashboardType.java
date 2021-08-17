@@ -50,7 +50,7 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 public class DashboardType implements SearchableEntityType<Dashboard>, BrowsableEntityType<Dashboard>, MutableType<DashboardUpdateInput> {
 
-    private static final Set<String> FACET_FIELDS = ImmutableSet.of();
+    private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "tool");
 
     private final EntityClient _dashboardsClient;
 

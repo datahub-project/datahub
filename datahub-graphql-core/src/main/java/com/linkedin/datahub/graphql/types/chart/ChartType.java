@@ -48,7 +48,7 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityType<Chart>, MutableType<ChartUpdateInput> {
 
-    private static final Set<String> FACET_FIELDS = ImmutableSet.of();
+    private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "queryType", "tool", "type");
 
     private final EntityClient _entityClient;
 
