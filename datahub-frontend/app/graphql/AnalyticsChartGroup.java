@@ -3,7 +3,7 @@ package graphql;
 
 @javax.annotation.Generated(
     value = "com.kobylynskyi.graphql.codegen.GraphQLCodegen",
-    date = "2021-05-03T10:56:06-0700"
+    date = "2021-08-12T10:01:57-0700"
 )
 public class AnalyticsChartGroup implements java.io.Serializable {
 

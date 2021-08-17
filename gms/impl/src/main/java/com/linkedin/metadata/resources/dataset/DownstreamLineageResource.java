@@ -69,7 +69,7 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
 
     return RestliUtils.toTask(() -> {
 
-      final List<DatasetUrn> downstreamUrns = _graphService.findRelatedUrns(
+      final List<DatasetUrn> downstreamUrns = _graphService.findRelatedEntities(
           "dataset",
           newFilter("urn", datasetUrn.toString()),
           "dataset",
@@ -78,11 +78,11 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
           createRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
           0,
           MAX_DOWNSTREAM_CNT
-      ).stream().map(urnStr -> {
+      ).getEntities().stream().map(entity -> {
         try {
-          return DatasetUrn.createFromString(urnStr);
+          return DatasetUrn.createFromString(entity.getUrn());
         } catch (URISyntaxException e) {
-          throw new RuntimeException(String.format("Failed to convert urn in Neo4j to Urn type %s", urnStr));
+          throw new RuntimeException(String.format("Failed to convert urn in Neo4j to Urn type %s", entity.getUrn()));
         }
       }).collect(Collectors.toList());
 

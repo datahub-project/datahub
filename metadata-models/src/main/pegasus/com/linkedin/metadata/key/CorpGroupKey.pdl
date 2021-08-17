@@ -10,5 +10,8 @@ record CorpGroupKey {
   /**
   * The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub.
   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
   name: string
 }
