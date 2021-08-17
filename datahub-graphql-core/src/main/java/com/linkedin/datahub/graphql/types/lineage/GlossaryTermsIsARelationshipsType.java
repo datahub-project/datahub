@@ -16,7 +16,7 @@ public class GlossaryTermsIsARelationshipsType implements LoadableType<GlossaryT
     private final RelationshipClient _relationshipsClient;
     private final RelationshipDirection _direction =  RelationshipDirection.OUTGOING;
 
-    public GlossaryTermsIsARelationshipsType(final Relationships relationshipsClient) {
+    public GlossaryTermsIsARelationshipsType(final RelationshipClient relationshipsClient) {
         _relationshipsClient = relationshipsClient;
     }
 
