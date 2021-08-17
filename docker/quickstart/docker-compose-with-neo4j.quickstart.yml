@@ -49,13 +49,17 @@ services:
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub
     - EBEAN_DATASOURCE_HOST=mysql:3306
-    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
     - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
-    - GRAPH_SERVICE_IMPL=elasticsearch
+    - GRAPH_SERVICE_IMPL=neo4j
+    - NEO4J_HOST=http://neo4j:7474
+    - NEO4J_URI=bolt://neo4j
+    - NEO4J_USERNAME=neo4j
+    - NEO4J_PASSWORD=datahub
     - JAVA_OPTS=-Xms1g -Xmx1g
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - MAE_CONSUMER_ENABLED=true
@@ -64,8 +68,6 @@ services:
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
-    volumes:
-    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   elasticsearch:
     container_name: elasticsearch
     environment:
@@ -107,7 +109,7 @@ services:
     hostname: kafka-setup
     image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
   mysql:
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     container_name: mysql
     environment:
     - MYSQL_DATABASE=datahub
@@ -133,6 +135,19 @@ services:
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
     image: acryldata/datahub-mysql-setup:head
+  neo4j:
+    container_name: neo4j
+    environment:
+    - NEO4J_AUTH=neo4j/datahub
+    - NEO4J_dbms_default__database=graph.db
+    - NEO4J_dbms_allow__upgrade=true
+    hostname: neo4j
+    image: neo4j:4.0.6
+    ports:
+    - 7474:7474
+    - 7687:7687
+    volumes:
+    - neo4jdata:/data
   schema-registry:
     container_name: schema-registry
     depends_on:
@@ -160,4 +175,5 @@ version: '2.3'
 volumes:
   esdata: null
   mysqldata: null
+  neo4jdata: null
   zkdata: null

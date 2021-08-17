@@ -26,7 +26,7 @@ NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.quickstart.yml"
 )
 ELASTIC_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose-without-neo4j.quickstart.yml"
+    "docker/quickstart/docker-compose.quickstart.yml"
 )
 M1_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml"

@@ -1,3 +1,4 @@
+# Default override to use MySQL as a backing store for datahub-gms (same as docker-compose.mysql.yml).
 ---
 version: '3.8'
 services:
@@ -6,7 +7,7 @@ services:
     hostname: mysql
     image: mysql:5.7
     env_file: mysql/env/docker.env
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     ports:
       - "3306:3306"
     volumes:
@@ -25,11 +26,9 @@ services:
       - mysql
 
   datahub-gms:
-    env_file: datahub-gms/env/docker-without-neo4j.env
+    env_file: datahub-gms/env/docker-with-dgraph.env
     depends_on:
       - mysql
-    volumes:
-      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
 volumes:
   mysqldata:
