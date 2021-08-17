@@ -1,16 +1,15 @@
 import { List, Pagination, Row, Space, Typography } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { CorpUser, EntityType } from '../../../types.generated';
+import { useGetGroupMembersLazyQuery } from '../../../graphql/group.generated';
+import { CorpUser, EntityRelationshipsResult, EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { PreviewType } from '../Entity';
 
 type Props = {
-    members?: Array<CorpUser> | null;
-    page: number;
+    urn: string;
+    initialRelationships?: EntityRelationshipsResult | null;
     pageSize: number;
-    totalResults: number;
-    onChangePage: (page: number) => void;
 };
 
 const MemberList = styled(List)`
@@ -37,16 +36,28 @@ const MembersView = styled(Space)`
     padding-top: 28px;
 `;
 
-export default function GroupMembers({ members, page, onChangePage, pageSize, totalResults }: Props) {
+export default function GroupMembers({ urn, initialRelationships, pageSize }: Props) {
+    const [page, setPage] = useState(1);
     const entityRegistry = useEntityRegistry();
-    const list = members || [];
+
+    const [getMembers, { data: membersData }] = useGetGroupMembersLazyQuery();
+
+    const onChangeMembersPage = (newPage: number) => {
+        setPage(newPage);
+        const start = (newPage - 1) * pageSize;
+        getMembers({ variables: { urn, start, count: pageSize } });
+    };
+
+    const relationships = membersData ? membersData.corpGroup?.relationships : initialRelationships;
+    const total = relationships?.total || 0;
+    const groupMembers = relationships?.relationships?.map((rel) => rel.entity as CorpUser) || [];
 
     return (
         <MembersView direction="vertical" size="middle">
             <Typography.Title level={3}>Group Membership</Typography.Title>
             <Row justify="center">
                 <MemberList
-                    dataSource={list}
+                    dataSource={groupMembers}
                     split={false}
                     renderItem={(item, _) => (
                         <List.Item>
@@ -58,9 +69,9 @@ export default function GroupMembers({ members, page, onChangePage, pageSize, to
                 <Pagination
                     current={page}
                     pageSize={pageSize}
-                    total={totalResults}
+                    total={total}
                     showLessItems
-                    onChange={onChangePage}
+                    onChange={onChangeMembersPage}
                     showSizeChanger={false}
                 />
             </Row>

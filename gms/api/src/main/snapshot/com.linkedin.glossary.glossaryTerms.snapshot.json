@@ -228,6 +228,57 @@
     }
   }, "com.linkedin.common.Urn", {
     "type" : "record",
+    "name" : "GlossaryRelatedTerms",
+    "namespace" : "com.linkedin.glossary",
+    "doc" : "Has A / Is A lineage information about a glossary Term reporting the lineage",
+    "fields" : [ {
+      "name" : "isRelatedTerms",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.GlossaryTermUrn"
+      },
+      "doc" : "The relationship Is A with glossary term",
+      "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "glossaryTerm" ],
+          "name" : "IsA"
+        }
+      },
+      "Searchable" : {
+        "/*" : {
+          "boostScore" : 2.0,
+          "fieldName" : "isRelatedTerms",
+          "fieldType" : "URN"
+        }
+      }
+    }, {
+      "name" : "hasRelatedTerms",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.GlossaryTermUrn"
+      },
+      "doc" : "The relationship Has A with glossary term",
+      "optional" : true,
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "glossaryTerm" ],
+          "name" : "HasA"
+        }
+      },
+      "Searchable" : {
+        "/*" : {
+          "boostScore" : 2.0,
+          "fieldName" : "hasRelatedTerms",
+          "fieldType" : "URN"
+        }
+      }
+    } ],
+    "Aspect" : {
+      "name" : "glossaryRelatedTerms"
+    }
+  }, {
+    "type" : "record",
     "name" : "GlossaryTerm",
     "namespace" : "com.linkedin.glossary",
     "doc" : "Metadata for a business term",
@@ -279,6 +330,11 @@
           },
           "doc" : "A key-value map to capture any other non-standardized properties for the glossary term",
           "default" : { }
+        }, {
+          "name" : "rawSchema",
+          "type" : "string",
+          "doc" : "Schema definition of the glossary term",
+          "optional" : true
         } ],
         "Aspect" : {
           "name" : "glossaryTermInfo"
@@ -328,7 +384,7 @@
       "Aspect" : {
         "name" : "glossaryTermKey"
       }
-    }, "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.BrowsePaths" ]
+    }, "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.BrowsePaths", "com.linkedin.glossary.GlossaryRelatedTerms" ]
   }, "com.linkedin.metadata.key.GlossaryTermKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
