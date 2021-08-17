@@ -955,16 +955,7 @@ type DownstreamEntityRelationships {
 type DataFlowDataJobsRelationships {
     entities: [EntityRelationshipLegacy]
 }
-
-type GlossaryTermIsARelationships {
-    entities: [EntityRelationshipLegacy]
-}
-
-type GlossaryTermHasARelationships {
-    entities: [EntityRelationshipLegacy]
-}
  
-
 type UpstreamLineage {
     """
     List of upstream datasets
