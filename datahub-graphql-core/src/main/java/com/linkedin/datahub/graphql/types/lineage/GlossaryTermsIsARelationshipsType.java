@@ -4,7 +4,7 @@ import com.linkedin.datahub.graphql.generated.GlossaryTermIsARelationships;
 import com.linkedin.datahub.graphql.types.relationships.mappers.GlossaryTermIsARelationshipMapper;
 import com.linkedin.lineage.client.RelationshipClient;
 import com.linkedin.metadata.query.RelationshipDirection;
-
+import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;

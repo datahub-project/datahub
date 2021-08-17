@@ -20,7 +20,7 @@ public class GlossaryTermIsARelationshipMapper implements
         final GlossaryTermIsARelationships result = new GlossaryTermIsARelationships();
         System.out.println(input.toString());
         result.setEntities(input.getRelationships().stream().map(
-                EntityRelationshipMapper::map
+                EntityRelationshipLegacyMapper::map
         ).collect(Collectors.toList()));
         return result;
     }
