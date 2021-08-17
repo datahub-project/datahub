@@ -67,6 +67,9 @@ public class DataFlowUpdateInputSnapshotMapper implements InputModelMapper<DataF
       editableDataFlowProperties.setLastModified(auditStamp);
       aspects.add(DataFlowAspect.create(editableDataFlowProperties));
     }
+
+    result.setAspects(aspects);
+
     return result;
   }
 }

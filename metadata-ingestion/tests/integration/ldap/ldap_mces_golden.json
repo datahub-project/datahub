@@ -7,10 +7,12 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                        "displayName": null,
                         "email": "simpons-group",
                         "admins": [],
                         "members": [],
-                        "groups": []
+                        "groups": [],
+                        "description": null
                     }
                 }
             ]

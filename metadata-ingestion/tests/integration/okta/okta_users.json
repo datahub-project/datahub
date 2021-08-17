@@ -1,0 +1,97 @@
+[
+    {
+        "id": "0",
+        "status": "STAGED",
+        "created": "2013-07-02T21:36:25.344Z",
+        "activated": null,
+        "statusChanged": null,
+        "lastLogin": null,
+        "lastUpdated": "2013-07-02T21:36:25.344Z",
+        "passwordChanged": null,
+        "profile": {
+            "firstName": "John",
+            "lastName": "Doe",
+            "displayName": "JDoe",
+            "email": "john.doe@test.com",
+            "login": "john.doe@test.com",
+            "mobilePhone": "555-415-1337"
+        }   
+    },
+    {
+        "id": "1",
+        "status": "ACTIVE",
+        "created": "2013-07-02T21:37:25.344Z",
+        "activated": null,
+        "statusChanged": null,
+        "lastLogin": null,
+        "lastUpdated": "2013-07-02T21:37:25.344Z",
+        "passwordChanged": null,
+        "profile": {
+            "firstName": "Mary",
+            "lastName": "Jane",
+            "email": "mary.jane@test.com",
+            "login": "mary.jane@test.com",
+            "mobilePhone": "666-415-1337",
+            "title": "Software Engineer",
+            "department": "Engineering",
+            "countryCode": "us"
+        }   
+    },
+    {
+        "id": "2",
+        "status": "DEPROVISIONED",
+        "created": "2013-07-02T21:37:25.344Z",
+        "activated": null,
+        "statusChanged": null,
+        "lastLogin": null,
+        "lastUpdated": "2013-07-02T21:37:25.344Z",
+        "passwordChanged": null,
+        "profile": {
+            "firstName": "Mary",
+            "lastName": "Jane",
+            "email": "mary.jane@test.com",
+            "login": "mary.jane@test.com",
+            "mobilePhone": "666-415-1337",
+            "title": "Software Engineer II",
+            "department": "Engineering",
+            "countryCode": "as"
+        }   
+    },
+    {
+        "id": "3",
+        "status": "DEPROVISIONED",
+        "created": "2013-07-02T21:37:25.344Z",
+        "activated": null,
+        "statusChanged": null,
+        "lastLogin": null,
+        "lastUpdated": "2013-07-02T21:37:25.344Z",
+        "passwordChanged": null,
+        "profile": {
+            "firstName": "Bad",
+            "lastName": "Boy Jones",
+            "email": "bad.boyjones@test.com",
+            "login": "bad.boyjones@test.com",
+            "mobilePhone": "666-415-1337"
+        }   
+    },
+    {
+        "id": "4",
+        "status": "SUSPENDED",
+        "created": "2013-07-02T21:37:25.344Z",
+        "activated": null,
+        "statusChanged": null,
+        "lastLogin": null,
+        "lastUpdated": "2013-07-02T21:37:25.344Z",
+        "passwordChanged": null,
+        "profile": {
+            "firstName": "Bad",
+            "lastName": "Girl Riri",
+            "email": "bad.girlriri@test.com",
+            "login": "bad.girlriri@test.com",
+            "mobilePhone": "666-415-1337",
+            "title": "Manager",
+            "department": "Marketing",
+            "countryCode": "eu"
+        }   
+    }
+]

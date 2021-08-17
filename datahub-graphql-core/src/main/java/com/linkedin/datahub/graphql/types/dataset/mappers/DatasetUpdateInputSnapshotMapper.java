@@ -105,6 +105,8 @@ public class DatasetUpdateInputSnapshotMapper implements InputModelMapper<Datase
       aspects.add(DatasetAspect.create(editableDatasetProperties));
     }
 
+    result.setAspects(aspects);
+
     return result;
   }
 

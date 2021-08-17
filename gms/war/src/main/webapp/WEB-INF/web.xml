@@ -36,12 +36,6 @@
     <servlet-class>com.linkedin.gms.servlet.Config</servlet-class>
     <async-supported>true</async-supported>
   </servlet>
-  <servlet>
-    <display-name>Kafka Consumer Servlet</display-name>
-    <servlet-name>kafka-consumers</servlet-name>
-    <servlet-class>com.linkedin.gms.servlet.KafkaConsumers</servlet-class>
-    <async-supported>true</async-supported>
-  </servlet>
   <!--
     HttpRequestHandlerServlet loads the "restliServlet" spring bean as a servlet.  For details, see:
     http://static.springsource.org/spring-framework/docs/3.2.0.RC1/api/org/springframework/web/context/support/HttpRequestHandlerServlet.html

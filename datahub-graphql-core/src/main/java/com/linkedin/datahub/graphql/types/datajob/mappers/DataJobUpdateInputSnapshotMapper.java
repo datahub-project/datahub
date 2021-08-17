@@ -70,6 +70,9 @@ public class DataJobUpdateInputSnapshotMapper implements InputModelMapper<DataJo
             editableDataJobProperties.setLastModified(auditStamp);
             aspects.add(DataJobAspect.create(editableDataJobProperties));
         }
+
+        result.setAspects(aspects);
+
         return result;
     }
 }

@@ -1380,7 +1380,8 @@ class OwnershipTypeClass(object):
     
     
 class StatusClass(DictWrapper):
-    """The status metadata of an entity, e.g. dataset, metric, feature, etc."""
+    """The status metadata of an entity, e.g. dataset, metric, feature, etc.
+    This aspect is used to represent soft deletes conventionally."""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.common.Status")
     def __init__(self,
@@ -3422,6 +3423,53 @@ class GlossaryNodeInfoClass(DictWrapper):
         self._inner_dict['parentNode'] = value
     
     
+class GlossaryRelatedTermsClass(DictWrapper):
+    """Has A / Is A lineage information about a glossary Term reporting the lineage"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms")
+    def __init__(self,
+        isRelatedTerms: Union[None, List[str]]=None,
+        hasRelatedTerms: Union[None, List[str]]=None,
+    ):
+        super().__init__()
+        
+        self.isRelatedTerms = isRelatedTerms
+        self.hasRelatedTerms = hasRelatedTerms
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "GlossaryRelatedTermsClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.isRelatedTerms = self.RECORD_SCHEMA.field_map["isRelatedTerms"].default
+        self.hasRelatedTerms = self.RECORD_SCHEMA.field_map["hasRelatedTerms"].default
+    
+    
+    @property
+    def isRelatedTerms(self) -> Union[None, List[str]]:
+        """Getter: The relationship Is A with glossary term"""
+        return self._inner_dict.get('isRelatedTerms')  # type: ignore
+    
+    @isRelatedTerms.setter
+    def isRelatedTerms(self, value: Union[None, List[str]]) -> None:
+        """Setter: The relationship Is A with glossary term"""
+        self._inner_dict['isRelatedTerms'] = value
+    
+    
+    @property
+    def hasRelatedTerms(self) -> Union[None, List[str]]:
+        """Getter: The relationship Has A with glossary term"""
+        return self._inner_dict.get('hasRelatedTerms')  # type: ignore
+    
+    @hasRelatedTerms.setter
+    def hasRelatedTerms(self, value: Union[None, List[str]]) -> None:
+        """Setter: The relationship Has A with glossary term"""
+        self._inner_dict['hasRelatedTerms'] = value
+    
+    
 class GlossaryTermInfoClass(DictWrapper):
     """Properties associated with a GlossaryTerm"""
     
@@ -3433,6 +3481,7 @@ class GlossaryTermInfoClass(DictWrapper):
         sourceRef: Union[None, str]=None,
         sourceUrl: Union[None, str]=None,
         customProperties: Optional[Dict[str, str]]=None,
+        rawSchema: Union[None, str]=None,
     ):
         super().__init__()
         
@@ -3446,6 +3495,7 @@ class GlossaryTermInfoClass(DictWrapper):
             self.customProperties = dict()
         else:
             self.customProperties = customProperties
+        self.rawSchema = rawSchema
     
     @classmethod
     def construct_with_defaults(cls) -> "GlossaryTermInfoClass":
@@ -3461,6 +3511,7 @@ class GlossaryTermInfoClass(DictWrapper):
         self.sourceRef = self.RECORD_SCHEMA.field_map["sourceRef"].default
         self.sourceUrl = self.RECORD_SCHEMA.field_map["sourceUrl"].default
         self.customProperties = dict()
+        self.rawSchema = self.RECORD_SCHEMA.field_map["rawSchema"].default
     
     
     @property
@@ -3529,22 +3580,37 @@ class GlossaryTermInfoClass(DictWrapper):
         self._inner_dict['customProperties'] = value
     
     
+    @property
+    def rawSchema(self) -> Union[None, str]:
+        """Getter: Schema definition of the glossary term"""
+        return self._inner_dict.get('rawSchema')  # type: ignore
+    
+    @rawSchema.setter
+    def rawSchema(self, value: Union[None, str]) -> None:
+        """Setter: Schema definition of the glossary term"""
+        self._inner_dict['rawSchema'] = value
+    
+    
 class CorpGroupInfoClass(DictWrapper):
     """group of corpUser, it may contains nested group"""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.CorpGroupInfo")
     def __init__(self,
-        email: str,
         admins: List[str],
         members: List[str],
         groups: List[str],
+        displayName: Union[None, str]=None,
+        email: Union[None, str]=None,
+        description: Union[None, str]=None,
     ):
         super().__init__()
         
+        self.displayName = displayName
         self.email = email
         self.admins = admins
         self.members = members
         self.groups = groups
+        self.description = description
     
     @classmethod
     def construct_with_defaults(cls) -> "CorpGroupInfoClass":
@@ -3554,19 +3620,32 @@ class CorpGroupInfoClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.email = str()
+        self.displayName = self.RECORD_SCHEMA.field_map["displayName"].default
+        self.email = self.RECORD_SCHEMA.field_map["email"].default
         self.admins = list()
         self.members = list()
         self.groups = list()
+        self.description = self.RECORD_SCHEMA.field_map["description"].default
     
     
     @property
-    def email(self) -> str:
+    def displayName(self) -> Union[None, str]:
+        """Getter: The name to use when displaying the group."""
+        return self._inner_dict.get('displayName')  # type: ignore
+    
+    @displayName.setter
+    def displayName(self, value: Union[None, str]) -> None:
+        """Setter: The name to use when displaying the group."""
+        self._inner_dict['displayName'] = value
+    
+    
+    @property
+    def email(self) -> Union[None, str]:
         """Getter: email of this group"""
         return self._inner_dict.get('email')  # type: ignore
     
     @email.setter
-    def email(self, value: str) -> None:
+    def email(self, value: Union[None, str]) -> None:
         """Setter: email of this group"""
         self._inner_dict['email'] = value
     
@@ -3602,6 +3681,17 @@ class CorpGroupInfoClass(DictWrapper):
     def groups(self, value: List[str]) -> None:
         """Setter: List of groups in this group."""
         self._inner_dict['groups'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        """Getter: A description of the group."""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        """Setter: A description of the group."""
+        self._inner_dict['description'] = value
     
     
 class CorpUserEditableInfoClass(DictWrapper):
@@ -3864,6 +3954,39 @@ class CorpUserInfoClass(DictWrapper):
         self._inner_dict['countryCode'] = value
     
     
+class GroupMembershipClass(DictWrapper):
+    """Carries information about the CorpGroups a user is in."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.GroupMembership")
+    def __init__(self,
+        groups: List[str],
+    ):
+        super().__init__()
+        
+        self.groups = groups
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "GroupMembershipClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.groups = list()
+    
+    
+    @property
+    def groups(self) -> List[str]:
+        # No docs available.
+        return self._inner_dict.get('groups')  # type: ignore
+    
+    @groups.setter
+    def groups(self, value: List[str]) -> None:
+        # No docs available.
+        self._inner_dict['groups'] = value
+    
+    
 class ChartKeyClass(DictWrapper):
     """Key for a Chart"""
     
@@ -3935,12 +4058,12 @@ class CorpGroupKeyClass(DictWrapper):
     
     @property
     def name(self) -> str:
-        """Getter: The name of the AD/LDAP group."""
+        """Getter: The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."""
         return self._inner_dict.get('name')  # type: ignore
     
     @name.setter
     def name(self, value: str) -> None:
-        """Setter: The name of the AD/LDAP group."""
+        """Setter: The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."""
         self._inner_dict['name'] = value
     
     
@@ -4812,7 +4935,7 @@ class CorpUserSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass", "StatusClass"]],
+        aspects: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]],
     ):
         super().__init__()
         
@@ -4843,12 +4966,12 @@ class CorpUserSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass", "StatusClass"]]:
+    def aspects(self) -> List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]]:
         """Getter: The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     @aspects.setter
-    def aspects(self, value: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GlobalTagsClass", "StatusClass"]]) -> None:
+    def aspects(self, value: List[Union["CorpUserKeyClass", "CorpUserInfoClass", "CorpUserEditableInfoClass", "GroupMembershipClass", "GlobalTagsClass", "StatusClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -5188,7 +5311,7 @@ class GlossaryTermSnapshotClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot")
     def __init__(self,
         urn: str,
-        aspects: List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass"]],
+        aspects: List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass", "GlossaryRelatedTermsClass"]],
     ):
         super().__init__()
         
@@ -5219,12 +5342,12 @@ class GlossaryTermSnapshotClass(DictWrapper):
     
     
     @property
-    def aspects(self) -> List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass"]]:
+    def aspects(self) -> List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass", "GlossaryRelatedTermsClass"]]:
         """Getter: The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         return self._inner_dict.get('aspects')  # type: ignore
     
     @aspects.setter
-    def aspects(self, value: List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass"]]) -> None:
+    def aspects(self, value: List[Union["GlossaryTermKeyClass", "GlossaryTermInfoClass", "OwnershipClass", "StatusClass", "BrowsePathsClass", "GlossaryRelatedTermsClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."""
         self._inner_dict['aspects'] = value
     
@@ -7903,10 +8026,12 @@ class KafkaSchemaClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.schema.KafkaSchema")
     def __init__(self,
         documentSchema: str,
+        keySchema: Union[None, str]=None,
     ):
         super().__init__()
         
         self.documentSchema = documentSchema
+        self.keySchema = keySchema
     
     @classmethod
     def construct_with_defaults(cls) -> "KafkaSchemaClass":
@@ -7917,6 +8042,7 @@ class KafkaSchemaClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.documentSchema = str()
+        self.keySchema = self.RECORD_SCHEMA.field_map["keySchema"].default
     
     
     @property
@@ -7928,6 +8054,17 @@ class KafkaSchemaClass(DictWrapper):
     def documentSchema(self, value: str) -> None:
         """Setter: The native kafka document schema. This is a human readable avro document schema."""
         self._inner_dict['documentSchema'] = value
+    
+    
+    @property
+    def keySchema(self) -> Union[None, str]:
+        """Getter: The native kafka key schema as retrieved from Schema Registry"""
+        return self._inner_dict.get('keySchema')  # type: ignore
+    
+    @keySchema.setter
+    def keySchema(self, value: Union[None, str]) -> None:
+        """Setter: The native kafka key schema as retrieved from Schema Registry"""
+        self._inner_dict['keySchema'] = value
     
     
 class KeyValueSchemaClass(DictWrapper):
@@ -8263,6 +8400,7 @@ class SchemaFieldClass(DictWrapper):
         recursive: Optional[bool]=None,
         globalTags: Union[None, "GlobalTagsClass"]=None,
         glossaryTerms: Union[None, "GlossaryTermsClass"]=None,
+        isPartOfKey: Optional[bool]=None,
     ):
         super().__init__()
         
@@ -8283,6 +8421,11 @@ class SchemaFieldClass(DictWrapper):
             self.recursive = recursive
         self.globalTags = globalTags
         self.glossaryTerms = glossaryTerms
+        if isPartOfKey is None:
+            # default: False
+            self.isPartOfKey = self.RECORD_SCHEMA.field_map["isPartOfKey"].default
+        else:
+            self.isPartOfKey = isPartOfKey
     
     @classmethod
     def construct_with_defaults(cls) -> "SchemaFieldClass":
@@ -8301,6 +8444,7 @@ class SchemaFieldClass(DictWrapper):
         self.recursive = self.RECORD_SCHEMA.field_map["recursive"].default
         self.globalTags = self.RECORD_SCHEMA.field_map["globalTags"].default
         self.glossaryTerms = self.RECORD_SCHEMA.field_map["glossaryTerms"].default
+        self.isPartOfKey = self.RECORD_SCHEMA.field_map["isPartOfKey"].default
     
     
     @property
@@ -8400,6 +8544,19 @@ class SchemaFieldClass(DictWrapper):
     def glossaryTerms(self, value: Union[None, "GlossaryTermsClass"]) -> None:
         """Setter: Glossary terms associated with the field"""
         self._inner_dict['glossaryTerms'] = value
+    
+    
+    @property
+    def isPartOfKey(self) -> bool:
+        """Getter: For schema fields that are part of complex keys, set this field to true
+    We do this to easily distinguish between value and key fields"""
+        return self._inner_dict.get('isPartOfKey')  # type: ignore
+    
+    @isPartOfKey.setter
+    def isPartOfKey(self, value: bool) -> None:
+        """Setter: For schema fields that are part of complex keys, set this field to true
+    We do this to easily distinguish between value and key fields"""
+        self._inner_dict['isPartOfKey'] = value
     
     
 class SchemaFieldDataTypeClass(DictWrapper):
@@ -9151,10 +9308,12 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataset.ValueFrequency': ValueFrequencyClass,
     'com.linkedin.pegasus2avro.events.metadata.ChangeType': ChangeTypeClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo': GlossaryNodeInfoClass,
+    'com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms': GlossaryRelatedTermsClass,
     'com.linkedin.pegasus2avro.glossary.GlossaryTermInfo': GlossaryTermInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpGroupInfo': CorpGroupInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpUserEditableInfo': CorpUserEditableInfoClass,
     'com.linkedin.pegasus2avro.identity.CorpUserInfo': CorpUserInfoClass,
+    'com.linkedin.pegasus2avro.identity.GroupMembership': GroupMembershipClass,
     'com.linkedin.pegasus2avro.metadata.key.ChartKey': ChartKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.CorpGroupKey': CorpGroupKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.CorpUserKey': CorpUserKeyClass,
@@ -9315,10 +9474,12 @@ __SCHEMA_TYPES = {
     'ValueFrequency': ValueFrequencyClass,
     'ChangeType': ChangeTypeClass,
     'GlossaryNodeInfo': GlossaryNodeInfoClass,
+    'GlossaryRelatedTerms': GlossaryRelatedTermsClass,
     'GlossaryTermInfo': GlossaryTermInfoClass,
     'CorpGroupInfo': CorpGroupInfoClass,
     'CorpUserEditableInfo': CorpUserEditableInfoClass,
     'CorpUserInfo': CorpUserInfoClass,
+    'GroupMembership': GroupMembershipClass,
     'ChartKey': ChartKeyClass,
     'CorpGroupKey': CorpGroupKeyClass,
     'CorpUserKey': CorpUserKeyClass,
