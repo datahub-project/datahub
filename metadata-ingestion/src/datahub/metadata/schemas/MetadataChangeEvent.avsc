@@ -709,7 +709,10 @@
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
+                        "doc": "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub.",
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       }
                     ],
                     "Aspect": {
@@ -729,7 +732,10 @@
                           "string"
                         ],
                         "doc": "The name to use when displaying the group.",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       },
                       {
                         "name": "email",
@@ -795,7 +801,10 @@
                           "string"
                         ],
                         "doc": "A description of the group.",
-                        "default": null
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       }
                     ],
                     "Aspect": {
@@ -2781,7 +2790,14 @@
                                   }
                                 ],
                                 "doc": "Glossary terms associated with the field",
-                                "default": null
+                                "default": null,
+                                "Searchable": {
+                                  "/terms/*/urn": {
+                                    "boostScore": 0.5,
+                                    "fieldName": "fieldGlossaryTerms",
+                                    "fieldType": "URN_PARTIAL"
+                                  }
+                                }
                               },
                               {
                                 "name": "isPartOfKey",
@@ -5105,6 +5121,15 @@
                         },
                         "doc": "A key-value map to capture any other non-standardized properties for the glossary term",
                         "default": {}
+                      },
+                      {
+                        "name": "rawSchema",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Schema definition of the glossary term",
+                        "default": null
                       }
                     ],
                     "Aspect": {
@@ -5113,7 +5138,72 @@
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  {
+                    "type": "record",
+                    "name": "GlossaryRelatedTerms",
+                    "namespace": "com.linkedin.pegasus2avro.glossary",
+                    "doc": "Has A / Is A lineage information about a glossary Term reporting the lineage",
+                    "fields": [
+                      {
+                        "name": "isRelatedTerms",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "The relationship Is A with glossary term",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "glossaryTerm"
+                            ],
+                            "name": "IsA"
+                          }
+                        },
+                        "Searchable": {
+                          "/*": {
+                            "boostScore": 2.0,
+                            "fieldName": "isRelatedTerms",
+                            "fieldType": "URN"
+                          }
+                        }
+                      },
+                      {
+                        "name": "hasRelatedTerms",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "The relationship Has A with glossary term",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "glossaryTerm"
+                            ],
+                            "name": "HasA"
+                          }
+                        },
+                        "Searchable": {
+                          "/*": {
+                            "boostScore": 2.0,
+                            "fieldName": "hasRelatedTerms",
+                            "fieldType": "URN"
+                          }
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "glossaryRelatedTerms"
+                    }
+                  }
                 ]
               },
               "doc": "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."

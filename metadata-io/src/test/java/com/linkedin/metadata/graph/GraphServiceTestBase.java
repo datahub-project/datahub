@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
+import java.util.stream.Collectors;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nonnull;
@@ -68,7 +69,10 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10).getUrns();
+        10).getEntities()
+        .stream()
+        .map(RelatedEntity::getUrn)
+        .collect(Collectors.toList());
 
     assertEquals(relatedUrns.size(), 1);
   }
@@ -99,7 +103,11 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10).getUrns();
+        10)
+        .getEntities()
+        .stream()
+        .map(RelatedEntity::getUrn)
+        .collect(Collectors.toList());
 
     assertEquals(relatedUrns.size(), 1);
   }
@@ -130,7 +138,11 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10).getUrns();
+        10)
+        .getEntities()
+        .stream()
+        .map(RelatedEntity::getUrn)
+        .collect(Collectors.toList());
 
     assertEquals(relatedUrns.size(), 1);
 
@@ -148,7 +160,11 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10).getUrns();
+        10)
+        .getEntities()
+        .stream()
+        .map(RelatedEntity::getUrn)
+        .collect(Collectors.toList());
 
     assertEquals(relatedUrnsPostDelete.size(), 0);
   }
