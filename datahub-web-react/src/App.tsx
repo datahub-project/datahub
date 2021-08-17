@@ -11,7 +11,7 @@ import EntityRegistry from './app/entity/EntityRegistry';
 import { DashboardEntity } from './app/entity/dashboard/DashboardEntity';
 import { ChartEntity } from './app/entity/chart/ChartEntity';
 import { UserEntity } from './app/entity/user/User';
-import { UserGroupEntity } from './app/entity/userGroup/UserGroup';
+import { GroupEntity } from './app/entity/group/Group';
 import { DatasetEntity } from './app/entity/dataset/DatasetEntity';
 import { DataFlowEntity } from './app/entity/dataFlow/DataFlowEntity';
 import { DataJobEntity } from './app/entity/dataJob/DataJobEntity';
@@ -76,7 +76,7 @@ const App: React.VFC = () => {
         register.register(new DashboardEntity());
         register.register(new ChartEntity());
         register.register(new UserEntity());
-        register.register(new UserGroupEntity());
+        register.register(new GroupEntity());
         register.register(new TagEntity());
         register.register(new DataFlowEntity());
         register.register(new DataJobEntity());

@@ -5,6 +5,7 @@ import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
@@ -13,12 +14,14 @@ import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.UpdateResponse;
+import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.net.URISyntaxException;
@@ -47,22 +50,20 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
         super();
     }
 
-    private List<Urn> getRelatedEntities(String rawUrn, List<String> relationshipTypes, RelationshipDirection direction) {
-        return
-                _graphService.findRelatedUrns("", newFilter("urn", rawUrn),
-                        "", EMPTY_FILTER,
-                        relationshipTypes, createRelationshipFilter(EMPTY_FILTER, direction),
-                        0, MAX_DOWNSTREAM_CNT)
-                .stream().map(
-                        rawRelatedUrn -> {
-                            try {
-                                return Urn.createFromString(rawRelatedUrn);
-                            } catch (URISyntaxException e) {
-                                e.printStackTrace();
-                            }
-                            return null;
-                        }
-                ).collect(Collectors.toList());
+    private RelatedEntitiesResult getRelatedEntities(
+        String rawUrn,
+        List<String> relationshipTypes,
+        RelationshipDirection direction,
+        @Nullable Integer start,
+        @Nullable Integer count) {
+
+        start = start == null ? 0 : start;
+        count = count == null ? MAX_DOWNSTREAM_CNT : count;
+
+        return _graphService.findRelatedEntities("", newFilter("urn", rawUrn),
+            "", EMPTY_FILTER,
+            relationshipTypes, createRelationshipFilter(EMPTY_FILTER, direction),
+            start, count);
     }
 
     static RelationshipDirection getOppositeDirection(RelationshipDirection direction) {
@@ -79,23 +80,42 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     @RestMethod.Get
     public Task<EntityRelationships> get(
             @QueryParam("urn") @Nonnull String rawUrn,
-            @QueryParam("types") @Nonnull String relationshipTypesParam,
-            @QueryParam("direction") @Nonnull  String rawDirection
+            @QueryParam("types") @Nonnull String[] relationshipTypesParam,
+            @QueryParam("direction") @Nonnull String rawDirection,
+            @QueryParam("start") @Optional @Nullable Integer start,
+            @QueryParam("count") @Optional @Nullable Integer count
     ) {
         RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
-        final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam.split(","));
+        final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam);
         return RestliUtils.toTask(() -> {
-            final List<Urn> relatedEntities = getRelatedEntities(rawUrn, relationshipTypes, direction);
+
+            final RelatedEntitiesResult relatedEntitiesResult = getRelatedEntities(
+                rawUrn,
+                relationshipTypes,
+                direction,
+                start,
+                count);
 
             final EntityRelationshipArray entityArray = new EntityRelationshipArray(
-                    relatedEntities.stream().map(
-                        entity -> new EntityRelationship()
-                                .setEntity(entity)
-                    )
-                            .collect(Collectors.toList())
+                    relatedEntitiesResult.getEntities().stream().map(
+                        entity -> {
+                            try {
+                                return new EntityRelationship()
+                                    .setEntity(Urn.createFromString(entity.getUrn()))
+                                    .setType(entity.getRelationshipType());
+                            } catch (URISyntaxException e) {
+                                throw new RuntimeException(
+                                    String.format("Failed to convert urnStr %s found in the Graph to an Urn object", entity.getUrn()));
+                            }
+                        }
+                    ).collect(Collectors.toList())
             );
 
-            return new EntityRelationships().setEntities(entityArray);
+            return new EntityRelationships()
+                .setStart(relatedEntitiesResult.getStart())
+                .setCount(relatedEntitiesResult.getCount())
+                .setTotal(relatedEntitiesResult.getTotal())
+                .setRelationships(entityArray);
         });
     }
 

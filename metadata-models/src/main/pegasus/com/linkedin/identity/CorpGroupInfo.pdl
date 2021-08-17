@@ -16,6 +16,9 @@ record CorpGroupInfo {
   /**
    * The name to use when displaying the group.
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
   displayName: optional string
 
   /**
@@ -59,6 +62,9 @@ record CorpGroupInfo {
   /**
    * A description of the group.
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
   description: optional string
 
 }

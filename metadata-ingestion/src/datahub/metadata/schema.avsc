@@ -720,6 +720,9 @@
                       "namespace": "com.linkedin.pegasus2avro.metadata.key",
                       "fields": [
                         {
+                          "Searchable": {
+                            "fieldType": "TEXT_PARTIAL"
+                          },
                           "type": "string",
                           "name": "name",
                           "doc": "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
@@ -739,6 +742,9 @@
                       "namespace": "com.linkedin.pegasus2avro.identity",
                       "fields": [
                         {
+                          "Searchable": {
+                            "fieldType": "TEXT_PARTIAL"
+                          },
                           "type": [
                             "null",
                             "string"
@@ -805,6 +811,9 @@
                           "doc": "List of groups in this group."
                         },
                         {
+                          "Searchable": {
+                            "fieldType": "TEXT_PARTIAL"
+                          },
                           "type": [
                             "null",
                             "string"
