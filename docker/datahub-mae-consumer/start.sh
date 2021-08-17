@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Add default URI (http) scheme if needed
-if ! echo $NEO4J_HOST | grep -q "://" ; then
+# Add default URI (http) scheme to NEO4J_HOST if missing
+if [[ -n "$NEO4J_HOST" && $NEO4J_HOST != *"://"* ]] ; then
     NEO4J_HOST="http://$NEO4J_HOST"
 fi
 
@@ -15,6 +15,7 @@ if [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
     ELASTICSEARCH_AUTH_HEADER="Accept: */*"
 fi
 
+# Add elasticsearch protocol
 if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
     ELASTICSEARCH_PROTOCOL=https
 else
@@ -31,9 +32,12 @@ if [[ $SKIP_ELASTICSEARCH_CHECK != true ]]; then
   WAIT_FOR_ELASTICSEARCH=" -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header \"$ELASTICSEARCH_AUTH_HEADER\""
 fi
 
-WAIT_FOR_NEO4J=""
-if [[ $GRAPH_SERVICE_IMPL != elasticsearch ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
-  WAIT_FOR_NEO4J=" -wait $NEO4J_HOST "
+# Add dependency to graph service if needed
+WAIT_FOR_GRAPH_SERVICE=""
+if [[ $GRAPH_SERVICE_IMPL == neo4j ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
+  WAIT_FOR_GRAPH_SERVICE=" -wait $NEO4J_HOST "
+elif [[ $GRAPH_SERVICE_IMPL == dgraph ]] && [[ $SKIP_DGRAPH_CHECK != true ]]; then
+  WAIT_FOR_GRAPH_SERVICE=" -wait $DGRAPH_HOST "
 fi
 
 OTEL_AGENT=""
@@ -49,6 +53,7 @@ fi
 COMMON="
     $WAIT_FOR_KAFKA \
     $WAIT_FOR_NEO4J \
+    $WAIT_FOR_GRAPH_SERVICE \
     -timeout 240s \
     java $JAVA_OPTS $JMX_OPTS $OTEL_AGENT $PROMETHEUS_AGENT -jar /datahub/datahub-mae-consumer/bin/mae-consumer-job.jar
 "
