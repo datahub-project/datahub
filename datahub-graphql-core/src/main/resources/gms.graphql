@@ -500,7 +500,13 @@ type GlossaryTermInfo {
     Properties of the glossary term
     """
     customProperties: [StringMapEntry!]
+
+    """
+    Schema definition of glossary term
+    """
+    rawSchema: String
 }
+
 
 type DataPlatform implements Entity {
     """
@@ -939,7 +945,7 @@ type DownstreamEntityRelationships {
 type DataFlowDataJobsRelationships {
     entities: [EntityRelationshipLegacy]
 }
-
+ 
 type UpstreamLineage {
     """
     List of upstream datasets
