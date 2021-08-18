@@ -429,27 +429,31 @@ class GlueSource(Source):
         return all_tables
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+
         tables = self.get_all_tables()
+
         for table in tables:
             database_name = table["DatabaseName"]
             table_name = table["Name"]
             full_table_name = f"{database_name}.{table_name}"
             self.report.report_table_scanned()
-            if self.source_config.database_pattern.allowed(database_name):
-                if self.source_config.table_pattern.allowed(table_name):
-                    mce = self._extract_record(table, full_table_name)
-                    workunit = MetadataWorkUnit(full_table_name, mce=mce)
-                    self.report.report_workunit(workunit)
-                    yield workunit
-            else:
+            if not self.source_config.database_pattern.allowed(
+                database_name
+            ) or not self.source_config.table_pattern.allowed(full_table_name):
                 self.report.report_table_dropped(full_table_name)
                 continue
+
+            mce = self._extract_record(table, full_table_name)
+            workunit = MetadataWorkUnit(full_table_name, mce=mce)
+            self.report.report_workunit(workunit)
+            yield workunit
 
         if self.extract_transforms:
 
             dags = {}
 
             for job in self.get_all_jobs():
+
                 flow_urn = mce_builder.make_data_flow_urn(
                     self.get_underlying_platform(), job["Name"], self.env
                 )
