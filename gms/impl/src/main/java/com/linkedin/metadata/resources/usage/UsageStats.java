@@ -150,7 +150,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
             }
 
             return new UsageQueryResult()
-                    .setBuckets(buckets)
+                    .setBuckets(buckets.size() > 0 ? new UsageAggregationArray(buckets.subList(0, 1)) : buckets)
                     .setAggregations(aggregations);
         });
     }
