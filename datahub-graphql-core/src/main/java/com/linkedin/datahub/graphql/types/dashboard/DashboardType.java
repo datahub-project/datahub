@@ -83,7 +83,8 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
             final Map<Urn, Entity> dashboardMap = _dashboardsClient.batchGet(dashboardUrns
                     .stream()
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toSet()),
+                context.getActor());
 
             final List<Entity> gmsResults = new ArrayList<>();
             for (DashboardUrn urn : dashboardUrns) {
@@ -108,7 +109,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _dashboardsClient.search("dashboard", query, facetFilters, start, count);
+        final SearchResult searchResult = _dashboardsClient.search("dashboard", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -119,7 +120,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _dashboardsClient.autoComplete("dashboard", query, facetFilters, limit);
+        final AutoCompleteResult result = _dashboardsClient.autoComplete("dashboard", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -135,13 +136,14 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                 pathStr,
                 facetFilters,
                 start,
-                count);
+                count,
+            context.getActor());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-        final StringArray result = _dashboardsClient.getBrowsePaths(getDashboardUrn(urn));
+        final StringArray result = _dashboardsClient.getBrowsePaths(getDashboardUrn(urn), context.getActor());
         return BrowsePathsMapper.map(result);
     }
 
@@ -161,7 +163,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
         final Snapshot snapshot = Snapshot.create(partialDashboard);
 
         try {
-            _dashboardsClient.update(new com.linkedin.entity.Entity().setValue(snapshot));
+            _dashboardsClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getActor());
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }

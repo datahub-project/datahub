@@ -81,7 +81,8 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
             final Map<Urn, com.linkedin.entity.Entity> chartMap = _entityClient.batchGet(chartUrns
                     .stream()
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toSet()),
+                context.getActor());
 
             final List<com.linkedin.entity.Entity> gmsResults = new ArrayList<>();
             for (Urn urn : chartUrns) {
@@ -107,7 +108,13 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _entityClient.search(
-            "chart", query, facetFilters, start, count);
+            "chart",
+            query,
+            facetFilters,
+            start,
+            count,
+            context.getActor()
+        );
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -118,7 +125,12 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _entityClient.autoComplete("chart", query, facetFilters, limit);
+        final AutoCompleteResult result = _entityClient.autoComplete(
+            "chart",
+            query,
+            facetFilters,
+            limit,
+            context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -135,13 +147,14 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
                 pathStr,
                 facetFilters,
                 start,
-                count);
+                count,
+                context.getActor());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-        final StringArray result = _entityClient.getBrowsePaths(getChartUrn(urn));
+        final StringArray result = _entityClient.getBrowsePaths(getChartUrn(urn), context.getActor());
         return BrowsePathsMapper.map(result);
     }
 
@@ -161,7 +174,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
         final Snapshot snapshot = Snapshot.create(chartSnapshot);
 
         try {
-            _entityClient.update(new com.linkedin.entity.Entity().setValue(snapshot));
+            _entityClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getActor());
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }

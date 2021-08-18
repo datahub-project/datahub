@@ -188,6 +188,12 @@ enum EntityType {
 }
 
 type Query {
+
+    """
+    Fetch details associated with the logged in user.
+    """
+    me: AuthenticatedUser
+
     """
     Fetch a Dataset by primary key
     """
@@ -282,6 +288,11 @@ type Query {
     Fetch a GlossaryTerm by primary key
     """
     glossaryTerm(urn: String!): GlossaryTerm
+
+    """
+    Fetch all policies that are active.
+    """
+    policies: PoliciesResult
 }
 
 type Mutation {
@@ -291,6 +302,28 @@ type Mutation {
     updateDataFlow(input: DataFlowUpdateInput!): DataFlow
     updateDataJob(input: DataJobUpdateInput!): DataJob
     updateTag(input: TagUpdate!): Tag
+}
+
+type AuthenticatedUser {
+  corpUser: CorpUser!
+  features: FeatureFlags!
+}
+
+type FeatureFlags {
+  """
+  Whether to display the admin console or not.
+  """
+  showAdminConsole: Boolean!
+
+  """
+  Whether to display the analytics experience or not.
+  """
+  showAnalytics: Boolean!
+
+  """
+  Whether to display the policy editor experience or not.
+  """
+  showPolicyBuilder: Boolean!
 }
 
 type AuditStamp {
@@ -3252,4 +3285,89 @@ type DatasetProfile implements TimeSeriesAspect {
   columnCount: Long
   fieldProfiles: [DatasetFieldProfile!]
   partitionSpec: PartitionSpec
+}
+
+type PoliciesResult {
+  start: Int
+  count: Int
+  total: Int
+  policies: [Policy!]!
+}
+
+type Policy {
+
+  """
+  Each policy has some information. Each predicate in disjunction with one another.
+  """
+  actorFilters: ActorOrFilters
+
+  """
+  Action Type - What action is being performed against the resource. Array represents a disjunction (OR).
+  """
+  actionType: ActionType!
+
+  """
+  Resource predicates - filters narrowing down the resource itself. Array represents a disjunction (OR).
+  """
+  resourceFilters: ResourceOrFilters
+
+}
+
+enum ActionType {
+  ALL
+  VIEW_AND_UPDATE
+  UPDATE_DOCUMENTATION
+  UPDATE_TAGS
+  UPDATE_TERMS
+  UPDATE_OWNERS
+  UPDATE_MEMBERS
+  UPDATE_POLICIES
+  UPDATE_COLUMN_TAGS_AND_DESCRIPTION
+}
+
+type ActorOrFilters {
+  or: [ActorAndFilters!]!
+}
+
+type ActorAndFilters {
+  and: [ActorFilterPredicate!]!
+}
+
+type ActorFilterPredicate {
+  operator: ActorOperator!
+  operand: String
+}
+
+enum ActorOperator {
+  HAS_URN
+  IS_MEMBER_OF_GROUP
+  OWNS_RESOURCE
+}
+
+type ResourceOrFilters {
+  or: [ResourceAndFilters!]!
+}
+
+type ResourceAndFilters {
+  and: [ResourceFilterPredicate!]!
+}
+
+interface ResourceFilterPredicate {
+  operator: ResourceFilterOperator!
+}
+
+type EntityTypePredicate implements ResourceFilterPredicate {
+  operator: ResourceFilterOperator!
+  type: EntityType!
+}
+
+type Platform implements ResourceFilterPredicate {
+  operator: ResourceFilterOperator!
+  type: EntityType!
+}
+
+enum ResourceFilterOperator {
+  HAS_TYPE
+  HAS_PLATFORM
+  HAS_URN
 }

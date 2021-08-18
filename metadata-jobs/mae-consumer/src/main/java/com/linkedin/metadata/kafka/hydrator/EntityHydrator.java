@@ -38,7 +38,7 @@ public class EntityHydrator {
     // Hydrate fields from snapshot
     Entity entity;
     try {
-      entity = (Entity) _entityClient.get(urnObj);
+      entity = (Entity) _entityClient.get(urnObj, "system");
     } catch (RemoteInvocationException e) {
       log.error("Error while calling GMS to hydrate entity for urn {}", urn);
       e.printStackTrace();

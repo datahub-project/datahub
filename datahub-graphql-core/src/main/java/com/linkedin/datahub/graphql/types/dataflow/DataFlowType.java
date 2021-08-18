@@ -81,7 +81,8 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
             final Map<Urn, Entity> dataFlowMap = _dataFlowsClient.batchGet(dataFlowUrns
                 .stream()
                 .filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
+                .collect(Collectors.toSet()),
+            context.getActor());
 
             final List<Entity> gmsResults = dataFlowUrns.stream()
                 .map(flowUrn -> dataFlowMap.getOrDefault(flowUrn, null)).collect(Collectors.toList());
@@ -104,7 +105,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _dataFlowsClient.search("dataFlow", query, facetFilters, start, count);
+        final SearchResult searchResult = _dataFlowsClient.search("dataFlow", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -115,7 +116,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _dataFlowsClient.autoComplete("dataFlow", query, facetFilters, limit);
+        final AutoCompleteResult result = _dataFlowsClient.autoComplete("dataFlow", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -137,13 +138,14 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
                 pathStr,
                 facetFilters,
                 start,
-                count);
+                count,
+            context.getActor());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
-        final StringArray result = _dataFlowsClient.getBrowsePaths(DataFlowUrn.createFromString(urn));
+        final StringArray result = _dataFlowsClient.getBrowsePaths(DataFlowUrn.createFromString(urn), context.getActor());
         return BrowsePathsMapper.map(result);
     }
 
@@ -157,7 +159,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
         try {
             Entity entity = new Entity();
             entity.setValue(snapshot);
-            _dataFlowsClient.update(entity);
+            _dataFlowsClient.update(entity, context.getActor());
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }

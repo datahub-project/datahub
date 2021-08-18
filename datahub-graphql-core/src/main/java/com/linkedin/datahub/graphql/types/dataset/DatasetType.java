@@ -82,7 +82,8 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
             final Map<Urn, Entity> datasetMap = _datasetsClient.batchGet(datasetUrns
                     .stream()
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toSet()),
+                context.getActor());
 
             final List<Entity> gmsResults = new ArrayList<>();
             for (DatasetUrn urn : datasetUrns) {
@@ -108,7 +109,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _datasetsClient.search("dataset", query, facetFilters, start, count);
+        final SearchResult searchResult = _datasetsClient.search("dataset", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -119,7 +120,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _datasetsClient.autoComplete("dataset", query, facetFilters, limit);
+        final AutoCompleteResult result = _datasetsClient.autoComplete("dataset", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -136,13 +137,14 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                 pathStr,
                 facetFilters,
                 start,
-                count);
+                count,
+            context.getActor());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
-        final StringArray result = _datasetsClient.getBrowsePaths(DatasetUtils.getDatasetUrn(urn));
+        final StringArray result = _datasetsClient.getBrowsePaths(DatasetUtils.getDatasetUrn(urn), context.getActor());
         return BrowsePathsMapper.map(result);
     }
 
@@ -156,7 +158,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         try {
             Entity entity = new Entity();
             entity.setValue(snapshot);
-            _datasetsClient.update(entity);
+            _datasetsClient.update(entity, context.getActor());
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }

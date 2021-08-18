@@ -56,7 +56,7 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
                     .collect(Collectors.toList());
 
             final Map<Urn, Entity> corpUserMap = _corpUsersClient
-                    .batchGet(new HashSet<>(corpUserUrns));
+                    .batchGet(new HashSet<>(corpUserUrns), context.getActor());
 
             final List<Entity> results = new ArrayList<>();
             for (CorpuserUrn urn : corpUserUrns) {
@@ -77,7 +77,8 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
                                 int start,
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
-        final SearchResult searchResult = _corpUsersClient.search("corpuser", query, Collections.emptyMap(), start, count);
+        final SearchResult searchResult = _corpUsersClient.search("corpuser", query, Collections.emptyMap(), start, count,
+            context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -87,7 +88,7 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
                                             @Nullable List<FacetFilterInput> filters,
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
-        final AutoCompleteResult result = _corpUsersClient.autoComplete("corpuser", query, Collections.emptyMap(), limit);
+        final AutoCompleteResult result = _corpUsersClient.autoComplete("corpuser", query, Collections.emptyMap(), limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 

@@ -73,7 +73,8 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
             final Map<Urn, Entity> tagMap = _tagClient.batchGet(tagUrns
                     .stream()
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toSet()),
+                context.getActor());
 
             final List<Entity> gmsResults = new ArrayList<>();
             for (TagUrn urn : tagUrns) {
@@ -98,7 +99,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _tagClient.search("tag", query, facetFilters, start, count);
+        final SearchResult searchResult = _tagClient.search("tag", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -109,7 +110,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _tagClient.autoComplete("tag", query, facetFilters, limit);
+        final AutoCompleteResult result = _tagClient.autoComplete("tag", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -123,7 +124,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
         try {
             Entity entity = new Entity();
             entity.setValue(snapshot);
-            _tagClient.update(entity);
+            _tagClient.update(entity, context.getActor());
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
         }

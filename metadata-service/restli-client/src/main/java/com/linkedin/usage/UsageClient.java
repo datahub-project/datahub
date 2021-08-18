@@ -24,12 +24,13 @@ public class UsageClient extends BaseClient {
     @Nonnull
     public UsageQueryResult getUsageStats(
         @Nonnull String resource,
-        @Nonnull UsageTimeRange range
+        @Nonnull UsageTimeRange range,
+        @Nonnull String actor
     ) throws RemoteInvocationException, URISyntaxException {
-        final UsageStatsDoQueryRangeRequestBuilder request = USAGE_STATS_REQUEST_BUILDERS.actionQueryRange()
+        final UsageStatsDoQueryRangeRequestBuilder requestBuilder = USAGE_STATS_REQUEST_BUILDERS.actionQueryRange()
             .resourceParam(resource)
             .durationParam(WindowDuration.DAY)
             .rangeFromEndParam(range);
-        return sendClientRequest(request.build()).getEntity();
+        return sendClientRequest(requestBuilder, actor).getEntity();
     }
 }

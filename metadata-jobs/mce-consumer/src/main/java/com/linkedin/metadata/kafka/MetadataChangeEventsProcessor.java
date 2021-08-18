@@ -88,6 +88,7 @@ public class MetadataChangeEventsProcessor {
   private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws RemoteInvocationException {
     final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
     final Entity entity = new Entity().setValue(snapshotUnion);
-    entityClient.updateWithSystemMetadata(entity, metadataChangeEvent.getSystemMetadata());
+    // TODO Get this from the event itself.
+    entityClient.updateWithSystemMetadata(entity, metadataChangeEvent.getSystemMetadata(), "system");
   }
 }

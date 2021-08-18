@@ -50,7 +50,8 @@ public class MetadataChangeProposalsProcessor {
     try {
       event = EventUtils.avroToPegasusMCP(record);
       log.debug("MetadataChangeProposal {}", event);
-      aspectClient.ingestProposal(event);
+      // TODO: Get this from the event itself.
+      aspectClient.ingestProposal(event, "system");
     } catch (Throwable throwable) {
       log.error("MCP Processor Error", throwable);
       log.error("Message: {}", record);

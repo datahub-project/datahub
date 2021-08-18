@@ -3,6 +3,7 @@ package com.linkedin.entity.client;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.entity.EntitiesBatchGetRequestBuilder;
 import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchIngestRequestBuilder;
@@ -20,9 +21,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
-import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.client.Response;
 import java.net.URISyntaxException;
 import java.util.Collection;
@@ -47,15 +46,15 @@ public class EntityClient extends BaseClient {
     }
 
     @Nonnull
-    public Entity get(@Nonnull final Urn urn) throws RemoteInvocationException {
-        final GetRequest<Entity> getRequest = ENTITIES_REQUEST_BUILDERS.get()
-                .id(urn.toString())
-                .build();
-        return sendClientRequest(getRequest).getEntity();
+    public Entity get(@Nonnull final Urn urn, @Nonnull final String actor) throws RemoteInvocationException {
+        return sendClientRequest(
+            ENTITIES_REQUEST_BUILDERS.get().id(urn.toString()),
+            actor)
+            .getEntity();
     }
 
     @Nonnull
-    public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns) throws RemoteInvocationException {
+    public Map<Urn, Entity> batchGet(@Nonnull final Set<Urn> urns, @Nonnull final String actor) throws RemoteInvocationException {
 
         final Integer batchSize = 25;
         final AtomicInteger index = new AtomicInteger(0);
@@ -67,11 +66,10 @@ public class EntityClient extends BaseClient {
         final Map<Urn, Entity> response = new HashMap<>();
 
         for (List<Urn> urnsInBatch : entityUrnBatches) {
-            BatchGetEntityRequest<String, Entity> batchGetRequest =
+            EntitiesBatchGetRequestBuilder batchGetRequestBuilder =
                     ENTITIES_REQUEST_BUILDERS.batchGet()
-                            .ids(urnsInBatch.stream().map(Urn::toString).collect(Collectors.toSet()))
-                            .build();
-            final Map<Urn, Entity> batchResponse = sendClientRequest(batchGetRequest).getEntity().getResults()
+                            .ids(urnsInBatch.stream().map(Urn::toString).collect(Collectors.toSet()));
+            final Map<Urn, Entity> batchResponse = sendClientRequest(batchGetRequestBuilder, actor).getEntity().getResults()
                     .entrySet().stream().collect(Collectors.toMap(
                             entry -> {
                                 try {
@@ -97,10 +95,13 @@ public class EntityClient extends BaseClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
+    public AutoCompleteResult autoComplete(
+        @Nonnull String entityType,
+        @Nonnull String query,
         @Nonnull Map<String, String> requestFilters,
         @Nonnull int limit,
-        @Nullable String field) throws RemoteInvocationException {
+        @Nullable String field,
+        @Nonnull String actor) throws RemoteInvocationException {
         EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
             .actionAutocomplete()
             .entityParam(entityType)
@@ -108,7 +109,7 @@ public class EntityClient extends BaseClient {
             .fieldParam(field)
             .filterParam(newFilter(requestFilters))
             .limitParam(limit);
-        return sendClientRequest(requestBuilder.build()).getEntity();
+        return sendClientRequest(requestBuilder, actor).getEntity();
     }
 
     /**
@@ -120,16 +121,19 @@ public class EntityClient extends BaseClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
+    public AutoCompleteResult autoComplete(
+        @Nonnull String entityType,
+        @Nonnull String query,
         @Nonnull Map<String, String> requestFilters,
-        @Nonnull int limit) throws RemoteInvocationException {
+        @Nonnull int limit,
+        @Nonnull String actor) throws RemoteInvocationException {
         EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
             .actionAutocomplete()
             .entityParam(entityType)
             .queryParam(query)
             .filterParam(newFilter(requestFilters))
             .limitParam(limit);
-        return sendClientRequest(requestBuilder.build()).getEntity();
+        return sendClientRequest(requestBuilder, actor).getEntity();
     }
 
     /**
@@ -143,8 +147,13 @@ public class EntityClient extends BaseClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public BrowseResult browse(@Nonnull String entityType, @Nonnull String path, @Nullable Map<String, String> requestFilters,
-        int start, int limit) throws RemoteInvocationException {
+    public BrowseResult browse(
+        @Nonnull String entityType,
+        @Nonnull String path,
+        @Nullable Map<String, String> requestFilters,
+        int start,
+        int limit,
+        @Nonnull String actor) throws RemoteInvocationException {
         EntitiesDoBrowseRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
             .actionBrowse()
             .pathParam(path)
@@ -154,26 +163,28 @@ public class EntityClient extends BaseClient {
         if (requestFilters != null) {
             requestBuilder.filterParam(newFilter(requestFilters));
         }
-        return sendClientRequest(requestBuilder.build()).getEntity();
+        return sendClientRequest(requestBuilder, actor).getEntity();
     }
 
-    public Response<Void> update(@Nonnull final Entity entity) throws RemoteInvocationException {
+    public Response<Void> update(@Nonnull final Entity entity, @Nonnull final String actor) throws RemoteInvocationException {
         EntitiesDoIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity);
 
-        return sendClientRequest(requestBuilder.build());
+        return sendClientRequest(requestBuilder, actor);
     }
 
-    public Response<Void> updateWithSystemMetadata(@Nonnull final Entity entity,
-        @Nullable final SystemMetadata systemMetadata) throws RemoteInvocationException {
+    public Response<Void> updateWithSystemMetadata(
+        @Nonnull final Entity entity,
+        @Nullable final SystemMetadata systemMetadata,
+        @Nonnull final String actor) throws RemoteInvocationException {
         if (systemMetadata == null) {
-            return update(entity);
+            return update(entity, actor);
         }
 
         EntitiesDoIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity).systemMetadataParam(systemMetadata);
 
-        return sendClientRequest(requestBuilder.build());
+        return sendClientRequest(requestBuilder, actor);
     }
 
     public Response<Void> batchUpdate(@Nonnull final Set<Entity> entities) throws RemoteInvocationException {
@@ -194,15 +205,13 @@ public class EntityClient extends BaseClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nonnull Map<String, String> requestFilters,
-        int start, int count) throws RemoteInvocationException {
-
-        return search(entity, input, null, requestFilters, start, count);
-    }
-
-    @Nonnull
-    public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable StringArray aspectNames,
-        @Nullable Map<String, String> requestFilters, int start, int count)
+    public SearchResult search(
+        @Nonnull String entity,
+        @Nonnull String input,
+        @Nullable Map<String, String> requestFilters,
+        int start,
+        int count,
+        @Nonnull String actor)
         throws RemoteInvocationException {
 
         final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
@@ -212,7 +221,7 @@ public class EntityClient extends BaseClient {
             .startParam(start)
             .countParam(count);
 
-        return sendClientRequest(requestBuilder.build()).getEntity();
+        return sendClientRequest(requestBuilder, actor).getEntity();
     }
 
     /**
@@ -223,30 +232,30 @@ public class EntityClient extends BaseClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public StringArray getBrowsePaths(@Nonnull Urn urn) throws RemoteInvocationException {
+    public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull String actor) throws RemoteInvocationException {
         EntitiesDoGetBrowsePathsRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS
             .actionGetBrowsePaths()
             .urnParam(urn);
-        return sendClientRequest(requestBuilder.build()).getEntity();
+        return sendClientRequest(requestBuilder, actor).getEntity();
     }
 
-    public void setWritable(boolean canWrite) throws RemoteInvocationException {
+    public void setWritable(boolean canWrite, @Nonnull String actor) throws RemoteInvocationException {
         EntitiesDoSetWritableRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionSetWritable().valueParam(canWrite);
-        sendClientRequest(requestBuilder.build());
+        sendClientRequest(requestBuilder, actor);
     }
 
     @Nonnull
-    public long getTotalEntityCount(@Nonnull String entityName) throws RemoteInvocationException {
+    public long getTotalEntityCount(@Nonnull String entityName, @Nonnull String actor) throws RemoteInvocationException {
         EntitiesDoGetTotalEntityCountRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionGetTotalEntityCount().entityParam(entityName);
-        return sendClientRequest(requestBuilder.build()).getEntity();
+        return sendClientRequest(requestBuilder, actor).getEntity();
     }
 
     @Nonnull
-    public Map<String, Long> batchGetTotalEntityCount(@Nonnull List<String> entityName) throws RemoteInvocationException {
+    public Map<String, Long> batchGetTotalEntityCount(@Nonnull List<String> entityName, @Nonnull String actor) throws RemoteInvocationException {
         EntitiesDoBatchGetTotalEntityCountRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionBatchGetTotalEntityCount().entitiesParam(new StringArray(entityName));
-        return sendClientRequest(requestBuilder.build()).getEntity();
+        return sendClientRequest(requestBuilder, actor).getEntity();
     }
 }
