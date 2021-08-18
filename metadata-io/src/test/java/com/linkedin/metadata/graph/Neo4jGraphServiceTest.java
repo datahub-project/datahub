@@ -69,6 +69,9 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
     if (datasetType != null && datasetType.isEmpty()) {
       throw new SkipException("Neo4jGraphService does not support empty source type");
     }
+    if (datasetType != null && datasetType.equals(GraphServiceTestBase.userType)) {
+      throw new SkipException("Neo4jGraphService has different source and destination semantics");
+    }
     super.testFindRelatedEntitiesSourceType(datasetType, relationshipTypes, relationships, expectedRelatedEntities);
   }
 
@@ -79,6 +82,9 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
                                                      List<RelatedEntity> expectedRelatedEntities) throws Exception {
     if (datasetType != null && datasetType.isEmpty()) {
       throw new SkipException("Neo4jGraphService does not support empty destination type");
+    }
+    if (relationshipTypes.contains(hasOwner)) {
+      throw new SkipException("Neo4jGraphService has different source and destination semantics");
     }
     super.testFindRelatedEntitiesDestinationType(datasetType, relationshipTypes, relationships, expectedRelatedEntities);
   }
