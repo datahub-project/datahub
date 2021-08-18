@@ -73,7 +73,7 @@ abstract public class GraphServiceTestBase {
   protected static Urn userOneUrn = createFromString(userOneUrnString);
   protected static Urn userTwoUrn = createFromString(userTwoUrnString);
 
-  protected static Urn unknownUrn = createFromString("urn:li:unknown:(urn:li:unknown:Unknown)");
+  protected static Urn unknownUrn = createFromString(unknownUrnString);
 
   /**
    * Some test relationships.
@@ -219,11 +219,11 @@ abstract public class GraphServiceTestBase {
               anyType, EMPTY_FILTER,
               anyType, EMPTY_FILTER,
               Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
-              0, 10);
+              0, 100);
       assertEqualsAnyOrder(
               relatedOutgoingEntitiesBeforeRemove,
               Arrays.asList(
-                      downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity,
+                      downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
                       hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity,
                       knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity
               )
@@ -232,12 +232,12 @@ abstract public class GraphServiceTestBase {
               anyType, EMPTY_FILTER,
               anyType, EMPTY_FILTER,
               Arrays.asList(downstreamOf, hasOwner, knowsUser), incomingRelationships,
-              0, 10);
+              0, 100);
       assertEqualsAnyOrder(
               relatedIncomingEntitiesBeforeRemove,
               Arrays.asList(
-                      downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
-                      hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
+                      downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity,
+                      hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity, hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity,
                       knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity
               )
       );
@@ -663,6 +663,41 @@ abstract public class GraphServiceTestBase {
   }
 
   @Test
+  public void testFindRelatedEntitiesRelationshipTypes() throws Exception {
+    GraphService service = getPopulatedGraphService();
+
+    RelatedEntitiesResult allOutgoingRelatedEntities = service.findRelatedEntities(
+            anyType, EMPTY_FILTER,
+            anyType, EMPTY_FILTER,
+            Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
+            0, 100
+    );
+    assertEqualsAnyOrder(
+            allOutgoingRelatedEntities,
+            Arrays.asList(
+                    downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
+                    hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity,
+                    knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity
+            )
+    );
+
+    RelatedEntitiesResult allIncomingRelatedEntities = service.findRelatedEntities(
+            anyType, EMPTY_FILTER,
+            anyType, EMPTY_FILTER,
+            Arrays.asList(downstreamOf, hasOwner, knowsUser), incomingRelationships,
+            0, 100
+    );
+    assertEqualsAnyOrder(
+            allIncomingRelatedEntities,
+            Arrays.asList(
+                    downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity,
+                    hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity, hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity,
+                    knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity
+            )
+    );
+  }
+
+  @Test
   public void testFindRelatedEntitiesNoRelationshipTypes() throws Exception {
     GraphService service = getPopulatedGraphService();
 
@@ -770,9 +805,9 @@ abstract public class GraphServiceTestBase {
                     Arrays.asList(hasOwner, knowsUser),
                     outgoingRelationships,
                     Arrays.asList(knowsUserTwoRelatedEntity),
-                    Arrays.asList(hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity, knowsUserOneRelatedEntity),
+                    Arrays.asList(hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity, knowsUserTwoRelatedEntity),
                     Arrays.asList(),
-                    Arrays.asList(datasetOneUrnString, datasetTwoUrnString, userTwoUrnString)
+                    Arrays.asList(hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity, knowsUserTwoRelatedEntity)
             },
             new Object[] {
                     userOneUrn,
@@ -815,12 +850,12 @@ abstract public class GraphServiceTestBase {
             anyType, newFilter("urn", nodeToRemoveFrom.toString()),
             anyType, EMPTY_FILTER,
             relationTypes, outgoingRelationships,
-            0, 10);
+            0, 100);
     RelatedEntitiesResult actualIncomingRelatedUrnsBeforeRemove = service.findRelatedEntities(
             anyType, newFilter("urn", nodeToRemoveFrom.toString()),
             anyType, EMPTY_FILTER,
             relationTypes, incomingRelationships,
-            0, 10);
+            0, 100);
     assertEqualsAnyOrder(actualOutgoingRelatedUrnsBeforeRemove, expectedOutgoingRelatedUrnsBeforeRemove);
     assertEqualsAnyOrder(actualIncomingRelatedUrnsBeforeRemove, expectedIncomingRelatedUrnsBeforeRemove);
 
@@ -829,12 +864,12 @@ abstract public class GraphServiceTestBase {
             anyType, newFilter("urn", nodeToRemoveFrom.toString()),
             anyType, EMPTY_FILTER,
             allOtherRelationTypes, outgoingRelationships,
-            0, 10);
+            0, 100);
     RelatedEntitiesResult relatedEntitiesOfOtherIncomingRelationTypesBeforeRemove = service.findRelatedEntities(
             anyType, newFilter("urn", nodeToRemoveFrom.toString()),
             anyType, EMPTY_FILTER,
             allOtherRelationTypes, incomingRelationships,
-            0, 10);
+            0, 100);
 
     service.removeEdgesFromNode(
             nodeToRemoveFrom,
@@ -847,12 +882,12 @@ abstract public class GraphServiceTestBase {
             anyType, newFilter("urn", nodeToRemoveFrom.toString()),
             anyType, EMPTY_FILTER,
             relationTypes, outgoingRelationships,
-            0, 10);
+            0, 100);
     RelatedEntitiesResult actualIncomingRelatedUrnsAfterRemove = service.findRelatedEntities(
             anyType, newFilter("urn", nodeToRemoveFrom.toString()),
             anyType, EMPTY_FILTER,
             relationTypes, incomingRelationships,
-            0, 10);
+            0, 100);
     assertEqualsAnyOrder(actualOutgoingRelatedUrnsAfterRemove, expectedOutgoingRelatedUrnsAfterRemove);
     assertEqualsAnyOrder(actualIncomingRelatedUrnsAfterRemove, expectedIncomingRelatedUrnsAfterRemove);
 
@@ -861,12 +896,12 @@ abstract public class GraphServiceTestBase {
             anyType, newFilter("urn", nodeToRemoveFrom.toString()),
             anyType, EMPTY_FILTER,
             allOtherRelationTypes, outgoingRelationships,
-            0, 10);
+            0, 100);
     RelatedEntitiesResult relatedEntitiesOfOtherIncomingRelationTypesAfterRemove = service.findRelatedEntities(
             anyType, newFilter("urn", nodeToRemoveFrom.toString()),
             anyType, EMPTY_FILTER,
             allOtherRelationTypes, incomingRelationships,
-            0, 10);
+            0, 100);
     assertEqualsAnyOrder(relatedEntitiesOfOtherOutgoingRelationTypesAfterRemove, relatedEntitiesOfOtherOutgoingRelationTypesBeforeRemove);
     assertEqualsAnyOrder(relatedEntitiesOfOtherIncomingRelationTypesAfterRemove, relatedEntitiesOfOtherIncomingRelationTypesBeforeRemove);
   }
@@ -881,7 +916,7 @@ abstract public class GraphServiceTestBase {
             anyType, newFilter("urn", nodeToRemoveFrom.toString()),
             anyType, EMPTY_FILTER,
             Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
-            0, 10);
+            0, 100);
 
     service.removeEdgesFromNode(
             nodeToRemoveFrom,
@@ -894,7 +929,7 @@ abstract public class GraphServiceTestBase {
             anyType, newFilter("urn", nodeToRemoveFrom.toString()),
             anyType, EMPTY_FILTER,
             Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
-            0, 10);
+            0, 100);
     assertEqualsAnyOrder(relatedOutgoingEntitiesAfterRemove, relatedOutgoingEntitiesBeforeRemove);
 
     // does the test actually test something? is the Collections.emptyList() the only reason why we did not see changes?
@@ -909,7 +944,7 @@ abstract public class GraphServiceTestBase {
             anyType, newFilter("urn", nodeToRemoveFrom.toString()),
             anyType, EMPTY_FILTER,
             Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
-            0, 10);
+            0, 100);
     assertEqualsAnyOrder(relatedOutgoingEntitiesAfterRemoveAll, Collections.emptyList());
   }
 
@@ -923,7 +958,7 @@ abstract public class GraphServiceTestBase {
             anyType, EMPTY_FILTER,
             anyType, EMPTY_FILTER,
             Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
-            0, 10);
+            0, 100);
 
     service.removeEdgesFromNode(
             nodeToRemoveFrom,
@@ -936,7 +971,7 @@ abstract public class GraphServiceTestBase {
             anyType, EMPTY_FILTER,
             anyType, EMPTY_FILTER,
             Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
-            0, 10);
+            0, 100);
     assertEqualsAnyOrder(relatedOutgoingEntitiesAfterRemove, relatedOutgoingEntitiesBeforeRemove);
   }
 
@@ -944,20 +979,19 @@ abstract public class GraphServiceTestBase {
   public void testRemoveNode() throws Exception {
     GraphService service = getPopulatedGraphService();
 
-    // populated graph asserted in testPopulatedGraphService
     service.removeNode(datasetTwoUrn);
     syncAfterWrite();
 
     // assert the modified graph
     assertEqualsAnyOrder(
             service.findRelatedEntities(
-                    datasetType, EMPTY_FILTER,
+                    anyType, EMPTY_FILTER,
                     anyType, EMPTY_FILTER,
                     Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
-                    0, 10
+                    0, 100
             ),
             Arrays.asList(
-                    hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity,
+                    hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity,
                     knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity
             )
     );
@@ -972,7 +1006,7 @@ abstract public class GraphServiceTestBase {
             anyType, EMPTY_FILTER,
             anyType, EMPTY_FILTER,
             Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
-            0, 10);
+            0, 100);
 
     service.removeNode(unknownUrn);
     syncAfterWrite();
@@ -981,7 +1015,7 @@ abstract public class GraphServiceTestBase {
             anyType, EMPTY_FILTER,
             anyType, EMPTY_FILTER,
             Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
-            0, 10);
+            0, 100);
     assertEqualsAnyOrder(entitiesBeforeRemove, entitiesAfterRemove);
   }
 
@@ -1000,7 +1034,7 @@ abstract public class GraphServiceTestBase {
                     datasetType, EMPTY_FILTER,
                     anyType, EMPTY_FILTER,
                     Arrays.asList(downstreamOf), outgoingRelationships,
-                    0, 10
+                    0, 100
             ),
             Collections.emptyList()
     );
@@ -1009,7 +1043,7 @@ abstract public class GraphServiceTestBase {
                     userType, EMPTY_FILTER,
                     anyType, EMPTY_FILTER,
                     Arrays.asList(hasOwner), outgoingRelationships,
-                    0, 10
+                    0, 100
             ),
             Collections.emptyList()
     );
@@ -1018,7 +1052,7 @@ abstract public class GraphServiceTestBase {
                     anyType, EMPTY_FILTER,
                     userType, EMPTY_FILTER,
                     Arrays.asList(knowsUser), outgoingRelationships,
-                    0, 10
+                    0, 100
             ),
             Collections.emptyList()
     );
