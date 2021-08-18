@@ -295,6 +295,81 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     }
 
     @Test
+    public void testGetRelationships() {
+        // no relationships
+        assertEquals(
+                DgraphGraphService.getRelationships(
+                        null,
+                        Collections.emptyList(),
+                        Collections.emptyList()),
+                Collections.emptyList()
+        );
+
+        // one relationship but no filters
+        assertEquals(
+                DgraphGraphService.getRelationships(
+                        null,
+                        Collections.emptyList(),
+                        Arrays.asList("relationship")
+                ),
+                Arrays.asList("<relationship> { <uid> }")
+        );
+
+        // more relationship and source type filter
+        assertEquals(
+                DgraphGraphService.getRelationships(
+                        "sourceTypeFilter",
+                        Collections.emptyList(),
+                        Arrays.asList("relationship1", "~relationship2")
+                ),
+                Arrays.asList(
+                        "<relationship1> @filter( uid(sourceTypeFilter) ) { <uid> }",
+                        "<~relationship2> @filter( uid(sourceTypeFilter) ) { <uid> }"
+                )
+        );
+
+        // more relationship, source type and source filters
+        assertEquals(
+                DgraphGraphService.getRelationships(
+                        "sourceTypeFilter",
+                        Arrays.asList("sourceFilter1", "sourceFilter2"),
+                        Arrays.asList("relationship1", "~relationship2")
+                ),
+                Arrays.asList(
+                        "<relationship1> @filter( uid(sourceTypeFilter) AND uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }",
+                        "<~relationship2> @filter( uid(sourceTypeFilter) AND uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }"
+                )
+        );
+
+        // more relationship and only source filters
+        assertEquals(
+                DgraphGraphService.getRelationships(
+                        null,
+                        Arrays.asList("sourceFilter1", "sourceFilter2"),
+                        Arrays.asList("relationship1", "~relationship2", "relationship3")
+                ),
+                Arrays.asList(
+                        "<relationship1> @filter( uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }",
+                        "<~relationship2> @filter( uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }",
+                        "<relationship3> @filter( uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }"
+                )
+        );
+
+        // two relationship and only one source filter
+        assertEquals(
+                DgraphGraphService.getRelationships(
+                        null,
+                        Arrays.asList("sourceFilter"),
+                        Arrays.asList("~relationship1", "~relationship2")
+                ),
+                Arrays.asList(
+                        "<~relationship1> @filter( uid(sourceFilter) ) { <uid> }",
+                        "<~relationship2> @filter( uid(sourceFilter) ) { <uid> }"
+                )
+        );
+    }
+
+    @Test
     public void testGetRelationshipCondition() {
         assertEquals(
                 DgraphGraphService.getRelationshipCondition(
@@ -346,8 +421,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     }
 
     @Test
-    public void testGetQueryForRelatedUrnsOutgoing() {
-        doTestGetQueryForRelatedUrnsDirection(RelationshipDirection.OUTGOING,
+    public void testGetQueryForRelatedEntitiesOutgoing() {
+        doTestGetQueryForRelatedEntitiesDirection(RelationshipDirection.OUTGOING,
                 "query {\n"
                         + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
                         + "  destinationType as var(func: eq(<type>, \"destinationType\"))\n"
@@ -371,14 +446,16 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         + "    )\n"
                         + "  ) {\n"
                         + "    <urn>\n"
+                        + "    <~relationship1> @filter( uid(sourceType) AND uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }\n"
+                        + "    <~relationship2> @filter( uid(sourceType) AND uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }\n"
                         + "  }\n"
                         + "}"
         );
     }
 
     @Test
-    public void testGetQueryForRelatedUrnsIncoming() {
-        doTestGetQueryForRelatedUrnsDirection(RelationshipDirection.INCOMING,
+    public void testGetQueryForRelatedEntitiesIncoming() {
+        doTestGetQueryForRelatedEntitiesDirection(RelationshipDirection.INCOMING,
                 "query {\n"
                         + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
                         + "  destinationType as var(func: eq(<type>, \"destinationType\"))\n"
@@ -402,14 +479,16 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         + "    )\n"
                         + "  ) {\n"
                         + "    <urn>\n"
+                        + "    <relationship1> @filter( uid(sourceType) AND uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }\n"
+                        + "    <relationship2> @filter( uid(sourceType) AND uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }\n"
                         + "  }\n"
                         + "}"
         );
     }
 
     @Test
-    public void testGetQueryForRelatedUrnsUndirected() {
-        doTestGetQueryForRelatedUrnsDirection(RelationshipDirection.UNDIRECTED,
+    public void testGetQueryForRelatedEntitiesUndirected() {
+        doTestGetQueryForRelatedEntitiesDirection(RelationshipDirection.UNDIRECTED,
                 "query {\n"
                         + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
                         + "  destinationType as var(func: eq(<type>, \"destinationType\"))\n"
@@ -422,8 +501,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         + "  relationshipType3 as var(func: has(<~relationship1>))\n"
                         + "  relationshipType4 as var(func: has(<~relationship2>))\n"
                         + "\n"
-                        + "  result (func: uid(destinationFilter1, destinationFilter2, destinationType, " +
-                        "relationshipType1, relationshipType2, relationshipType3, relationshipType4), first: 100, offset: 0) @filter(\n"
+                        + "  result (func: uid(destinationFilter1, destinationFilter2, destinationType, "
+                        + "relationshipType1, relationshipType2, relationshipType3, relationshipType4), first: 100, offset: 0) @filter(\n"
                         + "    uid(destinationType) AND\n"
                         + "    uid(destinationFilter1) AND\n"
                         + "    uid(destinationFilter2) AND\n"
@@ -439,14 +518,18 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                         + "    )\n"
                         + "  ) {\n"
                         + "    <urn>\n"
+                        + "    <relationship1> @filter( uid(sourceType) AND uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }\n"
+                        + "    <relationship2> @filter( uid(sourceType) AND uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }\n"
+                        + "    <~relationship1> @filter( uid(sourceType) AND uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }\n"
+                        + "    <~relationship2> @filter( uid(sourceType) AND uid(sourceFilter1) AND uid(sourceFilter2) ) { <uid> }\n"
                         + "  }\n"
                         + "}"
         );
     }
 
-    private void doTestGetQueryForRelatedUrnsDirection(@Nonnull RelationshipDirection direction, @Nonnull String expectedQuery) {
+    private void doTestGetQueryForRelatedEntitiesDirection(@Nonnull RelationshipDirection direction, @Nonnull String expectedQuery) {
         assertEquals(
-                DgraphGraphService.getQueryForRelatedUrns(
+                DgraphGraphService.getQueryForRelatedEntities(
                         "sourceType",
                         newFilter(new HashMap<String, String>() {{
                             put("urn", "urn:ns:type:source-key");
@@ -469,7 +552,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     public void testGetDestinationUrnsFromResponseData() {
         // no results
         assertEquals(
-                DgraphGraphService.getDestinationUrnsFromResponseData(
+                DgraphGraphService.getRelatedEntitiesFromResponseData(
                         new HashMap<String, Object>() {{
                             put("result", Collections.emptyList());
                         }}
@@ -477,58 +560,119 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
                 Collections.emptyList()
         );
 
-        // one result and one relationship
+        // one result and one relationship with two sources
         assertEquals(
-                DgraphGraphService.getDestinationUrnsFromResponseData(
+                DgraphGraphService.getRelatedEntitiesFromResponseData(
                         new HashMap<String, Object>() {{
                             put("result", Arrays.asList(
                                     new HashMap<String, Object>() {{
                                         put("urn", "urn:ns:type:dest-key");
+                                        put("~pred", Arrays.asList(
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x1");
+                                                }},
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x2");
+                                                }}
+                                        ));
                                     }}
                             ));
                         }}
                 ),
-                Arrays.asList("urn:ns:type:dest-key")
+                Arrays.asList(new RelatedEntity("pred", "urn:ns:type:dest-key"))
         );
 
         // multiple results and one relationship
         assertEquals(
-                DgraphGraphService.getDestinationUrnsFromResponseData(
+                DgraphGraphService.getRelatedEntitiesFromResponseData(
                         new HashMap<String, Object>() {{
                             put("result", Arrays.asList(
                                     new HashMap<String, Object>() {{
                                         put("urn", "urn:ns:type:dest-key-1");
+                                        put("~pred", Arrays.asList(
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x1");
+                                                }},
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x2");
+                                                }}
+                                        ));
                                     }},
                                     new HashMap<String, Object>() {{
                                         put("urn", "urn:ns:type:dest-key-2");
+                                        put("~pred", Arrays.asList(
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x2");
+                                                }}
+                                        ));
                                     }}
                             ));
                         }}
                 ),
-                Arrays.asList("urn:ns:type:dest-key-1", "urn:ns:type:dest-key-2")
+                Arrays.asList(
+                        new RelatedEntity("pred", "urn:ns:type:dest-key-1"),
+                        new RelatedEntity("pred", "urn:ns:type:dest-key-2")
+                )
         );
 
         // multiple results and relationships
-        assertEquals(
-                DgraphGraphService.getDestinationUrnsFromResponseData(
+        assertEqualsAnyOrder(
+                DgraphGraphService.getRelatedEntitiesFromResponseData(
                         new HashMap<String, Object>() {{
                             put("result", Arrays.asList(
                                     new HashMap<String, Object>() {{
                                         put("urn", "urn:ns:type:dest-key-1");
+                                        put("~pred1", Arrays.asList(
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x1");
+                                                }},
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x2");
+                                                }}
+                                        ));
                                     }},
                                     new HashMap<String, Object>() {{
                                         put("urn", "urn:ns:type:dest-key-2");
+                                        put("~pred1", Arrays.asList(
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x2");
+                                                }}
+                                        ));
                                     }},
                                     new HashMap<String, Object>() {{
                                         put("urn", "urn:ns:type:dest-key-3");
+                                        put("pred1", Arrays.asList(
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x3");
+                                                }}
+                                        ));
+                                        put("~pred1", Arrays.asList(
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x1");
+                                                }},
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x4");
+                                                }}
+                                        ));
                                     }},
                                     new HashMap<String, Object>() {{
                                         put("urn", "urn:ns:type:dest-key-4");
+                                        put("pred2", Arrays.asList(
+                                                new HashMap<String, Object>() {{
+                                                    put("uid", "0x5");
+                                                }}
+                                        ));
                                     }}
                             ));
                         }}
                 ),
-                Arrays.asList("urn:ns:type:dest-key-1", "urn:ns:type:dest-key-2", "urn:ns:type:dest-key-3", "urn:ns:type:dest-key-4")
+                Arrays.asList(
+                        new RelatedEntity("pred1", "urn:ns:type:dest-key-1"),
+                        new RelatedEntity("pred1", "urn:ns:type:dest-key-2"),
+                        new RelatedEntity("pred1", "urn:ns:type:dest-key-3"),
+                        new RelatedEntity("pred2", "urn:ns:type:dest-key-4")
+                ),
+                RELATED_ENTITY_COMPARATOR
         );
     }
 }

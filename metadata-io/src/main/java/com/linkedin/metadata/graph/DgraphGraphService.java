@@ -232,14 +232,14 @@ public class DgraphGraphService implements GraphService {
         return relationships;
     }
 
-    protected static String getQueryForRelatedUrns(@Nullable String sourceType,
-                                                   @Nonnull Filter sourceEntityFilter,
-                                                   @Nullable String destinationType,
-                                                   @Nonnull Filter destinationEntityFilter,
-                                                   @Nonnull List<String> relationshipTypes,
-                                                   @Nonnull RelationshipFilter relationshipFilter,
-                                                   int offset,
-                                                   int count) {
+    protected static String getQueryForRelatedEntities(@Nullable String sourceType,
+                                                       @Nonnull Filter sourceEntityFilter,
+                                                       @Nullable String destinationType,
+                                                       @Nonnull Filter destinationEntityFilter,
+                                                       @Nonnull List<String> relationshipTypes,
+                                                       @Nonnull RelationshipFilter relationshipFilter,
+                                                       int offset,
+                                                       int count) {
         // TODO: verify assumptions: criterions in filters are AND
 
         if (relationshipTypes.isEmpty()) {
@@ -321,6 +321,11 @@ public class DgraphGraphService implements GraphService {
                 relationshipTypeFilterNames, directedRelationshipTypes
         );
 
+        StringJoiner relationshipsJoiner = new StringJoiner("\n    ");
+        getRelationships(sourceTypeFilterName, sourceFilterNames, directedRelationshipTypes)
+                .forEach(relationshipsJoiner::add);
+        String relationships = relationshipsJoiner.toString();
+
         StringJoiner filterJoiner = new StringJoiner("\n  ");
         filters.forEach(filterJoiner::add);
         String filterExpressions = filterJoiner.toString();
@@ -330,29 +335,31 @@ public class DgraphGraphService implements GraphService {
                         + "\n"
                         + "  result (func: uid(%s), first: %d, offset: %d) %s {\n"
                         + "    <urn>\n"
+                        + "    %s\n"
                         + "  }\n"
                         + "}",
                 filterExpressions,
                 destinationNodeFilter,
                 count, offset,
-                filterConditions);
+                filterConditions,
+                relationships);
     }
 
     @Nonnull
     @Override
-    public List<String> findRelatedUrns(@Nullable String sourceType,
-                                        @Nonnull Filter sourceEntityFilter,
-                                        @Nullable String destinationType,
-                                        @Nonnull Filter destinationEntityFilter,
-                                        @Nonnull List<String> relationshipTypes,
-                                        @Nonnull RelationshipFilter relationshipFilter,
-                                        int offset,
-                                        int count) {
-        if (relationshipTypes.isEmpty()) {
-            return Collections.emptyList();
+    public RelatedEntitiesResult findRelatedEntities(@Nullable String sourceType,
+                                                     @Nonnull Filter sourceEntityFilter,
+                                                     @Nullable String destinationType,
+                                                     @Nonnull Filter destinationEntityFilter,
+                                                     @Nonnull List<String> relationshipTypes,
+                                                     @Nonnull RelationshipFilter relationshipFilter,
+                                                     int offset,
+                                                     int count) {
+            if (relationshipTypes.isEmpty()) {
+            return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
         }
 
-        String query = getQueryForRelatedUrns(
+        String query = getQueryForRelatedEntities(
                 sourceType, sourceEntityFilter,
                 destinationType, destinationEntityFilter,
                 relationshipTypes, relationshipFilter,
@@ -369,12 +376,18 @@ public class DgraphGraphService implements GraphService {
         String json = response.getJson().toStringUtf8();
         Map<String, Object> data = getDataFromResponseJson(json);
 
-        return getDestinationUrnsFromResponseData(data);
+        List<RelatedEntity> entities = getRelatedEntitiesFromResponseData(data);
+        int total = offset + entities.size();
+        if (entities.size() == count) {
+            // indicate that there might be more results
+            total++;
+        }
+        return new RelatedEntitiesResult(offset, entities.size(), total, entities);
     }
 
     // Creates filter conditions from destination to source nodes
-    protected static @Nonnull String getFilterConditions(String sourceTypeFilterName,
-                                                         String destinationTypeFilterName,
+    protected static @Nonnull String getFilterConditions(@Nullable String sourceTypeFilterName,
+                                                         @Nullable String destinationTypeFilterName,
                                                          @Nonnull List<String> sourceFilterNames,
                                                          @Nonnull List<String> destinationFilterNames,
                                                          @Nonnull List<String> relationshipTypeFilterNames,
@@ -415,7 +428,7 @@ public class DgraphGraphService implements GraphService {
 
     protected static String getRelationshipCondition(@Nonnull String relationshipType,
                                                      @Nonnull String relationshipTypeFilterName,
-                                                     String objectFilterName,
+                                                     @Nullable String objectFilterName,
                                                      @Nonnull List<String> destinationFilterNames) {
         StringJoiner andJoiner = new StringJoiner(" AND ");
         andJoiner.add(String.format("uid(%s)", relationshipTypeFilterName));
@@ -424,6 +437,26 @@ public class DgraphGraphService implements GraphService {
         }
         destinationFilterNames.forEach(filter -> andJoiner.add(String.format("uid_in(<%s>, uid(%s))", relationshipType, filter)));
         return andJoiner.toString();
+    }
+
+
+    // Creates filter conditions from destination to source nodes
+    protected static @Nonnull List<String> getRelationships(@Nullable String sourceTypeFilterName,
+                                                            @Nonnull List<String> sourceFilterNames,
+                                                            @Nonnull List<String> relationshipTypes) {
+        return relationshipTypes.stream().map(relationshipType -> {
+            StringJoiner andJoiner = new StringJoiner(" AND ");
+            if (sourceTypeFilterName != null) {
+                andJoiner.add(String.format("uid(%s)", sourceTypeFilterName));
+            }
+            sourceFilterNames.forEach(filterName -> andJoiner.add(String.format("uid(%s)", filterName)));
+
+            if (andJoiner.length() > 0) {
+                return String.format("<%s> @filter( %s ) { <uid> }", relationshipType, andJoiner);
+            } else {
+                return String.format("<%s> { <uid> }", relationshipType);
+            }
+        }).collect(Collectors.toList());
     }
 
     protected static Map<String, Object> getDataFromResponseJson(String json) {
@@ -436,7 +469,7 @@ public class DgraphGraphService implements GraphService {
         }
     }
 
-    protected static List<String> getDestinationUrnsFromResponseData(Map<String, Object> data) {
+    protected static List<RelatedEntity> getRelatedEntitiesFromResponseData(Map<String, Object> data) {
         Object obj = data.get("result");
         if (!(obj instanceof List<?>)) {
             throw new IllegalArgumentException(
@@ -452,8 +485,35 @@ public class DgraphGraphService implements GraphService {
 
             Map<?, ?> destination = (Map<?, ?>) destinationObj;
             if (destination.containsKey("urn") && destination.get("urn") instanceof String) {
-                return Stream.of((String) destination.get("urn"));
+                String urn = (String) destination.get("urn");
+
+                return destination.entrySet().stream()
+                        .filter(entry -> !entry.getKey().equals("urn"))
+                        .flatMap(entry -> {
+                            Object relationshipObj = entry.getKey();
+                            Object sourcesObj = entry.getValue();
+                            if (!(relationshipObj instanceof String && sourcesObj instanceof List)) {
+                                return Stream.empty();
+                            }
+
+                            String relationship = (String) relationshipObj;
+                            List<?> sources = (List<?>) sourcesObj;
+
+                            if (sources.size() == 0) {
+                                return Stream.empty();
+                            }
+
+                            if (relationship.startsWith("~")) {
+                                relationship = relationship.substring(1);
+                            }
+
+                            return Stream.of(relationship);
+                        })
+                        // for undirected we get duplicate relationships
+                        .distinct()
+                        .map(relationship -> new RelatedEntity(relationship, urn));
             }
+
             return Stream.empty();
         }).collect(Collectors.toList());
     }
@@ -484,6 +544,10 @@ public class DgraphGraphService implements GraphService {
     public void removeEdgesFromNode(@Nonnull Urn urn,
                                     @Nonnull List<String> relationshipTypes,
                                     @Nonnull RelationshipFilter relationshipFilter) {
+        if (relationshipTypes.isEmpty()) {
+            return;
+        }
+
         RelationshipDirection direction = relationshipFilter.getDirection();
 
         if (direction == RelationshipDirection.OUTGOING || direction == RelationshipDirection.UNDIRECTED) {
