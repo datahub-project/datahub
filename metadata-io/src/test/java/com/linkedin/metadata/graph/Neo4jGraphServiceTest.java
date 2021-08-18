@@ -1,6 +1,5 @@
 package com.linkedin.metadata.graph;
 
-import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
@@ -49,7 +48,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   @Override
   protected void assertEqualsAnyOrder(RelatedEntitiesResult actual, RelatedEntitiesResult expected) {
     assertEquals(actual.start, expected.start);
-    assertEqualsAnyOrder(actual.entities, expected.entities, relatedEntityComparator);
+    assertEqualsAnyOrder(actual.entities, expected.entities, RELATED_ENTITY_COMPARATOR);
   }
 
   @Override

@@ -94,7 +94,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   @Override
   protected void assertEqualsAnyOrder(RelatedEntitiesResult actual, RelatedEntitiesResult expected) {
     assertEquals(actual.start, expected.start);
-    assertEqualsAnyOrder(actual.entities, expected.entities, relatedEntityComparator);
+    assertEqualsAnyOrder(actual.entities, expected.entities, RELATED_ENTITY_COMPARATOR);
   }
 
   @Override

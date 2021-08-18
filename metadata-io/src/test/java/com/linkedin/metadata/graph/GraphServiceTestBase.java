@@ -11,7 +11,13 @@ import org.testng.annotations.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -42,12 +48,14 @@ abstract public class GraphServiceTestBase {
     @Override
     public int compare(RelatedEntity left, RelatedEntity right) {
         int cmp = left.relationshipType.compareTo(right.relationshipType);
-        if (cmp != 0) { return cmp; }
+        if (cmp != 0) {
+            return cmp;
+        }
         return left.urn.compareTo(right.urn);
     }
   }
 
-  protected static final RelatedEntityComparator relatedEntityComparator = new RelatedEntityComparator();
+  protected static final RelatedEntityComparator RELATED_ENTITY_COMPARATOR = new RelatedEntityComparator();
 
   /**
    * Some test URN types.
@@ -206,7 +214,7 @@ abstract public class GraphServiceTestBase {
     assertEquals(actual.start, expected.start);
     assertEquals(actual.count, expected.count);
     assertEquals(actual.total, expected.total);
-    assertEqualsAnyOrder(actual.entities, expected.entities, relatedEntityComparator);
+    assertEqualsAnyOrder(actual.entities, expected.entities, RELATED_ENTITY_COMPARATOR);
   }
 
   protected <T> void assertEqualsAnyOrder(List<T> actual, List<T> expected) {
@@ -445,7 +453,10 @@ abstract public class GraphServiceTestBase {
                     null,
                     Arrays.asList(downstreamOf),
                     undirectedRelationships,
-                    Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
+                    Arrays.asList(
+                            downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
+                            downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity
+                    )
             },
 
             // "" used to be any type before v0.9.0, which is now encoded by null
@@ -484,7 +495,10 @@ abstract public class GraphServiceTestBase {
                     datasetType,
                     Arrays.asList(downstreamOf),
                     undirectedRelationships,
-                    Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
+                    Arrays.asList(
+                            downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
+                            downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity
+                    )
             },
 
             new Object[]{
@@ -516,13 +530,19 @@ abstract public class GraphServiceTestBase {
                     userType,
                     Arrays.asList(hasOwner),
                     incomingRelationships,
-                    Arrays.asList(hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity, hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity)
+                    Arrays.asList(
+                            hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
+                            hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity
+                    )
             },
             new Object[]{
                     userType,
                     Arrays.asList(hasOwner),
                     undirectedRelationships,
-                    Arrays.asList(hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity, hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity)
+                    Arrays.asList(
+                            hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
+                            hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity
+                    )
             }
     };
   }
@@ -560,7 +580,10 @@ abstract public class GraphServiceTestBase {
                     null,
                     Arrays.asList(downstreamOf),
                     undirectedRelationships,
-                    Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
+                    Arrays.asList(
+                            downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
+                            downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity
+                    )
             },
 
             new Object[] {
@@ -598,7 +621,10 @@ abstract public class GraphServiceTestBase {
                     datasetType,
                     Arrays.asList(downstreamOf),
                     undirectedRelationships,
-                    Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity)
+                    Arrays.asList(
+                            downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity,
+                            downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity
+                    )
             },
 
             new Object[] {
@@ -611,13 +637,19 @@ abstract public class GraphServiceTestBase {
                     datasetType,
                     Arrays.asList(hasOwner),
                     incomingRelationships,
-                    Arrays.asList(hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity, hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity)
+                    Arrays.asList(
+                            hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
+                            hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity
+                    )
             },
             new Object[] {
                     datasetType,
                     Arrays.asList(hasOwner),
                     undirectedRelationships,
-                    Arrays.asList(hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity, hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity)
+                    Arrays.asList(
+                            hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
+                            hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity
+                    )
             },
 
             new Object[] {
@@ -695,7 +727,7 @@ abstract public class GraphServiceTestBase {
 
     Urn nullUrn = createFromString("urn:li:null:(urn:li:null:Null)");
     assertNotNull(nullUrn);
-    RelatedEntity downstreamOfNullUrnRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
+    RelatedEntity nullRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
 
     doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
@@ -707,8 +739,8 @@ abstract public class GraphServiceTestBase {
 
     service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
     syncAfterWrite();
-    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service, downstreamOfNullUrnRelatedEntity);
-    doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfNullUrnRelatedEntity, downstreamOfDatasetOneRelatedEntity);
+    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service, nullRelatedEntity);
+    doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, nullRelatedEntity, downstreamOfDatasetOneRelatedEntity);
   }
 
   @Test
@@ -717,7 +749,7 @@ abstract public class GraphServiceTestBase {
 
     Urn nullUrn = createFromString("urn:li:null:(urn:li:null:Null)");
     assertNotNull(nullUrn);
-    RelatedEntity downstreamOfNullUrnRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
+    RelatedEntity nullRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
 
     doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
@@ -729,8 +761,8 @@ abstract public class GraphServiceTestBase {
 
     service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
     syncAfterWrite();
-    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service, downstreamOfNullUrnRelatedEntity);
-    doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfNullUrnRelatedEntity, downstreamOfDatasetOneRelatedEntity);
+    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service, nullRelatedEntity);
+    doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, nullRelatedEntity, downstreamOfDatasetOneRelatedEntity);
   }
 
   @Test
