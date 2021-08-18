@@ -1021,8 +1021,7 @@ abstract public class GraphServiceTestBase {
             Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
             0, 100);
 
-    // can be replaced with a single removeEdgesFromNode and undirectedRelationships
-    // once supported by all implementations
+    // can be replaced with a single removeEdgesFromNode and undirectedRelationships once supported by all implementations
     service.removeEdgesFromNode(
             nodeToRemoveFrom,
             Collections.emptyList(),
@@ -1075,10 +1074,16 @@ abstract public class GraphServiceTestBase {
             Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
             0, 100);
 
+    // can be replaced with a single removeEdgesFromNode and undirectedRelationships once supported by all implementations
     service.removeEdgesFromNode(
             nodeToRemoveFrom,
-            Collections.emptyList(),
-            undirectedRelationships
+            Arrays.asList(downstreamOf, hasOwner, knowsUser),
+            outgoingRelationships
+    );
+    service.removeEdgesFromNode(
+            nodeToRemoveFrom,
+            Arrays.asList(downstreamOf, hasOwner, knowsUser),
+            incomingRelationships
     );
     syncAfterWrite();
 
