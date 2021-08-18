@@ -35,6 +35,7 @@ import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
+import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -278,6 +279,8 @@ public class GmsGraphQLEngine {
 
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
+            .dataFetcher("me", new AuthenticatedResolver<>(
+                    new MeResolver()))
             .dataFetcher("search", new AuthenticatedResolver<>(
                     new SearchResolver(searchableTypes)))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
