@@ -742,7 +742,7 @@ public class GmsGraphQLEngine {
             try {
                 return USAGE_TYPE.batchLoad(keys, context.getContext());
             } catch (Exception e) {
-                throw new RuntimeException(String.format("Failed to retrieve usage stats", e));
+                throw new RuntimeException("Failed to retrieve usage stats", e);
             }
         }), loaderOptions);
     }
