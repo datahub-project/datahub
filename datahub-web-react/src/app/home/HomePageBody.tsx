@@ -25,18 +25,41 @@ const BodyContainer = styled.div`
 export const HomePageBody = () => {
     const entityRegistry = useEntityRegistry();
 
+    // const recentlyViewedStr = Cookies.get('visitedUrns');
+    // let recentlyViewedUrns = new Array<string>();
+    // if (recentlyViewedStr) {
+    //     try {
+    //         recentlyViewedUrns = JSON.parse(recentlyViewedStr) as Array<string>;
+    //     } catch (ex) {
+    //         // Unexpected cookie value.
+    //         Cookies.remove('visitedUrns');
+    //         console.error(ex);
+    //     }
+    // }
+
+    // // Somewhere we'll need to load the urns.
+    // // TODO: Replace this with a batchGetEntities call.
+    // const { loading, error, data } = useGetEntitiesQuery({ variables: { urns: recentlyViewedUrns } });
+
     return (
         <BodyContainer>
-            <Title>
-                <b>Explore</b> your data
-            </Title>
-            <EntityGridRow gutter={[16, 24]}>
-                {entityRegistry.getBrowseEntityTypes().map((entityType) => (
-                    <Col xs={24} sm={24} md={8} key={entityType}>
-                        <BrowseEntityCard entityType={entityType} />
-                    </Col>
-                ))}
-            </EntityGridRow>
+            <div>
+                <Title>
+                    <b>Explore</b> your data
+                </Title>
+                <EntityGridRow gutter={[16, 24]}>
+                    {entityRegistry.getBrowseEntityTypes().map((entityType) => (
+                        <Col xs={24} sm={24} md={8} key={entityType}>
+                            <BrowseEntityCard entityType={entityType} />
+                        </Col>
+                    ))}
+                </EntityGridRow>
+            </div>
+            <div>
+                <Title>
+                    <b>Recently Viewed</b>
+                </Title>
+            </div>
         </BodyContainer>
     );
 };

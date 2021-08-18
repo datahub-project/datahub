@@ -38,7 +38,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
 
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
 
-    const user = useGetAuthenticatedUser();
+    const user = useGetAuthenticatedUser()?.corpUser;
     const [updateDataset] = useUpdateDatasetMutation({
         refetchQueries: () => ['getDataset'],
     });
