@@ -37,12 +37,14 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Override
-  protected @Nonnull GraphService getGraphService() {
+  protected @Nonnull
+  GraphService getGraphService() {
     return _client;
   }
 
   @Override
-  protected void syncAfterWrite() { }
+  protected void syncAfterWrite() {
+  }
 
   @Override
   protected void assertEqualsAnyOrder(RelatedEntitiesResult actual, RelatedEntitiesResult expected) {
@@ -83,6 +85,18 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
 
   @Test
   @Override
+  public void testFindRelatedEntitiesNullSourceType() throws Exception {
+    throw new SkipException("Neo4jGraphService does not support 'null' entity type string");
+  }
+
+  @Test
+  @Override
+  public void testFindRelatedEntitiesNullDestinationType() throws Exception {
+    throw new SkipException("Neo4jGraphService does not support 'null' entity type string");
+  }
+
+  @Test
+  @Override
   public void testFindRelatedEntitiesNoRelationshipTypes() {
     throw new SkipException("Neo4jGraphService does not support empty list of relationship types");
   }
@@ -92,5 +106,4 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   public void testRemoveEdgesFromNodeNoRelationshipTypes() {
     throw new SkipException("Neo4jGraphService does not support empty list of relationship types");
   }
-
 }

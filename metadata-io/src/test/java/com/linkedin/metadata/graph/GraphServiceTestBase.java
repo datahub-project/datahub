@@ -674,6 +674,65 @@ abstract public class GraphServiceTestBase {
     assertEqualsAnyOrder(relatedEntities, expectedRelatedEntities);
   }
 
+  private void doTestFindRelatedEntitiesEntityType(@Nullable String sourceType,
+                                                   @Nullable String destinationType,
+                                                   @Nonnull String relationshipType,
+                                                   @Nonnull RelationshipFilter relationshipFilter,
+                                                   @Nonnull GraphService service,
+                                                   @Nonnull RelatedEntity... expectedEntities) {
+    RelatedEntitiesResult actualEntities = service.findRelatedEntities(
+            sourceType, EMPTY_FILTER,
+            destinationType, EMPTY_FILTER,
+            Arrays.asList(relationshipType), relationshipFilter,
+            0, 100
+    );
+    assertEqualsAnyOrder(actualEntities, Arrays.asList(expectedEntities));
+  }
+
+  @Test
+  public void testFindRelatedEntitiesNullSourceType() throws Exception {
+    GraphService service = getGraphService();
+
+    Urn nullUrn = createFromString("urn:li:null:(urn:li:null:Null)");
+    assertNotNull(nullUrn);
+    RelatedEntity downstreamOfNullUrnRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
+
+    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
+
+    service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf));
+    syncAfterWrite();
+    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfDatasetOneRelatedEntity);
+
+    service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
+    syncAfterWrite();
+    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service, downstreamOfNullUrnRelatedEntity);
+    doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfNullUrnRelatedEntity, downstreamOfDatasetOneRelatedEntity);
+  }
+
+  @Test
+  public void testFindRelatedEntitiesNullDestinationType() throws Exception {
+    GraphService service = getGraphService();
+
+    Urn nullUrn = createFromString("urn:li:null:(urn:li:null:Null)");
+    assertNotNull(nullUrn);
+    RelatedEntity downstreamOfNullUrnRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
+
+    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
+
+    service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf));
+    syncAfterWrite();
+    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfDatasetOneRelatedEntity);
+
+    service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
+    syncAfterWrite();
+    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service, downstreamOfNullUrnRelatedEntity);
+    doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfNullUrnRelatedEntity, downstreamOfDatasetOneRelatedEntity);
+  }
+
   @Test
   public void testFindRelatedEntitiesRelationshipTypes() throws Exception {
     GraphService service = getPopulatedGraphService();
