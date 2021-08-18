@@ -1,4 +1,4 @@
-query getGlossaryTerm($urn: String!, $start: Int!, $count: Int!) {
+query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
     glossaryTerm(urn: $urn) {
         urn
         type
