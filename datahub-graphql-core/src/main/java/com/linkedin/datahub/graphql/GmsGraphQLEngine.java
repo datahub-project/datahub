@@ -236,6 +236,7 @@ public class GmsGraphQLEngine {
         configureTagAssociationResolver(builder);
         configureDataJobResolvers(builder);
         configureMLFeatureTableResolvers(builder);
+        configureGlossaryRelationshipResolvers(builder);
     }
 
     public static GraphQLEngine.Builder builder() {
@@ -747,6 +748,14 @@ public class GmsGraphQLEngine {
                         (env) -> ((Entity) env.getSource()).getUrn()))
                 )
             );
+    }
+
+    private static void configureGlossaryRelationshipResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("GlossaryTerm", typeWiring -> typeWiring
+            .dataFetcher("relationships", new AuthenticatedResolver<>(
+                new EntityRelationshipsResultResolver(GmsClientFactory.getRelationshipsClient())
+            ))
+        );
     }
 
 
