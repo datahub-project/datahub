@@ -100,6 +100,7 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
+    "redash": {"redash-toolbelt"},
     "redshift": sql_common | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2"},
     "sagemaker": aws_common,
     "snowflake": sql_common | {"snowflake-sqlalchemy<=1.2.4"},
@@ -166,6 +167,7 @@ base_dev_requirements = {
             "sagemaker",
             "datahub-kafka",
             "datahub-rest",
+            "redash",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -203,6 +205,7 @@ full_test_dev_requirements = {
             "mysql",
             "snowflake",
             "sql-profiles",
+            "redash",
         ]
         for dependency in plugins[plugin]
     ),
@@ -233,6 +236,7 @@ entry_points = {
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
+        "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.sql.redshift:RedshiftSource",
         "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
