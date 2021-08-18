@@ -11,12 +11,7 @@ import org.testng.annotations.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -42,6 +37,17 @@ import static org.testng.Assert.assertTrue;
  * asserts the state of the graph in an implementation specific way.
  */
 abstract public class GraphServiceTestBase {
+
+  private static class RelatedEntityComparator implements Comparator<RelatedEntity> {
+    @Override
+    public int compare(RelatedEntity left, RelatedEntity right) {
+        int cmp = left.relationshipType.compareTo(right.relationshipType);
+        if (cmp != 0) { return cmp; }
+        return left.urn.compareTo(right.urn);
+    }
+  }
+
+  protected static final RelatedEntityComparator relatedEntityComparator = new RelatedEntityComparator();
 
   /**
    * Some test URN types.
@@ -192,22 +198,28 @@ abstract public class GraphServiceTestBase {
     }
   }
 
-  protected static void assertEqualsAnyOrder(RelatedEntitiesResult actual, List<RelatedEntity> expected) {
+  protected void assertEqualsAnyOrder(RelatedEntitiesResult actual, List<RelatedEntity> expected) {
       assertEqualsAnyOrder(actual, new RelatedEntitiesResult(0, expected.size(), expected.size(), expected));
   }
 
-  protected static void assertEqualsAnyOrder(RelatedEntitiesResult actual, RelatedEntitiesResult expected) {
-    // assertEquals(actual.start, expected.start);
-    //assertEquals(actual.count, expected.count);
-    //assertEquals(actual.total, expected.total);
-    assertEqualsAnyOrder(actual.entities, expected.entities);
+  protected void assertEqualsAnyOrder(RelatedEntitiesResult actual, RelatedEntitiesResult expected) {
+    assertEquals(actual.start, expected.start);
+    assertEquals(actual.count, expected.count);
+    assertEquals(actual.total, expected.total);
+    assertEqualsAnyOrder(actual.entities, expected.entities, relatedEntityComparator);
   }
 
-  protected static <T> void assertEqualsAnyOrder(List<T> actual, List<T> expected) {
-    // TODO: expect no duplicates
+  protected <T> void assertEqualsAnyOrder(List<T> actual, List<T> expected) {
     assertEquals(
-            new HashSet<>(actual),
-            new HashSet<>(expected)
+            actual.stream().sorted().collect(Collectors.toList()),
+            expected.stream().sorted().collect(Collectors.toList())
+    );
+  }
+
+  protected <T> void assertEqualsAnyOrder(List<T> actual, List<T> expected, Comparator<T> comparator) {
+    assertEquals(
+            actual.stream().sorted(comparator).collect(Collectors.toList()),
+            expected.stream().sorted(comparator).collect(Collectors.toList())
     );
   }
 
@@ -918,10 +930,17 @@ abstract public class GraphServiceTestBase {
             Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
             0, 100);
 
+    // can be replaced with a single removeEdgesFromNode and undirectedRelationships
+    // once supported by all implementations
     service.removeEdgesFromNode(
             nodeToRemoveFrom,
             Collections.emptyList(),
-            undirectedRelationships
+            outgoingRelationships
+    );
+    service.removeEdgesFromNode(
+            nodeToRemoveFrom,
+            Collections.emptyList(),
+            incomingRelationships
     );
     syncAfterWrite();
 
@@ -936,7 +955,12 @@ abstract public class GraphServiceTestBase {
     service.removeEdgesFromNode(
             nodeToRemoveFrom,
             Arrays.asList(downstreamOf, hasOwner, knowsUser),
-            undirectedRelationships
+            outgoingRelationships
+    );
+    service.removeEdgesFromNode(
+            nodeToRemoveFrom,
+            Arrays.asList(downstreamOf, hasOwner, knowsUser),
+            incomingRelationships
     );
     syncAfterWrite();
 
