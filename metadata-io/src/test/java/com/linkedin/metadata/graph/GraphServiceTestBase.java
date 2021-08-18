@@ -62,6 +62,8 @@ abstract public class GraphServiceTestBase {
   protected static Urn datasetThreeUrn = createFromString(datasetThreeUrnString);
   protected static Urn datasetFourUrn = createFromString(datasetFourUrnString);
 
+  protected static String unknownUrnString = "urn:li:unknown:(urn:li:unknown:Unknown)";
+
   /**
    * Some dataset owners.
    */
@@ -70,6 +72,8 @@ abstract public class GraphServiceTestBase {
 
   protected static Urn userOneUrn = createFromString(userOneUrnString);
   protected static Urn userTwoUrn = createFromString(userTwoUrnString);
+
+  protected static Urn unknownUrn = createFromString("urn:li:unknown:(urn:li:unknown:Unknown)");
 
   /**
    * Some test relationships.
@@ -80,18 +84,20 @@ abstract public class GraphServiceTestBase {
   protected static Set<String> allRelationshipTypes = new HashSet<>(Arrays.asList(downstreamOf, hasOwner, knowsUser));
 
   /**
-   * Some test related entities.
+   * Some expected related entities.
    */
   protected static RelatedEntity downstreamOfDatasetOneRelatedEntity = new RelatedEntity(downstreamOf, datasetOneUrnString);
   protected static RelatedEntity downstreamOfDatasetTwoRelatedEntity = new RelatedEntity(downstreamOf, datasetTwoUrnString);
   protected static RelatedEntity downstreamOfDatasetThreeRelatedEntity = new RelatedEntity(downstreamOf, datasetThreeUrnString);
   protected static RelatedEntity downstreamOfDatasetFourRelatedEntity = new RelatedEntity(downstreamOf, datasetFourUrnString);
+
   protected static RelatedEntity hasOwnerDatasetOneRelatedEntity = new RelatedEntity(hasOwner, datasetOneUrnString);
   protected static RelatedEntity hasOwnerDatasetTwoRelatedEntity = new RelatedEntity(hasOwner, datasetTwoUrnString);
   protected static RelatedEntity hasOwnerDatasetThreeRelatedEntity = new RelatedEntity(hasOwner, datasetThreeUrnString);
   protected static RelatedEntity hasOwnerDatasetFourRelatedEntity = new RelatedEntity(hasOwner, datasetFourUrnString);
   protected static RelatedEntity hasOwnerUserOneRelatedEntity = new RelatedEntity(hasOwner, userOneUrnString);
   protected static RelatedEntity hasOwnerUserTwoRelatedEntity = new RelatedEntity(hasOwner, userTwoUrnString);
+
   protected static RelatedEntity knowsUserOneRelatedEntity = new RelatedEntity(knowsUser, userOneUrnString);
   protected static RelatedEntity knowsUserTwoRelatedEntity = new RelatedEntity(knowsUser, userTwoUrnString);
 
@@ -865,6 +871,41 @@ abstract public class GraphServiceTestBase {
   }
 
   @Test
+  public void testRemoveEdgesFromUnknownNode() throws Exception {
+    GraphService service = getPopulatedGraphService();
+    Urn nodeToRemoveFrom = unknownUrn;
+
+    RelatedEntitiesResult entitiesBeforeRemove = service.findRelatedEntities(
+            anyType, EMPTY_FILTER,
+            anyType, EMPTY_FILTER,
+            Arrays.asList(downstreamOf, hasOwner, knowsUser), undirectedRelationships,
+            0, 10);
+    assertEqualsAnyOrder(
+            entitiesBeforeRemove,
+            Arrays.asList(
+                    downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity,
+                    hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
+                    hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity,
+                    knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity
+            )
+    );
+
+    service.removeEdgesFromNode(
+            nodeToRemoveFrom,
+            Collections.emptyList(),
+            undirectedRelationships
+    );
+    syncAfterWrite();
+
+    RelatedEntitiesResult entitiesAfterRemove = service.findRelatedEntities(
+            anyType, EMPTY_FILTER,
+            anyType, EMPTY_FILTER,
+            Arrays.asList(downstreamOf, hasOwner, knowsUser), undirectedRelationships,
+            0, 10);
+    assertEqualsAnyOrder(entitiesBeforeRemove, entitiesAfterRemove);
+  }
+
+  @Test
   public void testRemoveNode() throws Exception {
     GraphService service = getPopulatedGraphService();
 
@@ -910,6 +951,36 @@ abstract public class GraphServiceTestBase {
             ),
             Arrays.asList(hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity)
     );
+  }
+
+  @Test
+  public void testRemoveUnknownNode() throws Exception {
+    GraphService service = getPopulatedGraphService();
+
+    RelatedEntitiesResult entitiesBeforeRemove = service.findRelatedEntities(
+            anyType, EMPTY_FILTER,
+            anyType, EMPTY_FILTER,
+            Arrays.asList(downstreamOf, hasOwner, knowsUser), undirectedRelationships,
+            0, 10);
+    assertEqualsAnyOrder(
+            entitiesBeforeRemove,
+            Arrays.asList(
+                    downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity, downstreamOfDatasetFourRelatedEntity,
+                    hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity,
+                    hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity,
+                    knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity
+            )
+    );
+
+    service.removeNode(unknownUrn);
+    syncAfterWrite();
+
+    RelatedEntitiesResult entitiesAfterRemove = service.findRelatedEntities(
+            anyType, EMPTY_FILTER,
+            anyType, EMPTY_FILTER,
+            Arrays.asList(downstreamOf, hasOwner, knowsUser), undirectedRelationships,
+            0, 10);
+    assertEqualsAnyOrder(entitiesBeforeRemove, entitiesAfterRemove);
   }
 
   @Test
