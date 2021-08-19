@@ -1,9 +1,7 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.metadata.graph.DgraphGraphService;
-import com.linkedin.metadata.graph.Neo4jGraphService;
 import io.dgraph.DgraphClient;
-import org.neo4j.driver.Driver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
