@@ -1,4 +1,4 @@
-package react.auth;
+package auth;
 
 import play.mvc.Http;
 import play.mvc.Result;
@@ -7,7 +7,7 @@ import play.mvc.Security;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static react.auth.AuthUtils.ACTOR;
+import static auth.AuthUtils.ACTOR;
 
 /**
  * Implementation of base Play Authentication used to determine if a request to a route should be

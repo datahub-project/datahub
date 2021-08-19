@@ -7,7 +7,7 @@ dependencies {
   compile project(':metadata-io')
   compile project(':metadata-service:restli-impl')
   compile project(':metadata-service:factories')
-  compile project(':metadata-service:client')
+  compile project(':metadata-service:restli-client')
 
   compile externalDependency.javaxInject
   compile(externalDependency.hadoopClient) {

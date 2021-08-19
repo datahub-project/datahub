@@ -1,4 +1,4 @@
-package react.auth;
+package auth;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static react.auth.AuthUtils.*;
+import static auth.AuthUtils.*;
 
 /**
  * Responsible for configuring, validating, and providing authentication related components.

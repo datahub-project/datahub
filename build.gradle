@@ -94,7 +94,7 @@ project.ext.externalDependency = [
     'parquet': 'org.apache.parquet:parquet-avro:1.12.0',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': 'com.typesafe.play:play-cache_2.11:2.6.18',
-    'playWs': 'com.typesafe.play:play-ws_2.11:2.6.18',
+    'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.11:2.0.8',
     'playDocs': 'com.typesafe.play:play-docs_2.11:2.6.18',
     'playGuice': 'com.typesafe.play:play-guice_2.11:2.6.18',
     'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.11:2.6.18',

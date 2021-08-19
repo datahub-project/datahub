@@ -1,4 +1,4 @@
-package react.auth;
+package auth;
 
 /**
  * Class responsible for extracting and validating OIDC related configurations.

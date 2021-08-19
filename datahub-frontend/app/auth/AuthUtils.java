@@ -1,4 +1,4 @@
-package react.auth;
+package auth;
 
 import com.linkedin.common.urn.CorpuserUrn;
 import play.mvc.Http;

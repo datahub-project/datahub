@@ -1,4 +1,4 @@
-package react.auth;
+package auth;
 
 /**
  * Currently, this config enables or disable custom Java Authentication and Authorization Service

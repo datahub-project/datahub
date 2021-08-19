@@ -1,4 +1,4 @@
-package react.controllers;
+package controllers;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.typesafe.config.Config;
@@ -11,14 +11,13 @@ import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import react.auth.Authenticator;
+import auth.Authenticator;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 
 import play.mvc.Controller;
 import play.mvc.Result;
 import play.mvc.Security;
-import react.graphql.PlayQueryContext;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -27,7 +26,10 @@ import java.util.Optional;
 import java.util.Properties;
 import utils.ConfigUtil;
 
+import static auth.AuthUtils.*;
 
+
+// TODO: Migrate this to metadata-service.
 public class TrackingController extends Controller {
 
     private final Logger _logger = LoggerFactory.getLogger(TrackingController.class.getName());
@@ -69,7 +71,7 @@ public class TrackingController extends Controller {
         } catch (Exception e) {
             return badRequest();
         }
-        final String actor = new PlayQueryContext(ctx(), _config).getActor();
+        final String actor = ctx().session().get(ACTOR);
         try {
             _logger.debug(String.format("Emitting product analytics event. actor: %s, event: %s", actor, event));
             final ProducerRecord<String, String> record = new ProducerRecord<>(

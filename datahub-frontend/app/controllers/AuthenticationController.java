@@ -1,4 +1,4 @@
-package react.controllers;
+package controllers;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -19,9 +19,9 @@ import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Result;
-import react.auth.AuthUtils;
-import react.auth.JAASConfigs;
-import react.auth.OidcConfigs;
+import auth.AuthUtils;
+import auth.JAASConfigs;
+import auth.OidcConfigs;
 import security.AuthenticationManager;
 
 import javax.annotation.Nonnull;
@@ -31,7 +31,7 @@ import javax.naming.NamingException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 
-import static react.auth.AuthUtils.*;
+import static auth.AuthUtils.*;
 
 public class AuthenticationController extends Controller {
 

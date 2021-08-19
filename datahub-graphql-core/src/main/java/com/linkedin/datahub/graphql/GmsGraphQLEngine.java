@@ -86,6 +86,7 @@ import com.linkedin.datahub.graphql.types.usage.UsageType;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.ArrayList;
+import javax.annotation.Nullable;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
@@ -238,10 +239,7 @@ public class GmsGraphQLEngine {
         configureDataJobResolvers(builder);
         configureMLFeatureTableResolvers(builder);
         configureGlossaryRelationshipResolvers(builder);
-
-        if (analyticsService != null) {
-            configureAnalyticsResolvers(builder);
-        }
+        configureAnalyticsResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -254,15 +252,18 @@ public class GmsGraphQLEngine {
             .configureRuntimeWiring(this::configureRuntimeWiring);
     }
 
-    private void configureAnalyticsResolvers(
-        final RuntimeWiring.Builder builder) {
+    private void configureAnalyticsResolvers(final RuntimeWiring.Builder builder) {
+        final boolean isAnalyticsEnabled = analyticsService != null;
         builder.type("Query", typeWiring -> typeWiring
-            .dataFetcher("isAnalyticsEnabled", new IsAnalyticsEnabledResolver(true)) // TODO: pull from config.
-            .dataFetcher("getAnalyticsCharts", new GetChartsResolver(analyticsService))
-            .dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService)))
+            .dataFetcher("isAnalyticsEnabled", new IsAnalyticsEnabledResolver(isAnalyticsEnabled)))
         .type("AnalyticsChart", typeWiring -> typeWiring
             .typeResolver(new AnalyticsChartTypeResolver())
         );
+        if (isAnalyticsEnabled) {
+            builder.type("Query", typeWiring -> typeWiring
+                .dataFetcher("getAnalyticsCharts", new GetChartsResolver(analyticsService))
+                .dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService)));
+        }
     }
 
     public static GraphQLEngine get() {
