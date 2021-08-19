@@ -1,6 +1,10 @@
 from typing import Optional
 
-from .sql_common import SQLAlchemyConfig, SQLAlchemySource, make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sql_common import (
+    SQLAlchemyConfig,
+    SQLAlchemySource,
+    make_sqlalchemy_uri,
+)
 
 
 class AthenaConfig(SQLAlchemyConfig):

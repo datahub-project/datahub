@@ -592,7 +592,7 @@
                     "type": "record",
                     "name": "Status",
                     "namespace": "com.linkedin.pegasus2avro.common",
-                    "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+                    "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
                     "fields": [
                       {
                         "name": "removed",
@@ -709,7 +709,10 @@
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "The name of the AD/LDAP group."
+                        "doc": "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub.",
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       }
                     ],
                     "Aspect": {
@@ -723,9 +726,25 @@
                     "doc": "group of corpUser, it may contains nested group",
                     "fields": [
                       {
+                        "name": "displayName",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The name to use when displaying the group.",
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      },
+                      {
                         "name": "email",
-                        "type": "string",
-                        "doc": "email of this group"
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "email of this group",
+                        "default": null
                       },
                       {
                         "name": "admins",
@@ -773,6 +792,18 @@
                             ],
                             "name": "IsPartOf"
                           }
+                        }
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "A description of the group.",
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       }
                     ],
@@ -1033,6 +1064,32 @@
                         "com.linkedin.pegasus2avro.common.CorpuserUrn"
                       ],
                       "name": "corpUserEditableInfo"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "GroupMembership",
+                    "namespace": "com.linkedin.pegasus2avro.identity",
+                    "doc": "Carries information about the CorpGroups a user is in.",
+                    "fields": [
+                      {
+                        "name": "groups",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "corpGroup"
+                            ],
+                            "name": "IsMemberOfGroup"
+                          }
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "groupMembership"
                     }
                   },
                   "com.linkedin.pegasus2avro.common.GlobalTags",
@@ -2397,6 +2454,15 @@
                                 "name": "documentSchema",
                                 "type": "string",
                                 "doc": "The native kafka document schema. This is a human readable avro document schema."
+                              },
+                              {
+                                "name": "keySchema",
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "doc": "The native kafka key schema as retrieved from Schema Registry",
+                                "default": null
                               }
                             ]
                           },
@@ -2701,7 +2767,7 @@
                                                 "doc": "Urn of the applied glossary term",
                                                 "Searchable": {
                                                   "fieldName": "glossaryTerms",
-                                                  "fieldType": "TEXT_PARTIAL"
+                                                  "fieldType": "URN_PARTIAL"
                                                 },
                                                 "java": {
                                                   "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
@@ -2724,7 +2790,20 @@
                                   }
                                 ],
                                 "doc": "Glossary terms associated with the field",
-                                "default": null
+                                "default": null,
+                                "Searchable": {
+                                  "/terms/*/urn": {
+                                    "boostScore": 0.5,
+                                    "fieldName": "fieldGlossaryTerms",
+                                    "fieldType": "URN_PARTIAL"
+                                  }
+                                }
+                              },
+                              {
+                                "name": "isPartOfKey",
+                                "type": "boolean",
+                                "doc": "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields",
+                                "default": false
                               }
                             ]
                           }
@@ -5042,6 +5121,15 @@
                         },
                         "doc": "A key-value map to capture any other non-standardized properties for the glossary term",
                         "default": {}
+                      },
+                      {
+                        "name": "rawSchema",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Schema definition of the glossary term",
+                        "default": null
                       }
                     ],
                     "Aspect": {
@@ -5050,7 +5138,72 @@
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  {
+                    "type": "record",
+                    "name": "GlossaryRelatedTerms",
+                    "namespace": "com.linkedin.pegasus2avro.glossary",
+                    "doc": "Has A / Is A lineage information about a glossary Term reporting the lineage",
+                    "fields": [
+                      {
+                        "name": "isRelatedTerms",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "The relationship Is A with glossary term",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "glossaryTerm"
+                            ],
+                            "name": "IsA"
+                          }
+                        },
+                        "Searchable": {
+                          "/*": {
+                            "boostScore": 2.0,
+                            "fieldName": "isRelatedTerms",
+                            "fieldType": "URN"
+                          }
+                        }
+                      },
+                      {
+                        "name": "hasRelatedTerms",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "The relationship Has A with glossary term",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "glossaryTerm"
+                            ],
+                            "name": "HasA"
+                          }
+                        },
+                        "Searchable": {
+                          "/*": {
+                            "boostScore": 2.0,
+                            "fieldName": "hasRelatedTerms",
+                            "fieldType": "URN"
+                          }
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "glossaryRelatedTerms"
+                    }
+                  }
                 ]
               },
               "doc": "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -5163,20 +5316,20 @@
             {
               "name": "lastObserved",
               "type": [
-                "null",
-                "long"
+                "long",
+                "null"
               ],
               "doc": "The timestamp the metadata was observed at",
-              "default": null
+              "default": 0
             },
             {
               "name": "runId",
               "type": [
-                "null",
-                "string"
+                "string",
+                "null"
               ],
               "doc": "The run id that produced the metadata",
-              "default": null
+              "default": "no-run-id-provided"
             },
             {
               "name": "properties",

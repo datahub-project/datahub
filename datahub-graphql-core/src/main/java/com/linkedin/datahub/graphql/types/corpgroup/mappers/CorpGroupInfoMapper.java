@@ -24,6 +24,8 @@ public class CorpGroupInfoMapper implements ModelMapper<com.linkedin.identity.Co
     public CorpGroupInfo apply(@Nonnull final com.linkedin.identity.CorpGroupInfo info) {
         final CorpGroupInfo result = new CorpGroupInfo();
         result.setEmail(info.getEmail());
+        result.setDescription(info.getDescription());
+        result.setDisplayName(info.getDisplayName());
         if (info.hasAdmins()) {
             result.setAdmins(info.getAdmins().stream().map(urn -> {
                 final CorpUser corpUser = new CorpUser();

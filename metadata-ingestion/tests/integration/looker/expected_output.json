@@ -75,22 +75,6 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:etl",
-                                "type": "DATAOWNER",
-                                "source": null
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        }
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
                     }

@@ -1,8 +1,5 @@
--- create datahub database
-CREATE DATABASE IF NOT EXISTS DATAHUB_DB_NAME;
-
 -- create metadata aspect table
-CREATE TABLE IF NOT EXISTS DATAHUB_DB_NAME.metadata_aspect_v2 (
+CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (
   urn                           varchar(500) not null,
   aspect                        varchar(200) not null,
   version                       bigint not null,
@@ -15,7 +12,7 @@ CREATE TABLE IF NOT EXISTS DATAHUB_DB_NAME.metadata_aspect_v2 (
 );
 
 -- create default records for datahub user if not exists
-CREATE TABLE temp_metadata_aspect_v2 LIKE metadata_aspect_v2;
+CREATE TEMP TABLE temp_metadata_aspect_v2 AS TABLE metadata_aspect_v2;
 INSERT INTO temp_metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
   'corpUserInfo',

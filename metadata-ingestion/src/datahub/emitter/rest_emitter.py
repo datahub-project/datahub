@@ -39,11 +39,24 @@ def _make_curl_command(
 
 
 class DatahubRestEmitter:
+    DEFAULT_CONNECT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
+    DEFAULT_READ_TIMEOUT_SEC = (
+        30  # Any ingest call taking longer than 30 seconds should be abandoned
+    )
+
     _gms_server: str
     _token: Optional[str]
     _session: requests.Session
+    _connect_timeout_sec: float = DEFAULT_CONNECT_TIMEOUT_SEC
+    _read_timeout_sec: float = DEFAULT_READ_TIMEOUT_SEC
 
-    def __init__(self, gms_server: str, token: Optional[str] = None):
+    def __init__(
+        self,
+        gms_server: str,
+        token: Optional[str] = None,
+        connect_timeout_sec: Optional[float] = None,
+        read_timeout_sec: Optional[float] = None,
+    ):
         if ":9002" in gms_server:
             logger.warning(
                 "the rest emitter should connect to GMS (usually port 8080) instead of frontend"
@@ -60,6 +73,17 @@ class DatahubRestEmitter:
         )
         if token:
             self._session.headers.update({"Authorization": f"Bearer {token}"})
+
+        if connect_timeout_sec:
+            self._connect_timeout_sec = connect_timeout_sec
+
+        if read_timeout_sec:
+            self._read_timeout_sec = read_timeout_sec
+
+        if self._connect_timeout_sec < 1 or self._read_timeout_sec < 1:
+            logger.warning(
+                f"Setting timeout values lower than 1 second is not recommended. Your configuration is connect_timeout:{self._connect_timeout_sec}s, read_timeout:{self._read_timeout_sec}s"
+            )
 
     def test_connection(self) -> None:
         response = self._session.get(f"{self._gms_server}/config")
@@ -139,7 +163,11 @@ class DatahubRestEmitter:
             curl_command,
         )
         try:
-            response = self._session.post(url, data=payload)
+            response = self._session.post(
+                url,
+                data=payload,
+                timeout=(self._connect_timeout_sec, self._read_timeout_sec),
+            )
 
             response.raise_for_status()
         except HTTPError as e:

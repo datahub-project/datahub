@@ -1,9 +1,33 @@
-query getGlossaryTerm($urn: String!) {
+query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
     glossaryTerm(urn: $urn) {
         urn
         type
         name
         hierarchicalName
+        isRealtedTerms: relationships(types: ["IsA"], direction: OUTGOING, start: $start, count: $count) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on GlossaryTerm {
+                        urn
+                    }
+                }
+            }
+        }
+        hasRealtedTerms: relationships(types: ["HasA"], direction: OUTGOING, start: $start, count: $count) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on GlossaryTerm {
+                        urn
+                    }
+                }
+            }
+        }
         ownership {
             ...ownershipFields
         }

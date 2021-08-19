@@ -20,15 +20,13 @@ import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowSnapshotMapper;
-import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowUpdateInputMapper;
+import com.linkedin.datahub.graphql.types.dataflow.mappers.DataFlowUpdateInputSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.aspect.DataFlowAspect;
-import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -38,7 +36,6 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -150,35 +147,16 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
         return BrowsePathsMapper.map(result);
     }
 
-    protected DataFlowSnapshot toSnapshot(@Nonnull com.linkedin.datajob.DataFlow dataFlow, @Nonnull DataFlowUrn urn) {
-        final List<DataFlowAspect> aspects = new ArrayList<>();
-        if (dataFlow.hasInfo()) {
-            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getInfo()));
-        }
-        if (dataFlow.hasOwnership()) {
-            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getOwnership()));
-        }
-        if (dataFlow.hasStatus()) {
-            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getStatus()));
-        }
-        if (dataFlow.hasGlobalTags()) {
-            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getGlobalTags()));
-        }
-        if (dataFlow.hasEditableProperties()) {
-            aspects.add(ModelUtils.newAspectUnion(DataFlowAspect.class, dataFlow.getEditableProperties()));
-        }
-        return ModelUtils.newSnapshot(DataFlowSnapshot.class, urn, aspects);
-    }
-
     @Override
     public DataFlow update(@Nonnull DataFlowUpdateInput input, @Nonnull QueryContext context) throws Exception {
 
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final com.linkedin.datajob.DataFlow partialDataFlow = DataFlowUpdateInputMapper.map(input, actor);
+        final DataFlowSnapshot dataFlowSnapshot = DataFlowUpdateInputSnapshotMapper.map(input, actor);
+        final Snapshot snapshot = Snapshot.create(dataFlowSnapshot);
 
         try {
             Entity entity = new Entity();
-            entity.setValue(Snapshot.create(toSnapshot(partialDataFlow, DataFlowUrn.createFromString(input.getUrn()))));
+            entity.setValue(snapshot);
             _dataFlowsClient.update(entity);
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);

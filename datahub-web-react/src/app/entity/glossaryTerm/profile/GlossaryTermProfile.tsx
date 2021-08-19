@@ -31,7 +31,7 @@ export default function GlossaryTermProfile() {
     const glossaryTermHierarchicalName = data?.glossaryTerm?.hierarchicalName;
     const entitySearchResult = useGetEntitySearchResults(
         {
-            query: `glossaryTerms:"${glossaryTermHierarchicalName}"`,
+            query: `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}"`,
         },
         searchTypes,
     );
@@ -49,9 +49,10 @@ export default function GlossaryTermProfile() {
         Object.keys(entitySearchResult).forEach((type) => {
             const entities = entitySearchResult[type].data?.search?.searchResults;
             if (entities && entities.length > 0) {
-                filteredSearchResult[type] = entitySearchResult[type].data?.search?.searchResults;
+                filteredSearchResult[type] = entities;
             }
         });
+
         return filteredSearchResult;
     }, [entitySearchResult]);
 
