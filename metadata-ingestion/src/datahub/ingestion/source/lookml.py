@@ -70,9 +70,9 @@ class LookMLSourceConfig(ConfigModel):
     parse_table_names_from_sql: bool = False
     # This source can be configured to use a custom SQL parser.
     # A custom SQL parser must inherit from datahub.utilities.sql_parser.SQLParser
-    # and must be made available to Datahub for example by installing or placing it in the
-    # same directory as your ingestion recipe. The configuration value below then needs
-    # to be set to module_name.ClassName of the parser.
+    # and must be made available to Datahub for example by installing it.
+    # The configuration value below then needs to be set to module_name.ClassName
+    # of the parser.
     sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
 
 
@@ -261,7 +261,11 @@ class LookerView:
 
     @classmethod
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
+        assert "." in sql_parser_path, "sql_parser-path must contain a ."
         module_name, cls_name = sql_parser_path.rsplit(".", 1)
+        import sys
+
+        logger.info(sys.path)
         parser_cls = getattr(importlib.import_module(module_name), cls_name)
         if not issubclass(parser_cls, SQLParser):
             raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
