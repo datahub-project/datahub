@@ -1,5 +1,6 @@
 from datahub.utilities.delayed_iter import delayed_iter
 from datahub.utilities.groupby import groupby_unsorted
+from datahub.utilities.sql_parser import DefaultSQLParser
 
 
 def test_delayed_iter():
@@ -44,3 +45,11 @@ def test_groupby_unsorted():
         ("B", ["B"]),
         ("C", ["C", "C"]),
     ]
+
+
+def test_default_sql_parser():
+    sql_query = "SELECT foo.a, foo.b, bar.c FROM foo JOIN bar ON (foo.a == bar.b);"
+
+    tables_list = DefaultSQLParser(sql_query).get_tables()
+
+    assert tables_list == ["foo", "bar"]
