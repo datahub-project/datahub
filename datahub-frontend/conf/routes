@@ -18,9 +18,6 @@ GET           /callback/oidc                                                  @o
 POST          /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
 GET           /logOut                                                  controllers.CentralLogoutController.executeLogout()
 
-# Data fetching in React
-POST          /api/v2/graphql                                                 react.controllers.GraphQLController.execute()
-
 GET           /api/*path                                                      controllers.Application.apiNotFound(path)
 POST          /api/*path                                                      controllers.Application.apiNotFound(path)
 

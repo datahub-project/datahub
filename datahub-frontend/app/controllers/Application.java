@@ -1,44 +1,36 @@
 package controllers;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
-import org.apache.commons.lang3.StringUtils;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import play.Play;
+import play.http.HttpEntity;
+import play.libs.ws.WSClient;
 import play.libs.Json;
-import play.mvc.BodyParser;
 import play.mvc.Controller;
+import play.mvc.ResponseHeader;
 import play.mvc.Result;
-import security.AuthUtil;
-import security.AuthenticationManager;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-import javax.naming.AuthenticationException;
-import javax.naming.NamingException;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.util.stream.Stream;
-
 
 public class Application extends Controller {
 
   private final Logger _logger = LoggerFactory.getLogger(Application.class.getName());
   private final Config _config;
+  private final WSClient _ws;
 
   @Inject
-  public Application(@Nonnull Config config) {
+  public Application(@Nonnull Config config, @Nonnull WSClient ws) {
     _config = config;
+    _ws = ws;
   }
 
   /**
@@ -52,7 +44,6 @@ public class Application extends Controller {
   private Result serveAsset(@Nullable String path) {
     InputStream indexHtml = Play.application().classloader().getResourceAsStream("public/index.html");
     response().setHeader("Cache-Control", "no-cache");
-
     return ok(indexHtml).as("text/html");
   }
 
@@ -80,6 +71,28 @@ public class Application extends Controller {
   @Nonnull
   public Result apiNotFound(@Nullable String path) {
     return badRequest("{\"error\": \"API endpoint does not exist\"}");
+  }
+
+  /**
+   * Simply proxy to GMS API layer.
+   */
+  public CompletionStage<Result> api(String path) {
+    return _ws.url("http://localhost:8080/" + request().uri())
+        .setMethod(request().method())
+        .setHeaders(request().getHeaders().toMap())
+        .setBody(request().body().asText()) // Content-Length header will be updated automatically
+        .setContentType(request().contentType().orElse("application/json"))
+        .setRequestTimeout(Duration.ofSeconds(10))
+        .execute()
+        .thenApply(apiResponse -> {
+          ResponseHeader header = new ResponseHeader(apiResponse.getStatus(), apiResponse.getHeaders()
+              .entrySet()
+              .stream()
+              .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
+              .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
+          HttpEntity body = new HttpEntity.Strict(apiResponse.getBodyAsBytes(), Optional.ofNullable(apiResponse.getContentType()));
+          return new Result(header, body);
+        });
   }
 
   /**
