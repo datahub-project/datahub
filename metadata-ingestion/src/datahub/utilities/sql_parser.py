@@ -18,7 +18,6 @@ class SQLParser(metaclass=ABCMeta):
 
 class DefaultSQLParser(SQLParser):
     def __init__(self, sql_query: str) -> None:
-        # handle module not found.
         self._parser = MetadataSQLParser(sql_query)
 
     def get_tables(self) -> List[str]:
