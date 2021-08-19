@@ -1,4 +1,5 @@
 import pytest
+import sys
 
 from datahub.utilities.delayed_iter import delayed_iter
 from datahub.utilities.groupby import groupby_unsorted
@@ -50,6 +51,9 @@ def test_groupby_unsorted():
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(
+    sys.version_info < (3, 7), reason="The LookML source requires Python 3.7+"
+)
 def test_default_sql_parser():
     sql_query = "SELECT foo.a, foo.b, bar.c FROM foo JOIN bar ON (foo.a == bar.b);"
 
