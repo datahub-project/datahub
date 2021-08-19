@@ -1,5 +1,6 @@
-import pytest
 import sys
+
+import pytest
 
 from datahub.utilities.delayed_iter import delayed_iter
 from datahub.utilities.groupby import groupby_unsorted
