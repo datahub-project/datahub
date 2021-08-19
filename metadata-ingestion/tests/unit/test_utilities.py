@@ -1,3 +1,5 @@
+import pytest
+
 from datahub.utilities.delayed_iter import delayed_iter
 from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.sql_parser import DefaultSQLParser
@@ -47,6 +49,7 @@ def test_groupby_unsorted():
     ]
 
 
+@pytest.mark.integration
 def test_default_sql_parser():
     sql_query = "SELECT foo.a, foo.b, bar.c FROM foo JOIN bar ON (foo.a == bar.b);"
 
