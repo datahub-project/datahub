@@ -93,13 +93,17 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @Override
   protected void assertEqualsAnyOrder(RelatedEntitiesResult actual, RelatedEntitiesResult expected) {
+    // https://github.com/linkedin/datahub/issues/3115
+    // ElasticSearchGraphService produces duplicates, which is here ignored until fixed
+    // actual.count and actual.total not tested due to duplicates
     assertEquals(actual.start, expected.start);
     assertEqualsAnyOrder(actual.entities, expected.entities, RELATED_ENTITY_COMPARATOR);
   }
 
   @Override
   protected <T> void assertEqualsAnyOrder(List<T> actual, List<T> expected, Comparator<T> comparator) {
-    // ElasticSearchGraphService produces duplicates, which is here compensated until fixed
+    // https://github.com/linkedin/datahub/issues/3115
+    // ElasticSearchGraphService produces duplicates, which is here ignored until fixed
     assertEquals(
             new HashSet<>(actual),
             new HashSet<>(expected)
@@ -112,7 +116,8 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
                                                         RelationshipFilter relationships,
                                                         List<RelatedEntity> expectedRelatedEntities) throws Exception {
     if (relationships.getDirection() == RelationshipDirection.UNDIRECTED) {
-      throw new SkipException("ElasticSearchGraphService does not implement undirected relationship filter");
+      // https://github.com/linkedin/datahub/issues/3114
+      throw new SkipException("ElasticSearchGraphService does not implement UNDIRECTED relationship filter");
     }
     super.testFindRelatedEntitiesSourceEntityFilter(sourceEntityFilter, relationshipTypes, relationships, expectedRelatedEntities);
   }
@@ -123,7 +128,8 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
                                                              RelationshipFilter relationships,
                                                              List<RelatedEntity> expectedRelatedEntities) throws Exception {
     if (relationships.getDirection() == RelationshipDirection.UNDIRECTED) {
-      throw new SkipException("ElasticSearchGraphService does not implement undirected relationship filter");
+      // https://github.com/linkedin/datahub/issues/3114
+      throw new SkipException("ElasticSearchGraphService does not implement UNDIRECTED relationship filter");
     }
     super.testFindRelatedEntitiesDestinationEntityFilter(destinationEntityFilter, relationshipTypes, relationships, expectedRelatedEntities);
   }
@@ -134,9 +140,11 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
                                                 RelationshipFilter relationships,
                                                 List<RelatedEntity> expectedRelatedEntities) throws Exception {
     if (relationships.getDirection() == RelationshipDirection.UNDIRECTED) {
-      throw new SkipException("ElasticSearchGraphService does not implement undirected relationship filter");
+      // https://github.com/linkedin/datahub/issues/3114
+      throw new SkipException("ElasticSearchGraphService does not implement UNDIRECTED relationship filter");
     }
     if (datasetType != null && datasetType.isEmpty()) {
+      // https://github.com/linkedin/datahub/issues/3116
       throw new SkipException("ElasticSearchGraphService does not support empty source type");
     }
     super.testFindRelatedEntitiesSourceType(datasetType, relationshipTypes, relationships, expectedRelatedEntities);
@@ -148,9 +156,11 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
                                                      RelationshipFilter relationships,
                                                      List<RelatedEntity> expectedRelatedEntities) throws Exception {
     if (relationships.getDirection() == RelationshipDirection.UNDIRECTED) {
-      throw new SkipException("ElasticSearchGraphService does not implement undirected relationship filter");
+      // https://github.com/linkedin/datahub/issues/3114
+      throw new SkipException("ElasticSearchGraphService does not implement UNDIRECTED relationship filter");
     }
     if (datasetType != null && datasetType.isEmpty()) {
+      // https://github.com/linkedin/datahub/issues/3116
       throw new SkipException("ElasticSearchGraphService does not support empty destination type");
     }
     super.testFindRelatedEntitiesDestinationType(datasetType, relationshipTypes, relationships, expectedRelatedEntities);
@@ -159,6 +169,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   @Test
   @Override
   public void testFindRelatedEntitiesNoRelationshipTypes() {
+    // https://github.com/linkedin/datahub/issues/3117
     throw new SkipException("ElasticSearchGraphService does not support empty list of relationship types");
   }
 
@@ -171,7 +182,8 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
                                       List<RelatedEntity> expectedOutgoingRelatedUrnsAfterRemove,
                                       List<RelatedEntity> expectedIncomingRelatedUrnsAfterRemove) throws Exception {
     if (relationshipFilter.getDirection() == RelationshipDirection.UNDIRECTED) {
-      throw new SkipException("ElasticSearchGraphService does not implement undirected relationship filter");
+      // https://github.com/linkedin/datahub/issues/3114
+      throw new SkipException("ElasticSearchGraphService does not implement UNDIRECTED relationship filter");
     }
     super.testRemoveEdgesFromNode(
             nodeToRemoveFrom,
@@ -184,6 +196,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   @Test
   @Override
   public void testRemoveEdgesFromNodeNoRelationshipTypes() {
+    // https://github.com/linkedin/datahub/issues/3117
     throw new SkipException("ElasticSearchGraphService does not support empty list of relationship types");
   }
 }

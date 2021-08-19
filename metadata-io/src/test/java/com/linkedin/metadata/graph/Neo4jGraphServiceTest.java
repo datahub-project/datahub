@@ -47,13 +47,17 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
 
   @Override
   protected void assertEqualsAnyOrder(RelatedEntitiesResult actual, RelatedEntitiesResult expected) {
+    // https://github.com/linkedin/datahub/issues/3118
+    // Neo4jGraphService produces duplicates, which is here ignored until fixed
+    // actual.count and actual.total not tested due to duplicates
     assertEquals(actual.start, expected.start);
     assertEqualsAnyOrder(actual.entities, expected.entities, RELATED_ENTITY_COMPARATOR);
   }
 
   @Override
   protected <T> void assertEqualsAnyOrder(List<T> actual, List<T> expected, Comparator<T> comparator) {
-    // Neo4jGraphService produces duplicates, which is here compensated until fixed
+    // https://github.com/linkedin/datahub/issues/3118
+    // Neo4jGraphService produces duplicates, which is here ignored until fixed
     assertEquals(
             new HashSet<>(actual),
             new HashSet<>(expected)
@@ -66,10 +70,13 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
                                                 RelationshipFilter relationships,
                                                 List<RelatedEntity> expectedRelatedEntities) throws Exception {
     if (datasetType != null && datasetType.isEmpty()) {
+      // https://github.com/linkedin/datahub/issues/3119
       throw new SkipException("Neo4jGraphService does not support empty source type");
     }
     if (datasetType != null && datasetType.equals(GraphServiceTestBase.userType)) {
-      throw new SkipException("Neo4jGraphService has different source and destination semantics");
+      // https://github.com/linkedin/datahub/issues/3123
+      // only test cases with "user" type fail due to this bug
+      throw new SkipException("Neo4jGraphService does not apply source / destination types");
     }
     super.testFindRelatedEntitiesSourceType(datasetType, relationshipTypes, relationships, expectedRelatedEntities);
   }
@@ -80,10 +87,13 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
                                                      RelationshipFilter relationships,
                                                      List<RelatedEntity> expectedRelatedEntities) throws Exception {
     if (datasetType != null && datasetType.isEmpty()) {
+      // https://github.com/linkedin/datahub/issues/3119
       throw new SkipException("Neo4jGraphService does not support empty destination type");
     }
     if (relationshipTypes.contains(hasOwner)) {
-      throw new SkipException("Neo4jGraphService has different source and destination semantics");
+      // https://github.com/linkedin/datahub/issues/3123
+      // only test cases with "HasOwner" relatioship fail due to this bug
+      throw new SkipException("Neo4jGraphService does not apply source / destination types");
     }
     super.testFindRelatedEntitiesDestinationType(datasetType, relationshipTypes, relationships, expectedRelatedEntities);
   }
@@ -91,24 +101,28 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   @Test
   @Override
   public void testFindRelatedEntitiesNullSourceType() throws Exception {
+    // https://github.com/linkedin/datahub/issues/3121
     throw new SkipException("Neo4jGraphService does not support 'null' entity type string");
   }
 
   @Test
   @Override
   public void testFindRelatedEntitiesNullDestinationType() throws Exception {
+    // https://github.com/linkedin/datahub/issues/3121
     throw new SkipException("Neo4jGraphService does not support 'null' entity type string");
   }
 
   @Test
   @Override
   public void testFindRelatedEntitiesNoRelationshipTypes() {
+    // https://github.com/linkedin/datahub/issues/3120
     throw new SkipException("Neo4jGraphService does not support empty list of relationship types");
   }
 
   @Test
   @Override
   public void testRemoveEdgesFromNodeNoRelationshipTypes() {
+    // https://github.com/linkedin/datahub/issues/3120
     throw new SkipException("Neo4jGraphService does not support empty list of relationship types");
   }
 }
