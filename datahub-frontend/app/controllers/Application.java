@@ -3,29 +3,26 @@ package controllers;
 import akka.actor.ActorSystem;
 import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
-import akka.stream.javadsl.Source;
 import akka.util.ByteString;
 import auth.Authenticator;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.util.Configuration;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import play.Play;
 import play.http.HttpEntity;
 import play.libs.ws.InMemoryBodyWritable;
-import play.libs.ws.SourceBodyWritable;
 import play.libs.ws.StandaloneWSClient;
 import play.libs.Json;
 import play.libs.ws.ahc.StandaloneAhcWSClient;
 import play.mvc.Controller;
+import play.mvc.Http;
 import play.mvc.ResponseHeader;
 import play.mvc.Result;
 import javax.annotation.Nonnull;
@@ -58,7 +55,6 @@ public class Application extends Controller {
    * Custom mappings from frontend server paths to metadata-service paths.
    */
   private static final Map<String, String> PATH_REMAP = new HashMap<>();
-
   static {
     PATH_REMAP.put("/api/v2/graphql", "/api/graphql");
   }
@@ -69,7 +65,6 @@ public class Application extends Controller {
   @Inject
   public Application(@Nonnull Config config) {
     _config = config;
-    // Create the WS client from the `application.conf` file, the current classloader and materializer.
     _ws = createWsClient();
   }
 
@@ -104,16 +99,23 @@ public class Application extends Controller {
   }
 
   /**
-   * Simply proxy to GMS API layer.
+   * Proxies requests to the Metadata Service
    *
-   * TODO: Investigate using mutual SSL authentication here.
+   * TODO: Investigate using mutual SSL authentication to call Metadata Service.
    */
   @Security.Authenticated(Authenticator.class)
   public CompletableFuture<Result> proxy(String path) throws ExecutionException, InterruptedException {
     final String resolvedUri = PATH_REMAP.getOrDefault(request().uri(), request().uri());
     return _ws.url(String.format("http://%s:%s%s", GMS_HOST, GMS_PORT, resolvedUri))
         .setMethod(request().method())
-        .setHeaders(request().getHeaders().toMap())
+        .setHeaders(request()
+            .getHeaders()
+            .toMap()
+            .entrySet()
+            .stream()
+            .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+        )
         .addHeader("X-DataHub-Principal", ctx().session().get(ACTOR)) // TODO: Replace with a token to GMS.
         .setBody(new InMemoryBodyWritable(ByteString.fromByteBuffer(request().body().asBytes().asByteBuffer()), "application/json"))
         .execute()
