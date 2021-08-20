@@ -1577,6 +1577,7 @@
       "name" : "email",
       "type" : "com.linkedin.common.EmailAddress",
       "doc" : "email address of this user",
+      "optional" : true,
       "Searchable" : {
         "fieldType" : "KEYWORD",
         "queryByDefault" : true

@@ -14,9 +14,9 @@ GET           /config                                                         co
 # Authentication in React
 GET           /authenticate                                                   controllers.AuthenticationController.authenticate()
 POST          /logIn                                                          controllers.AuthenticationController.logIn()
-GET           /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
-POST          /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
-GET           /logOut                                                  controllers.CentralLogoutController.executeLogout()
+GET           /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String)
+POST          /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String)
+GET           /logOut                                                         controllers.CentralLogoutController.executeLogout()
 
 # Proxies API requests to the metadata service api
 GET           /api/*path                                                      controllers.Application.proxy(path)

@@ -1159,7 +1159,7 @@ type CorpUserInfo {
     """
     Email address of the user
     """
-    email: String!
+    email: String
 
     """
     Title of the user
@@ -1266,7 +1266,7 @@ type CorpGroupInfo {
     """
     email of this group
     """
-    email: String!
+    email: String
 
     """
     owners of this group

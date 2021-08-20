@@ -1,4 +1,4 @@
-package auth;
+package auth.sso.oidc;
 
 import org.pac4j.play.PlayWebContext;
 import org.slf4j.Logger;

@@ -48,7 +48,8 @@ export const Preview = ({
                                     member.info?.fullName ||
                                     member.info?.displayName ||
                                     member.info?.firstName ||
-                                    member.info?.email
+                                    member.info?.email ||
+                                    member.username
                                 }
                                 url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${member.urn}`}
                                 photoUrl={member.editableInfo?.pictureLink || undefined}

@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchGetTotalEntityCountRequestBuilder;
+import com.linkedin.entity.EntitiesDoBatchIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetTotalEntityCountRequestBuilder;
@@ -12,6 +13,7 @@ import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityArray;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchResult;
@@ -197,6 +199,13 @@ public class EntityClient {
 
         EntitiesDoIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity).systemMetadataParam(systemMetadata);
+
+        return sendClientRequest(requestBuilder.build());
+    }
+
+    public Response<Void> batchUpdate(@Nonnull final Set<Entity> entities) throws RemoteInvocationException {
+        EntitiesDoBatchIngestRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionBatchIngest().entitiesParam(new EntityArray(entities));
 
         return sendClientRequest(requestBuilder.build());
     }
