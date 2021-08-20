@@ -19,9 +19,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.datahub.metadata.auth.AuthContext;
 
-@RestController
 @Slf4j
+@RestController
 public class GraphQLController {
 
   public GraphQLController() { }
@@ -31,47 +32,45 @@ public class GraphQLController {
 
   @PostMapping("/graphql")
   CompletableFuture<ResponseEntity<String>> postGraphQL(HttpEntity<String> httpEntity) {
+
+    String jsonStr = httpEntity.getBody();
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode bodyJson = null;
+    try {
+      bodyJson = mapper.readTree(jsonStr);
+    } catch (JsonProcessingException e) {
+      log.error(String.format("Failed to parse json %s", jsonStr));
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
+    }
+
+    if (bodyJson == null) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
+    }
+
+    /*
+     * Extract "query" field
+     */
+    JsonNode queryJson = bodyJson.get("query");
+    if (queryJson == null) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
+    }
+
+    /*
+     * Extract "variables" map
+     */
+    JsonNode variablesJson = bodyJson.get("variables");
+    final Map<String, Object> variables = variablesJson != null
+      ? new ObjectMapper().convertValue(variablesJson, new TypeReference<Map<String, Object>>() { })
+      : Collections.emptyMap();
+
+    log.debug(String.format("Executing graphQL query: %s, variables: %s", queryJson, variablesJson));
+
+    /*
+     * Init QueryContext
+     */
+    SpringQueryContext context = new SpringQueryContext(true, AuthContext.getPrincipal());
+
     return CompletableFuture.supplyAsync(() -> {
-
-      String jsonStr = httpEntity.getBody();
-      ObjectMapper mapper = new ObjectMapper();
-      JsonNode bodyJson = null;
-      try {
-        bodyJson = mapper.readTree(jsonStr);
-      } catch (JsonProcessingException e) {
-        log.error("Failed to parse json", jsonStr);
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-      }
-
-      if (bodyJson == null) {
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-      }
-
-      /*
-       * Extract "query" field
-       */
-      JsonNode queryJson = bodyJson.get("query");
-      if (queryJson == null) {
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-      }
-
-      /*
-       * Extract "variables" map
-       */
-      JsonNode variablesJson = bodyJson.get("variables");
-      Map<String, Object> variables = Collections.emptyMap();
-      if (variablesJson != null) {
-        variables = new ObjectMapper().convertValue(variablesJson, new TypeReference<Map<String, Object>>() { });
-      }
-
-      log.info(String.format("Executing graphQL query: %s, variables: %s", queryJson, variablesJson));
-
-      /*
-       * Init QueryContext
-       */
-      // TODO: Pull from thread local context.
-      SpringQueryContext context = new SpringQueryContext(true, "datahub");
-
       /*
        * Execute GraphQL Query
        */

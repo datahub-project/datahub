@@ -1,39 +1,42 @@
-# DataHub Generalized Metadata Store (GMS)
-DataHub GMS is a [Rest.li](https://linkedin.github.io/rest.li/) service written in Java. It is following common 
-Rest.li server development practices and all data models are Pegasus(.pdl) models.
+# DataHub Metadata Service (Also known as GMS)
+DataHub Metadata Service is a service written in Java consisting of multiple servlets: 
+
+1. A public GraphQL API for fetching and mutating objects on the metadata graph. 
+2. A general-purpose Rest.li API for ingesting the underlying storage models composing the Metadata graph. 
+
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 
-installed on your machine to be able to build `DataHub GMS`.
+installed on your machine to be able to build `DataHub Metadata Service`.
 
 ## Build
-`DataHub GMS` is already built as part of top level build:
+`DataHub Metadata Service` is already built as part of top level build:
 ```
 ./gradlew build
 ```
-However, if you only want to build `DataHub GMS` specifically:
+However, if you only want to build `DataHub Metadata Service` specifically:
 ```
-./gradlew :gms:war:build
+./gradlew :metadata-service:war:build
 ```
 
 ## Dependencies
-Before starting `DataHub GMS`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../docker/kafka-setup),  
+Before starting `DataHub Metadata Service`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../docker/kafka-setup),  
 [Elasticsearch](../docker/elasticsearch) and [MySQL](../docker/mysql) Docker containers are up and running.
 
 ## Start via Docker image
-Quickest way to try out `DataHub GMS` is running the [Docker image](../docker/datahub-gms).
+Quickest way to try out `DataHub Metadata Service`` is running the [Docker image](../docker/datahub-gms).
 
 ## Start via command line
 If you do modify things and want to try it out quickly without building the Docker image, you can also run
 the application directly from command line after a successful [build](#build):
 ```
-./gradlew :gms:war:run
+./gradlew :metadata-service:war:run
 ```
 
 To run with debug logs printed to console, use
 
 ```
-./gradlew :gms:war:run -Dlogback.debug=true
+./gradlew :metadata-service:war:run -Dlogback.debug=true
 ```
 
 ## API Documentation

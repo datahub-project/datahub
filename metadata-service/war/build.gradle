@@ -5,6 +5,7 @@ ext.apiProject = project(':metadata-service:restli-api')
 dependencies {
   runtime project(':metadata-service:factories')
   runtime project(':metadata-service:servlet')
+  runtime project(':metadata-service:auth')
   runtime project(':metadata-service:graphql-api')
   runtime project(':metadata-jobs:mce-consumer')
   runtime project(':metadata-jobs:mae-consumer')

@@ -5,6 +5,7 @@ import akka.stream.ActorMaterializer;
 import akka.stream.Materializer;
 import akka.stream.javadsl.Source;
 import akka.util.ByteString;
+import auth.Authenticator;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.util.Configuration;
 import com.linkedin.util.Pair;
@@ -31,10 +32,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import java.io.InputStream;
+import play.mvc.Security;
 import play.shaded.ahc.org.asynchttpclient.AsyncHttpClient;
 import play.shaded.ahc.org.asynchttpclient.AsyncHttpClientConfig;
 import play.shaded.ahc.org.asynchttpclient.DefaultAsyncHttpClient;
 import play.shaded.ahc.org.asynchttpclient.DefaultAsyncHttpClientConfig;
+
+import static auth.AuthUtils.*;
 
 
 public class Application extends Controller {
@@ -104,11 +108,13 @@ public class Application extends Controller {
    *
    * TODO: Investigate using mutual SSL authentication here.
    */
+  @Security.Authenticated(Authenticator.class)
   public CompletableFuture<Result> proxy(String path) throws ExecutionException, InterruptedException {
     final String resolvedUri = PATH_REMAP.getOrDefault(request().uri(), request().uri());
-    System.out.println(request().method());
     return _ws.url(String.format("http://%s:%s%s", GMS_HOST, GMS_PORT, resolvedUri))
         .setMethod(request().method())
+        .setHeaders(request().getHeaders().toMap())
+        .addHeader("X-DataHub-Principal", ctx().session().get(ACTOR)) // TODO: Replace with a token to GMS.
         .setBody(new InMemoryBodyWritable(ByteString.fromByteBuffer(request().body().asBytes().asByteBuffer()), "application/json"))
         .execute()
         .thenApply(apiResponse -> {

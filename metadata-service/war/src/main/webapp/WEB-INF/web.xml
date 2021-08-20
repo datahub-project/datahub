@@ -72,4 +72,18 @@
     <url-pattern>/*</url-pattern>
   </servlet-mapping>
 
+  <!-- filter definitions -->
+  <filter>
+    <filter-name>AuthenticationFilter</filter-name> <!-- mandatory -->
+    <filter-class>com.datahub.metadata.auth.AuthenticationFilter</filter-class>
+    <async-supported>true</async-supported>
+  </filter>
+
+
+  <!-- filter mappings -->
+  <filter-mapping>
+    <filter-name>AuthenticationFilter</filter-name> <!-- mandatory -->
+    <servlet-name>apiServlet</servlet-name>
+    <dispatcher>REQUEST</dispatcher>
+  </filter-mapping>
 </web-app>
