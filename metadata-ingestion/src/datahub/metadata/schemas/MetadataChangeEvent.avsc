@@ -895,8 +895,12 @@
                       },
                       {
                         "name": "email",
-                        "type": "string",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
                         "doc": "email address of this user",
+                        "default": null,
                         "Searchable": {
                           "fieldType": "KEYWORD",
                           "queryByDefault": true
