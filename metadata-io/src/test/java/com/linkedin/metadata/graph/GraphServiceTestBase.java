@@ -18,15 +18,16 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 /**
  * Base class for testing any GraphService implementation.
@@ -1176,6 +1177,177 @@ abstract public class GraphServiceTestBase {
             ),
             Collections.emptyList()
     );
+  }
+
+  private List<Edge> getFullyConnectedGraph(int nodes, List<String> relationshipTypes) {
+      List<Edge> edges = new ArrayList<>();
+
+      for (int sourceNode = 1; sourceNode <= nodes; sourceNode++) {
+          for (int destinationNode = 1; destinationNode <= nodes; destinationNode++) {
+              for (String relationship : relationshipTypes) {
+                  int sourceType = sourceNode % 3;
+                  Urn source = createFromString("urn:li:type" + sourceType + ":(urn:li:node" + sourceNode + ")");
+                  int destinationType = destinationNode % 3;
+                  Urn destination = createFromString("urn:li:type" + destinationType + ":(urn:li:node" + destinationNode + ")");
+
+                  edges.add(new Edge(source, destination, relationship));
+              }
+          }
+      }
+
+      return edges;
+  }
+
+  @Test
+  public void testConcurrentAddEdge() throws Exception {
+      final GraphService service = getGraphService();
+
+      // too many edges may cause too many threads throwing
+      // java.util.concurrent.RejectedExecutionException: Thread limit exceeded replacing blocked worker
+      int nodes = 5;
+      int relationshipTypes = 5;
+      List<String> allRelationships = IntStream.range(1, relationshipTypes + 1).mapToObj(id -> "relationship" + id).collect(Collectors.toList());
+      List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
+
+      List<Runnable> operations = edges.stream().map(edge -> new Runnable() {
+          @Override
+          public void run() {
+              service.addEdge(edge);
+          }
+      }).collect(Collectors.toList());
+
+      doTestConcurrentOp(operations);
+      syncAfterWrite();
+
+      RelatedEntitiesResult relatedEntities = service.findRelatedEntities(
+              null, EMPTY_FILTER,
+              null, EMPTY_FILTER,
+              allRelationships, outgoingRelationships,
+              0, nodes * relationshipTypes * 2
+      );
+
+      Set<RelatedEntity> expectedRelatedEntities = edges.stream()
+              .map(edge -> new RelatedEntity(edge.getRelationshipType(), edge.getDestination().toString()))
+              .collect(Collectors.toSet());
+      assertEquals(new HashSet<>(relatedEntities.entities), expectedRelatedEntities);
+  }
+
+  @Test
+  public void testConcurrentRemoveEdgesFromNode() throws Exception {
+    final GraphService service = getGraphService();
+
+    int nodes = 10;
+    int relationshipTypes = 5;
+    List<String> allRelationships = IntStream.range(1, relationshipTypes + 1).mapToObj(id -> "relationship" + id).collect(Collectors.toList());
+    List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
+
+    // add fully connected graph
+    edges.forEach(service::addEdge);
+    syncAfterWrite();
+
+    // assert the graph is there
+    RelatedEntitiesResult relatedEntities = service.findRelatedEntities(
+            null, EMPTY_FILTER,
+            null, EMPTY_FILTER,
+            allRelationships, outgoingRelationships,
+            0, nodes * relationshipTypes * 2
+    );
+    assertEquals(relatedEntities.entities.size(), nodes * relationshipTypes);
+
+    // delete all edges concurrently
+    List<Runnable> operations = edges.stream().map(edge -> new Runnable() {
+        @Override
+        public void run() {
+            service.removeEdgesFromNode(edge.getSource(), Arrays.asList(edge.getRelationshipType()), outgoingRelationships);
+        }
+    }).collect(Collectors.toList());
+    doTestConcurrentOp(operations);
+    syncAfterWrite();
+
+    // assert the graph is gone
+    RelatedEntitiesResult relatedEntitiesAfterDeletion = service.findRelatedEntities(
+            null, EMPTY_FILTER,
+            null, EMPTY_FILTER,
+            allRelationships, outgoingRelationships,
+            0, nodes * relationshipTypes * 2
+    );
+    assertEquals(relatedEntitiesAfterDeletion.entities.size(), 0);
+   }
+
+  @Test
+  public void testConcurrentRemoveNodes() throws Exception {
+    final GraphService service = getGraphService();
+
+    // too many edges may cause too many threads throwing
+    // java.util.concurrent.RejectedExecutionException: Thread limit exceeded replacing blocked worker
+    int nodes = 10;
+    int relationshipTypes = 5;
+    List<String> allRelationships = IntStream.range(1, relationshipTypes + 1).mapToObj(id -> "relationship" + id).collect(Collectors.toList());
+    List<Edge> edges = getFullyConnectedGraph(nodes, allRelationships);
+
+    // add fully connected graph
+    edges.forEach(service::addEdge);
+    syncAfterWrite();
+
+    // assert the graph is there
+    RelatedEntitiesResult relatedEntities = service.findRelatedEntities(
+            null, EMPTY_FILTER,
+            null, EMPTY_FILTER,
+            allRelationships, outgoingRelationships,
+            0, nodes * relationshipTypes * 2
+    );
+    assertEquals(relatedEntities.entities.size(), nodes * relationshipTypes);
+
+    // remove all nodes concurrently
+    // nodes will be removed multiple times
+    List<Runnable> operations = edges.stream().map(edge -> new Runnable() {
+        @Override
+        public void run() {
+            service.removeNode(edge.getSource());
+        }
+    }).collect(Collectors.toList());
+    doTestConcurrentOp(operations);
+    syncAfterWrite();
+
+    // assert the graph is gone
+    RelatedEntitiesResult relatedEntitiesAfterDeletion = service.findRelatedEntities(
+            null, EMPTY_FILTER,
+            null, EMPTY_FILTER,
+            allRelationships, outgoingRelationships,
+            0, nodes * relationshipTypes * 2
+    );
+    assertEquals(relatedEntitiesAfterDeletion.entities.size(), 0);
+  }
+
+  private void doTestConcurrentOp(List<Runnable> operations) throws Exception {
+      final Queue<Throwable> throwables = new ConcurrentLinkedQueue<>();
+      final CountDownLatch started = new CountDownLatch(operations.size());
+      final CountDownLatch finished = new CountDownLatch(operations.size());
+      operations.forEach(operation -> new Thread(new Runnable() {
+          @Override
+          public void run() {
+              try {
+                  started.countDown();
+
+                  try {
+                      if (!started.await(10, TimeUnit.SECONDS)) {
+                          fail("Timed out waiting for all threads to start");
+                      }
+                  } catch (InterruptedException e) {
+                      fail("Got interrupted waiting for all threads to start");
+                  }
+
+                  operation.run();
+                  finished.countDown();
+              } catch (Throwable t) {
+                  t.printStackTrace();
+                  throwables.add(t);
+              }
+          }
+      }).start());
+
+      assertTrue(finished.await(10, TimeUnit.SECONDS));
+      assertEquals(throwables.size(), 0);
   }
 
 }
