@@ -1,0 +1,18 @@
+---
+source:
+  type: "azure"
+  config:
+    client_id: "f09e6dd8-5635-45a4-aad7-1019b42126a7"
+    tenant_id: "2f3e54bf-fb73-44a4-b01e-d0544aaf0d25"
+    client_secret: "3mlR-5p.Yimb~DEAsp~9t1dljy1LCaINi5"
+    redirect: "https://login.microsoftonline.com/common/oauth2/nativeclient"
+    authority: "https://login.microsoftonline.com/2f3e54bf-fb73-44a4-b01e-d0544aaf0d25"
+    token_url: "https://login.microsoftonline.com/2f3e54bf-fb73-44a4-b01e-d0544aaf0d25/oauth2/token"
+    graph_url: "https://graph.microsoft.com/v1.0"
+    ingest_users: True
+    ingest_groups: True
+    ingest_group_membership: True
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

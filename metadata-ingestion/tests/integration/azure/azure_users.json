@@ -1,0 +1,31 @@
+{
+    "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#users",
+    "value": [
+        {
+            "displayName": "",
+            "surname": "",
+            "givenName": "",
+            "id": "fa379b0d5435ef74",
+            "userPrincipalName": "chinmay@acryl.io",
+            "businessPhones": [],
+            "jobTitle": null,
+            "mail": null,
+            "mobilePhone": null,
+            "officeLocation": null,
+            "preferredLanguage": null
+        },
+        {
+            "displayName": "",
+            "surname": "",
+            "givenName": "",
+            "id": "fa379b0d5435ef74",
+            "userPrincipalName": "chinmay@acryl.io",
+            "businessPhones": [],
+            "jobTitle": null,
+            "mail": null,
+            "mobilePhone": null,
+            "officeLocation": null,
+            "preferredLanguage": null
+        }
+    ]
+}
