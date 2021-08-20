@@ -1,6 +1,6 @@
 # DataHub Frontend
 DataHub frontend is a [Play](https://www.playframework.com/) service written in Java. It is served as a mid-tier
-between [DataHub GMS](../gms) which is the backend service and [DataHub Web](../datahub-web-react/README.md).
+between [DataHub GMS](../metadata-service) which is the backend service and [DataHub Web](../datahub-web-react/README.md).
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html)
@@ -19,7 +19,7 @@ However, if you only want to build `DataHub Frontend` specifically:
 ```
 
 ## Dependencies
-Before starting `DataHub Frontend`, you need to make sure that [DataHub GMS](../gms) and
+Before starting `DataHub Frontend`, you need to make sure that [DataHub GMS](../metadata-service) and
 all its dependencies have already started and running.
 
 Also, user information should already be registered into the DB,
