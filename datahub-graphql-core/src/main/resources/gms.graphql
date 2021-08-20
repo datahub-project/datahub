@@ -3253,4 +3253,3 @@ type DatasetProfile implements TimeSeriesAspect {
   fieldProfiles: [DatasetFieldProfile!]
   partitionSpec: PartitionSpec
 }
-
