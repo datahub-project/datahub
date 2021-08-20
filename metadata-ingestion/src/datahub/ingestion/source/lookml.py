@@ -68,11 +68,6 @@ class LookMLSourceConfig(ConfigModel):
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     env: str = builder.DEFAULT_ENV
     parse_table_names_from_sql: bool = False
-    # This source can be configured to use a custom SQL parser.
-    # A custom SQL parser must inherit from datahub.utilities.sql_parser.SQLParser
-    # and must be made available to Datahub for example by installing it.
-    # The configuration value below then needs to be set to module_name.ClassName
-    # of the parser.
     sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
 
 
