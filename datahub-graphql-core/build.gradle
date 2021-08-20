@@ -4,7 +4,8 @@ plugins {
 apply plugin: 'java'
 
 dependencies {
-    compile project(':gms:client')
+    compile project(':metadata-service:restli-client')
+    compile project(':metadata-io')
     compile project(':metadata-utils')
 
     compile externalDependency.graphqlJava
@@ -20,7 +21,7 @@ dependencies {
 
 graphqlCodegen {
     // For options: https://github.com/kobylynskyi/graphql-java-codegen/blob/master/docs/codegen-options.md
-    graphqlSchemaPaths = ["$projectDir/src/main/resources/gms.graphql".toString()]
+    graphqlSchemaPaths = ["$projectDir/src/main/resources/gms.graphql".toString(), "$projectDir/src/main/resources/analytics.graphql".toString()]
     outputDir = new File("$projectDir/src/mainGeneratedGraphQL/java")
     packageName = "com.linkedin.datahub.graphql.generated"
     generateApis = true
