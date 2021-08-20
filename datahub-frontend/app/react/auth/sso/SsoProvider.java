@@ -2,7 +2,10 @@ package react.auth.sso;
 
 import org.pac4j.core.client.Client;
 
-
+/**
+ * A thin interface over a Pac4j {@link Client} object and its
+ * associated configurations.
+ */
 public interface SsoProvider<C extends SsoConfigs> {
 
   /**
@@ -24,15 +27,18 @@ public interface SsoProvider<C extends SsoConfigs> {
     }
   }
 
+  /**
+   * Returns the configs required by the provider.
+   */
   C configs();
 
   /**
-   * Retrieves an initialized Pac4j client.
+   * Returns the SSO protocol associated with the provider instance.
    */
   SsoProtocol protocol();
 
   /**
-   * Retrieves an initialized Pac4j client.
+   * Retrieves an initialized Pac4j {@link Client}.
    */
   Client<?, ?> client();
 

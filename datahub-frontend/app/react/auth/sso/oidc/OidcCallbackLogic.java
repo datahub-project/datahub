@@ -52,6 +52,15 @@ import static play.mvc.Results.*;
 import static react.auth.AuthUtils.*;
 
 
+/**
+ * This class contains the logic that is executed when an OpenID Connect Identity Provider redirects back to D
+ * DataHub after an authentication attempt.
+ *
+ * On receiving a user profile from the IdP (using /userInfo endpoint), we attempt to extract
+ * basic information about the user including their name, email, groups, & more. If just-in-time provisioning
+ * is enabled, we also attempt to create a DataHub User ({@link CorpUserSnapshot}) for the user, along with any Groups
+ * ({@link CorpGroupSnapshot}) that can be extracted, only doing so if the user does not already exist.
+ */
 @Slf4j
 public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebContext> {
 
@@ -68,6 +77,11 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       Boolean multiProfile, Boolean renewSession, String defaultClient) {
     final Result result = super.perform(context, config, httpActionAdapter, defaultUrl, saveInSession, multiProfile, renewSession, defaultClient);
 
+    // Handle OIDC authentication errors.
+    if (OidcResponseErrorHandler.isError(context)) {
+      return OidcResponseErrorHandler.handleError(context);
+    }
+
     // By this point, we know that OIDC is the enabled provider.
     final OidcConfigs oidcConfigs = (OidcConfigs) _ssoManager.getSsoProvider().configs();
     return handleOidcCallback(oidcConfigs, result, context, getProfileManager(context, config));
@@ -82,9 +96,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     log.debug("Beginning OIDC Callback Handling...");
 
     if (profileManager.isAuthenticated()) {
-
+      // If authenticated, the user should have a profile.
       final CommonProfile profile = profileManager.get(true).get();
-
       log.debug(String.format("Found authenticated user with profile %s", profile.getAttributes().toString()));
 
       // Extract the User name required to log into DataHub.
@@ -94,32 +107,23 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       try {
         // If just-in-time User Provisioning is enabled, try to create the DataHub user if it does not exist.
         if (oidcConfigs.isJitProvisioningEnabled()) {
-
           log.debug("Just-in-time provisioning is enabled. Beginning provisioning proces...");
-
-          // TODO: Create new GroupMembership association entity once it exists.
           CorpUserSnapshot extractedUser = extractUser(corpUserUrn, profile);
-
           if (oidcConfigs.isExtractGroupsEnabled()) {
             // Extract groups & provision them.
             List<CorpGroupSnapshot> extractedGroups = extractGroups(profile);
             tryProvisionGroups(extractedGroups);
-
             if (extractedGroups.size() > 0) {
               // Associate group with the user logging in.
               extractedUser.getAspects().add(CorpUserAspect.create(createGroupMembership(extractedGroups)));
             }
           }
-
           tryProvisionUser(extractedUser);
-
-
         } else if (oidcConfigs.isPreProvisioningRequired()) {
           // We should only allow logins for user accounts that have been pre-provisioned
           log.debug("Pre Provisioning is required. Beginning validation of extracted user...");
           verifyPreProvisionedUser(corpUserUrn);
         }
-
       } catch (Exception e) {
         log.error("Failed to perform post authentication steps. Redirecting to error page.", e);
         return internalServerError(String.format("Failed to perform post authentication steps. Error message: %s", e.getMessage()));
@@ -128,12 +132,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       context.getJavaSession().put(ACTOR, corpUserUrn.toString());
       return result.withCookies(createActorCookie(corpUserUrn.toString(), oidcConfigs.getSessionTtlInHours()));
     }
-    // TODO: Handle OIDC IdP errors.
-    return internalServerError("Failed to authenticate current user. Cannot find valid identity provider profile in session");
+    return internalServerError("Failed to authenticate current user. Cannot find valid identity provider profile in session.");
   }
 
   private String extractUserNameOrThrow(final OidcConfigs oidcConfigs, final CommonProfile profile) {
-
     // Ensure that the attribute exists (was returned by IdP)
     if (!profile.containsAttribute(oidcConfigs.getUserNameClaim())) {
       throw new RuntimeException(
@@ -147,7 +149,6 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
     final String userNameClaim = (String) profile.getAttribute(oidcConfigs.getUserNameClaim());
 
-    // Ensure that we can extract a valid username mapping.
     final Optional<String> mappedUserName = extractRegexGroup(
         oidcConfigs.getUserNameClaimRegex(),
         (String) profile.getAttribute(oidcConfigs.getUserNameClaim())

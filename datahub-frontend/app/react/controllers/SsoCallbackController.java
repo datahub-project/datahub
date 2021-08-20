@@ -16,6 +16,13 @@ import react.auth.sso.SsoManager;
 import react.auth.sso.SsoProvider;
 
 
+/**
+ * A dedicated Controller for handling redirects to DataHub by 3rd-party Identity Providers after
+ * off-platform authentication.
+ *
+ * Handles a single "callback/{protocol}" route, where the protocol (ie. OIDC / SAML) determines
+ * the handling logic to invoke.
+ */
 @Slf4j
 public class SsoCallbackController extends CallbackController {
 
@@ -37,6 +44,9 @@ public class SsoCallbackController extends CallbackController {
         String.format("Failed to perform SSO callback. SSO is not enabled for protocol: %s", protocol)));
   }
 
+  /**
+   * Logic responsible for delegating to protocol-specific callback logic.
+   */
   public class SsoCallbackLogic implements CallbackLogic<Result, PlayWebContext> {
 
     private final OidcCallbackLogic _oidcCallbackLogic;
@@ -50,9 +60,6 @@ public class SsoCallbackController extends CallbackController {
         HttpActionAdapter<Result, PlayWebContext> httpActionAdapter, String defaultUrl, Boolean saveInSession,
         Boolean multiProfile, Boolean renewSession, String defaultClient) {
       if (SsoProvider.SsoProtocol.OIDC.equals(_ssoManager.getSsoProvider().protocol())) {
-        if (OidcResponseErrorHandler.isError(context)) {
-          return OidcResponseErrorHandler.handleError(context);
-        }
         return _oidcCallbackLogic.perform(context, config, httpActionAdapter, defaultUrl, saveInSession, multiProfile, renewSession, defaultClient);
       }
       // Should never occur.
