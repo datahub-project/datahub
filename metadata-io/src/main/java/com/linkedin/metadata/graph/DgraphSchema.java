@@ -53,11 +53,16 @@ public class DgraphSchema {
         return types.getOrDefault(typeName, Collections.emptySet()).contains(fieldName);
     }
 
-    public void addField(String typeName, String fieldName) {
+    synchronized public void addField(String typeName, String fieldName) {
         if (!types.containsKey(typeName)) {
             types.put(typeName, new HashSet<>());
         }
         types.get(typeName).add(fieldName);
         fields.add(fieldName);
+    }
+
+    public void clear() {
+        types.clear();
+        fields.clear();
     }
 }

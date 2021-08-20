@@ -16,6 +16,8 @@ import io.dgraph.DgraphProto.Operation;
 import io.dgraph.DgraphProto.Request;
 import io.dgraph.DgraphProto.Response;
 import io.dgraph.DgraphProto.Value;
+import io.dgraph.TxnConflictException;
+import io.grpc.StatusRuntimeException;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -31,6 +33,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -156,6 +161,16 @@ public class DgraphGraphService implements GraphService {
                 schema.add(String.format("<%s>: [uid] @reverse .", relationshipType));
             }
 
+            // update the schema on the Dgraph cluster
+            StringJoiner type = new StringJoiner("\n  ");
+            get_schema().getFields(sourceEntityType).stream().map(t -> "<" + t + ">").forEach(type::add);
+            schema.add(String.format("type <%s> {\n%s\n}", sourceEntityType, type));
+            log.debug("Adding to schema: " + schema);
+            Operation setSchema = Operation.newBuilder().setSchema(schema.toString()).setRunInBackground(true).build();
+            retry(() -> this._client.alter(setSchema));
+
+            // now that the schema has been updated on dgraph we can cache this new type / field
+
             // is the type known at all?
             if (!get_schema().hasType(sourceEntityType)) {
                 get_schema().addField(sourceEntityType, "urn");
@@ -165,14 +180,6 @@ public class DgraphGraphService implements GraphService {
 
             // add this new field
             this.get_schema().addField(sourceEntityType, relationshipType);
-
-            // update the schema on the Dgraph cluster
-            StringJoiner type = new StringJoiner("\n  ");
-            get_schema().getFields(sourceEntityType).stream().map(t -> "<" + t + ">").forEach(type::add);
-            schema.add(String.format("type <%s> {\n%s\n}", sourceEntityType, type));
-            log.debug("Adding to schema: " + schema);
-            Operation setSchema = Operation.newBuilder().setSchema(schema.toString()).build();
-            this._client.alter(setSchema);
         }
 
         // lookup the source and destination nodes
@@ -210,7 +217,59 @@ public class DgraphGraphService implements GraphService {
                 .build();
 
         // run the request
-        this._client.newTransaction().doRequest(request);
+        retry(() -> this._client.newTransaction().doRequest(request));
+    }
+
+    private void retry(Runnable func) {
+        retry(() -> {
+            func.run();
+            return null;
+        });
+    }
+
+    private <T> T retry(Supplier<T> func) {
+        // we have to make sure schema is initialized before executing any requests to dgraph
+        if (get_schema() == null) {
+            throw new IllegalStateException("Schema should have been initialized by now");
+        }
+
+        int retry = 0;
+        while (true) {
+            try {
+                return func.get();
+            } catch (Exception e) {
+                Throwable t = e;
+
+                // unwrap RuntimeException and ExecutionException
+                while (true) {
+                    if ((t instanceof RuntimeException || t instanceof ExecutionException) && t.getCause() != null) {
+                        t = t.getCause();
+                        continue;
+                    }
+                    break;
+                }
+
+                if (t instanceof TxnConflictException
+                        || t instanceof StatusRuntimeException && (
+                                t.getMessage().contains("operation opIndexing is already running")
+                                        || t.getMessage().contains("Please retry")
+                        )) {
+                    try {
+                        System.err.println("retrying: " + t);
+                        // wait 0.01s, 0.02s, 0.04s, 0.08s, ..., 10.24s
+                        long time = (long) Math.pow(2, Math.min(retry, 10)) * 10;
+                        TimeUnit.MILLISECONDS.sleep(time);
+                        retry++;
+                    } catch (InterruptedException e2) {
+                        // ignore interruption
+                    }
+                    continue;
+                }
+
+                // throw unexpected exceptions
+                throw e;
+            }
+        }
     }
 
     private static @Nonnull String getDgraphType(@Nonnull Urn urn) {
@@ -360,7 +419,7 @@ public class DgraphGraphService implements GraphService {
                                                      @Nonnull RelationshipFilter relationshipFilter,
                                                      int offset,
                                                      int count) {
-            if (relationshipTypes.isEmpty()) {
+        if (relationshipTypes.isEmpty() || relationshipTypes.stream().anyMatch(relationship -> ! get_schema().hasField(relationship))) {
             return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
         }
 
@@ -377,7 +436,7 @@ public class DgraphGraphService implements GraphService {
                 .setQuery(query)
                 .build();
 
-        Response response = this._client.newReadOnlyTransaction().doRequest(request);
+        Response response = retry(() -> this._client.newReadOnlyTransaction().doRequest(request));
         String json = response.getJson().toStringUtf8();
         Map<String, Object> data = getDataFromResponseJson(json);
 
@@ -542,7 +601,7 @@ public class DgraphGraphService implements GraphService {
                 .setCommitNow(true)
                 .build();
 
-        this._client.newTransaction().doRequest(request);
+        retry(() -> this._client.newTransaction().doRequest(request));
     }
 
     @Override
@@ -592,7 +651,7 @@ public class DgraphGraphService implements GraphService {
                 .setCommitNow(true)
                 .build();
 
-        this._client.newTransaction().doRequest(request);
+        retry(() -> this._client.newTransaction().doRequest(request));
     }
 
     private void removeIncomingEdgesFromNode(@Nonnull Urn urn,
@@ -627,7 +686,7 @@ public class DgraphGraphService implements GraphService {
                 .setCommitNow(true)
                 .build();
 
-        this._client.newTransaction().doRequest(request);
+        retry(() -> this._client.newTransaction().doRequest(request));
     }
 
     @Override
@@ -637,6 +696,9 @@ public class DgraphGraphService implements GraphService {
 
     @Override
     public void clear() {
-        this._client.alter(Operation.newBuilder().setDropOp(Operation.DropOp.DATA).build());
+        Operation dropAll = Operation.newBuilder().setDropOp(Operation.DropOp.ALL).build();
+        retry(() -> this._client.alter(dropAll));
+        get_schema().clear();
+        getSchema(this._client);
     }
 }
