@@ -43,5 +43,6 @@ public class FieldExtractorTest {
     assertEquals(result.get(nameToSpec.get("nestedIntegerField")), ImmutableList.of(1));
     assertEquals(result.get(nameToSpec.get("nestedArrayStringField")), ImmutableList.of("nestedArray1", "nestedArray2"));
     assertEquals(result.get(nameToSpec.get("nestedArrayArrayField")), ImmutableList.of("testNestedArray1", "testNestedArray2"));
+    assertEquals(result.get(nameToSpec.get("customProperties")), ImmutableList.of("key1=value1", "key2=value2"));
   }
 }

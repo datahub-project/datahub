@@ -11,9 +11,11 @@ import com.datahub.test.TestEntityInfo;
 import com.datahub.test.TestEntityKey;
 import com.datahub.test.TestEntitySnapshot;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 
 
 public class TestEntityUtil {
@@ -37,6 +39,7 @@ public class TestEntityUtil {
         ImmutableList.of(new SimpleNestedRecord2().setNestedArrayStringField("nestedArray1"),
             new SimpleNestedRecord2().setNestedArrayStringField("nestedArray2")
                 .setNestedArrayArrayField(new StringArray(ImmutableList.of("testNestedArray1", "testNestedArray2"))))));
+    testEntityInfo.setCustomProperties(new StringMap(ImmutableMap.of("key1", "value1", "key2", "value2")));
     return testEntityInfo;
   }
 

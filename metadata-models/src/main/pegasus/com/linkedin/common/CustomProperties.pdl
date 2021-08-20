@@ -7,5 +7,6 @@ record CustomProperties {
   /**
    * Custom property bag.
    */
+  @Searchable = {}
   customProperties: map[string, string] = { }
 }

@@ -40,7 +40,15 @@ public class FieldExtractor {
         long numArrayWildcards = getNumArrayWildcards(fieldSpec.getPath());
         // Not an array field
         if (numArrayWildcards == 0) {
-          extractedFields.put(fieldSpec, Collections.singletonList(value.get()));
+          // For maps, convert it into a list of the form key=value
+          if (value.get() instanceof Map) {
+            extractedFields.put(fieldSpec, ((Map<?, ?>) value.get()).entrySet()
+                .stream()
+                .map(entry -> entry.getKey().toString() + "=" + entry.getValue().toString())
+                .collect(Collectors.toList()));
+          } else {
+            extractedFields.put(fieldSpec, Collections.singletonList(value.get()));
+          }
         } else {
           List<Object> valueList = (List<Object>) value.get();
           // If the field is a nested list of values, flatten it
@@ -50,8 +58,7 @@ public class FieldExtractor {
           extractedFields.put(fieldSpec, valueList);
         }
       }
-    }
-    return extractedFields;
+    } return extractedFields;
   }
 
   public static <T extends FieldSpec> Map<T, List<Object>> extractFieldsFromSnapshot(RecordTemplate snapshot,
