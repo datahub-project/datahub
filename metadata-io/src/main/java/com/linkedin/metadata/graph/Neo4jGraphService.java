@@ -10,6 +10,7 @@ import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +78,7 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Nonnull
-  public List<String> findRelatedUrns(
+  public RelatedEntitiesResult findRelatedEntities(
       @Nullable final String sourceType,
       @Nonnull final Filter sourceEntityFilter,
       @Nullable final String destinationType,
@@ -104,27 +105,40 @@ public class Neo4jGraphService implements GraphService {
 
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
 
-    String matchTemplate = "MATCH (src%s %s)-[r%s %s]-(dest%s %s) RETURN dest";
+    String matchTemplate = "MATCH (src%s %s)-[r%s %s]-(dest%s %s)";
     if (relationshipDirection == RelationshipDirection.INCOMING) {
-      matchTemplate = "MATCH (src%s %s)<-[r%s %s]-(dest%s %s) RETURN dest";
+      matchTemplate = "MATCH (src%s %s)<-[r%s %s]-(dest%s %s)";
     } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
-      matchTemplate = "MATCH (src%s %s)-[r%s %s]->(dest%s %s) RETURN dest";
+      matchTemplate = "MATCH (src%s %s)-[r%s %s]->(dest%s %s)";
     }
+
+    final String returnNodes = "RETURN dest, type(r)"; // Return both related entity and the relationship type.
+    final String returnCount = "RETURN count(*)"; // For getting the total results.
 
     String relationshipTypeFilter = "";
     if (relationshipTypes.size() > 0) {
       relationshipTypeFilter = ":" + StringUtils.join(relationshipTypes, "|");
     }
 
-    String statementString =
+    // Build Statement strings
+    String baseStatementString =
         String.format(matchTemplate, sourceType, srcCriteria, relationshipTypeFilter, edgeCriteria,
             destinationType, destCriteria);
 
-    statementString += " SKIP $offset LIMIT $count";
+    final String resultStatementString = String.format("%s %s SKIP $offset LIMIT $count", baseStatementString, returnNodes);
+    final String countStatementString = String.format("%s %s", baseStatementString, returnCount);
 
-    final Statement statement = new Statement(statementString, ImmutableMap.of("offset", offset, "count", count));
+    // Build Statements
+    final Statement resultStatement = new Statement(resultStatementString, ImmutableMap.of("offset", offset, "count", count));
+    final Statement countStatement =  new Statement(countStatementString, Collections.emptyMap());
 
-    return runQuery(statement).list(record -> record.values().get(0).asNode().get("urn").asString());
+    // Execute Queries
+    final List<RelatedEntity> relatedEntities = runQuery(resultStatement).list(record ->
+        new RelatedEntity(
+            record.values().get(1).asString(), // Relationship Type
+            record.values().get(0).asNode().get("urn").asString())); // Urn TODO: Validate this works against Neo4j.
+    final int totalCount = runQuery(countStatement).single().get(0).asInt();
+    return new RelatedEntitiesResult(offset, relatedEntities.size(), totalCount, relatedEntities);
   }
 
   public void removeNode(@Nonnull final Urn urn) {

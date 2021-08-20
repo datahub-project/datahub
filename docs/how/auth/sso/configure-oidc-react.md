@@ -69,6 +69,7 @@ Providing these configs will cause DataHub to delegate authentication to your id
 provider, requesting the "oidc email profile" scopes and parsing the "preferred_username" claim from 
 the authenticated profile as the DataHub CorpUser identity.
 
+
 > By default, the login callback endpoint exposed by DataHub will be located at `${AUTH_OIDC_BASE_URL}/callback/oidc`. This must **exactly** match the login redirect URL you've registered with your identity provider in step 1.
 
 In kubernetes, you can add the above env variables in the values.yaml as follows. 
@@ -103,10 +104,11 @@ Then set the secret env as follows.
           key: secret
 ```
 
+
 #### Advanced
 
 You can optionally customize the flow further using advanced configurations. These allow 
-you to specify the OIDC scopes requested & how the DataHub username is parsed from the claims returned by the identity provider. 
+you to specify the OIDC scopes requested, how the DataHub username is parsed from the claims returned by the identity provider, and how users and groups are extracted and provisioned from the OIDC claim set. 
 
 ```
 # Optional Configuration Values:
@@ -126,6 +128,31 @@ regex to do so. (e.g. `([^@]+)`)
 - `AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD`: a string representing the token authentication method to use with the identity provider. Default value
 is `client_secret_basic`, which uses HTTP Basic authentication. Another option is `client_secret_post`, which includes the client_id and secret_id 
 as form parameters in the HTTP POST request. For more info, see [OAuth 2.0 Client Authentication](https://darutk.medium.com/oauth-2-0-client-authentication-4b5f929305d4)
+
+
+##### User & Group Provisioning (JIT Provisioning)
+
+By default, DataHub will optimistically attempt to provision users and groups that do not already exist at the time of login.
+For users, we extract information like first name, last name, display name, & email to construct a basic user profile. If a groups claim is present,
+we simply extract their names.
+
+The default provisioning behavior can be customized using the following configs. 
+
+```
+# User and groups provisioning
+AUTH_OIDC_JIT_PROVISIONING_ENABLED=true
+AUTH_OIDC_PRE_PROVISIONING_REQUIRED=false
+AUTH_OIDC_EXTRACT_GROUPS_ENABLED=true
+AUTH_OIDC_GROUPS_CLAIM=<your-groups-claim-name>
+```
+
+- `AUTH_OIDC_JIT_PROVISIONING_ENABLED`: Whether DataHub users & groups should be provisioned on login if they do not exist. Defaults to true.
+- `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`: Whether the user should already exist in DataHub when they login, failing login if they are not. This is appropriate for situations in which users and groups are batch ingested and tightly controlled inside your environment. Defaults to false.
+  the userNameClaim field will contain an email address, and we want to omit the domain name suffix of the email, we can specify a custom
+  regex to do so. (e.g. `([^@]+)`)
+- `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`: Only applies if `AUTH_OIDC_JIT_PROVISIONING_ENABLED` is set to true. This determines whether we should attempt to extract a list of group names from a particular claim in the OIDC attributes. Defaults to true. 
+- `AUTH_OIDC_GROUPS_CLAIM`: Only applies if `AUTH_OIDC_EXTRACT_GROUPS_ENABLED` is set to true. This determines which OIDC claim will contain a list of string group names. Defaults to 'groups'
+
 
 Once configuration has been updated, `datahub-frontend-react` will need to be restarted to pick up the new environment variables:
 

@@ -53,6 +53,7 @@ Sources:
 | [mysql](./source_docs/mysql.md)                 | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
 | [oracle](./source_docs/oracle.md)               | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
 | [postgres](./source_docs/postgres.md)           | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
+| [redash](./source_docs/redash.md)               | `pip install 'acryl-datahub[redash]'`                      | Redash source                       |
 | [redshift](./source_docs/redshift.md)           | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
 | [sagemaker](./source_docs/sagemaker.md)         | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
 | [snowflake](./source_docs/snowflake.md)         | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |

@@ -24,6 +24,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
+from datahub.metadata.schema_classes import BrowsePathsClass
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +157,11 @@ class KafkaSource(Source):
                 fields=key_fields + fields,
             )
             dataset_snapshot.aspects.append(schema_metadata)
+
+        browse_path = BrowsePathsClass(
+            [f"/{self.source_config.env.lower()}/{platform}/{topic}"]
+        )
+        dataset_snapshot.aspects.append(browse_path)
 
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record

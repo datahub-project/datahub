@@ -8,9 +8,11 @@ const SchemaHeaderContainer = styled.div<{ edit?: string }>`
     ${(props) => (props.edit ? 'justify-content: flex-end; padding-bottom: 16px;' : 'justify-content: space-between;')}
 `;
 
+// TODO(Gabe): undo display: none when dbt/bigquery flickering has been resolved
 const ShowVersionButton = styled(Button)`
     display: inline-block;
     margin-right: 10px;
+    display: none;
 `;
 
 const KeyButton = styled(Button)`

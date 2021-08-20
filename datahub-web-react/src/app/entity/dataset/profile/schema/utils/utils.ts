@@ -9,7 +9,7 @@ import {
 } from '../../../../../../types.generated';
 import { convertTagsForUpdate } from '../../../../../shared/tags/utils/convertTagsForUpdate';
 import { SchemaDiffSummary } from '../components/SchemaVersionSummary';
-import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from './constants';
+import { KEY_SCHEMA_PREFIX, UNION_TOKEN, VERSION_PREFIX } from './constants';
 import { ExtendedSchemaFields } from './types';
 
 export function convertEditableSchemaMeta(
@@ -46,7 +46,7 @@ export function convertEditableSchemaMetadataForUpdate(
 }
 
 export function filterKeyFieldPath(showKeySchema: boolean, field: SchemaField) {
-    return field.fieldPath.startsWith(KEY_SCHEMA_PREFIX) ? showKeySchema : !showKeySchema;
+    return field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1 ? showKeySchema : !showKeySchema;
 }
 
 export function downgradeV2FieldPath(fieldPath?: string | null) {
@@ -85,9 +85,24 @@ export function groupByFieldPath(
         const row = { children: undefined, ...rows[rowIndex] };
 
         for (let j = rowIndex - 1; j >= 0; j--) {
-            if (row.fieldPath.indexOf(rows[j].fieldPath) >= 0) {
-                parentRow = outputRowByPath[rows[j].fieldPath];
-                break;
+            const rowTokens = row.fieldPath.split('.');
+            const isQualifyingUnionField = rowTokens[rowTokens.length - 3] === UNION_TOKEN;
+            if (isQualifyingUnionField) {
+                // in the case of unions, parent will not be a subset of the child
+                rowTokens.splice(rowTokens.length - 2, 1);
+                const parentPath = rowTokens.join('.');
+                console.log({ parentPath });
+
+                if (rows[j].fieldPath === parentPath) {
+                    parentRow = outputRowByPath[rows[j].fieldPath];
+                    break;
+                }
+            } else if (!isQualifyingUnionField) {
+                // in the case of structs, arrays, etc, parent will be a subset
+                if (row.fieldPath.indexOf(rows[j].fieldPath) >= 0) {
+                    parentRow = outputRowByPath[rows[j].fieldPath];
+                    break;
+                }
             }
         }
 

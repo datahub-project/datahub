@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
+import java.util.stream.Collectors;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nonnull;
@@ -60,7 +61,7 @@ abstract public class GraphServiceTestBase {
     relationshipFilter.setDirection(RelationshipDirection.OUTGOING);
     relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
 
-    List<String> relatedUrns = client.findRelatedUrns(
+    List<String> relatedUrns = client.findRelatedEntities(
         "",
         newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
         "",
@@ -68,7 +69,10 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10);
+        10).getEntities()
+        .stream()
+        .map(RelatedEntity::getUrn)
+        .collect(Collectors.toList());
 
     assertEquals(relatedUrns.size(), 1);
   }
@@ -91,7 +95,7 @@ abstract public class GraphServiceTestBase {
     relationshipFilter.setDirection(RelationshipDirection.INCOMING);
     relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
 
-    List<String> relatedUrns = client.findRelatedUrns(
+    List<String> relatedUrns = client.findRelatedEntities(
         "",
         newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
         "",
@@ -99,7 +103,11 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10);
+        10)
+        .getEntities()
+        .stream()
+        .map(RelatedEntity::getUrn)
+        .collect(Collectors.toList());
 
     assertEquals(relatedUrns.size(), 1);
   }
@@ -122,7 +130,7 @@ abstract public class GraphServiceTestBase {
     relationshipFilter.setDirection(RelationshipDirection.INCOMING);
     relationshipFilter.setCriteria(EMPTY_FILTER.getCriteria());
 
-    List<String> relatedUrns = client.findRelatedUrns(
+    List<String> relatedUrns = client.findRelatedEntities(
         "",
         newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
         "",
@@ -130,7 +138,11 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10);
+        10)
+        .getEntities()
+        .stream()
+        .map(RelatedEntity::getUrn)
+        .collect(Collectors.toList());
 
     assertEquals(relatedUrns.size(), 1);
 
@@ -140,7 +152,7 @@ abstract public class GraphServiceTestBase {
         relationshipFilter);
     syncAfterWrite();
 
-    List<String> relatedUrnsPostDelete = client.findRelatedUrns(
+    List<String> relatedUrnsPostDelete = client.findRelatedEntities(
         "",
         newFilter("urn", "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"),
         "",
@@ -148,7 +160,11 @@ abstract public class GraphServiceTestBase {
         edgeTypes,
         relationshipFilter,
         0,
-        10);
+        10)
+        .getEntities()
+        .stream()
+        .map(RelatedEntity::getUrn)
+        .collect(Collectors.toList());
 
     assertEquals(relatedUrnsPostDelete.size(), 0);
   }

@@ -64,7 +64,7 @@ export default function SchemaView({
     });
 
     const hasKeySchema = useMemo(
-        () => (schema?.fields?.findIndex((field) => field.fieldPath.startsWith(KEY_SCHEMA_PREFIX)) || -1) !== -1,
+        () => (schema?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1) || -1) !== -1,
         [schema],
     );
 

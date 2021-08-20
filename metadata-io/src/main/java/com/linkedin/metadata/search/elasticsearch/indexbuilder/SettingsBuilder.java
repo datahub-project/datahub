@@ -98,7 +98,6 @@ public class SettingsBuilder {
 
     // Analyzer for matching browse path
     analyzers.put("browse_path_hierarchy", ImmutableMap.<String, Object>builder().put("tokenizer", "path_hierarchy")
-        .put("filter", ImmutableList.of("lowercase"))
         .build());
 
     // Analyzer for case-insensitive exact matching - Only used when building queries

@@ -21,7 +21,7 @@ import play.mvc.Http;
 import play.mvc.Result;
 import react.auth.AuthUtils;
 import react.auth.JAASConfigs;
-import react.auth.OidcConfigs;
+import react.auth.sso.SsoManager;
 import security.AuthenticationManager;
 
 import javax.annotation.Nonnull;
@@ -33,13 +33,13 @@ import java.time.temporal.ChronoUnit;
 
 import static react.auth.AuthUtils.*;
 
+// TODO add logging.
 public class AuthenticationController extends Controller {
 
     private static final String AUTH_REDIRECT_URI_PARAM = "redirect_uri";
 
     private final Logger _logger = LoggerFactory.getLogger(AuthenticationController.class.getName());
     private final Config _configs;
-    private final OidcConfigs _oidcConfigs;
     private final JAASConfigs _jaasConfigs;
 
     @Inject
@@ -49,9 +49,11 @@ public class AuthenticationController extends Controller {
     private SessionStore _playSessionStore;
 
     @Inject
+    private SsoManager _ssoManager;
+
+    @Inject
     public AuthenticationController(@Nonnull Config configs) {
         _configs = configs;
-        _oidcConfigs = new OidcConfigs(configs);
         _jaasConfigs = new JAASConfigs(configs);
     }
 
@@ -71,12 +73,9 @@ public class AuthenticationController extends Controller {
             return redirect(redirectPath);
         }
 
-        // 1. If indirect auth is enabled, redirect to IdP
-        if (_oidcConfigs.isOidcEnabled()) {
-            final PlayWebContext playWebContext = new PlayWebContext(ctx(), _playSessionStore);
-            final Client client = _ssoConfig.getClients().findClient(_oidcConfigs.getClientName());
-            final HttpAction action = client.redirect(playWebContext);
-            return new PlayHttpActionAdapter().adapt(action.getCode(), playWebContext);
+        // 1. If SSO is enabled, redirect to IdP if not authenticated.
+        if (_ssoManager.isSsoEnabled()) {
+            return redirectToIdentityProvider();
         }
 
         // 2. If JAAS auth is enabled, fallback to it
@@ -132,6 +131,13 @@ public class AuthenticationController extends Controller {
             .withHttpOnly(false)
             .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
             .build());
+    }
+
+    private Result redirectToIdentityProvider() {
+        final PlayWebContext playWebContext = new PlayWebContext(ctx(), _playSessionStore);
+        final Client client = _ssoManager.getSsoProvider().client();
+        final HttpAction action = client.redirect(playWebContext);
+        return new PlayHttpActionAdapter().adapt(action.getCode(), playWebContext);
     }
 
     private String encodeRedirectUri(final String redirectUri) {
