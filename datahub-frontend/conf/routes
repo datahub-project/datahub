@@ -16,6 +16,7 @@ GET           /authenticate                                                   re
 POST          /logIn                                                          react.controllers.AuthenticationController.logIn()
 GET           /callback/:protocol                                             react.controllers.SsoCallbackController.handleCallback(protocol: String)
 POST          /callback/:protocol                                             react.controllers.SsoCallbackController.handleCallback(protocol: String)
+GET           /logOut                                                         controllers.CentralLogoutController.executeLogout()
 
 # Data fetching in React
 POST          /api/v2/graphql                                                 react.controllers.GraphQLController.execute()

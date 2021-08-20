@@ -7,6 +7,7 @@ import org.pac4j.core.client.Client;
 import org.pac4j.core.client.Clients;
 import org.pac4j.core.config.Config;
 import org.pac4j.core.context.session.SessionStore;
+import org.pac4j.play.LogoutController;
 import org.pac4j.play.http.PlayHttpActionAdapter;
 import org.pac4j.play.store.PlayCookieSessionStore;
 import org.pac4j.play.store.PlaySessionStore;
@@ -46,6 +47,10 @@ public class AuthModule extends AbstractModule {
         } catch (NoSuchMethodException | SecurityException e) {
             System.out.println("Required constructor missing");
         }
+        // logout
+        final LogoutController logoutController = new LogoutController();
+        logoutController.setDefaultUrl("/");
+        bind(LogoutController.class).toInstance(logoutController);
     }
 
     @Provides @Singleton

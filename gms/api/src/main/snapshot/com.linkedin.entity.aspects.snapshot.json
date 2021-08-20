@@ -1428,6 +1428,11 @@
       },
       "doc" : "A key-value map to capture any other non-standardized properties for the glossary term",
       "default" : { }
+    }, {
+      "name" : "rawSchema",
+      "type" : "string",
+      "doc" : "Schema definition of the glossary term",
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "glossaryTermInfo"
@@ -1441,7 +1446,10 @@
       "name" : "displayName",
       "type" : "string",
       "doc" : "The name to use when displaying the group.",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "TEXT_PARTIAL"
+      }
     }, {
       "name" : "email",
       "type" : "com.linkedin.common.EmailAddress",
@@ -1490,7 +1498,10 @@
       "name" : "description",
       "type" : "string",
       "doc" : "A description of the group.",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
@@ -1670,7 +1681,10 @@
       "fields" : [ {
         "name" : "name",
         "type" : "string",
-        "doc" : "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub."
+        "doc" : "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub.",
+        "Searchable" : {
+          "fieldType" : "TEXT_PARTIAL"
+        }
       } ],
       "Aspect" : {
         "name" : "corpGroupKey"
@@ -2089,7 +2103,14 @@
               "name" : "glossaryTerms",
               "type" : "com.linkedin.common.GlossaryTerms",
               "doc" : "Glossary terms associated with the field",
-              "optional" : true
+              "optional" : true,
+              "Searchable" : {
+                "/terms/*/urn" : {
+                  "boostScore" : 0.5,
+                  "fieldName" : "fieldGlossaryTerms",
+                  "fieldType" : "URN_PARTIAL"
+                }
+              }
             }, {
               "name" : "isPartOfKey",
               "type" : "boolean",

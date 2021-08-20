@@ -68,6 +68,36 @@ query getSearchResults($input: SearchInput!) {
                         pictureLink
                     }
                 }
+                ... on CorpGroup {
+                    name
+                    info {
+                        displayName
+                        description
+                    }
+                    relationships(types: ["IsMemberOfGroup"], direction: INCOMING) {
+                        relationships {
+                            type
+                            direction
+                            entity {
+                                urn
+                                type
+                                ... on CorpUser {
+                                    username
+                                    info {
+                                        active
+                                        displayName
+                                        title
+                                        firstName
+                                        lastName
+                                    }
+                                    editableInfo {
+                                        pictureLink
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 ... on Dashboard {
                     urn
                     type
