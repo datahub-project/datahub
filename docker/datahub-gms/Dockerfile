@@ -13,7 +13,7 @@ FROM adoptopenjdk/openjdk8:alpine-slim as prod-build
 RUN apk --no-cache add perl
 COPY . /datahub-src
 RUN cd /datahub-src && ./gradlew :metadata-service:war:build -x test
-RUN cp /datahub-src/gms/war/build/libs/war.war /war.war
+RUN cp /datahub-src/metadata-service/war/build/libs/war.war /war.war
 
 FROM base as prod-install
 COPY --from=prod-build /war.war /datahub/datahub-gms/bin/war.war
