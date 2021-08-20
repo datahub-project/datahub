@@ -16,6 +16,7 @@ import io.dgraph.DgraphProto.Operation;
 import io.dgraph.DgraphProto.Request;
 import io.dgraph.DgraphProto.Response;
 import io.dgraph.DgraphProto.Value;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -37,14 +38,23 @@ import java.util.stream.Stream;
 @Slf4j
 public class DgraphGraphService implements GraphService {
 
-    private final DgraphClient _client;
-    private final DgraphSchema _schema;
+    private final @Nonnull DgraphClient _client;
+
+    @Getter(lazy = true)
+    // we want to defer initialization of schema (accessing Dgraph server) to the first time accessing _schema
+    private final DgraphSchema _schema = getSchema(_client);
 
     public DgraphGraphService(@Nonnull DgraphClient client) {
         this._client = client;
-        this._schema = getSchema(client);
+    }
 
-        if (this._schema.isEmpty()) {
+    protected static @Nonnull DgraphSchema getSchema(@Nonnull DgraphClient client) {
+        Response response = client.newReadOnlyTransaction().doRequest(
+                Request.newBuilder().setQuery("schema { predicate }").build()
+        );
+        DgraphSchema schema = getSchema(response.getJson().toStringUtf8());
+
+        if (schema.isEmpty()) {
             Operation setSchema = Operation.newBuilder()
                     .setSchema(""
                             + "<urn>: string @index(hash) @upsert .\n"
@@ -52,15 +62,10 @@ public class DgraphGraphService implements GraphService {
                             + "<key>: string @index(hash) .\n"
                     )
                     .build();
-            this._client.alter(setSchema);
+            client.alter(setSchema);
         }
-    }
 
-    protected static @Nonnull DgraphSchema getSchema(@Nonnull DgraphClient client) {
-        Response response = client.newReadOnlyTransaction().doRequest(
-                Request.newBuilder().setQuery("schema { predicate }").build()
-        );
-        return getSchema(response.getJson().toStringUtf8());
+        return schema;
     }
 
     protected static @Nonnull DgraphSchema getSchema(@Nonnull String json) {
@@ -143,27 +148,27 @@ public class DgraphGraphService implements GraphService {
         // TODO: cache the schema and only mutate if relationship is new
         String sourceEntityType = getDgraphType(edge.getSource());
         String relationshipType = edge.getRelationshipType();
-        if (!_schema.hasField(sourceEntityType, relationshipType)) {
+        if (!get_schema().hasField(sourceEntityType, relationshipType)) {
             StringJoiner schema = new StringJoiner("\n");
 
             // is the field known at all?
-            if (!_schema.hasField(relationshipType)) {
+            if (!get_schema().hasField(relationshipType)) {
                 schema.add(String.format("<%s>: [uid] @reverse .", relationshipType));
             }
 
             // is the type known at all?
-            if (!_schema.hasType(sourceEntityType)) {
-                _schema.addField(sourceEntityType, "urn");
-                _schema.addField(sourceEntityType, "type");
-                _schema.addField(sourceEntityType, "key");
+            if (!get_schema().hasType(sourceEntityType)) {
+                get_schema().addField(sourceEntityType, "urn");
+                get_schema().addField(sourceEntityType, "type");
+                get_schema().addField(sourceEntityType, "key");
             }
 
             // add this new field
-            this._schema.addField(sourceEntityType, relationshipType);
+            this.get_schema().addField(sourceEntityType, relationshipType);
 
             // update the schema on the Dgraph cluster
             StringJoiner type = new StringJoiner("\n  ");
-            _schema.getFields(sourceEntityType).stream().map(t -> "<" + t + ">").forEach(type::add);
+            get_schema().getFields(sourceEntityType).stream().map(t -> "<" + t + ">").forEach(type::add);
             schema.add(String.format("type <%s> {\n%s\n}", sourceEntityType, type));
             log.debug("Adding to schema: " + schema);
             Operation setSchema = Operation.newBuilder().setSchema(schema.toString()).build();
