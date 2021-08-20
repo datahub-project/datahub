@@ -1,11 +1,8 @@
 #!/bin/bash
 set -x
-# Add default URI (http) scheme to NEO4J_HOST and DGRAPH_HOST if missing
+# Add default URI (http) scheme to NEO4J_HOST if missing
 if [[ -n "$NEO4J_HOST" && $NEO4J_HOST != *"://"* ]] ; then
-    NEO4J_HOST="http://$NEO4J_HOST"
-fi
-if [[ -n "$DGRAPH_HOST" && $DGRAPH_HOST != *"://"* ]] ; then
-    DGRAPH_HOST="http://$DGRAPH_HOST"
+  NEO4J_HOST="http://$NEO4J_HOST"
 fi
 
 if [[ ! -z $ELASTICSEARCH_USERNAME ]] && [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
@@ -45,10 +42,13 @@ if [[ $GRAPH_SERVICE_IMPL == neo4j ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
   WAIT_FOR_GRAPH_SERVICE=" -wait $NEO4J_HOST "
 elif [[ $GRAPH_SERVICE_IMPL == dgraph ]] && [[ $SKIP_DGRAPH_CHECK != true ]]; then
   if [[ -z "$DGRAPH_HOST" ]]; then
-    echo "GRAPH_SERVICE_IMPL set to DGRAPH but no DGRAPH_HOST set"
+    echo "GRAPH_SERVICE_IMPL set to dgraph but no DGRAPH_HOST set"
     exit 1
   fi
-  WAIT_FOR_GRAPH_SERVICE=" -wait $DGRAPH_HOST "
+  if [[ -n "$DGRAPH_HOST" && $DGRAPH_HOST != *":"* ]] ; then
+    DGRAPH_HOST="$DGRAPH_HOST:9080"
+  fi
+  WAIT_FOR_GRAPH_SERVICE=" -wait tcp://$DGRAPH_HOST "
 fi
 
 OTEL_AGENT=""
