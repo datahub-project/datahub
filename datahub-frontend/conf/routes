@@ -14,9 +14,9 @@ GET           /config                                                         co
 # Authentication in React
 GET           /authenticate                                                   react.controllers.AuthenticationController.authenticate()
 POST          /logIn                                                          react.controllers.AuthenticationController.logIn()
-GET           /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
-POST          /callback/oidc                                                  @org.pac4j.play.CallbackController.callback()
-GET           /logOut                                                  controllers.CentralLogoutController.executeLogout()
+GET           /callback/:protocol                                             react.controllers.SsoCallbackController.handleCallback(protocol: String)
+POST          /callback/:protocol                                             react.controllers.SsoCallbackController.handleCallback(protocol: String)
+GET           /logOut                                                         controllers.CentralLogoutController.executeLogout()
 
 # Data fetching in React
 POST          /api/v2/graphql                                                 react.controllers.GraphQLController.execute()
