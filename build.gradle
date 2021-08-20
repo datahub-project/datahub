@@ -99,7 +99,7 @@ project.ext.externalDependency = [
     'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.11:2.6.18',
     'playTest': 'com.typesafe.play:play-test_2.11:2.6.18',
     'pac4j': 'org.pac4j:pac4j-oidc:3.6.0',
-    'playPac4j': 'org.pac4j:play-pac4j_2.11:7.0.0',
+    'playPac4j': 'org.pac4j:play-pac4j_2.11:7.0.1',
     'postgresql': 'org.postgresql:postgresql:42.2.14',
     'reflections': 'org.reflections:reflections:0.9.11',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',

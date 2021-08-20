@@ -64,10 +64,17 @@ AUTH_OIDC_CLIENT_ID=your-client-id
 AUTH_OIDC_CLIENT_SECRET=your-client-secret
 AUTH_OIDC_DISCOVERY_URI=https://your-okta-domain.com/.well-known/openid-configuration
 AUTH_OIDC_BASE_URL=your-datahub-url
+AUTH_OIDC_SCOPE="openid profile email groups"
 ```
 
 Replacing the placeholders above with the client id & client secret received from Google in Step 3f.
 
+> **Pro Tip!** You can easily enable Okta to return the groups that a user is associated with, which will be provisioned in DataHub, along with the user logging in, 
+> if they do not already exist in DataHub. You can enable your Okta application to return a 'groups' claim from the Okta Console at Applications > Your Application -> Sign On -> OpenID Connect ID Token Settings (Requires an edit).
+> 
+> By default, we assume that the groups will appear in a claim named "groups". This can be customized using the `AUTH_OIDC_GROUPS_CLAIM` container configuration. 
+> 
+> ![okta-setup-2](img/okta-setup-groups-claim.png)
 
 ### 5. Restart `datahub-frontend-react` docker container
 
