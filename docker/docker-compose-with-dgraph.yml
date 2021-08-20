@@ -65,12 +65,12 @@ services:
         retries: 4
 
   dgraph:
-    image: dgraph/dgraph:v20.03.1
+    image: dgraph/standalone:v21.03.1
     env_file: dgraph/env/docker.env
     hostname: dgraph
     container_name: dgraph
     ports:
-      - "8080:8080"
+      - "8082:8080"
       - "9080:9080"
     volumes:
       - dgraphdata:/dgraph
