@@ -167,11 +167,18 @@ class AzureSource(Source):
         headers = {"Authorization": "Bearer {0}".format(self.token)}
         url = self.config.graph_url + "/groups"
         while True:
+            if not url:
+                break
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 json_data = json.loads(response.text)
                 url = json_data.get("@odata.nextLink", None)
                 yield json_data["value"]
+            else:
+                error_str = "Response status code: {0}. Response content: {1}".format(response.status_code, response.content)
+                logger.error(error_str)
+                self.report.report_failure("_get_azure_groups", error_str)
+                continue
 
     def _get_azure_users(self):
         headers = {"Authorization": "Bearer {0}".format(self.token)}
@@ -184,6 +191,11 @@ class AzureSource(Source):
                 json_data = json.loads(response.text)
                 url = json_data.get("@odata.nextLink", None)
                 yield json_data["value"]
+            else:
+                error_str = "Response status code: {0}. Response content: {1}".format(response.status_code, response.content)
+                logger.error(error_str)
+                self.report.report_failure("_get_azure_groups", error_str)
+                continue
 
     def _get_azure_group_users(self, azure_group):
         headers = {"Authorization": "Bearer {0}".format(self.token)}
@@ -191,11 +203,18 @@ class AzureSource(Source):
             self.config.graph_url, azure_group.get("id")
         )
         while True:
+            if not url:
+                break
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 json_data = json.loads(response.text)
                 url = json_data.get("@odata.nextLink", None)
                 yield json_data["value"]
+            else:
+                error_str = "Response status code: {0}. Response content: {1}".format(response.status_code, response.content)
+                logger.error(error_str)
+                self.report.report_failure("_get_azure_groups", error_str)
+                continue
 
     def _map_azure_groups(self, azure_groups):
         for azure_group in azure_groups:
