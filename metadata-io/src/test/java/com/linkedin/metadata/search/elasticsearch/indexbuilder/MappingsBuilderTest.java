@@ -22,7 +22,8 @@ public class MappingsBuilderTest {
     assertTrue(properties.containsKey("browsePaths"));
     // KEYWORD
     assertEquals(properties.get("keyPart3"), ImmutableMap.of("type", "keyword", "normalizer", "keyword_normalizer"));
-
+    assertEquals(properties.get("customProperties"),
+        ImmutableMap.of("type", "keyword", "normalizer", "keyword_normalizer"));
     // TEXT
     Map<String, Object> nestedArrayStringField = (Map<String, Object>) properties.get("nestedArrayStringField");
     assertEquals(nestedArrayStringField.get("type"), "keyword");

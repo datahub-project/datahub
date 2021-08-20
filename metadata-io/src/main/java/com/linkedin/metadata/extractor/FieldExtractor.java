@@ -58,7 +58,8 @@ public class FieldExtractor {
           extractedFields.put(fieldSpec, valueList);
         }
       }
-    } return extractedFields;
+    }
+    return extractedFields;
   }
 
   public static <T extends FieldSpec> Map<T, List<Object>> extractFieldsFromSnapshot(RecordTemplate snapshot,
