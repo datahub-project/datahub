@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
@@ -24,21 +25,24 @@ import static org.testng.Assert.assertEquals;
 
 public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
+    private ManagedChannel _channel;
     private DgraphGraphService _service;
 
     @BeforeMethod
     public void init() {
-        ManagedChannel channel = ManagedChannelBuilder
+        _channel = ManagedChannelBuilder
                 .forAddress("localhost", 9080)
                 .usePlaintext()
                 .build();
-        DgraphGrpc.DgraphStub stub = DgraphGrpc.newStub(channel);
 
-        _service = new DgraphGraphService(new DgraphClient(stub));
+        _service = new DgraphGraphService(new DgraphClient(DgraphGrpc.newStub(_channel)));
     }
 
     @AfterMethod
-    public void tearDown() { }
+    public void tearDown() throws InterruptedException {
+        _channel.shutdownNow();
+        _channel.awaitTermination(10, TimeUnit.SECONDS);
+    }
 
     @Nonnull
     @Override
