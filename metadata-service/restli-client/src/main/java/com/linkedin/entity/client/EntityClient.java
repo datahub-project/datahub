@@ -1,5 +1,6 @@
 package com.linkedin.entity.client;
 
+import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
@@ -22,9 +23,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.BatchGetEntityRequest;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.GetRequest;
-import com.linkedin.restli.client.Request;
 import com.linkedin.restli.client.Response;
-import com.linkedin.restli.client.RestLiResponseException;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -35,42 +34,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
 
 
-public class EntityClient {
+public class EntityClient extends BaseClient {
 
     private static final EntitiesRequestBuilders ENTITIES_REQUEST_BUILDERS = new EntitiesRequestBuilders();
 
-    private static final String ACTION_INGEST = "ingest";
-    private static final String PARAM_ENTITY = "entity";
-    private static final String PARAM_SYSTEM_METADATA = "systemMetadata";
-    private static final String RESOURCE_NAME = "entities";
-
-    private final Client _client;
-    private final Logger _logger = LoggerFactory.getLogger("EntityClient");
-
     public EntityClient(@Nonnull final Client restliClient) {
-        _client = restliClient;
-    }
-
-    private <T> Response<T> sendClientRequest(Request<T> request) throws RemoteInvocationException {
-        try {
-            return _client.sendRequest(request).getResponse();
-        } catch (RemoteInvocationException e) {
-            if (e instanceof RestLiResponseException) {
-                RestLiResponseException restliException = (RestLiResponseException) e;
-                if (restliException.getStatus() == 404) {
-                    _logger.error("ERROR: Your datahub-frontend instance version is ahead of your gms instance. "
-                        + "Please update your gms to the latest Datahub release");
-                    System.exit(1);
-                }
-             }
-            throw e;
-        }
+        super(restliClient);
     }
 
     @Nonnull
@@ -96,7 +69,7 @@ public class EntityClient {
         for (List<Urn> urnsInBatch : entityUrnBatches) {
             BatchGetEntityRequest<String, Entity> batchGetRequest =
                     ENTITIES_REQUEST_BUILDERS.batchGet()
-                            .ids(urnsInBatch.stream().map(urn -> urn.toString()).collect(Collectors.toSet()))
+                            .ids(urnsInBatch.stream().map(Urn::toString).collect(Collectors.toSet()))
                             .build();
             final Map<Urn, Entity> batchResponse = sendClientRequest(batchGetRequest).getEntity().getResults()
                     .entrySet().stream().collect(Collectors.toMap(

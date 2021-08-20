@@ -1,5 +1,6 @@
 package com.linkedin.entity.client;
 
+import com.linkedin.common.client.BaseClient;
 import com.linkedin.entity.AspectsDoGetTimeseriesAspectValuesRequestBuilder;
 import com.linkedin.entity.AspectsDoIngestProposalRequestBuilder;
 import com.linkedin.entity.AspectsGetRequestBuilder;
@@ -13,19 +14,14 @@ import com.linkedin.restli.client.Response;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
-public class AspectClient {
+public class AspectClient extends BaseClient {
 
   private static final AspectsRequestBuilders ASPECTS_REQUEST_BUILDERS = new AspectsRequestBuilders();
 
-  private final Client _client;
-  private final Logger _logger = LoggerFactory.getLogger("AspectClient");
-
   public AspectClient(@Nonnull final Client restliClient) {
-    _client = restliClient;
+    super(restliClient);
   }
 
   /**
@@ -42,7 +38,7 @@ public class AspectClient {
     AspectsGetRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS.get().id(urn).aspectParam(aspect).versionParam(version);
 
-    return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    return sendClientRequest(requestBuilder.build()).getEntity();
   }
 
   /**
@@ -80,7 +76,7 @@ public class AspectClient {
       requestBuilder.limitParam(limit);
     }
 
-    return _client.sendRequest(requestBuilder.build()).getResponse().getEntity().getValues();
+    return sendClientRequest(requestBuilder.build()).getEntity().getValues();
   }
 
   /**
@@ -91,6 +87,6 @@ public class AspectClient {
     final AspectsDoIngestProposalRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS.actionIngestProposal().proposalParam(metadataChangeProposal);
 
-    return _client.sendRequest(requestBuilder.build()).getResponse();
+    return sendClientRequest(requestBuilder.build());
   }
 }

@@ -43,6 +43,6 @@ public class RelationshipClient extends BaseClient {
         if (count != null) {
             requestBuilder.countParam(count);
         }
-        return _client.sendRequest(requestBuilder.build()).getResponseEntity();
+        return sendClientRequest(requestBuilder.build()).getEntity();
     }
 }

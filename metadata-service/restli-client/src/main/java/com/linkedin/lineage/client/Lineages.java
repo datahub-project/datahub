@@ -25,11 +25,10 @@ public class Lineages extends BaseClient {
     @Nonnull
     public EntityRelationships getLineage(@Nonnull String rawUrn, @Nonnull RelationshipDirection direction)
             throws RemoteInvocationException, URISyntaxException {
-
         final GetRequest<EntityRelationships> request = LINEAGE_REQUEST_BUILDERS.get()
                 .urnParam(rawUrn)
                 .directionParam(direction.toString())
                 .build();
-        return _client.sendRequest(request).getResponseEntity();
+        return sendClientRequest(request).getEntity();
     }
 }
