@@ -29,7 +29,7 @@ DGRAPH_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-with-dgraph.quickstart.yml"
 )
 ELASTIC_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose.quickstart.yml"
+    "docker/quickstart/docker-compose-with-elasticsearch.quickstart.yml"
 )
 M1_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-m1.quickstart.yml"
@@ -137,10 +137,10 @@ def which_graph_service_to_use(graph_service_override: Optional[str]) -> str:
         click.echo(
             "No Datahub Neo4j or Dgraph volume found, starting with elasticsearch as graph service.\n"
             "To use neo4j as a graph backend, run \n"
-            "`datahub docker quickstart --quickstart-compose-file ./docker/quickstart/docker-compose-with-neo4j.quickstart.yml`"
+            "`datahub docker quickstart --quickstart-compose-file ./docker/quickstart/docker-compose-with-neo4j.quickstart.yml`\n"
             "To use dgraph as a graph backend, run \n"
-            "`datahub docker quickstart --quickstart-compose-file ./docker/quickstart/docker-compose-with-dgraph.quickstart.yml`"
-            "\nfrom the root of the datahub repo\n"
+            "`datahub docker quickstart --quickstart-compose-file ./docker/quickstart/docker-compose-with-dgraph.quickstart.yml`\n"
+            "from the root of the datahub repo\n"
         )
         return "elasticsearch"
 
