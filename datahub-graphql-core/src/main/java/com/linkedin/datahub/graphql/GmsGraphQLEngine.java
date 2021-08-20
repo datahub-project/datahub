@@ -86,7 +86,6 @@ import com.linkedin.datahub.graphql.types.usage.UsageType;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.ArrayList;
-import javax.annotation.Nullable;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
