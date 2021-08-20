@@ -1,12 +1,12 @@
-import { EntityRelationship } from '../../types.generated';
+import { EntityRelationshipLegacy } from '../../types.generated';
 
 // Sort helper function
 function topologicalSortHelper(
-    node: EntityRelationship,
+    node: EntityRelationshipLegacy,
     explored: Set<string>,
-    result: Array<EntityRelationship>,
+    result: Array<EntityRelationshipLegacy>,
     urnsArray: Array<string>,
-    nodes: Array<EntityRelationship>,
+    nodes: Array<EntityRelationshipLegacy>,
 ) {
     if (!node.entity?.urn) {
         return;
@@ -29,10 +29,10 @@ function topologicalSortHelper(
 }
 
 // Topological Sort function with array of EntityRelationship
-export function topologicalSort(input: Array<EntityRelationship | null>) {
+export function topologicalSort(input: Array<EntityRelationshipLegacy | null>) {
     const explored = new Set<string>();
-    const result: Array<EntityRelationship> = [];
-    const nodes: Array<EntityRelationship> = [...input] as Array<EntityRelationship>;
+    const result: Array<EntityRelationshipLegacy> = [];
+    const nodes: Array<EntityRelationshipLegacy> = [...input] as Array<EntityRelationshipLegacy>;
     const urnsArray: Array<string> = nodes
         .filter((node) => !!node.entity?.urn)
         .map((node) => node.entity?.urn) as Array<string>;

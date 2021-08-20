@@ -21,7 +21,8 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 
-public class DashboardUpdateInputSnapshotMapper implements InputModelMapper<DashboardUpdateInput, DashboardSnapshot, Urn> {
+public class DashboardUpdateInputSnapshotMapper implements
+                                                InputModelMapper<DashboardUpdateInput, DashboardSnapshot, Urn> {
     public static final DashboardUpdateInputSnapshotMapper INSTANCE = new DashboardUpdateInputSnapshotMapper();
 
     public static DashboardSnapshot map(@Nonnull final DashboardUpdateInput dashboardUpdateInput,

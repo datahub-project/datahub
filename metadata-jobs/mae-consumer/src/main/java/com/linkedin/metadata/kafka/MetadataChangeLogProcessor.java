@@ -7,7 +7,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
-import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.search.SearchServiceFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.EventUtils;
@@ -57,7 +56,7 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
 @Import({GraphServiceFactory.class, SearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
-    EntityRegistryFactory.class, KafkaEventConsumerFactory.class})
+    EntityRegistryFactory.class})
 @EnableKafka
 public class MetadataChangeLogProcessor {
 
@@ -80,7 +79,7 @@ public class MetadataChangeLogProcessor {
   @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics = {
       "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
       "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
-          + "}"}, containerFactory = "kafkaEventConsumer")
+          + "}"}, containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     log.debug("Got Generic MCL");

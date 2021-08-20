@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dashboard;
 
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.CorpuserUrn;
 
 import com.linkedin.common.urn.DashboardUrn;
@@ -26,7 +27,6 @@ import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.configs.DashboardSearchConfig;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -36,6 +36,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 
 import graphql.execution.DataFetcherResult;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
@@ -49,8 +50,9 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 
 public class DashboardType implements SearchableEntityType<Dashboard>, BrowsableEntityType<Dashboard>, MutableType<DashboardUpdateInput> {
 
+    private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "tool");
+
     private final EntityClient _dashboardsClient;
-    private static final DashboardSearchConfig DASHBOARDS_SEARCH_CONFIG = new DashboardSearchConfig();
 
     public DashboardType(final EntityClient dashboardsClient) {
         _dashboardsClient = dashboardsClient;
@@ -105,7 +107,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                 int start,
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
-        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, DASHBOARDS_SEARCH_CONFIG.getFacetFields());
+        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _dashboardsClient.search("dashboard", query, facetFilters, start, count);
         return UrnSearchResultsMapper.map(searchResult);
     }
@@ -116,7 +118,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                             @Nullable List<FacetFilterInput> filters,
                                             int limit,
                                             @Nonnull QueryContext context) throws Exception {
-        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, DASHBOARDS_SEARCH_CONFIG.getFacetFields());
+        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final AutoCompleteResult result = _dashboardsClient.autoComplete("dashboard", query, facetFilters, limit);
         return AutoCompleteResultsMapper.map(result);
     }
@@ -126,7 +128,7 @@ public class DashboardType implements SearchableEntityType<Dashboard>, Browsable
                                 @Nullable List<FacetFilterInput> filters,
                                 int start, int count,
                                 @Nonnull QueryContext context) throws Exception {
-        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, DASHBOARDS_SEARCH_CONFIG.getFacetFields());
+        final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final String pathStr = path.size() > 0 ? BROWSE_PATH_DELIMITER + String.join(BROWSE_PATH_DELIMITER, path) : "";
         final BrowseResult result = _dashboardsClient.browse(
             "dashboard",
