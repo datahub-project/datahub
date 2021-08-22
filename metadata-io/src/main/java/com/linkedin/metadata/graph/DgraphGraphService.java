@@ -188,20 +188,34 @@ public class DgraphGraphService implements GraphService {
                 + " src as var(func: eq(urn, \"%s\"))\n"
                 + " dst as var(func: eq(urn, \"%s\"))\n"
                 + "}", edge.getSource(), edge.getDestination());
+        String srcVar = "uid(src)";
+        String dstVar = "uid(dst)";
+
+        // edge case: source and destnation are same node
+        if (edge.getSource().equals(edge.getDestination())) {
+            query = String.format("query {\n"
+                    + " node as var(func: eq(urn, \"%s\"))\n"
+                    + "}", edge.getSource());
+            srcVar = "uid(node)";
+            dstVar = "uid(node)";
+        }
+
         // create source and destination nodes if they do not exist
         // and create the new edge between them
         // TODO: add escape for string values
         // TODO: translate edge name to allowed dgraph uris
         StringJoiner mutations = new StringJoiner("\n");
-        mutations.add(String.format("uid(src) <dgraph.type> \"%s\" .", getDgraphType(edge.getSource())));
-        mutations.add(String.format("uid(src) <urn> \"%s\" .", edge.getSource()));
-        mutations.add(String.format("uid(src) <type> \"%s\" .", edge.getSource().getEntityType()));
-        mutations.add(String.format("uid(src) <key> \"%s\" .", edge.getSource().getEntityKey()));
-        mutations.add(String.format("uid(dst) <dgraph.type> \"%s\" .", getDgraphType(edge.getDestination())));
-        mutations.add(String.format("uid(dst) <urn> \"%s\" .", edge.getDestination()));
-        mutations.add(String.format("uid(dst) <type> \"%s\" .", edge.getDestination().getEntityType()));
-        mutations.add(String.format("uid(dst) <key> \"%s\" .", edge.getDestination().getEntityKey()));
-        mutations.add(String.format("uid(src) <%s> uid(dst) .", edge.getRelationshipType()));
+        mutations.add(String.format("%s <dgraph.type> \"%s\" .", srcVar, getDgraphType(edge.getSource())));
+        mutations.add(String.format("%s <urn> \"%s\" .", srcVar, edge.getSource()));
+        mutations.add(String.format("%s <type> \"%s\" .", srcVar, edge.getSource().getEntityType()));
+        mutations.add(String.format("%s <key> \"%s\" .", srcVar, edge.getSource().getEntityKey()));
+        if (!edge.getSource().equals(edge.getDestination())) {
+            mutations.add(String.format("%s <dgraph.type> \"%s\" .", dstVar, getDgraphType(edge.getDestination())));
+            mutations.add(String.format("%s <urn> \"%s\" .", dstVar, edge.getDestination()));
+            mutations.add(String.format("%s <type> \"%s\" .", dstVar, edge.getDestination().getEntityType()));
+            mutations.add(String.format("%s <key> \"%s\" .", dstVar, edge.getDestination().getEntityKey()));
+        }
+        mutations.add(String.format("%s <%s> %s .", srcVar, edge.getRelationshipType(), dstVar));
 
         log.debug("Query: " + query);
         log.debug("Mutations: " + mutations);
@@ -419,14 +433,15 @@ public class DgraphGraphService implements GraphService {
                                                      @Nonnull RelationshipFilter relationshipFilter,
                                                      int offset,
                                                      int count) {
-        if (relationshipTypes.isEmpty() || relationshipTypes.stream().anyMatch(relationship -> ! get_schema().hasField(relationship))) {
+        if (relationshipTypes.isEmpty() || relationshipTypes.stream().noneMatch(relationship -> get_schema().hasField(relationship))) {
             return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
         }
 
         String query = getQueryForRelatedEntities(
                 sourceType, sourceEntityFilter,
                 destinationType, destinationEntityFilter,
-                relationshipTypes, relationshipFilter,
+                relationshipTypes.stream().filter(get_schema()::hasField).collect(Collectors.toList()),
+                relationshipFilter,
                 offset, count
         );
 
