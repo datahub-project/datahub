@@ -3352,18 +3352,9 @@ type ResourceAndFilters {
   and: [ResourceFilterPredicate!]!
 }
 
-interface ResourceFilterPredicate {
+type ResourceFilterPredicate {
   operator: ResourceFilterOperator!
-}
-
-type EntityTypePredicate implements ResourceFilterPredicate {
-  operator: ResourceFilterOperator!
-  type: EntityType!
-}
-
-type Platform implements ResourceFilterPredicate {
-  operator: ResourceFilterOperator!
-  type: EntityType!
+  operand: String
 }
 
 enum ResourceFilterOperator {

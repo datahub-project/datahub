@@ -270,7 +270,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
     // 1. Check if this user already exists.
     try {
-      final Entity corpUser = _entityClient.get(corpUserSnapshot.getUrn());
+      final Entity corpUser = _entityClient.get(corpUserSnapshot.getUrn(), "system");
 
       log.debug(String.format("Fetched GMS user with urn %s",corpUserSnapshot.getUrn()));
 
@@ -280,7 +280,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
         // 2. The user does not exist. Provision them.
         final Entity newEntity = new Entity();
         newEntity.setValue(Snapshot.create(corpUserSnapshot));
-        _entityClient.update(newEntity);
+        _entityClient.update(newEntity, "system");
 
         log.debug(String.format("Successfully provisioned user %s", corpUserSnapshot.getUrn()));
       }
@@ -301,7 +301,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
     // 1. Check if this user already exists.
     try {
       final Set<Urn> urnsToFetch = corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toSet());
-      final Map<Urn, Entity> existingGroups = _entityClient.batchGet(urnsToFetch);
+      final Map<Urn, Entity> existingGroups = _entityClient.batchGet(urnsToFetch, "system");
 
       log.debug(String.format("Fetched GMS groups with urns %s", existingGroups.keySet()));
 
@@ -334,7 +334,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       // Now batch create all entities identified to create.
       _entityClient.batchUpdate(groupsToCreate.stream().map(groupSnapshot ->
           new Entity().setValue(Snapshot.create(groupSnapshot))
-      ).collect(Collectors.toSet()));
+      ).collect(Collectors.toSet()), "system");
 
       log.debug(String.format("Successfully provisioned groups with urns %s", groupsToCreateUrns));
 
@@ -348,7 +348,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private void verifyPreProvisionedUser(CorpuserUrn urn) {
     // Validate that the user exists in the system (there is more than just a key aspect for them, as of today).
     try {
-      final Entity corpUser = _entityClient.get(urn);
+      final Entity corpUser = _entityClient.get(urn, "system");
 
       log.debug(String.format("Fetched GMS user with urn %s", urn));
 

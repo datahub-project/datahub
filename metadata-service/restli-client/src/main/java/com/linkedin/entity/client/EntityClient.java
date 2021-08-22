@@ -187,11 +187,11 @@ public class EntityClient extends BaseClient {
         return sendClientRequest(requestBuilder, actor);
     }
 
-    public Response<Void> batchUpdate(@Nonnull final Set<Entity> entities) throws RemoteInvocationException {
+    public Response<Void> batchUpdate(@Nonnull final Set<Entity> entities, final String actor) throws RemoteInvocationException {
         EntitiesDoBatchIngestRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionBatchIngest().entitiesParam(new EntityArray(entities));
 
-        return sendClientRequest(requestBuilder.build());
+        return sendClientRequest(requestBuilder, actor);
     }
 
     /**
