@@ -37,9 +37,7 @@ import static org.testng.Assert.*;
  * You can add implementation specific tests in derived classes, or add general tests
  * here and have all existing implementations tested in the same way.
  *
- * Note this base class does not test GraphService.addEdge explicitly. This method is tested
- * indirectly by all tests via `getPopulatedGraphService` at the beginning of each test.
- * The `getPopulatedGraphService` method calls `GraphService.addEdge` to populate the Graph.
+ * The `getPopulatedGraphService` method calls `GraphService.addEdge` to provide a populated Graph.
  * Feel free to add a test to your test implementation that calls `getPopulatedGraphService` and
  * asserts the state of the graph in an implementation specific way.
  */
@@ -230,6 +228,84 @@ abstract public class GraphServiceTestBase {
             actual.stream().sorted(comparator).collect(Collectors.toList()),
             expected.stream().sorted(comparator).collect(Collectors.toList())
     );
+  }
+
+  @DataProvider(name = "AddEdgeTests")
+  public Object[][] getAddEdgeTests() {
+    return new Object[][]{
+            new Object[]{
+                    Arrays.asList(),
+                    Arrays.asList(),
+                    Arrays.asList()
+            },
+            new Object[]{
+                    Arrays.asList(new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf)),
+                    Arrays.asList(downstreamOfDatasetTwoRelatedEntity),
+                    Arrays.asList(downstreamOfDatasetOneRelatedEntity)
+            },
+            new Object[]{
+                    Arrays.asList(
+                            new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf),
+                            new Edge(datasetTwoUrn, datasetThreeUrn, downstreamOf)
+                    ),
+                    Arrays.asList(downstreamOfDatasetTwoRelatedEntity, downstreamOfDatasetThreeRelatedEntity),
+                    Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
+            },
+            new Object[]{
+                    Arrays.asList(
+                            new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf),
+                            new Edge(datasetOneUrn, userOneUrn, hasOwner),
+                            new Edge(datasetTwoUrn, userTwoUrn, hasOwner),
+                            new Edge(userOneUrn, userTwoUrn, knowsUser)
+                    ),
+                    Arrays.asList(
+                            downstreamOfDatasetTwoRelatedEntity,
+                            hasOwnerUserOneRelatedEntity, hasOwnerUserTwoRelatedEntity,
+                            knowsUserTwoRelatedEntity
+                    ),
+                    Arrays.asList(
+                            downstreamOfDatasetOneRelatedEntity,
+                            hasOwnerDatasetOneRelatedEntity,
+                            hasOwnerDatasetTwoRelatedEntity,
+                            knowsUserOneRelatedEntity
+                    )
+            },
+            new Object[]{
+                    Arrays.asList(
+                            new Edge(userOneUrn, userOneUrn, knowsUser),
+                            new Edge(userOneUrn, userOneUrn, knowsUser),
+                            new Edge(userOneUrn, userOneUrn, knowsUser)
+                    ),
+                    Arrays.asList(knowsUserOneRelatedEntity),
+                    Arrays.asList(knowsUserOneRelatedEntity)
+            }
+    };
+  }
+
+  @Test(dataProvider = "AddEdgeTests")
+  public void testAddEdge(List<Edge> edges, List<RelatedEntity> expectedOutgoing, List<RelatedEntity> expectedIncoming) throws Exception {
+      GraphService service = getGraphService();
+
+      edges.forEach(service::addEdge);
+      syncAfterWrite();
+
+      RelatedEntitiesResult relatedOutgoing = service.findRelatedEntities(
+              anyType, EMPTY_FILTER,
+              anyType, EMPTY_FILTER,
+              Arrays.asList(downstreamOf, hasOwner, knowsUser),
+              outgoingRelationships,
+              0, 100
+      );
+      assertEqualsAnyOrder(relatedOutgoing, expectedOutgoing);
+
+      RelatedEntitiesResult relatedIncoming = service.findRelatedEntities(
+              anyType, EMPTY_FILTER,
+              anyType, EMPTY_FILTER,
+              Arrays.asList(downstreamOf, hasOwner, knowsUser),
+              incomingRelationships,
+              0, 100
+      );
+      assertEqualsAnyOrder(relatedIncoming, expectedIncoming);
   }
 
   @Test
@@ -798,6 +874,28 @@ abstract public class GraphServiceTestBase {
                     hasOwnerDatasetOneRelatedEntity, hasOwnerDatasetTwoRelatedEntity, hasOwnerDatasetThreeRelatedEntity, hasOwnerDatasetFourRelatedEntity,
                     knowsUserOneRelatedEntity, knowsUserTwoRelatedEntity
             )
+    );
+
+    RelatedEntitiesResult allUnknownRelationshipTypeRelatedEntities = service.findRelatedEntities(
+            anyType, EMPTY_FILTER,
+            anyType, EMPTY_FILTER,
+            Arrays.asList("unknownRelationshipType", "unseenRelationshipType"), outgoingRelationships,
+            0, 100
+    );
+    assertEqualsAnyOrder(
+            allUnknownRelationshipTypeRelatedEntities,
+            Collections.emptyList()
+    );
+
+    RelatedEntitiesResult someUnknownRelationshipTypeRelatedEntities = service.findRelatedEntities(
+            anyType, EMPTY_FILTER,
+            anyType, EMPTY_FILTER,
+            Arrays.asList("unknownRelationshipType", downstreamOf), outgoingRelationships,
+            0, 100
+    );
+    assertEqualsAnyOrder(
+            someUnknownRelationshipTypeRelatedEntities,
+            Arrays.asList(downstreamOfDatasetOneRelatedEntity, downstreamOfDatasetTwoRelatedEntity)
     );
   }
 
