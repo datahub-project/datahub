@@ -40,7 +40,7 @@ framework_common = {
     "expandvars>=0.6.5",
     "avro-gen3==0.6.0",
     "avro-python3>=1.8.2",
-    "python-dateutil",
+    "python-dateutil>=2.8.0",
     "stackprinter",
     "tabulate",
 }
