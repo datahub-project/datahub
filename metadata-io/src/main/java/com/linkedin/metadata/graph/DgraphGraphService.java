@@ -382,6 +382,10 @@ public class DgraphGraphService implements GraphService {
             return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
         }
 
+        // TODO: Remove once gms client code uses null instead of "" for any type
+        if (sourceType != null && sourceType.isEmpty()) sourceType = null;
+        if (destinationType != null && destinationType.isEmpty()) destinationType = null;
+
         String query = getQueryForRelatedEntities(
                 sourceType, sourceEntityFilter,
                 destinationType, destinationEntityFilter,
