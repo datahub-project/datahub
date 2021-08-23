@@ -1,13 +1,45 @@
-import React, { useState } from 'react';
-import { Form, Select, Typography } from 'antd';
+import React from 'react';
+import { Form, Select, Tag, Typography } from 'antd';
+import { ENTITY_PRIVILEGES } from './entityPrivileges';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
+import { PreviewType } from '../entity/Entity';
+import { EntityType } from '../../types.generated';
 
-export default function MetadataPolicyPrivilegeForm() {
-    const [assetType, setAssetType] = useState('');
-    const [assetUrns, setAssetUrns] = useState([]);
-    const [privileges, setPrivileges] = useState([]);
+const typeToPrivileges = (type) => {
+    return ENTITY_PRIVILEGES.filter((entityPrivs) => entityPrivs.entityType === type).map(
+        (entityPrivs) => entityPrivs.privileges,
+    )[0];
+};
+
+type Props = {
+    assetType: string;
+    setAssetType: (assetType: string) => void;
+    assetUrns: Array<string>;
+    setAssetUrns: (newUrns: Array<string>) => void;
+    privileges: Array<string>;
+    setPrivileges: (newPrivs: Array<string>) => void;
+};
+
+export default function MetadataPolicyPrivilegeForm({
+    assetType,
+    setAssetType,
+    assetUrns,
+    setAssetUrns,
+    privileges,
+    setPrivileges,
+}: Props) {
+    const [search, { data: searchData, loading: searchLoading }] = useGetSearchResultsLazyQuery();
+
+    const entityRegistry = useEntityRegistry();
 
     const onSelectPrivilege = (privilege: string) => {
         const newPrivs = [...privileges, privilege];
+        setPrivileges(newPrivs as never[]);
+    };
+
+    const onDeselectPrivilege = (privilege: string) => {
+        const newPrivs = privileges.filter((priv) => priv !== privilege);
         setPrivileges(newPrivs as never[]);
     };
 
@@ -16,12 +48,31 @@ export default function MetadataPolicyPrivilegeForm() {
         setAssetUrns(newAssets as never[]);
     };
 
-    const assetSearchResults = [
-        {
-            urn: 'urn:li:dataset:1',
-            name: 'My test dataset',
-        },
-    ];
+    const onDeselectAsset = (asset: string) => {
+        const newAssets = assetUrns.filter((urn) => urn !== asset);
+        setAssetUrns(newAssets as never[]);
+    };
+
+    const handleSearch = (event: any) => {
+        const text = event.target.value as string;
+        console.log(text);
+        if (text.length > 2) {
+            // Now we search.. notice that permissioned entities need to be searchable.
+            search({
+                variables: {
+                    input: {
+                        type: assetType as EntityType,
+                        query: text,
+                        start: 0,
+                        count: 10,
+                    },
+                },
+            });
+        }
+    };
+
+    const assetSearchResults = searchData?.search?.searchResults;
+    const privilegeOptions = typeToPrivileges(assetType);
 
     return (
         <Form layout="vertical" initialValues={{}} style={{ margin: 12, marginTop: 36, marginBottom: 40 }}>
@@ -30,13 +81,14 @@ export default function MetadataPolicyPrivilegeForm() {
                     Select the specific type of asset this policy should apply to, or all if it should apply to all
                     assets.
                 </Typography.Paragraph>
-                <Select onSelect={(type) => setAssetType(type as string)}>
-                    <Select.Option value="Dataset">Dataset (Streams, Tables, Views)</Select.Option>
-                    <Select.Option value="Chart">Chart</Select.Option>
-                    <Select.Option value="Dashboard">Dashboard</Select.Option>
-                    <Select.Option value="DataPipeline">Data Pipeline</Select.Option>
-                    <Select.Option value="DataTask">Data Task</Select.Option>
-                    <Select.Option value="Tag">Tag</Select.Option>
+                <Select defaultValue={assetType} onSelect={(type) => setAssetType(type as EntityType)}>
+                    {entityRegistry.getSearchEntityTypes().map((type) => {
+                        return (
+                            <Select.Option value={type}>
+                                {entityRegistry.getEntity(type).getCollectionName()}
+                            </Select.Option>
+                        );
+                    })}
                 </Select>
             </Form.Item>
             {assetType && (
@@ -46,13 +98,34 @@ export default function MetadataPolicyPrivilegeForm() {
                         to all assets of the given type.
                     </Typography.Paragraph>
                     <Select
+                        defaultValue={assetUrns}
                         mode="multiple"
                         placeholder="Search for data assets..."
                         onSelect={(asset: any) => onSelectAsset(asset)}
+                        onDeselect={(asset: any) => onDeselectAsset(asset)}
+                        onInputKeyDown={handleSearch}
+                        tagRender={(tagProps) => (
+                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                {tagProps.value}
+                            </Tag>
+                        )}
                     >
-                        {assetSearchResults.map((result) => (
-                            <Select.Option value={result.urn}>{result.name}</Select.Option>
-                        ))}
+                        {assetSearchResults &&
+                            assetSearchResults.map((result) => (
+                                <Select.Option value={result.entity.urn}>
+                                    <div style={{ margin: 12 }}>
+                                        {entityRegistry.renderPreview(
+                                            result.entity.type,
+                                            PreviewType.MINI_SEARCH,
+                                            result.entity,
+                                        )}
+                                    </div>
+                                </Select.Option>
+                            ))}
+                        {searchLoading && <Select.Option value="loading">Searching...</Select.Option>}
+                        <Select.Option value="all">{`All ${entityRegistry.getCollectionName(
+                            assetType as EntityType,
+                        )}`}</Select.Option>
                     </Select>
                 </Form.Item>
             )}
@@ -69,20 +142,21 @@ export default function MetadataPolicyPrivilegeForm() {
                         ]}
                     >
                         <Typography.Paragraph>Select a set of privileges to permit.</Typography.Paragraph>
-                        <Select mode="multiple" onSelect={(value: string) => onSelectPrivilege(value)}>
-                            <Select.Option value="editSelfEntityOwner">Claim Ownership</Select.Option>
-                            <Select.Option value="addEntityTag">Add an Entity Tag</Select.Option>
-                            <Select.Option value="addEntityTerm">Add an Entity Term</Select.Option>
-                            <Select.Option value="addEntityDocLink">Add an Link</Select.Option>
-                            <Select.Option value="editEntityTags">Edit Entity Tags</Select.Option>
-                            <Select.Option value="editEntityTerms">Edit Entity Terms</Select.Option>
-                            <Select.Option value="editEntityOwners">Edit Entity Owners</Select.Option>
-                            <Select.Option value="editEntityDocs">Edit Entity Documentation</Select.Option>
-                            <Select.Option value="editEntityStatus">Edit Entity Status</Select.Option>
-                            <Select.Option value="editEntityDocLinks">Edit Entity Links</Select.Option>
-                            <Select.Option value="editEntityColDocs">Edit Entity Column Documentation</Select.Option>
-                            <Select.Option value="editEntityColTags">Edit Entity Column Tags</Select.Option>
-                            <Select.Option value="any">All Privileges</Select.Option>
+                        <Select
+                            defaultValue={privileges}
+                            mode="multiple"
+                            onSelect={(value: string) => onSelectPrivilege(value)}
+                            onDeselect={(value: any) => onDeselectPrivilege(value)}
+                            tagRender={(tagProps) => (
+                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                    {tagProps.label}
+                                </Tag>
+                            )}
+                        >
+                            {privilegeOptions.map((priv) => (
+                                <Select.Option value={priv.type}>{priv.displayName}</Select.Option>
+                            ))}
+                            <Select.Option value="all">All Privileges</Select.Option>
                         </Select>
                     </Form.Item>
                 </>

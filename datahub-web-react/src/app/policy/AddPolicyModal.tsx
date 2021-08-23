@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button, Modal, Steps, message } from 'antd';
 import MetadataPolicyPrivilegeForm from './MetadataPolicyPrivilegeForm';
 import PlatformPolicyPrivilegeForm from './PlatformPolicyPrivilegeForm';
@@ -13,8 +13,13 @@ type Props = {
 };
 
 export default function AddPolicyModal({ visible, onClose }: Props) {
-    const [currentStep, setCurrentStep] = React.useState(0);
-    const [policyType, setPolicyType] = React.useState('Metadata'); // TODO: Return to PolicyType.METADATA
+    const [currentStep, setCurrentStep] = useState(0);
+    const [policyType, setPolicyType] = useState('Metadata'); // TODO: Return to PolicyType.METADATA
+    const [privileges, setPrivileges] = useState([]);
+    const [assetType, setAssetType] = useState('');
+    const [assetUrns, setAssetUrns] = useState([]);
+    // const [appliesToOwners, setAppliesToOwners] = useState([]);
+    // const [actors, setActors] = useState([]);
 
     const next = () => {
         setCurrentStep(currentStep + 1);
@@ -24,31 +29,44 @@ export default function AddPolicyModal({ visible, onClose }: Props) {
         setCurrentStep(currentStep - 1);
     };
 
-    const getPrivilegeStep = (type) => {
-        if (type === 'Metadata') {
-            return <MetadataPolicyPrivilegeForm />;
+    const typeStepView = useMemo(
+        () => <PolicyTypeForm policyType={policyType} setPolicyType={setPolicyType as any} />,
+        [policyType],
+    );
+    const privilegeStepView = useMemo(() => {
+        if (policyType === 'Metadata') {
+            return (
+                <MetadataPolicyPrivilegeForm
+                    privileges={privileges}
+                    setPrivileges={setPrivileges as any}
+                    assetType={assetType}
+                    setAssetType={setAssetType as any}
+                    assetUrns={assetUrns}
+                    setAssetUrns={setAssetUrns as any}
+                />
+            );
         }
         return <PlatformPolicyPrivilegeForm />;
-    };
+    }, [policyType, privileges, assetType, assetUrns]);
+    const actorStepView = useMemo(() => <PolicyActorForm />, []);
 
-    const typeStepView = <PolicyTypeForm selectPolicyType={(type: string) => setPolicyType(type)} />;
-    const privilegeStepView = getPrivilegeStep(policyType);
-    const actorStepView = <PolicyActorForm />;
-
-    const buildPolicySteps = [
-        {
-            title: 'Choose Policy Type',
-            content: typeStepView,
-        },
-        {
-            title: 'Configure Privileges',
-            content: privilegeStepView,
-        },
-        {
-            title: 'Assign Users & Groups',
-            content: actorStepView,
-        },
-    ];
+    const buildPolicySteps = useMemo(
+        () => [
+            {
+                title: 'Choose Policy Type',
+                content: typeStepView,
+            },
+            {
+                title: 'Configure Privileges',
+                content: privilegeStepView,
+            },
+            {
+                title: 'Assign Users & Groups',
+                content: actorStepView,
+            },
+        ],
+        [typeStepView, privilegeStepView, actorStepView],
+    );
 
     return (
         <Modal title="Create a new Policy" visible={visible} onCancel={onClose} closable width={750} footer={null}>

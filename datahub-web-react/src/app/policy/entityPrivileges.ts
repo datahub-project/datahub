@@ -1,30 +1,59 @@
-export const ALL_PRIVILEGES = {
-    editSelfEntityOwner: 'EDIT_SELF_ENTITY_OWNER',
-    addEntityTag: 'ADD_ENTITY_TAG',
-    addEntityTerm: 'ADD_ENTITY_TERM',
-    addEntityDocLink: 'ADD_ENTITY_DOC_LINK',
-    manageEntityTags: 'MANAGE_ENTITY_TAGS',
-    manageEntityOwners: 'MANAGE_ENTITY_OWNERS',
-    manageEntityDocs: 'MANAGE_ENTITY_DOCS',
-    manageEntityDocLinks: 'MANAGE_ENTITY_DOC_LINKS',
-    manageEntityColDocs: 'MANAGE_ENTITY_COL_DOCS',
-    manageEntityColTags: 'MANGAGE_ENTITY_COL_TAGS',
-    manageEntity: 'MANAGE_ENTITY',
-};
+import { EntityType } from '../../types.generated';
+
+export const COMMON_PRIVILEGES = [
+    {
+        type: 'EDIT_ENTITY_TAGS',
+        displayName: 'Edit Tags',
+    },
+    {
+        type: 'EDIT_ENTITY_OWNERS',
+        displayName: 'Edit Owners',
+    },
+    {
+        type: 'EDIT_ENTITY_DOCS',
+        displayName: 'Edit Documentation',
+    },
+    {
+        type: 'EDIT_ENTITY_DOC_LINKS',
+        displayName: 'Edit Links',
+    },
+    {
+        type: 'EDIT_ENTITY',
+        displayName: 'Edit All',
+    },
+];
 
 // Ideally this mapping would be pushed from the server.
-export const ENTITY_TO_PRIVILEGES = {
-    Dataset: ALL_PRIVILEGES,
-    Chart: Object.values(ALL_PRIVILEGES).filter(
-        (priv) => priv !== ALL_PRIVILEGES.manageEntityColDocs && priv !== ALL_PRIVILEGES.manageEntityColTags,
-    ),
-    Dashboard: Object.values(ALL_PRIVILEGES).filter(
-        (priv) => priv !== ALL_PRIVILEGES.manageEntityColDocs && priv !== ALL_PRIVILEGES.manageEntityColTags,
-    ),
-    DataPipeline: Object.values(ALL_PRIVILEGES).filter(
-        (priv) => priv !== ALL_PRIVILEGES.manageEntityColDocs && priv !== ALL_PRIVILEGES.manageEntityColTags,
-    ),
-    DataFlow: Object.values(ALL_PRIVILEGES).filter(
-        (priv) => priv !== ALL_PRIVILEGES.manageEntityColDocs && priv !== ALL_PRIVILEGES.manageEntityColTags,
-    ),
-};
+// Don't want this to be hardcoded as such.
+export const ENTITY_PRIVILEGES = [
+    {
+        entityType: EntityType.Dataset,
+        privileges: [
+            ...COMMON_PRIVILEGES,
+            {
+                type: 'EDIT_DATASET_COL_TAGS',
+                displayName: 'Edit Dataset Column Tags',
+            },
+            {
+                type: 'EDIT_DATASET_COL_DESCRIPTION',
+                displayName: 'Edit Dataset Column Description',
+            },
+        ],
+    },
+    {
+        entityType: EntityType.Chart,
+        privileges: COMMON_PRIVILEGES,
+    },
+    {
+        entityType: EntityType.Dashboard,
+        privileges: COMMON_PRIVILEGES,
+    },
+    {
+        entityType: EntityType.DataFlow,
+        privileges: COMMON_PRIVILEGES,
+    },
+    {
+        entityType: EntityType.DataJob,
+        privileges: COMMON_PRIVILEGES,
+    },
+];

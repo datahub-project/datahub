@@ -14,6 +14,10 @@ export enum PreviewType {
      * A generic preview shown within other entity pages, etc.
      */
     PREVIEW,
+    /**
+     * A tiny search preview for text-box search.
+     */
+    MINI_SEARCH,
 }
 
 export enum IconStyleType {

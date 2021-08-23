@@ -2,14 +2,15 @@ import React from 'react';
 import { Form, Select, Typography } from 'antd';
 
 type Props = {
-    selectPolicyType: (type: string) => void;
+    policyType: string;
+    setPolicyType: (type: string) => void;
 };
 
-export default function PolicyTypeForm({ selectPolicyType }: Props) {
+export default function PolicyTypeForm({ policyType, setPolicyType }: Props) {
     return (
-        <Form layout="horizontal" initialValues={{ item1: 'Metadata' }} style={{ margin: 12, marginTop: 36 }}>
-            <Form.Item name="item1">
-                <Select onSelect={selectPolicyType}>
+        <Form layout="horizontal" style={{ margin: 12, marginTop: 36 }}>
+            <Form.Item name="policyType">
+                <Select defaultValue={policyType} onSelect={setPolicyType}>
                     <Select.Option value="Platform">Platform</Select.Option>
                     <Select.Option value="Metadata">Metadata</Select.Option>
                 </Select>
