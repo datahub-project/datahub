@@ -914,8 +914,12 @@
                             "fieldType": "KEYWORD",
                             "queryByDefault": true
                           },
-                          "type": "string",
+                          "type": [
+                            "null",
+                            "string"
+                          ],
                           "name": "email",
+                          "default": null,
                           "doc": "email address of this user"
                         },
                         {

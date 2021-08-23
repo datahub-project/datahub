@@ -3787,8 +3787,8 @@ class CorpUserInfoClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.identity.CorpUserInfo")
     def __init__(self,
         active: bool,
-        email: str,
         displayName: Union[None, str]=None,
+        email: Union[None, str]=None,
         title: Union[None, str]=None,
         managerUrn: Union[None, str]=None,
         departmentId: Union[None, int]=None,
@@ -3822,7 +3822,7 @@ class CorpUserInfoClass(DictWrapper):
     def _restore_defaults(self) -> None:
         self.active = bool()
         self.displayName = self.RECORD_SCHEMA.field_map["displayName"].default
-        self.email = str()
+        self.email = self.RECORD_SCHEMA.field_map["email"].default
         self.title = self.RECORD_SCHEMA.field_map["title"].default
         self.managerUrn = self.RECORD_SCHEMA.field_map["managerUrn"].default
         self.departmentId = self.RECORD_SCHEMA.field_map["departmentId"].default
@@ -3856,12 +3856,12 @@ class CorpUserInfoClass(DictWrapper):
     
     
     @property
-    def email(self) -> str:
+    def email(self) -> Union[None, str]:
         """Getter: email address of this user"""
         return self._inner_dict.get('email')  # type: ignore
     
     @email.setter
-    def email(self, value: str) -> None:
+    def email(self, value: Union[None, str]) -> None:
         """Setter: email address of this user"""
         self._inner_dict['email'] = value
     

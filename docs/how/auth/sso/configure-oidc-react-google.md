@@ -79,7 +79,7 @@ AUTH_OIDC_CLIENT_ID=your-client-id
 AUTH_OIDC_CLIENT_SECRET=your-client-secret
 AUTH_OIDC_DISCOVERY_URI=https://accounts.google.com/.well-known/openid-configuration
 AUTH_OIDC_BASE_URL=your-datahub-url
-AUTH_OIDC_SCOPE="openid email"
+AUTH_OIDC_SCOPE="openid profile email"
 AUTH_OIDC_USER_NAME_CLAIM=email
 AUTH_OIDC_USER_NAME_CLAIM_REGEX=([^@]+)
 ```
