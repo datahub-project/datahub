@@ -19,6 +19,7 @@ type Props = {
     setAssetUrns: (newUrns: Array<string>) => void;
     privileges: Array<string>;
     setPrivileges: (newPrivs: Array<string>) => void;
+    updateStepCompletion: (isComplete: boolean) => void;
 };
 
 export default function MetadataPolicyPrivilegeForm({
@@ -28,12 +29,14 @@ export default function MetadataPolicyPrivilegeForm({
     setAssetUrns,
     privileges,
     setPrivileges,
+    updateStepCompletion,
 }: Props) {
     const [search, { data: searchData, loading: searchLoading }] = useGetSearchResultsLazyQuery();
 
     const entityRegistry = useEntityRegistry();
 
     const onSelectPrivilege = (privilege: string) => {
+        updateStepCompletion(true);
         const newPrivs = [...privileges, privilege];
         setPrivileges(newPrivs as never[]);
     };
@@ -41,6 +44,9 @@ export default function MetadataPolicyPrivilegeForm({
     const onDeselectPrivilege = (privilege: string) => {
         const newPrivs = privileges.filter((priv) => priv !== privilege);
         setPrivileges(newPrivs as never[]);
+        if (newPrivs.length === 0) {
+            updateStepCompletion(false);
+        }
     };
 
     const onSelectAsset = (asset: string) => {
