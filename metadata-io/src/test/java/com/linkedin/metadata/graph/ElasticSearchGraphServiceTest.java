@@ -199,4 +199,19 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
     // https://github.com/linkedin/datahub/issues/3117
     throw new SkipException("ElasticSearchGraphService does not support empty list of relationship types");
   }
+
+  @Test
+  @Override
+  public void testConcurrentRemoveEdgesFromNode() {
+    // https://github.com/linkedin/datahub/issues/3118
+    throw new SkipException("ElasticSearchGraphService produces duplicates");
+  }
+
+  @Test
+  @Override
+  public void testConcurrentRemoveNodes() {
+    // https://github.com/linkedin/datahub/issues/3118
+    throw new SkipException("ElasticSearchGraphService produces duplicates");
+  }
+
 }

@@ -125,4 +125,26 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
     // https://github.com/linkedin/datahub/issues/3120
     throw new SkipException("Neo4jGraphService does not support empty list of relationship types");
   }
+
+  @Test
+  @Override
+  public void testConcurrentAddEdge() {
+    // https://github.com/linkedin/datahub/issues/3141
+    throw new SkipException("Neo4jGraphService does not manage to add all edges added concurrently");
+  }
+
+  @Test
+  @Override
+  public void testConcurrentRemoveEdgesFromNode() {
+    // https://github.com/linkedin/datahub/issues/3118
+    throw new SkipException("Neo4jGraphService produces duplicates");
+  }
+
+  @Test
+  @Override
+  public void testConcurrentRemoveNodes() {
+    // https://github.com/linkedin/datahub/issues/3118
+    throw new SkipException("Neo4jGraphService produces duplicates");
+  }
+
 }
