@@ -1,8 +1,10 @@
 import json
 import logging
+import urllib
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Union
 
+import re
 import requests
 
 from datahub.configuration import ConfigModel
@@ -34,6 +36,16 @@ class AzureConfig(ConfigModel):
     authority: str
     token_url: str
     graph_url: str
+
+    # Optional: Customize the mapping to DataHub Username from an attribute in the REST API response
+    # Reference: https://docs.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0&tabs=http#response-1
+    azure_response_to_username_attr: str = "mail"
+    azure_response_to_username_regex: str = "([^@]+)"
+
+    # Optional: Customize the mapping to DataHub Groupname from an attribute in the REST API response
+    # Reference: https://docs.microsoft.com/en-us/graph/api/group-list?view=graph-rest-1.0&tabs=http#response-1
+    azure_response_to_groupname_attr: str = "displayName"
+    azure_response_to_groupname_regex: str = "(.*)"
 
     # Optional: to ingest users, groups or both
     ingest_users: bool = True
@@ -80,14 +92,19 @@ class AzureSource(Source):
         self.token = self.get_token()
 
     def get_token(self):
-        token_request = requests.post(self.config.token_url, data=self.token_data)
-        token = token_request.json().get("access_token")
-        return token
+        token_response = requests.post(self.config.token_url, data=self.token_data)
+        if token_response.status_code == 200:
+            token = token_response.json().get("access_token")
+            return token
+        else:
+            error_str = "get_token Response status code: {0}. Response content: {1}".format(token_response.status_code, token_response.content)
+            logger.error(error_str)
+            self.report.report_failure("get_token", error_str)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         # Create MetadataWorkUnits for CorpGroups
         if self.config.ingest_groups:
-            azure_groups = self._get_azure_groups()
+            azure_groups = next(self._get_azure_groups())
             datahub_corp_group_snapshots = self._map_azure_groups(azure_groups)
             for datahub_corp_group_snapshot in datahub_corp_group_snapshots:
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_group_snapshot)
@@ -101,21 +118,21 @@ class AzureSource(Source):
             for azure_group in azure_groups:
                 datahub_corp_group_urn = self._map_azure_group_to_urn(azure_group)
                 if not datahub_corp_group_urn:
-                    error_str = "Failed to extract DataHub Group Name from Azure Group: Invalid regex pattern provided or missing profile attribute for group named {0}. Skipping...".format(
+                    error_str = "Failed to extract DataHub Group Name from Azure Group named {0}. Skipping...".format(
                         azure_group.get("displayName")
                     )
                     logger.error(error_str)
                     self.report.report_failure("azure_group_mapping", error_str)
                     continue
                 # Extract and map users for each group
-                azure_group_users = self._get_azure_group_users(azure_group)
+                azure_group_users = next(self._get_azure_group_users(azure_group))
                 # if group doesn't have any members, continue
                 if not azure_group_users:
                     continue
                 for azure_user in azure_group_users:
                     datahub_corp_user_urn = self._map_azure_user_to_urn(azure_user)
                     if not datahub_corp_user_urn:
-                        error_str = "Failed to extract DataHub Username from Azure User: Invalid regex pattern provided or missing profile attribute for User with login {0}. Skipping...".format(
+                        error_str = "Failed to extract DataHub Username from Azure User {0}. Skipping...".format(
                             azure_user.get("displayName")
                         )
                         logger.error(error_str)
@@ -137,7 +154,7 @@ class AzureSource(Source):
 
         # Create MetadatWorkUnits for CorpUsers
         if self.config.ingest_users:
-            azure_users = self._get_azure_users()
+            azure_users = next(self._get_azure_users())
             datahub_corp_user_snapshots = self._map_azure_users(azure_users)
             for datahub_corp_user_snapshot in datahub_corp_user_snapshots:
                 # Add GroupMembership if applicable
@@ -164,6 +181,7 @@ class AzureSource(Source):
         pass
 
     def _get_azure_groups(self):
+        r = []
         headers = {"Authorization": "Bearer {0}".format(self.token)}
         url = self.config.graph_url + "/groups"
         while True:
@@ -220,7 +238,7 @@ class AzureSource(Source):
         for azure_group in azure_groups:
             corp_group_urn = self._map_azure_group_to_urn(azure_group)
             if not corp_group_urn:
-                error_str = "Failed to extract DataHub Group Name from Azure Group: Invalid regex pattern provided or missing profile attribute for group named {0}. Skipping...".format(
+                error_str = "Failed to extract DataHub Group Name from Azure Group for group named {0}. Skipping...".format(
                     azure_group.get("displayName")
                 )
                 logger.error(error_str)
@@ -237,19 +255,35 @@ class AzureSource(Source):
     # Converts Azure group profile into DataHub CorpGroupInfoClass Aspect
     def _map_azure_group_to_corp_group(self, group):
         return CorpGroupInfoClass(
-            displayName=group.get("displayName"),
+            displayName=self._map_azure_group_to_group_name(group),
             description=group.get("description"),
-            email=group.get("displayName") + "@chinmayacryl.onmicrosoft.com",
+            email=group.get("mail", ''),
             members=[],
             groups=[],
             admins=[],
+        )
+
+    # Creates Datahub CorpGroup Urn from Azure Group object
+    def _map_azure_group_to_urn(self, azure_group):
+        groupname = self._map_azure_group_to_group_name(azure_group)
+        if not groupname:
+            return None
+        # URL encode the group name to deal with potential spaces
+        url_encoded_group_name = urllib.parse.quote(groupname)
+        return self._make_corp_group_urn(url_encoded_group_name)
+
+    def _map_azure_group_to_group_name(self, azure_group):
+        return self._extract_regex_match_from_dict_value(
+            azure_group,
+            self.config.azure_response_to_groupname_attr,
+            self.config.azure_response_to_groupname_regex
         )
 
     def _map_azure_users(self, azure_users):
         for user in azure_users:
             corp_user_urn = self._map_azure_user_to_urn(user)
             if not corp_user_urn:
-                error_str = "Failed to extract DataHub Username from Okta User: Invalid regex pattern provided or missing profile attribute for User with login {0}. Skipping...".format(
+                error_str = "Failed to extract DataHub Username from Azure User {0}. Skipping...".format(
                     user.get("displayName")
                 )
                 logger.error(error_str)
@@ -263,36 +297,48 @@ class AzureSource(Source):
             corp_user_snapshot.aspects.append(corp_user_info)
             yield corp_user_snapshot
 
+    def _map_azure_user_to_user_name(self, azure_user):
+        return self._extract_regex_match_from_dict_value(
+            azure_user,
+            self.config.azure_response_to_username_attr,
+            self.config.azure_response_to_username_regex,
+        )
+
+    # Creates Datahub CorpUser Urn from Azure User object
+    def _map_azure_user_to_urn(self, azure_user):
+        username = self._map_azure_user_to_user_name(azure_user)
+        if not username:
+            return None
+        return self._make_corp_user_urn(username)
+
     def _map_azure_user_to_corp_user(self, azure_user):
         return CorpUserInfoClass(
             active=True,
-            displayName=azure_user.get("displayName"),
+            displayName=self._map_azure_user_to_user_name(azure_user),
             firstName=azure_user.get("givenName", None),
             lastName=azure_user.get("surname", None),
             fullName="{0} {1}".format(
                 azure_user.get("givenName", ""), azure_user.get("surname", "")
             ),
-            # TODO: migrate to None once email is optional
-            # email=azure_user.get("mail", ""),
-            email=azure_user.get("displayName") + "@chinmayacryl.onmicrosoft.com",
+            email=azure_user.get("mail", ""),
             title=azure_user.get("jobTitle", None),
             countryCode=azure_user.get("mobilePhone", None),
         )
 
-    # Creates Datahub CorpGroup Urn from Azure Group object
-    def _map_azure_group_to_urn(self, azure_group):
-        if not azure_group.get("displayName"):
-            return None
-        return self._make_corp_group_urn(groupname=azure_group.get("displayName"))
-
-    # Creates Datahub CorpUser Urn from Azure User object
-    def _map_azure_user_to_urn(self, azure_user):
-        if not azure_user.get("displayName"):
-            return None
-        return self._make_corp_user_urn(username=azure_user.get("displayName"))
 
     def _make_corp_group_urn(self, groupname: str) -> str:
         return f"urn:li:corpGroup:{groupname}"
 
     def _make_corp_user_urn(self, username: str) -> str:
         return f"urn:li:corpuser:{username}"
+
+    def _extract_regex_match_from_dict_value(
+        self, str_dict: Dict[str, str], key: str, pattern: str
+    ) -> Union[str, None]:
+        raw_value = str_dict.get(key)
+        if raw_value is None:
+            return None
+        match = re.search(pattern, raw_value)
+        if match is None:
+            return None
+        return match.group()

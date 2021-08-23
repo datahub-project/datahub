@@ -1,0 +1,132 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+            "urn": "urn:li:corpGroup:groupDisplayName1",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                        "displayName": "groupDisplayName1",
+                        "email": null,
+                        "admins": [],
+                        "members": [],
+                        "groups": [],
+                        "description": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1629752907633,
+        "runId": "test-azure",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
+            "urn": "urn:li:corpGroup:groupDisplayName%202%20",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                        "displayName": "groupDisplayName 2 ",
+                        "email": null,
+                        "admins": [],
+                        "members": [],
+                        "groups": [],
+                        "description": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1629752907634,
+        "runId": "test-azure",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:johngreen",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "johngreen",
+                        "email": "johngreen@acryl.io",
+                        "title": null,
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": "John",
+                        "lastName": "Green",
+                        "fullName": "John Green",
+                        "countryCode": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:groupDisplayName1",
+                            "urn:li:corpGroup:groupDisplayName%202%20"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1629752907635,
+        "runId": "test-azure",
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:adamhall",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "adamhall",
+                        "email": "adamhall@acryl.io",
+                        "title": null,
+                        "managerUrn": null,
+                        "departmentId": null,
+                        "departmentName": null,
+                        "firstName": "Adam",
+                        "lastName": "Hall",
+                        "fullName": "Adam Hall",
+                        "countryCode": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
+                        "groups": [
+                            "urn:li:corpGroup:groupDisplayName1",
+                            "urn:li:corpGroup:groupDisplayName%202%20"
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1629752907636,
+        "runId": "test-azure",
+        "properties": null
+    }
+}
+]

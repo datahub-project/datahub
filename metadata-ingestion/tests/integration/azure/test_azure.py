@@ -1,22 +1,19 @@
+import logging
 import pathlib
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
-import jsonpickle
-from freezegun import freeze_time
+import json
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.identity.azure import AzureConfig
 from tests.test_helpers import mce_helpers
-
-FROZEN_TIME = "2021-08-20 11:00:00"
-
 
 def test_azure_config():
     config = AzureConfig.parse_obj(
         dict(
             client_id="00000000-0000-0000-0000-000000000000",
             tenant_id="00000000-0000-0000-0000-000000000000",
-            client_secret="client_secret",
+            client_secret="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
             redirect="https://login.microsoftonline.com/common/oauth2/nativeclient",
             authority="https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000",
             token_url="https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token",
@@ -51,16 +48,17 @@ def test_azure_config():
     assert config.ingest_group_membership
 
 
-@freeze_time(FROZEN_TIME)
+
 def test_azure_source_default_configs(pytestconfig, tmp_path):
 
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/azure"
 
-    with patch("datahub.ingestion.source.identity.azure") as MockClient:
-
-        _init_mock_azure_client(test_resources_dir, MockClient)
-
-        # Run an Okta usage ingestion run.
+    with patch("datahub.ingestion.source.identity.azure.AzureSource.get_token") as mock_token, \
+        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_users") as mock_users, \
+        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_groups") as mock_groups, \
+        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_group_users") as mock_group_users:
+        mocked_functions(test_resources_dir, mock_token, mock_users, mock_groups, mock_group_users)
+        # Run an azure usage ingestion run.
         pipeline = Pipeline.create(
             {
                 "run_id": "test-azure",
@@ -74,9 +72,9 @@ def test_azure_source_default_configs(pytestconfig, tmp_path):
                         "authority": "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000",
                         "token_url": "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token",
                         "graph_url": "https://graph.microsoft.com/v1.0",
-                        "ingest_group_membership": "True",
-                        "ingest_groups": "True",
-                        "ingest_users": "True",
+                        "ingest_group_membership": True,
+                        "ingest_groups": True,
+                        "ingest_users": True,
                     },
                 },
                 "sink": {
@@ -97,41 +95,39 @@ def test_azure_source_default_configs(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
 def test_azure_source_ingestion_disabled(pytestconfig, tmp_path):
 
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/azure"
 
-    with patch("datahub.ingestion.source.identity.azure") as MockClient:
-
-        _init_mock_azure_client(test_resources_dir, MockClient)
-
-        # Run an Okta usage ingestion run.
+    with patch("datahub.ingestion.source.identity.azure.AzureSource.get_token") as mock_token, \
+        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_users") as mock_users, \
+        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_groups") as mock_groups, \
+        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_group_users") as mock_group_users:
+        mocked_functions(test_resources_dir, mock_token, mock_users, mock_groups, mock_group_users)
+        
+        # Run an Azure usage ingestion run.
         pipeline = Pipeline.create(
             {
-                "run_id": "test-okta-usage",
+                "run_id": "test-azure",
                 "source": {
-                    "type": "okta",
+                    "type": "azure",
                     "config": {
-                        "okta_domain": "mock-domain.okta.com",
-                        "okta_api_token": "mock-okta-token",
-                        "ingest_users": "False",
-                        "ingest_groups": "False",
+                        "client_id": "00000000-0000-0000-0000-000000000000",
+                        "tenant_id": "00000000-0000-0000-0000-000000000000",
+                        "client_secret": "client_secret",
+                        "redirect": "https://login.microsoftonline.com/common/oauth2/nativeclient",
+                        "authority": "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000",
+                        "token_url": "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token",
+                        "graph_url": "https://graph.microsoft.com/v1.0",
                         "ingest_group_membership": "False",
-                        "okta_profile_to_username_attr": "login",
-                        "okta_profile_to_username_regex": "([^@]+)",
-                        "okta_profile_to_group_name_attr": "name",
-                        "okta_profile_to_group_name_regex": "(.*)",
-                        "include_deprovisioned_users": "False",
-                        "include_suspended_users": "False",
-                        "page_size": "2",
-                        "delay_seconds": "0.00",
+                        "ingest_groups": "False",
+                        "ingest_users": "False",
                     },
                 },
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/okta_mces_ingestion_disabled.json",
+                        "filename": f"{tmp_path}/azure_mces_ingestion_disabled.json",
                     },
                 },
             }
@@ -141,55 +137,35 @@ def test_azure_source_ingestion_disabled(pytestconfig, tmp_path):
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "okta_mces_ingestion_disabled.json",
-        golden_path=test_resources_dir / "okta_mces_golden_ingestion_disabled.json",
+        output_path=tmp_path / "azure_mces_ingestion_disabled.json",
+        golden_path=test_resources_dir / "azure_mces_golden_ingestion_disabled.json",
     )
 
-
-# Initializes a Mock Azure to return users from azure_users.json and groups from azure_groups.json.
-def _init_mock_azure_client(test_resources_dir, MockClient):
-
+def load_test_resources(test_resources_dir):
     azure_users_json_file = test_resources_dir / "azure_users.json"
     azure_groups_json_file = test_resources_dir / "azure_groups.json"
 
-    # Add mock Azure API responses.
     with azure_users_json_file.open() as azure_users_json:
-        reference_users = jsonpickle.decode(azure_users_json.read())
-        print(reference_users)
-        # Create users from JSON dicts
-        users = [user for user in reference_users]
+        reference_users = json.loads(azure_users_json.read())
 
     with azure_groups_json_file.open() as azure_groups_json:
-        reference_groups = jsonpickle.decode(azure_groups_json.read())
-        print(reference_groups)
-        # Create groups from JSON dicts
-        groups = [group for group in reference_groups]
+        reference_groups = json.loads(azure_groups_json.read())
 
+    return reference_users, reference_groups
+
+def mocked_functions(test_resources_dir, mock_token, mock_users, mock_groups, mock_groups_users):
+    #mock token response
+    mock_token.return_value = "xxxxxxxx"
+    
+    # mock users and groups response
+    users, groups = load_test_resources(test_resources_dir)
+    mock_users.return_value = iter(list([users]))
+    mock_groups.return_value = iter(list([groups]))
+    
     # For simplicity, each user is placed in ALL groups.
-
-    # Mock Client List response.
-    users_resp_mock = Mock()
-    users_resp_mock.side_effect = [True, False]
-    users_resp_mock.next.return_value = ""
-
-    MockClient().list_users.return_value = ""
-
-    # Mock Client Init
-    groups_resp_mock = Mock()
-    groups_resp_mock.has_next.side_effect = [True, False]
-    groups_resp_mock.next.return_value = ""
-
-    # groups, resp, err
-    list_groups_future = ""
-    list_groups_future.set_result((groups[0:-1], groups_resp_mock, None))
-    MockClient().list_groups.return_value = list_groups_future
-
     # Create a separate response mock for each group in our sample data.
-    list_group_users_result_values = []
-    for group in groups:
-        # Mock Get Group Membership
-        group_users_resp_mock = Mock()
-        group_users_resp_mock.has_next.side_effect = [True, False]
-        group_users_resp_mock.next.return_value = group_users_next_future
+    r = []
+    for _ in groups:
+        r.append(users)
+    mock_groups_users.return_value = iter(r)
 
-    MockClient().list_group_users.side_effect = list_group_users_result_values
