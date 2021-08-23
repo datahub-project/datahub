@@ -312,14 +312,13 @@ class AzureSource(Source):
         return self._make_corp_user_urn(username)
 
     def _map_azure_user_to_corp_user(self, azure_user):
+        full_name= azure_user.get("givenName", "") + ' ' + azure_user.get("surname", "")
         return CorpUserInfoClass(
             active=True,
-            displayName=self._map_azure_user_to_user_name(azure_user),
+            displayName=azure_user.get("displayName", full_name),
             firstName=azure_user.get("givenName", None),
             lastName=azure_user.get("surname", None),
-            fullName="{0} {1}".format(
-                azure_user.get("givenName", ""), azure_user.get("surname", "")
-            ),
+            fullName=full_name,
             email=azure_user.get("mail", ""),
             title=azure_user.get("jobTitle", None),
             countryCode=azure_user.get("mobilePhone", None),

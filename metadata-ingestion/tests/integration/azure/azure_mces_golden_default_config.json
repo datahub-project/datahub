@@ -20,7 +20,7 @@
     },
     "proposedDelta": null,
     "systemMetadata": {
-        "lastObserved": 1629752907633,
+        "lastObserved": 1629753749132,
         "runId": "test-azure",
         "properties": null
     }
@@ -29,16 +29,16 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
-            "urn": "urn:li:corpGroup:groupDisplayName%202%20",
+            "urn": "urn:li:corpGroup:groupDisplayName2",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "displayName": "groupDisplayName 2 ",
-                        "email": null,
+                        "displayName": "groupDisplayName2",
+                        "email": "groupDisplayName2@onmicrosoft.com",
                         "admins": [],
                         "members": [],
                         "groups": [],
-                        "description": null
+                        "description": "This is an interesting description"
                     }
                 }
             ]
@@ -46,7 +46,7 @@
     },
     "proposedDelta": null,
     "systemMetadata": {
-        "lastObserved": 1629752907634,
+        "lastObserved": 1629753749133,
         "runId": "test-azure",
         "properties": null
     }
@@ -60,7 +60,7 @@
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
                         "active": true,
-                        "displayName": "johngreen",
+                        "displayName": "John Green",
                         "email": "johngreen@acryl.io",
                         "title": null,
                         "managerUrn": null,
@@ -76,7 +76,7 @@
                     "com.linkedin.pegasus2avro.identity.GroupMembership": {
                         "groups": [
                             "urn:li:corpGroup:groupDisplayName1",
-                            "urn:li:corpGroup:groupDisplayName%202%20"
+                            "urn:li:corpGroup:groupDisplayName2"
                         ]
                     }
                 }
@@ -85,7 +85,7 @@
     },
     "proposedDelta": null,
     "systemMetadata": {
-        "lastObserved": 1629752907635,
+        "lastObserved": 1629753749134,
         "runId": "test-azure",
         "properties": null
     }
@@ -99,7 +99,7 @@
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
                         "active": true,
-                        "displayName": "adamhall",
+                        "displayName": "Adam Hall",
                         "email": "adamhall@acryl.io",
                         "title": null,
                         "managerUrn": null,
@@ -115,7 +115,7 @@
                     "com.linkedin.pegasus2avro.identity.GroupMembership": {
                         "groups": [
                             "urn:li:corpGroup:groupDisplayName1",
-                            "urn:li:corpGroup:groupDisplayName%202%20"
+                            "urn:li:corpGroup:groupDisplayName2"
                         ]
                     }
                 }
@@ -124,7 +124,7 @@
     },
     "proposedDelta": null,
     "systemMetadata": {
-        "lastObserved": 1629752907636,
+        "lastObserved": 1629753749136,
         "runId": "test-azure",
         "properties": null
     }
