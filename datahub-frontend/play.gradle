@@ -41,7 +41,7 @@ dependencies {
   play externalDependency.playPac4j
   play externalDependency.shiroCore
   play externalDependency.playCache
-
+  play externalDependency.playWs
   play externalDependency.kafkaClients
 
   playTest externalDependency.mockito

@@ -1,44 +1,71 @@
 package controllers;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import akka.actor.ActorSystem;
+import akka.stream.ActorMaterializer;
+import akka.stream.Materializer;
+import akka.util.ByteString;
+import auth.Authenticator;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.util.Configuration;
+import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import play.Play;
+import play.http.HttpEntity;
+import play.libs.ws.InMemoryBodyWritable;
+import play.libs.ws.StandaloneWSClient;
 import play.libs.Json;
-import play.mvc.BodyParser;
+import play.libs.ws.ahc.StandaloneAhcWSClient;
 import play.mvc.Controller;
+import play.mvc.Http;
+import play.mvc.ResponseHeader;
 import play.mvc.Result;
-import security.AuthUtil;
-import security.AuthenticationManager;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-import javax.naming.AuthenticationException;
-import javax.naming.NamingException;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.util.stream.Stream;
+import play.mvc.Security;
+import play.shaded.ahc.org.asynchttpclient.AsyncHttpClient;
+import play.shaded.ahc.org.asynchttpclient.AsyncHttpClientConfig;
+import play.shaded.ahc.org.asynchttpclient.DefaultAsyncHttpClient;
+import play.shaded.ahc.org.asynchttpclient.DefaultAsyncHttpClientConfig;
+
+import static auth.AuthUtils.*;
 
 
 public class Application extends Controller {
 
-  private final Logger _logger = LoggerFactory.getLogger(Application.class.getName());
+  // TODO: Move to constants file.
+  private static final String GMS_HOST_ENV_VAR = "DATAHUB_GMS_HOST";
+  private static final String GMS_PORT_ENV_VAR = "DATAHUB_GMS_PORT";
+  private static final String GMS_USE_SSL_ENV_VAR = "DATAHUB_GMS_USE_SSL";
+  private static final String GMS_SSL_PROTOCOL_VAR = "DATAHUB_GMS_SSL_PROTOCOL";
+
+  private static final String GMS_HOST = Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, "localhost");
+  private static final Integer GMS_PORT = Integer.valueOf(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, "8080"));
+  private static final Boolean GMS_USE_SSL = Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, "False"));
+  private static final String GMS_SSL_PROTOCOL = Configuration.getEnvironmentVariable(GMS_SSL_PROTOCOL_VAR, null);
+
+  /**
+   * Custom mappings from frontend server paths to metadata-service paths.
+   */
+  private static final Map<String, String> PATH_REMAP = new HashMap<>();
+  static {
+    PATH_REMAP.put("/api/v2/graphql", "/api/graphql");
+  }
+
   private final Config _config;
+  private final StandaloneWSClient _ws;
 
   @Inject
   public Application(@Nonnull Config config) {
     _config = config;
+    _ws = createWsClient();
   }
 
   /**
@@ -52,7 +79,6 @@ public class Application extends Controller {
   private Result serveAsset(@Nullable String path) {
     InputStream indexHtml = Play.application().classloader().getResourceAsStream("public/index.html");
     response().setHeader("Cache-Control", "no-cache");
-
     return ok(indexHtml).as("text/html");
   }
 
@@ -73,13 +99,35 @@ public class Application extends Controller {
   }
 
   /**
-   * Generic not found response
-   * @param path
-   * @return
+   * Proxies requests to the Metadata Service
+   *
+   * TODO: Investigate using mutual SSL authentication to call Metadata Service.
    */
-  @Nonnull
-  public Result apiNotFound(@Nullable String path) {
-    return badRequest("{\"error\": \"API endpoint does not exist\"}");
+  @Security.Authenticated(Authenticator.class)
+  public CompletableFuture<Result> proxy(String path) throws ExecutionException, InterruptedException {
+    final String resolvedUri = PATH_REMAP.getOrDefault(request().uri(), request().uri());
+    return _ws.url(String.format("http://%s:%s%s", GMS_HOST, GMS_PORT, resolvedUri))
+        .setMethod(request().method())
+        .setHeaders(request()
+            .getHeaders()
+            .toMap()
+            .entrySet()
+            .stream()
+            .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+        )
+        .addHeader("X-DataHub-Principal", ctx().session().get(ACTOR)) // TODO: Replace with a token to GMS.
+        .setBody(new InMemoryBodyWritable(ByteString.fromByteBuffer(request().body().asBytes().asByteBuffer()), "application/json"))
+        .execute()
+        .thenApply(apiResponse -> {
+          final ResponseHeader header = new ResponseHeader(apiResponse.getStatus(), apiResponse.getHeaders()
+              .entrySet()
+              .stream()
+              .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
+              .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
+          final HttpEntity body = new HttpEntity.Strict(apiResponse.getBodyAsBytes(), Optional.ofNullable(apiResponse.getContentType()));
+          return new Result(header, body);
+        }).toCompletableFuture();
   }
 
   /**
@@ -174,5 +222,20 @@ public class Application extends Controller {
     trackingConfig.set("trackers", trackers);
     trackingConfig.put("isEnabled", true);
     return trackingConfig;
+  }
+
+  private StandaloneWSClient createWsClient() {
+    final String name = "proxyClient";
+    ActorSystem system = ActorSystem.create(name);
+    system.registerOnTermination(() -> System.exit(0));
+    Materializer materializer = ActorMaterializer.create(system);
+    AsyncHttpClientConfig asyncHttpClientConfig =
+        new DefaultAsyncHttpClientConfig.Builder()
+            .setMaxRequestRetry(0)
+            .setShutdownQuietPeriod(0)
+            .setShutdownTimeout(0)
+            .build();
+    AsyncHttpClient asyncHttpClient = new DefaultAsyncHttpClient(asyncHttpClientConfig);
+    return new StandaloneAhcWSClient(asyncHttpClient, materializer);
   }
 }
