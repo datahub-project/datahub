@@ -45,6 +45,9 @@ public class ElasticsearchSSLContextFactory {
     @Value("${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:#{null}}")
     private String sslKeyStorePassword;
 
+    @Value("${ELASTICSEARCH_SSL_KEYSTORE_KEY_PASSWORD:#{null}}")
+    private String sslKeyStoreKeyPassword;
+
     @Bean(name = "elasticSearchSSLContext")
     public SSLContext createInstance() {
         final SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
@@ -56,8 +59,8 @@ public class ElasticsearchSSLContextFactory {
             loadTrustStore(sslContextBuilder, sslTrustStoreFile, sslTrustStoreType, sslTrustStorePassword);
         }
 
-        if (sslKeyStoreFile != null && sslKeyStoreType != null && sslKeyStorePassword != null) {
-            loadKeyStore(sslContextBuilder, sslKeyStoreFile, sslKeyStoreType, sslKeyStorePassword);
+        if (sslKeyStoreFile != null && sslKeyStoreType != null && sslKeyStorePassword != null && sslKeyStoreKeyPassword != null) {
+            loadKeyStore(sslContextBuilder, sslKeyStoreFile, sslKeyStoreType, sslKeyStorePassword, sslKeyStoreKeyPassword);
         }
 
         final SSLContext sslContext;
@@ -73,11 +76,11 @@ public class ElasticsearchSSLContextFactory {
     }
 
     private void loadKeyStore(@Nonnull SSLContextBuilder sslContextBuilder, @Nonnull String path,
-                                     @Nonnull String type, @Nonnull String password) {
+                              @Nonnull String type, @Nonnull String password, @Nonnull String sslKeyStoreKeyPassword) {
         try (InputStream identityFile = new FileInputStream(path)) {
             final KeyStore keystore = KeyStore.getInstance(type);
             keystore.load(identityFile, password.toCharArray());
-            sslContextBuilder.loadKeyMaterial(keystore, null);
+            sslContextBuilder.loadKeyMaterial(keystore, sslKeyStoreKeyPassword.toCharArray());
         } catch (IOException | CertificateException | NoSuchAlgorithmException | KeyStoreException | UnrecoverableKeyException e) {
             throw new RuntimeException("Failed to load key store: " + path, e);
         }
