@@ -14,6 +14,7 @@ import java.security.SecureRandom;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 
 
@@ -52,7 +53,7 @@ public class ElasticsearchSSLContextFactory {
         }
 
         if (sslTrustStoreFile != null && sslTrustStoreType != null && sslTrustStorePassword != null) {
-            loadKeyStore(sslContextBuilder, sslTrustStoreFile, sslTrustStoreType, sslTrustStorePassword);
+            loadTrustStore(sslContextBuilder, sslTrustStoreFile, sslTrustStoreType, sslTrustStorePassword);
         }
 
         if (sslKeyStoreFile != null && sslKeyStoreType != null && sslKeyStorePassword != null) {
@@ -72,6 +73,17 @@ public class ElasticsearchSSLContextFactory {
     }
 
     private void loadKeyStore(@Nonnull SSLContextBuilder sslContextBuilder, @Nonnull String path,
+                                     @Nonnull String type, @Nonnull String password) {
+        try (InputStream identityFile = new FileInputStream(path)) {
+            final KeyStore keystore = KeyStore.getInstance(type);
+            keystore.load(identityFile, password.toCharArray());
+            sslContextBuilder.loadKeyMaterial(keystore, null);
+        } catch (IOException | CertificateException | NoSuchAlgorithmException | KeyStoreException | UnrecoverableKeyException e) {
+            throw new RuntimeException("Failed to load key store: " + path, e);
+        }
+    }
+
+    private void loadTrustStore(@Nonnull SSLContextBuilder sslContextBuilder, @Nonnull String path,
                                      @Nonnull String type, @Nonnull String password) {
         try (InputStream identityFile = new FileInputStream(path)) {
             final KeyStore keystore = KeyStore.getInstance(type);
