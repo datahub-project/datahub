@@ -655,7 +655,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"rowCount\": 0, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"dummy\", \"uniqueCount\": 0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": []}]}",
+        "value": "{\"timestampMillis\": 1586847600000, \"rowCount\": 0, \"columnCount\": 1, \"fieldProfiles\": [{\"fieldPath\": \"dummy\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}]}",
         "contentType": "application/json"
     },
     "systemMetadata": null
