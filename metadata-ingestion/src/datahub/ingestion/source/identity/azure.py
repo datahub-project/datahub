@@ -1,10 +1,10 @@
 import json
 import logging
+import re
 import urllib
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Union
 
-import re
 import requests
 
 from datahub.configuration import ConfigModel
@@ -97,7 +97,7 @@ class AzureSource(Source):
             token = token_response.json().get("access_token")
             return token
         else:
-            error_str = "get_token Response status code: {0}. Response content: {1}".format(token_response.status_code, token_response.content)
+            error_str = f"Token response status code: {token_response.status_code}. Token response content: {token_response.content}"
             logger.error(error_str)
             self.report.report_failure("get_token", error_str)
 
@@ -118,10 +118,9 @@ class AzureSource(Source):
             for azure_group in azure_groups:
                 datahub_corp_group_urn = self._map_azure_group_to_urn(azure_group)
                 if not datahub_corp_group_urn:
-                    error_str = "Failed to extract DataHub Group Name from Azure Group named {0}. Skipping...".format(
+                    error_str = "Failed to extract DataHub Group Name from Azure Group named {}. Skipping...".format(
                         azure_group.get("displayName")
                     )
-                    logger.error(error_str)
                     self.report.report_failure("azure_group_mapping", error_str)
                     continue
                 # Extract and map users for each group
@@ -132,10 +131,9 @@ class AzureSource(Source):
                 for azure_user in azure_group_users:
                     datahub_corp_user_urn = self._map_azure_user_to_urn(azure_user)
                     if not datahub_corp_user_urn:
-                        error_str = "Failed to extract DataHub Username from Azure User {0}. Skipping...".format(
+                        error_str = "Failed to extract DataHub Username from Azure User {}. Skipping...".format(
                             azure_user.get("displayName")
                         )
-                        logger.error(error_str)
                         self.report.report_failure("azure_user_mapping", error_str)
                         continue
 
@@ -181,8 +179,7 @@ class AzureSource(Source):
         pass
 
     def _get_azure_groups(self):
-        r = []
-        headers = {"Authorization": "Bearer {0}".format(self.token)}
+        headers = {"Authorization": "Bearer {}".format(self.token)}
         url = self.config.graph_url + "/groups"
         while True:
             if not url:
@@ -193,13 +190,13 @@ class AzureSource(Source):
                 url = json_data.get("@odata.nextLink", None)
                 yield json_data["value"]
             else:
-                error_str = "Response status code: {0}. Response content: {1}".format(response.status_code, response.content)
+                error_str = f"Response status code: {response.status_code}. Response content: {response.content}"
                 logger.error(error_str)
                 self.report.report_failure("_get_azure_groups", error_str)
                 continue
 
     def _get_azure_users(self):
-        headers = {"Authorization": "Bearer {0}".format(self.token)}
+        headers = {"Authorization": "Bearer {}".format(self.token)}
         url = self.config.graph_url + "/users"
         while True:
             if not url:
@@ -210,13 +207,13 @@ class AzureSource(Source):
                 url = json_data.get("@odata.nextLink", None)
                 yield json_data["value"]
             else:
-                error_str = "Response status code: {0}. Response content: {1}".format(response.status_code, response.content)
+                error_str = f"Response status code: {response.status_code}. Response content: {response.content}"
                 logger.error(error_str)
                 self.report.report_failure("_get_azure_groups", error_str)
                 continue
 
     def _get_azure_group_users(self, azure_group):
-        headers = {"Authorization": "Bearer {0}".format(self.token)}
+        headers = {"Authorization": "Bearer {}".format(self.token)}
         url = "{0}/groups/{1}/members".format(
             self.config.graph_url, azure_group.get("id")
         )
@@ -229,7 +226,7 @@ class AzureSource(Source):
                 url = json_data.get("@odata.nextLink", None)
                 yield json_data["value"]
             else:
-                error_str = "Response status code: {0}. Response content: {1}".format(response.status_code, response.content)
+                error_str = f"Response status code: {response.status_code}. Response content: {response.content}"
                 logger.error(error_str)
                 self.report.report_failure("_get_azure_groups", error_str)
                 continue
@@ -238,7 +235,7 @@ class AzureSource(Source):
         for azure_group in azure_groups:
             corp_group_urn = self._map_azure_group_to_urn(azure_group)
             if not corp_group_urn:
-                error_str = "Failed to extract DataHub Group Name from Azure Group for group named {0}. Skipping...".format(
+                error_str = "Failed to extract DataHub Group Name from Azure Group for group named {}. Skipping...".format(
                     azure_group.get("displayName")
                 )
                 logger.error(error_str)
@@ -257,7 +254,7 @@ class AzureSource(Source):
         return CorpGroupInfoClass(
             displayName=self._map_azure_group_to_group_name(group),
             description=group.get("description"),
-            email=group.get("mail", ''),
+            email=group.get("mail", ""),
             members=[],
             groups=[],
             admins=[],
@@ -265,25 +262,25 @@ class AzureSource(Source):
 
     # Creates Datahub CorpGroup Urn from Azure Group object
     def _map_azure_group_to_urn(self, azure_group):
-        groupname = self._map_azure_group_to_group_name(azure_group)
-        if not groupname:
+        group_name = self._map_azure_group_to_group_name(azure_group)
+        if not group_name:
             return None
         # URL encode the group name to deal with potential spaces
-        url_encoded_group_name = urllib.parse.quote(groupname)
+        url_encoded_group_name = urllib.parse.quote(group_name)
         return self._make_corp_group_urn(url_encoded_group_name)
 
     def _map_azure_group_to_group_name(self, azure_group):
         return self._extract_regex_match_from_dict_value(
             azure_group,
             self.config.azure_response_to_groupname_attr,
-            self.config.azure_response_to_groupname_regex
+            self.config.azure_response_to_groupname_regex,
         )
 
     def _map_azure_users(self, azure_users):
         for user in azure_users:
             corp_user_urn = self._map_azure_user_to_urn(user)
             if not corp_user_urn:
-                error_str = "Failed to extract DataHub Username from Azure User {0}. Skipping...".format(
+                error_str = "Failed to extract DataHub Username from Azure User {}. Skipping...".format(
                     user.get("displayName")
                 )
                 logger.error(error_str)
@@ -306,13 +303,15 @@ class AzureSource(Source):
 
     # Creates Datahub CorpUser Urn from Azure User object
     def _map_azure_user_to_urn(self, azure_user):
-        username = self._map_azure_user_to_user_name(azure_user)
-        if not username:
+        user_name = self._map_azure_user_to_user_name(azure_user)
+        if not user_name:
             return None
-        return self._make_corp_user_urn(username)
+        return self._make_corp_user_urn(user_name)
 
     def _map_azure_user_to_corp_user(self, azure_user):
-        full_name= azure_user.get("givenName", "") + ' ' + azure_user.get("surname", "")
+        full_name = (
+            azure_user.get("givenName", "") + " " + azure_user.get("surname", "")
+        )
         return CorpUserInfoClass(
             active=True,
             displayName=azure_user.get("displayName", full_name),
@@ -323,7 +322,6 @@ class AzureSource(Source):
             title=azure_user.get("jobTitle", None),
             countryCode=azure_user.get("mobilePhone", None),
         )
-
 
     def _make_corp_group_urn(self, groupname: str) -> str:
         return f"urn:li:corpGroup:{groupname}"

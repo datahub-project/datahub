@@ -1,12 +1,11 @@
-import logging
+import json
 import pathlib
 from unittest.mock import patch
-
-import json
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.identity.azure import AzureConfig
 from tests.test_helpers import mce_helpers
+
 
 def test_azure_config():
     config = AzureConfig.parse_obj(
@@ -48,16 +47,22 @@ def test_azure_config():
     assert config.ingest_group_membership
 
 
-
 def test_azure_source_default_configs(pytestconfig, tmp_path):
 
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/azure"
 
-    with patch("datahub.ingestion.source.identity.azure.AzureSource.get_token") as mock_token, \
-        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_users") as mock_users, \
-        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_groups") as mock_groups, \
-        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_group_users") as mock_group_users:
-        mocked_functions(test_resources_dir, mock_token, mock_users, mock_groups, mock_group_users)
+    with patch(
+        "datahub.ingestion.source.identity.azure.AzureSource.get_token"
+    ) as mock_token, patch(
+        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_users"
+    ) as mock_users, patch(
+        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_groups"
+    ) as mock_groups, patch(
+        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_group_users"
+    ) as mock_group_users:
+        mocked_functions(
+            test_resources_dir, mock_token, mock_users, mock_groups, mock_group_users
+        )
         # Run an azure usage ingestion run.
         pipeline = Pipeline.create(
             {
@@ -99,12 +104,19 @@ def test_azure_source_ingestion_disabled(pytestconfig, tmp_path):
 
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/azure"
 
-    with patch("datahub.ingestion.source.identity.azure.AzureSource.get_token") as mock_token, \
-        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_users") as mock_users, \
-        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_groups") as mock_groups, \
-        patch("datahub.ingestion.source.identity.azure.AzureSource._get_azure_group_users") as mock_group_users:
-        mocked_functions(test_resources_dir, mock_token, mock_users, mock_groups, mock_group_users)
-        
+    with patch(
+        "datahub.ingestion.source.identity.azure.AzureSource.get_token"
+    ) as mock_token, patch(
+        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_users"
+    ) as mock_users, patch(
+        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_groups"
+    ) as mock_groups, patch(
+        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_group_users"
+    ) as mock_group_users:
+        mocked_functions(
+            test_resources_dir, mock_token, mock_users, mock_groups, mock_group_users
+        )
+
         # Run an Azure usage ingestion run.
         pipeline = Pipeline.create(
             {
@@ -141,6 +153,7 @@ def test_azure_source_ingestion_disabled(pytestconfig, tmp_path):
         golden_path=test_resources_dir / "azure_mces_golden_ingestion_disabled.json",
     )
 
+
 def load_test_resources(test_resources_dir):
     azure_users_json_file = test_resources_dir / "azure_users.json"
     azure_groups_json_file = test_resources_dir / "azure_groups.json"
@@ -153,19 +166,21 @@ def load_test_resources(test_resources_dir):
 
     return reference_users, reference_groups
 
-def mocked_functions(test_resources_dir, mock_token, mock_users, mock_groups, mock_groups_users):
-    #mock token response
+
+def mocked_functions(
+    test_resources_dir, mock_token, mock_users, mock_groups, mock_groups_users
+):
+    # mock token response
     mock_token.return_value = "xxxxxxxx"
-    
+
     # mock users and groups response
     users, groups = load_test_resources(test_resources_dir)
     mock_users.return_value = iter(list([users]))
     mock_groups.return_value = iter(list([groups]))
-    
+
     # For simplicity, each user is placed in ALL groups.
     # Create a separate response mock for each group in our sample data.
     r = []
     for _ in groups:
         r.append(users)
     mock_groups_users.return_value = iter(r)
-
