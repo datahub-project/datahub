@@ -56,7 +56,7 @@ public class TimeseriesAspectTransformer {
     }
     final Map<TemporalStatFieldSpec, List<Object>> temporalStatFields =
         FieldExtractor.extractFields(timeseriesAspect, aspectSpec.getTemporalStatFieldSpecs());
-    temporalStatFields.forEach((key, values) -> setTemporalStatField(document, key, values.get(0)));
+    temporalStatFields.forEach((k, v) -> setTemporalStatField(document, k, v));
     finalDocuments.add(document);
 
     // Create new rows for the member collection fields.
@@ -68,7 +68,7 @@ public class TimeseriesAspectTransformer {
   }
 
   private static ObjectNode getCommonDocument(@Nonnull final Urn urn, final RecordTemplate timeseriesAspect,
-      @Nullable final SystemMetadata systemMetadata) throws JsonProcessingException {
+      @Nullable final SystemMetadata systemMetadata) {
     if (!timeseriesAspect.data().containsKey(MappingsBuilder.TIMESTAMP_MILLIS_FIELD)) {
       throw new IllegalArgumentException("Input timeseries aspect does not contain a timestampMillis field");
     }
@@ -82,29 +82,32 @@ public class TimeseriesAspectTransformer {
   }
 
   private static void setTemporalStatField(final ObjectNode document, final TemporalStatFieldSpec fieldSpec,
-      final Object value) {
+      final List<Object> valueList) {
+    if (valueList.size() == 0) {
+      return;
+    }
+
     JsonNode valueNode;
     switch (fieldSpec.getPegasusSchema().getType()) {
       case INT:
-        valueNode = JsonNodeFactory.instance.numberNode((Integer) value);
+        valueNode = JsonNodeFactory.instance.numberNode((Integer) valueList.get(0));
         break;
       case LONG:
-        valueNode = JsonNodeFactory.instance.numberNode((Long) value);
+        valueNode = JsonNodeFactory.instance.numberNode((Long) valueList.get(0));
         break;
       case FLOAT:
-        valueNode = JsonNodeFactory.instance.numberNode((Float) value);
+        valueNode = JsonNodeFactory.instance.numberNode((Float) valueList.get(0));
         break;
       case DOUBLE:
-        valueNode = JsonNodeFactory.instance.numberNode((Double) value);
+        valueNode = JsonNodeFactory.instance.numberNode((Double) valueList.get(0));
         break;
       case ARRAY:
-        List<?> valueList = (List<?>) value;
         ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode(valueList.size());
         valueList.stream().map(Object::toString).forEach(arrayNode::add);
         valueNode = JsonNodeFactory.instance.textNode(arrayNode.toString());
         break;
       default:
-        valueNode = JsonNodeFactory.instance.textNode(value.toString());
+        valueNode = JsonNodeFactory.instance.textNode(valueList.get(0).toString());
         break;
     }
     document.set(fieldSpec.getName(), valueNode);
@@ -132,7 +135,7 @@ public class TimeseriesAspectTransformer {
     componentDocument.set("key", JsonNodeFactory.instance.textNode(key.get().toString()));
     Map<TemporalStatFieldSpec, List<Object>> statFields =
         FieldExtractor.extractFields(collectionComponent, fieldSpec.getTemporalStats());
-    statFields.forEach((k, v) -> setTemporalStatField(componentDocument, k, v.get(0)));
+    statFields.forEach((k, v) -> setTemporalStatField(componentDocument, k, v));
     finalDocument.set(fieldSpec.getName(), componentDocument);
     finalDocument.set(MappingsBuilder.IS_EXPLODED_FIELD, JsonNodeFactory.instance.booleanNode(true));
     return finalDocument;
