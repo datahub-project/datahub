@@ -3,11 +3,13 @@ import pathlib
 from unittest.mock import patch
 
 from freezegun import freeze_time
+
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.identity.azure import AzureConfig
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2021-08-24 09:00:00"
+
 
 def test_azure_config():
     config = AzureConfig.parse_obj(
