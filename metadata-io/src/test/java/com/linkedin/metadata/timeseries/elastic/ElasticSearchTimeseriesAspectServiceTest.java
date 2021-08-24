@@ -27,7 +27,8 @@ import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.DateGroupingBucket;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
-import com.linkedin.timeseries.MetricAggregationType;
+import com.linkedin.timeseries.LatestAggregation;
+import com.linkedin.timeseries.MetricAggregation;
 import com.linkedin.timeseries.StringGroupingBucket;
 import java.util.Calendar;
 import java.util.List;
@@ -253,17 +254,19 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
-    AggregationSpec latestStatAggregrationSpec =
-        new AggregationSpec().setAggregationType(MetricAggregationType.LATEST_AGG).setMemberName("stat");
+    MetricAggregation latestAgg = new MetricAggregation();
+    latestAgg.setLatestAggregation(new LatestAggregation());
+    AggregationSpec latestStatAggregationSpec =
+        new AggregationSpec().setAggregationType(latestAgg).setMemberName("stat");
 
     // Grouping bucket is only timestamp filed.
     GroupingBucket timestampBucket = new GroupingBucket();
     timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
 
     GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
-        new AggregationSpec[]{latestStatAggregrationSpec}, filter, new GroupingBucket[]{timestampBucket});
+        new AggregationSpec[]{latestStatAggregationSpec}, filter, new GroupingBucket[]{timestampBucket});
     // Validate column names
-    assertEquals(resultTable.getColumnNames(), new StringArray(ES_FILED_TIMESTAMP, "latest_agg_" + ES_FILED_STAT));
+    assertEquals(resultTable.getColumnNames(), new StringArray(ES_FILED_TIMESTAMP, "latest_" + ES_FILED_STAT));
     // Validate column types
     assertEquals(resultTable.getColumnTypes(), new StringArray("long", "long"));
     // Validate rows
@@ -289,17 +292,19 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
-    AggregationSpec latestStatAggregrationSpec =
-        new AggregationSpec().setAggregationType(MetricAggregationType.LATEST_AGG).setMemberName("stat");
+    MetricAggregation latestAgg = new MetricAggregation();
+    latestAgg.setLatestAggregation(new LatestAggregation());
+    AggregationSpec latestStatAggregationSpec =
+        new AggregationSpec().setAggregationType(latestAgg).setMemberName("stat");
 
     // Grouping bucket is only timestamp filed.
     GroupingBucket timestampBucket = new GroupingBucket();
     timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
 
     GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
-        new AggregationSpec[]{latestStatAggregrationSpec}, filter, new GroupingBucket[]{timestampBucket});
+        new AggregationSpec[]{latestStatAggregationSpec}, filter, new GroupingBucket[]{timestampBucket});
     // Validate column names
-    assertEquals(resultTable.getColumnNames(), new StringArray(ES_FILED_TIMESTAMP, "latest_agg_" + ES_FILED_STAT));
+    assertEquals(resultTable.getColumnNames(), new StringArray(ES_FILED_TIMESTAMP, "latest_" + ES_FILED_STAT));
     // Validate column types
     assertEquals(resultTable.getColumnTypes(), new StringArray("long", "long"));
     // Validate rows
@@ -328,17 +333,19 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
-    AggregationSpec latestStatAggregrationSpec =
-        new AggregationSpec().setAggregationType(MetricAggregationType.LATEST_AGG).setMemberName("stat");
+    MetricAggregation latestAgg = new MetricAggregation();
+    latestAgg.setLatestAggregation(new LatestAggregation());
+    AggregationSpec latestStatAggregationSpec =
+        new AggregationSpec().setAggregationType(latestAgg).setMemberName("stat");
 
     // Grouping bucket is only timestamp filed.
     GroupingBucket timestampBucket = new GroupingBucket();
     timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
 
     GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
-        new AggregationSpec[]{latestStatAggregrationSpec}, filter, new GroupingBucket[]{timestampBucket});
+        new AggregationSpec[]{latestStatAggregationSpec}, filter, new GroupingBucket[]{timestampBucket});
     // Validate column names
-    assertEquals(resultTable.getColumnNames(), new StringArray(ES_FILED_TIMESTAMP, "latest_agg_" + ES_FILED_STAT));
+    assertEquals(resultTable.getColumnNames(), new StringArray(ES_FILED_TIMESTAMP, "latest_" + ES_FILED_STAT));
     // Validate column types
     assertEquals(resultTable.getColumnTypes(), new StringArray("long", "long"));
     // Validate rows
@@ -366,9 +373,10 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, hasCol1, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
-    AggregationSpec latestStatAggregrationSpec =
-        new AggregationSpec().setAggregationType(MetricAggregationType.LATEST_AGG)
-            .setMemberName("componentProfiles.stat");
+    MetricAggregation latestAgg = new MetricAggregation();
+    latestAgg.setLatestAggregation(new LatestAggregation());
+    AggregationSpec latestStatAggregationSpec =
+        new AggregationSpec().setAggregationType(latestAgg).setMemberName("componentProfiles.stat");
 
     // Grouping bucket is timestamp filed + componentProfiles.key.
     GroupingBucket timestampBucket = new GroupingBucket();
@@ -378,11 +386,11 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     componentProfilesBucket.setStringGroupingBucket(new StringGroupingBucket().setKey("componentProfiles.key"));
 
     GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
-        new AggregationSpec[]{latestStatAggregrationSpec}, filter,
+        new AggregationSpec[]{latestStatAggregationSpec}, filter,
         new GroupingBucket[]{timestampBucket, componentProfilesBucket});
     // Validate column names
     assertEquals(resultTable.getColumnNames(),
-        new StringArray(ES_FILED_TIMESTAMP, "componentProfiles.key", "latest_agg_" + "componentProfiles_stat"));
+        new StringArray(ES_FILED_TIMESTAMP, "componentProfiles.key", "latest_" + "componentProfiles.stat"));
     // Validate column types
     assertEquals(resultTable.getColumnTypes(), new StringArray("long", "string", "long"));
     // Validate rows
@@ -408,9 +416,10 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
-    AggregationSpec latestStatAggregrationSpec =
-        new AggregationSpec().setAggregationType(MetricAggregationType.LATEST_AGG)
-            .setMemberName("componentProfiles.stat");
+    MetricAggregation latestAgg = new MetricAggregation();
+    latestAgg.setLatestAggregation(new LatestAggregation());
+    AggregationSpec latestStatAggregationSpec =
+        new AggregationSpec().setAggregationType(latestAgg).setMemberName("componentProfiles.stat");
 
     // Grouping bucket is timestamp filed + componentProfiles.key.
     GroupingBucket timestampBucket = new GroupingBucket();
@@ -420,22 +429,22 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     componentProfilesBucket.setStringGroupingBucket(new StringGroupingBucket().setKey("componentProfiles.key"));
 
     GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
-        new AggregationSpec[]{latestStatAggregrationSpec}, filter,
+        new AggregationSpec[]{latestStatAggregationSpec}, filter,
         new GroupingBucket[]{timestampBucket, componentProfilesBucket});
     // Validate column names
     assertEquals(resultTable.getColumnNames(),
-        new StringArray(ES_FILED_TIMESTAMP, "componentProfiles.key", "latest_agg_" + "componentProfiles_stat"));
+        new StringArray(ES_FILED_TIMESTAMP, "componentProfiles.key", "latest_" + "componentProfiles.stat"));
     // Validate column types
     assertEquals(resultTable.getColumnTypes(), new StringArray("long", "string", "long"));
     // Validate rows
-    StringArray expected_row1 = new StringArray(_startTime.toString(), "col1",
+    StringArray expectedRow1 = new StringArray(_startTime.toString(), "col1",
         _testEntityProfiles.get(lastEntryTimeStamp).getComponentProfiles().get(0).getStat().toString());
-    StringArray expected_row2 = new StringArray(_startTime.toString(), "col2",
+    StringArray expectedRow2 = new StringArray(_startTime.toString(), "col2",
         _testEntityProfiles.get(lastEntryTimeStamp).getComponentProfiles().get(1).getStat().toString());
 
     assertNotNull(resultTable.getRows());
     assertEquals(resultTable.getRows().size(), 2);
-    assertEquals(resultTable.getRows(), new StringArrayArray(expected_row1, expected_row2));
+    assertEquals(resultTable.getRows(), new StringArrayArray(expectedRow1, expectedRow2));
   }
 }
 

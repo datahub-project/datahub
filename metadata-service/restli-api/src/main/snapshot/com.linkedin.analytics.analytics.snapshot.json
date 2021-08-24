@@ -79,15 +79,31 @@
           }, {
             "name" : "aggregationType",
             "type" : {
-              "type" : "enum",
-              "name" : "MetricAggregationType",
-              "symbols" : [ "LATEST_AGG", "SUM_AGG", "CARDINALITY_AGG", "TOP_HITS_AGG" ],
-              "symbolDocs" : {
-                "CARDINALITY_AGG" : "The unique count or cardinality of the value in the bucket",
-                "LATEST_AGG" : "The latest value in the bucket.",
-                "SUM_AGG" : "The sum of all values in the bucket",
-                "TOP_HITS_AGG" : "The top hits."
-              }
+              "type" : "typeref",
+              "name" : "MetricAggregation",
+              "ref" : [ {
+                "type" : "record",
+                "name" : "LatestAggregation",
+                "fields" : [ ]
+              }, {
+                "type" : "record",
+                "name" : "SumAggregation",
+                "fields" : [ ]
+              }, {
+                "type" : "record",
+                "name" : "CardinalityAggregation",
+                "fields" : [ ]
+              }, {
+                "type" : "record",
+                "name" : "TopHitsAggregation",
+                "fields" : [ {
+                  "name" : "maxByMember",
+                  "type" : "string"
+                }, {
+                  "name" : "k",
+                  "type" : "int"
+                } ]
+              } ]
             },
             "doc" : "Aggregation type for the metric."
           } ]
@@ -172,7 +188,7 @@
       "doc" : "When the index was last updated.",
       "optional" : true
     } ]
-  }, "com.linkedin.metadata.query.Condition", "com.linkedin.metadata.query.Criterion", "com.linkedin.metadata.query.Filter", "com.linkedin.timeseries.AggregationSpec", "com.linkedin.timeseries.DateGroupingBucket", "com.linkedin.timeseries.GenericTable", "com.linkedin.timeseries.GroupingBucket", "com.linkedin.timeseries.MetricAggregationType", "com.linkedin.timeseries.StringGroupingBucket" ],
+  }, "com.linkedin.metadata.query.Condition", "com.linkedin.metadata.query.Criterion", "com.linkedin.metadata.query.Filter", "com.linkedin.timeseries.AggregationSpec", "com.linkedin.timeseries.CardinalityAggregation", "com.linkedin.timeseries.DateGroupingBucket", "com.linkedin.timeseries.GenericTable", "com.linkedin.timeseries.GroupingBucket", "com.linkedin.timeseries.LatestAggregation", "com.linkedin.timeseries.MetricAggregation", "com.linkedin.timeseries.StringGroupingBucket", "com.linkedin.timeseries.SumAggregation", "com.linkedin.timeseries.TopHitsAggregation" ],
   "schema" : {
     "name" : "analytics",
     "namespace" : "com.linkedin.analytics",

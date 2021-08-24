@@ -2828,6 +2828,8 @@ class DatasetProfileClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetProfile")
     def __init__(self,
         timestampMillis: int,
+        eventGranularityMillis: Union[None, int]=None,
+        partitionSpec: Union[None, "PartitionSpecClass"]=None,
         rowCount: Union[None, int]=None,
         columnCount: Union[None, int]=None,
         fieldProfiles: Union[None, List["DatasetFieldProfileClass"]]=None,
@@ -2835,6 +2837,8 @@ class DatasetProfileClass(DictWrapper):
         super().__init__()
         
         self.timestampMillis = timestampMillis
+        self.eventGranularityMillis = eventGranularityMillis
+        self.partitionSpec = partitionSpec
         self.rowCount = rowCount
         self.columnCount = columnCount
         self.fieldProfiles = fieldProfiles
@@ -2848,6 +2852,8 @@ class DatasetProfileClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.timestampMillis = int()
+        self.eventGranularityMillis = self.RECORD_SCHEMA.field_map["eventGranularityMillis"].default
+        self.partitionSpec = self.RECORD_SCHEMA.field_map["partitionSpec"].default
         self.rowCount = self.RECORD_SCHEMA.field_map["rowCount"].default
         self.columnCount = self.RECORD_SCHEMA.field_map["columnCount"].default
         self.fieldProfiles = self.RECORD_SCHEMA.field_map["fieldProfiles"].default
@@ -2855,13 +2861,35 @@ class DatasetProfileClass(DictWrapper):
     
     @property
     def timestampMillis(self) -> int:
-        # No docs available.
+        """Getter: The event timestamp field as epoch at UTC in milli seconds."""
         return self._inner_dict.get('timestampMillis')  # type: ignore
     
     @timestampMillis.setter
     def timestampMillis(self, value: int) -> None:
-        # No docs available.
+        """Setter: The event timestamp field as epoch at UTC in milli seconds."""
         self._inner_dict['timestampMillis'] = value
+    
+    
+    @property
+    def eventGranularityMillis(self) -> Union[None, int]:
+        """Getter: Granularity of the event if applicable"""
+        return self._inner_dict.get('eventGranularityMillis')  # type: ignore
+    
+    @eventGranularityMillis.setter
+    def eventGranularityMillis(self, value: Union[None, int]) -> None:
+        """Setter: Granularity of the event if applicable"""
+        self._inner_dict['eventGranularityMillis'] = value
+    
+    
+    @property
+    def partitionSpec(self) -> Union[None, "PartitionSpecClass"]:
+        """Getter: The optional partition specification."""
+        return self._inner_dict.get('partitionSpec')  # type: ignore
+    
+    @partitionSpec.setter
+    def partitionSpec(self, value: Union[None, "PartitionSpecClass"]) -> None:
+        """Setter: The optional partition specification."""
+        self._inner_dict['partitionSpec'] = value
     
     
     @property
@@ -8974,6 +9002,100 @@ class TagPropertiesClass(DictWrapper):
         self._inner_dict['description'] = value
     
     
+class PartitionSpecClass(DictWrapper):
+    """Defines how the data is partitioned"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.timeseries.PartitionSpec")
+    def __init__(self,
+        partition: str,
+        timePartition: Union[None, "TimeWindowClass"]=None,
+    ):
+        super().__init__()
+        
+        self.partition = partition
+        self.timePartition = timePartition
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "PartitionSpecClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.partition = str()
+        self.timePartition = self.RECORD_SCHEMA.field_map["timePartition"].default
+    
+    
+    @property
+    def partition(self) -> str:
+        """Getter: String representation of the partition"""
+        return self._inner_dict.get('partition')  # type: ignore
+    
+    @partition.setter
+    def partition(self, value: str) -> None:
+        """Setter: String representation of the partition"""
+        self._inner_dict['partition'] = value
+    
+    
+    @property
+    def timePartition(self) -> Union[None, "TimeWindowClass"]:
+        """Getter: Time window of the partition if applicable"""
+        return self._inner_dict.get('timePartition')  # type: ignore
+    
+    @timePartition.setter
+    def timePartition(self, value: Union[None, "TimeWindowClass"]) -> None:
+        """Setter: Time window of the partition if applicable"""
+        self._inner_dict['timePartition'] = value
+    
+    
+class TimeWindowClass(DictWrapper):
+    # No docs available.
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.timeseries.TimeWindow")
+    def __init__(self,
+        startTimeMillis: int,
+        durationMillis: int,
+    ):
+        super().__init__()
+        
+        self.startTimeMillis = startTimeMillis
+        self.durationMillis = durationMillis
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "TimeWindowClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.startTimeMillis = int()
+        self.durationMillis = int()
+    
+    
+    @property
+    def startTimeMillis(self) -> int:
+        """Getter: Start time as epoch at UTC."""
+        return self._inner_dict.get('startTimeMillis')  # type: ignore
+    
+    @startTimeMillis.setter
+    def startTimeMillis(self, value: int) -> None:
+        """Setter: Start time as epoch at UTC."""
+        self._inner_dict['startTimeMillis'] = value
+    
+    
+    @property
+    def durationMillis(self) -> int:
+        """Getter: End time as epoch at UTC."""
+        return self._inner_dict.get('durationMillis')  # type: ignore
+    
+    @durationMillis.setter
+    def durationMillis(self, value: int) -> None:
+        """Setter: End time as epoch at UTC."""
+        self._inner_dict['durationMillis'] = value
+    
+    
 class FieldUsageCountsClass(DictWrapper):
     """ Records field-level usage counts for a given resource """
     
@@ -9410,6 +9532,8 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.schema.UnionType': UnionTypeClass,
     'com.linkedin.pegasus2avro.schema.UrnForeignKey': UrnForeignKeyClass,
     'com.linkedin.pegasus2avro.tag.TagProperties': TagPropertiesClass,
+    'com.linkedin.pegasus2avro.timeseries.PartitionSpec': PartitionSpecClass,
+    'com.linkedin.pegasus2avro.timeseries.TimeWindow': TimeWindowClass,
     'com.linkedin.pegasus2avro.usage.FieldUsageCounts': FieldUsageCountsClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregation': UsageAggregationClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregationMetrics': UsageAggregationMetricsClass,
@@ -9576,6 +9700,8 @@ __SCHEMA_TYPES = {
     'UnionType': UnionTypeClass,
     'UrnForeignKey': UrnForeignKeyClass,
     'TagProperties': TagPropertiesClass,
+    'PartitionSpec': PartitionSpecClass,
+    'TimeWindow': TimeWindowClass,
     'FieldUsageCounts': FieldUsageCountsClass,
     'UsageAggregation': UsageAggregationClass,
     'UsageAggregationMetrics': UsageAggregationMetricsClass,

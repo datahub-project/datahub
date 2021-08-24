@@ -1,5 +1,4 @@
 namespace com.linkedin.timeseries
 
 record CardinalityAggregation {
-  type: MetricAggregationType = "CARDINALITY_AGG"
 }

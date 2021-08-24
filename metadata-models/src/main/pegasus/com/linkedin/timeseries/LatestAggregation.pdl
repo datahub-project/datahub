@@ -1,5 +1,4 @@
 namespace com.linkedin.timeseries
 
 record LatestAggregation {
-  type: MetricAggregationType = "LATEST_AGG"
 }
