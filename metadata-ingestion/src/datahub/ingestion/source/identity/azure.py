@@ -4,8 +4,8 @@ import re
 import urllib
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Union
-import click
 
+import click
 import requests
 
 from datahub.configuration import ConfigModel
