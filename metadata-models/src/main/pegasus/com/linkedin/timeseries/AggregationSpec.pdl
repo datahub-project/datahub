@@ -12,5 +12,5 @@ record AggregationSpec {
   /**
    * Aggregation type for the metric.
    */
-  aggregationType: MetricAggregationType
+  aggregationType: MetricAggregation
 }

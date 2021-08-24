@@ -6,7 +6,62 @@
   "fields": [
     {
       "name": "timestampMillis",
-      "type": "long"
+      "type": "long",
+      "doc": "The event timestamp field as epoch at UTC in milli seconds."
+    },
+    {
+      "name": "eventGranularityMillis",
+      "type": [
+        "null",
+        "long"
+      ],
+      "doc": "Granularity of the event if applicable",
+      "default": null
+    },
+    {
+      "name": "partitionSpec",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "PartitionSpec",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "doc": "Defines how the data is partitioned",
+          "fields": [
+            {
+              "name": "partition",
+              "type": "string",
+              "doc": "String representation of the partition"
+            },
+            {
+              "name": "timePartition",
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "TimeWindow",
+                  "fields": [
+                    {
+                      "name": "startTimeMillis",
+                      "type": "long",
+                      "doc": "Start time as epoch at UTC."
+                    },
+                    {
+                      "name": "durationMillis",
+                      "type": "long",
+                      "doc": "End time as epoch at UTC."
+                    }
+                  ]
+                }
+              ],
+              "doc": "Time window of the partition if applicable",
+              "default": null
+            }
+          ]
+        }
+      ],
+      "doc": "The optional partition specification.",
+      "default": null
     },
     {
       "name": "rowCount",

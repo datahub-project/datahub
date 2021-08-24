@@ -10,6 +10,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
+import com.linkedin.timeseries.TopHitsAggregation;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -58,18 +59,37 @@ public class ESAggregatedStatsDAO {
     _searchClient = searchClient;
   }
 
-  private static String getAggregationSpecAggName(final AggregationSpec aggregationSpec) {
-    return aggregationSpec.getAggregationType().toString().toLowerCase() + "_" + aggregationSpec.getMemberName()
-        .replace(".", "_");
+  private static String toEsAggName(final String aggName) {
+    return aggName.replace(".", "_");
+  }
+
+  private static String getAggregationSpecAggESName(final AggregationSpec aggregationSpec) {
+    return toEsAggName(getAggregationSpecAggDisplayName(aggregationSpec));
+  }
+
+  private static String getAggregationSpecAggDisplayName(final AggregationSpec aggregationSpec) {
+    String prefix = "";
+    if (aggregationSpec.getAggregationType().isLatestAggregation()) {
+      prefix = "latest_";
+    } else if (aggregationSpec.getAggregationType().isSumAggregation()) {
+      prefix = "sum_";
+    } else if (aggregationSpec.getAggregationType().isCardinalityAggregation()) {
+      prefix = "unique_count_";
+    } else if (aggregationSpec.getAggregationType().isTopHitsAggregation()) {
+      TopHitsAggregation topHitsAggregation = aggregationSpec.getAggregationType().getTopHitsAggregation();
+      prefix = "top_" + topHitsAggregation.getK() + "_by_" + topHitsAggregation.getMaxByMember() + "_";
+    } else {
+      throw new IllegalArgumentException("Unknown AggregationSpec type" + aggregationSpec.getAggregationType());
+    }
+    return prefix + aggregationSpec.getMemberName();
   }
 
   private static String getGroupingBucketAggName(final GroupingBucket groupingBucket) {
     if (groupingBucket.isDateGroupingBucket()) {
       return ES_AGG_TIMESTAMP;
     }
-    return ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + groupingBucket.getStringGroupingBucket()
-        .getKey()
-        .replace(".", "_") + ".keyword";
+    return toEsAggName(
+        ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + groupingBucket.getStringGroupingBucket().getKey());
   }
 
   private static void rowGenHelper(final Aggregations lowestAggs, final int curLevel, final int lastLevel,
@@ -151,35 +171,31 @@ public class ESAggregatedStatsDAO {
   private void addAggregationBuildersFromAggregationSpec(AggregationBuilder baseAggregation,
       AggregationSpec aggregationSpec) {
     String fieldName = aggregationSpec.getMemberName();
-    switch (aggregationSpec.getAggregationType()) {
-      case LATEST_AGG:
-        // Construct the terms aggregation with a max timestamp sub-aggregation.
-        String termsAggName = ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + fieldName.replace(".", "_");
-        String maxAggName = ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
-        AggregationBuilder termsAgg = AggregationBuilders.terms(termsAggName)
-            .field(fieldName)
-            .size(MAX_TERM_BUCKETS)
-            .subAggregation(AggregationBuilders.max(maxAggName).field(ES_FIELD_TIMESTAMP));
-        baseAggregation.subAggregation(termsAgg);
-        // Construct the max_bucket pipeline aggregation
-        MaxBucketPipelineAggregationBuilder maxBucketPipelineAgg =
-            PipelineAggregatorBuilders.maxBucket(getAggregationSpecAggName(aggregationSpec),
-                termsAggName + ">" + maxAggName);
-        baseAggregation.subAggregation(maxBucketPipelineAgg);
-        break;
-      case SUM_AGG:
-        AggregationBuilder sumAgg =
-            AggregationBuilders.sum(getAggregationSpecAggName(aggregationSpec)).field(fieldName);
-        baseAggregation.subAggregation(sumAgg);
-        break;
-      case CARDINALITY_AGG:
-        throw new UnsupportedOperationException("No support for Cardinality aggregation yet");
 
-      case TOP_HITS_AGG:
-        throw new UnsupportedOperationException("No support for top_hits aggregation yet");
-
-      default:
-        throw new IllegalStateException("Unexpected value: " + aggregationSpec.getAggregationType());
+    if (aggregationSpec.getAggregationType().isLatestAggregation()) {
+      // Construct the terms aggregation with a max timestamp sub-aggregation.
+      String termsAggName = toEsAggName(ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + fieldName);
+      String maxAggName = ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
+      AggregationBuilder termsAgg = AggregationBuilders.terms(termsAggName)
+          .field(fieldName)
+          .size(MAX_TERM_BUCKETS)
+          .subAggregation(AggregationBuilders.max(maxAggName).field(ES_FIELD_TIMESTAMP));
+      baseAggregation.subAggregation(termsAgg);
+      // Construct the max_bucket pipeline aggregation
+      MaxBucketPipelineAggregationBuilder maxBucketPipelineAgg =
+          PipelineAggregatorBuilders.maxBucket(getAggregationSpecAggESName(aggregationSpec),
+              termsAggName + ">" + maxAggName);
+      baseAggregation.subAggregation(maxBucketPipelineAgg);
+    } else if (aggregationSpec.getAggregationType().isSumAggregation()) {
+      AggregationBuilder sumAgg =
+          AggregationBuilders.sum(getAggregationSpecAggESName(aggregationSpec)).field(fieldName);
+      baseAggregation.subAggregation(sumAgg);
+    } else if (aggregationSpec.getAggregationType().isCardinalityAggregation()) {
+      throw new UnsupportedOperationException("No support for Cardinality aggregation yet");
+    } else if (aggregationSpec.getAggregationType().isTopHitsAggregation()) {
+      throw new UnsupportedOperationException("No support for top_hits aggregation yet");
+    } else {
+      throw new IllegalStateException("Unexpected value: " + aggregationSpec.getAggregationType());
     }
   }
 
@@ -236,7 +252,7 @@ public class ESAggregatedStatsDAO {
         .collect(Collectors.toList());
 
     List<String> memberNames =
-        Arrays.stream(aggregationSpecs).map(a -> getAggregationSpecAggName(a)).collect(Collectors.toList());
+        Arrays.stream(aggregationSpecs).map(a -> getAggregationSpecAggDisplayName(a)).collect(Collectors.toList());
 
     List<String> columnNames =
         Stream.concat(groupingBucketNames.stream(), memberNames.stream()).collect(Collectors.toList());
@@ -264,11 +280,11 @@ public class ESAggregatedStatsDAO {
     ParsedFilter filterAgg = aggregations.get(ES_FILTERED_STATS);
     Stack<String> rowAcc = new Stack<>();
     // 3.1 Do a DFS of the aggregation tree and generate the rows.
-    rowGenHelper(filterAgg.getAggregations(), 0, groupingBuckets.length, rows, rowAcc,
-        Arrays.stream(groupingBuckets).map(t -> getGroupingBucketAggName(t)).collect(ImmutableList.toImmutableList()),
-        Arrays.stream(aggregationSpecs)
-            .map(a -> getAggregationSpecAggName(a))
-            .collect(ImmutableList.toImmutableList()));
+    rowGenHelper(filterAgg.getAggregations(), 0, groupingBuckets.length, rows, rowAcc, Arrays.stream(groupingBuckets)
+        .map(ESAggregatedStatsDAO::getGroupingBucketAggName)
+        .collect(ImmutableList.toImmutableList()), Arrays.stream(aggregationSpecs)
+        .map(a -> getAggregationSpecAggESName(a))
+        .collect(ImmutableList.toImmutableList()));
     assert (rowAcc.isEmpty());
 
     resultTable.setRows(new StringArrayArray(rows));

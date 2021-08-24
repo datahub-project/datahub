@@ -1,6 +1,6 @@
 namespace com.linkedin.timeseries
 
 record TopHitsAggregation {
+  maxByMember: string
   k: int
-  max_by_member: string
 }
