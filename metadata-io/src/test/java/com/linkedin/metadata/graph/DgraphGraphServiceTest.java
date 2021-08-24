@@ -7,7 +7,9 @@ import io.dgraph.DgraphGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nonnull;
@@ -27,11 +29,18 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
 
     private ManagedChannel _channel;
     private DgraphGraphService _service;
+    private DgraphContainer _container;
+
+    @BeforeTest
+    public void setup() {
+        _container = new DgraphContainer(DgraphContainer.DEFAULT_IMAGE_NAME.withTag("v21.03.0"));
+        _container.start();
+    }
 
     @BeforeMethod
-    public void init() {
+    public void connect() {
         _channel = ManagedChannelBuilder
-                .forAddress("localhost", 9080)
+                .forAddress(_container.getHost(), _container.getGrpcPort())
                 .usePlaintext()
                 .build();
 
@@ -39,9 +48,14 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     }
 
     @AfterMethod
-    public void tearDown() throws InterruptedException {
+    public void disconnect() throws InterruptedException {
         _channel.shutdownNow();
         _channel.awaitTermination(10, TimeUnit.SECONDS);
+    }
+
+    @AfterTest
+    public void tearDown() {
+        _container.stop();
     }
 
     @Nonnull
