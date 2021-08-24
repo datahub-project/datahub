@@ -4,6 +4,7 @@ import re
 import urllib
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Union
+import click
 
 import requests
 
@@ -97,9 +98,11 @@ class AzureSource(Source):
             token = token_response.json().get("access_token")
             return token
         else:
-            error_str = f"Token response status code: {token_response.status_code}. Token response content: {token_response.content}"
+            error_str = f"Token response status code: {str(token_response.status_code)}. Token response content: {str(token_response.content)}"
             logger.error(error_str)
             self.report.report_failure("get_token", error_str)
+            click.echo("Error: Token response invalid")
+            exit()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         # Create MetadataWorkUnits for CorpGroups
@@ -190,7 +193,7 @@ class AzureSource(Source):
                 url = json_data.get("@odata.nextLink", None)
                 yield json_data["value"]
             else:
-                error_str = f"Response status code: {response.status_code}. Response content: {response.content}"
+                error_str = f"Response status code: {str(response.status_code)}. Response content: {str(response.content)}"
                 logger.error(error_str)
                 self.report.report_failure("_get_azure_groups", error_str)
                 continue
@@ -207,7 +210,7 @@ class AzureSource(Source):
                 url = json_data.get("@odata.nextLink", None)
                 yield json_data["value"]
             else:
-                error_str = f"Response status code: {response.status_code}. Response content: {response.content}"
+                error_str = f"Response status code: {str(response.status_code)}. Response content: {str(response.content)}"
                 logger.error(error_str)
                 self.report.report_failure("_get_azure_groups", error_str)
                 continue
@@ -226,7 +229,7 @@ class AzureSource(Source):
                 url = json_data.get("@odata.nextLink", None)
                 yield json_data["value"]
             else:
-                error_str = f"Response status code: {response.status_code}. Response content: {response.content}"
+                error_str = f"Response status code: {str(response.status_code)}. Response content: {str(response.content)}"
                 logger.error(error_str)
                 self.report.report_failure("_get_azure_groups", error_str)
                 continue
@@ -254,7 +257,7 @@ class AzureSource(Source):
         return CorpGroupInfoClass(
             displayName=self._map_azure_group_to_group_name(group),
             description=group.get("description"),
-            email=group.get("mail", ""),
+            email=group.get("mail"),
             members=[],
             groups=[],
             admins=[],
@@ -318,7 +321,7 @@ class AzureSource(Source):
             firstName=azure_user.get("givenName", None),
             lastName=azure_user.get("surname", None),
             fullName=full_name,
-            email=azure_user.get("mail", ""),
+            email=azure_user.get("mail"),
             title=azure_user.get("jobTitle", None),
             countryCode=azure_user.get("mobilePhone", None),
         )
