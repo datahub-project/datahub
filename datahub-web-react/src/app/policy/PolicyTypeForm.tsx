@@ -11,7 +11,7 @@ type Props = {
     updateStepCompletion: (isComplete: boolean) => void;
 };
 
-// Finish updates.
+// TODO: Fix initial state problem.
 export default function PolicyTypeForm({
     policyType,
     setPolicyType,

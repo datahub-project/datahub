@@ -6,6 +6,7 @@ import { PreviewType } from '../entity/Entity';
 import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
 
 type Props = {
+    policyType: string; // TODO Move to enum.
     appliesToOwners: boolean;
     setAppliesToOwners: (newValue: boolean) => void;
     userUrns: Array<string>;
@@ -15,6 +16,7 @@ type Props = {
 };
 
 export default function PolicyActorForm({
+    policyType,
     appliesToOwners,
     setAppliesToOwners,
     userUrns,
@@ -86,6 +88,7 @@ export default function PolicyActorForm({
 
     const userSearchResults = userSearchData?.search?.searchResults;
     const groupSearchResults = groupSearchData?.search?.searchResults;
+    const showAppliesToOwners = policyType === 'Metadata';
 
     return (
         <Form layout="vertical" initialValues={{}} style={{ margin: 12, marginTop: 36, marginBottom: 40 }}>
@@ -93,14 +96,16 @@ export default function PolicyActorForm({
             <Typography.Paragraph>
                 Select the users & groups that this policy should be applied to.
             </Typography.Paragraph>
-            <Form.Item label={<Typography.Text strong>Owners</Typography.Text>} labelAlign="right">
-                <Typography.Paragraph>
-                    Whether this policy should be apply to owners of the Metadata asset. If true, those who are marked
-                    as owners of a Metadata Asset, either directly or indirectly via a Group, will have the selected
-                    privileges.
-                </Typography.Paragraph>
-                <Switch size="small" checked={appliesToOwners} onChange={onToggleAppliesToOwners} />
-            </Form.Item>
+            {showAppliesToOwners && (
+                <Form.Item label={<Typography.Text strong>Owners</Typography.Text>} labelAlign="right">
+                    <Typography.Paragraph>
+                        Whether this policy should be apply to owners of the Metadata asset. If true, those who are
+                        marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the
+                        selected privileges.
+                    </Typography.Paragraph>
+                    <Switch size="small" checked={appliesToOwners} onChange={onToggleAppliesToOwners} />
+                </Form.Item>
+            )}
             <Form.Item label={<Typography.Text strong>Users</Typography.Text>}>
                 <Typography.Paragraph>
                     Search for specific users that this policy should apply to, or select `All Users` to apply it to all
