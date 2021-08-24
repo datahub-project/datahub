@@ -72,11 +72,15 @@ class ConnectorManifest(BaseModel):
     url: Optional[str]
 
 
-def get_jdbc_source_connector_parser(connector_manifest) -> JdbcParser:
+def get_jdbc_source_connector_parser(
+    connector_manifest: ConnectorManifest,
+) -> JdbcParser:
     return JdbcParser(connector_manifest.config.get("connection.url"))
 
 
-def get_debezium_source_connector_parser(connector_manifest) -> DebeziumParser:
+def get_debezium_source_connector_parser(
+    connector_manifest: ConnectorManifest,
+) -> DebeziumParser:
     connector_class = connector_manifest.config.get("connector.class", "")
     if connector_class == "io.debezium.connector.mysql.MySqlConnector":
         # https://debezium.io/documentation/reference/connectors/mysql.html#mysql-topic-names
@@ -267,7 +271,7 @@ class KafkaConnectSource(Source):
         logger.info(f"Connection to {self.config.connect_uri} is ok")
 
     @classmethod
-    def create(cls, config_dict, ctx) -> Source:
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = KafkaConnectSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
