@@ -63,10 +63,14 @@ export default function SchemaView({
         fetchPolicy: 'no-cache',
     });
 
-    const hasKeySchema = useMemo(
-        () => (schema?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1) || -1) !== -1,
-        [schema],
-    );
+    const hasKeySchema = useMemo(() => {
+        const keySchemaIndex = schema?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1);
+        if (keySchemaIndex !== undefined && keySchemaIndex > -1) {
+            // We found a key schema.
+            return true;
+        }
+        return false;
+    }, [schema]);
 
     const [showKeySchema, setShowKeySchema] = useState(false);
 
