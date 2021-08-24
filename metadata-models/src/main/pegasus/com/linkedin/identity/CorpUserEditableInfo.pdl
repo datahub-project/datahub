@@ -39,5 +39,5 @@ record CorpUserEditableInfo {
   /**
    * A URL which points to a picture which user wants to set as a profile photo
    */
-  pictureLink: Url = "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"
+  pictureLink: Url = "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
 }
