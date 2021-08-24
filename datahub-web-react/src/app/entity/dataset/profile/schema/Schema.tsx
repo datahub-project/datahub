@@ -63,7 +63,6 @@ export default function SchemaView({
         fetchPolicy: 'no-cache',
     });
 
-    // Recipe for disaster.
     const hasKeySchema = useMemo(() => {
         const keySchemaIndex = schema?.fields?.findIndex((field) => field.fieldPath.indexOf(KEY_SCHEMA_PREFIX) > -1);
         if (keySchemaIndex !== undefined && keySchemaIndex > -1) {
