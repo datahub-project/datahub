@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.ebean;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.util.GenericAspectUtils;
 import com.linkedin.metadata.utils.mxe.EntityKeyUtils;
@@ -67,7 +69,8 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   @Nonnull
-  public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
+  public Map<Urn, List<RecordTemplate>> getLatestAspects(
+      @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) {
 
     log.debug(String.format("Invoked getLatestAspects with urns: %s, aspectNames: %s", urns, aspectNames));
@@ -167,15 +170,17 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   @Nonnull
-  public ListResult<RecordTemplate> listLatestAspects(@Nonnull final String entityName,
-      @Nonnull final String aspectName, final int start, int count) {
+  public ListResult<RecordTemplate> listLatestAspects(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      final int start,
+      final int count) {
 
     log.debug(
         String.format("Invoked listLatestAspects with entityName: %s, aspectName: %s, start: %s, count: %s", entityName,
             aspectName, start, count));
 
-    final ListResult<String> aspectMetadataList =
-        _entityDao.listLatestAspectMetadata(entityName, aspectName, start, count);
+    final ListResult<String> aspectMetadataList = _entityDao.listLatestAspectMetadata(entityName, aspectName, start, count);
 
     final List<RecordTemplate> aspects = new ArrayList<>();
     for (int i = 0; i < aspectMetadataList.getValues().size(); i++) {
@@ -193,6 +198,7 @@ public class EbeanEntityService extends EntityService {
   public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
       @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp,
       @Nonnull final SystemMetadata systemMetadata) {
+
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
     UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata,
         DEFAULT_MAX_TRANSACTION_RETRY);
@@ -203,7 +209,7 @@ public class EbeanEntityService extends EntityService {
     // 5. Produce MAE after a successful update
     if (oldValue != updatedValue || _alwaysEmitAuditEvent) {
       log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
-      if (aspectName == getKeyAspectName(urn)) {
+      if (aspectName.equals(getKeyAspectName(urn))) {
         produceMetadataAuditEventForKey(urn, result.getNewSystemMetadata());
       } else {
         produceMetadataAuditEvent(urn, oldValue, updatedValue, result.getOldSystemMetadata(),
@@ -332,17 +338,25 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Override
-  public void ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp) {
+  public Urn ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp) {
+
     log.debug("entity type = {}", metadataChangeProposal.getEntityType());
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
     log.debug("entity spec = {}", entitySpec);
 
-    Urn entityUrn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal);
+    Urn entityUrn = null;
+
+    if (metadataChangeProposal.hasEntityKeyAspect()) {
+      RecordTemplate keyAspect = GenericAspectUtils.deserializeAspect(metadataChangeProposal.getEntityKeyAspect().getValue(),
+          metadataChangeProposal.getEntityKeyAspect().getContentType(), entitySpec.getKeyAspectSpec());
+      entityUrn = com.linkedin.metadata.models.EntityKeyUtils.convertEntityKeyToUrn(keyAspect, entitySpec.getName());
+    } else {
+      entityUrn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal);
+    }
 
     // Validate Key
     try {
-      RecordTemplate entityKey = com.linkedin.metadata.models.EntityKeyUtils.convertUrnToEntityKey(entityUrn,
-          entitySpec.getKeyAspectSpec().getPegasusSchema());
+      com.linkedin.metadata.models.EntityKeyUtils.convertUrnToEntityKey(entityUrn, entitySpec.getKeyAspectSpec().getPegasusSchema());
     } catch (RuntimeException re) {
       log.warn("Failed to validate key {}", entityUrn);
       throw new RuntimeException("Failed to validate key", re);
@@ -350,12 +364,12 @@ public class EbeanEntityService extends EntityService {
 
     if (metadataChangeProposal.getChangeType() != ChangeType.UPSERT) {
       log.error("Only upsert operation is supported");
-      return;
+      throw new UnsupportedOperationException("Only upsert operation is supported");
     }
 
     if (!metadataChangeProposal.hasAspectName() || !metadataChangeProposal.hasAspect()) {
       log.error("Aspect and aspect name is required for create and update operations");
-      return;
+      throw new UnsupportedOperationException("Aspect and aspect name is required for create and update operations");
     }
 
     AspectSpec aspectSpec = entitySpec.getAspectSpec(metadataChangeProposal.getAspectName());
@@ -363,8 +377,10 @@ public class EbeanEntityService extends EntityService {
     if (aspectSpec == null) {
       log.error("Unknown aspect {} for entity {}", metadataChangeProposal.getAspectName(),
           metadataChangeProposal.getEntityType());
-      return;
+      throw new RuntimeException(String.format("Unknown aspect {} for entity {}", metadataChangeProposal.getAspectName(),
+          metadataChangeProposal.getEntityType()));
     }
+
     log.debug("aspect spec = {}", aspectSpec);
 
     RecordTemplate aspect;
@@ -374,7 +390,8 @@ public class EbeanEntityService extends EntityService {
     } catch (ModelConversionException e) {
       log.error("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
           metadataChangeProposal.getAspectName());
-      return;
+      throw new RuntimeException(String.format("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
+          metadataChangeProposal.getAspectName()));
     }
     log.debug("aspect = {}", aspect);
 
@@ -426,6 +443,8 @@ public class EbeanEntityService extends EntityService {
           String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
               metadataChangeProposal.getAspectName(), entityUrn));
     }
+
+    return entityUrn;
   }
 
   @Value
@@ -570,5 +589,32 @@ public class EbeanEntityService extends EntityService {
     }
 
     return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
+  }
+
+  @Override
+  @Nonnull
+  public ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count) {
+    log.debug(String.format("Invoked listUrns with entityName: %s, start: %s, count: %s", entityName, start, count));
+
+    // If a keyAspect exists, the entity exists.
+    final String keyAspectName = getEntityRegistry().getEntitySpec(entityName).getKeyAspectSpec().getName();
+    final ListResult<String> keyAspectList = _entityDao.listUrns(keyAspectName, start, count);
+
+    final ListUrnsResult result = new ListUrnsResult();
+    result.setStart(start);
+    result.setCount(keyAspectList.getPageSize());
+    result.setTotal(keyAspectList.getTotalCount());
+
+    // Extract urns
+    final UrnArray entityUrns = new UrnArray();
+    for (String urn : keyAspectList.getValues()) {
+      try {
+        entityUrns.add(Urn.createFromString(urn));
+      } catch (URISyntaxException e) {
+        throw new IllegalArgumentException(String.format("Failed to convert urn %s found in db to Urn object.", urn), e);
+      }
+    }
+    result.setEntities(entityUrns);
+    return result;
   }
 }

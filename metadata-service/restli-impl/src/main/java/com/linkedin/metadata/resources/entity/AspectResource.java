@@ -8,6 +8,8 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -117,19 +119,18 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
   @Action(name = ACTION_INGEST_PROPOSAL)
   @Nonnull
-  public Task<Void> ingestProposal(@ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal)
+  public Task<String> ingestProposal(@ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal)
       throws URISyntaxException {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
-    final AuditStamp auditStamp =
-        new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
 
+    final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
     final List<MetadataChangeProposal> additionalChanges = getAdditionalChanges(metadataChangeProposal);
 
     return RestliUtils.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
-      _entityService.ingestProposal(metadataChangeProposal, auditStamp);
+      Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp);
       additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
-      return null;
+      return urn.toString();
     });
   }
 
@@ -139,21 +140,64 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     if (metadataChangeProposal.getChangeType() == ChangeType.DELETE) {
       return Collections.emptyList();
     }
-    List<MetadataChangeProposal> additionalChanges = new ArrayList<>();
+
+    final List<MetadataChangeProposal> additionalChanges = new ArrayList<>();
     final Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal);
-    final RecordTemplate browsePathAspect =
-        _entityService.getAspect(urn, "browsePaths", EntityService.LATEST_ASPECT_VERSION);
-    if (browsePathAspect == null) {
+
+    // TODO: Run these in parallel.
+
+    // Insert Key Aspect
+    final MetadataChangeProposal maybeKeyAspectProposal = getKeyAspectProposal(urn, metadataChangeProposal);
+    if (maybeKeyAspectProposal != null) {
+      additionalChanges.add(maybeKeyAspectProposal);
+    }
+
+    // Insert Browse Paths Aspect
+    final MetadataChangeProposal maybeBrowsePathsProposal = getBrowsePathsProposal(urn, metadataChangeProposal);
+    if (maybeBrowsePathsProposal != null) {
+      additionalChanges.add(maybeBrowsePathsProposal);
+    }
+
+    return additionalChanges;
+  }
+
+  private MetadataChangeProposal getKeyAspectProposal(Urn urn, MetadataChangeProposal original) {
+    final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(urn);
+    final RecordTemplate keyAspect = _entityService.getAspect(urn, keyAspectSpec.getName(), EntityService.LATEST_ASPECT_VERSION);
+    if (keyAspect == null) {
       try {
-        MetadataChangeProposal browsePathProposal = metadataChangeProposal.copy();
-        GenericAspect aspect = GenericAspectUtils.serializeAspect(BrowsePathUtils.buildBrowsePath(urn));
-        browsePathProposal.setAspect(aspect);
-        browsePathProposal.setAspectName("browsePaths");
-        additionalChanges.add(browsePathProposal);
+        MetadataChangeProposal keyAspectProposal = original.copy();
+        GenericAspect aspect = GenericAspectUtils.serializeAspect(
+            com.linkedin.metadata.models.EntityKeyUtils.convertUrnToEntityKey(
+                urn, keyAspectSpec.getPegasusSchema()));
+        keyAspectProposal.setAspect(aspect);
+        keyAspectProposal.setAspectName(keyAspectSpec.getName());
+        return keyAspectProposal;
       } catch (CloneNotSupportedException e) {
         log.error("Issue while generating additional proposals corresponding to the input proposal", e);
       }
     }
-    return additionalChanges;
+    return null;
+  }
+
+  private MetadataChangeProposal getBrowsePathsProposal(Urn urn, MetadataChangeProposal original) throws URISyntaxException {
+    final String browsePathsAspectName = "browsePaths";
+    final EntitySpec entitySpec = _entityService.getEntityRegistry().getEntitySpec(urn.getEntityType());
+    if (entitySpec.hasAspect(browsePathsAspectName)) {
+      final RecordTemplate browsePathAspect =
+          _entityService.getAspect(urn, browsePathsAspectName, EntityService.LATEST_ASPECT_VERSION);
+      if (browsePathAspect == null) {
+        try {
+          MetadataChangeProposal browsePathProposal = original.copy();
+          GenericAspect aspect = GenericAspectUtils.serializeAspect(BrowsePathUtils.buildBrowsePath(urn));
+          browsePathProposal.setAspect(aspect);
+          browsePathProposal.setAspectName(browsePathsAspectName);
+          return browsePathProposal;
+        } catch (CloneNotSupportedException e) {
+          log.error("Issue while generating additional proposals corresponding to the input proposal", e);
+        }
+      }
+    }
+    return null;
   }
 }

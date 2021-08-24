@@ -1,14 +1,15 @@
 import React from 'react';
 import { Button, List, Row, Space, Tag, Typography } from 'antd';
+import { Policy, PolicyState } from '../../types.generated';
 
 type Props = {
-    policy: any;
+    policy: Policy;
     onView: () => void;
 };
 
 // TODO: Cleanup the styling.
 export default function PolicyListItem({ policy, onView }: Props) {
-    const isActive = policy.state === 'ACTIVE';
+    const isActive = policy.state === PolicyState.Active;
 
     const policyPreview = () => {
         return (

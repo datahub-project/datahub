@@ -1,9 +1,10 @@
 import React from 'react';
 import { Form, Input, Select, Typography } from 'antd';
+import { PolicyType } from '../../types.generated';
 
 type Props = {
     policyType: string;
-    setPolicyType: (type: string) => void;
+    setPolicyType: (type: PolicyType) => void;
     policyName: string;
     setPolicyName: (name: string) => void;
     policyDescription: string;
@@ -43,9 +44,9 @@ export default function PolicyTypeForm({
             <Form.Item name="policyType" label={<Typography.Text strong>Type</Typography.Text>}>
                 <Typography.Paragraph>The type of policy you would like to create.</Typography.Paragraph>
 
-                <Select defaultValue={policyType} onSelect={setPolicyType}>
-                    <Select.Option value="Platform">Platform</Select.Option>
-                    <Select.Option value="Metadata">Metadata</Select.Option>
+                <Select defaultValue={policyType} onSelect={(value) => setPolicyType(value as PolicyType)}>
+                    <Select.Option value={PolicyType.Platform}>Platform</Select.Option>
+                    <Select.Option value={PolicyType.Metadata}>Metadata</Select.Option>
                 </Select>
             </Form.Item>
             <Typography.Paragraph type="secondary">

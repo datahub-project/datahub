@@ -1,6 +1,6 @@
 import React from 'react';
 import { Form, Select, Tag, Typography } from 'antd';
-import { PLATFORM_PRIVILEGES } from './platformPrivileges';
+import { PLATFORM_PRIVILEGES } from './privileges';
 
 type Props = {
     privileges: Array<string>;

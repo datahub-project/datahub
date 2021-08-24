@@ -8,9 +8,11 @@ import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
+import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
+import com.linkedin.entity.EntitiesDoListUrnsRequestBuilder;
 import com.linkedin.entity.EntitiesDoSearchRequestBuilder;
 import com.linkedin.entity.EntitiesDoSetWritableRequestBuilder;
 import com.linkedin.entity.EntitiesRequestBuilders;
@@ -18,6 +20,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
@@ -257,5 +260,27 @@ public class EntityClient extends BaseClient {
         EntitiesDoBatchGetTotalEntityCountRequestBuilder requestBuilder =
             ENTITIES_REQUEST_BUILDERS.actionBatchGetTotalEntityCount().entitiesParam(new StringArray(entityName));
         return sendClientRequest(requestBuilder, actor).getEntity();
+    }
+
+    /**
+     * List all urns existing for a particular Entity type.
+     */
+    public ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count, @Nonnull final String actor)
+        throws RemoteInvocationException {
+        EntitiesDoListUrnsRequestBuilder requestBuilder =
+            ENTITIES_REQUEST_BUILDERS.actionListUrns()
+                .entityParam(entityName)
+                .startParam(start)
+                .countParam(count);
+        return sendClientRequest(requestBuilder, actor).getEntity();
+    }
+
+    /**
+     * Hard delete an entity with a particular urn.
+     */
+    public void deleteEntity(@Nonnull final Urn urn, @Nonnull final String actor) throws RemoteInvocationException {
+        EntitiesDoDeleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionDelete()
+                .urnParam(urn.toString());
+        sendClientRequest(requestBuilder, actor);
     }
 }

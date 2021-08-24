@@ -290,9 +290,9 @@ type Query {
     glossaryTerm(urn: String!): GlossaryTerm
 
     """
-    Fetch all policies that are active.
+    List all DataHub Access Policies.
     """
-    policies: PoliciesResult
+    listPolicies(input: ListPoliciesInput!): ListPoliciesResult
 }
 
 type Mutation {
@@ -302,6 +302,18 @@ type Mutation {
     updateDataFlow(input: DataFlowUpdateInput!): DataFlow
     updateDataJob(input: DataJobUpdateInput!): DataJob
     updateTag(input: TagUpdate!): Tag
+    """
+    Creates a policy and returns the resulting urn.
+    """
+    createPolicy(input: PolicyInput!): String
+    """
+    Updates an existing policy and returns the resulting urn
+    """
+    updatePolicy(urn: String!, input: PolicyInput!): String
+    """
+    Removes an existing policy and returns the policy urn
+    """
+    deletePolicy(urn: String!): String
 }
 
 type AuthenticatedUser {
@@ -3287,78 +3299,138 @@ type DatasetProfile implements TimeSeriesAspect {
   partitionSpec: PartitionSpec
 }
 
-type PoliciesResult {
-  start: Int
-  count: Int
-  total: Int
-  policies: [Policy!]!
+enum PolicyType {
+  METADATA
+  PLATFORM
+}
+
+enum PolicyState {
+  DRAFT
+  ACTIVE
+  INACTIVE
 }
 
 type Policy {
+  urn: String!
+  type: PolicyType!
+  name: String!
+  state: PolicyState!
+  description: String
+  resources: ResourceFilter
+  privileges: [String!]!
+  actors: ActorFilter!
+}
+
+type ResourceFilter {
+  """
+  The type of the resource the policy should apply to. Not required because in the future we want to support
+  filtering by type OR by domain
+  """
+  type: String!
 
   """
-  Each policy has some information. Each predicate in disjunction with one another.
+  A list of specific resource urns to apply the filter to
   """
-  actorFilters: ActorOrFilters
-
-  """
-  Action Type - What action is being performed against the resource. Array represents a disjunction (OR).
-  """
-  actionType: ActionType!
+  resources: [String!]
 
   """
-  Resource predicates - filters narrowing down the resource itself. Array represents a disjunction (OR).
+  Whether of not to apply the filter to all resources of the type
   """
-  resourceFilters: ResourceOrFilters
-
+  allResources: Boolean!
 }
 
-enum ActionType {
-  ALL
-  VIEW_AND_UPDATE
-  UPDATE_DOCUMENTATION
-  UPDATE_TAGS
-  UPDATE_TERMS
-  UPDATE_OWNERS
-  UPDATE_MEMBERS
-  UPDATE_POLICIES
-  UPDATE_COLUMN_TAGS_AND_DESCRIPTION
+type ActorFilter {
+  """
+  A specific set of users to apply the policy to (disjunctive)
+  """
+  users: [String!]
+
+  """
+  A specific set of groups to apply the policy to (disjunctive)
+  """
+  groups: [String!]
+
+  """
+  Whether the filter should return true for owners of a particular resource.
+  Only applies to policies of type 'Metadata', which have a resource associated with them.
+  """
+  resourceOwners: Boolean!
+
+  """
+  Whether the filter should apply to all users.
+  """
+  allUsers: Boolean!
+
+  """
+  Whether the filter should apply to all groups.
+  """
+  allGroups: Boolean!
 }
 
-type ActorOrFilters {
-  or: [ActorAndFilters!]!
+input PolicyInput {
+  type: PolicyType!
+  name: String!
+  state: PolicyState!
+  description: String
+  resources: ResourceFilterInput
+  privileges: [String!]!
+  actors: ActorFilterInput!
 }
 
-type ActorAndFilters {
-  and: [ActorFilterPredicate!]!
+input ResourceFilterInput {
+  """
+  The type of the resource the policy should apply to. Not required because in the future we want to support
+  filtering by type OR by domain
+  """
+  type: String!
+
+  """
+  A list of specific resource urns to apply the filter to
+  """
+  resources: [String!]
+
+  """
+  Whether of not to apply the filter to all resources of the type
+  """
+  allResources: Boolean!
 }
 
-type ActorFilterPredicate {
-  operator: ActorOperator!
-  operand: String
+input ActorFilterInput {
+  """
+  A specific set of users to apply the policy to (disjunctive)
+  """
+  users: [String!]
+
+  """
+  A specific set of groups to apply the policy to (disjunctive)
+  """
+  groups: [String!]
+
+  """
+  Whether the filter should return true for owners of a particular resource.
+  Only applies to policies of type 'Metadata', which have a resource associated with them.
+  """
+  resourceOwners: Boolean!
+
+  """
+  Whether the filter should apply to all users.
+  """
+  allUsers: Boolean!
+
+  """
+  Whether the filter should apply to all groups.
+  """
+  allGroups: Boolean!
 }
 
-enum ActorOperator {
-  HAS_URN
-  IS_MEMBER_OF_GROUP
-  OWNS_RESOURCE
+input ListPoliciesInput {
+  start: Int
+  count: Int
 }
 
-type ResourceOrFilters {
-  or: [ResourceAndFilters!]!
-}
-
-type ResourceAndFilters {
-  and: [ResourceFilterPredicate!]!
-}
-
-type ResourceFilterPredicate {
-  operator: ResourceFilterOperator!
-  operand: String
-}
-
-enum ResourceFilterOperator {
-  HAS_TYPE
-  HAS_PLATFORM
-  HAS_URN
+type ListPoliciesResult {
+  start: Int!
+  count: Int!
+  total: Int!
+  policies: [Policy!]!
 }

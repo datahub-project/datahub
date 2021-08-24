@@ -4,8 +4,15 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.mxe.GenericAspect;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nonnull;
 
 
@@ -48,8 +55,14 @@ public class EntityKeyUtils {
     final DataMap dataMap = new DataMap();
     for (int i = 0; i < urn.getEntityKey().getParts().size(); i++) {
       final String urnPart = urn.getEntityKey().get(i);
-      final RecordDataSchema.Field field = keySchema.getFields().get(i);
-      dataMap.put(field.getName(), urnPart);
+      try {
+        final String decodedUrnPart = URLDecoder.decode(urnPart, StandardCharsets.UTF_8.toString());
+        final RecordDataSchema.Field field = keySchema.getFields().get(i);
+        dataMap.put(field.getName(), decodedUrnPart);
+      } catch (UnsupportedEncodingException e) {
+        throw new RuntimeException(
+            String.format("Failed to convert URN to Entity Key. Unable to URL decoded urn part %s", urnPart), e);
+      }
     }
 
     // #3. Finally, instantiate the record template with the newly created DataMap.
@@ -62,5 +75,29 @@ public class EntityKeyUtils {
           String.format("Failed to instantiate RecordTemplate with name %s. Missing constructor taking DataMap as arg.",
               clazz.getName()));
     }
+  }
+
+  /**
+   * TODO
+   *
+   */
+  @Nonnull
+  public static Urn convertEntityKeyToUrn(@Nonnull final RecordTemplate keyAspect, @Nonnull final String entityName) {
+    final List<String> urnParts = new ArrayList<>();
+    for (RecordDataSchema.Field field : keyAspect.schema().getFields()) {
+      // For each field, simply stringify it, URL encode it, and place it in the URN.
+      // Note that in the future we should consider an alternate methodology, such as hashing.
+      Object value = keyAspect.data().get(field.getName());
+      String valueString = value.toString();
+      try {
+        String urlEncodedValueString = URLEncoder.encode(valueString, StandardCharsets.UTF_8.toString());
+        urnParts.add(valueString);
+      } catch (UnsupportedEncodingException e) {
+        throw new RuntimeException(
+            String.format("Failed to convert Entity Key to URN. Unable to URL encode urn part %s", valueString), e);
+      }
+    }
+    // Finally, return the Urn!
+    return Urn.createFromTuple(entityName, urnParts);
   }
 }

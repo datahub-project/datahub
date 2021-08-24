@@ -12,6 +12,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtils;
@@ -71,6 +72,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   private static final String ACTION_SEARCH = "search";
   private static final String ACTION_BATCH_INGEST = "batchIngest";
+  private static final String ACTION_LIST_URNS = "listUrns";
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
@@ -290,5 +292,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<LongMap> batchGetTotalEntityCount(@ActionParam(PARAM_ENTITIES) @Nonnull String[] entityNames) {
     return RestliUtils.toTask(() -> new LongMap(
         Arrays.stream(entityNames).collect(Collectors.toMap(Function.identity(), _searchService::docCount))));
+  }
+
+  @Action(name = ACTION_LIST_URNS)
+  @Nonnull
+  public Task<ListUrnsResult> listUrns(
+      @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
+      @ActionParam(PARAM_START) int start,
+      @ActionParam(PARAM_COUNT) int count
+  ) throws URISyntaxException {
+    log.info("LIST URNS for {} with start {} and count {}", entityName, start, count);
+    return RestliUtils.toTask(() -> _entityService.listUrns(entityName, start, count));
   }
 }

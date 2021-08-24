@@ -18,6 +18,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataAuditOperation;
@@ -176,6 +177,15 @@ public abstract class EntityService {
       final boolean emitMae);
 
   /**
+   * Lists the entity URNs found in storage.
+   *
+   * @param entityName the name associated with the entity
+   * @param start the start offset
+   * @param count the count
+   */
+  public abstract ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count);
+
+  /**
    * Default implementations. Subclasses should feel free to override if it's more efficient to do so.
    */
   public Entity getEntity(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
@@ -293,13 +303,16 @@ public abstract class EntityService {
             .collect(Collectors.toList())));
   }
 
-  private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp,
+  private void ingestSnapshotUnion(
+      @Nonnull final Snapshot snapshotUnion,
+      @Nonnull final AuditStamp auditStamp,
       SystemMetadata systemMetadata) {
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
     final List<RecordTemplate> aspectRecordsToIngest =
         com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
+    // Add the Key Aspect if it does not already exist. Is there somewhere else we can add this?
     final String keyAspectName = getKeyAspectName(urn);
     if (getLatestAspect(urn, keyAspectName) == null) {
       aspectRecordsToIngest.add(buildKeyAspect(urn));
@@ -332,6 +345,11 @@ public abstract class EntityService {
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     final RecordDataSchema keySchema = keySpec.getPegasusSchema();
     return EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
+  }
+
+  public AspectSpec getKeyAspectSpec(@Nonnull final Urn urn) {
+    final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
+    return spec.getKeyAspectSpec();
   }
 
   public String getKeyAspectName(@Nonnull final Urn urn) {
@@ -396,7 +414,7 @@ public abstract class EntityService {
     _emitAspectSpecificAuditEvent = emitAspectSpecificAuditEvent;
   }
 
-  protected EntityRegistry getEntityRegistry() {
+  public EntityRegistry getEntityRegistry() {
     return _entityRegistry;
   }
 
@@ -410,7 +428,7 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
-  public abstract void ingestProposal(MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp);
+  public abstract Urn ingestProposal(MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp);
 
   public abstract RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId);
 

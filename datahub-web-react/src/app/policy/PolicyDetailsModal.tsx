@@ -3,10 +3,10 @@ import { Button, Divider, Modal, Row, Space, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType } from '../../types.generated';
+import { EntityType, Policy, PolicyType } from '../../types.generated';
 
 type Props = {
-    policy: any;
+    policy: Omit<Policy, 'urn'>;
     visible: boolean;
     onEdit: () => void;
     onClose: () => void;
@@ -49,7 +49,9 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
     );
 
     const entityRegistry = useEntityRegistry();
+    const isMetadataPolicy = policy.type === PolicyType.Metadata;
 
+    // TODO: Fix up since it may not always be an entity type. For now it can be.
     return (
         <Modal title={policy.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
             <Row style={{ paddingLeft: 20, paddingRight: 20 }}>
@@ -64,23 +66,32 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
                         <ThinDivider />
                         <Tag color={isActive ? 'green' : 'red'}>{policy.state}</Tag>
                     </div>
-                    <div>
-                        <Typography.Title level={5}>Asset Type</Typography.Title>
-                        <ThinDivider />
-                        <Tag>{entityRegistry.getCollectionName(policy.resource.type)}</Tag>
-                    </div>
-
-                    <div>
-                        <Typography.Title level={5}>Assets</Typography.Title>
-                        <ThinDivider />
-                        {policy.resource.urns.map((urn) => (
-                            <Link to={`/${entityRegistry.getPathName(policy.resource.type)}/${urn}`} key={urn}>
-                                <Tag>
-                                    <Typography.Text underline>{urn}</Typography.Text>
-                                </Tag>
-                            </Link>
-                        ))}
-                    </div>
+                    {isMetadataPolicy && (
+                        <>
+                            <div>
+                                <Typography.Title level={5}>Asset Type</Typography.Title>
+                                <ThinDivider />
+                                <Tag>{policy.resources?.type}</Tag>
+                            </div>
+                            <div>
+                                <Typography.Title level={5}>Assets</Typography.Title>
+                                <ThinDivider />
+                                {policy.resources?.resources?.map((urn) => (
+                                    <Link
+                                        to={`/${entityRegistry.getPathName(
+                                            policy.resources?.type as EntityType,
+                                        )}/${urn}`}
+                                        key={urn}
+                                    >
+                                        <Tag>
+                                            <Typography.Text underline>{urn}</Typography.Text>
+                                        </Tag>
+                                    </Link>
+                                ))}
+                                {policy.resources?.allResources && <Tag>All</Tag>}
+                            </div>
+                        </>
+                    )}
 
                     <div>
                         <Typography.Title level={5}>Privileges</Typography.Title>
@@ -92,23 +103,24 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
                     <div>
                         <Typography.Title level={5}>Applies to Owners</Typography.Title>
                         <ThinDivider />
-                        <Tag>{policy.actors.appliesToOwners ? 'True' : 'False'}</Tag>
+                        <Tag>{policy.actors.resourceOwners ? 'True' : 'False'}</Tag>
                     </div>
                     <div>
                         <Typography.Title level={5}>Applies to Users</Typography.Title>
                         <ThinDivider />
-                        {policy.actors.users.map((userUrn) => (
+                        {policy.actors.users?.map((userUrn) => (
                             <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${userUrn}`} key={userUrn}>
                                 <Tag>
                                     <Typography.Text underline>{userUrn}</Typography.Text>
                                 </Tag>
                             </Link>
                         ))}
+                        {policy.actors.allUsers && <Tag>All</Tag>}
                     </div>
                     <div>
                         <Typography.Title level={5}>Applies to Groups</Typography.Title>
                         <ThinDivider />
-                        {policy.actors.groups.map((groupUrn) => (
+                        {policy.actors.groups?.map((groupUrn) => (
                             <Link
                                 to={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${groupUrn}`}
                                 key={groupUrn}
@@ -118,6 +130,7 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
                                 </Tag>
                             </Link>
                         ))}
+                        {policy.actors.allGroups && <Tag>All</Tag>}
                     </div>
                 </Space>
             </Row>

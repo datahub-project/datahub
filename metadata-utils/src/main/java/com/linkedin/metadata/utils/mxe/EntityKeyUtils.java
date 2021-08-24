@@ -6,6 +6,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import javax.annotation.Nonnull;
 
 
+// TODO: Undo changes to this file.
 public class EntityKeyUtils {
   private EntityKeyUtils() {
   }
@@ -17,9 +18,6 @@ public class EntityKeyUtils {
     }
     if (metadataChangeProposal.hasEntityUrn()) {
       return metadataChangeProposal.getEntityUrn();
-    }
-    if (metadataChangeProposal.hasEntityKeyAspect()) {
-      throw new UnsupportedOperationException("Identifying entity with key aspect is not yet supported");
     }
     throw new IllegalArgumentException("One of urn and keyAspect must be set");
   }

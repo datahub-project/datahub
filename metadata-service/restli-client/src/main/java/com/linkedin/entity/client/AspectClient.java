@@ -93,10 +93,10 @@ public class AspectClient extends BaseClient {
   /**
    * Ingest a MetadataChangeProposal event.
    */
-  public Response<Void> ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal, @Nonnull final String actor)
+  public Response<String> ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal, @Nonnull final String actor)
       throws RemoteInvocationException {
-    final AspectsDoIngestProposalRequestBuilder requestBuilder =
-        ASPECTS_REQUEST_BUILDERS.actionIngestProposal().proposalParam(metadataChangeProposal);
+    final AspectsDoIngestProposalRequestBuilder requestBuilder = ASPECTS_REQUEST_BUILDERS.actionIngestProposal()
+            .proposalParam(metadataChangeProposal);
     return sendClientRequest(requestBuilder, actor);
   }
 }

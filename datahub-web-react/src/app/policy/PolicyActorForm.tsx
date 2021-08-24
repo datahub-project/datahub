@@ -1,56 +1,87 @@
 import React from 'react';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType, SearchResult } from '../../types.generated';
+import { ActorFilter, EntityType, PolicyType, SearchResult } from '../../types.generated';
 import { PreviewType } from '../entity/Entity';
 import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
 
 type Props = {
     policyType: string; // TODO Move to enum.
-    appliesToOwners: boolean;
-    setAppliesToOwners: (newValue: boolean) => void;
-    userUrns: Array<string>;
-    setUserUrns: (newUsers: Array<string>) => void;
-    groupUrns: Array<string>;
-    setGroupUrns: (newGroups: Array<string>) => void;
+    actors: ActorFilter;
+    setActors: (actors: ActorFilter) => void;
 };
 
-export default function PolicyActorForm({
-    policyType,
-    appliesToOwners,
-    setAppliesToOwners,
-    userUrns,
-    setUserUrns,
-    groupUrns,
-    setGroupUrns,
-}: Props) {
+export default function PolicyActorForm({ policyType, actors, setActors }: Props) {
     const [userSearch, { data: userSearchData, loading: userSearchLoading }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData, loading: groupSearchLoading }] = useGetSearchResultsLazyQuery();
 
     const entityRegistry = useEntityRegistry();
 
     const onToggleAppliesToOwners = (value: boolean) => {
-        setAppliesToOwners(value);
+        setActors({
+            ...actors,
+            resourceOwners: value,
+        });
     };
 
     const onSelectUserActor = (newUser: string) => {
-        const newUserActors = [...userUrns, newUser];
-        setUserUrns(newUserActors as never[]);
+        if (newUser === 'All') {
+            setActors({
+                ...actors,
+                allUsers: true,
+            });
+        } else {
+            const newUserActors = [...(actors.users || []), newUser];
+            setActors({
+                ...actors,
+                users: newUserActors,
+            });
+        }
     };
 
     const onDeselectUserActor = (user: string) => {
-        const newUserActors = userUrns.filter((u) => u !== user);
-        setUserUrns(newUserActors as never[]);
+        if (user === 'All') {
+            setActors({
+                ...actors,
+                allUsers: false,
+            });
+        } else {
+            const newUserActors = actors.users?.filter((u) => u !== user);
+            setActors({
+                ...actors,
+                users: newUserActors,
+            });
+        }
     };
 
     const onSelectGroupActor = (newGroup: string) => {
-        const newGroupActors = [...groupUrns, newGroup];
-        setGroupUrns(newGroupActors as never[]);
+        if (newGroup === 'All') {
+            setActors({
+                ...actors,
+                allGroups: true,
+            });
+        } else {
+            const newGroupActors = [...(actors.users || []), newGroup];
+            setActors({
+                ...actors,
+                groups: newGroupActors,
+            });
+        }
     };
 
     const onDeselectGroupActor = (group: string) => {
-        const newGroupActors = groupUrns.filter((g) => g !== group);
-        setGroupUrns(newGroupActors as never[]);
+        if (group === 'All') {
+            setActors({
+                ...actors,
+                allGroups: false,
+            });
+        } else {
+            const newGroupActors = actors.groups?.filter((g) => g !== group);
+            setActors({
+                ...actors,
+                groups: newGroupActors,
+            });
+        }
     };
 
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
@@ -88,7 +119,10 @@ export default function PolicyActorForm({
 
     const userSearchResults = userSearchData?.search?.searchResults;
     const groupSearchResults = groupSearchData?.search?.searchResults;
-    const showAppliesToOwners = policyType === 'Metadata';
+    const showAppliesToOwners = policyType === PolicyType.Metadata;
+
+    const usersSelectValue = actors.allUsers ? ['All'] : actors.users || [];
+    const groupsSelectValue = actors.allGroups ? ['All'] : actors.users || [];
 
     return (
         <Form layout="vertical" initialValues={{}} style={{ margin: 12, marginTop: 36, marginBottom: 40 }}>
@@ -103,7 +137,7 @@ export default function PolicyActorForm({
                         marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the
                         selected privileges.
                     </Typography.Paragraph>
-                    <Switch size="small" checked={appliesToOwners} onChange={onToggleAppliesToOwners} />
+                    <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToOwners} />
                 </Form.Item>
             )}
             <Form.Item label={<Typography.Text strong>Users</Typography.Text>}>
@@ -112,7 +146,7 @@ export default function PolicyActorForm({
                     users.
                 </Typography.Paragraph>
                 <Select
-                    defaultValue={userUrns}
+                    value={usersSelectValue}
                     mode="multiple"
                     placeholder="Search for users..."
                     onSelect={(asset: any) => onSelectUserActor(asset)}
@@ -129,7 +163,7 @@ export default function PolicyActorForm({
                             <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                         ))}
                     {userSearchLoading && <Select.Option value="loading">Searching...</Select.Option>}
-                    <Select.Option value="all">All Users</Select.Option>
+                    <Select.Option value="All">All Users</Select.Option>
                 </Select>
             </Form.Item>
             <Form.Item label={<Typography.Text strong>Groups</Typography.Text>}>
@@ -138,7 +172,7 @@ export default function PolicyActorForm({
                     all groups.
                 </Typography.Paragraph>
                 <Select
-                    defaultValue={groupUrns}
+                    value={groupsSelectValue}
                     mode="multiple"
                     placeholder="Search for groups..."
                     onSelect={(asset: any) => onSelectGroupActor(asset)}
@@ -155,7 +189,7 @@ export default function PolicyActorForm({
                             <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                         ))}
                     {groupSearchLoading && <Select.Option value="loading">Searching...</Select.Option>}
-                    <Select.Option value="all">All Groups</Select.Option>
+                    <Select.Option value="All">All Groups</Select.Option>
                 </Select>
             </Form.Item>
         </Form>

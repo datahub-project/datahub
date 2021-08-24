@@ -1,14 +1,17 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Button, Modal, Steps, message } from 'antd';
+import { Button, Modal, Steps } from 'antd';
 import MetadataPolicyPrivilegeForm from './MetadataPolicyPrivilegeForm';
 import PlatformPolicyPrivilegeForm from './PlatformPolicyPrivilegeForm';
 import PolicyTypeForm from './PolicyTypeForm';
 import PolicyActorForm from './PolicyActorForm';
+import { ActorFilter, Policy, PolicyType, ResourceFilter } from '../../types.generated';
 
 type Props = {
-    policy?: any;
+    policy: Omit<Policy, 'urn'>;
+    setPolicy: (policy: Omit<Policy, 'urn'>) => void;
     visible: boolean;
     onClose: () => void;
+    onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
 };
 
 /**
@@ -24,24 +27,10 @@ enum StepState {
 // TODO: Rethink all of the useCallback going on in here. It does not seem very nice.
 const INITIAL_STEP_STATES = [StepState.INCOMPLETE, StepState.INCOMPLETE, StepState.COMPLETE];
 
-export default function PolicyBuilderModal({ policy, visible, onClose }: Props) {
-    // Whether we're editing or creating a policy.
-    const isEditing = policy !== undefined && policy !== null;
-
+export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose, onSave }: Props) {
     // Step control-flow.
     const [stepStates, setStepStates] = useState(INITIAL_STEP_STATES);
     const [activeStepIndex, setActiveStepIndex] = useState(0);
-
-    // Step data.
-    const [policyType, setPolicyType] = useState('Metadata'); // TODO: Return to PolicyType.METADATA
-    const [policyName, setPolicyName] = useState(isEditing ? policy.name : '');
-    const [policyDescription, setPolicyDescription] = useState(isEditing ? policy.description : '');
-    const [privileges, setPrivileges] = useState(isEditing ? policy.privileges : []);
-    const [assetType, setAssetType] = useState(isEditing ? policy.resource.type : '');
-    const [assetUrns, setAssetUrns] = useState(isEditing ? policy.resource.urns : []);
-    const [appliesToOwners, setAppliesToOwners] = useState(isEditing ? policy.actors.appliesToOwners : false);
-    const [groupActors, setGroupActors] = useState(isEditing ? policy.actors.groups : []);
-    const [userActors, setUserActors] = useState(isEditing ? policy.actors.user : []);
 
     const next = () => {
         setActiveStepIndex(activeStepIndex + 1);
@@ -78,47 +67,50 @@ export default function PolicyBuilderModal({ policy, visible, onClose }: Props) 
                 title: 'Choose Policy Type',
                 content: (
                     <PolicyTypeForm
-                        policyType={policyType}
-                        setPolicyType={setPolicyType as any}
-                        policyName={policyName}
-                        setPolicyName={setPolicyName}
-                        policyDescription={policyDescription}
-                        setPolicyDescription={setPolicyDescription}
+                        policyType={policy.type}
+                        setPolicyType={(type: PolicyType) => setPolicy({ ...policy, type })}
+                        policyName={policy.name}
+                        setPolicyName={(name: string) => setPolicy({ ...policy, name })}
+                        policyDescription={policy.description || ''}
+                        setPolicyDescription={(description: string) => setPolicy({ ...policy, description })}
                         updateStepCompletion={updateStepComplete}
                     />
                 ),
                 state: stepStates[index],
             };
         },
-        [policyType, policyName, policyDescription, stepStates, updateStepCompletion],
+        [policy, setPolicy, stepStates, updateStepCompletion],
     );
 
     const privilegeStepContent = useCallback(
         (index: number) => {
             const updateStepComplete = (isComplete: boolean) => updateStepCompletion(index, isComplete);
 
-            if (policyType === 'Metadata') {
+            if (policy.type === PolicyType.Metadata) {
                 return (
                     <MetadataPolicyPrivilegeForm
-                        privileges={privileges}
-                        setPrivileges={setPrivileges as any}
-                        assetType={assetType}
-                        setAssetType={setAssetType as any}
-                        assetUrns={assetUrns}
-                        setAssetUrns={setAssetUrns as any}
+                        resources={policy.resources!}
+                        setResources={(resources: ResourceFilter) => setPolicy({ ...policy, resources })}
+                        privileges={policy.privileges}
+                        setPrivileges={(privileges: string[]) => setPolicy({ ...policy, privileges })}
                         updateStepCompletion={updateStepComplete}
                     />
                 );
             }
             return (
                 <PlatformPolicyPrivilegeForm
-                    privileges={privileges}
-                    setPrivileges={setPrivileges as any}
+                    privileges={policy.privileges}
+                    setPrivileges={(privileges: string[]) =>
+                        setPolicy({
+                            ...policy,
+                            privileges,
+                        })
+                    }
                     updateStepCompletion={(isComplete: boolean) => updateStepCompletion(index, isComplete)}
                 />
             );
         },
-        [policyType, privileges, assetType, assetUrns, updateStepCompletion],
+        [policy, setPolicy, updateStepCompletion],
     );
 
     // Step 1.
@@ -137,18 +129,19 @@ export default function PolicyBuilderModal({ policy, visible, onClose }: Props) 
             title: 'Assign Users & Groups',
             content: (
                 <PolicyActorForm
-                    policyType={policyType}
-                    appliesToOwners={appliesToOwners as any}
-                    setAppliesToOwners={setAppliesToOwners as any}
-                    userUrns={userActors}
-                    setUserUrns={setUserActors as any}
-                    groupUrns={groupActors}
-                    setGroupUrns={setGroupActors as any}
+                    policyType={policy.type}
+                    actors={policy.actors}
+                    setActors={(actors: ActorFilter) =>
+                        setPolicy({
+                            ...policy,
+                            actors,
+                        })
+                    }
                 />
             ),
             state: stepStates[index],
         }),
-        [policyType, appliesToOwners, userActors, groupActors, stepStates],
+        [policy, setPolicy, stepStates],
     );
 
     // Construct final set of steps.
@@ -158,10 +151,7 @@ export default function PolicyBuilderModal({ policy, visible, onClose }: Props) 
     );
 
     const onCreatePolicy = () => {
-        message.success('Successfully saved policy.');
-        // TODO: Actually create a new policy. TODO: Validate the data.
-        // TODO: Reset the state of the modal.
-        onClose();
+        onSave(policy);
     };
 
     const activeStep = policySteps[activeStepIndex];
@@ -169,6 +159,9 @@ export default function PolicyBuilderModal({ policy, visible, onClose }: Props) 
     const isStepComplete = (step: any) => {
         return step.state === StepState.COMPLETE;
     };
+
+    // Whether we're editing or creating a policy.
+    const isEditing = policy !== undefined && policy !== null;
 
     return (
         <Modal
