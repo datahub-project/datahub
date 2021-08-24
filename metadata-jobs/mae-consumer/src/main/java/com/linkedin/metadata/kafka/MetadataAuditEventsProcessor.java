@@ -5,8 +5,6 @@ import com.linkedin.data.element.DataElement;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
-import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
-import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.gms.factory.search.SearchServiceFactory;
 import com.linkedin.gms.factory.usage.UsageServiceFactory;
 import com.linkedin.metadata.EventUtils;
@@ -60,7 +58,7 @@ import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
 @Import({GraphServiceFactory.class, SearchServiceFactory.class, UsageServiceFactory.class,
-    SystemMetadataServiceFactory.class, KafkaEventConsumerFactory.class, SimpleKafkaConsumerFactory.class})
+    SystemMetadataServiceFactory.class})
 @EnableKafka
 public class MetadataAuditEventsProcessor {
 
@@ -83,8 +81,8 @@ public class MetadataAuditEventsProcessor {
     _systemMetadataService.configure();
   }
 
-  @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics = "${KAFKA_TOPIC_NAME:"
-      + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "kafkaEventConsumer")
+  @KafkaListener(id = "${METADATA_AUDIT_EVENT_KAFKA_CONSUMER_GROUP_ID:mae-consumer-job-client}", topics =
+      "${KAFKA_TOPIC_NAME:" + Topics.METADATA_AUDIT_EVENT + "}", containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     log.debug("Got MAE");

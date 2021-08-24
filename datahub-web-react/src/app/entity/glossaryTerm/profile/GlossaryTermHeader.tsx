@@ -15,7 +15,7 @@ export default function GlossaryTermHeader({ definition, sourceRef, sourceUrl, o
     const entityRegistry = useEntityRegistry();
     return (
         <>
-            <Space direction="vertical" size="middle">
+            <Space direction="vertical" size="middle" style={{ marginBottom: '15px' }}>
                 <Typography.Paragraph>{definition}</Typography.Paragraph>
                 <Space split={<Divider type="vertical" />}>
                     <Typography.Text>Source</Typography.Text>

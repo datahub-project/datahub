@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
@@ -91,7 +93,7 @@ public class ElasticSearchGraphService implements GraphService {
   }
 
   @Nonnull
-  public List<String> findRelatedUrns(
+  public RelatedEntitiesResult findRelatedEntities(
       @Nullable final String sourceType,
       @Nonnull final Filter sourceEntityFilter,
       @Nullable final String destinationType,
@@ -116,13 +118,25 @@ public class ElasticSearchGraphService implements GraphService {
     );
 
     if (response == null) {
-      return ImmutableList.of();
+      return new RelatedEntitiesResult(offset, 0, 0, ImmutableList.of());
     }
 
-    return Arrays.stream(response.getHits().getHits())
-        .map(hit -> ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null))
+    int totalCount = (int) response.getHits().getTotalHits().value;
+    final List<RelatedEntity> relationships = Arrays.stream(response.getHits().getHits())
+        .map(hit -> {
+          final String urnStr = ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null);
+          final String relationshipType = (String) hit.getSourceAsMap().get("relationshipType");
+          if (urnStr == null || relationshipType == null) {
+            log.error(String.format(
+                "Found null urn string or relationship type in Elastic index. urnStr: %s, relationshipType: %s", urnStr, relationshipType));
+            return null;
+          }
+          return new RelatedEntity(relationshipType, urnStr);
+        })
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
+
+    return new RelatedEntitiesResult(offset, relationships.size(), totalCount, relationships);
   }
 
   private Filter createUrnFilter(@Nonnull final Urn urn) {

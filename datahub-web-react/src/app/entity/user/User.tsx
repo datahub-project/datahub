@@ -47,7 +47,7 @@ export class UserEntity implements Entity<CorpUser> {
     renderPreview = (_: PreviewType, data: CorpUser) => (
         <Preview
             urn={data.urn}
-            name={data.info?.displayName || data.urn}
+            name={data.info?.displayName || data.username}
             title={data.info?.title || ''}
             photoUrl={data.editableInfo?.pictureLink || undefined}
         />

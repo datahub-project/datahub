@@ -14,4 +14,9 @@ record EntityRelationship {
    * The downstream dataset the lineage points to
    */
   entity: Urn
+
+  /**
+   * The type of the relationship
+   */
+  type: string
 }
