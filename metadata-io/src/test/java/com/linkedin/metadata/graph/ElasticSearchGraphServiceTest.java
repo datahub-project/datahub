@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ElasticSearchTestUtils;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
@@ -41,12 +42,6 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   private static final String IMAGE_NAME = "docker.elastic.co/elasticsearch/elasticsearch:7.9.3";
   private static final int HTTP_PORT = 9200;
 
-  @BeforeMethod
-  public void wipe() throws Exception {
-    _client.clear();
-    syncAfterWrite();
-  }
-
   @BeforeTest
   public void setup() {
     _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
@@ -54,6 +49,12 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
     _searchClient = buildRestClient();
     _client = buildService();
     _client.configure();
+  }
+
+  @BeforeMethod
+  public void wipe() throws Exception {
+    _client.clear();
+    syncAfterWrite();
   }
 
   @Nonnull
