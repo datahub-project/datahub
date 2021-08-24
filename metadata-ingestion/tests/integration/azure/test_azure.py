@@ -2,10 +2,12 @@ import json
 import pathlib
 from unittest.mock import patch
 
+from freezegun import freeze_time
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.identity.azure import AzureConfig
 from tests.test_helpers import mce_helpers
 
+FROZEN_TIME = "2021-08-24 09:00:00"
 
 def test_azure_config():
     config = AzureConfig.parse_obj(
@@ -47,6 +49,7 @@ def test_azure_config():
     assert config.ingest_group_membership
 
 
+@freeze_time(FROZEN_TIME)
 def test_azure_source_default_configs(pytestconfig, tmp_path):
 
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/azure"
@@ -100,6 +103,7 @@ def test_azure_source_default_configs(pytestconfig, tmp_path):
     )
 
 
+@freeze_time(FROZEN_TIME)
 def test_azure_source_ingestion_disabled(pytestconfig, tmp_path):
 
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/azure"
