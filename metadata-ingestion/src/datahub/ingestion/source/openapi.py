@@ -9,7 +9,8 @@ from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+
 from datahub.ingestion.source.openapi_parser import (
     clean_url,
     compose_url_attr,
@@ -72,7 +73,6 @@ class OpenApiConfig(ConfigModel):
 #         self.message
 
 
-@dataclass
 class ApiWorkUnit(MetadataWorkUnit):
     pass
 
