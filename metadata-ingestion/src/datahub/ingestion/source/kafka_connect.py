@@ -25,6 +25,7 @@ class KafkaConnectSourceConfig(ConfigModel):
     password: Optional[str] = None
     cluster_name: Optional[str] = "connect-cluster"
     env: str = builder.DEFAULT_ENV
+    construct_lineage_workunits: bool = True
     connector_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
 
 
@@ -466,7 +467,8 @@ class KafkaConnectSource(Source):
             if self.config.connector_patterns.allowed(name):
                 yield from self.construct_flow_workunit(connector)
                 yield from self.construct_job_workunits(connector)
-                yield from self.construct_lineage_workunits(connector)
+                if self.config.construct_lineage_workunits:
+                    yield from self.construct_lineage_workunits(connector)
 
                 self.report.report_connector_scanned(name)
 
