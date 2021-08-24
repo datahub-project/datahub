@@ -1,6 +1,5 @@
 package com.linkedin.metadata.graph;
 
-import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -8,6 +7,11 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.apache.http.HttpHost;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
+import org.elasticsearch.action.admin.indices.flush.FlushRequest;
+import org.elasticsearch.action.admin.indices.flush.FlushResponse;
+import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
+import org.elasticsearch.action.admin.indices.refresh.RefreshResponse;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -17,8 +21,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 
 import javax.annotation.Nonnull;
-import java.net.URISyntaxException;
-import java.util.concurrent.TimeUnit;
 
 public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
@@ -31,9 +33,9 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   private static final int HTTP_PORT = 9200;
 
   @BeforeMethod
-  public void wipe() throws URISyntaxException {
-    _client.removeNode(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)"));
-    _client.removeNode(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"));
+  public void wipe() throws Exception {
+    _client.clear();
+    syncAfterWrite();
   }
 
   @BeforeTest
@@ -78,6 +80,16 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @Override
   protected void syncAfterWrite() throws Exception {
-    TimeUnit.SECONDS.sleep(5);
+    // flush changes in ES to disk
+    FlushResponse fResponse = _searchClient.indices().flush(new FlushRequest(), RequestOptions.DEFAULT);
+    if (fResponse.getFailedShards() > 0) {
+      throw new RuntimeException("Failed to flush " + fResponse.getFailedShards() + " of " + fResponse.getTotalShards() + " shards");
+    }
+
+    // wait for all indices to be refreshed
+    RefreshResponse rResponse = _searchClient.indices().refresh(new RefreshRequest(), RequestOptions.DEFAULT);
+    if (rResponse.getFailedShards() > 0) {
+      throw new RuntimeException("Failed to refresh " + rResponse.getFailedShards() + " of " + rResponse.getTotalShards() + " shards");
+    }
   }
 }
