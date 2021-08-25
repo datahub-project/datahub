@@ -26,11 +26,13 @@ import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testng.annotations.AfterTest;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
+import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
 
 public class ElasticSearchServiceTest {
 
@@ -54,6 +56,13 @@ public class ElasticSearchServiceTest {
     _elasticsearchContainer.start();
     _searchClient = buildRestClient();
     _elasticSearchService = buildService();
+    _elasticSearchService.configure();
+  }
+
+  @BeforeMethod
+  public void wipe() throws Exception {
+    _elasticSearchService.clear();
+    syncAfterWrite(_searchClient);
   }
 
   @Nonnull
@@ -84,9 +93,7 @@ public class ElasticSearchServiceTest {
   }
 
   @Test
-  public void testElasticSearchService() throws InterruptedException {
-    _elasticSearchService.configure();
-
+  public void testElasticSearchService() throws Exception {
     SearchResult searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     BrowseResult browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
@@ -100,7 +107,9 @@ public class ElasticSearchServiceTest {
     document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
-    TimeUnit.SECONDS.sleep(5);
+    syncAfterWrite(_searchClient);
+    TimeUnit.SECONDS.sleep(2);  // for some reason we still need to wait here though we 'syncAfterWrite'
+
     searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0), urn);
@@ -119,7 +128,7 @@ public class ElasticSearchServiceTest {
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
-    TimeUnit.SECONDS.sleep(5);
+    syncAfterWrite(_searchClient);
 
     searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
@@ -135,7 +144,7 @@ public class ElasticSearchServiceTest {
 
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
-    TimeUnit.SECONDS.sleep(5);
+    syncAfterWrite(_searchClient);
     searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
