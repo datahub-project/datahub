@@ -318,7 +318,7 @@ Sample Response:
               "urn": "urn:li:corpuser:datahub",
               "username": "datahub",
               "editableInfo": {
-                "pictureLink": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"
+                "pictureLink": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
               },
               "info": {
                 "firstName": null
