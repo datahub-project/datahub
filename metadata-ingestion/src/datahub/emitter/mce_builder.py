@@ -113,27 +113,19 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     )
 
 
-_ownership_types = {
-    "DEVELOPER": OwnershipTypeClass.DEVELOPER,
-    "DATAOWNER": OwnershipTypeClass.DATAOWNER,
-    "DELEGATE": OwnershipTypeClass.DELEGATE,
-    "PRODUCER": OwnershipTypeClass.PRODUCER,
-    "CONSUMER": OwnershipTypeClass.CONSUMER,
-    "STAKEHOLDER": OwnershipTypeClass.STAKEHOLDER,
-}
-
-
-def _check_ownership_type(ownership_type: str) -> None:
-    if ownership_type not in _ownership_types:
-        logger.error(f"invalid ownership type value: {ownership_type}")
-
-
-def make_ownership_type(
-    ownership_type: Optional[str], fallback: OwnershipTypeClass
-) -> OwnershipTypeClass:
-    if ownership_type:
-        _check_ownership_type(ownership_type)
-    return _ownership_types.get(ownership_type, fallback)
+def check_ownership_type(ownership_type: Optional[str]) -> str:
+    if ownership_type in [
+        OwnershipTypeClass.DEVELOPER,
+        OwnershipTypeClass.DATAOWNER,
+        OwnershipTypeClass.DELEGATE,
+        OwnershipTypeClass.PRODUCER,
+        OwnershipTypeClass.CONSUMER,
+        OwnershipTypeClass.STAKEHOLDER,
+    ]:
+        return ownership_type
+    else:
+        logger.warning(f"invalid ownership type value: {ownership_type}")
+        return OwnershipTypeClass.DATAOWNER
 
 
 def make_lineage_mce(

@@ -10,7 +10,6 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
-    OwnershipTypeClass,
 )
 
 
@@ -70,9 +69,7 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
         owners = [
             OwnerClass(
                 owner=owner,
-                type=builder.make_ownership_type(
-                    config.ownership_type, OwnershipTypeClass.DATAOWNER
-                ),
+                type=builder.check_ownership_type(config.ownership_type),
             )
             for owner in config.owner_urns
         ]
@@ -100,13 +97,16 @@ class PatternDatasetOwnershipConfig(ConfigModel):
 class PatternAddDatasetOwnership(AddDatasetOwnership):
     """Transformer that adds a specified set of owners to each dataset."""
 
-    def getOwners(self, key, owner_pattern, ownership_type: Optional[str] = None):
+    def getOwners(
+        self,
+        key: str,
+        owner_pattern: KeyValuePattern,
+        ownership_type: Optional[str] = None,
+    ) -> List[OwnerClass]:
         owners = [
             OwnerClass(
                 owner=owner,
-                type=builder.make_ownership_type(
-                    ownership_type, OwnershipTypeClass.DATAOWNER
-                ),
+                type=builder.check_ownership_type(ownership_type),
             )
             for owner in owner_pattern.value(key)
         ]
@@ -118,9 +118,7 @@ class PatternAddDatasetOwnership(AddDatasetOwnership):
             get_owners_to_add=lambda _: [
                 OwnerClass(
                     owner=owner,
-                    type=builder.make_ownership_type(
-                        config.ownership_type, OwnershipTypeClass.DATAOWNER
-                    ),
+                    type=builder.check_ownership_type(config.ownership_type),
                 )
                 for owner in owner_pattern.value(_.urn)
             ],
