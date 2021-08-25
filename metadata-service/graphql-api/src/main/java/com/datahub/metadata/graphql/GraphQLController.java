@@ -1,5 +1,6 @@
 package com.datahub.metadata.graphql;
 
+import com.datahub.metadata.authentication.AuthenticationContext;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,7 +20,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.datahub.metadata.auth.AuthContext;
 
 @Slf4j
 @RestController
@@ -68,7 +68,7 @@ public class GraphQLController {
     /*
      * Init QueryContext
      */
-    SpringQueryContext context = new SpringQueryContext(true, AuthContext.getPrincipal());
+    SpringQueryContext context = new SpringQueryContext(true, AuthenticationContext.getPrincipal());
 
     return CompletableFuture.supplyAsync(() -> {
       /*

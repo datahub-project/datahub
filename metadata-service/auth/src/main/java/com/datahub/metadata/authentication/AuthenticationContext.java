@@ -1,6 +1,6 @@
-package com.datahub.metadata.auth;
+package com.datahub.metadata.authentication;
 
-public class AuthContext {
+public class AuthenticationContext {
   private static final ThreadLocal<String> PRINCIPAL = new ThreadLocal<String>();
 
   public static String getPrincipal() {
@@ -15,5 +15,5 @@ public class AuthContext {
     PRINCIPAL.remove();
   }
 
-  private AuthContext() { }
+  private AuthenticationContext() { }
 }

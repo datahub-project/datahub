@@ -1,4 +1,4 @@
-package com.datahub.metadata.auth;
+package com.datahub.metadata.authentication;
 
 import java.io.IOException;
 import javax.servlet.Filter;
@@ -27,13 +27,13 @@ public class AuthenticationFilter implements Filter {
     }
     if (principal != null) {
       // Save actor to ThreadLocal context.
-      AuthContext.setPrincipal(principal);
+      AuthenticationContext.setPrincipal(principal);
     } else {
       // TODO: Remove DataHub as the default actor once authentication at metadata-service is complete.
-      AuthContext.setPrincipal("urn:li:corpuser:datahub");
+      AuthenticationContext.setPrincipal("urn:li:corpuser:datahub");
     }
     chain.doFilter(request, response);
-    AuthContext.remove();
+    AuthenticationContext.remove();
   }
 
   @Override
