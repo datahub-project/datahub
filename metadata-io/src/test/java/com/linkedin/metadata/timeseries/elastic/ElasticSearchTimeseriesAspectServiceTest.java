@@ -4,6 +4,7 @@ import com.datahub.test.TestEntityComponentProfile;
 import com.datahub.test.TestEntityComponentProfileArray;
 import com.datahub.test.TestEntityProfile;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -30,6 +31,7 @@ import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.LatestAggregation;
 import com.linkedin.timeseries.MetricAggregation;
 import com.linkedin.timeseries.StringGroupingBucket;
+import com.linkedin.timeseries.SumAggregation;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +60,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   private static final String ENTITY_NAME = "testEntity";
   private static final String ASPECT_NAME = "testEntityProfile";
   private static final Urn TEST_URN = new TestEntityUrn("acryl", "testElasticSearchTimeseriesAspectService", "table1");
-  private static final int NUM_ROWS = 100;
+  private static final int NUM_PROFILES = 100;
   private static final long TIME_INCREMENT = 3600000; // hour in ms.
   private static final String CONTENT_TYPE = "application/json";
 
@@ -121,7 +123,9 @@ public class ElasticSearchTimeseriesAspectServiceTest {
    */
 
   private void upsertDocument(TestEntityProfile dp) throws JsonProcessingException {
-    TimeseriesAspectTransformer.transform(TEST_URN, dp, _aspectSpec, null).forEach(document -> {
+    List<JsonNode> documents = TimeseriesAspectTransformer.transform(TEST_URN, dp, _aspectSpec, null);
+    assertEquals(documents.size(), 3);
+    documents.forEach(document -> {
       _elasticSearchTimeseriesAspectService.upsertDocument(ENTITY_NAME, ASPECT_NAME, document);
     });
   }
@@ -152,9 +156,9 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     Stream<TestEntityProfile> testEntityProfileStream = Stream.iterate(firstProfile,
         (TestEntityProfile prev) -> makeTestProfile(prev.getTimestampMillis() + TIME_INCREMENT, prev.getStat() + 10));
 
-    _testEntityProfiles = testEntityProfileStream.limit(NUM_ROWS)
+    _testEntityProfiles = testEntityProfileStream.limit(NUM_PROFILES)
         .collect(Collectors.toMap(TestEntityProfile::getTimestampMillis, Function.identity()));
-    Long endTime = _startTime + (NUM_ROWS - 1) * TIME_INCREMENT;
+    Long endTime = _startTime + (NUM_PROFILES - 1) * TIME_INCREMENT;
 
     assertNotNull(_testEntityProfiles.get(_startTime));
     assertNotNull(_testEntityProfiles.get(endTime));
@@ -193,8 +197,9 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   @Test(groups = "getAspectValues", dependsOnGroups = "upsert")
   public void testGetAspectTimeseriesValuesAll() {
     List<EnvelopedAspect> resultAspects =
-        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null, NUM_ROWS);
-    validateAspectValues(resultAspects, NUM_ROWS);
+        _elasticSearchTimeseriesAspectService.getAspectValues(TEST_URN, ENTITY_NAME, ASPECT_NAME, null, null,
+            NUM_PROFILES);
+    validateAspectValues(resultAspects, NUM_PROFILES);
   }
 
   @Test(groups = "getAspectValues", dependsOnGroups = "upsert")
@@ -230,7 +235,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     Urn nonExistingUrn = new TestEntityUrn("missing", "missing", "missing");
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(nonExistingUrn, ENTITY_NAME, ASPECT_NAME, null, null,
-            NUM_ROWS);
+            NUM_PROFILES);
     validateAspectValues(resultAspects, 0);
   }
 
@@ -238,6 +243,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
    * Tests for getAggregatedStats API
    */
 
+  /* Latest Aggregation Tests */
   @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
   public void testGetAggregatedStatsLatestStatForDay1() {
     // Filter is only on the urn
@@ -445,6 +451,92 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     assertNotNull(resultTable.getRows());
     assertEquals(resultTable.getRows().size(), 2);
     assertEquals(resultTable.getRows(), new StringArrayArray(expectedRow1, expectedRow2));
+  }
+
+  /* Sum Aggregation Tests */
+  @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
+  public void testGetAggregatedStatsSumStatForFirst10HoursOfDay1() {
+    Filter filter = new Filter();
+    Criterion hasUrnCriterion =
+        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+    Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
+        .setValue(_startTime.toString());
+    Criterion endTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
+        .setValue(String.valueOf(_startTime + 9 * TIME_INCREMENT));
+
+    filter.setCriteria(new CriterionArray(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+
+    // Aggregate the sum of stat value
+    MetricAggregation sumAgg = new MetricAggregation();
+    sumAgg.setSumAggregation(new SumAggregation());
+    AggregationSpec sumAggregationSpec = new AggregationSpec().setAggregationType(sumAgg).setMemberName("stat");
+
+    // Grouping bucket is only timestamp filed.
+    GroupingBucket timestampBucket = new GroupingBucket();
+    timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
+
+    GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
+        new AggregationSpec[]{sumAggregationSpec}, filter, new GroupingBucket[]{timestampBucket});
+    // Validate column names
+    assertEquals(resultTable.getColumnNames(), new StringArray(ES_FILED_TIMESTAMP, "sum_" + ES_FILED_STAT));
+    // Validate column types
+    assertEquals(resultTable.getColumnTypes(), new StringArray("long", "long"));
+    // Validate rows
+    assertNotNull(resultTable.getRows());
+    assertEquals(resultTable.getRows().size(), 1);
+    // value is 20+30+40+... upto 10 terms = 650
+    // TODO: Compute this caching the documents.
+    assertEquals(resultTable.getRows(),
+        new StringArrayArray(new StringArray(_startTime.toString(), String.valueOf(650))));
+  }
+
+  @Test(groups = {"getAggregatedStats"}, dependsOnGroups = {"upsert"})
+  public void testGetAggregatedStatsSumStatForCol2Day1() {
+    Long lastEntryTimeStamp = _startTime + 23 * TIME_INCREMENT;
+    Filter filter = new Filter();
+    Criterion hasUrnCriterion =
+        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+    Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
+        .setValue(_startTime.toString());
+    Criterion endTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
+        .setValue(String.valueOf(lastEntryTimeStamp));
+    Criterion hasCol2 =
+        new Criterion().setField("componentProfiles.key").setCondition(Condition.EQUAL).setValue("col2");
+
+    filter.setCriteria(new CriterionArray(hasUrnCriterion, hasCol2, startTimeCriterion, endTimeCriterion));
+
+    // Aggregate the sum of stat value
+    MetricAggregation sumAgg = new MetricAggregation();
+    sumAgg.setSumAggregation(new SumAggregation());
+    AggregationSpec sumStatAggregationSpec =
+        new AggregationSpec().setAggregationType(sumAgg).setMemberName("componentProfiles.stat");
+
+    // Grouping bucket is timestamp filed + componentProfiles.key.
+    GroupingBucket timestampBucket = new GroupingBucket();
+    timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
+
+    GroupingBucket componentProfilesBucket = new GroupingBucket();
+    componentProfilesBucket.setStringGroupingBucket(new StringGroupingBucket().setKey("componentProfiles.key"));
+
+    GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
+        new AggregationSpec[]{sumStatAggregationSpec}, filter,
+        new GroupingBucket[]{timestampBucket, componentProfilesBucket});
+    // Validate column names
+    assertEquals(resultTable.getColumnNames(),
+        new StringArray(ES_FILED_TIMESTAMP, "componentProfiles.key", "sum_" + "componentProfiles.stat"));
+    // Validate column types
+    assertEquals(resultTable.getColumnTypes(), new StringArray("long", "string", "long"));
+    // Validate rows
+    assertNotNull(resultTable.getRows());
+    assertEquals(resultTable.getRows().size(), 1);
+    // value = 22+32+42+... 24 terms = 3288
+    // TODO: Compute this caching the documents.
+    assertEquals(resultTable.getRows(),
+        new StringArrayArray(new StringArray(_startTime.toString(), "col2", String.valueOf(3288))));
   }
 }
 

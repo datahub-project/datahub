@@ -36,6 +36,7 @@ import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.ParsedSum;
 import org.elasticsearch.search.aggregations.pipeline.MaxBucketPipelineAggregationBuilder;
 import org.elasticsearch.search.aggregations.pipeline.ParsedBucketMetricValue;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -68,7 +69,7 @@ public class ESAggregatedStatsDAO {
   }
 
   private static String getAggregationSpecAggDisplayName(final AggregationSpec aggregationSpec) {
-    String prefix = "";
+    String prefix;
     if (aggregationSpec.getAggregationType().isLatestAggregation()) {
       prefix = "latest_";
     } else if (aggregationSpec.getAggregationType().isSumAggregation()) {
@@ -99,8 +100,16 @@ public class ESAggregatedStatsDAO {
       // (Base-case): We are at the lowest level of nested bucket aggregations.
       // Append member aggregation values to the row and add the row to the output.
       for (String memberAggName : memberAggNames) {
-        ParsedBucketMetricValue bucketMetricValue = lowestAggs.get(memberAggName);
-        row.push(bucketMetricValue.keys()[0]);
+        Object memberAgg = lowestAggs.get(memberAggName);
+        String value;
+        if (memberAgg instanceof ParsedBucketMetricValue) {
+          value = ((ParsedBucketMetricValue) memberAgg).keys()[0];
+        } else if (memberAgg instanceof ParsedSum) {
+          value = String.valueOf((long) ((ParsedSum) memberAgg).getValue());
+        } else {
+          throw new UnsupportedOperationException("Member aggregations other than latest and sum not supported yet.");
+        }
+        row.push(value);
       }
       rows.add(new StringArray(row));
       for (int i = 0; i < memberAggNames.size(); ++i) {
@@ -251,8 +260,9 @@ public class ESAggregatedStatsDAO {
             t -> t.isStringGroupingBucket() ? t.getStringGroupingBucket().getKey() : t.getDateGroupingBucket().getKey())
         .collect(Collectors.toList());
 
-    List<String> memberNames =
-        Arrays.stream(aggregationSpecs).map(a -> getAggregationSpecAggDisplayName(a)).collect(Collectors.toList());
+    List<String> memberNames = Arrays.stream(aggregationSpecs)
+        .map(ESAggregatedStatsDAO::getAggregationSpecAggDisplayName)
+        .collect(Collectors.toList());
 
     List<String> columnNames =
         Stream.concat(groupingBucketNames.stream(), memberNames.stream()).collect(Collectors.toList());
@@ -283,7 +293,7 @@ public class ESAggregatedStatsDAO {
     rowGenHelper(filterAgg.getAggregations(), 0, groupingBuckets.length, rows, rowAcc, Arrays.stream(groupingBuckets)
         .map(ESAggregatedStatsDAO::getGroupingBucketAggName)
         .collect(ImmutableList.toImmutableList()), Arrays.stream(aggregationSpecs)
-        .map(a -> getAggregationSpecAggESName(a))
+        .map(ESAggregatedStatsDAO::getAggregationSpecAggESName)
         .collect(ImmutableList.toImmutableList()));
     assert (rowAcc.isEmpty());
 

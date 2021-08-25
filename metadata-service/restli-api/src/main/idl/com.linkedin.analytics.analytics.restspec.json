@@ -7,7 +7,7 @@
   "simple" : {
     "supports" : [ ],
     "actions" : [ {
-      "name" : "getTemporalStats",
+      "name" : "getTimeseriesStats",
       "parameters" : [ {
         "name" : "entityName",
         "type" : "string"

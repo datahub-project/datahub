@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RestLiSimpleResource(name = "analytics", namespace = "com.linkedin.analytics")
 public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedStatsResponse> {
-  private static final String ACTION_GET_TEMPORAL_STATS = "getTemporalStats";
+  private static final String ACTION_GET_TIMESERIES_STATS = "getTimeseriesStats";
   private static final String PARAM_ENTITY_NAME = "entityName";
   private static final String PARAM_ASPECT_NAME = "aspectName";
   private static final String PARAM_FILTER = "filter";
@@ -39,9 +39,9 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
   @Named("timeseriesAspectService")
   private TimeseriesAspectService _timeseriesAspectService;
 
-  @Action(name = ACTION_GET_TEMPORAL_STATS)
+  @Action(name = ACTION_GET_TIMESERIES_STATS)
   @Nonnull
-  public Task<GetTimeseriesAggregatedStatsResponse> getTemporalStats(
+  public Task<GetTimeseriesAggregatedStatsResponse> getTimeseriesStats(
       @ActionParam(PARAM_ENTITY_NAME) @Nonnull String entityName,
       @ActionParam(PARAM_ASPECT_NAME) @Nonnull String aspectName,
       @ActionParam(PARAM_METRICS) @Nonnull AggregationSpec[] aggregationSpecs,
