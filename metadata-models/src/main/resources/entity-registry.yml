@@ -3,3 +3,4 @@ entities:
     keyAspect: datasetKey
     aspects:
       - datasetProfile
+      - datasetUsageStatistics

@@ -1,0 +1,32 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Stats corresponding to dataset's usage.
+ */
+@Aspect = {
+  "name": "datasetUsageStatistics",
+  "type": "timeseries",
+}
+record DatasetUsageStatistics includes TimeseriesAspectBase {
+    /** Unique user count */
+    @TemporalStat = {}
+    uniqueUserCount: optional int
+
+    /** Total SQL query count */
+    @TemporalStat = {}
+    totalSqlQueries: optional int
+
+    /** Frequent SQL queries; mostly makes sense for datasets in SQL databases */
+    @TemporalStat = {}
+    topSqlQueries: optional array[string]
+
+    /** Users within this bucket, with frequency counts */
+    @TemporalStatCollection = {"key":"user"}
+    users: optional array[DatasetUserUsageCounts]
+
+    /** Field-level usage stats */
+    @TemporalStatCollection = {"key":"fieldName"}
+    fields: optional array[DatasetFieldUsageCounts]
+}

@@ -1,0 +1,9 @@
+namespace com.linkedin.dataset
+
+/** Records field-level usage counts for a given dataset*/
+record DatasetFieldUsageCounts {
+    fieldName: string
+
+    @TemporalStat = {}
+    count: int
+}
