@@ -2,14 +2,13 @@ import logging
 import time
 import warnings
 from abc import ABC
-from dataclasses import dataclass
 from typing import Dict, Generator, Iterable, Tuple
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_tag_urn
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 
 from datahub.ingestion.source.openapi_parser import (
     clean_url,
