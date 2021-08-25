@@ -218,7 +218,10 @@ class DatahubGEProfiler:
                 column_profile.uniqueProportion = res["observed_value"]
             elif exp == "expect_column_values_to_not_be_null":
                 column_profile.nullCount = res["unexpected_count"]
-                if "unexpected_percent" in res:
+                if (
+                    "unexpected_percent" in res
+                    and res["unexpected_percent"] is not None
+                ):
                     column_profile.nullProportion = res["unexpected_percent"] / 100
             elif exp == "expect_column_values_to_not_match_regex":
                 # ignore; generally used for whitespace checks using regex r"^\s+|\s+$"

@@ -86,7 +86,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.10"
+        "acryl-pyhive[hive]>=0.6.11"
     },
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests"},
