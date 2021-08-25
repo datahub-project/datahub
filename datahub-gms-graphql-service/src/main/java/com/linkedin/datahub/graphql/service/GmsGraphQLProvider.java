@@ -28,7 +28,7 @@ public class GmsGraphQLProvider {
 
     @PostConstruct
     public void init() {
-        this.graphQLEngine = new GmsGraphQLEngine().builder().build();
+        this.graphQLEngine = new GmsGraphQLEngine(new MockAuthorizationManager()).builder().build();
         this.graphQL = graphQLEngine.getGraphQL();
     }
 }

@@ -4268,14 +4268,6 @@
                       } ]
                     },
                     "doc" : "The actors that the policy applies to."
-                  }, {
-                    "name" : "createdAt",
-                    "type" : "long",
-                    "doc" : "Last time the policy was created."
-                  }, {
-                    "name" : "modifiedAt",
-                    "type" : "long",
-                    "doc" : "Last time the policy was updated."
                   } ],
                   "Aspect" : {
                     "name" : "dataHubPolicyInfo"

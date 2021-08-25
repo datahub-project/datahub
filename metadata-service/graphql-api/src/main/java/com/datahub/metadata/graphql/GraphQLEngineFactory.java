@@ -1,5 +1,6 @@
 package com.datahub.metadata.graphql;
 
+import com.datahub.metadata.authorization.AuthorizationManager;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -16,7 +17,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Bean;
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, AuthorizationManagerFactory.class})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -26,6 +27,9 @@ public class GraphQLEngineFactory {
   @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
   private IndexConvention indexConvention;
 
+  @Autowired
+  private AuthorizationManager authorizationManager;
+
 
   @Value("${ANALYTICS_ENABLED:true}")
   private Boolean isAnalyticsEnabled;
@@ -34,8 +38,8 @@ public class GraphQLEngineFactory {
   @Nonnull
   protected GraphQLEngine getInstance() {
     if (isAnalyticsEnabled) {
-      return new GmsGraphQLEngine(new AnalyticsService(elasticClient, indexConvention.getPrefix())).builder().build();
+      return new GmsGraphQLEngine(authorizationManager, new AnalyticsService(elasticClient, indexConvention.getPrefix())).builder().build();
     }
-    return new GmsGraphQLEngine().builder().build();
+    return new GmsGraphQLEngine(authorizationManager).builder().build();
   }
 }

@@ -73,7 +73,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
    */
   @RestMethod.Get
   @Nonnull
-  public Task<VersionedAspect> get(@Nonnull String urnStr, @QueryParam("aspect") @Optional @Nullable String aspectName,
+  public Task<VersionedAspect> get(
+      @Nonnull String urnStr,
+      @QueryParam("aspect") @Optional @Nullable String aspectName,
       @QueryParam("version") @Optional @Nullable Long version) throws URISyntaxException {
     log.info("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);

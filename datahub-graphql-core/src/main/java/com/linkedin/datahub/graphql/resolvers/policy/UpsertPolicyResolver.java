@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.policy;
 
+import com.datahub.metadata.authorization.AuthorizationManager;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PolicyInput;
@@ -68,7 +69,11 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
     return CompletableFuture.supplyAsync(() -> {
       try {
         // TODO: We should also provide SystemMetadata.
-        return _aspectClient.ingestProposal(proposal, context.getActor()).getEntity();
+        String urn = _aspectClient.ingestProposal(proposal, context.getActor()).getEntity();
+        if (context.getAuthorizer() instanceof AuthorizationManager) {
+          ((AuthorizationManager) context.getAuthorizer()).invalidateCache();
+        }
+        return urn;
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
       }

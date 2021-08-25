@@ -1,11 +1,16 @@
 package com.linkedin.datahub.graphql.types.dataset;
 
+import com.datahub.metadata.authorization.AuthorizationRequest;
+import com.datahub.metadata.authorization.AuthorizationResult;
+import com.datahub.metadata.authorization.Authorizer;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.PolicyUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
@@ -35,6 +40,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 
 import graphql.execution.DataFetcherResult;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -49,6 +55,7 @@ import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_DELIMITER;
 public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEntityType<Dataset>, MutableType<DatasetUpdateInput> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
+    private static final String ENTITY_NAME = "dataset";
 
     private final EntityClient _datasetsClient;
 
@@ -109,7 +116,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _datasetsClient.search("dataset", query, facetFilters, start, count, context.getActor());
+        final SearchResult searchResult = _datasetsClient.search(ENTITY_NAME, query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -120,7 +127,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _datasetsClient.autoComplete("dataset", query, facetFilters, limit, context.getActor());
+        final AutoCompleteResult result = _datasetsClient.autoComplete(ENTITY_NAME, query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -150,19 +157,64 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
 
     @Override
     public Dataset update(@Nonnull DatasetUpdateInput input, @Nonnull QueryContext context) throws Exception {
-        // TODO: Verify that updater is owner.
-        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final DatasetSnapshot datasetSnapshot = DatasetUpdateInputSnapshotMapper.map(input, actor);
-        final Snapshot snapshot = Snapshot.create(datasetSnapshot);
+        if (isAuthorized(input, context)) {
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final DatasetSnapshot datasetSnapshot = DatasetUpdateInputSnapshotMapper.map(input, actor);
+            final Snapshot snapshot = Snapshot.create(datasetSnapshot);
 
-        try {
-            Entity entity = new Entity();
-            entity.setValue(snapshot);
-            _datasetsClient.update(entity, context.getActor());
-        } catch (RemoteInvocationException e) {
-            throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+            try {
+                Entity entity = new Entity();
+                entity.setValue(snapshot);
+                _datasetsClient.update(entity, context.getActor());
+            } catch (RemoteInvocationException e) {
+                throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+            }
+
+            return load(input.getUrn(), context).getData();
         }
+        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
 
-        return load(input.getUrn(), context).getData();
+    // TODO: Can we extract this into a common helper?
+    private boolean isAuthorized(@Nonnull DatasetUpdateInput update, @Nonnull QueryContext context) {
+        // Decide whether the current principal should be allowed to update the Dataset.
+        // First, check what is being updated.
+        final Authorizer authorizer = context.getAuthorizer();
+        final String principal = context.getActor();
+        final String resourceUrn = update.getUrn();
+        final String resourceType = PolicyUtils.DATASET_ENTITY_RESOURCE_TYPE;
+        final List<String> requiredPrivileges = getRequiredPrivileges(update);
+        final AuthorizationRequest.ResourceSpec resourceSpec = new AuthorizationRequest.ResourceSpec(resourceType, resourceUrn);
+
+        for (String privilege : requiredPrivileges) {
+            // No "partial" operations. All privileges required for the update must be granted for it to succeed.
+            final AuthorizationRequest request = new AuthorizationRequest(principal, privilege, Optional.of(resourceSpec));
+            final AuthorizationResult result = authorizer.authorize(request);
+            if (AuthorizationResult.Type.DENY.equals(result.getType())) {
+                // Short circuit.
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<String> getRequiredPrivileges(final DatasetUpdateInput updateInput) {
+        List<String> privileges = new ArrayList<>();
+        if (updateInput.getInstitutionalMemory() != null) {
+            privileges.add(PolicyUtils.EDIT_ENTITY_DOC_LINKS);
+        }
+        if (updateInput.getOwnership() != null) {
+            privileges.add(PolicyUtils.EDIT_ENTITY_OWNERS);
+        }
+        if (updateInput.getDeprecation() != null) {
+            privileges.add(PolicyUtils.EDIT_ENTITY_STATUS);
+        }
+        if (updateInput.getEditableProperties() != null) {
+            privileges.add(PolicyUtils.EDIT_ENTITY_DOCS);
+        }
+        if (updateInput.getGlobalTags() != null) {
+            privileges.add(PolicyUtils.EDIT_ENTITY_TAGS);
+        }
+        return privileges;
     }
 }

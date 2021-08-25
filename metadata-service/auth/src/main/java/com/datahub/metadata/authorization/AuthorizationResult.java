@@ -15,7 +15,7 @@ public class AuthorizationResult {
 
   Type type;
 
-  enum Type {
+  public enum Type {
     ALLOW,
     DENY
   }

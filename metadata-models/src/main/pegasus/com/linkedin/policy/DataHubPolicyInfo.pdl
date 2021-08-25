@@ -43,14 +43,4 @@ record DataHubPolicyInfo {
    */
   actors: DataHubActorFilter
 
-  /**
-   * Last time the policy was created.
-   */
-  createdAt: long
-
-  /**
-   * Last time the policy was updated.
-   */
-  modifiedAt: long
-
 }

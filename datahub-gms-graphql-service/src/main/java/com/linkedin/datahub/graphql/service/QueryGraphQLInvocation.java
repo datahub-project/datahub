@@ -26,7 +26,7 @@ public class QueryGraphQLInvocation implements GraphQLInvocation {
 
     @Override
     public CompletableFuture<ExecutionResult> invoke(GraphQLInvocationData invocationData, WebRequest webRequest) {
-        QueryContext queryContext = new SpringQueryContext(true, APPNAME);
+        QueryContext queryContext = new SpringQueryContext(true, APPNAME, new MockAuthorizationManager());
 
         return CompletableFuture.supplyAsync(() -> graphQLEngine.execute(invocationData.getQuery(),
             invocationData.getVariables(),
