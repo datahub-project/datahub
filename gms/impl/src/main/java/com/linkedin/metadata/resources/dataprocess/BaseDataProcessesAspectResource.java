@@ -2,9 +2,10 @@ package com.linkedin.metadata.resources.dataprocess;
 
 import com.linkedin.common.urn.DataProcessUrn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.dataprocess.DataProcessKey;
+import com.linkedin.dataprocess.DataProcessResourceKey;
 import com.linkedin.metadata.aspect.DataProcessAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.BaseVersionedAspectResource;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -25,19 +26,24 @@ public class BaseDataProcessesAspectResource<ASPECT extends RecordTemplate>
     }
 
     @Inject
-    @Named("dataProcessDAO")
-    private BaseLocalDAO localDAO;
+    @Named("entityService")
+    private EntityService _entityService;
 
     @Nonnull
     @Override
     protected BaseLocalDAO<DataProcessAspect, DataProcessUrn> getLocalDAO() {
-        return localDAO;
+        throw new UnsupportedOperationException();
     }
 
     @Nonnull
     @Override
     protected DataProcessUrn getUrn(@PathKeysParam @Nonnull PathKeys keys) {
-        DataProcessKey key = keys.<ComplexResourceKey<DataProcessKey, EmptyRecord>>get(DATA_PROCESS_KEY).getKey();
+        DataProcessResourceKey key = keys.<ComplexResourceKey<DataProcessResourceKey, EmptyRecord>>get(DATA_PROCESS_KEY).getKey();
         return new DataProcessUrn(key.getOrchestrator(), key.getName(), key.getOrigin());
+    }
+
+    @Nonnull
+    protected EntityService getEntityService() {
+        return _entityService;
     }
 }

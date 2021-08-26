@@ -1,13 +1,16 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "corpGroups",
   "namespace" : "com.linkedin.identity",
   "path" : "/corpGroups",
   "schema" : "com.linkedin.identity.CorpGroup",
-  "doc" : "generated from: com.linkedin.metadata.resources.identity.CorpGroups",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.identity.CorpGroups",
   "collection" : {
     "identifier" : {
       "name" : "corpGroup",
-      "type" : "com.linkedin.identity.CorpGroupKey",
+      "type" : "com.linkedin.identity.CorpGroupResourceKey",
       "params" : "com.linkedin.restli.common.EmptyRecord"
     },
     "supports" : [ "batch_get", "get" ],

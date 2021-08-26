@@ -4,7 +4,7 @@ import { Chart, EntityType, GlobalTags } from '../../../../types.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import ChartHeader from './ChartHeader';
-import { GetChartDocument, useGetChartQuery, useUpdateChartMutation } from '../../../../graphql/chart.generated';
+import { useGetChartQuery, useUpdateChartMutation } from '../../../../graphql/chart.generated';
 import ChartSources from './ChartSources';
 import ChartDashboards from './ChartDashboards';
 import { Message } from '../../../shared/Message';
@@ -24,35 +24,14 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Sources, TabType.Propertie
 export default function ChartProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetChartQuery({ variables: { urn } });
     const [updateChart] = useUpdateChartMutation({
-        update(cache, { data: newChart }) {
-            cache.modify({
-                fields: {
-                    chart() {
-                        cache.writeQuery({
-                            query: GetChartDocument,
-                            data: { chart: { ...newChart?.updateChart } },
-                        });
-                    },
-                },
-            });
-        },
+        refetchQueries: () => ['getChart'],
     });
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />;
     }
 
-    const getHeader = (chart: Chart) => (
-        <ChartHeader
-            urn={urn}
-            description={chart.info?.description}
-            platform={chart.tool}
-            ownership={chart.ownership}
-            lastModified={chart.info?.lastModified}
-            externalUrl={chart.info?.externalUrl}
-            chartType={chart.info?.type}
-        />
-    );
+    const getHeader = (chart: Chart) => <ChartHeader chart={chart} updateChart={updateChart} />;
 
     const getTabs = ({ ownership, info, downstreamLineage }: Chart) => {
         return [

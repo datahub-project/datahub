@@ -84,7 +84,7 @@ export default function TagProfile() {
     const history = useHistory();
 
     const allSearchResultsByType = useGetAllEntitySearchResults({
-        query: `tags:${data?.tag?.name}`,
+        query: `tags:"${data?.tag?.name}"`,
         start: 0,
         count: 1,
         filters: [],
@@ -152,7 +152,7 @@ export default function TagProfile() {
                                                 onClick={() =>
                                                     navigateToSearchUrl({
                                                         type: type as EntityType,
-                                                        query: `tags:${data?.tag?.name}`,
+                                                        query: `tags:"${data?.tag?.name}"`,
                                                         history,
                                                         entityRegistry,
                                                     })

@@ -25,7 +25,7 @@ public class ChartIndexBuilder extends BaseIndexBuilder<ChartDocument> {
   }
 
   @Nonnull
-  private static String buildBrowsePath(@Nonnull ChartUrn urn) {
+  public static String buildBrowsePath(@Nonnull ChartUrn urn) {
     return ("/" + urn.getDashboardToolEntity() + "/"  + urn.getChartIdEntity()).toLowerCase();
   }
 

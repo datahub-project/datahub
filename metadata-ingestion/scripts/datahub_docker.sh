@@ -5,10 +5,12 @@
 
 set -euo pipefail
 
-DOCKER_IMAGE=linkedin/datahub-ingestion:${DATAHUB_VERSION:-latest}
+DOCKER_IMAGE=linkedin/datahub-ingestion:${DATAHUB_VERSION:-head}
 
-docker pull --quiet $DOCKER_IMAGE
+echo "+ Pulling $DOCKER_IMAGE"
+docker pull $DOCKER_IMAGE
 
+echo '+ Running ingestion'
 docker run --rm \
     --network host \
     --workdir=/dir \

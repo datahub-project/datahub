@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from airflow.exceptions import AirflowException
 
@@ -11,10 +11,13 @@ except ModuleNotFoundError:
 
     AIRFLOW_1 = True
 
-from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+
+if TYPE_CHECKING:
+    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+    from datahub.emitter.rest_emitter import DatahubRestEmitter
+    from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
+
 
 _default_hook_args = []
 if AIRFLOW_1:
@@ -57,15 +60,18 @@ class DatahubRestHook(BaseHook):
             },
         }
 
-    def _get_config(self) -> Tuple[str, Optional[str]]:
+    def _get_config(self) -> Tuple[str, Optional[str], Optional[int]]:
         conn = self.get_connection(self.datahub_rest_conn_id)
         host = conn.host
         if host is None:
             raise AirflowException("host parameter is required")
-        return (host, conn.password)
+        timeout_sec = conn.extra_dejson.get("timeout_sec")
+        return (host, conn.password, timeout_sec)
 
-    def make_emitter(self) -> DatahubRestEmitter:
-        return DatahubRestEmitter(*self._get_config())
+    def make_emitter(self) -> "DatahubRestEmitter":
+        import datahub.emitter.rest_emitter
+
+        return datahub.emitter.rest_emitter.DatahubRestEmitter(*self._get_config())
 
     def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
         emitter = self.make_emitter()
@@ -110,7 +116,9 @@ class DatahubKafkaHook(BaseHook):
             },
         }
 
-    def _get_config(self) -> KafkaSinkConfig:
+    def _get_config(self) -> "KafkaSinkConfig":
+        import datahub.ingestion.sink.datahub_kafka
+
         conn = self.get_connection(self.datahub_kafka_conn_id)
         obj = conn.extra_dejson
         obj.setdefault("connection", {})
@@ -120,12 +128,14 @@ class DatahubKafkaHook(BaseHook):
                     "Kafka broker specified twice (present in host and extra)"
                 )
             obj["connection"]["bootstrap"] = conn.host
-        config = KafkaSinkConfig.parse_obj(obj)
+        config = datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.parse_obj(obj)
         return config
 
-    def make_emitter(self) -> DatahubKafkaEmitter:
+    def make_emitter(self) -> "DatahubKafkaEmitter":
+        import datahub.emitter.kafka_emitter
+
         sink_config = self._get_config()
-        return DatahubKafkaEmitter(sink_config)
+        return datahub.emitter.kafka_emitter.DatahubKafkaEmitter(sink_config)
 
     def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:
         emitter = self.make_emitter()
@@ -176,7 +186,7 @@ class DatahubGenericHook(BaseHook):
                 f"DataHub cannot handle conn_type {conn.conn_type} in {conn}"
             )
 
-    def make_emitter(self) -> Union[DatahubRestEmitter, DatahubKafkaEmitter]:
+    def make_emitter(self) -> Union["DatahubRestEmitter", "DatahubKafkaEmitter"]:
         return self.get_underlying_hook().make_emitter()
 
     def emit_mces(self, mces: List[MetadataChangeEvent]) -> None:

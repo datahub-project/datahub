@@ -24,7 +24,7 @@ public class DataJobIndexBuilder extends BaseIndexBuilder<DataJobDocument> {
   }
 
   @Nonnull
-  private static String buildBrowsePath(@Nonnull DataJobUrn urn) {
+  public static String buildBrowsePath(@Nonnull DataJobUrn urn) {
     return ("/" + urn.getFlowEntity().getOrchestratorEntity() + "/" + urn.getFlowEntity().getFlowIdEntity() + "/"
         + urn.getJobIdEntity()).toLowerCase();
   }

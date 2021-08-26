@@ -4,6 +4,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dashboard.Dashboard;
+import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.datahub.graphql.generated.DashboardUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
@@ -39,6 +40,12 @@ public class DashboardUpdateInputMapper implements InputModelMapper<DashboardUpd
                     )
             );
             result.setGlobalTags(globalTags);
+        }
+
+        if (dashboardUpdateInput.getEditableProperties() != null) {
+            final EditableDashboardProperties editableDashboardProperties = new EditableDashboardProperties();
+            editableDashboardProperties.setDescription(dashboardUpdateInput.getEditableProperties().getDescription());
+            result.setEditableProperties(editableDashboardProperties);
         }
         return result;
     }

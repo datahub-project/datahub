@@ -1,10 +1,6 @@
 import React from 'react';
 import { Alert } from 'antd';
-import {
-    GetDataFlowDocument,
-    useGetDataFlowQuery,
-    useUpdateDataFlowMutation,
-} from '../../../../graphql/dataFlow.generated';
+import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../../graphql/dataFlow.generated';
 import { EntityProfile } from '../../../shared/EntityProfile';
 import { DataFlow, EntityType, GlobalTags } from '../../../../types.generated';
 import DataFlowHeader from './DataFlowHeader';
@@ -29,25 +25,14 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
     };
     const { loading, error, data } = useGetDataFlowQuery({ variables: { urn } });
     const [updateDataFlow] = useUpdateDataFlowMutation({
-        update(cache, { data: newDataFlow }) {
-            cache.modify({
-                fields: {
-                    dataFlow() {
-                        cache.writeQuery({
-                            query: GetDataFlowDocument,
-                            data: { dataFlow: { ...newDataFlow?.updateDataFlow } },
-                        });
-                    },
-                },
-            });
-        },
+        refetchQueries: () => ['getDataFlow'],
     });
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
-    const getHeader = (dataFlow: DataFlow) => <DataFlowHeader dataFlow={dataFlow} />;
+    const getHeader = (dataFlow: DataFlow) => <DataFlowHeader dataFlow={dataFlow} updateDataFlow={updateDataFlow} />;
 
     const getTabs = ({ ownership, info, dataJobs }: DataFlow) => {
         return [
@@ -107,7 +92,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
                     titleLink={`/${entityRegistry.getPathName(EntityType.DataFlow)}/${urn}`}
                     title={data.dataFlow.info?.name || ''}
                     tabs={getTabs(data.dataFlow)}
-                    header={getHeader(data.dataFlow as DataFlow)}
+                    header={getHeader(data.dataFlow)}
                     onTabChange={(tab: string) => {
                         analytics.event({
                             type: EventType.EntitySectionViewEvent,

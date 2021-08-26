@@ -1,9 +1,12 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "tags",
   "namespace" : "com.linkedin.tag",
   "path" : "/tags",
   "schema" : "com.linkedin.tag.Tag",
-  "doc" : "generated from: com.linkedin.metadata.resources.tag.Tags",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.tag.Tags",
   "collection" : {
     "identifier" : {
       "name" : "tag",

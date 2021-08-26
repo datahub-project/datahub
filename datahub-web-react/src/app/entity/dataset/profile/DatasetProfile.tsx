@@ -1,14 +1,10 @@
 import React from 'react';
 import { Alert } from 'antd';
-import {
-    useGetDatasetQuery,
-    useUpdateDatasetMutation,
-    GetDatasetDocument,
-} from '../../../../graphql/dataset.generated';
+import { useGetDatasetQuery, useUpdateDatasetMutation } from '../../../../graphql/dataset.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
-import { Dataset, EntityType, GlobalTags, GlossaryTerms } from '../../../../types.generated';
+import { Dataset, EntityType, GlobalTags, GlossaryTerms, SchemaMetadata } from '../../../../types.generated';
 import LineageView from './Lineage';
 import { Properties as PropertiesView } from '../../shared/Properties';
 import DocumentsView from './Documentation';
@@ -19,6 +15,8 @@ import useIsLineageMode from '../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
+import QueriesTab from './QueriesTab';
+import StatsView from './stats/Stats';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -26,9 +24,10 @@ export enum TabType {
     Lineage = 'Lineage',
     Properties = 'Properties',
     Documents = 'Documents',
+    Queries = 'Queries',
+    Stats = 'Stats',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Schema, TabType.Lineage, TabType.Properties, TabType.Documents];
 const EMPTY_ARR: never[] = [];
 
 /**
@@ -36,47 +35,44 @@ const EMPTY_ARR: never[] = [];
  */
 export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
+
     const user = useGetAuthenticatedUser();
     const [updateDataset] = useUpdateDatasetMutation({
-        update(cache, { data: newDataset }) {
-            cache.modify({
-                fields: {
-                    dataset() {
-                        cache.writeQuery({
-                            query: GetDatasetDocument,
-                            data: { dataset: newDataset?.updateDataset },
-                        });
-                    },
-                },
-            });
-        },
+        refetchQueries: () => ['getDataset'],
     });
     const isLineageMode = useIsLineageMode();
 
-    if (error || (!loading && !error && !data)) {
+    if (!loading && error) {
         return <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />;
     }
 
-    const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} />;
+    const getHeader = (dataset: Dataset) => <DatasetHeader dataset={dataset} updateDataset={updateDataset} />;
 
     const getTabs = ({
         ownership,
         upstreamLineage,
         downstreamLineage,
         properties,
+        datasetProfiles,
         institutionalMemory,
         schema,
+        schemaMetadata,
+        previousSchemaMetadata,
         editableSchemaMetadata,
-    }: Dataset) => {
-        return [
+        usageStats,
+    }: Dataset & { previousSchemaMetadata: SchemaMetadata }) => {
+        const tabs = [
             {
                 name: TabType.Schema,
                 path: TabType.Schema.toLowerCase(),
                 content: (
                     <SchemaView
                         urn={urn}
-                        schema={schema}
+                        schema={schemaMetadata || schema}
+                        previousSchemaMetadata={previousSchemaMetadata}
+                        usageStats={usageStats}
                         editableSchemaMetadata={editableSchemaMetadata}
                         updateEditableSchema={(update) => {
                             analytics.event({
@@ -115,6 +111,11 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 content: <LineageView upstreamLineage={upstreamLineage} downstreamLineage={downstreamLineage} />,
             },
             {
+                name: TabType.Queries,
+                path: TabType.Queries.toLowerCase(),
+                content: <QueriesTab usageStats={usageStats} />,
+            },
+            {
                 name: TabType.Properties,
                 path: TabType.Properties.toLowerCase(),
                 content: <PropertiesView properties={properties || EMPTY_ARR} />,
@@ -125,6 +126,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 content: (
                     <DocumentsView
                         authenticatedUserUrn={user?.urn}
+                        authenticatedUserUsername={user?.username}
                         documents={institutionalMemory?.elements || EMPTY_ARR}
                         updateDocumentation={(update) => {
                             analytics.event({
@@ -138,7 +140,16 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                     />
                 ),
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+        ];
+
+        if (datasetProfiles && datasetProfiles.length) {
+            tabs.unshift({
+                name: TabType.Stats,
+                path: TabType.Stats.toLowerCase(),
+                content: <StatsView urn={urn} profile={datasetProfiles[0]} />,
+            });
+        }
+        return tabs;
     };
 
     return (
@@ -168,7 +179,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                         />
                     }
                     tagCardHeader={data.dataset?.glossaryTerms ? 'Tags & Terms' : 'Tags'}
-                    tabs={getTabs(data.dataset as Dataset)}
+                    tabs={getTabs(data.dataset as Dataset & { previousSchemaMetadata: SchemaMetadata })}
                     header={getHeader(data.dataset as Dataset)}
                     onTabChange={(tab: string) => {
                         analytics.event({

@@ -1,7 +1,10 @@
-from datahub.ingestion.source.snowflake import SnowflakeConfig
+import pytest
 
 
+@pytest.mark.integration
 def test_snowflake_uri():
+    from datahub.ingestion.source.sql.snowflake import SnowflakeConfig
+
     config = SnowflakeConfig.parse_obj(
         {
             "username": "user",
@@ -15,5 +18,5 @@ def test_snowflake_uri():
 
     assert (
         config.get_sql_alchemy_url()
-        == "snowflake://user:password@acctname/demo?warehouse=COMPUTE_WH&role=sysadmin"
+        == "snowflake://user:password@acctname/?warehouse=COMPUTE_WH&role=sysadmin"
     )

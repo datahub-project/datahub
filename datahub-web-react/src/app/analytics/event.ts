@@ -122,6 +122,7 @@ export const EntityActionType = {
     UpdateOwnership: 'UpdateOwnership',
     UpdateDocumentation: 'UpdateDocumentation',
     UpdateDescription: 'UpdateDescription',
+    UpdateProperties: 'UpdateProperties',
     UpdateSchemaDescription: 'UpdateSchemaDescription',
     UpdateSchemaTags: 'UpdateSchemaTags',
     ClickExternalUrl: 'ClickExternalUrl',

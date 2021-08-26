@@ -1,26 +1,26 @@
 #!/bin/bash
+set -euxo pipefail
 
 # Runs a basic e2e test. It is not meant to be fully comprehensive,
 # but rather should catch obvious bugs before they make it into prod.
 #
 # Script assumptions:
 #   - The gradle build has already been run.
-#   - Python 3.6+ is installed.
-#   - The metadata-ingestion codegen script has been run.
-#   - A full DataHub setup is running on localhost with standard ports.
-#     The easiest way to do this is by using the quickstart or dev
-#     quickstart scripts.
+#   - Python 3.6+ is installed and in the PATH.
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
-
-set -euxo pipefail
 
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
-(cd ../metadata-ingestion && ./scripts/codegen.sh)
+datahub docker quickstart \
+	--build-locally \
+	--quickstart-compose-file ../docker/docker-compose.yml \
+	--quickstart-compose-file ../docker/docker-compose.override.yml \
+	--quickstart-compose-file ../docker/docker-compose.dev.yml \
+	--dump-logs-on-failure
 
 pytest -vv

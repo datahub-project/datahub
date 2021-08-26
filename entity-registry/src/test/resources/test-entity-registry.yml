@@ -1,0 +1,12 @@
+entities:
+  - name: dataset
+    keyAspect: datasetKey
+    aspects:
+      - datasetProperties
+      - schemaMetadata
+      - status
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - chartInfo
+      - status

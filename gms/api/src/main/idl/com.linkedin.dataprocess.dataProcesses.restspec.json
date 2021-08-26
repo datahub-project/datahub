@@ -1,13 +1,16 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "dataProcesses",
   "namespace" : "com.linkedin.dataprocess",
   "path" : "/dataProcesses",
   "schema" : "com.linkedin.dataprocess.DataProcess",
-  "doc" : "generated from: com.linkedin.metadata.resources.dataprocess.DataProcesses",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dataprocess.DataProcesses",
   "collection" : {
     "identifier" : {
       "name" : "dataprocess",
-      "type" : "com.linkedin.dataprocess.DataProcessKey",
+      "type" : "com.linkedin.dataprocess.DataProcessResourceKey",
       "params" : "com.linkedin.restli.common.EmptyRecord"
     },
     "supports" : [ "batch_get", "get", "get_all" ],
@@ -113,11 +116,14 @@
     "entity" : {
       "path" : "/dataProcesses/{dataprocess}",
       "subresources" : [ {
+        "annotations" : {
+          "deprecated" : { }
+        },
         "name" : "dataProcessInfo",
         "namespace" : "com.linkedin.dataprocess",
         "path" : "/dataProcesses/{dataprocess}/dataProcessInfo",
         "schema" : "com.linkedin.dataprocess.DataProcessInfo",
-        "doc" : "generated from: com.linkedin.metadata.resources.dataprocess.DataProcessInfoResource",
+        "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dataprocess.DataProcessInfoResource",
         "collection" : {
           "identifier" : {
             "name" : "dataProcessInfoId",

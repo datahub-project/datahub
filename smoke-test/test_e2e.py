@@ -1,40 +1,31 @@
 import time
+
 import pytest
 import requests
-
+import urllib
+from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.check.docker import check_local_docker_containers
 
 GMS_ENDPOINT = "http://localhost:8080"
 FRONTEND_ENDPOINT = "http://localhost:9002"
 KAFKA_BROKER = "localhost:9092"
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
+usage_sample_data = (
+    "../metadata-ingestion/tests/integration/bigquery-usage/bigquery_usages_golden.json"
+)
 bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
 kafka_post_ingestion_wait_sec = 60
-healthcheck_wait_retries = 20
-healthcheck_wait_interval_sec = 15
 
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    tries = 0
-    while tries < healthcheck_wait_retries:
-        if tries > 0:
-            time.sleep(healthcheck_wait_interval_sec)
-        tries += 1
-        
-        issues = check_local_docker_containers()
-        if not issues:
-            print(f"finished waiting for healthchecks after {tries} tries")
-            yield
-            return
-    
-    issues_str = '\n'.join(f"- {issue}" for issue in issues)
-    raise RuntimeError(f"retry limit exceeded while waiting for docker healthchecks\n{issues_str}")
+    # Simply assert that everything is healthy, but don't wait.
+    assert not check_local_docker_containers()
+    yield
 
 
 @pytest.mark.dependency()
@@ -43,13 +34,12 @@ def test_healthchecks(wait_for_healthchecks):
     pass
 
 
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_ingestion_via_rest(wait_for_healthchecks):
+def ingest_file(filename: str):
     pipeline = Pipeline.create(
         {
             "source": {
                 "type": "file",
-                "config": {"filename": bootstrap_sample_data},
+                "config": {"filename": filename},
             },
             "sink": {
                 "type": "datahub-rest",
@@ -59,6 +49,16 @@ def test_ingestion_via_rest(wait_for_healthchecks):
     )
     pipeline.run()
     pipeline.raise_from_status()
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_ingestion_via_rest(wait_for_healthchecks):
+    ingest_file(bootstrap_sample_data)
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_ingestion_usage_via_rest(wait_for_healthchecks):
+    ingest_file(usage_sample_data)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -87,47 +87,24 @@ def test_ingestion_via_kafka(wait_for_healthchecks):
     time.sleep(kafka_post_ingestion_wait_sec)
 
 
-@pytest.mark.dependency(depends=["test_ingestion_via_rest", "test_ingestion_via_kafka"])
+@pytest.mark.dependency(
+    depends=[
+        "test_ingestion_via_rest",
+        "test_ingestion_via_kafka",
+        "test_ingestion_usage_via_rest",
+    ]
+)
 def test_run_ingestion(wait_for_healthchecks):
     # Dummy test so that future ones can just depend on this one.
     pass
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_gms_list_data_platforms():
-    response = requests.get(
-        f"{GMS_ENDPOINT}/dataPlatforms",
-        headers={
-            **restli_default_headers,
-            "X-RestLi-Method": "get_all",
-        },
-    )
-    response.raise_for_status()
-    data = response.json()
-
-    assert len(data["elements"]) > 10
-
-
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_gms_get_all_users():
-    response = requests.get(
-        f"{GMS_ENDPOINT}/corpUsers",
-        headers={
-            **restli_default_headers,
-            "X-RestLi-Method": "get_all",
-        },
-    )
-    response.raise_for_status()
-    data = response.json()
-
-    assert len(data["elements"]) >= 3
-
-
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_get_user():
     username = "jdoe"
+    urn = f"urn:li:corpuser:{username}"
     response = requests.get(
-        f"{GMS_ENDPOINT}/corpUsers/($params:(),name:{username})",
+        f"{GMS_ENDPOINT}/entities/{urllib.parse.quote(urn)}",
         headers={
             **restli_default_headers,
         },
@@ -135,9 +112,9 @@ def test_gms_get_user():
     response.raise_for_status()
     data = response.json()
 
-    assert data["username"] == username
-    assert data["info"]["displayName"]
-    assert data["info"]["email"]
+    assert data["value"]
+    assert data["value"]["com.linkedin.metadata.snapshot.CorpUserSnapshot"]
+    assert data["value"]["com.linkedin.metadata.snapshot.CorpUserSnapshot"]["urn"] == urn
 
 
 @pytest.mark.parametrize(
@@ -167,19 +144,18 @@ def test_gms_get_dataset(platform, dataset_name, env):
     urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
 
     response = requests.get(
-        f"{GMS_ENDPOINT}/datasets/($params:(),name:{dataset_name},origin:{env},platform:{requests.utils.quote(platform)})",
+        f"{GMS_ENDPOINT}/entities/{urllib.parse.quote(urn)}",
         headers={
             **restli_default_headers,
             "X-RestLi-Method": "get",
         },
     )
     response.raise_for_status()
-    data = response.json()
+    res_data = response.json()
 
-    assert data["urn"] == urn
-    assert data["name"] == dataset_name
-    assert data["platform"] == platform
-    assert len(data["schemaMetadata"]["fields"]) >= 2
+    assert res_data["value"]
+    assert res_data["value"]["com.linkedin.metadata.snapshot.DatasetSnapshot"]
+    assert res_data["value"]["com.linkedin.metadata.snapshot.DatasetSnapshot"]["urn"] == urn
 
 
 @pytest.mark.parametrize(
@@ -191,19 +167,59 @@ def test_gms_get_dataset(platform, dataset_name, env):
 )
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_search_dataset(query, min_expected_results):
-    response = requests.get(
-        f"{GMS_ENDPOINT}/datasets?q=search&input={query}",
-        headers={
-            **restli_default_headers,
-            "X-RestLi-Method": "finder",
+
+
+    json = {
+            "input": f"{query}",
+            "entity": "dataset",
+            "start": 0,
+            "count": 10
+    }
+    print(json)
+    response = requests.post(
+        f"{GMS_ENDPOINT}/entities?action=search",
+        headers=restli_default_headers,
+        json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data["value"]
+    assert res_data["value"]["numEntities"] >= min_expected_results
+    assert len(res_data["value"]["entities"]) >= min_expected_results
+
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_gms_usage_fetch():
+    response = requests.post(
+        f"{GMS_ENDPOINT}/usageStats?action=queryRange",
+        headers=restli_default_headers,
+        json={
+            "resource": "urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.excess_deaths_derived,PROD)",
+            "duration": "DAY",
+            "rangeFromEnd": "ALL",
         },
     )
     response.raise_for_status()
-    data = response.json()
 
-    assert len(data["elements"]) >= min_expected_results
-    assert data["paging"]["total"] >= min_expected_results
-    assert data["elements"][0]["urn"]
+    data = response.json()["value"]
+
+    assert len(data["buckets"]) == 3
+    assert data["buckets"][0]["metrics"]["topSqlQueries"]
+
+    fields = data["aggregations"].pop("fields")
+    assert len(fields) == 12
+    assert fields[0]["count"] == 7
+
+    users = data["aggregations"].pop("users")
+    assert len(users) == 1
+    assert users[0]["count"] == 7
+
+    assert data["aggregations"] == {
+        # "fields" and "users" already popped out
+        "totalSqlQueries": 7,
+        "uniqueUserCount": 1,
+    }
 
 
 @pytest.fixture(scope="session")
@@ -215,7 +231,7 @@ def frontend_session(wait_for_healthchecks):
     }
     data = '{"username":"datahub", "password":"datahub"}'
     response = session.post(
-        f"{FRONTEND_ENDPOINT}/authenticate", headers=headers, data=data
+        f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data
     )
     response.raise_for_status()
 
@@ -229,15 +245,43 @@ def test_frontend_auth(frontend_session):
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_browse_datasets(frontend_session):
-    response = frontend_session.get(
-        f"{FRONTEND_ENDPOINT}/api/v2/browse?type=dataset&path=/prod"
-    )
-    response.raise_for_status()
-    data = response.json()
 
-    assert data["metadata"]["totalNumEntities"] >= 4
-    assert len(data["metadata"]["groups"]) >= 4
-    assert len(data["metadata"]["groups"]) <= 8
+    json = {
+        "query": """query browse($input: BrowseInput!) {\n
+                        browse(input: $input) {\n
+                            start\n
+                            count\n
+                            total\n
+                            groups {
+                                name
+                            }
+                            entities {\n
+                                ... on Dataset {\n
+                                    urn\n
+                                    name\n
+                                }\n
+                            }\n
+                        }\n
+                    }""",
+        "variables": {
+            "input": {
+                "type": "DATASET",
+                "path": ["prod"]
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["browse"]
+    assert len(res_data["data"]["browse"]["entities"]) == 0
+    assert len(res_data["data"]["browse"]["groups"]) > 0
 
 
 @pytest.mark.parametrize(
@@ -248,36 +292,81 @@ def test_frontend_browse_datasets(frontend_session):
     ],
 )
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_frontend_browse_datasets(frontend_session, query, min_expected_results):
-    response = frontend_session.get(
-        f"{FRONTEND_ENDPOINT}/api/v2/search?type=dataset&input={query}"
+def test_frontend_search_datasets(frontend_session, query, min_expected_results):
+
+    json = {
+        "query": """query search($input: SearchInput!) {\n
+            search(input: $input) {\n
+                start\n
+                count\n
+                total\n 
+                searchResults {\n
+                    entity {\n
+                        ... on Dataset {\n
+                            urn\n
+                            name\n
+                        }\n
+                    }\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+                "type": "DATASET",
+                "query": f"{query}",
+                "start": 0,
+                "count": 10
+            }
+        }
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
     )
     response.raise_for_status()
-    data = response.json()
+    res_data = response.json()
 
-    assert len(data["elements"]) >= min_expected_results
-
-
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_frontend_list_users(frontend_session):
-    response = frontend_session.get(f"{FRONTEND_ENDPOINT}/api/v1/party/entities")
-    response.raise_for_status()
-    data = response.json()
-
-    assert data["status"] == "ok"
-    assert len(data["userEntities"]) >= 3
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["search"]
+    assert res_data["data"]["search"]["total"] >= min_expected_results
+    assert len(res_data["data"]["search"]["searchResults"]) >= min_expected_results
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_user_info(frontend_session):
-    response = frontend_session.get(f"{FRONTEND_ENDPOINT}/api/v1/user/me")
-    response.raise_for_status()
-    data = response.json()
 
-    assert data["status"] == "ok"
-    assert data["user"]["userName"] == "datahub"
-    assert data["user"]["name"]
-    assert data["user"]["email"]
+    urn = f"urn:li:corpuser:datahub"
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
+                urn\n
+                username\n
+                editableInfo {\n
+                    pictureLink\n
+                }\n
+                info {\n
+                    firstName\n
+                    fullName\n
+                    title\n
+                    email\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": urn
+        }
+    }
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data 
+    assert res_data["data"]
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["urn"] == urn
 
 
 @pytest.mark.parametrize(
@@ -298,28 +387,97 @@ def test_frontend_user_info(frontend_session):
     ],
 )
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_frontend_user_info(frontend_session, platform, dataset_name, env):
+def test_frontend_datasets(frontend_session, platform, dataset_name, env):
     urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
-
+    json = {
+        "query": """query getDataset($urn: String!) {\n
+            dataset(urn: $urn) {\n
+                urn\n
+                name\n
+                description\n
+                platform {\n
+                    urn\n
+                }\n
+                schemaMetadata {\n
+                    name\n
+                    version\n
+                    createdAt\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "urn": urn
+        }
+    }
     # Basic dataset info.
-    response = frontend_session.get(f"{FRONTEND_ENDPOINT}/api/v2/datasets/{urn}")
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
-    data = response.json()
+    res_data = response.json()
 
-    assert data["nativeName"] == dataset_name
-    assert data["fabric"] == env
-    assert data["uri"] == urn
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["dataset"]
+    assert res_data["data"]["dataset"]["urn"] == urn
+    assert res_data["data"]["dataset"]["name"] == dataset_name
+    assert res_data["data"]["dataset"]["platform"]["urn"] == platform
 
-    # Schema info.
-    response = frontend_session.get(f"{FRONTEND_ENDPOINT}/api/v2/datasets/{urn}/schema")
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_ingest_with_system_metadata():
+    response = requests.post(
+        f"{GMS_ENDPOINT}/entities?action=ingest",
+        headers=restli_default_headers,
+        json={
+          'entity':
+            {
+              'value':
+                {'com.linkedin.metadata.snapshot.CorpUserSnapshot':
+                  {'urn': 'urn:li:corpuser:datahub', 'aspects':
+                    [{'com.linkedin.identity.CorpUserInfo': {'active': True, 'displayName': 'Data Hub', 'email': 'datahub@linkedin.com', 'title': 'CEO', 'fullName': 'Data Hub'}}]
+                   }
+                  }
+                },
+              'systemMetadata': {'lastObserved': 1628097379571, 'runId': 'af0fe6e4-f547-11eb-81b2-acde48001122'}
+        },
+    )
     response.raise_for_status()
-    data = response.json()
 
-    assert len(data["schema"]["columns"]) >= 2
-
-    # Ownership info.
-    response = frontend_session.get(f"{FRONTEND_ENDPOINT}/api/v2/datasets/{urn}/owners")
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_ingest_with_blank_system_metadata():
+    response = requests.post(
+        f"{GMS_ENDPOINT}/entities?action=ingest",
+        headers=restli_default_headers,
+        json={
+          'entity':
+            {
+              'value':
+                {'com.linkedin.metadata.snapshot.CorpUserSnapshot':
+                  {'urn': 'urn:li:corpuser:datahub', 'aspects':
+                    [{'com.linkedin.identity.CorpUserInfo': {'active': True, 'displayName': 'Data Hub', 'email': 'datahub@linkedin.com', 'title': 'CEO', 'fullName': 'Data Hub'}}]
+                   }
+                  }
+                },
+              'systemMetadata': {}
+        },
+    )
     response.raise_for_status()
-    data = response.json()
 
-    assert len(data["owners"]) >= 1
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_ingest_without_system_metadata():
+    response = requests.post(
+        f"{GMS_ENDPOINT}/entities?action=ingest",
+        headers=restli_default_headers,
+        json={
+          'entity':
+            {
+              'value':
+                {'com.linkedin.metadata.snapshot.CorpUserSnapshot':
+                  {'urn': 'urn:li:corpuser:datahub', 'aspects':
+                    [{'com.linkedin.identity.CorpUserInfo': {'active': True, 'displayName': 'Data Hub', 'email': 'datahub@linkedin.com', 'title': 'CEO', 'fullName': 'Data Hub'}}]
+                   }
+                  }
+             },
+        },
+    )
+    response.raise_for_status()

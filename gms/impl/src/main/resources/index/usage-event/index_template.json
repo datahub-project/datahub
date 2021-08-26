@@ -1,5 +1,5 @@
 {
-  "index_patterns": ["*datahub_usage_event*"],
+  "index_patterns": ["*PREFIXdatahub_usage_event*"],
   "data_stream": { },
   "priority": 500,
   "template": {
@@ -23,7 +23,7 @@
       }
     },
     "settings": {
-      "index.lifecycle.name": "datahub_usage_event_policy"
+      "index.lifecycle.name": "PREFIXdatahub_usage_event_policy"
     }
   }
 }

@@ -1,10 +1,27 @@
 package com.linkedin.metadata.resources.ml;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Entity;
+import com.linkedin.metadata.entity.ebean.EbeanEntityService;
+import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.restli.RestliUtils;
+import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.snapshot.Snapshot;
+import java.net.URISyntaxException;
+import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -59,6 +76,10 @@ import com.linkedin.restli.server.annotations.RestMethod;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
+@Deprecated
 @RestLiCollection(name = "mlModels", namespace = "com.linkedin.ml", keyName = "mlmodel")
 public class MLModels extends BaseSearchableEntityResource<
     // @formatter:off
@@ -69,28 +90,31 @@ public class MLModels extends BaseSearchableEntityResource<
     MLModelAspect,
     MLModelDocument> {
 
+    private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
+    private final Clock _clock = Clock.systemUTC();
+
     public MLModels() {
         super(MLModelSnapshot.class, MLModelAspect.class);
     }
 
     @Inject
-    @Named("mlModelDAO")
-    private BaseLocalDAO<MLModelAspect, MLModelUrn> _localDAO;
+    @Named("entityService")
+    private EbeanEntityService _entityService;
 
     @Inject
-    @Named("mlModelSearchDAO")
-    private BaseSearchDAO<MLModelDocument> _esSearchDAO;
+    @Named("searchService")
+    private SearchService _searchService;
 
     @Nonnull
     @Override
     protected BaseSearchDAO<MLModelDocument> getSearchDAO() {
-        return _esSearchDAO;
+        throw new UnsupportedOperationException();
     }
 
     @Nonnull
     @Override
     protected BaseLocalDAO<MLModelAspect, MLModelUrn> getLocalDAO() {
-        return _localDAO;
+        throw new UnsupportedOperationException();
     }
 
     @Nonnull
@@ -237,7 +261,18 @@ public class MLModels extends BaseSearchableEntityResource<
     @Nonnull
     public Task<MLModel> get(@Nonnull ComplexResourceKey<MLModelKey, EmptyRecord> key,
         @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-        return super.get(key, aspectNames);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+            Arrays.asList(aspectNames));
+        return RestliUtils.toTask(() -> {
+            final Entity entity = _entityService.getEntity(new DatasetUrn(
+                key.getKey().getPlatform(),
+                key.getKey().getName(),
+                key.getKey().getOrigin()), projectedAspects);
+            if (entity != null) {
+                return toValue(entity.getValue().getMLModelSnapshot());
+            }
+            throw RestliUtils.resourceNotFoundException();
+        });
     }
 
     @RestMethod.BatchGet
@@ -246,7 +281,21 @@ public class MLModels extends BaseSearchableEntityResource<
     public Task<Map<ComplexResourceKey<MLModelKey, EmptyRecord>, MLModel>> batchGet(
         @Nonnull Set<ComplexResourceKey<MLModelKey, EmptyRecord>> keys,
         @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-        return super.batchGet(keys, aspectNames);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+            Arrays.asList(aspectNames));
+        return RestliUtils.toTask(() -> {
+
+            final Map<ComplexResourceKey<MLModelKey, EmptyRecord>, MLModel> entities = new HashMap<>();
+            for (final ComplexResourceKey<MLModelKey, EmptyRecord> key : keys) {
+                final Entity entity = _entityService.getEntity(
+                    new DatasetUrn(key.getKey().getPlatform(), key.getKey().getName(), key.getKey().getOrigin()),
+                    projectedAspects);
+                if (entity != null) {
+                    entities.put(key, toValue(entity.getValue().getMLModelSnapshot()));
+                }
+            }
+            return entities;
+        });
     }
 
     @RestMethod.GetAll
@@ -266,7 +315,26 @@ public class MLModels extends BaseSearchableEntityResource<
         @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
         @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
         @PagingContextParam @Nonnull PagingContext pagingContext) {
-        return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
+        return RestliUtils.toTask(() -> {
+
+            final SearchResult searchResult = _searchService.search(
+                "mlModel",
+                input,
+                filter,
+                sortCriterion,
+                pagingContext.getStart(),
+                pagingContext.getCount());
+
+            final Set<Urn> urns = new HashSet<>(searchResult.getEntities());
+            final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
+
+            return new CollectionResult<>(
+                entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getMLModelSnapshot())).collect(Collectors.toList()),
+                searchResult.getNumEntities(),
+                searchResult.getMetadata().setUrns(new UrnArray(urns))
+            );
+        });
     }
 
     @Action(name = ACTION_AUTOCOMPLETE)
@@ -275,14 +343,30 @@ public class MLModels extends BaseSearchableEntityResource<
     public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_QUERY) @Nonnull String query,
         @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
         @ActionParam(PARAM_LIMIT) int limit) {
-        return super.autocomplete(query, field, filter, limit);
+        return RestliUtils.toTask(() ->
+            _searchService.autoComplete(
+                "mlModel",
+                query,
+                field,
+                filter,
+                limit)
+        );
     }
 
     @Action(name = ACTION_INGEST)
     @Override
     @Nonnull
     public Task<Void> ingest(@ActionParam(PARAM_SNAPSHOT) @Nonnull MLModelSnapshot snapshot) {
-        return super.ingest(snapshot);
+        return RestliUtils.toTask(() -> {
+            try {
+                final AuditStamp auditStamp =
+                    new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+                _entityService.ingestEntity(new Entity().setValue(Snapshot.create(snapshot)), auditStamp);
+            } catch (URISyntaxException e) {
+                throw new RuntimeException("Failed to create Audit Urn", e);
+            }
+            return null;
+        });
     }
 
     @Action(name = ACTION_GET_SNAPSHOT)
@@ -290,7 +374,21 @@ public class MLModels extends BaseSearchableEntityResource<
     @Nonnull
     public Task<MLModelSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
         @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-        return super.getSnapshot(urnString, aspectNames);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+            Arrays.asList(aspectNames));
+        return RestliUtils.toTask(() -> {
+            try {
+                final Entity entity = _entityService.getEntity(
+                    Urn.createFromString(urnString), projectedAspects);
+
+                if (entity != null) {
+                    return entity.getValue().getMLModelSnapshot();
+                }
+                throw RestliUtils.resourceNotFoundException();
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(String.format("Failed to convert urnString %s into an Urn", urnString));
+            }
+        });
     }
 
     @Action(name = ACTION_BACKFILL)

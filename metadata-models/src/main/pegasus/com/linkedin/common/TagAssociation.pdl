@@ -5,8 +5,13 @@ namespace com.linkedin.common
  * propagation parameters.
  */
 record TagAssociation {
-   /**
-    * Urn of the applied tag
-    */
-    tag: TagUrn
+ /**
+  * Urn of the applied tag
+  */
+  @Searchable = {
+    "fieldName": "tags",
+    "fieldType": "URN_PARTIAL",
+    "hasValuesFieldName": "hasTags"
+  }
+  tag: TagUrn
 }

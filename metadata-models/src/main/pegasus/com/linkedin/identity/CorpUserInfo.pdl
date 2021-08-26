@@ -6,12 +6,19 @@ import com.linkedin.common.EmailAddress
 /**
  * Linkedin corp user information
  */
+@Aspect = {
+  "name": "corpUserInfo"
+}
 @Aspect.EntityUrns = [ "com.linkedin.common.CorpuserUrn" ]
 record CorpUserInfo {
 
   /**
    * Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools
    */
+  @Searchable = {
+    "fieldType": "BOOLEAN",
+    "weightsPerFieldValue": { "true": 2.0 }
+  }
   active: boolean
 
   /**
@@ -22,16 +29,33 @@ record CorpUserInfo {
   /**
    * email address of this user
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": true
+  }
   email: EmailAddress
 
   /**
    * title of this user
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": true
+  }
   title: optional string
 
   /**
    * direct manager of this user
    */
+  @Relationship = {
+    "name": "ReportsTo",
+    "entityTypes": [ "corpUser" ]
+  }
+  @Searchable = {
+    "fieldName": "managerLdap",
+    "fieldType": "URN",
+    "queryByDefault": true
+  }
   managerUrn: optional CorpuserUrn
 
   /**
@@ -57,6 +81,11 @@ record CorpUserInfo {
   /**
    * Common name of this user, format is firstName + lastName (split by a whitespace)
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": true,
+    "boostScore": 10.0
+  }
   fullName: optional string
 
   /**

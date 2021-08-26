@@ -6,6 +6,10 @@ import com.linkedin.metadata.aspect.ChartAspect
 /**
  * A metadata snapshot for a specific Chart entity.
  */
+@Entity = {
+  "name": "chart",
+  "keyAspect": "chartKey"
+}
 record ChartSnapshot {
 
   /**

@@ -1,12 +1,10 @@
-from dataclasses import dataclass
+import warnings
 
-from datahub.ingestion.api.source import WorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+# This import retains backwards compatability, but is deprecated
+# and should be avoided.
+from datahub.ingestion.api.workunit import MetadataWorkUnit  # noqa: F401
 
-
-@dataclass
-class MetadataWorkUnit(WorkUnit):
-    mce: MetadataChangeEvent
-
-    def get_metadata(self):
-        return {"mce": self.mce}
+warnings.warn(
+    "importing from datahub.ingestion.source.metadata_common is deprecated; "
+    "use datahub.ingestion.api.workunit instead"
+)

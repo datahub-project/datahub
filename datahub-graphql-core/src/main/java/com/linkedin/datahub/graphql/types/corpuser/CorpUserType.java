@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.types.corpuser;
 
 import com.linkedin.common.urn.CorpuserUrn;
+
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
@@ -8,13 +10,15 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
-import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
-import com.linkedin.datahub.graphql.types.mappers.SearchResultsMapper;
-import com.linkedin.identity.client.CorpUsers;
+import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.restli.common.CollectionResponse;
+import com.linkedin.metadata.query.SearchResult;
 
+import graphql.execution.DataFetcherResult;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URISyntaxException;
@@ -27,11 +31,9 @@ import java.util.stream.Collectors;
 
 public class CorpUserType implements SearchableEntityType<CorpUser> {
 
-    private static final String DEFAULT_AUTO_COMPLETE_FIELD = "ldap";
+    private final EntityClient _corpUsersClient;
 
-    private final CorpUsers _corpUsersClient;
-
-    public CorpUserType(final CorpUsers corpUsersClient) {
+    public CorpUserType(final EntityClient corpUsersClient) {
         _corpUsersClient = corpUsersClient;
     }
 
@@ -46,22 +48,23 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
     }
 
     @Override
-    public List<CorpUser> batchLoad(final List<String> urns, final QueryContext context) {
+    public List<DataFetcherResult<CorpUser>> batchLoad(final List<String> urns, final QueryContext context) {
         try {
             final List<CorpuserUrn> corpUserUrns = urns
                     .stream()
                     .map(this::getCorpUserUrn)
                     .collect(Collectors.toList());
 
-            final Map<CorpuserUrn, com.linkedin.identity.CorpUser> corpUserMap = _corpUsersClient
+            final Map<Urn, Entity> corpUserMap = _corpUsersClient
                     .batchGet(new HashSet<>(corpUserUrns));
 
-            final List<com.linkedin.identity.CorpUser> results = new ArrayList<>();
+            final List<Entity> results = new ArrayList<>();
             for (CorpuserUrn urn : corpUserUrns) {
                 results.add(corpUserMap.getOrDefault(urn, null));
             }
             return results.stream()
-                    .map(gmsCorpUser -> gmsCorpUser == null ? null : CorpUserMapper.map(gmsCorpUser))
+                    .map(gmsCorpUser -> gmsCorpUser == null ? null
+                        : DataFetcherResult.<CorpUser>newResult().data(CorpUserSnapshotMapper.map(gmsCorpUser.getValue().getCorpUserSnapshot())).build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Datasets", e);
@@ -74,8 +77,8 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
                                 int start,
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
-        final CollectionResponse<com.linkedin.identity.CorpUser> searchResult = _corpUsersClient.search(query, Collections.emptyMap(), start, count);
-        return SearchResultsMapper.map(searchResult, CorpUserMapper::map);
+        final SearchResult searchResult = _corpUsersClient.search("corpuser", query, Collections.emptyMap(), start, count);
+        return UrnSearchResultsMapper.map(searchResult);
     }
 
     @Override
@@ -84,8 +87,7 @@ public class CorpUserType implements SearchableEntityType<CorpUser> {
                                             @Nullable List<FacetFilterInput> filters,
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
-        field = field != null ? field : DEFAULT_AUTO_COMPLETE_FIELD;
-        final AutoCompleteResult result = _corpUsersClient.autocomplete(query, field, Collections.emptyMap(), limit);
+        final AutoCompleteResult result = _corpUsersClient.autoComplete("corpuser", query, Collections.emptyMap(), limit);
         return AutoCompleteResultsMapper.map(result);
     }
 

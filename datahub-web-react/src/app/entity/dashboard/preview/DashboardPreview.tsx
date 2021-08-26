@@ -27,7 +27,7 @@ export const DashboardPreview = ({
 
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.Dashboard)}/${urn}`}
+            url={entityRegistry.getEntityUrl(EntityType.Dashboard, urn)}
             name={name || ''}
             description={description || ''}
             type="Dashboard"

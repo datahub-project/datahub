@@ -1,23 +1,34 @@
 package com.linkedin.metadata.resources.glossary;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Entity;
 import com.linkedin.glossary.GlossaryTerm;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.common.Ownership;
 import com.linkedin.glossary.GlossaryTermKey;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.GlossaryTermAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.dao.utils.QueryUtils;
+import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.query.SortOrder;
 import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseBrowsableEntityResource;
+import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.GlossaryTermInfoDocument;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.snapshot.GlossaryTermSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -33,10 +44,17 @@ import com.linkedin.restli.server.annotations.PagingContextParam;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
+import java.net.URISyntaxException;
+import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -45,6 +63,10 @@ import com.linkedin.data.template.StringArray;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
+@Deprecated
 @RestLiCollection(name = "glossaryTerms", namespace = "com.linkedin.glossary", keyName = "glossaryTerm")
 public final class GlossaryTerms extends BaseBrowsableEntityResource<
     // @formatter:off
@@ -56,38 +78,37 @@ public final class GlossaryTerms extends BaseBrowsableEntityResource<
     GlossaryTermInfoDocument> {
     // @formatter:on
 
+  private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
+  private final Clock _clock = Clock.systemUTC();
+
   public GlossaryTerms() {
     super(GlossaryTermSnapshot.class, GlossaryTermAspect.class);
   }
 
   @Inject
-  @Named("glossaryTermDao")
-  private BaseLocalDAO<GlossaryTermAspect, GlossaryTermUrn> _localDAO;
+  @Named("entityService")
+  private EntityService _entityService;
 
   @Inject
-  @Named("glossaryTermSearchDAO")
-  private BaseSearchDAO _esSearchDAO;
-
-  @Inject
-  @Named("glossaryTermBrowseDao")
-  private BaseBrowseDAO _browseDAO;
+  @Named("searchService")
+  private SearchService _searchService;
 
   @Override
   @Nonnull
   protected BaseLocalDAO getLocalDAO() {
-    return _localDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Override
   @Nonnull
   protected BaseSearchDAO getSearchDAO() {
-    return _esSearchDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Override
   @Nonnull
   protected BaseBrowseDAO getBrowseDAO() {
-    return _browseDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Nonnull
@@ -142,7 +163,17 @@ public final class GlossaryTerms extends BaseBrowsableEntityResource<
   @Nonnull
   public Task<GlossaryTerm> get(@Nonnull ComplexResourceKey<GlossaryTermKey, EmptyRecord> key,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.get(key, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+      final Entity entity = _entityService.getEntity(new GlossaryTermUrn(
+          key.getKey().getName()), projectedAspects);
+      if (entity != null) {
+        return toValue(entity.getValue().getGlossaryTermSnapshot());
+      }
+      throw RestliUtils.resourceNotFoundException();
+    });
   }
 
   @RestMethod.BatchGet
@@ -151,8 +182,23 @@ public final class GlossaryTerms extends BaseBrowsableEntityResource<
   public Task<Map<ComplexResourceKey<GlossaryTermKey, EmptyRecord>, GlossaryTerm>> batchGet(
       @Nonnull Set<ComplexResourceKey<GlossaryTermKey, EmptyRecord>> keys,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.batchGet(keys, aspectNames);
-  }
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+
+      final Map<ComplexResourceKey<GlossaryTermKey, EmptyRecord>, GlossaryTerm> entities = new HashMap<>();
+      for (final ComplexResourceKey<GlossaryTermKey, EmptyRecord> key : keys) {
+        final Entity entity = _entityService.getEntity(
+            new GlossaryTermUrn(key.getKey().getName()),
+            projectedAspects);
+
+        if (entity != null) {
+          entities.put(key, toValue(entity.getValue().getGlossaryTermSnapshot()));
+        }
+      }
+      return entities;
+    });  }
 
   @RestMethod.GetAll
   @Nonnull
@@ -160,14 +206,47 @@ public final class GlossaryTerms extends BaseBrowsableEntityResource<
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
-    return super.getAll(pagingContext, aspectNames, filter, sortCriterion);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+
+      final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
+      final SortCriterion searchSortCriterion = sortCriterion != null ? sortCriterion
+          : new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING);
+      final SearchResult filterResults = _searchService.filter(
+          "glossaryTerm",
+          searchFilter,
+          searchSortCriterion,
+          pagingContext.getStart(),
+          pagingContext.getCount());
+
+      final Set<Urn> urns = new HashSet<>(filterResults.getEntities());
+      final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
+
+      return new CollectionResult<>(
+          entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getGlossaryTermSnapshot())).collect(
+              Collectors.toList()),
+          filterResults.getNumEntities(),
+          filterResults.getMetadata().setUrns(new UrnArray(urns))
+      ).getElements();
+    });
   }
 
   @Action(name = ACTION_INGEST)
   @Override
   @Nonnull
   public Task<Void> ingest(@ActionParam(PARAM_SNAPSHOT) @Nonnull GlossaryTermSnapshot snapshot) {
-    return super.ingest(snapshot);
+    return RestliUtils.toTask(() -> {
+      try {
+        final AuditStamp auditStamp =
+            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+        _entityService.ingestEntity(new Entity().setValue(Snapshot.create(snapshot)), auditStamp);
+      } catch (URISyntaxException e) {
+        throw new RuntimeException("Failed to create Audit Urn");
+      }
+      return null;
+    });
   }
 
   @Finder(FINDER_SEARCH)
@@ -178,8 +257,29 @@ public final class GlossaryTerms extends BaseBrowsableEntityResource<
                                                                        @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
                                                                        @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
                                                                        @PagingContextParam @Nonnull PagingContext pagingContext) {
-    return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
-  }
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+
+      final SearchResult searchResult = _searchService.search(
+          "glossaryTerm",
+          input,
+          filter,
+          sortCriterion,
+          pagingContext.getStart(),
+          pagingContext.getCount());
+
+      final Set<Urn> urns = new HashSet<>(searchResult.getEntities());
+      final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
+
+      return new CollectionResult<>(
+          entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getGlossaryTermSnapshot())).collect(
+              Collectors.toList()),
+          searchResult.getNumEntities(),
+          searchResult.getMetadata().setUrns(new UrnArray(urns))
+      );
+    });  }
 
   @Action(name = ACTION_AUTOCOMPLETE)
   @Override
@@ -187,15 +287,37 @@ public final class GlossaryTerms extends BaseBrowsableEntityResource<
   public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_QUERY) @Nonnull String query,
                                                @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
                                                @ActionParam(PARAM_LIMIT) int limit) {
-    return super.autocomplete(query, field, filter, limit);
-  }
+    return RestliUtils.toTask(() ->
+        _searchService.autoComplete(
+            "glossaryTerm",
+            query,
+            field,
+            filter,
+            limit)
+    );  }
 
   @Action(name = ACTION_GET_SNAPSHOT)
   @Override
   @Nonnull
   public Task<GlossaryTermSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.getSnapshot(urnString, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+      final Entity entity;
+      try {
+        entity = _entityService.getEntity(
+            Urn.createFromString(urnString), projectedAspects);
+
+        if (entity != null) {
+          return entity.getValue().getGlossaryTermSnapshot();
+        }
+        throw RestliUtils.resourceNotFoundException();
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(String.format("Failed to convert urnString %s into an Urn", urnString));
+      }
+    });
   }
 
   @Action(name = ACTION_BACKFILL)

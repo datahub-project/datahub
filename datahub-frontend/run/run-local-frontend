@@ -13,7 +13,7 @@ export JAVA_OPTS="
 	-Xmx1024m
 	-Dhttp.port=$PORT
 	-Dconfig.file=$CONF_DIR/application.conf
-	-Djava.security.auth.login.config=$CONF_DIR/jaas.conf
+	-Djava.security.auth.login.config=$CURRENT_DIR/jaas.conf
 	-Dlogback.configurationFile=$CURRENT_DIR/logback.xml
 	-Dlogback.debug=true"
 

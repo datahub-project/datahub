@@ -8,7 +8,7 @@ import com.linkedin.dataprocess.DataProcessInfoRequestBuilders;
 import com.linkedin.dataprocess.DataProcessesDoAutocompleteRequestBuilder;
 import com.linkedin.dataprocess.DataProcessesFindBySearchRequestBuilder;
 import com.linkedin.dataprocess.DataProcessesRequestBuilders;
-import com.linkedin.dataprocess.DataProcessKey;
+import com.linkedin.dataprocess.DataProcessResourceKey;
 import com.linkedin.dataprocess.DataProcessInfo;
 import com.linkedin.metadata.configs.DataProcessSearchConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -73,22 +73,22 @@ public class DataProcesses extends BaseSearchableClient<DataProcess> {
   }
 
   @Nonnull
-  private DataProcessKey toDataProcessKey(@Nonnull DataProcessUrn urn) {
-    return new DataProcessKey().setName(urn.getNameEntity());
+  private DataProcessResourceKey toDataProcessKey(@Nonnull DataProcessUrn urn) {
+    return new DataProcessResourceKey().setName(urn.getNameEntity());
   }
 
   @Nonnull
-  protected DataProcessUrn toDataProcessUrn(@Nonnull DataProcessKey key) {
+  protected DataProcessUrn toDataProcessUrn(@Nonnull DataProcessResourceKey key) {
     return new DataProcessUrn(key.getOrchestrator(), key.getName(), key.getOrigin());
   }
 
   @Nonnull
-  private ComplexResourceKey<DataProcessKey, EmptyRecord> getKeyFromUrn(@Nonnull DataProcessUrn urn) {
+  private ComplexResourceKey<DataProcessResourceKey, EmptyRecord> getKeyFromUrn(@Nonnull DataProcessUrn urn) {
     return new ComplexResourceKey<>(toDataProcessKey(urn), new EmptyRecord());
   }
 
   @Nonnull
-  private DataProcessUrn getUrnFromKey(@Nonnull ComplexResourceKey<DataProcessKey, EmptyRecord> key) {
+  private DataProcessUrn getUrnFromKey(@Nonnull ComplexResourceKey<DataProcessResourceKey, EmptyRecord> key) {
     return toDataProcessUrn(key.getKey());
   }
 

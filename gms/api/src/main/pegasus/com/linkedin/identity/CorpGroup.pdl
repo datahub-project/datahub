@@ -3,7 +3,7 @@ namespace com.linkedin.identity
 /**
  * Metadata for a corp group
  */
-record CorpGroup includes CorpGroupKey {
+record CorpGroup includes CorpGroupResourceKey {
 
   /**
    * Information of the corp group

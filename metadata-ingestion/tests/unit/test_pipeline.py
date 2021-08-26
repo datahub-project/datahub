@@ -2,12 +2,15 @@ import unittest
 from typing import Iterable, List, cast
 from unittest.mock import patch
 
+from freezegun import freeze_time
+
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetSnapshotClass,
@@ -15,10 +18,13 @@ from datahub.metadata.schema_classes import (
 )
 from tests.test_helpers.sink_helpers import RecordingSinkReport
 
+FROZEN_TIME = "2020-04-14 07:00:00"
+
 
 class PipelineTest(unittest.TestCase):
     @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
     @patch("datahub.ingestion.sink.console.ConsoleSink.close", autospec=True)
+    @freeze_time(FROZEN_TIME)
     def test_configure(self, mock_sink, mock_source):
         pipeline = Pipeline.create(
             {
@@ -35,8 +41,8 @@ class PipelineTest(unittest.TestCase):
         mock_source.assert_called_once()
         mock_sink.assert_called_once()
 
+    @freeze_time(FROZEN_TIME)
     def test_run_including_fake_transformation(self):
-
         pipeline = Pipeline.create(
             {
                 "source": {"type": "tests.unit.test_pipeline.FakeSource"},
@@ -44,6 +50,7 @@ class PipelineTest(unittest.TestCase):
                     {"type": "tests.unit.test_pipeline.AddStatusRemovedTransformer"}
                 ],
                 "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
+                "run_id": "pipeline_test",
             }
         )
         pipeline.run()
@@ -61,6 +68,7 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(len(sink_report.received_records), 1)
         self.assertEqual(expected_mce, sink_report.received_records[0].record)
 
+    @freeze_time(FROZEN_TIME)
     def test_run_including_registered_transformation(self):
         # This is not testing functionality, but just the transformer registration system.
 
@@ -125,7 +133,10 @@ def get_initial_mce() -> MetadataChangeEventClass:
                     description="test.description",
                 )
             ],
-        )
+        ),
+        systemMetadata=SystemMetadata(
+            lastObserved=1586847600000, runId="pipeline_test"
+        ),
     )
 
 

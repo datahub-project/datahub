@@ -1,12 +1,15 @@
 ---
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/dbt for complete documentation
 source:
   type: "dbt"
   config:
-    manifest_path: "./your/dbt/manifest.json"
-    catalog_path: "./your/dbt/catalog.json"
-    target_platform: "[target data platform]"
-    load_schemas: True # or false
+    manifest_path: "./tests/integration/dbt/dbt_manifest.json"
+    catalog_path: "./tests/integration/dbt/dbt_catalog.json"
+    sources_path: "./tests/integration/dbt/dbt_sources.json"
+    target_platform: "dbt"
+    load_schemas: True # or False
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:
-    server: 'http://localhost:8080'
+    server: "http://localhost:8080"

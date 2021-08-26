@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.DashboardEditableProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -41,6 +42,11 @@ public class DashboardMapper implements ModelMapper<com.linkedin.dashboard.Dashb
         }
         if (dashboard.hasGlobalTags()) {
             result.setGlobalTags(GlobalTagsMapper.map(dashboard.getGlobalTags()));
+        }
+        if (dashboard.hasEditableProperties()) {
+            final DashboardEditableProperties dashboardEditableProperties = new DashboardEditableProperties();
+            dashboardEditableProperties.setDescription(dashboard.getEditableProperties().getDescription());
+            result.setEditableProperties(dashboardEditableProperties);
         }
         return result;
     }

@@ -1,9 +1,12 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "glossaryNodes",
   "namespace" : "com.linkedin.glossary",
   "path" : "/glossaryNodes",
   "schema" : "com.linkedin.glossary.GlossaryNode",
-  "doc" : "generated from: com.linkedin.metadata.resources.glossary.GlossaryNodes",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.glossary.GlossaryNodes",
   "collection" : {
     "identifier" : {
       "name" : "glossaryNode",

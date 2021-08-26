@@ -1,0 +1,56 @@
+apply plugin: 'java'
+
+configurations {
+  enhance
+}
+
+dependencies {
+  compile project(':entity-registry')
+  compile project(':metadata-utils')
+  compile project(':metadata-builders')
+  compile project(':metadata-dao-impl:restli-dao')
+  compile project(':metadata-events:mxe-avro-1.7')
+  compile project(':metadata-events:mxe-registration')
+  compile project(':metadata-events:mxe-utils-avro-1.7')
+  compile project(path: ':metadata-models')
+
+  compile spec.product.pegasus.data
+  compile spec.product.pegasus.generator
+
+  compile externalDependency.lombok
+  compile externalDependency.elasticSearchRest
+  compile externalDependency.elasticSearchTransport
+  compile externalDependency.kafkaClients
+  compile externalDependency.gmaEbeanDao
+  compile externalDependency.gmaDaoApi
+  compile externalDependency.gmaRestliResources
+  compile externalDependency.gmaElasticsearchDao
+  compile externalDependency.ebean
+  enhance externalDependency.ebeanAgent
+
+  annotationProcessor externalDependency.lombok
+
+  testCompile externalDependency.testng
+  testCompile externalDependency.h2
+  testCompile externalDependency.neo4jHarness
+  testCompile externalDependency.mockito
+  testCompile externalDependency.mockitoInline
+  testCompile externalDependency.iStackCommons
+  testCompile externalDependency.testContainers
+  testCompile externalDependency.testContainersJunit
+  testCompile externalDependency.testContainersElasticsearch
+  testCompile project(':test-models')
+}
+
+tasks.withType(Test) {
+    enableAssertions = false
+}
+
+project.compileJava {
+  doLast {
+    ant.taskdef(name: 'ebean', classname: 'io.ebean.enhance.ant.AntEnhanceTask',
+        classpath: project.configurations.enhance.asPath)
+    ant.ebean(classSource: "${project.buildDir}/classes/java/main", packages: 'com.linkedin.metadata.entity.ebean',
+        transformArgs: 'debug=1')
+  }
+}

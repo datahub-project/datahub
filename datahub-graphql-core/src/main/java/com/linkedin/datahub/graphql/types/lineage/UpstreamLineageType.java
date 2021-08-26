@@ -8,6 +8,7 @@ import com.linkedin.lineage.client.Lineages;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.r2.RemoteInvocationException;
 
+import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,14 +28,14 @@ public class UpstreamLineageType implements LoadableType<UpstreamEntityRelations
     }
 
     @Override
-    public List<UpstreamEntityRelationships> batchLoad(final List<String> keys, final QueryContext context) {
+    public List<DataFetcherResult<UpstreamEntityRelationships>> batchLoad(final List<String> keys, final QueryContext context) {
 
         try {
             return keys.stream().map(urn -> {
                 try {
                     com.linkedin.common.EntityRelationships relationships =
                             _lineageClient.getLineage(urn, _direction);
-                    return UpstreamEntityRelationshipsMapper.map(relationships);
+                    return DataFetcherResult.<UpstreamEntityRelationships>newResult().data(UpstreamEntityRelationshipsMapper.map(relationships)).build();
                 } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(String.format("Failed to batch load DownstreamLineage for entity %s", urn), e);
                 }

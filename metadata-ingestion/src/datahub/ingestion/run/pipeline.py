@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class SourceConfig(DynamicTypedConfig):
-    extractor: str = "mce"
+    extractor: str = "generic"
 
 
 class PipelineConfig(ConfigModel):
@@ -83,7 +83,7 @@ class Pipeline:
 
         self._configure_transforms()
 
-    def _configure_transforms(self):
+    def _configure_transforms(self) -> None:
         self.transformers = []
         if self.config.transformers is not None:
             for transformer in self.config.transformers:
@@ -102,7 +102,7 @@ class Pipeline:
         config = PipelineConfig.parse_obj(config_dict)
         return cls(config)
 
-    def run(self):
+    def run(self) -> None:
         callback = LoggingCallback()
         extractor: Extractor = self.extractor_class()
         for wu in self.source.get_workunits():
@@ -130,7 +130,7 @@ class Pipeline:
 
         return records
 
-    def raise_from_status(self, raise_warnings=False):
+    def raise_from_status(self, raise_warnings: bool = False) -> None:
         if self.source.get_report().failures:
             raise PipelineExecutionError(
                 "Source reported errors", self.source.get_report()
@@ -146,9 +146,9 @@ class Pipeline:
 
     def pretty_print_summary(self) -> int:
         click.echo()
-        click.secho("Source report:", bold=True)
+        click.secho(f"Source ({self.config.source.type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
-        click.secho("Sink report:", bold=True)
+        click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
         click.echo(self.sink.get_report().as_string())
         click.echo()
         if self.source.get_report().failures or self.sink.get_report().failures:

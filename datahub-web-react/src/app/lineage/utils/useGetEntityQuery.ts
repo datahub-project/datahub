@@ -3,8 +3,13 @@ import { useGetChartQuery } from '../../../graphql/chart.generated';
 import { useGetDashboardQuery } from '../../../graphql/dashboard.generated';
 import { useGetDatasetQuery } from '../../../graphql/dataset.generated';
 import { useGetDataJobQuery } from '../../../graphql/dataJob.generated';
+import { useGetMlFeatureTableQuery } from '../../../graphql/mlFeatureTable.generated';
+import { useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
+import { useGetMlPrimaryKeyQuery } from '../../../graphql/mlPrimaryKey.generated';
 import { EntityType } from '../../../types.generated';
 import { EntityAndType } from '../types';
+import { useGetMlModelQuery } from '../../../graphql/mlModel.generated';
+import { useGetMlModelGroupQuery } from '../../../graphql/mlModelGroup.generated';
 
 export default function useGetEntityQuery(urn: string, entityType?: EntityType) {
     const allResults = {
@@ -23,6 +28,26 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         [EntityType.DataJob]: useGetDataJobQuery({
             variables: { urn },
             skip: entityType !== EntityType.DataJob,
+        }),
+        [EntityType.MlfeatureTable]: useGetMlFeatureTableQuery({
+            variables: { urn },
+            skip: entityType !== EntityType.MlfeatureTable,
+        }),
+        [EntityType.Mlfeature]: useGetMlFeatureQuery({
+            variables: { urn },
+            skip: entityType !== EntityType.Mlfeature,
+        }),
+        [EntityType.MlprimaryKey]: useGetMlPrimaryKeyQuery({
+            variables: { urn },
+            skip: entityType !== EntityType.MlprimaryKey,
+        }),
+        [EntityType.Mlmodel]: useGetMlModelQuery({
+            variables: { urn },
+            skip: entityType !== EntityType.Mlmodel,
+        }),
+        [EntityType.MlmodelGroup]: useGetMlModelGroupQuery({
+            variables: { urn },
+            skip: entityType !== EntityType.MlmodelGroup,
         }),
     };
 
@@ -65,6 +90,52 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
                     } as EntityAndType;
                 }
                 break;
+            case EntityType.MlfeatureTable:
+                returnData = allResults[EntityType.MlfeatureTable]?.data?.mlFeatureTable;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.MlfeatureTable,
+                    } as EntityAndType;
+                }
+                break;
+            case EntityType.Mlfeature:
+                returnData = allResults[EntityType.Mlfeature]?.data?.mlFeature;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.Mlfeature,
+                    } as EntityAndType;
+                }
+                break;
+            case EntityType.MlprimaryKey:
+                returnData = allResults[EntityType.MlprimaryKey]?.data?.mlPrimaryKey;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.MlprimaryKey,
+                    } as EntityAndType;
+                }
+                break;
+            case EntityType.Mlmodel:
+                returnData = allResults[EntityType.Mlmodel]?.data?.mlModel;
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.Mlmodel,
+                    } as EntityAndType;
+                }
+                break;
+            case EntityType.MlmodelGroup:
+                returnData = allResults[EntityType.MlmodelGroup]?.data?.mlModelGroup;
+                console.log('test', returnData);
+                if (returnData) {
+                    return {
+                        entity: returnData,
+                        type: EntityType.MlmodelGroup,
+                    } as EntityAndType;
+                }
+                break;
             default:
                 break;
         }
@@ -81,6 +152,12 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         allResults[EntityType.Dashboard],
         // eslint-disable-next-line react-hooks/exhaustive-deps
         allResults[EntityType.DataJob],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.MlfeatureTable],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.Mlmodel],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.MlmodelGroup],
     ]);
 
     const returnObject = useMemo(() => {
@@ -110,6 +187,12 @@ export default function useGetEntityQuery(urn: string, entityType?: EntityType) 
         allResults[EntityType.Dashboard],
         // eslint-disable-next-line react-hooks/exhaustive-deps
         allResults[EntityType.DataJob],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.MlfeatureTable],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.Mlmodel],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        allResults[EntityType.MlmodelGroup],
     ]);
 
     return returnObject;

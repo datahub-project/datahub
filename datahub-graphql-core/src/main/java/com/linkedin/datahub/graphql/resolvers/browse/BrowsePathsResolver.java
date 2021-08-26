@@ -12,10 +12,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 public class BrowsePathsResolver implements DataFetcher<CompletableFuture<List<BrowsePath>>> {
+
+    private static final Logger _logger = LoggerFactory.getLogger(BrowsePathsResolver.class.getName());
 
     private final Map<EntityType, BrowsableEntityType<?>> _typeToEntity;
 
@@ -32,8 +36,16 @@ public class BrowsePathsResolver implements DataFetcher<CompletableFuture<List<B
 
         return CompletableFuture.supplyAsync(() -> {
             try {
+                _logger.debug(
+                    String.format("Fetch browse paths. entity type: %s, urn: %s",
+                        input.getType(),
+                        input.getUrn()));
                 return _typeToEntity.get(input.getType()).browsePaths(input.getUrn(), environment.getContext());
             } catch (Exception e) {
+                _logger.error("Failed to retrieve browse paths: "
+                    + String.format("entity type %s, urn %s",
+                    input.getType(),
+                    input.getUrn()) + " " + e.getMessage());
                 throw new RuntimeException("Failed to retrieve browse paths: "
                         + String.format("entity type %s, urn %s",
                         input.getType(),

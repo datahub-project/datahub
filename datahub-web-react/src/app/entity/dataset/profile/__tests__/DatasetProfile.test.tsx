@@ -62,7 +62,7 @@ describe('DatasetProfile', () => {
         await waitFor(() => expect(queryByText('sample-glossary-term')).toBeInTheDocument());
 
         expect(queryByText('Tags & Terms')).toBeInTheDocument();
-        expect(getByText('sample-glossary-term').closest('a').href).toEqual(
+        expect(getByText('sample-glossary-term').closest('a')?.href).toEqual(
             'http://localhost/glossary/urn:li:glossaryTerm:sample-glossary-term',
         );
     });

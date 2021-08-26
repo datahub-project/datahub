@@ -9,7 +9,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.avro.Schema;
-import org.apache.avro.specific.SpecificRecord;
 
 
 public class Configs {
@@ -35,41 +34,6 @@ public class Configs {
       put(Topics.DEV_FAILED_METADATA_CHANGE_EVENT, FailedMetadataChangeEvent.SCHEMA$);
     }
   });
-
-  public static final Map<String, Class<? extends SpecificRecord>> TOPIC_SCHEMA_CLASS_MAP =
-      Collections.unmodifiableMap(new HashMap<String, Class<? extends SpecificRecord>>() {
-        {
-          // Aspect-specific MCE topic to schema.
-          // CorpGroupUrn
-          put(Topics.METADATA_AUDIT_EVENT_CORPGROUP_CORPGROUPINFO,
-              com.linkedin.pegasus2avro.mxe.corpGroup.corpGroupInfo.MetadataAuditEvent.class);
-          // CorpUserUrn
-          put(Topics.METADATA_AUDIT_EVENT_CORPUSER_CORPUSERINFO,
-              com.linkedin.pegasus2avro.mxe.corpuser.corpUserInfo.MetadataAuditEvent.class);
-          put(Topics.METADATA_AUDIT_EVENT_CORPUSER_CORPUSEREDITABLEINFO,
-              com.linkedin.pegasus2avro.mxe.corpuser.corpUserEditableInfo.MetadataAuditEvent.class);
-
-          // Aspect-specific MCE topic to schema.
-          // CorpGroupUrn
-          put(Topics.METADATA_CHANGE_EVENT_CORPGROUP_CORPGROUPINFO,
-              com.linkedin.pegasus2avro.mxe.corpGroup.corpGroupInfo.MetadataChangeEvent.class);
-          // CorpUserUrn
-          put(Topics.METADATA_CHANGE_EVENT_CORPUSER_CORPUSERINFO,
-              com.linkedin.pegasus2avro.mxe.corpuser.corpUserInfo.MetadataChangeEvent.class);
-          put(Topics.METADATA_CHANGE_EVENT_CORPUSER_CORPUSEREDITABLEINFO,
-              com.linkedin.pegasus2avro.mxe.corpuser.corpUserEditableInfo.MetadataChangeEvent.class);
-
-          // Aspect-specific FMCE topic to schema.
-          // CorpGroupUrn
-          put(Topics.FAILED_METADATA_CHANGE_EVENT_CORPGROUP_CORPGROUPINFO,
-              com.linkedin.pegasus2avro.mxe.corpGroup.corpGroupInfo.FailedMetadataChangeEvent.class);
-          // CorpUserUrn
-          put(Topics.FAILED_METADATA_CHANGE_EVENT_CORPUSER_CORPUSERINFO,
-              com.linkedin.pegasus2avro.mxe.corpuser.corpUserInfo.FailedMetadataChangeEvent.class);
-          put(Topics.FAILED_METADATA_CHANGE_EVENT_CORPUSER_CORPUSEREDITABLEINFO,
-              com.linkedin.pegasus2avro.mxe.corpuser.corpUserEditableInfo.FailedMetadataChangeEvent.class);
-        }
-      });
 
   private Configs() {
     // Util class

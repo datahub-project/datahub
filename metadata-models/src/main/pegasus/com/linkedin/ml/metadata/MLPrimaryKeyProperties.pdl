@@ -1,0 +1,40 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.Urn
+import com.linkedin.common.MLFeatureDataType
+import com.linkedin.common.VersionTag
+
+/**
+ * Properties associated with a MLPrimaryKey
+ */
+@Aspect = {
+  "name": "mlPrimaryKeyProperties"
+}
+record MLPrimaryKeyProperties {
+
+  /**
+   * Documentation of the MLPrimaryKey
+   */
+  description: optional string
+
+  /**
+   * Data Type of the MLPrimaryKey
+   */
+  dataType: optional MLFeatureDataType
+
+  /**
+  * Version of the MLPrimaryKey
+  */
+  version: optional VersionTag
+
+  /**
+  * Source of the MLPrimaryKey
+  */
+  @Relationship = {
+    "/*": {
+      "name": "DerivedFrom",
+      "entityTypes": [ "dataset" ]
+    }
+  }
+  sources: array[Urn]
+}

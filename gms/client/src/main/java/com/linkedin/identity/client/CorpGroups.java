@@ -4,7 +4,7 @@ import com.linkedin.BatchGetUtils;
 import com.linkedin.common.urn.CorpGroupUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.identity.CorpGroup;
-import com.linkedin.identity.CorpGroupKey;
+import com.linkedin.identity.CorpGroupResourceKey;
 import com.linkedin.identity.CorpGroupsDoAutocompleteRequestBuilder;
 import com.linkedin.identity.CorpGroupsFindBySearchRequestBuilder;
 import com.linkedin.identity.CorpGroupsRequestBuilders;
@@ -112,22 +112,22 @@ public class CorpGroups extends BaseSearchableClient<CorpGroup> {
   }
 
   @Nonnull
-  private CorpGroupKey toCorpGroupKey(@Nonnull CorpGroupUrn urn) {
-    return new CorpGroupKey().setName(urn.getGroupNameEntity());
+  private CorpGroupResourceKey toCorpGroupKey(@Nonnull CorpGroupUrn urn) {
+    return new CorpGroupResourceKey().setName(urn.getGroupNameEntity());
   }
 
   @Nonnull
-  private ComplexResourceKey<CorpGroupKey, EmptyRecord> getKeyFromUrn(@Nonnull CorpGroupUrn urn) {
+  private ComplexResourceKey<CorpGroupResourceKey, EmptyRecord> getKeyFromUrn(@Nonnull CorpGroupUrn urn) {
     return new ComplexResourceKey<>(toCorpGroupKey(urn), new EmptyRecord());
   }
 
   @Nonnull
-  private CorpGroupUrn toCorpGroupUrn(@Nonnull CorpGroupKey key) {
+  private CorpGroupUrn toCorpGroupUrn(@Nonnull CorpGroupResourceKey key) {
     return new CorpGroupUrn(key.getName());
   }
 
   @Nonnull
-  private CorpGroupUrn getUrnFromKey(@Nonnull ComplexResourceKey<CorpGroupKey, EmptyRecord> key) {
+  private CorpGroupUrn getUrnFromKey(@Nonnull ComplexResourceKey<CorpGroupResourceKey, EmptyRecord> key) {
     return toCorpGroupUrn(key.getKey());
   }
 }

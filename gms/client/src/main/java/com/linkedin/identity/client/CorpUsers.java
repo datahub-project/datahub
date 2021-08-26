@@ -5,7 +5,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.identity.CorpUser;
 import com.linkedin.identity.CorpUserEditableInfo;
-import com.linkedin.identity.CorpUserKey;
+import com.linkedin.identity.CorpUserResourceKey;
 import com.linkedin.identity.CorpUsersDoAutocompleteRequestBuilder;
 import com.linkedin.identity.CorpUsersFindBySearchRequestBuilder;
 import com.linkedin.identity.CorpUsersRequestBuilders;
@@ -166,22 +166,22 @@ public class CorpUsers extends BaseSearchableClient<CorpUser> {
   }
 
   @Nonnull
-  private CorpUserKey toCorpUserKey(@Nonnull CorpuserUrn urn) {
-    return new CorpUserKey().setName(urn.getUsernameEntity());
+  private CorpUserResourceKey toCorpUserKey(@Nonnull CorpuserUrn urn) {
+    return new CorpUserResourceKey().setName(urn.getUsernameEntity());
   }
 
   @Nonnull
-  protected CorpuserUrn toCorpUserUrn(@Nonnull CorpUserKey key) {
+  protected CorpuserUrn toCorpUserUrn(@Nonnull CorpUserResourceKey key) {
     return new CorpuserUrn(key.getName());
   }
 
   @Nonnull
-  private ComplexResourceKey<CorpUserKey, EmptyRecord> getKeyFromUrn(@Nonnull CorpuserUrn urn) {
+  private ComplexResourceKey<CorpUserResourceKey, EmptyRecord> getKeyFromUrn(@Nonnull CorpuserUrn urn) {
     return new ComplexResourceKey<>(toCorpUserKey(urn), new EmptyRecord());
   }
 
   @Nonnull
-  private CorpuserUrn getUrnFromKey(@Nonnull ComplexResourceKey<CorpUserKey, EmptyRecord> key) {
+  private CorpuserUrn getUrnFromKey(@Nonnull ComplexResourceKey<CorpUserResourceKey, EmptyRecord> key) {
     return toCorpUserUrn(key.getKey());
   }
 }

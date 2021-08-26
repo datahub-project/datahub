@@ -6,6 +6,10 @@ import com.linkedin.metadata.aspect.CorpGroupAspect
 /**
  * A metadata snapshot for a specific CorpGroup entity.
  */
+@Entity = {
+  "name": "corpGroup",
+  "keyAspect": "corpGroupKey"
+}
 record CorpGroupSnapshot {
 
   /**

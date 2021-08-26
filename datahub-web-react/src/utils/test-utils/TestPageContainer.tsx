@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
 import { ThemeProvider } from 'styled-components';
 
+import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
 import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
 import { DataFlowEntity } from '../../app/entity/dataFlow/DataFlowEntity';
 import { DataJobEntity } from '../../app/entity/dataJob/DataJobEntity';
@@ -13,6 +14,9 @@ import { TagEntity } from '../../app/entity/tag/Tag';
 
 import defaultThemeConfig from '../../conf/theme/theme_light.config.json';
 import { GlossaryTermEntity } from '../../app/entity/glossaryTerm/GlossaryTermEntity';
+import { MLFeatureTableEntity } from '../../app/entity/mlFeatureTable/MLFeatureTableEntity';
+import { MLModelEntity } from '../../app/entity/mlModel/MLModelEntity';
+import { MLModelGroupEntity } from '../../app/entity/mlModelGroup/MLModelGroupEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -28,6 +32,9 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new DataFlowEntity());
     entityRegistry.register(new DataJobEntity());
     entityRegistry.register(new GlossaryTermEntity());
+    entityRegistry.register(new MLFeatureTableEntity());
+    entityRegistry.register(new MLModelEntity());
+    entityRegistry.register(new MLModelGroupEntity());
     return entityRegistry;
 }
 
@@ -35,8 +42,10 @@ export default ({ children, initialEntries }: Props) => {
     const entityRegistry = useMemo(() => getTestEntityRegistry(), []);
     Object.defineProperty(window.document, 'cookie', {
         writable: true,
-        value: 'actor=urn:li:corpuser:2',
+        value: `${CLIENT_AUTH_COOKIE}=urn:li:corpuser:2`,
     });
+    jest.mock('js-cookie', () => ({ get: () => 'urn:li:corpuser:2' }));
+
     return (
         <ThemeProvider theme={defaultThemeConfig}>
             <MemoryRouter initialEntries={initialEntries}>

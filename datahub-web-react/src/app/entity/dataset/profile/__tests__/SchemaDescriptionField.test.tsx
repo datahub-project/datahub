@@ -1,18 +1,13 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react';
-import SchemaDescriptionField from '../schema/SchemaDescriptionField';
+import SchemaDescriptionField from '../schema/components/SchemaDescriptionField';
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 
 describe('SchemaDescriptionField', () => {
     it('renders editable description', async () => {
         const { getByText, getByRole, queryByText } = render(
             <TestPageContainer>
-                <SchemaDescriptionField
-                    description="test description"
-                    updatedDescription="test description updated"
-                    onHover
-                    onUpdate={async () => {}}
-                />
+                <SchemaDescriptionField description="test description updated" isEdited onUpdate={async () => {}} />
             </TestPageContainer>,
         );
         expect(getByRole('img')).toBeInTheDocument();
@@ -25,8 +20,8 @@ describe('SchemaDescriptionField', () => {
             <TestPageContainer>
                 <SchemaDescriptionField
                     description="test description"
-                    updatedDescription="test description updated"
-                    onHover
+                    original="test description"
+                    isEdited
                     onUpdate={async () => {}}
                 />
             </TestPageContainer>,
@@ -37,7 +32,6 @@ describe('SchemaDescriptionField', () => {
         expect(getByText('Cancel')).toBeInTheDocument();
         expect(getByText('Update')).toBeInTheDocument();
         expect(getByText('Original:')).toBeInTheDocument();
-        expect(getByText('Updated:')).toBeInTheDocument();
         fireEvent.click(getByText('Cancel'));
         await waitFor(() => expect(queryByText('Update description')).not.toBeInTheDocument());
     });

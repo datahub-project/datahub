@@ -1,9 +1,12 @@
 {
+  "annotations" : {
+    "deprecated" : { }
+  },
   "name" : "charts",
   "namespace" : "com.linkedin.chart",
   "path" : "/charts",
   "schema" : "com.linkedin.dashboard.Chart",
-  "doc" : "generated from: com.linkedin.metadata.resources.dashboard.Charts",
+  "doc" : "Deprecated! Use {@link EntityResource} instead.\n\ngenerated from: com.linkedin.metadata.resources.dashboard.Charts",
   "collection" : {
     "identifier" : {
       "name" : "key",

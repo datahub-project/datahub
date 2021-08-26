@@ -11,6 +11,7 @@ dependencies {
     compile externalDependency.antlr4Runtime
     compile externalDependency.antlr4
     compile externalDependency.guava
+
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 
@@ -26,6 +27,7 @@ graphqlCodegen {
     modelValidationAnnotation = "@javax.annotation.Nonnull"
     customTypesMapping = [
             Long: "Long",
+            Float: "Float"
     ]
 }
 

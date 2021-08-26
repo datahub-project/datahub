@@ -21,6 +21,7 @@ public class OidcConfigs {
     public static final String OIDC_USERNAME_CLAIM_REGEX_CONFIG_PATH = "auth.oidc.userNameClaimRegex";
     public static final String OIDC_SCOPE_CONFIG_PATH = "auth.oidc.scope";
     public static final String OIDC_CLIENT_NAME_CONFIG_PATH = "auth.oidc.clientName";
+    public static final String OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH = "auth.oidc.clientAuthenticationMethod";
 
     /**
      * Default values
@@ -29,6 +30,7 @@ public class OidcConfigs {
     private static final String DEFAULT_OIDC_USERNAME_CLAIM_REGEX = "(.*)";
     private static final String DEFAULT_OIDC_SCOPE = "openid profile email";
     private static final String DEFAULT_OIDC_CLIENT_NAME = "oidc";
+    private static final String DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD = "client_secret_basic";
 
     private String _clientId;
     private String _clientSecret;
@@ -37,6 +39,7 @@ public class OidcConfigs {
     private String _userNameClaimRegex;
     private String _scope;
     private String _clientName;
+    private String _clientAuthenticationMethod;
 
     private Boolean _isEnabled = false;
 
@@ -70,6 +73,10 @@ public class OidcConfigs {
                     configs,
                     OIDC_CLIENT_NAME_CONFIG_PATH,
                     DEFAULT_OIDC_CLIENT_NAME);
+            _clientAuthenticationMethod = getOptional(
+                    configs,
+                    OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH,
+                    DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD);
         }
     }
 
@@ -103,6 +110,10 @@ public class OidcConfigs {
 
     public String getClientName() {
         return _clientName;
+    }
+
+    public String getClientAuthenticationMethod() {
+        return _clientAuthenticationMethod;
     }
 
     private String getRequired(final com.typesafe.config.Config configs, final String path) {

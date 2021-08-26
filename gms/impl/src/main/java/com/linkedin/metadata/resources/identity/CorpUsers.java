@@ -1,24 +1,35 @@
 package com.linkedin.metadata.resources.identity;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Entity;
 import com.linkedin.identity.CorpUser;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
-import com.linkedin.identity.CorpUserKey;
+import com.linkedin.identity.CorpUserResourceKey;
+import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.query.SortOrder;
 import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
+import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.CorpUserInfoDocument;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
@@ -32,10 +43,17 @@ import com.linkedin.restli.server.annotations.PagingContextParam;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
+import java.net.URISyntaxException;
+import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -43,10 +61,14 @@ import javax.inject.Named;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
+@Deprecated
 @RestLiCollection(name = "corpUsers", namespace = "com.linkedin.identity", keyName = "corpUser")
 public final class CorpUsers extends BaseSearchableEntityResource<
     // @formatter:off
-    ComplexResourceKey<CorpUserKey, EmptyRecord>,
+    ComplexResourceKey<CorpUserResourceKey, EmptyRecord>,
     CorpUser,
     CorpuserUrn,
     CorpUserSnapshot,
@@ -54,13 +76,16 @@ public final class CorpUsers extends BaseSearchableEntityResource<
     CorpUserInfoDocument> {
     // @formatter:on
 
-  @Inject
-  @Named("corpUserDao")
-  private BaseLocalDAO<CorpUserAspect, CorpuserUrn> _localDAO;
+  private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
+  private final Clock _clock = Clock.systemUTC();
 
   @Inject
-  @Named("corpUserSearchDAO")
-  private BaseSearchDAO _esSearchDAO;
+  @Named("entityService")
+  private EntityService _entityService;
+
+  @Inject
+  @Named("searchService")
+  private SearchService _searchService;
 
   public CorpUsers() {
     super(CorpUserSnapshot.class, CorpUserAspect.class);
@@ -69,7 +94,7 @@ public final class CorpUsers extends BaseSearchableEntityResource<
   @Override
   @Nonnull
   protected BaseLocalDAO getLocalDAO() {
-    return _localDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Nonnull
@@ -81,19 +106,19 @@ public final class CorpUsers extends BaseSearchableEntityResource<
   @Override
   @Nonnull
   protected BaseSearchDAO getSearchDAO() {
-    return _esSearchDAO;
+    throw new UnsupportedOperationException();
   }
 
   @Override
   @Nonnull
-  protected CorpuserUrn toUrn(@Nonnull ComplexResourceKey<CorpUserKey, EmptyRecord> key) {
+  protected CorpuserUrn toUrn(@Nonnull ComplexResourceKey<CorpUserResourceKey, EmptyRecord> key) {
     return new CorpuserUrn(key.getKey().getName());
   }
 
   @Override
   @Nonnull
-  protected ComplexResourceKey<CorpUserKey, EmptyRecord> toKey(@Nonnull CorpuserUrn urn) {
-    return new ComplexResourceKey<>(new CorpUserKey().setName(urn.getUsernameEntity()), new EmptyRecord());
+  protected ComplexResourceKey<CorpUserResourceKey, EmptyRecord> toKey(@Nonnull CorpuserUrn urn) {
+    return new ComplexResourceKey<>(new CorpUserResourceKey().setName(urn.getUsernameEntity()), new EmptyRecord());
   }
 
   @Override
@@ -131,18 +156,43 @@ public final class CorpUsers extends BaseSearchableEntityResource<
   @RestMethod.Get
   @Override
   @Nonnull
-  public Task<CorpUser> get(@Nonnull ComplexResourceKey<CorpUserKey, EmptyRecord> key,
+  public Task<CorpUser> get(@Nonnull ComplexResourceKey<CorpUserResourceKey, EmptyRecord> key,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.get(key, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+      final Entity entity = _entityService.getEntity(new CorpuserUrn(
+          key.getKey().getName()), projectedAspects);
+      if (entity != null) {
+        return toValue(entity.getValue().getCorpUserSnapshot());
+      }
+      throw RestliUtils.resourceNotFoundException();
+    });
   }
 
   @RestMethod.BatchGet
   @Override
   @Nonnull
-  public Task<Map<ComplexResourceKey<CorpUserKey, EmptyRecord>, CorpUser>> batchGet(
-      @Nonnull Set<ComplexResourceKey<CorpUserKey, EmptyRecord>> keys,
+  public Task<Map<ComplexResourceKey<CorpUserResourceKey, EmptyRecord>, CorpUser>> batchGet(
+      @Nonnull Set<ComplexResourceKey<CorpUserResourceKey, EmptyRecord>> keys,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.batchGet(keys, aspectNames);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+
+      final Map<ComplexResourceKey<CorpUserResourceKey, EmptyRecord>, CorpUser> entities = new HashMap<>();
+      for (final ComplexResourceKey<CorpUserResourceKey, EmptyRecord> key : keys) {
+        final Entity entity = _entityService.getEntity(
+            new CorpuserUrn(key.getKey().getName()),
+            projectedAspects);
+        if (entity != null) {
+          entities.put(key, toValue(entity.getValue().getCorpUserSnapshot()));
+        }
+      }
+      return entities;
+    });
   }
 
   @RestMethod.GetAll
@@ -151,7 +201,31 @@ public final class CorpUsers extends BaseSearchableEntityResource<
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
-    return super.getAll(pagingContext, aspectNames, filter, sortCriterion);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+
+      final Filter searchFilter = filter != null ? filter : QueryUtils.EMPTY_FILTER;
+      final SortCriterion searchSortCriterion = sortCriterion != null ? sortCriterion
+          : new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING);
+      final SearchResult filterResults = _searchService.filter(
+          "corpUser",
+          searchFilter,
+          searchSortCriterion,
+          pagingContext.getStart(),
+          pagingContext.getCount());
+
+      final Set<Urn> urns = new HashSet<>(filterResults.getEntities());
+      final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
+
+      return new CollectionResult<>(
+          entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getCorpUserSnapshot())).collect(
+              Collectors.toList()),
+          filterResults.getNumEntities(),
+          filterResults.getMetadata().setUrns(new UrnArray(urns))
+      ).getElements();
+    });
   }
 
   @Finder(FINDER_SEARCH)
@@ -162,7 +236,30 @@ public final class CorpUsers extends BaseSearchableEntityResource<
       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
-    return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+
+    return RestliUtils.toTask(() -> {
+
+      final SearchResult searchResult = _searchService.search(
+          "corpUser",
+          input,
+          filter,
+          sortCriterion,
+          pagingContext.getStart(),
+          pagingContext.getCount());
+
+      final Set<Urn> urns = new HashSet<>(searchResult.getEntities());
+      final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
+
+      return new CollectionResult<>(
+          entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getCorpUserSnapshot())).collect(
+              Collectors.toList()),
+          searchResult.getNumEntities(),
+          searchResult.getMetadata().setUrns(new UrnArray(urns))
+      );
+    });
   }
 
   @Action(name = ACTION_AUTOCOMPLETE)
@@ -171,14 +268,29 @@ public final class CorpUsers extends BaseSearchableEntityResource<
   public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_QUERY) @Nonnull String query,
       @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
       @ActionParam(PARAM_LIMIT) int limit) {
-    return super.autocomplete(query, field, filter, limit);
-  }
+    return RestliUtils.toTask(() ->
+        _searchService.autoComplete(
+            "corpUser",
+            query,
+            field,
+            filter,
+            limit)
+    );  }
 
   @Action(name = ACTION_INGEST)
   @Override
   @Nonnull
   public Task<Void> ingest(@ActionParam(PARAM_SNAPSHOT) @Nonnull CorpUserSnapshot snapshot) {
-    return super.ingest(snapshot);
+    return RestliUtils.toTask(() -> {
+      try {
+        final AuditStamp auditStamp =
+            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+        _entityService.ingestEntity(new Entity().setValue(Snapshot.create(snapshot)), auditStamp);
+      } catch (URISyntaxException e) {
+        throw new RuntimeException("Failed to create Audit Urn");
+      }
+      return null;
+    });
   }
 
   @Action(name = ACTION_GET_SNAPSHOT)
@@ -186,8 +298,23 @@ public final class CorpUsers extends BaseSearchableEntityResource<
   @Nonnull
   public Task<CorpUserSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
       @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-    return super.getSnapshot(urnString, aspectNames);
-  }
+    final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+        Arrays.asList(aspectNames).stream().map(PegasusUtils::getAspectNameFromFullyQualifiedName)
+            .collect(Collectors.toList()));
+    return RestliUtils.toTask(() -> {
+      final Entity entity;
+      try {
+        entity = _entityService.getEntity(
+            Urn.createFromString(urnString), projectedAspects);
+
+        if (entity != null) {
+          return entity.getValue().getCorpUserSnapshot();
+        }
+        throw RestliUtils.resourceNotFoundException();
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(String.format("Failed to convert urnString %s into an Urn", urnString));
+      }
+    });  }
 
   @Action(name = ACTION_BACKFILL)
   @Override

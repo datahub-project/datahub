@@ -4,7 +4,7 @@
 
 If you set up the `datahub` CLI tool (see [here](../metadata-ingestion/README.md)), you can use the built-in check utility:
 ```shell
-datahub check local-docker
+datahub docker check
 ```
 
 You can list all Docker containers in your local by running `docker container ls`. You should expect to see a log similar to the below:
@@ -46,7 +46,7 @@ schema-registry         | [2020-04-03 14:34:48,518] WARN Client session timed ou
 
 ## How can I check if [MXE](what/mxe.md) Kafka topics are created?
 
-You can use a utility like [kafkacat](https://github.com/edenhill/kafkacat) to list all topics. 
+You can use a utility like [kafkacat](https://github.com/edenhill/kafkacat) to list all topics.
 You can run below command to see the Kafka topics created in your Kafka broker.
 
 ```bash
@@ -151,7 +151,7 @@ Once the mysql container is up and running, you should be able to connect to it 
 docker exec -it mysql /usr/bin/mysql datahub --user=datahub --password=datahub
 ```
 
-Inspect the content of `metadata_aspect` table, which contains the ingested aspects for all entities. 
+Inspect the content of `metadata_aspect` table, which contains the ingested aspects for all entities.
 
 ## Getting error while starting Docker containers
 There can be different reasons why a container fails during initialization. Below are the most common reasons:
@@ -166,7 +166,7 @@ ERROR: for mysql  Cannot start service mysql: driver failed programming external
 
    1) sudo lsof -i :3306
    2) kill -15 <PID found in step1>
-``` 
+```
 ### `OCI runtime create failed`
 If you see an error message like below, please make sure to git update your local repo to HEAD.
 ```

@@ -9,16 +9,14 @@ import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.mxe.Configs;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
 import com.linkedin.mxe.Topics;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -26,7 +24,6 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
-import org.apache.avro.specific.SpecificRecord;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -55,8 +52,9 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
    * @param topicConvention the convention to use to get kafka topic names
    */
   public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull TopicConvention topicConvention) {
+                                    @Nonnull Class<ASPECT_UNION> aspectUnionClass,
+                                    @Nonnull Producer<String, ? extends IndexedRecord> producer,
+                                    @Nonnull TopicConvention topicConvention) {
     this(snapshotClass, aspectUnionClass, producer, topicConvention, null);
   }
 
@@ -70,8 +68,10 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
    * @param callback The {@link Callback} to invoke when the request is completed
    */
   public KafkaMetadataEventProducer(@Nonnull Class<SNAPSHOT> snapshotClass,
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull TopicConvention topicConvention, @Nullable Callback callback) {
+                                    @Nonnull Class<ASPECT_UNION> aspectUnionClass,
+                                    @Nonnull Producer<String, ? extends IndexedRecord> producer,
+                                    @Nonnull TopicConvention topicConvention,
+                                    @Nullable Callback callback) {
     super(snapshotClass, aspectUnionClass);
     _producer = producer;
     _callback = Optional.ofNullable(callback);
@@ -80,7 +80,7 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
 
   @Override
   public <ASPECT extends RecordTemplate> void produceSnapshotBasedMetadataChangeEvent(@Nonnull URN urn,
-      @Nonnull ASPECT newValue) {
+                                                                                      @Nonnull ASPECT newValue) {
     MetadataChangeEvent metadataChangeEvent = new MetadataChangeEvent();
     metadataChangeEvent.setProposedSnapshot(makeSnapshot(urn, newValue));
 
@@ -127,52 +127,17 @@ public class KafkaMetadataEventProducer<SNAPSHOT extends RecordTemplate, ASPECT_
   @Override
   public <ASPECT extends RecordTemplate> void produceAspectSpecificMetadataAuditEvent(@Nonnull URN urn,
       @Nullable ASPECT oldValue, @Nonnull ASPECT newValue) {
-    // TODO switch to convention once versions are annotated in the schema
-    final String topicKey = ModelUtils.getAspectSpecificMAETopicName(urn, newValue);
-    if (!isValidAspectSpecificTopic(topicKey)) {
-      log.warn("The event topic for entity {} and aspect {}, expected to be {}, has not been registered.",
-          urn.getClass().getCanonicalName(), newValue.getClass().getCanonicalName(), topicKey);
-      return;
-    }
-
-    String topic;
-    Class<? extends SpecificRecord> maeAvroClass;
-    RecordTemplate metadataAuditEvent;
-    try {
-      topic = (String) Topics.class.getField(topicKey).get(null);
-      maeAvroClass = Configs.TOPIC_SCHEMA_CLASS_MAP.get(topic);
-      metadataAuditEvent = (RecordTemplate) EventUtils.getPegasusClass(maeAvroClass).newInstance();
-
-      metadataAuditEvent.getClass().getMethod("setUrn", urn.getClass()).invoke(metadataAuditEvent, urn);
-      metadataAuditEvent.getClass().getMethod("setNewValue", newValue.getClass()).invoke(metadataAuditEvent, newValue);
-      if (oldValue != null) {
-        metadataAuditEvent.getClass()
-            .getMethod("setOldValue", oldValue.getClass())
-            .invoke(metadataAuditEvent, oldValue);
-      }
-    } catch (NoSuchFieldException | IllegalAccessException | ClassNotFoundException | NoSuchMethodException
-        | InstantiationException | InvocationTargetException e) {
-      throw new IllegalArgumentException("Failed to compose the Pegasus aspect specific MAE", e);
-    }
-
-    GenericRecord record;
-    try {
-      record = EventUtils.pegasusToAvroAspectSpecificMXE(maeAvroClass, metadataAuditEvent);
-    } catch (NoSuchFieldException | IOException | IllegalAccessException e) {
-      throw new ModelConversionException("Failed to convert Pegasus aspect specific MAE to Avro", e);
-    }
-
-    if (_callback.isPresent()) {
-      _producer.send(new ProducerRecord(topic, urn.toString(), record), _callback.get());
-    } else {
-      _producer.send(new ProducerRecord(topic, urn.toString(), record));
-    }
+    // Aspect Specific MAE not supported.
+    // TODO: Remove references to this class.
+    throw new UnsupportedOperationException();
   }
 
   @Nonnull
   private Snapshot makeSnapshot(@Nonnull URN urn, @Nonnull RecordTemplate value) {
     Snapshot snapshot = new Snapshot();
-    List<ASPECT_UNION> aspects = Collections.singletonList(ModelUtils.newAspectUnion(_aspectUnionClass, value));
+
+    List<ASPECT_UNION> aspects = new ArrayList<>();
+    aspects.add(ModelUtils.newAspectUnion(_aspectUnionClass, value));
     RecordUtils.setSelectedRecordTemplateInUnion(snapshot, ModelUtils.newSnapshot(_snapshotClass, urn, aspects));
     return snapshot;
   }

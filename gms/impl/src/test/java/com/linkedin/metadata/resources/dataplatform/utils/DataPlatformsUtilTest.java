@@ -30,7 +30,7 @@ public class DataPlatformsUtilTest {
     assertPlatformType("hdfs", PlatformType.FILE_SYSTEM);
     assertPlatformType("hive", PlatformType.FILE_SYSTEM);
     assertPlatformType("kafka", PlatformType.MESSAGE_BROKER);
-    assertPlatformType("mongo", PlatformType.KEY_VALUE_STORE);
+    assertPlatformType("mongodb", PlatformType.KEY_VALUE_STORE);
     assertPlatformType("mysql", PlatformType.RELATIONAL_DB);
     assertPlatformType("oracle", PlatformType.RELATIONAL_DB);
     assertPlatformType("pinot", PlatformType.OLAP_DATASTORE);
@@ -66,7 +66,7 @@ public class DataPlatformsUtilTest {
     assertEquals(DataPlatformsUtil.getPlatformDelimiter("hdfs").get(), "/");
     assertEquals(DataPlatformsUtil.getPlatformDelimiter("hive").get(), ".");
     assertEquals(DataPlatformsUtil.getPlatformDelimiter("kafka").get(), ".");
-    assertEquals(DataPlatformsUtil.getPlatformDelimiter("mongo").get(), ".");
+    assertEquals(DataPlatformsUtil.getPlatformDelimiter("mongodb").get(), ".");
     assertEquals(DataPlatformsUtil.getPlatformDelimiter("mysql").get(), ".");
     assertEquals(DataPlatformsUtil.getPlatformDelimiter("oracle").get(), ".");
     assertEquals(DataPlatformsUtil.getPlatformDelimiter("pinot").get(), ".");

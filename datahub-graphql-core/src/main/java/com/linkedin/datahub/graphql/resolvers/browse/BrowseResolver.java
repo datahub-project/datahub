@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
@@ -19,6 +21,8 @@ public class BrowseResolver implements DataFetcher<CompletableFuture<BrowseResul
 
     private static final int DEFAULT_START = 0;
     private static final int DEFAULT_COUNT = 10;
+
+    private static final Logger _logger = LoggerFactory.getLogger(BrowseResolver.class.getName());
 
     private final Map<EntityType, BrowsableEntityType<?>> _typeToEntity;
 
@@ -38,6 +42,13 @@ public class BrowseResolver implements DataFetcher<CompletableFuture<BrowseResul
 
         return CompletableFuture.supplyAsync(() -> {
             try {
+                _logger.debug(
+                    String.format("Executing browse. entity type: %s, path: %s, filters: %s, start: %s, count: %s",
+                        input.getType(),
+                        input.getPath(),
+                        input.getFilters(),
+                        start,
+                        count));
                 return _typeToEntity.get(input.getType()).browse(
                         input.getPath(),
                         input.getFilters(),
@@ -46,8 +57,15 @@ public class BrowseResolver implements DataFetcher<CompletableFuture<BrowseResul
                         environment.getContext()
                 );
             } catch (Exception e) {
+                _logger.error("Failed to execute browse: "
+                    + String.format("entity type: %s, path: %s, filters: %s, start: %s, count: %s",
+                    input.getType(),
+                    input.getPath(),
+                    input.getFilters(),
+                    start,
+                    count) + " " + e.getMessage());
                 throw new RuntimeException("Failed to execute browse: "
-                        + String.format("entity type %s, path %s, filters: %s, start: %s, count: %s",
+                        + String.format("entity type: %s, path: %s, filters: %s, start: %s, count: %s",
                         input.getType(),
                         input.getPath(),
                         input.getFilters(),

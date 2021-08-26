@@ -2,12 +2,16 @@ import time
 from datetime import datetime
 from unittest import mock
 
+from freezegun import freeze_time
 from looker_sdk.sdk.api31.models import Dashboard, DashboardElement, Query
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
+FROZEN_TIME = "2020-04-14 07:00:00"
 
+
+@freeze_time(FROZEN_TIME)
 def test_looker_ingest(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
     with mock.patch(
@@ -57,13 +61,15 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
         )
         pipeline.run()
         pipeline.raise_from_status()
-        output = mce_helpers.load_json_file(str(tmp_path / "looker_mces.json"))
-        expected = mce_helpers.load_json_file(
-            str(test_resources_dir / "expected_output.json")
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "looker_mces.json",
+            golden_path=test_resources_dir / "expected_output.json",
         )
-        mce_helpers.assert_mces_equal(output, expected)
 
 
+@freeze_time(FROZEN_TIME)
 def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
     with mock.patch(
@@ -124,8 +130,9 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
         )
         pipeline.run()
         pipeline.raise_from_status()
-        output = mce_helpers.load_json_file(str(tmp_path / "looker_mces.json"))
-        expected = mce_helpers.load_json_file(
-            str(test_resources_dir / "expected_output.json")
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "looker_mces.json",
+            golden_path=test_resources_dir / "expected_output.json",
         )
-        mce_helpers.assert_mces_equal(output, expected)

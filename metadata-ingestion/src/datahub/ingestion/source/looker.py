@@ -2,7 +2,6 @@ import datetime
 import json
 import logging
 import os
-import time
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import Any, Iterable, List, MutableMapping, Optional, Sequence
@@ -16,29 +15,22 @@ from looker_sdk.sdk.api31.models import (
     Query,
 )
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.source.metadata_common import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    AuditStamp,
-    ChangeAuditStamps,
-    Status,
-)
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps, Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
     DashboardSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,12 +41,10 @@ class LookerDashboardSourceConfig(ConfigModel):
     client_secret: str
     base_url: str
     platform_name: str = "looker"
-    # The datahub platform where looker views are stored, must be the same as `platform_name` in lookml source
-    view_platform_name: str = "looker_views"
     actor: str = "urn:li:corpuser:etl"
     dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    env: str = "PROD"
+    env: str = builder.DEFAULT_ENV
 
 
 @dataclass
@@ -98,10 +88,9 @@ class LookerDashboardElement:
         # A dashboard element can use a look or just a raw query against an explore
         return f"dashboard_elements.{self.id}"
 
-    def get_view_urns(self, platform_name: str) -> List[str]:
+    def get_view_urns(self, platform_name: str, env: str) -> List[str]:
         return [
-            f"urn:li:dataset:(urn:li:dataPlatform:{platform_name},{v},PROD)"
-            for v in self.looker_views
+            builder.make_dataset_urn(platform_name, v, env) for v in self.looker_views
         ]
 
 
@@ -124,7 +113,7 @@ class LookerDashboard:
 
 class LookerDashboardSource(Source):
     source_config: LookerDashboardSourceConfig
-    report = LookerDashboardSourceReport()
+    reporter: LookerDashboardSourceReport
 
     def __init__(self, config: LookerDashboardSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
@@ -168,7 +157,6 @@ class LookerDashboardSource(Source):
             # We are not going to support parsing arbitrary Looker expressions here, so going to ignore these fields for now
             if "dimension" in field:
                 dimension = field["dimension"]
-                expression = field["expression"]  # noqa: F841
                 custom_field_to_underlying_field[dimension] = None
 
         # A query uses fields defined in views, find the views those fields use
@@ -305,32 +293,25 @@ class LookerDashboardSource(Source):
     def _make_chart_mce(
         self, dashboard_element: LookerDashboardElement
     ) -> MetadataChangeEvent:
-        actor = self.source_config.actor
-        sys_time = int(time.time()) * 1000
-        chart_urn = f"urn:li:chart:({self.source_config.platform_name},{dashboard_element.get_urn_element_id()})"
+        chart_urn = builder.make_chart_urn(
+            self.source_config.platform_name, dashboard_element.get_urn_element_id()
+        )
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
-        )
-
-        last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=sys_time, actor=actor),
-            lastModified=AuditStamp(time=sys_time, actor=actor),
         )
 
         chart_type = self._get_chart_type(dashboard_element)
 
         chart_info = ChartInfoClass(
             type=chart_type,
-            description=dashboard_element.description
-            if dashboard_element.description is not None
-            else "",
-            title=dashboard_element.title
-            if dashboard_element.title is not None
-            else "",
-            lastModified=last_modified,
+            description=dashboard_element.description or "",
+            title=dashboard_element.title or "",
+            lastModified=ChangeAuditStamps(),
             chartUrl=dashboard_element.url(self.source_config.base_url),
-            inputs=dashboard_element.get_view_urns(self.source_config.platform_name),
+            inputs=dashboard_element.get_view_urns(
+                self.source_config.platform_name, self.source_config.env
+            ),
         )
         chart_snapshot.aspects.append(chart_info)
 
@@ -339,45 +320,29 @@ class LookerDashboardSource(Source):
     def _make_dashboard_and_chart_mces(
         self, looker_dashboard: LookerDashboard
     ) -> List[MetadataChangeEvent]:
-        actor = self.source_config.actor
-        sys_time = int(time.time()) * 1000
 
         chart_mces = [
             self._make_chart_mce(element)
             for element in looker_dashboard.dashboard_elements
         ]
 
-        dashboard_urn = f"urn:li:dashboard:({self.source_config.platform_name},{looker_dashboard.get_urn_dashboard_id()})"
+        dashboard_urn = builder.make_dashboard_urn(
+            self.source_config.platform_name, looker_dashboard.get_urn_dashboard_id()
+        )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
             aspects=[],
         )
 
-        last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=sys_time, actor=actor),
-            lastModified=AuditStamp(time=sys_time, actor=actor),
-        )
-
         dashboard_info = DashboardInfoClass(
-            description=looker_dashboard.description
-            if looker_dashboard.description is not None
-            else "",
+            description=looker_dashboard.description or "",
             title=looker_dashboard.title,
             charts=[mce.proposedSnapshot.urn for mce in chart_mces],
-            lastModified=last_modified,
+            lastModified=ChangeAuditStamps(),
             dashboardUrl=looker_dashboard.url(self.source_config.base_url),
         )
 
         dashboard_snapshot.aspects.append(dashboard_info)
-        owners = [OwnerClass(owner=actor, type=OwnershipTypeClass.DATAOWNER)]
-        dashboard_snapshot.aspects.append(
-            OwnershipClass(
-                owners=owners,
-                lastModified=AuditStampClass(
-                    time=sys_time, actor=self.source_config.actor
-                ),
-            )
-        )
         dashboard_snapshot.aspects.append(Status(removed=looker_dashboard.is_deleted))
 
         dashboard_mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
@@ -422,7 +387,13 @@ class LookerDashboardSource(Source):
         os.environ["LOOKERSDK_CLIENT_SECRET"] = self.source_config.client_secret
         os.environ["LOOKERSDK_BASE_URL"] = self.source_config.base_url
 
-        return looker_sdk.init31()
+        client = looker_sdk.init31()
+
+        # try authenticating current user to check connectivity
+        # (since it's possible to initialize an invalid client without any complaints)
+        client.me()
+
+        return client
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         client = self._get_looker_client()
@@ -444,8 +415,9 @@ class LookerDashboardSource(Source):
                 )
             except SDKError:
                 # A looker dashboard could be deleted in between the list and the get
-                logger.warning(
-                    f"Error occuried while loading dashboard {dashboard_id}. Skipping."
+                self.reporter.report_warning(
+                    dashboard_id,
+                    f"Error occurred while loading dashboard {dashboard_id}. Skipping.",
                 )
                 continue
 

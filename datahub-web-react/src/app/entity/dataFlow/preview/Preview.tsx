@@ -27,7 +27,7 @@ export const Preview = ({
     const capitalizedPlatform = capitalizeFirstLetter(platformName);
     return (
         <DefaultPreviewCard
-            url={`/${entityRegistry.getPathName(EntityType.DataFlow)}/${urn}`}
+            url={entityRegistry.getEntityUrl(EntityType.DataFlow, urn)}
             name={name}
             description={description || ''}
             type="Data Pipeline"

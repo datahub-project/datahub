@@ -1,0 +1,21 @@
+namespace com.linkedin.usage
+
+import com.linkedin.common.WindowDuration
+import com.linkedin.common.Urn
+
+/**
+ * Usage data for a given resource, rolled up into a bucket.
+ */
+record UsageAggregation {
+  /** Bucket start time in milliseconds */
+  bucket: long
+
+  /** Bucket duration */
+  duration: WindowDuration
+
+  /** Resource associated with these usage stats */
+  resource: Urn
+
+  /** Metrics associated with this bucket */
+  metrics: UsageAggregationMetrics
+}

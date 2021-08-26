@@ -1,23 +1,35 @@
 import { Button, Divider, Row, Space, Typography } from 'antd';
 import React from 'react';
+import { FetchResult, MutationFunctionOptions } from '@apollo/client';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { DataJob, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import CompactContext from '../../../shared/CompactContext';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 import { AvatarsGroup } from '../../../shared/avatar';
+import UpdatableDescription from '../../shared/UpdatableDescription';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 const PlatFormLink = styled(Typography.Text)`
     color: inherit;
 `;
 
+const ButtonContainer = styled.div`
+    margin-top: 15px;
+`;
+
 export type Props = {
     dataJob: DataJob;
+    updateDataJob: (options?: MutationFunctionOptions<any, any> | undefined) => Promise<FetchResult>;
 };
 
-export default function DataJobHeader({ dataJob: { urn, ownership, info, dataFlow } }: Props) {
+export default function DataJobHeader({
+    dataJob: { urn, type, ownership, info, dataFlow, editableProperties },
+    updateDataJob,
+}: Props) {
     const entityRegistry = useEntityRegistry();
+    const isCompact = React.useContext(CompactContext);
     const platformName = dataFlow?.orchestrator ? capitalizeFirstLetter(dataFlow.orchestrator) : '';
 
     const openExternalUrl = () => {
@@ -50,10 +62,24 @@ export default function DataJobHeader({ dataJob: { urn, ownership, info, dataFlo
                                 <PlatFormLink strong>{platformName}</PlatFormLink>
                             </Link>
                         )}
-                        {info?.externalUrl && <Button onClick={openExternalUrl}>View in {platformName}</Button>}
+                        {!isCompact && info?.externalUrl && (
+                            <Button onClick={openExternalUrl}>View in {platformName}</Button>
+                        )}
                     </Space>
+                    {isCompact && info?.externalUrl && (
+                        <ButtonContainer>
+                            <Button onClick={openExternalUrl}>View in {platformName}</Button>
+                        </ButtonContainer>
+                    )}
                 </Row>
-                <Typography.Paragraph>{info?.description}</Typography.Paragraph>
+                <UpdatableDescription
+                    isCompact={isCompact}
+                    updateEntity={updateDataJob}
+                    updatedDescription={editableProperties?.description}
+                    originalDescription={info?.description}
+                    entityType={type}
+                    urn={urn}
+                />
                 <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
             </Space>
         </>

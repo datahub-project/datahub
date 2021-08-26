@@ -1,19 +1,27 @@
 package com.linkedin.metadata.resources.tag;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Entity;
 import com.linkedin.metadata.aspect.TagAspect;
 import com.linkedin.metadata.dao.BaseLocalDAO;
 import com.linkedin.metadata.dao.BaseSearchDAO;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.restli.BackfillResult;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
+import com.linkedin.metadata.restli.RestliUtils;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.TagDocument;
+import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.snapshot.TagSnapshot;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
@@ -32,10 +40,17 @@ import com.linkedin.tag.Tag;
 import com.linkedin.tag.TagKey;
 import com.linkedin.tag.TagProperties;
 
+import java.net.URISyntaxException;
+import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -43,6 +58,10 @@ import javax.inject.Named;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
+/**
+ * Deprecated! Use {@link EntityResource} instead.
+ */
+@Deprecated
 @RestLiCollection(name = "tags", namespace = "com.linkedin.tag", keyName = "tag")
 public final class Tags extends BaseSearchableEntityResource<
         // @formatter:off
@@ -55,13 +74,16 @@ public final class Tags extends BaseSearchableEntityResource<
         > {
     // @formatter:on
 
-    @Inject
-    @Named("tagDAO")
-    private BaseLocalDAO<TagAspect, TagUrn> _localDAO;
+    private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
+    private final Clock _clock = Clock.systemUTC();
 
     @Inject
-    @Named("tagSearchDAO")
-    private BaseSearchDAO _esSearchDAO;
+    @Named("entityService")
+    private EntityService _entityService;
+
+    @Inject
+    @Named("searchService")
+    private SearchService _searchService;
 
     public Tags() {
         super(TagSnapshot.class, TagAspect.class);
@@ -70,13 +92,13 @@ public final class Tags extends BaseSearchableEntityResource<
     @Override
     @Nonnull
     protected BaseLocalDAO getLocalDAO() {
-        return _localDAO;
+        throw new UnsupportedOperationException();
     }
 
     @Nonnull
     @Override
     protected BaseSearchDAO<TagDocument> getSearchDAO() {
-        return _esSearchDAO;
+        throw new UnsupportedOperationException();
     }
 
     @Nonnull
@@ -136,7 +158,16 @@ public final class Tags extends BaseSearchableEntityResource<
     @Nonnull
     public Task<Tag> get(@Nonnull ComplexResourceKey<TagKey, EmptyRecord> key,
                               @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-        return super.get(key, aspectNames);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+            Arrays.asList(aspectNames));
+        return RestliUtils.toTask(() -> {
+            final Entity entity =
+                _entityService.getEntity(new TagUrn(key.getKey().getName()), projectedAspects);
+            if (entity != null) {
+                return toValue(entity.getValue().getTagSnapshot());
+            }
+            throw RestliUtils.resourceNotFoundException();
+        });
     }
 
     @RestMethod.BatchGet
@@ -145,7 +176,22 @@ public final class Tags extends BaseSearchableEntityResource<
     public Task<Map<ComplexResourceKey<TagKey, EmptyRecord>, Tag>> batchGet(
             @Nonnull Set<ComplexResourceKey<TagKey, EmptyRecord>> keys,
             @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-        return super.batchGet(keys, aspectNames);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+            Arrays.asList(aspectNames));
+        return RestliUtils.toTask(() -> {
+
+            final Map<ComplexResourceKey<TagKey, EmptyRecord>, Tag> entities = new HashMap<>();
+            for (final ComplexResourceKey<TagKey, EmptyRecord> key : keys) {
+                final Entity entity = _entityService.getEntity(
+                    new TagUrn(key.getKey().getName()),
+                    projectedAspects);
+
+                if (entity != null) {
+                    entities.put(key, toValue(entity.getValue().getTagSnapshot()));
+                }
+            }
+            return entities;
+        });
     }
 
     @RestMethod.GetAll
@@ -162,7 +208,27 @@ public final class Tags extends BaseSearchableEntityResource<
                                                                       @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
                                                                       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
                                                                       @PagingContextParam @Nonnull PagingContext pagingContext) {
-        return super.search(input, aspectNames, filter, sortCriterion, pagingContext);
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>();
+        return RestliUtils.toTask(() -> {
+
+            final SearchResult searchResult = _searchService.search(
+                "tag",
+                input,
+                filter,
+                sortCriterion,
+                pagingContext.getStart(),
+                pagingContext.getCount());
+
+            final Set<Urn> urns = new HashSet<>(searchResult.getEntities());
+            final Map<Urn, Entity> entity = _entityService.getEntities(urns, projectedAspects);
+
+            return new CollectionResult<>(
+                entity.keySet().stream().map(urn -> toValue(entity.get(urn).getValue().getTagSnapshot())).collect(
+                    Collectors.toList()),
+                searchResult.getNumEntities(),
+                searchResult.getMetadata().setUrns(new UrnArray(urns))
+            );
+        });
     }
 
     @Action(name = ACTION_AUTOCOMPLETE)
@@ -171,14 +237,30 @@ public final class Tags extends BaseSearchableEntityResource<
     public Task<AutoCompleteResult> autocomplete(@ActionParam(PARAM_QUERY) @Nonnull String query,
                                                  @ActionParam(PARAM_FIELD) @Nullable String field, @ActionParam(PARAM_FILTER) @Nullable Filter filter,
                                                  @ActionParam(PARAM_LIMIT) int limit) {
-        return super.autocomplete(query, field, filter, limit);
+        return RestliUtils.toTask(() ->
+            _searchService.autoComplete(
+                "tag",
+                query,
+                field,
+                filter,
+                limit)
+        );
     }
 
     @Action(name = ACTION_INGEST)
     @Override
     @Nonnull
     public Task<Void> ingest(@ActionParam(PARAM_SNAPSHOT) @Nonnull TagSnapshot snapshot) {
-        return super.ingest(snapshot);
+        return RestliUtils.toTask(() -> {
+            try {
+                final AuditStamp auditStamp =
+                    new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+                _entityService.ingestEntity(new Entity().setValue(Snapshot.create(snapshot)), auditStamp);
+            } catch (URISyntaxException e) {
+                throw new RuntimeException("Failed to create Audit Urn");
+            }
+            return null;
+        });
     }
 
     @Action(name = ACTION_GET_SNAPSHOT)
@@ -186,8 +268,22 @@ public final class Tags extends BaseSearchableEntityResource<
     @Nonnull
     public Task<TagSnapshot> getSnapshot(@ActionParam(PARAM_URN) @Nonnull String urnString,
                                               @ActionParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
-        return super.getSnapshot(urnString, aspectNames);
-    }
+        final Set<String> projectedAspects = aspectNames == null ? Collections.emptySet() : new HashSet<>(
+            Arrays.asList(aspectNames));
+        return RestliUtils.toTask(() -> {
+            final Entity entity;
+            try {
+                entity = _entityService.getEntity(
+                    Urn.createFromString(urnString), projectedAspects);
+
+                if (entity != null) {
+                    return entity.getValue().getTagSnapshot();
+                }
+                throw RestliUtils.resourceNotFoundException();
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(String.format("Failed to convert urnString %s into an Urn", urnString));
+            }
+        });    }
 
     @Action(name = ACTION_BACKFILL)
     @Override

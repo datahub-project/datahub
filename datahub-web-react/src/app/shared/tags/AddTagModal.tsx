@@ -113,6 +113,7 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
         >
             <TagSelect
                 allowClear
+                autoFocus
                 showSearch
                 placeholder="Find a tag"
                 defaultActiveFirstOption={false}
