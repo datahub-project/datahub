@@ -8,8 +8,8 @@ export type Props = {
 };
 
 export enum RelatedTermTypes {
-    hasRelatedTerms = 'Composed Of',
-    isRelatedTerms = 'Defined in',
+    hasRelatedTerms = 'Contains',
+    isRelatedTerms = 'Inherits',
 }
 
 const DetailWrapper = styled.div`

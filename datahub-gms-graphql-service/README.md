@@ -15,7 +15,7 @@ To build `Datahub GMS GraphQL Service`
 
 ## Dependencies
 
-Before starting `Datahub GMS GraphQL Service`, you need to make sure that [DataHub GMS](../gms/README.md) is up and running.
+Before starting `Datahub GMS GraphQL Service`, you need to make sure that [DataHub GMS](../metadata-service/README.md) is up and running.
 
 ## Start via Docker image
 Quickest way to try out `Datahub GMS Graphql Service` is running the [Docker image](../docker/datahub-gms-graphql-service).
@@ -318,7 +318,7 @@ Sample Response:
               "urn": "urn:li:corpuser:datahub",
               "username": "datahub",
               "editableInfo": {
-                "pictureLink": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"
+                "pictureLink": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
               },
               "info": {
                 "firstName": null

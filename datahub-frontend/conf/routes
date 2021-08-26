@@ -12,23 +12,21 @@ GET           /config                                                         co
 # Routes used exclusively by the React application.
 
 # Authentication in React
-GET           /authenticate                                                   react.controllers.AuthenticationController.authenticate()
-POST          /logIn                                                          react.controllers.AuthenticationController.logIn()
-GET           /callback/:protocol                                             react.controllers.SsoCallbackController.handleCallback(protocol: String)
-POST          /callback/:protocol                                             react.controllers.SsoCallbackController.handleCallback(protocol: String)
+GET           /authenticate                                                   controllers.AuthenticationController.authenticate()
+POST          /logIn                                                          controllers.AuthenticationController.logIn()
+GET           /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String)
+POST          /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String)
 GET           /logOut                                                         controllers.CentralLogoutController.executeLogout()
 
-# Data fetching in React
-POST          /api/v2/graphql                                                 react.controllers.GraphQLController.execute()
-
-GET           /api/*path                                                      controllers.Application.apiNotFound(path)
-POST          /api/*path                                                      controllers.Application.apiNotFound(path)
+# Proxies API requests to the metadata service api
+GET           /api/*path                                                      controllers.Application.proxy(path)
+POST          /api/*path                                                      controllers.Application.proxy(path)
 
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/*file                                                   controllers.Assets.at(path="/public", file)
 
 # Analytics route
-POST          /track                                                          react.controllers.TrackingController.track()
+POST          /track                                                          controllers.TrackingController.track()
 
-# Wildcard route accepts any routes and delegates to serveAsset which in turn serves the Ember client
+# Wildcard route accepts any routes and delegates to serveAsset which in turn serves the React Bundle
 GET           /*path                                                          controllers.Application.index(path)

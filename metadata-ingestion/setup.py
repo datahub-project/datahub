@@ -40,7 +40,7 @@ framework_common = {
     "expandvars>=0.6.5",
     "avro-gen3==0.6.0",
     "avro-python3>=1.8.2",
-    "python-dateutil",
+    "python-dateutil>=2.8.0",
     "stackprinter",
     "tabulate",
 }
@@ -86,7 +86,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.10"
+        "acryl-pyhive[hive]>=0.6.11"
     },
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests"},
