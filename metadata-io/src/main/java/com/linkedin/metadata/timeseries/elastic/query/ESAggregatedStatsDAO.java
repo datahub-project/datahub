@@ -12,7 +12,6 @@ import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.timeseries.DateGroupingBucket;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
-import com.linkedin.timeseries.TopHitsAggregation;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,17 +71,21 @@ public class ESAggregatedStatsDAO {
 
   private static String getAggregationSpecAggDisplayName(final AggregationSpec aggregationSpec) {
     String prefix;
-    if (aggregationSpec.getAggregationType().isLatestAggregation()) {
-      prefix = "latest_";
-    } else if (aggregationSpec.getAggregationType().isSumAggregation()) {
-      prefix = "sum_";
-    } else if (aggregationSpec.getAggregationType().isCardinalityAggregation()) {
-      prefix = "unique_count_";
-    } else if (aggregationSpec.getAggregationType().isTopHitsAggregation()) {
-      TopHitsAggregation topHitsAggregation = aggregationSpec.getAggregationType().getTopHitsAggregation();
-      prefix = "top_" + topHitsAggregation.getK() + "_by_" + topHitsAggregation.getMaxByMember() + "_";
-    } else {
-      throw new IllegalArgumentException("Unknown AggregationSpec type" + aggregationSpec.getAggregationType());
+    switch (aggregationSpec.getAggregationType()) {
+      case LATEST:
+        prefix = "latest_";
+        break;
+      case SUM:
+        prefix = "sum_";
+        break;
+      case CARDINALITY:
+        prefix = "unique_count_";
+        break;
+      case TOP_HITS:
+        prefix = "top_" + aggregationSpec.getK() + "_by_" + aggregationSpec.getByMember() + "_";
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown AggregationSpec type" + aggregationSpec.getAggregationType());
     }
     return prefix + aggregationSpec.getMemberName();
   }
@@ -103,9 +106,12 @@ public class ESAggregatedStatsDAO {
       // Append member aggregation values to the row and add the row to the output.
       for (String memberAggName : memberAggNames) {
         Object memberAgg = lowestAggs.get(memberAggName);
-        String value;
+        String value = "NULL";
         if (memberAgg instanceof ParsedBucketMetricValue) {
-          value = ((ParsedBucketMetricValue) memberAgg).keys()[0];
+          String[] values = ((ParsedBucketMetricValue) memberAgg).keys();
+          if (values.length > 0) {
+            value = values[0];
+          }
         } else if (memberAgg instanceof ParsedSum) {
           value = String.valueOf((long) ((ParsedSum) memberAgg).getValue());
         } else {
@@ -203,30 +209,33 @@ public class ESAggregatedStatsDAO {
       AggregationSpec aggregationSpec) {
     String fieldName = aggregationSpec.getMemberName();
 
-    if (aggregationSpec.getAggregationType().isLatestAggregation()) {
-      // Construct the terms aggregation with a max timestamp sub-aggregation.
-      String termsAggName = toEsAggName(ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + fieldName);
-      String maxAggName = ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
-      AggregationBuilder termsAgg = AggregationBuilders.terms(termsAggName)
-          .field(fieldName)
-          .size(MAX_TERM_BUCKETS)
-          .subAggregation(AggregationBuilders.max(maxAggName).field(ES_FIELD_TIMESTAMP));
-      baseAggregation.subAggregation(termsAgg);
-      // Construct the max_bucket pipeline aggregation
-      MaxBucketPipelineAggregationBuilder maxBucketPipelineAgg =
-          PipelineAggregatorBuilders.maxBucket(getAggregationSpecAggESName(aggregationSpec),
-              termsAggName + ">" + maxAggName);
-      baseAggregation.subAggregation(maxBucketPipelineAgg);
-    } else if (aggregationSpec.getAggregationType().isSumAggregation()) {
-      AggregationBuilder sumAgg =
-          AggregationBuilders.sum(getAggregationSpecAggESName(aggregationSpec)).field(fieldName);
-      baseAggregation.subAggregation(sumAgg);
-    } else if (aggregationSpec.getAggregationType().isCardinalityAggregation()) {
-      throw new UnsupportedOperationException("No support for Cardinality aggregation yet");
-    } else if (aggregationSpec.getAggregationType().isTopHitsAggregation()) {
-      throw new UnsupportedOperationException("No support for top_hits aggregation yet");
-    } else {
-      throw new IllegalStateException("Unexpected value: " + aggregationSpec.getAggregationType());
+    switch (aggregationSpec.getAggregationType()) {
+      case LATEST:
+        // Construct the terms aggregation with a max timestamp sub-aggregation.
+        String termsAggName = toEsAggName(ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + fieldName);
+        String maxAggName = ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
+        AggregationBuilder termsAgg = AggregationBuilders.terms(termsAggName)
+            .field(fieldName)
+            .size(MAX_TERM_BUCKETS)
+            .subAggregation(AggregationBuilders.max(maxAggName).field(ES_FIELD_TIMESTAMP));
+        baseAggregation.subAggregation(termsAgg);
+        // Construct the max_bucket pipeline aggregation
+        MaxBucketPipelineAggregationBuilder maxBucketPipelineAgg =
+            PipelineAggregatorBuilders.maxBucket(getAggregationSpecAggESName(aggregationSpec),
+                termsAggName + ">" + maxAggName);
+        baseAggregation.subAggregation(maxBucketPipelineAgg);
+        break;
+      case SUM:
+        AggregationBuilder sumAgg =
+            AggregationBuilders.sum(getAggregationSpecAggESName(aggregationSpec)).field(fieldName);
+        baseAggregation.subAggregation(sumAgg);
+        break;
+      case CARDINALITY:
+        throw new UnsupportedOperationException("No support for Cardinality aggregation yet");
+      case TOP_HITS:
+        throw new UnsupportedOperationException("No support for top_hits aggregation yet");
+      default:
+        throw new IllegalStateException("Unexpected value: " + aggregationSpec.getAggregationType());
     }
   }
 

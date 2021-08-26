@@ -25,14 +25,12 @@ import com.linkedin.metadata.util.GenericAspectUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.timeseries.AggregationSpec;
+import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.timeseries.DateGroupingBucket;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
-import com.linkedin.timeseries.LatestAggregation;
-import com.linkedin.timeseries.MetricAggregation;
 import com.linkedin.timeseries.StringGroupingBucket;
-import com.linkedin.timeseries.SumAggregation;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -261,10 +259,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
-    MetricAggregation latestAgg = new MetricAggregation();
-    latestAgg.setLatestAggregation(new LatestAggregation());
     AggregationSpec latestStatAggregationSpec =
-        new AggregationSpec().setAggregationType(latestAgg).setMemberName("stat");
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setMemberName("stat");
 
     // Grouping bucket is only timestamp filed.
     GroupingBucket timestampBucket = new GroupingBucket();
@@ -300,10 +296,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
-    MetricAggregation latestAgg = new MetricAggregation();
-    latestAgg.setLatestAggregation(new LatestAggregation());
     AggregationSpec latestStatAggregationSpec =
-        new AggregationSpec().setAggregationType(latestAgg).setMemberName("stat");
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setMemberName("stat");
 
     // Grouping bucket is only timestamp filed.
     GroupingBucket timestampBucket = new GroupingBucket();
@@ -342,10 +336,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
-    MetricAggregation latestAgg = new MetricAggregation();
-    latestAgg.setLatestAggregation(new LatestAggregation());
     AggregationSpec latestStatAggregationSpec =
-        new AggregationSpec().setAggregationType(latestAgg).setMemberName("stat");
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setMemberName("stat");
 
     // Grouping bucket is only timestamp filed.
     GroupingBucket timestampBucket = new GroupingBucket();
@@ -383,10 +375,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, hasCol1, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
-    MetricAggregation latestAgg = new MetricAggregation();
-    latestAgg.setLatestAggregation(new LatestAggregation());
     AggregationSpec latestStatAggregationSpec =
-        new AggregationSpec().setAggregationType(latestAgg).setMemberName("componentProfiles.stat");
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setMemberName("componentProfiles.stat");
 
     // Grouping bucket is timestamp filed + componentProfiles.key.
     GroupingBucket timestampBucket = new GroupingBucket();
@@ -427,10 +417,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate on latest stat value
-    MetricAggregation latestAgg = new MetricAggregation();
-    latestAgg.setLatestAggregation(new LatestAggregation());
     AggregationSpec latestStatAggregationSpec =
-        new AggregationSpec().setAggregationType(latestAgg).setMemberName("componentProfiles.stat");
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setMemberName("componentProfiles.stat");
 
     // Grouping bucket is timestamp filed + componentProfiles.key.
     GroupingBucket timestampBucket = new GroupingBucket();
@@ -475,9 +463,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
 
     // Aggregate the sum of stat value
-    MetricAggregation sumAgg = new MetricAggregation();
-    sumAgg.setSumAggregation(new SumAggregation());
-    AggregationSpec sumAggregationSpec = new AggregationSpec().setAggregationType(sumAgg).setMemberName("stat");
+    AggregationSpec sumAggregationSpec =
+        new AggregationSpec().setAggregationType(AggregationType.SUM).setMemberName("stat");
 
     // Grouping bucket is only timestamp filed.
     GroupingBucket timestampBucket = new GroupingBucket();
@@ -517,10 +504,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     filter.setCriteria(new CriterionArray(hasUrnCriterion, hasCol2, startTimeCriterion, endTimeCriterion));
 
     // Aggregate the sum of stat value
-    MetricAggregation sumAgg = new MetricAggregation();
-    sumAgg.setSumAggregation(new SumAggregation());
     AggregationSpec sumStatAggregationSpec =
-        new AggregationSpec().setAggregationType(sumAgg).setMemberName("componentProfiles.stat");
+        new AggregationSpec().setAggregationType(AggregationType.SUM).setMemberName("componentProfiles.stat");
 
     // Grouping bucket is timestamp filed + componentProfiles.key.
     GroupingBucket timestampBucket = new GroupingBucket();

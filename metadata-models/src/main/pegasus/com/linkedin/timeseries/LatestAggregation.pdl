@@ -1,4 +1,0 @@
-namespace com.linkedin.timeseries
-
-record LatestAggregation {
-}
