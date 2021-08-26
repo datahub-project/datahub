@@ -10,10 +10,24 @@
       "doc": "The event timestamp field as epoch at UTC in milli seconds."
     },
     {
-      "name": "eventGranularityMillis",
+      "name": "eventGranularity",
       "type": [
         "null",
-        "long"
+        {
+          "type": "enum",
+          "name": "CalendarInterval",
+          "namespace": "com.linkedin.pegasus2avro.timeseries",
+          "symbols": [
+            "SECOND",
+            "MINUTE",
+            "HOUR",
+            "DAY",
+            "WEEK",
+            "MONTH",
+            "QUARTER",
+            "YEAR"
+          ]
+        }
       ],
       "doc": "Granularity of the event if applicable",
       "default": null

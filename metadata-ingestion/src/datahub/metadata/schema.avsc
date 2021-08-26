@@ -5690,9 +5690,23 @@
       {
         "type": [
           "null",
-          "long"
+          {
+            "type": "enum",
+            "name": "CalendarInterval",
+            "namespace": "com.linkedin.pegasus2avro.timeseries",
+            "symbols": [
+              "SECOND",
+              "MINUTE",
+              "HOUR",
+              "DAY",
+              "WEEK",
+              "MONTH",
+              "QUARTER",
+              "YEAR"
+            ]
+          }
         ],
-        "name": "eventGranularityMillis",
+        "name": "eventGranularity",
         "default": null,
         "doc": "Granularity of the event if applicable"
       },
@@ -5961,5 +5975,148 @@
       }
     ],
     "doc": "Stats corresponding to datasets"
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "datasetUsageStatistics",
+      "type": "timeseries"
+    },
+    "name": "DatasetUsageStatistics",
+    "namespace": "com.linkedin.pegasus2avro.dataset",
+    "fields": [
+      {
+        "type": "long",
+        "name": "timestampMillis",
+        "doc": "The event timestamp field as epoch at UTC in milli seconds."
+      },
+      {
+        "type": [
+          "null",
+          "com.linkedin.pegasus2avro.timeseries.CalendarInterval"
+        ],
+        "name": "eventGranularity",
+        "default": null,
+        "doc": "Granularity of the event if applicable"
+      },
+      {
+        "type": [
+          "null",
+          "com.linkedin.pegasus2avro.timeseries.PartitionSpec"
+        ],
+        "name": "partitionSpec",
+        "default": null,
+        "doc": "The optional partition specification."
+      },
+      {
+        "TemporalStat": {},
+        "type": [
+          "null",
+          "int"
+        ],
+        "name": "uniqueUserCount",
+        "default": null,
+        "doc": " Unique user count "
+      },
+      {
+        "TemporalStat": {},
+        "type": [
+          "null",
+          "int"
+        ],
+        "name": "totalSqlQueries",
+        "default": null,
+        "doc": " Total SQL query count "
+      },
+      {
+        "TemporalStat": {},
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": "string"
+          }
+        ],
+        "name": "topSqlQueries",
+        "default": null,
+        "doc": " Frequent SQL queries; mostly makes sense for datasets in SQL databases "
+      },
+      {
+        "TemporalStatCollection": {
+          "key": "user"
+        },
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": {
+              "type": "record",
+              "name": "DatasetUserUsageCounts",
+              "namespace": "com.linkedin.pegasus2avro.dataset",
+              "fields": [
+                {
+                  "java": {
+                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                  },
+                  "type": "string",
+                  "name": "user"
+                },
+                {
+                  "TemporalStat": {},
+                  "type": "int",
+                  "name": "count"
+                },
+                {
+                  "TemporalStat": {},
+                  "type": [
+                    "null",
+                    "string"
+                  ],
+                  "name": "userEmail",
+                  "default": null,
+                  "doc": " If user_email is set, we attempt to resolve the user's urn upon ingest "
+                }
+              ],
+              "doc": " Records a single user's usage counts for a given resource "
+            }
+          }
+        ],
+        "name": "userCounts",
+        "default": null,
+        "doc": " Users within this bucket, with frequency counts "
+      },
+      {
+        "TemporalStatCollection": {
+          "key": "fieldName"
+        },
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": {
+              "type": "record",
+              "name": "DatasetFieldUsageCounts",
+              "namespace": "com.linkedin.pegasus2avro.dataset",
+              "fields": [
+                {
+                  "type": "string",
+                  "name": "fieldName"
+                },
+                {
+                  "TemporalStat": {},
+                  "type": "int",
+                  "name": "count"
+                }
+              ],
+              "doc": " Records field-level usage counts for a given dataset"
+            }
+          }
+        ],
+        "name": "fieldCounts",
+        "default": null,
+        "doc": " Field-level usage stats "
+      }
+    ],
+    "doc": "Stats corresponding to dataset's usage."
   }
 ]

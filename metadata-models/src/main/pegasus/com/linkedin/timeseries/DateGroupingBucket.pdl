@@ -12,5 +12,5 @@ record DateGroupingBucket {
   /**
    * Bucket size (like a day/hour etc).
    */
-  granularityMillis: optional long
+  granularity: CalendarInterval
 }

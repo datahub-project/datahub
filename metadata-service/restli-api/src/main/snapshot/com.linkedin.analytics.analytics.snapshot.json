@@ -129,10 +129,13 @@
               "type" : "string",
               "doc" : "Key that specifies the column name to be used as the timestamp field for bucketing."
             }, {
-              "name" : "granularityMillis",
-              "type" : "long",
-              "doc" : "Bucket size (like a day/hour etc).",
-              "optional" : true
+              "name" : "granularity",
+              "type" : {
+                "type" : "enum",
+                "name" : "CalendarInterval",
+                "symbols" : [ "SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR" ]
+              },
+              "doc" : "Bucket size (like a day/hour etc)."
             } ]
           }, {
             "type" : "record",
@@ -188,7 +191,7 @@
       "doc" : "When the index was last updated.",
       "optional" : true
     } ]
-  }, "com.linkedin.metadata.query.Condition", "com.linkedin.metadata.query.Criterion", "com.linkedin.metadata.query.Filter", "com.linkedin.timeseries.AggregationSpec", "com.linkedin.timeseries.CardinalityAggregation", "com.linkedin.timeseries.DateGroupingBucket", "com.linkedin.timeseries.GenericTable", "com.linkedin.timeseries.GroupingBucket", "com.linkedin.timeseries.LatestAggregation", "com.linkedin.timeseries.MetricAggregation", "com.linkedin.timeseries.StringGroupingBucket", "com.linkedin.timeseries.SumAggregation", "com.linkedin.timeseries.TopHitsAggregation" ],
+  }, "com.linkedin.metadata.query.Condition", "com.linkedin.metadata.query.Criterion", "com.linkedin.metadata.query.Filter", "com.linkedin.timeseries.AggregationSpec", "com.linkedin.timeseries.CalendarInterval", "com.linkedin.timeseries.CardinalityAggregation", "com.linkedin.timeseries.DateGroupingBucket", "com.linkedin.timeseries.GenericTable", "com.linkedin.timeseries.GroupingBucket", "com.linkedin.timeseries.LatestAggregation", "com.linkedin.timeseries.MetricAggregation", "com.linkedin.timeseries.StringGroupingBucket", "com.linkedin.timeseries.SumAggregation", "com.linkedin.timeseries.TopHitsAggregation" ],
   "schema" : {
     "name" : "analytics",
     "namespace" : "com.linkedin.analytics",

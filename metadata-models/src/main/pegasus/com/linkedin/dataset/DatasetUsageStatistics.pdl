@@ -24,9 +24,9 @@ record DatasetUsageStatistics includes TimeseriesAspectBase {
 
     /** Users within this bucket, with frequency counts */
     @TemporalStatCollection = {"key":"user"}
-    users: optional array[DatasetUserUsageCounts]
+    userCounts: optional array[DatasetUserUsageCounts]
 
     /** Field-level usage stats */
     @TemporalStatCollection = {"key":"fieldName"}
-    fields: optional array[DatasetFieldUsageCounts]
+    fieldCounts: optional array[DatasetFieldUsageCounts]
 }

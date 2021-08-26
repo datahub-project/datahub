@@ -25,6 +25,7 @@ import com.linkedin.metadata.util.GenericAspectUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.timeseries.AggregationSpec;
+import com.linkedin.timeseries.CalendarInterval;
 import com.linkedin.timeseries.DateGroupingBucket;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
@@ -267,7 +268,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
     // Grouping bucket is only timestamp filed.
     GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
+    timestampBucket.setDateGroupingBucket(
+        new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP).setGranularity(CalendarInterval.DAY));
 
     GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
         new AggregationSpec[]{latestStatAggregationSpec}, filter, new GroupingBucket[]{timestampBucket});
@@ -305,7 +307,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
     // Grouping bucket is only timestamp filed.
     GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
+    timestampBucket.setDateGroupingBucket(
+        new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP).setGranularity(CalendarInterval.DAY));
 
     GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
         new AggregationSpec[]{latestStatAggregationSpec}, filter, new GroupingBucket[]{timestampBucket});
@@ -346,7 +349,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
     // Grouping bucket is only timestamp filed.
     GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
+    timestampBucket.setDateGroupingBucket(
+        new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP).setGranularity(CalendarInterval.DAY));
 
     GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
         new AggregationSpec[]{latestStatAggregationSpec}, filter, new GroupingBucket[]{timestampBucket});
@@ -386,7 +390,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
     // Grouping bucket is timestamp filed + componentProfiles.key.
     GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
+    timestampBucket.setDateGroupingBucket(
+        new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP).setGranularity(CalendarInterval.DAY));
 
     GroupingBucket componentProfilesBucket = new GroupingBucket();
     componentProfilesBucket.setStringGroupingBucket(new StringGroupingBucket().setKey("componentProfiles.key"));
@@ -429,7 +434,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
     // Grouping bucket is timestamp filed + componentProfiles.key.
     GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
+    timestampBucket.setDateGroupingBucket(
+        new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP).setGranularity(CalendarInterval.DAY));
 
     GroupingBucket componentProfilesBucket = new GroupingBucket();
     componentProfilesBucket.setStringGroupingBucket(new StringGroupingBucket().setKey("componentProfiles.key"));
@@ -475,7 +481,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
     // Grouping bucket is only timestamp filed.
     GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
+    timestampBucket.setDateGroupingBucket(
+        new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP).setGranularity(CalendarInterval.DAY));
 
     GenericTable resultTable = _elasticSearchTimeseriesAspectService.getAggregatedStats(ENTITY_NAME, ASPECT_NAME,
         new AggregationSpec[]{sumAggregationSpec}, filter, new GroupingBucket[]{timestampBucket});
@@ -517,7 +524,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
     // Grouping bucket is timestamp filed + componentProfiles.key.
     GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket.setDateGroupingBucket(new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP));
+    timestampBucket.setDateGroupingBucket(
+        new DateGroupingBucket().setKey(ES_FILED_TIMESTAMP).setGranularity(CalendarInterval.DAY));
 
     GroupingBucket componentProfilesBucket = new GroupingBucket();
     componentProfilesBucket.setStringGroupingBucket(new StringGroupingBucket().setKey("componentProfiles.key"));

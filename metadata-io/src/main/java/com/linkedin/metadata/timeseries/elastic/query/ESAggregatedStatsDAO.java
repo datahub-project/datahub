@@ -8,6 +8,8 @@ import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.utils.elasticsearch.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.timeseries.AggregationSpec;
+import com.linkedin.timeseries.CalendarInterval;
+import com.linkedin.timeseries.DateGroupingBucket;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.TopHitsAggregation;
@@ -135,6 +137,26 @@ public class ESAggregatedStatsDAO {
     }
   }
 
+  private static DateHistogramInterval getHistogramInterval(DateGroupingBucket dateGroupingBucket) {
+    CalendarInterval granularity = dateGroupingBucket.getGranularity();
+    switch (granularity) {
+      case MINUTE:
+        return DateHistogramInterval.MINUTE;
+      case HOUR:
+        return DateHistogramInterval.HOUR;
+      case DAY:
+        return DateHistogramInterval.DAY;
+      case MONTH:
+        return DateHistogramInterval.MONTH;
+      case QUARTER:
+        return DateHistogramInterval.QUARTER;
+      case YEAR:
+        return DateHistogramInterval.YEAR;
+      default:
+        throw new IllegalArgumentException("Unknown date grouping bucking granularity" + granularity);
+    }
+  }
+
   /**
    * Get the aggregated metrics for the given dataset or column from a time series aspect.
    */
@@ -220,9 +242,9 @@ public class ESAggregatedStatsDAO {
 
     // date histogram aggregation is always the first.
     DateHistogramAggregationBuilder dateHistogramAggregationBuilder =
-        AggregationBuilders.dateHistogram(ES_AGG_TIMESTAMP).field(ES_FIELD_TIMESTAMP)
-            // TODO: Decipher this from the granlarity.
-            .calendarInterval(DateHistogramInterval.DAY);
+        AggregationBuilders.dateHistogram(ES_AGG_TIMESTAMP)
+            .field(ES_FIELD_TIMESTAMP)
+            .calendarInterval(getHistogramInterval(groupingBuckets[0].getDateGroupingBucket()));
 
     AggregationBuilder lastAggregationBuilder = dateHistogramAggregationBuilder;
     for (int i = 1; i < groupingBuckets.length; ++i) {

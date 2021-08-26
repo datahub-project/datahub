@@ -12,7 +12,7 @@ from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.snowflake import BaseSnowflakeConfig
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
@@ -115,7 +115,7 @@ class SnowflakeUsageSource(Source):
         config = SnowflakeUsageConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_workunits(self) -> Iterable[UsageStatsWorkUnit]:
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         access_events = self._get_snowflake_history()
         aggregated_info = self._aggregate_access_events(access_events)
 
@@ -187,7 +187,7 @@ class SnowflakeUsageSource(Source):
 
         return datasets
 
-    def _make_usage_stat(self, agg: AggregatedDataset) -> UsageStatsWorkUnit:
+    def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
         return agg.make_usage_workunit(
             self.config.bucket_duration,
             lambda resource: builder.make_dataset_urn(
