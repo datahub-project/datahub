@@ -46,6 +46,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AuthorizationManager implements Authorizer {
 
+  private static final String INACTIVE_POLICY_STATE = "INACTIVE"; // TODO move to PolicyUtils.
+  private static final String ACTIVE_POLICY_STATE = "ACTIVE";
+
   private static final String SYSTEM_PRINCIPAL = "urn:li:corpuser:system";
 
   // Maps privilege name to the associated set of policies for fast access. Not concurrent data structure because writes are always against the entire thing.
@@ -68,8 +71,14 @@ public class AuthorizationManager implements Authorizer {
   }
 
   public AuthorizationResult authorize(final AuthorizationRequest request) {
-    final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.get(request.privilege());
+    final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(request.privilege(), new ArrayList<>());
+
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
+
+      if (INACTIVE_POLICY_STATE.equals(policy.getState())) {
+        continue;
+      }
+
       // TODO: Split out into a proper PolicyEngine.
       if (isAllowed(request, policy)) {
         // Short circuit. - Policy has granted privileges to this actor.
@@ -253,49 +262,53 @@ public class AuthorizationManager implements Authorizer {
     @Override
     public void run() {
       try {
-        synchronized (_policyCache) {
+        // Populate new cache and swap.
+        Map<String, List<DataHubPolicyInfo>> newCache = new HashMap<>();
 
-          int start = 0;
-          int count = 30;
-          int total = 30;
+        int start = 0;
+        int count = 30;
+        int total = 30;
 
-          while (start < total) {
-            try {
-              log.debug(String.format("Batch fetching policies. start: %s, count: %s ", start, count));
-              final ListUrnsResult policyUrns = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, SYSTEM_PRINCIPAL);
-              final Map<Urn, Entity> policyEntities = _entityClient.batchGet(new HashSet<>(policyUrns.getEntities()), SYSTEM_PRINCIPAL);
+        while (start < total) {
+          try {
+            log.debug(String.format("Batch fetching policies. start: %s, count: %s ", start, count));
+            final ListUrnsResult policyUrns = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, SYSTEM_PRINCIPAL);
+            final Map<Urn, Entity> policyEntities = _entityClient.batchGet(new HashSet<>(policyUrns.getEntities()), SYSTEM_PRINCIPAL);
 
-              addPoliciesToCache(policyEntities
-                  .values()
-                  .stream()
-                  .map(entity -> entity.getValue().getDataHubPolicySnapshot())
-                  .collect(Collectors.toList()));
+            addPoliciesToCache(newCache, policyEntities
+                .values()
+                .stream()
+                .map(entity -> entity.getValue().getDataHubPolicySnapshot())
+                .collect(Collectors.toList()));
 
-              total = policyUrns.getTotal();
-              start = start + count;
-            } catch (RemoteInvocationException e) {
-              log.error(String.format(
-                  "Failed to retrieve policy urns! Skipping updating policy cache until next refresh. start: %s, count: %s", start, count), e);
-              return;
-            }
+            total = policyUrns.getTotal();
+            start = start + count;
+          } catch (RemoteInvocationException e) {
+            log.error(String.format(
+                "Failed to retrieve policy urns! Skipping updating policy cache until next refresh. start: %s, count: %s", start, count), e);
+            return;
           }
-          log.debug(String.format("Successfully fetched %s policies.", total));
+          synchronized (_policyCache) {
+            _policyCache.clear();
+            _policyCache.putAll(newCache);
+          }
         }
+        log.debug(String.format("Successfully fetched %s policies.", total));
       } catch (Exception e) {
         log.error("Caught exception while loading Policy cache. Will retry on next scheduled attempt.", e);
       }
     }
 
-    private void addPoliciesToCache(final List<DataHubPolicySnapshot> snapshots) {
+    private void addPoliciesToCache(final Map<String, List<DataHubPolicyInfo>> cache, final List<DataHubPolicySnapshot> snapshots) {
       for (final DataHubPolicySnapshot snapshot : snapshots) {
-        addPolicyToCache(snapshot);
+        addPolicyToCache(cache, snapshot);
       }
     }
 
-    private void addPolicyToCache(final DataHubPolicySnapshot snapshot) {
+    private void addPolicyToCache(final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicySnapshot snapshot) {
       for (DataHubPolicyAspect aspect : snapshot.getAspects()) {
         if (aspect.isDataHubPolicyInfo()) {
-          addPolicyToCache(aspect.getDataHubPolicyInfo());
+          addPolicyToCache(cache, aspect.getDataHubPolicyInfo());
           return;
         }
       }
@@ -303,12 +316,12 @@ public class AuthorizationManager implements Authorizer {
           String.format("Failed to find DataHubPolicyInfo aspect in DataHubPolicySnapshot data %s. Invalid state.", snapshot.data()));
     }
 
-    private void addPolicyToCache(final DataHubPolicyInfo policy) {
+    private void addPolicyToCache(final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicyInfo policy) {
       final List<String> privileges = policy.getPrivileges();
       for (String privilege : privileges) {
-        List<DataHubPolicyInfo> existingPolicies = _policyCache.getOrDefault(privilege, new ArrayList<>());
+        List<DataHubPolicyInfo> existingPolicies = cache.getOrDefault(privilege, new ArrayList<>());
         existingPolicies.add(policy);
-        _policyCache.put(privilege, existingPolicies);
+        cache.put(privilege, existingPolicies);
       }
     }
   }

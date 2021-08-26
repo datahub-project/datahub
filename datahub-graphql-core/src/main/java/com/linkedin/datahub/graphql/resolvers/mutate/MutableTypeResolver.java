@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.types.MutableType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -32,6 +33,8 @@ public class MutableTypeResolver<I, T> implements DataFetcher<CompletableFuture<
             try {
                 _logger.debug(String.format("Mutating entity. input: %s", input));
                 return _mutableType.update(input, environment.getContext());
+            } catch (AuthorizationException e) {
+                throw e;
             } catch (Exception e) {
                 _logger.error(String.format("Failed to perform update against input %s", input.toString()) + " " + e.getMessage());
                 throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);

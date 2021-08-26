@@ -183,10 +183,24 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         final String principal = context.getActor();
         final String resourceUrn = update.getUrn();
         final String resourceType = PolicyUtils.DATASET_ENTITY_RESOURCE_TYPE;
-        final List<String> requiredPrivileges = getRequiredPrivileges(update);
+        final List<List<String>> requiredPrivileges = getRequiredPrivileges(update);
         final AuthorizationRequest.ResourceSpec resourceSpec = new AuthorizationRequest.ResourceSpec(resourceType, resourceUrn);
 
-        for (String privilege : requiredPrivileges) {
+        for (List<String> privilegeGroup : requiredPrivileges) {
+            if (isAuthorized(principal, privilegeGroup, resourceSpec, authorizer)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isAuthorized(
+        String principal,
+        List<String> privilegeGroup,
+        AuthorizationRequest.ResourceSpec resourceSpec,
+        Authorizer authorizer) {
+        // Each privilege in a group _must_ all be true to permit the operation.
+        for (String privilege : privilegeGroup) {
             // No "partial" operations. All privileges required for the update must be granted for it to succeed.
             final AuthorizationRequest request = new AuthorizationRequest(principal, privilege, Optional.of(resourceSpec));
             final AuthorizationResult result = authorizer.authorize(request);
@@ -198,23 +212,34 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         return true;
     }
 
-    private List<String> getRequiredPrivileges(final DatasetUpdateInput updateInput) {
-        List<String> privileges = new ArrayList<>();
+
+    // Returns a disjunction of conjunctive sets of privileges. TODO: model this more legibly..
+    private List<List<String>> getRequiredPrivileges(final DatasetUpdateInput updateInput) {
+        List<List<String>> orPrivileges = new ArrayList<>();
+
+        List<String> allEntityPrivileges = new ArrayList<>();
+        allEntityPrivileges.add(PolicyUtils.EDIT_ENTITY);
+
+        List<String> andPrivileges = new ArrayList<>();
         if (updateInput.getInstitutionalMemory() != null) {
-            privileges.add(PolicyUtils.EDIT_ENTITY_DOC_LINKS);
+            andPrivileges.add(PolicyUtils.EDIT_ENTITY_DOC_LINKS);
         }
         if (updateInput.getOwnership() != null) {
-            privileges.add(PolicyUtils.EDIT_ENTITY_OWNERS);
+            andPrivileges.add(PolicyUtils.EDIT_ENTITY_OWNERS);
         }
         if (updateInput.getDeprecation() != null) {
-            privileges.add(PolicyUtils.EDIT_ENTITY_STATUS);
+            andPrivileges.add(PolicyUtils.EDIT_ENTITY_STATUS);
         }
         if (updateInput.getEditableProperties() != null) {
-            privileges.add(PolicyUtils.EDIT_ENTITY_DOCS);
+            andPrivileges.add(PolicyUtils.EDIT_ENTITY_DOCS);
         }
         if (updateInput.getGlobalTags() != null) {
-            privileges.add(PolicyUtils.EDIT_ENTITY_TAGS);
+            andPrivileges.add(PolicyUtils.EDIT_ENTITY_TAGS);
         }
-        return privileges;
+
+        // If either set of privileges are all true, permit the operation.
+        orPrivileges.add(allEntityPrivileges);
+        orPrivileges.add(andPrivileges);
+        return orPrivileges;
     }
 }

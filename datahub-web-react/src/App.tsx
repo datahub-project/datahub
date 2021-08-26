@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Cookies from 'js-cookie';
+import { message } from 'antd';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerError } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import { ThemeProvider } from 'styled-components';
-
 import './App.less';
 import { Routes } from './app/Routes';
 import EntityRegistry from './app/entity/EntityRegistry';
@@ -34,7 +34,17 @@ import { MLModelGroupEntity } from './app/entity/mlModelGroup/MLModelGroupEntity
 */
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
-const errorLink = onError(({ networkError }) => {
+const handleErrorCode = (errorCode: number) => {
+    switch (errorCode) {
+        case 401:
+            message.warn('Oops. Looks like you are unauthorized to perform that action!');
+            break;
+        default:
+            break;
+    }
+};
+
+const errorLink = onError(({ graphQLErrors, networkError }) => {
     if (networkError) {
         const serverError = networkError as ServerError;
         if (serverError.statusCode === 401) {
@@ -42,6 +52,14 @@ const errorLink = onError(({ networkError }) => {
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
             window.location.replace(PageRoutes.AUTHENTICATE);
         }
+    }
+    if (graphQLErrors) {
+        graphQLErrors.forEach(({ extensions }) => {
+            const errorCode = extensions && (extensions.code as number);
+            if (errorCode) {
+                handleErrorCode(errorCode);
+            }
+        });
     }
 });
 

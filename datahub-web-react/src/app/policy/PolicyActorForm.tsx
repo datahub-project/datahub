@@ -61,7 +61,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 allGroups: true,
             });
         } else {
-            const newGroupActors = [...(actors.users || []), newGroup];
+            const newGroupActors = [...(actors.groups || []), newGroup];
             setActors({
                 ...actors,
                 groups: newGroupActors,
@@ -122,7 +122,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     const showAppliesToOwners = policyType === PolicyType.Metadata;
 
     const usersSelectValue = actors.allUsers ? ['All'] : actors.users || [];
-    const groupsSelectValue = actors.allGroups ? ['All'] : actors.users || [];
+    const groupsSelectValue = actors.allGroups ? ['All'] : actors.groups || [];
 
     return (
         <Form layout="vertical" initialValues={{}} style={{ margin: 12, marginTop: 36, marginBottom: 40 }}>
