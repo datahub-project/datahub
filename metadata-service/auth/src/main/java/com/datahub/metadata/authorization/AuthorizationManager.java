@@ -40,14 +40,12 @@ import lombok.extern.slf4j.Slf4j;
  * Currently, the authorizer is implemented as a spring-instantiated Singleton
  * which manages its own thread-pool used for resolving policy predicates.
  */
-
 // TODO: Decouple this from all Rest.li objects if possible.
 // Try to avoid synchronizing on the entire cache if possible.
 @Slf4j
 public class AuthorizationManager implements Authorizer {
 
   private static final String INACTIVE_POLICY_STATE = "INACTIVE"; // TODO move to PolicyUtils.
-  private static final String ACTIVE_POLICY_STATE = "ACTIVE";
 
   private static final String SYSTEM_PRINCIPAL = "urn:li:corpuser:system";
 
