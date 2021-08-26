@@ -1056,7 +1056,7 @@
                         "name": "pictureLink",
                         "type": "string",
                         "doc": "A URL which points to a picture which user wants to set as a profile photo",
-                        "default": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png",
+                        "default": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png",
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.url.Url",
                           "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
