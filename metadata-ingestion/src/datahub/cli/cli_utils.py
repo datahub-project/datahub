@@ -1,4 +1,5 @@
 import json
+import os
 import os.path
 import sys
 import typing
@@ -10,8 +11,11 @@ import requests
 import yaml
 from pydantic import BaseModel, ValidationError
 
-CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
-DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
+try:
+    DATAHUB_CONFIG_PATH = os.path.expanduser(os.environ['DATAHUB_CONFIG_PATH'])
+except:
+    CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
+    DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
 
 
 class GmsConfig(BaseModel):

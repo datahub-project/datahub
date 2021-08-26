@@ -65,15 +65,21 @@ def init() -> None:
     if os.path.isfile(DATAHUB_CONFIG_PATH):
         click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
-    click.echo("Configure which datahub instance to connect to")
-    host = click.prompt(
-        "Enter your DataHub host", type=str, default="http://localhost:8080"
-    )
-    token = click.prompt(
-        "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)",
-        type=str,
-        default="",
-    )
+    try:
+        host = os.environ['DATAHUB_HOST']
+    except:
+        click.echo("Configure which datahub instance to connect to")
+        host = click.prompt(
+            "Enter your DataHub host", type=str, default="http://localhost:8080"
+        )
+    try:
+        token = os.environ['DATAHUB_TOKEN']
+    except:
+        token = click.prompt(
+            "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)",
+            type=str,
+            default="",
+        )
     write_datahub_config(host, token)
 
     click.echo(f"Written to {DATAHUB_CONFIG_PATH}")

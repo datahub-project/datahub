@@ -13,6 +13,13 @@ datahub init
 
 will allow you to customize the datahub instance you are communicating with.
 
+If you would like to use environment variables instead (e.g. for automation) you can set the following environment variables and then run the `init` command
+```
+DATAHUB_CONFIG_PATH=~/.datahubenv
+DATAHUB_HOST=http://localhost:8080
+DATAHUB_TOKEN=
+```
+
 _Note: Provide your GMS instance's host when the prompt asks you for the DataHub host._
 
 ## Delete By Urn
