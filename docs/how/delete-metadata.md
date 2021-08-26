@@ -13,7 +13,7 @@ datahub init
 
 will allow you to customize the datahub instance you are communicating with.
 
-If you would like to use environment variables instead (e.g. for automation) you can set the following environment variables and then run the `init` command
+If you would like to use environment variables instead of interactively entering the values (e.g. for automation) you can set the following environment variables and then run the `init` command
 ```
 DATAHUB_CONFIG_PATH=~/.datahubenv
 DATAHUB_HOST=http://localhost:8080
