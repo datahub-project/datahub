@@ -1,3 +1,5 @@
+import pytest
+
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -143,6 +145,19 @@ def test_simple_dataset_ownership_with_type_transformation(mock_time):
     assert ownership_aspect
     assert len(ownership_aspect.owners) == 1
     assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
+
+
+def test_simple_dataset_ownership_with_invalid_type_transformation(mock_time):
+    with pytest.raises(ValueError):
+        SimpleAddDatasetOwnership.create(
+            {
+                "owner_urns": [
+                    builder.make_user_urn("person1"),
+                ],
+                "ownership_type": "INVALID_TYPE",
+            },
+            PipelineContext(run_id="test"),
+        )
 
 
 def test_simple_remove_dataset_ownership():
@@ -386,3 +401,18 @@ def test_pattern_dataset_ownership_with_type_transformation(mock_time):
     assert ownership_aspect
     assert len(ownership_aspect.owners) == 1
     assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
+
+
+def test_pattern_dataset_ownership_with_invalid_type_transformation(mock_time):
+    with pytest.raises(ValueError):
+        PatternAddDatasetOwnership.create(
+            {
+                "owner_pattern": {
+                    "rules": {
+                        ".*example1.*": [builder.make_user_urn("person1")],
+                    }
+                },
+                "ownership_type": "INVALID_TYPE",
+            },
+            PipelineContext(run_id="test"),
+        )
