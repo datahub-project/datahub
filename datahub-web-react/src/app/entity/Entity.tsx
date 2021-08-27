@@ -100,4 +100,9 @@ export interface Entity<T> {
      * Constructs config to add entity to lineage viz
      */
     getLineageVizConfig?: (entity: T) => FetchedEntity;
+
+    /**
+     * Returns a display name for the entity
+     */
+    displayName: (data: T) => string;
 }

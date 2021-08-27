@@ -15,7 +15,8 @@ type Props = {
 };
 
 const ThinDivider = styled(Divider)`
-    margin: 8px;
+    margin-top: 8px;
+    margin-bottom: 8px;
 `;
 
 // TODO: Cleanup styling.
@@ -56,6 +57,11 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
         <Modal title={policy.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
             <Row style={{ paddingLeft: 20, paddingRight: 20 }}>
                 <Space direction="vertical" size="large">
+                    <div>
+                        <Typography.Title level={5}>Type</Typography.Title>
+                        <ThinDivider />
+                        <Tag>{policy.type}</Tag>
+                    </div>
                     <div>
                         <Typography.Title level={5}>Description</Typography.Title>
                         <ThinDivider />

@@ -1,7 +1,6 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Button, Modal, Steps } from 'antd';
-import MetadataPolicyPrivilegeForm from './MetadataPolicyPrivilegeForm';
-import PlatformPolicyPrivilegeForm from './PlatformPolicyPrivilegeForm';
+import PolicyPrivilegeForm from './PolicyPrivilegeForm';
 import PolicyTypeForm from './PolicyTypeForm';
 import PolicyActorForm from './PolicyActorForm';
 import { ActorFilter, Policy, PolicyType, ResourceFilter } from '../../types.generated';
@@ -14,22 +13,11 @@ type Props = {
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
 };
 
-/**
- * Represents the state of a modal flow step.
- */
-enum StepState {
-    COMPLETE = 'COMPLETE',
-    INCOMPLETE = 'INCOMPLETE',
-}
-
 // TODO: see if we can merge this into the step view information below.
 // TODO: Figure out a way to pass in the completeStep function to step 0 and 3, with a persistent value returned.
 // TODO: Rethink all of the useCallback going on in here. It does not seem very nice.
-const INITIAL_STEP_STATES = [StepState.INCOMPLETE, StepState.INCOMPLETE, StepState.COMPLETE];
-
 export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose, onSave }: Props) {
     // Step control-flow.
-    const [stepStates, setStepStates] = useState(INITIAL_STEP_STATES);
     const [activeStepIndex, setActiveStepIndex] = useState(0);
 
     const next = () => {
@@ -40,92 +28,54 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
         setActiveStepIndex(activeStepIndex - 1);
     };
 
-    const updateStepState = useCallback(
-        (step: number, state: StepState) => {
-            const newStepStates = [...stepStates];
-            newStepStates[step] = state;
-            setStepStates(newStepStates);
-        },
-        [stepStates],
-    );
-
-    const updateStepCompletion = useCallback(
-        (step: number, isComplete: boolean) => {
-            if (isComplete) {
-                return updateStepState(step, StepState.COMPLETE);
-            }
-            return updateStepState(step, StepState.INCOMPLETE);
-        },
-        [updateStepState],
-    );
+    const setPolicyType = (type: PolicyType) => {
+        // Important. If the policy type itself is changing, we need to clear state.
+        if (type === PolicyType.Platform) {
+            setPolicy({ ...policy, type, resources: undefined });
+        }
+        setPolicy({ ...policy, type });
+    };
 
     // Step 0.
-    const typeStep = useCallback(
-        (index: number) => {
-            const updateStepComplete = (isComplete: boolean) => updateStepCompletion(index, isComplete);
-            return {
-                title: 'Choose Policy Type',
-                content: (
-                    <PolicyTypeForm
-                        policyType={policy.type}
-                        setPolicyType={(type: PolicyType) => setPolicy({ ...policy, type })}
-                        policyName={policy.name}
-                        setPolicyName={(name: string) => setPolicy({ ...policy, name })}
-                        policyDescription={policy.description || ''}
-                        setPolicyDescription={(description: string) => setPolicy({ ...policy, description })}
-                        updateStepCompletion={updateStepComplete}
-                    />
-                ),
-                state: stepStates[index],
-            };
-        },
-        [policy, setPolicy, stepStates, updateStepCompletion],
-    );
-
-    const privilegeStepContent = useCallback(
-        (index: number) => {
-            const updateStepComplete = (isComplete: boolean) => updateStepCompletion(index, isComplete);
-
-            if (policy.type === PolicyType.Metadata) {
-                return (
-                    <MetadataPolicyPrivilegeForm
-                        resources={policy.resources!}
-                        setResources={(resources: ResourceFilter) => setPolicy({ ...policy, resources })}
-                        privileges={policy.privileges}
-                        setPrivileges={(privileges: string[]) => setPolicy({ ...policy, privileges })}
-                        updateStepCompletion={updateStepComplete}
-                    />
-                );
-            }
-            return (
-                <PlatformPolicyPrivilegeForm
-                    privileges={policy.privileges}
-                    setPrivileges={(privileges: string[]) =>
-                        setPolicy({
-                            ...policy,
-                            privileges,
-                        })
-                    }
-                    updateStepCompletion={(isComplete: boolean) => updateStepCompletion(index, isComplete)}
+    const typeStep = () => {
+        return {
+            title: 'Choose Policy Type',
+            content: (
+                <PolicyTypeForm
+                    policyType={policy.type}
+                    setPolicyType={(type: PolicyType) => setPolicyType(type)}
+                    policyName={policy.name}
+                    setPolicyName={(name: string) => setPolicy({ ...policy, name })}
+                    policyDescription={policy.description || ''}
+                    setPolicyDescription={(description: string) => setPolicy({ ...policy, description })}
                 />
-            );
-        },
-        [policy, setPolicy, updateStepCompletion],
-    );
+            ),
+            complete: policy.type && policy.name && policy.name.length > 0,
+        };
+    };
+
+    const privilegeStepContent = () => {
+        return (
+            <PolicyPrivilegeForm
+                policyType={policy.type}
+                resources={policy.resources!}
+                setResources={(resources: ResourceFilter) => setPolicy({ ...policy, resources })}
+                privileges={policy.privileges}
+                setPrivileges={(privileges: string[]) => setPolicy({ ...policy, privileges })}
+            />
+        );
+    };
 
     // Step 1.
-    const privilegeStep = useCallback(
-        (index: number) => ({
-            title: 'Configure Privileges',
-            content: privilegeStepContent(index),
-            state: stepStates[index],
-        }),
-        [privilegeStepContent, stepStates],
-    );
+    const privilegeStep = () => ({
+        title: 'Configure Privileges',
+        content: privilegeStepContent(),
+        complete: policy.privileges && policy.privileges.length > 0,
+    });
 
     // Step 2.
-    const actorStep = useCallback(
-        (index: number) => ({
+    const actorStep = () => {
+        return {
             title: 'Assign Users & Groups',
             content: (
                 <PolicyActorForm
@@ -139,26 +89,18 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                     }
                 />
             ),
-            state: stepStates[index],
-        }),
-        [policy, setPolicy, stepStates],
-    );
+            complete: true,
+        };
+    };
 
     // Construct final set of steps.
-    const policySteps = useMemo(
-        () => [typeStep(0), privilegeStep(1), actorStep(2)],
-        [typeStep, privilegeStep, actorStep],
-    );
+    const policySteps = [typeStep(), privilegeStep(), actorStep()];
 
     const onCreatePolicy = () => {
         onSave(policy);
     };
 
     const activeStep = policySteps[activeStepIndex];
-
-    const isStepComplete = (step: any) => {
-        return step.state === StepState.COMPLETE;
-    };
 
     // Whether we're editing or creating a policy.
     const isEditing = policy !== undefined && policy !== null;
@@ -179,12 +121,12 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
             </Steps>
             <div className="steps-content">{activeStep.content}</div>
             <div className="steps-action">
-                {activeStepIndex < policySteps.length - 1 && isStepComplete(activeStep) && (
+                {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
                     <Button type="primary" onClick={() => next()}>
                         Next
                     </Button>
                 )}
-                {activeStepIndex === policySteps.length - 1 && isStepComplete(activeStep) && (
+                {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
                     <Button type="primary" onClick={onCreatePolicy}>
                         Save
                     </Button>

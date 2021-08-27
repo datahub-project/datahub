@@ -236,6 +236,10 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         if (updateInput.getGlobalTags() != null) {
             andPrivileges.add(PolicyUtils.EDIT_ENTITY_TAGS);
         }
+        if (updateInput.getEditableSchemaMetadata() != null) {
+            andPrivileges.add(PolicyUtils.EDIT_DATASET_COL_TAGS);
+            andPrivileges.add(PolicyUtils.EDIT_DATASET_COL_DESCRIPTION);
+        }
 
         // If either set of privileges are all true, permit the operation.
         orPrivileges.add(allEntityPrivileges);

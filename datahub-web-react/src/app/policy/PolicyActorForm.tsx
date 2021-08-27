@@ -1,8 +1,8 @@
 import React from 'react';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
+import { Link } from 'react-router-dom';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ActorFilter, EntityType, PolicyType, SearchResult } from '../../types.generated';
-import { PreviewType } from '../entity/Entity';
 import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
 
 type Props = {
@@ -111,8 +111,15 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
 
     const renderSearchResult = (result: SearchResult) => {
         return (
-            <div style={{ margin: 12 }}>
-                {entityRegistry.renderPreview(result.entity.type, PreviewType.MINI_SEARCH, result.entity)}
+            <div style={{ padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                <Link
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    to={() => `/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
+                >
+                    View
+                </Link>{' '}
             </div>
         );
     };

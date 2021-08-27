@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Switch, Route, Link } from 'react-router-dom';
 import { Layout, Menu } from 'antd';
-import { BankOutlined, BarChartOutlined, DatabaseOutlined, UsergroupAddOutlined } from '@ant-design/icons';
+import { BankOutlined, BarChartOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import Sider from 'antd/lib/layout/Sider';
 import { BrowseResultsPage } from './browse/BrowseResultsPage';
 import { EntityPage } from './entity/EntityPage';
@@ -82,9 +82,6 @@ export const ProtectedRoutes = (): JSX.Element => {
                         )}
                         <Menu.Item key="identity" icon={<UsergroupAddOutlined />}>
                             Users & Groups
-                        </Menu.Item>
-                        <Menu.Item key="sources" icon={<DatabaseOutlined />}>
-                            Data Sources
                         </Menu.Item>
                     </Menu>
                 </Sider>

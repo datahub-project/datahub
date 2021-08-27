@@ -72,11 +72,9 @@ public class AuthorizationManager implements Authorizer {
     final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(request.privilege(), new ArrayList<>());
 
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
-
       if (INACTIVE_POLICY_STATE.equals(policy.getState())) {
         continue;
       }
-
       // TODO: Split out into a proper PolicyEngine.
       if (isAllowed(request, policy)) {
         // Short circuit. - Policy has granted privileges to this actor.
@@ -170,7 +168,7 @@ public class AuthorizationManager implements Authorizer {
 
   private boolean isGroupActorMatch(final Set<String> groups, final DataHubActorFilter actorFilter) {
     if (groups.size() > 0) {
-      return actorFilter.isAllGroups() || (actorFilter.hasGroups() && Objects.requireNonNull(actorFilter.getUsers())
+      return actorFilter.isAllGroups() || (actorFilter.hasGroups() && Objects.requireNonNull(actorFilter.getGroups())
           .stream()
           .anyMatch(groupUrn -> groups.contains(groupUrn.toString())));
     }
@@ -226,7 +224,7 @@ public class AuthorizationManager implements Authorizer {
   }
 
   // TODO: Cache the group membership locally. Refresh periodically.
-  private Optional<GroupMembership> resolveGroupMembership(Urn urn) {
+  private Optional<GroupMembership> resolveGroupMembership(final Urn urn) {
     // 1. get user snapshot.
     try {
       final CorpUserSnapshot corpUser = _entityClient.get(urn, SYSTEM_PRINCIPAL).getValue().getCorpUserSnapshot();

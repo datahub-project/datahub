@@ -121,4 +121,8 @@ export class DatasetEntity implements Entity<Dataset> {
             platform: entity.platform.name,
         };
     };
+
+    displayName = (data: Dataset) => {
+        return data.name;
+    };
 }

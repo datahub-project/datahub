@@ -9,7 +9,6 @@ type Props = {
     setPolicyName: (name: string) => void;
     policyDescription: string;
     setPolicyDescription: (description: string) => void;
-    updateStepCompletion: (isComplete: boolean) => void;
 };
 
 // TODO: Fix initial state problem.
@@ -20,15 +19,9 @@ export default function PolicyTypeForm({
     setPolicyName,
     policyDescription,
     setPolicyDescription,
-    updateStepCompletion,
 }: Props) {
     const updatePolicyName = (name: string) => {
         setPolicyName(name);
-        if (name.length > 0) {
-            updateStepCompletion(true);
-        } else {
-            updateStepCompletion(false);
-        }
     };
 
     return (

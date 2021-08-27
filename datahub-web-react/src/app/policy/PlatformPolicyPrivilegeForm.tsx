@@ -5,15 +5,13 @@ import { PLATFORM_PRIVILEGES } from './privileges';
 type Props = {
     privileges: Array<string>;
     setPrivileges: (newPrivs: Array<string>) => void;
-    updateStepCompletion: (isComplete: boolean) => void;
 };
 
 // TODO: Consider merging this with MetadataPolicyPrivilegeForm.
-export default function PlatformPolicyPrivilegeForm({ privileges, setPrivileges, updateStepCompletion }: Props) {
+export default function PlatformPolicyPrivilegeForm({ privileges, setPrivileges }: Props) {
     const privilegeOptions = PLATFORM_PRIVILEGES;
 
     const onSelectPrivilege = (privilege: string) => {
-        updateStepCompletion(true);
         const newPrivs = [...privileges, privilege];
         setPrivileges(newPrivs as never[]);
     };
@@ -21,9 +19,6 @@ export default function PlatformPolicyPrivilegeForm({ privileges, setPrivileges,
     const onDeselectPrivilege = (privilege: string) => {
         const newPrivs = privileges.filter((priv) => priv !== privilege);
         setPrivileges(newPrivs as never[]);
-        if (newPrivs.length === 0) {
-            updateStepCompletion(false);
-        }
     };
 
     return (

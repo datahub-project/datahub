@@ -5,7 +5,6 @@ import styled, { useTheme } from 'styled-components';
 
 import { SearchBar } from './SearchBar';
 import { ManageAccount } from '../shared/ManageAccount';
-import AnalyticsLink from './AnalyticsLink';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 
@@ -88,7 +87,6 @@ export const SearchHeader = ({
                 entityRegistry={entityRegistry}
             />
             <NavGroup>
-                <AnalyticsLink />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
             </NavGroup>
         </Header>
