@@ -44,8 +44,10 @@ sink:
   # sink configs
 ```
 
+Ingestion with
+
 <details>
-  <summary>Example: using ingestion with Azure HDInsight</summary>
+  <summary>Azure HDInsight</summary>
 
 ```yml
 # Connecting to Microsoft Azure HDInsight using TLS.
@@ -69,6 +71,31 @@ sink:
   # sink configs
 ```
 
+</details>
+
+<details>
+  <summary>Databricks </summary>
+
+Ensure that databricks-dbapi is installed. If not, use ```pip install databricks-dbapi``` to install.
+
+```yml
+source:
+  type: hive
+  config:
+    host_port: <databricks workspace URL>:443
+    username: token
+    password: <api token>
+    scheme: 'databricks+pyhive'
+
+    options:
+      connect_args:
+        http_path: 'sql/protocolv1/o/xxxyyyzzzaaasa/1234-567890-hello123'
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://<datahubip>:8080"
+```
 </details>
 
 ## Config details
