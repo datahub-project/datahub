@@ -2,6 +2,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Iterable, List, Optional, Union
 
+from pydantic import validator
+
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
@@ -62,6 +64,11 @@ class BusinessGlossaryConfig(DefaultConfig):
     version: str
     nodes: List[GlossaryNodeConfig]
 
+    @validator("version")
+    def version_must_be_1(cls, v):
+        if v != "1":
+            raise ValueError("Only version 1 is supported")
+
 
 def make_glossary_node_urn(path: List[str]) -> str:
     return "urn:li:glossaryNode:" + ".".join(path)
@@ -98,7 +105,6 @@ def get_mces(
     events: List[models.MetadataChangeEventClass] = []
     path: List[str] = []
     root_owners = get_owners(glossary.owners)
-    logger.warn(f"Root_owners = {root_owners}")
 
     for node in glossary.nodes:
         events += get_mces_from_node(
@@ -213,9 +219,6 @@ def get_mces_from_term(
     ownership: models.OwnershipClass = parentOwnership
     if glossaryTerm.owners is not None:
         assert glossaryTerm.owners is not None
-        logger.info(
-            f"Glossary term {glossaryTerm.name} has owners {glossaryTerm.owners}"
-        )
         ownership = get_owners(glossaryTerm.owners)
     aspects.append(ownership)
 
