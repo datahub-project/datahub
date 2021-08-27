@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Iterable, List, Optional, Union
+from typing import Any, Iterable, List, Optional, Union
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
@@ -111,7 +111,7 @@ def get_mces(
     return events
 
 
-def get_mce_from_snapshot(snapshot) -> models.MetadataChangeEventClass:
+def get_mce_from_snapshot(snapshot: Any) -> models.MetadataChangeEventClass:
     return models.MetadataChangeEventClass(
         proposedSnapshot=snapshot,
         systemMetadata=models.SystemMetadataClass(runId="test-glossary"),
@@ -168,7 +168,7 @@ def get_mces_from_term(
     parentNode: str,
     parentOwnership: models.OwnershipClass,
     defaults: DefaultConfig,
-):
+) -> List[models.MetadataChangeEventClass]:
     term_urn = make_glossary_term_urn(path)
     aspects: List[
         Union[
@@ -182,8 +182,8 @@ def get_mces_from_term(
     ] = []
     term_info = models.GlossaryTermInfoClass(
         definition=glossaryTerm.description,
-        termSource=glossaryTerm.term_source
-        if glossaryTerm.term_source
+        termSource=glossaryTerm.term_source  # type: ignore
+        if glossaryTerm.term_source is not None
         else defaults.source_type,
         sourceRef=glossaryTerm.source_ref
         if glossaryTerm.source_ref
@@ -239,7 +239,7 @@ class BusinessGlossaryFileSource(Source):
         config = BusinessGlossarySourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def load_glossary_config(self, file_name) -> BusinessGlossaryConfig:
+    def load_glossary_config(self, file_name: str) -> BusinessGlossaryConfig:
         config = load_config_file(file_name)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
         return glossary_cfg
