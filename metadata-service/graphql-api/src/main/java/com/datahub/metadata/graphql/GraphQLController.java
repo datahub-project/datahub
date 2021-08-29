@@ -21,11 +21,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.datahub.metadata.auth.AuthContext;
 
+
 @Slf4j
 @RestController
 public class GraphQLController {
-
-  public GraphQLController() { }
 
   @Inject
   GraphQLEngine _engine;
@@ -103,6 +102,6 @@ public class GraphQLController {
 
   @GetMapping("/graphql")
   void getGraphQL(HttpServletRequest request, HttpServletResponse response) {
-    System.out.println("GET am graphql!");
+    throw new UnsupportedOperationException("GraphQL gets not supported.");
   }
 }
