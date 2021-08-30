@@ -1,9 +1,14 @@
 package com.linkedin.datahub.graphql.types.tag;
 
+import com.datahub.metadata.authorization.AuthorizationRequest;
+import com.datahub.metadata.authorization.AuthorizationResult;
+import com.datahub.metadata.authorization.Authorizer;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.PoliciesConfig;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -27,6 +32,7 @@ import com.linkedin.r2.RemoteInvocationException;
 
 import graphql.execution.DataFetcherResult;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -117,19 +123,21 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
 
     @Override
     public Tag update(@Nonnull TagUpdate input, @Nonnull QueryContext context) throws Exception {
-        // TODO: Verify that updater is owner.
-        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final TagSnapshot tagSnapshot = TagUpdateSnapshotMapper.map(input, actor);
-        final Snapshot snapshot = Snapshot.create(tagSnapshot);
-        try {
-            Entity entity = new Entity();
-            entity.setValue(snapshot);
-            _tagClient.update(entity, context.getActor());
-        } catch (RemoteInvocationException e) {
-            throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
-        }
+        if (isAuthorized(input, context)) {
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final TagSnapshot tagSnapshot = TagUpdateSnapshotMapper.map(input, actor);
+            final Snapshot snapshot = Snapshot.create(tagSnapshot);
+            try {
+                Entity entity = new Entity();
+                entity.setValue(snapshot);
+                _tagClient.update(entity, context.getActor());
+            } catch (RemoteInvocationException e) {
+                throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+            }
 
-        return load(input.getUrn(), context).getData();
+            return load(input.getUrn(), context).getData();
+        }
+        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
     private TagUrn getTagUrn(final String urnStr) {
@@ -138,5 +146,61 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
         } catch (URISyntaxException e) {
             throw new RuntimeException(String.format("Failed to retrieve tag with urn %s, invalid urn", urnStr));
         }
+    }
+
+    private boolean isAuthorized(@Nonnull TagUpdate update, @Nonnull QueryContext context) {
+        // Decide whether the current principal should be allowed to update the Dataset.
+        // First, check what is being updated.
+        final Authorizer authorizer = context.getAuthorizer();
+        final String principal = context.getActor();
+        final String resourceUrn = update.getUrn();
+        final String resourceType = PoliciesConfig.TAG_PRIVILEGES.getResourceType();
+        final List<List<String>> requiredPrivileges = getRequiredPrivileges(update);
+        final AuthorizationRequest.ResourceSpec resourceSpec = new AuthorizationRequest.ResourceSpec(resourceType, resourceUrn);
+
+        for (List<String> privilegeGroup : requiredPrivileges) {
+            if (isAuthorized(principal, privilegeGroup, resourceSpec, authorizer)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isAuthorized(
+        String principal,
+        List<String> privilegeGroup,
+        AuthorizationRequest.ResourceSpec resourceSpec,
+        Authorizer authorizer) {
+        // Each privilege in a group _must_ all be true to permit the operation.
+        for (final String privilege : privilegeGroup) {
+            // No "partial" operations. All privileges required for the update must be granted for it to succeed.
+            final AuthorizationRequest request = new AuthorizationRequest(principal, privilege, Optional.of(resourceSpec));
+            final AuthorizationResult result = authorizer.authorize(request);
+            if (AuthorizationResult.Type.DENY.equals(result.getType())) {
+                // Short circuit.
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<List<String>> getRequiredPrivileges(final TagUpdate updateInput) {
+        List<List<String>> orPrivileges = new ArrayList<>();
+
+        List<String> allEntityPrivileges = new ArrayList<>();
+        allEntityPrivileges.add(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType());
+
+        List<String> andPrivileges = new ArrayList<>();
+        if (updateInput.getOwnership() != null) {
+            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
+        }
+        if (updateInput.getDescription() != null || updateInput.getName() != null) {
+            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType());
+        }
+
+        // If either set of privileges are all true, permit the operation.
+        orPrivileges.add(allEntityPrivileges);
+        orPrivileges.add(andPrivileges);
+        return orPrivileges;
     }
 }

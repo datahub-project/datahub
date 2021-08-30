@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.policy;
 import com.datahub.metadata.authorization.AuthorizationManager;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PolicyInput;
 import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInputInfoMapper;
 import com.linkedin.entity.client.AspectClient;
@@ -20,9 +21,6 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-
-// How to make us update the Authorizer cache when a policy is created or updated? We need some way
-// to invalidate a key.
 public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<String>> {
 
   private static final String POLICY_ENTITY_NAME = "dataHubPolicy";
@@ -37,46 +35,51 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final Optional<String> policyUrn = Optional.ofNullable(environment.getArgument("urn"));
-    final PolicyInput input = bindArgument(environment.getArgument("input"), PolicyInput.class);
 
-    // Finally, create the MetadataChangeProposal.
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    if (AuthUtils.isAuthorized(context)) {
 
-    if (policyUrn.isPresent()) {
-      // Update existing policy
-      proposal.setEntityUrn(Urn.createFromString(policyUrn.get()));
-    } else {
-      // Create new policy
-      // Since we are creating a new Policy, we need to generate a unique UUID.
-      final UUID uuid = UUID.randomUUID();
-      final String uuidStr = uuid.toString();
+      final Optional<String> policyUrn = Optional.ofNullable(environment.getArgument("urn"));
+      final PolicyInput input = bindArgument(environment.getArgument("input"), PolicyInput.class);
 
-      // Create the Policy key.
-      final DataHubPolicyKey key = new DataHubPolicyKey();
-      key.setId(uuidStr);
-      proposal.setEntityUrn(EntityKeyUtils.convertEntityKeyToUrn(key, POLICY_ENTITY_NAME));
-    }
+      // Finally, create the MetadataChangeProposal.
+      final MetadataChangeProposal proposal = new MetadataChangeProposal();
 
-    // Create the policy info.
-    final DataHubPolicyInfo info = PolicyInputInfoMapper.map(input);
+      if (policyUrn.isPresent()) {
+        // Update existing policy
+        proposal.setEntityUrn(Urn.createFromString(policyUrn.get()));
+      } else {
+        // Create new policy
+        // Since we are creating a new Policy, we need to generate a unique UUID.
+        final UUID uuid = UUID.randomUUID();
+        final String uuidStr = uuid.toString();
 
-    proposal.setEntityType(POLICY_ENTITY_NAME);
-    proposal.setAspectName(POLICY_INFO_ASPECT_NAME);
-    proposal.setAspect(GenericAspectUtils.serializeAspect(info));
-    proposal.setChangeType(ChangeType.UPSERT);
-
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        // TODO: We should also provide SystemMetadata.
-        String urn = _aspectClient.ingestProposal(proposal, context.getActor()).getEntity();
-        if (context.getAuthorizer() instanceof AuthorizationManager) {
-          ((AuthorizationManager) context.getAuthorizer()).invalidateCache();
-        }
-        return urn;
-      } catch (Exception e) {
-        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        // Create the Policy key.
+        final DataHubPolicyKey key = new DataHubPolicyKey();
+        key.setId(uuidStr);
+        proposal.setEntityUrn(EntityKeyUtils.convertEntityKeyToUrn(key, POLICY_ENTITY_NAME));
       }
-    });
+
+      // Create the policy info.
+      final DataHubPolicyInfo info = PolicyInputInfoMapper.map(input);
+
+      proposal.setEntityType(POLICY_ENTITY_NAME);
+      proposal.setAspectName(POLICY_INFO_ASPECT_NAME);
+      proposal.setAspect(GenericAspectUtils.serializeAspect(info));
+      proposal.setChangeType(ChangeType.UPSERT);
+
+      return CompletableFuture.supplyAsync(() -> {
+        try {
+          // TODO: We should also provide SystemMetadata.
+          String urn = _aspectClient.ingestProposal(proposal, context.getActor()).getEntity();
+          if (context.getAuthorizer() instanceof AuthorizationManager) {
+            ((AuthorizationManager) context.getAuthorizer()).invalidateCache();
+          }
+          return urn;
+        } catch (Exception e) {
+          throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+        }
+      });
+    }
+    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 }

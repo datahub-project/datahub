@@ -57,15 +57,18 @@ public class AuthorizationManager implements Authorizer {
   private final AspectClient _aspectClient;
   private final ScheduledExecutorService _refreshExecutorService = Executors.newScheduledThreadPool(1);
   private final PolicyRefreshRunnable _policyRefreshRunnable;
+  private final AuthorizationMode _mode;
 
   public AuthorizationManager(
       final EntityClient entityClient,
       final AspectClient aspectClient,
-      final int refreshIntervalSeconds) {
+      final int refreshIntervalSeconds,
+      final AuthorizationMode mode) {
     _entityClient = entityClient;
     _aspectClient = aspectClient;
     _policyRefreshRunnable = new PolicyRefreshRunnable(entityClient, _policyCache);
     _refreshExecutorService.scheduleAtFixedRate(_policyRefreshRunnable, 10, refreshIntervalSeconds, TimeUnit.SECONDS);
+    _mode = mode;
   }
 
   public AuthorizationResult authorize(final AuthorizationRequest request) {
@@ -87,6 +90,11 @@ public class AuthorizationManager implements Authorizer {
   public void invalidateCache() {
     // Invalidates the cache on-demand and fires off a refresh thread.
     _refreshExecutorService.execute(_policyRefreshRunnable);
+  }
+
+  @Override
+  public AuthorizationMode mode() {
+    return _mode;
   }
 
   // Notice that this is not general purpose. In the future we may need something more generalizable.

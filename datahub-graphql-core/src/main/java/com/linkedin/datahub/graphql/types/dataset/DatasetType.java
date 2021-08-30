@@ -9,7 +9,7 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.PolicyUtils;
+import com.linkedin.datahub.graphql.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -182,7 +182,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         final Authorizer authorizer = context.getAuthorizer();
         final String principal = context.getActor();
         final String resourceUrn = update.getUrn();
-        final String resourceType = PolicyUtils.DATASET_ENTITY_RESOURCE_TYPE;
+        final String resourceType = PoliciesConfig.DATASET_PRIVILEGES.getResourceType();
         final List<List<String>> requiredPrivileges = getRequiredPrivileges(update);
         final AuthorizationRequest.ResourceSpec resourceSpec = new AuthorizationRequest.ResourceSpec(resourceType, resourceUrn);
 
@@ -218,27 +218,27 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         List<List<String>> orPrivileges = new ArrayList<>();
 
         List<String> allEntityPrivileges = new ArrayList<>();
-        allEntityPrivileges.add(PolicyUtils.EDIT_ENTITY);
+        allEntityPrivileges.add(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType());
 
         List<String> andPrivileges = new ArrayList<>();
         if (updateInput.getInstitutionalMemory() != null) {
-            andPrivileges.add(PolicyUtils.EDIT_ENTITY_DOC_LINKS);
+            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOC_LINKS_PRIVILEGE.getType());
         }
         if (updateInput.getOwnership() != null) {
-            andPrivileges.add(PolicyUtils.EDIT_ENTITY_OWNERS);
+            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
         }
         if (updateInput.getDeprecation() != null) {
-            andPrivileges.add(PolicyUtils.EDIT_ENTITY_STATUS);
+            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_STATUS_PRIVILEGE.getType());
         }
         if (updateInput.getEditableProperties() != null) {
-            andPrivileges.add(PolicyUtils.EDIT_ENTITY_DOCS);
+            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType());
         }
         if (updateInput.getGlobalTags() != null) {
-            andPrivileges.add(PolicyUtils.EDIT_ENTITY_TAGS);
+            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType());
         }
         if (updateInput.getEditableSchemaMetadata() != null) {
-            andPrivileges.add(PolicyUtils.EDIT_DATASET_COL_TAGS);
-            andPrivileges.add(PolicyUtils.EDIT_DATASET_COL_DESCRIPTION);
+            andPrivileges.add(PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType());
+            andPrivileges.add(PoliciesConfig.EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE.getType());
         }
 
         // If either set of privileges are all true, permit the operation.

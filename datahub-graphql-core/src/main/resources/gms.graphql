@@ -293,6 +293,12 @@ type Query {
     List all DataHub Access Policies.
     """
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
+
+    """
+    Returns the configurations for the policies experience, including a mapping of Entity Type to
+    corresponding privileges.
+    """
+    policiesConfig: PoliciesConfig
 }
 
 type Mutation {
@@ -3433,4 +3439,62 @@ type ListPoliciesResult {
   count: Int!
   total: Int!
   policies: [Policy!]!
+}
+
+type PoliciesConfig {
+
+  """
+  Whether the policies feature is enabled and should be displayed in the UI
+  """
+  enabled: Boolean!
+
+  """
+  A list of platform privileges to display
+  """
+  platformPrivileges: [Privilege!]!
+
+  """
+  A list of metadata privileges to display
+  """
+  metadataPrivileges: [ResourcePrivileges!]!
+
+}
+
+type Privilege {
+  """
+  Standardized privilege type, serving as a unique identifier for a privilege e.g. EDIT_ENTITY
+  """
+  type: String!
+
+  """
+  The name to appear when displaying the privilege, e.g. Edit Entity
+  """
+  displayName: String
+
+  """
+  A description of the privilege to display.
+  """
+  description: String
+}
+
+type ResourcePrivileges {
+  """
+  Resource type associated with the Metadata Privilege.
+  """
+  resourceType: String!
+
+  """
+  The name to used for displaying the resourceType
+  """
+  resourceTypeDisplayName: String
+
+  """
+  An optional entity type to use when performing search and navigation to the entity.
+  """
+  entityType: EntityType
+
+  """
+  A list of privileges that are supported against this resource
+  """
+  privileges: [Privilege!]!
 }

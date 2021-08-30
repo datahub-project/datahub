@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.policy;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ListPoliciesInput;
 import com.linkedin.datahub.graphql.generated.ListPoliciesResult;
 import com.linkedin.datahub.graphql.generated.Policy;
@@ -22,9 +23,6 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-
-// How to make us update the Authorizer cache when a policy is created or updated? We need some way
-// to invalidate a key.
 public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListPoliciesResult>> {
 
   private static final Integer DEFAULT_START = 0;
@@ -39,33 +37,37 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
 
   @Override
   public CompletableFuture<ListPoliciesResult> get(final DataFetchingEnvironment environment) throws Exception {
+
     final QueryContext context = environment.getContext();
 
-    final ListPoliciesInput input = bindArgument(environment.getArgument("input"), ListPoliciesInput.class);
-    final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
-    final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
+    if (AuthUtils.isAuthorized(context)) {
+      final ListPoliciesInput input = bindArgument(environment.getArgument("input"), ListPoliciesInput.class);
+      final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
+      final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
 
-    return CompletableFuture.supplyAsync(() -> {
-      try {
+      return CompletableFuture.supplyAsync(() -> {
+        try {
 
-        // First, get all policy Urns.
-        final ListUrnsResult gmsResult = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, context.getActor());
+          // First, get all policy Urns.
+          final ListUrnsResult gmsResult = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, context.getActor());
 
-        // Then, get all policies. TODO: Migrate batchGet to return GenericAspects, to avoid requiring a snapshot.
-        final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getActor());
+          // Then, get all policies. TODO: Migrate batchGet to return GenericAspects, to avoid requiring a snapshot.
+          final Map<Urn, Entity> entities = _entityClient.batchGet(new HashSet<>(gmsResult.getEntities()), context.getActor());
 
-        // Now that we have entities we can bind this to a result.
-        final ListPoliciesResult result = new ListPoliciesResult();
-        result.setStart(gmsResult.getStart());
-        result.setCount(gmsResult.getCount());
-        result.setTotal(gmsResult.getTotal());
-        result.setPolicies(mapEntities(entities.values()));
-        return result;
+          // Now that we have entities we can bind this to a result.
+          final ListPoliciesResult result = new ListPoliciesResult();
+          result.setStart(gmsResult.getStart());
+          result.setCount(gmsResult.getCount());
+          result.setTotal(gmsResult.getTotal());
+          result.setPolicies(mapEntities(entities.values()));
+          return result;
 
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to list policies", e);
-      }
-    });
+        } catch (Exception e) {
+          throw new RuntimeException("Failed to list policies", e);
+        }
+      });
+    }
+    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 
   private List<Policy> mapEntities(final Collection<Entity> entities) {

@@ -28,9 +28,17 @@ public class AuthorizationManagerFactory {
   @Value("${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}")
   private Integer policyCacheRefreshIntervalSeconds;
 
+  @Value("${AUTH_POLICIES_ENABLED:true}")
+  private Boolean policiesEnabled;
+
   @Bean(name = "authorizationManager")
   @Nonnull
   protected AuthorizationManager getInstance() {
-    return new AuthorizationManager(entityClient, aspectClient, policyCacheRefreshIntervalSeconds);
+
+    final AuthorizationManager.AuthorizationMode mode = policiesEnabled
+        ? AuthorizationManager.AuthorizationMode.DEFAULT
+        : AuthorizationManager.AuthorizationMode.ALLOW_ALL;
+
+    return new AuthorizationManager(entityClient, aspectClient, policyCacheRefreshIntervalSeconds, mode);
   }
 }

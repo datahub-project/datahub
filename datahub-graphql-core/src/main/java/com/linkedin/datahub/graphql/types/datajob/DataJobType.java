@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.types.datajob;
 
+import com.datahub.metadata.authorization.AuthorizationRequest;
+import com.datahub.metadata.authorization.AuthorizationResult;
+import com.datahub.metadata.authorization.Authorizer;
 import com.google.common.collect.ImmutableSet;
 
 import com.linkedin.common.urn.CorpuserUrn;
@@ -7,6 +10,8 @@ import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.PoliciesConfig;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
@@ -35,9 +40,11 @@ import com.linkedin.metadata.snapshot.DataJobSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -154,19 +161,80 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
 
     @Override
     public DataJob update(@Nonnull DataJobUpdateInput input, @Nonnull QueryContext context) throws Exception {
+        if (isAuthorized(input, context)) {
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final DataJobSnapshot dataJobSnapshot = DataJobUpdateInputSnapshotMapper.map(input, actor);
+            final Snapshot snapshot = Snapshot.create(dataJobSnapshot);
 
-        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final DataJobSnapshot dataJobSnapshot = DataJobUpdateInputSnapshotMapper.map(input, actor);
-        final Snapshot snapshot = Snapshot.create(dataJobSnapshot);
+            try {
+                Entity entity = new Entity();
+                entity.setValue(snapshot);
+                _dataJobsClient.update(entity, context.getActor());
+            } catch (RemoteInvocationException e) {
+                throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+            }
 
-        try {
-            Entity entity = new Entity();
-            entity.setValue(snapshot);
-            _dataJobsClient.update(entity, context.getActor());
-        } catch (RemoteInvocationException e) {
-            throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+            return load(input.getUrn(), context).getData();
+        }
+        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
+
+    private boolean isAuthorized(@Nonnull DataJobUpdateInput update, @Nonnull QueryContext context) {
+        // Decide whether the current principal should be allowed to update the Dataset.
+        // First, check what is being updated.
+        final Authorizer authorizer = context.getAuthorizer();
+        final String principal = context.getActor();
+        final String resourceUrn = update.getUrn();
+        final String resourceType = PoliciesConfig.DATA_JOB_PRIVILEGES.getResourceType();
+        final List<List<String>> requiredPrivileges = getRequiredPrivileges(update);
+        final AuthorizationRequest.ResourceSpec resourceSpec = new AuthorizationRequest.ResourceSpec(resourceType, resourceUrn);
+
+        for (List<String> privilegeGroup : requiredPrivileges) {
+            if (isAuthorized(principal, privilegeGroup, resourceSpec, authorizer)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isAuthorized(
+        String principal,
+        List<String> privilegeGroup,
+        AuthorizationRequest.ResourceSpec resourceSpec,
+        Authorizer authorizer) {
+        // Each privilege in a group _must_ all be true to permit the operation.
+        for (final String privilege : privilegeGroup) {
+            // No "partial" operations. All privileges required for the update must be granted for it to succeed.
+            final AuthorizationRequest request = new AuthorizationRequest(principal, privilege, Optional.of(resourceSpec));
+            final AuthorizationResult result = authorizer.authorize(request);
+            if (AuthorizationResult.Type.DENY.equals(result.getType())) {
+                // Short circuit.
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<List<String>> getRequiredPrivileges(final DataJobUpdateInput updateInput) {
+        List<List<String>> orPrivileges = new ArrayList<>();
+
+        List<String> allEntityPrivileges = new ArrayList<>();
+        allEntityPrivileges.add(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType());
+
+        List<String> andPrivileges = new ArrayList<>();
+        if (updateInput.getOwnership() != null) {
+            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
+        }
+        if (updateInput.getEditableProperties() != null) {
+            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType());
+        }
+        if (updateInput.getGlobalTags() != null) {
+            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType());
         }
 
-        return load(input.getUrn(), context).getData();
+        // If either set of privileges are all true, permit the operation.
+        orPrivileges.add(allEntityPrivileges);
+        orPrivileges.add(andPrivileges);
+        return orPrivileges;
     }
 }
