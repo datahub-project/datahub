@@ -16,6 +16,10 @@ from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
 )
+# added
+from datahub.ingestion.transformer.prepend_country_code import (
+    PrependCountryCode
+)
 
 transform_registry = Registry[Transformer]()
 
@@ -31,3 +35,5 @@ transform_registry.register("pattern_add_dataset_ownership", PatternAddDatasetOw
 
 transform_registry.register("add_dataset_tags", AddDatasetTags)
 transform_registry.register("simple_add_dataset_tags", SimpleAddDatasetTags)
+
+transform_registry.register("prepend_country_code", PrependCountryCode)
