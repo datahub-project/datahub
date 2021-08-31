@@ -1,5 +1,4 @@
 import React from 'react';
-import { Layout } from 'antd';
 import { useHistory } from 'react-router';
 import { useTheme } from 'styled-components';
 
@@ -12,7 +11,12 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
 
 const styles = {
-    children: { marginTop: 80 },
+    children: {
+        flex: '1',
+        marginTop: 60,
+        display: 'flex',
+        flexDirection: 'column' as const,
+    },
 };
 
 interface Props extends React.PropsWithChildren<any> {
@@ -68,7 +72,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     };
 
     return (
-        <Layout>
+        <>
             <SearchHeader
                 initialQuery={initialQuery as string}
                 placeholderText={themeConfig.content.search.searchbarMessage}
@@ -85,7 +89,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
                 entityRegistry={entityRegistry}
             />
             <div style={styles.children}>{children}</div>
-        </Layout>
+        </>
     );
 };
 

@@ -1,14 +1,14 @@
 import React from 'react';
 import { Alert } from 'antd';
 import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../../graphql/dataFlow.generated';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { DataFlow, EntityType, GlobalTags } from '../../../../types.generated';
 import DataFlowHeader from './DataFlowHeader';
 import DataFlowDataJobs from './DataFlowDataJobs';
 import { Message } from '../../../shared/Message';
 import TagTermGroup from '../../../shared/tags/TagTermGroup';
-import { Properties as PropertiesView } from '../../shared/Properties';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
+import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 import { topologicalSort } from '../../../../utils/sort/topologicalSort';
@@ -72,7 +72,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dataFlow && (
-                <EntityProfile
+                <LegacyEntityProfile
                     tags={
                         <TagTermGroup
                             editableTags={data.dataFlow?.globalTags as GlobalTags}

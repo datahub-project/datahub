@@ -2,13 +2,13 @@ import { Alert } from 'antd';
 import React from 'react';
 import { useGetDashboardQuery, useUpdateDashboardMutation } from '../../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, GlobalTags } from '../../../../types.generated';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import DashboardHeader from './DashboardHeader';
 import DashboardCharts from './DashboardCharts';
 import { Message } from '../../../shared/Message';
 import TagTermGroup from '../../../shared/tags/TagTermGroup';
-import { Properties as PropertiesView } from '../../shared/Properties';
+import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 export enum TabType {
@@ -73,7 +73,7 @@ export default function DashboardProfile({ urn }: { urn: string }) {
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dashboard && (
-                <EntityProfile
+                <LegacyEntityProfile
                     title={data.dashboard.info?.name || ''}
                     tags={
                         <TagTermGroup

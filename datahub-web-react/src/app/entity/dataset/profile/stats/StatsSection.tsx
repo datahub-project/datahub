@@ -1,5 +1,5 @@
 import { Divider, Row, Typography } from 'antd';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 import React from 'react';
 
 const Section = styled.div`
@@ -21,6 +21,7 @@ export type Props = {
 };
 
 export default function StatsSection({ children, title, rightFloatView }: Props) {
+    const themeConfig = useTheme();
     return (
         <Section>
             <Row justify="space-between">

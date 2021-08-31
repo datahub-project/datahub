@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Image, Layout, Space, Typography } from 'antd';
+import { Image, Layout } from 'antd';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -8,14 +8,7 @@ import { ManageAccount } from '../shared/ManageAccount';
 import AnalyticsLink from './AnalyticsLink';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
-
-const HeaderTitle = styled(Typography.Title)`
-    && {
-        color: ${(props) => props.theme.styles['layout-header-color']};
-        padding-left: 12px;
-        margin: 0;
-    }
-`;
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 const { Header } = Layout;
 
@@ -24,15 +17,26 @@ const styles = {
         position: 'fixed',
         zIndex: 1,
         width: '100%',
-        height: '80px',
         lineHeight: '20px',
-        padding: '0px 40px',
+        padding: '0px 20px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        borderBottom: `1px solid ${ANTD_GRAY[4.5]}`,
     },
-    logoImage: { height: '32px', width: 'auto' },
 };
+
+const LogoImage = styled(Image)`
+    display: inline-block;
+    height: 32px;
+    width: auto;
+    margin-top: 2px;
+`;
+
+const LogoSearchContainer = styled.div`
+    display: flex;
+    flex: 1;
+`;
 
 type Props = {
     initialQuery: string;
@@ -73,20 +77,19 @@ export const SearchHeader = ({
 
     return (
         <Header style={styles.header as any}>
-            <Link to="/">
-                <Space size={4}>
-                    <Image style={styles.logoImage} src={themeConfig.assets.logoUrl} preview={false} />
-                    <HeaderTitle level={4}>{themeConfig.content.title}</HeaderTitle>
-                </Space>
-            </Link>
-            <SearchBar
-                initialQuery={initialQuery}
-                placeholderText={placeholderText}
-                suggestions={suggestions}
-                onSearch={onSearch}
-                onQueryChange={onQueryChange}
-                entityRegistry={entityRegistry}
-            />
+            <LogoSearchContainer>
+                <Link to="/">
+                    <LogoImage src={themeConfig.assets.logoUrl} preview={false} />
+                </Link>
+                <SearchBar
+                    initialQuery={initialQuery}
+                    placeholderText={placeholderText}
+                    suggestions={suggestions}
+                    onSearch={onSearch}
+                    onQueryChange={onQueryChange}
+                    entityRegistry={entityRegistry}
+                />
+            </LogoSearchContainer>
             <NavGroup>
                 <AnalyticsLink />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />

@@ -8,10 +8,10 @@ import {
     OwnershipSourceType,
     OwnershipType,
     OwnershipUpdate,
-} from '../../../types.generated';
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
-import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
+} from '../../../../../types.generated';
+import CustomAvatar from '../../../../shared/avatar/CustomAvatar';
+import { useGetAutoCompleteResultsLazyQuery } from '../../../../../graphql/search.generated';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
 
 const UpdatedText = styled(Typography.Text)`
     position: absolute;

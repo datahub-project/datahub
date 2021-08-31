@@ -4,8 +4,8 @@ import { FetchResult, MutationFunctionOptions } from '@apollo/client';
 import styled from 'styled-components';
 import MarkdownViewer from './MarkdownViewer';
 import UpdateDescriptionModal from './DescriptionModal';
-import analytics, { EventType, EntityActionType } from '../../analytics';
-import { EntityType } from '../../../types.generated';
+import analytics, { EventType, EntityActionType } from '../../../../analytics';
+import { EntityType } from '../../../../../types.generated';
 
 const DescriptionText = styled(MarkdownViewer)`
     ${(props) => (props.isCompact ? 'max-width: 377px;' : '')};
