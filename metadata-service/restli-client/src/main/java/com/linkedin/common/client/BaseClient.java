@@ -24,7 +24,7 @@ public abstract class BaseClient implements AutoCloseable {
       final AbstractRequestBuilder<?, ?, ? extends Request<T>> requestBuilder,
       final String actor) throws RemoteInvocationException {
     try {
-      // Actor = CorpUserUrn associated with the user.
+      // Actor = CorpUserUrn associated with the initiator of the request.
       requestBuilder.addHeader("actor", actor);
       return _client.sendRequest(requestBuilder.build()).getResponse();
     } catch (RemoteInvocationException e) {
