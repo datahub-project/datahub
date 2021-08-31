@@ -1,45 +1,96 @@
 package com.linkedin.datahub.graphql.resolvers;
 
+import com.datahub.metadata.authorization.AuthorizationRequest;
+import com.datahub.metadata.authorization.AuthorizationResult;
+import com.datahub.metadata.authorization.Authorizer;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FeatureFlags;
-import com.linkedin.datahub.graphql.types.LoadableType;
+import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserSnapshotMapper;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.snapshot.CorpUserSnapshot;
+import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.net.URISyntaxException;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import org.dataloader.DataLoader;
-
 
 /**
- * Generic GraphQL resolver responsible for
+ * GraphQL resolver responsible for resolving information about the currently
+ * logged in User, including
  *
- *    1. Retrieving a single input urn.
- *    2. Resolving a single {@link LoadableType}.
- *
- *  Note that this resolver expects that {@link DataLoader}s were registered
- *  for the provided {@link LoadableType} under the name provided by {@link LoadableType#name()}
+ *    1. User profile information
+ *    2. User privilege information, i.e. which features to display in the UI.
  *
  */
 public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUser>> {
 
+  private final EntityClient _entityClient;
+
+  public MeResolver(final EntityClient entityClient) {
+    _entityClient = entityClient;
+  }
+
   @Override
   public CompletableFuture<AuthenticatedUser> get(DataFetchingEnvironment environment) {
+    final QueryContext context = environment.getContext();
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        // 1. Get currently logged in user profile.
+        final Urn userUrn = Urn.createFromString(context.getActor());
+        final CorpUserSnapshot gmsUser = _entityClient.get(userUrn, userUrn.toString())
+            .getValue()
+            .getCorpUserSnapshot();
+        final CorpUser corpUser = CorpUserSnapshotMapper.map(gmsUser);
 
-    CorpUser user = new CorpUser();
-    user.setType(EntityType.CORP_USER);
-    user.setUsername("datahub");
-    user.setUrn("urn:li:corpuser:datahub");
+        // 2. Get feature flags to apply
+        final FeatureFlags featureFlags = new FeatureFlags();
+        featureFlags.setShowAnalytics(canViewAnalytics(context));
+        featureFlags.setShowAdminConsole(canManagePolicies(context));
+        featureFlags.setShowPolicyBuilder(canManageUsersGroups(context));
 
-    FeatureFlags featureFlags = new FeatureFlags();
-    featureFlags.setShowAnalytics(true);
-    featureFlags.setShowAdminConsole(true);
-    featureFlags.setShowPolicyBuilder(true);
+        // Construct and return authenticated user object.
+        final AuthenticatedUser authUser = new AuthenticatedUser();
+        authUser.setCorpUser(corpUser);
+        authUser.setFeatures(featureFlags);
+        return authUser;
+      } catch (URISyntaxException | RemoteInvocationException e) {
+        throw new RuntimeException("Failed to fetch authenticated user!", e);
+      }
+    });
+  }
 
-    AuthenticatedUser authUser = new AuthenticatedUser();
-    authUser.setCorpUser(user);
-    authUser.setFeatures(featureFlags);
+  /**
+   * Returns true if the authenticated user has privileges to view analytics.
+   */
+  private boolean canViewAnalytics(final QueryContext context) {
+    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.VIEW_ANALYTICS_PRIVILEGE);
+  }
 
-    return CompletableFuture.completedFuture(authUser);
+  /**
+   * Returns true if the authenticated user has privileges to manage policies analytics.
+   */
+  private boolean canManagePolicies(final QueryContext context) {
+    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.MANAGE_POLICIES_PRIVILEGE);
+  }
+
+  /**
+   * Returns true if the authenticated user has privileges to manage users & groups.
+   */
+  private boolean canManageUsersGroups(final QueryContext context) {
+    return isAuthorized(context.getAuthorizer(), context.getActor(), PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE);
+  }
+
+  /**
+   * Returns true if the the provided actor is authorized for a particular privilege, false otherwise.
+   */
+  private boolean isAuthorized(final Authorizer authorizer, String actor, PoliciesConfig.Privilege privilege) {
+    final AuthorizationRequest request = new AuthorizationRequest(actor, privilege.getType(), Optional.empty());
+    final AuthorizationResult result = authorizer.authorize(request);
+    return AuthorizationResult.Type.ALLOW.equals(result.getType());
   }
 }

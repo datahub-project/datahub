@@ -11,7 +11,6 @@ type Props = {
     setPolicyDescription: (description: string) => void;
 };
 
-// TODO: Fix initial state problem.
 export default function PolicyTypeForm({
     policyType,
     setPolicyType,

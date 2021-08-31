@@ -21,10 +21,8 @@ const ThinDivider = styled(Divider)`
 
 // TODO: Cleanup styling.
 // TODO: Actually show the users, groups, and resources the policy applies to. (With links)
-// Ask if you're sure you want to delete a policy before deleting.//
 
-// TODO: Handle "all" case for all users, resources, groups.
-// TODO: Display name functionality for Entity.
+// TODO: Ask to confirm before deleting a policy.
 export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, onRemove, onToggleActive }: Props) {
     const isActive = policy.state === 'ACTIVE';
 
@@ -52,7 +50,6 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
     const entityRegistry = useEntityRegistry();
     const isMetadataPolicy = policy.type === PolicyType.Metadata;
 
-    // TODO: Fix up since it may not always be an entity type. For now it can be.
     return (
         <Modal title={policy.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
             <Row style={{ paddingLeft: 20, paddingRight: 20 }}>
@@ -82,18 +79,14 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
                             <div>
                                 <Typography.Title level={5}>Assets</Typography.Title>
                                 <ThinDivider />
-                                {policy.resources?.resources?.map((urn) => (
-                                    <Link
-                                        to={`/${entityRegistry.getPathName(
-                                            policy.resources?.type as EntityType,
-                                        )}/${urn}`}
-                                        key={urn}
-                                    >
+                                {policy.resources?.resources?.map((urn) => {
+                                    // TODO: Wrap in a link for entities.
+                                    return (
                                         <Tag>
-                                            <Typography.Text underline>{urn}</Typography.Text>
+                                            <Typography.Text>{urn}</Typography.Text>
                                         </Tag>
-                                    </Link>
-                                ))}
+                                    );
+                                })}
                                 {policy.resources?.allResources && <Tag>All</Tag>}
                             </div>
                         </>

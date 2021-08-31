@@ -313,7 +313,7 @@ public class GmsGraphQLEngine {
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
             .dataFetcher("me", new AuthenticatedResolver<>(
-                    new MeResolver()))
+                    new MeResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("search", new AuthenticatedResolver<>(
                     new SearchResolver(searchableTypes)))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(

@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { SearchablePage } from '../search/SearchablePage';
 import PolicyBuilderModal from './PolicyBuilderModal';
-import { Policy, PolicyInput, PolicyState, PolicyType } from '../../types.generated';
+import { Policy, PolicyInput, PolicyState } from '../../types.generated';
 import PolicyListItem from './PolicyListItem';
 import PolicyDetailsModal from './PolicyDetailsModal';
 import {
@@ -14,6 +14,7 @@ import {
     useUpdatePolicyMutation,
 } from '../../graphql/policy.generated';
 import { Message } from '../shared/Message';
+import { EMPTY_POLICY } from './policyUtils';
 
 const PolicyList = styled(List)`
     &&& {
@@ -26,25 +27,6 @@ const PolicyList = styled(List)`
 `;
 
 const DEFAULT_PAGE_SIZE = 5;
-const EMPTY_POLICY = {
-    type: PolicyType.Metadata,
-    name: '',
-    description: '',
-    state: PolicyState.Active,
-    privileges: new Array<string>(),
-    resources: {
-        type: '',
-        resources: new Array<string>(),
-        allResources: false,
-    },
-    actors: {
-        users: new Array<string>(),
-        groups: new Array<string>(),
-        allUsers: false,
-        allGroups: false,
-        resourceOwners: false,
-    },
-};
 
 const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyInput => {
     let policyInput: PolicyInput = {

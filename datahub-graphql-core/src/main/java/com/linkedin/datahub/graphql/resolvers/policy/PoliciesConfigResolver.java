@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.policy;
 
 import com.datahub.metadata.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
@@ -27,7 +28,7 @@ public class PoliciesConfigResolver implements DataFetcher<CompletableFuture<Pol
         .map(this::mapPrivilege)
         .collect(Collectors.toList()));
 
-    config.setMetadataPrivileges(com.linkedin.datahub.graphql.authorization.PoliciesConfig.RESOURCE_PRIVILEGES
+    config.setResourcePrivileges(com.linkedin.datahub.graphql.authorization.PoliciesConfig.RESOURCE_PRIVILEGES
         .stream()
         .map(this::mapResourcePrivileges)
         .collect(Collectors.toList())
@@ -41,6 +42,7 @@ public class PoliciesConfigResolver implements DataFetcher<CompletableFuture<Pol
     final ResourcePrivileges graphQLPrivileges = new ResourcePrivileges();
     graphQLPrivileges.setResourceType(resourcePrivileges.getResourceType());
     graphQLPrivileges.setResourceTypeDisplayName(resourcePrivileges.getResourceTypeDisplayName());
+    graphQLPrivileges.setEntityType(mapResourceTypeToEntityType(resourcePrivileges.getResourceType()));
     graphQLPrivileges.setPrivileges(
         resourcePrivileges.getPrivileges().stream().map(this::mapPrivilege).collect(Collectors.toList())
     );
@@ -53,5 +55,24 @@ public class PoliciesConfigResolver implements DataFetcher<CompletableFuture<Pol
     graphQLPrivilege.setDisplayName(privilege.getDisplayName());
     graphQLPrivilege.setDescription(privilege.getDescription());
     return graphQLPrivilege;
+  }
+
+  private EntityType mapResourceTypeToEntityType(final String resourceType) {
+    // TODO: Is there a better way to instruct the UI to present a searchable resource?
+    if (com.linkedin.datahub.graphql.authorization.PoliciesConfig.DATASET_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.DATASET;
+    } else if (com.linkedin.datahub.graphql.authorization.PoliciesConfig.DASHBOARD_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.DASHBOARD;
+    } else if (com.linkedin.datahub.graphql.authorization.PoliciesConfig.CHART_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.CHART;
+    } else if (com.linkedin.datahub.graphql.authorization.PoliciesConfig.DATA_FLOW_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.DATA_FLOW;
+    } else if (com.linkedin.datahub.graphql.authorization.PoliciesConfig.DATA_JOB_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.DATA_JOB;
+    } else if (com.linkedin.datahub.graphql.authorization.PoliciesConfig.TAG_PRIVILEGES.getResourceType().equals(resourceType)) {
+      return EntityType.TAG;
+    } else {
+      return null;
+    }
   }
 }

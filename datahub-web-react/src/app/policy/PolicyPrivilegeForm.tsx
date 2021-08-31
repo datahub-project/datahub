@@ -2,43 +2,56 @@ import React from 'react';
 import { Form, Select, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { useEntityRegistry } from '../useEntityRegistry';
+import { usePoliciesConfigQuery } from '../../graphql/policy.generated';
 import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
-import { EntityType, ResourceFilter, PolicyType } from '../../types.generated';
-import { RESOURCE_TYPES, RESOURCE_PRIVILEGES, PLATFORM_PRIVILEGES } from './privileges';
-
-const typeToPrivileges = (policyType, type) => {
-    // If we are dealing with a Platform policy, only show platform privileges.
-    if (policyType === PolicyType.Platform) {
-        return PLATFORM_PRIVILEGES;
-    }
-    // Otherwise, show resource-specific privileges.
-    return RESOURCE_PRIVILEGES.filter((resourcePrivs) => resourcePrivs.resourceType === type).map(
-        (resourcePrivs) => resourcePrivs.privileges,
-    )[0];
-};
+import { ResourceFilter, PolicyType } from '../../types.generated';
+import {
+    EMPTY_POLICY,
+    mapResourceTypeToDisplayName,
+    mapResourceTypeToEntityType,
+    mapResourceTypeToPrivileges,
+} from './policyUtils';
 
 type Props = {
     policyType: PolicyType;
-    resources: ResourceFilter;
+    resources?: ResourceFilter;
     setResources: (resources: ResourceFilter) => void;
     privileges: Array<string>;
     setPrivileges: (newPrivs: Array<string>) => void;
 };
 
-/**
- * This is used for search - it allows you to map an asset resource to a search type.
- * By default, we simply assume a 1:1 correspondence between resource name and EntityType.
- */
-const mapResourceToEntityType = (resource: string) => {
-    return resource as EntityType;
-};
-
-export default function PolicyPrivilegeForm({ policyType, resources, setResources, privileges, setPrivileges }: Props) {
+export default function PolicyPrivilegeForm({
+    policyType,
+    resources: maybeResources,
+    setResources,
+    privileges,
+    setPrivileges,
+}: Props) {
     const [search, { data: searchData, loading: searchLoading }] = useGetSearchResultsLazyQuery();
+    const { data: configData } = usePoliciesConfigQuery();
 
     const entityRegistry = useEntityRegistry();
     const assetSearchResults = searchData?.search?.searchResults;
-    const privilegeOptions = typeToPrivileges(policyType, resources.type);
+
+    const resources = maybeResources || EMPTY_POLICY.resources;
+    const showResourceTypeInput = policyType !== PolicyType.Platform;
+    const showResourceInput = showResourceTypeInput && resources.type !== '';
+    const showPrivilegesInput =
+        policyType === PolicyType.Platform ||
+        resources.allResources ||
+        (resources.resources && resources.resources?.length > 0);
+
+    const platformPrivileges = (configData && configData?.policiesConfig?.platformPrivileges) || [];
+    const resourcePrivileges = (configData && configData?.policiesConfig?.resourcePrivileges) || [];
+
+    const privilegeOptions =
+        policyType === PolicyType.Platform
+            ? platformPrivileges
+            : mapResourceTypeToPrivileges(resources.type, resourcePrivileges);
+
+    const resourceTypeSelectValue = configData && resources.type;
+    const resourceSelectValue = resources.allResources ? ['All'] : resources.resources || [];
+    const privilegesSelectValue = configData && privileges;
 
     const onSelectPrivilege = (privilege: string) => {
         if (privilege === 'All') {
@@ -90,31 +103,24 @@ export default function PolicyPrivilegeForm({ policyType, resources, setResource
     };
 
     const handleSearch = (event: any) => {
-        const text = event.target.value as string;
-        if (text.length > 2) {
-            // Now we search.. notice that permissioned entities need to be searchable.
-            search({
-                variables: {
-                    input: {
-                        type: mapResourceToEntityType(resources.type),
-                        query: text,
-                        start: 0,
-                        count: 10,
+        const maybeEntityType = mapResourceTypeToEntityType(resources.type, resourcePrivileges);
+        if (maybeEntityType) {
+            const text = event.target.value as string;
+            if (text.length > 2) {
+                // Now we search.. notice that permissioned entities need to be searchable.
+                search({
+                    variables: {
+                        input: {
+                            type: maybeEntityType,
+                            query: text,
+                            start: 0,
+                            count: 10,
+                        },
                     },
-                },
-            });
+                });
+            }
         }
     };
-
-    const showResourceTypeInput = policyType !== PolicyType.Platform;
-    const showResourceInput = showResourceTypeInput && resources.type !== '';
-    const showPrivilegesInput =
-        policyType === PolicyType.Platform ||
-        resources.allResources ||
-        (resources.resources && resources.resources?.length > 0);
-
-    const resourceSelectValue = resources.allResources ? ['All'] : resources.resources || [];
-    const privilegesSelectValue = privileges;
 
     return (
         <Form layout="vertical" initialValues={{}} style={{ margin: 12, marginTop: 36, marginBottom: 40 }}>
@@ -123,9 +129,13 @@ export default function PolicyPrivilegeForm({ policyType, resources, setResource
                     <Typography.Paragraph>
                         Select the specific type of asset this policy should apply to.
                     </Typography.Paragraph>
-                    <Select defaultValue={resources.type} onSelect={(type) => setResources({ ...resources, type })}>
-                        {RESOURCE_TYPES.map((resourceType) => {
-                            return <Select.Option value={resourceType.type}>{resourceType.displayName}</Select.Option>;
+                    <Select value={resourceTypeSelectValue} onSelect={(type) => setResources({ ...resources, type })}>
+                        {resourcePrivileges.map((resPrivs) => {
+                            return (
+                                <Select.Option value={resPrivs.resourceType}>
+                                    {resPrivs.resourceTypeDisplayName}
+                                </Select.Option>
+                            );
                         })}
                     </Select>
                 </Form.Item>
@@ -169,8 +179,9 @@ export default function PolicyPrivilegeForm({ policyType, resources, setResource
                                 </Select.Option>
                             ))}
                         {searchLoading && <Select.Option value="loading">Searching...</Select.Option>}
-                        <Select.Option value="All">{`All ${entityRegistry.getCollectionName(
-                            mapResourceToEntityType(resources.type),
+                        <Select.Option value="All">{`All ${mapResourceTypeToDisplayName(
+                            resources.type,
+                            resourcePrivileges,
                         )}`}</Select.Option>
                     </Select>
                 </Form.Item>

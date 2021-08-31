@@ -43,4 +43,9 @@ record DataHubPolicyInfo {
    */
   actors: DataHubActorFilter
 
+  /**
+   * Whether the policy should be editable via the UI
+   */
+  editable: boolean = true
+
 }

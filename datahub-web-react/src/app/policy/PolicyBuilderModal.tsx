@@ -4,6 +4,7 @@ import PolicyPrivilegeForm from './PolicyPrivilegeForm';
 import PolicyTypeForm from './PolicyTypeForm';
 import PolicyActorForm from './PolicyActorForm';
 import { ActorFilter, Policy, PolicyType, ResourceFilter } from '../../types.generated';
+import { EMPTY_POLICY } from './policyUtils';
 
 type Props = {
     policy: Omit<Policy, 'urn'>;
@@ -13,9 +14,6 @@ type Props = {
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
 };
 
-// TODO: see if we can merge this into the step view information below.
-// TODO: Figure out a way to pass in the completeStep function to step 0 and 3, with a persistent value returned.
-// TODO: Rethink all of the useCallback going on in here. It does not seem very nice.
 export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose, onSave }: Props) {
     // Step control-flow.
     const [activeStepIndex, setActiveStepIndex] = useState(0);
@@ -31,9 +29,9 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     const setPolicyType = (type: PolicyType) => {
         // Important. If the policy type itself is changing, we need to clear state.
         if (type === PolicyType.Platform) {
-            setPolicy({ ...policy, type, resources: undefined });
+            setPolicy({ ...policy, type, resources: EMPTY_POLICY.resources, privileges: [] });
         }
-        setPolicy({ ...policy, type });
+        setPolicy({ ...policy, type, privileges: [] });
     };
 
     // Step 0.

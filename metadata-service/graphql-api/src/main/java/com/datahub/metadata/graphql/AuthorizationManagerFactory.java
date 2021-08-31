@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Scope;
 
 
 // TODO: move this to gms factories module.
@@ -32,6 +33,7 @@ public class AuthorizationManagerFactory {
   private Boolean policiesEnabled;
 
   @Bean(name = "authorizationManager")
+  @Scope("singleton")
   @Nonnull
   protected AuthorizationManager getInstance() {
 

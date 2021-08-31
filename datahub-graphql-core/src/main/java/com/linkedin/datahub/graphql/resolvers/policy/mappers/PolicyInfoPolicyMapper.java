@@ -35,6 +35,7 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
     result.setName(info.getDisplayName()); // Rebrand to 'name'
     result.setPrivileges(info.getPrivileges());
     result.setActors(mapActors(info.getActors()));
+    result.setEditable(info.isEditable());
     if (info.hasResources()) {
       result.setResources(mapResources(info.getResources()));
     }

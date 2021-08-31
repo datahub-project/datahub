@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.PoliciesConfig;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
@@ -173,18 +174,20 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
 
     @Override
     public Chart update(@Nonnull ChartUpdateInput input, @Nonnull QueryContext context) throws Exception {
+        if (isAuthorized(input, context)) {
+            final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
+            final ChartSnapshot chartSnapshot = ChartUpdateInputSnapshotMapper.map(input, actor);
+            final Snapshot snapshot = Snapshot.create(chartSnapshot);
 
-        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final ChartSnapshot chartSnapshot = ChartUpdateInputSnapshotMapper.map(input, actor);
-        final Snapshot snapshot = Snapshot.create(chartSnapshot);
+            try {
+                _entityClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getActor());
+            } catch (RemoteInvocationException e) {
+                throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+            }
 
-        try {
-            _entityClient.update(new com.linkedin.entity.Entity().setValue(snapshot), context.getActor());
-        } catch (RemoteInvocationException e) {
-            throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);
+            return load(input.getUrn(), context).getData();
         }
-
-        return load(input.getUrn(), context).getData();
+        throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
 
     private boolean isAuthorized(@Nonnull ChartUpdateInput update, @Nonnull QueryContext context) {

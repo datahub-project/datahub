@@ -34,19 +34,19 @@ export default function UpdatableDescription({
 }: Props) {
     const [showAddDescModal, setShowAddDescModal] = useState(false);
     const onSubmit = async (description: string | null) => {
-        // message.loading({ content: 'Updating...' });
+        message.loading({ content: 'Updating...' });
         try {
             await updateEntity({
                 variables: { input: { urn, editableProperties: { description: description || '' } } },
             });
-            // message.destroy();
+            message.destroy();
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateDescription,
                 entityType,
                 entityUrn: urn,
             });
-            // message.success({ content: 'Updated!', duration: 2 });
+            message.success({ content: 'Updated!', duration: 2 });
         } catch (e) {
             message.destroy();
             message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });

@@ -3325,6 +3325,7 @@ type Policy {
   resources: ResourceFilter
   privileges: [String!]!
   actors: ActorFilter!
+  editable: Boolean!
 }
 
 type ResourceFilter {
@@ -3454,9 +3455,9 @@ type PoliciesConfig {
   platformPrivileges: [Privilege!]!
 
   """
-  A list of metadata privileges to display
+  A list of resource privileges to display
   """
-  metadataPrivileges: [ResourcePrivileges!]!
+  resourcePrivileges: [ResourcePrivileges!]!
 
 }
 

@@ -22,6 +22,28 @@ query listPolicies($input: ListPoliciesInput!) {
                 allGroups
                 resourceOwners
             }
+            editable
+        }
+    }
+}
+
+query policiesConfig {
+    policiesConfig {
+        enabled
+        platformPrivileges {
+            type
+            displayName
+            description
+        }
+        resourcePrivileges {
+            resourceType
+            resourceTypeDisplayName
+            entityType
+            privileges {
+                type
+                displayName
+                description
+            }
         }
     }
 }

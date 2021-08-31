@@ -47,7 +47,6 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
 
       return CompletableFuture.supplyAsync(() -> {
         try {
-
           // First, get all policy Urns.
           final ListUrnsResult gmsResult = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, context.getActor());
 

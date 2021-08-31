@@ -4268,6 +4268,11 @@
                       } ]
                     },
                     "doc" : "The actors that the policy applies to."
+                  }, {
+                    "name" : "editable",
+                    "type" : "boolean",
+                    "doc" : "Whether the policy should be editable via the UI",
+                    "default" : true
                   } ],
                   "Aspect" : {
                     "name" : "dataHubPolicyInfo"

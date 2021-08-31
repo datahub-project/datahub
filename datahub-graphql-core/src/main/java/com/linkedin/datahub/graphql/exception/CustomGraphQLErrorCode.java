@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.exception;
 
 public enum CustomGraphQLErrorCode {
-  UNAUTHORIZED(401),
+  UNAUTHORIZED(403),
   SERVER_ERROR(500);
 
   private final int _code;
