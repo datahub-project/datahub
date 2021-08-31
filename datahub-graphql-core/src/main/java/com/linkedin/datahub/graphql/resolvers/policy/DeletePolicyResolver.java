@@ -24,7 +24,7 @@ public class DeletePolicyResolver implements DataFetcher<CompletableFuture<Strin
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    if (AuthUtils.isAuthorized(context)) {
+    if (PolicyAuthUtils.canManagePolicies(context)) {
       final String policyUrn = environment.getArgument("urn");
       final Urn urn = Urn.createFromString(policyUrn);
       return CompletableFuture.supplyAsync(() -> {

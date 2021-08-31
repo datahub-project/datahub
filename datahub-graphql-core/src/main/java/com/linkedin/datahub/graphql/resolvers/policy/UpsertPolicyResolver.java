@@ -36,7 +36,7 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
 
-    if (AuthUtils.isAuthorized(context)) {
+    if (PolicyAuthUtils.canManagePolicies(context)) {
 
       final Optional<String> policyUrn = Optional.ofNullable(environment.getArgument("urn"));
       final PolicyInput input = bindArgument(environment.getArgument("input"), PolicyInput.class);

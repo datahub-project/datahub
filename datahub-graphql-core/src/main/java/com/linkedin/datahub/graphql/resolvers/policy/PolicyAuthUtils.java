@@ -11,9 +11,9 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 
 
-public class AuthUtils {
+public class PolicyAuthUtils {
 
-  static boolean isAuthorized(@Nonnull QueryContext context) {
+  static boolean canManagePolicies(@Nonnull QueryContext context) {
     final Authorizer authorizer = context.getAuthorizer();
     final String principal = context.getActor();
     return isAuthorized(principal, ImmutableList.of(PoliciesConfig.MANAGE_POLICIES_PRIVILEGE.getType()), authorizer);
@@ -33,5 +33,5 @@ public class AuthUtils {
     return true;
   }
 
-  private AuthUtils() { }
+  private PolicyAuthUtils() { }
 }

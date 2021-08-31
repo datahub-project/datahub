@@ -40,7 +40,7 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
 
     final QueryContext context = environment.getContext();
 
-    if (AuthUtils.isAuthorized(context)) {
+    if (PolicyAuthUtils.canManagePolicies(context)) {
       final ListPoliciesInput input = bindArgument(environment.getArgument("input"), ListPoliciesInput.class);
       final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
