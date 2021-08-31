@@ -82,7 +82,7 @@ public class TimeseriesAspectTransformer {
   }
 
   private static void setTemporalStatField(final ObjectNode document, final TemporalStatFieldSpec fieldSpec,
-      final List<Object> valueList) {
+      List<Object> valueList) {
     if (valueList.size() == 0) {
       return;
     }
@@ -102,6 +102,10 @@ public class TimeseriesAspectTransformer {
         valueNode = JsonNodeFactory.instance.numberNode((Double) valueList.get(0));
         break;
       case ARRAY:
+        if (valueList.get(0) instanceof List<?>) {
+          // This is the hack for non-stat-collection array fields. They will end up getting oddly serialized to a string otherwise.
+          valueList = (List<Object>) valueList.get(0);
+        }
         ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode(valueList.size());
         valueList.stream().map(Object::toString).forEach(arrayNode::add);
         valueNode = JsonNodeFactory.instance.textNode(arrayNode.toString());

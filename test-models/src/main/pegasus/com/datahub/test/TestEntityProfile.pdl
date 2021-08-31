@@ -16,6 +16,9 @@ record TestEntityProfile includes TimeseriesAspectBase {
   @TemporalStat  = {}
   strStat: string
 
+  @TemporalStat = {}
+  strArray: optional array[string]
+
   @TemporalStatCollection = {
     "key":"key"
   }

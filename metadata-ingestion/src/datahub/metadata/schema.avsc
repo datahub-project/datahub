@@ -6016,7 +6016,7 @@
         ],
         "name": "uniqueUserCount",
         "default": null,
-        "doc": " Unique user count "
+        "doc": "Unique user count"
       },
       {
         "TemporalStat": {},
@@ -6026,7 +6026,7 @@
         ],
         "name": "totalSqlQueries",
         "default": null,
-        "doc": " Total SQL query count "
+        "doc": "Total SQL query count"
       },
       {
         "TemporalStat": {},
@@ -6039,7 +6039,7 @@
         ],
         "name": "topSqlQueries",
         "default": null,
-        "doc": " Frequent SQL queries; mostly makes sense for datasets in SQL databases "
+        "doc": "Frequent SQL queries; mostly makes sense for datasets in SQL databases"
       },
       {
         "TemporalStatCollection": {
@@ -6059,12 +6059,14 @@
                     "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                   },
                   "type": "string",
-                  "name": "user"
+                  "name": "user",
+                  "doc": "The unique id of the user."
                 },
                 {
                   "TemporalStat": {},
                   "type": "int",
-                  "name": "count"
+                  "name": "count",
+                  "doc": "Number of times the dataset has been used by the user."
                 },
                 {
                   "TemporalStat": {},
@@ -6074,16 +6076,16 @@
                   ],
                   "name": "userEmail",
                   "default": null,
-                  "doc": " If user_email is set, we attempt to resolve the user's urn upon ingest "
+                  "doc": "If user_email is set, we attempt to resolve the user's urn upon ingest"
                 }
               ],
-              "doc": " Records a single user's usage counts for a given resource "
+              "doc": "Records a single user's usage counts for a given resource"
             }
           }
         ],
         "name": "userCounts",
         "default": null,
-        "doc": " Users within this bucket, with frequency counts "
+        "doc": "Users within this bucket, with frequency counts"
       },
       {
         "TemporalStatCollection": {
@@ -6100,21 +6102,23 @@
               "fields": [
                 {
                   "type": "string",
-                  "name": "fieldName"
+                  "name": "fieldName",
+                  "doc": "The name of the field."
                 },
                 {
                   "TemporalStat": {},
                   "type": "int",
-                  "name": "count"
+                  "name": "count",
+                  "doc": "Number of times the field has been used."
                 }
               ],
-              "doc": " Records field-level usage counts for a given dataset"
+              "doc": "Records field-level usage counts for a given dataset"
             }
           }
         ],
         "name": "fieldCounts",
         "default": null,
-        "doc": " Field-level usage stats "
+        "doc": "Field-level usage stats"
       }
     ],
     "doc": "Stats corresponding to dataset's usage."

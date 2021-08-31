@@ -2,13 +2,24 @@ namespace com.linkedin.dataset
 
 import com.linkedin.common.Urn
 
-/** Records a single user's usage counts for a given resource */
+/**
+ * Records a single user's usage counts for a given resource
+ */
 record DatasetUserUsageCounts {
-    user: Urn
-    @TemporalStat = {}
-    count: int
+  /**
+   * The unique id of the user.
+   */
+  user: Urn
 
-    /** If user_email is set, we attempt to resolve the user's urn upon ingest */
-    @TemporalStat = {}
-    userEmail: optional string
+  /**
+   * Number of times the dataset has been used by the user.
+   */
+  @TemporalStat = {}
+  count: int
+
+  /**
+   * If user_email is set, we attempt to resolve the user's urn upon ingest
+   */
+  @TemporalStat = {}
+  userEmail: optional string
 }

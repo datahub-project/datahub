@@ -1,9 +1,17 @@
 namespace com.linkedin.dataset
 
-/** Records field-level usage counts for a given dataset*/
+/**
+ * Records field-level usage counts for a given dataset
+ */
 record DatasetFieldUsageCounts {
-    fieldName: string
+  /**
+   * The name of the field.
+   */
+  fieldName: string
 
-    @TemporalStat = {}
-    count: int
+  /**
+   * Number of times the field has been used.
+   */
+  @TemporalStat = {}
+  count: int
 }

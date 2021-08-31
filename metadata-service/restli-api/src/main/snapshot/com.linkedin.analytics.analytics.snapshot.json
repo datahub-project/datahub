@@ -79,33 +79,21 @@
           }, {
             "name" : "aggregationType",
             "type" : {
-              "type" : "typeref",
-              "name" : "MetricAggregation",
-              "ref" : [ {
-                "type" : "record",
-                "name" : "LatestAggregation",
-                "fields" : [ ]
-              }, {
-                "type" : "record",
-                "name" : "SumAggregation",
-                "fields" : [ ]
-              }, {
-                "type" : "record",
-                "name" : "CardinalityAggregation",
-                "fields" : [ ]
-              }, {
-                "type" : "record",
-                "name" : "TopHitsAggregation",
-                "fields" : [ {
-                  "name" : "maxByMember",
-                  "type" : "string"
-                }, {
-                  "name" : "k",
-                  "type" : "int"
-                } ]
-              } ]
+              "type" : "enum",
+              "name" : "AggregationType",
+              "symbols" : [ "LATEST", "SUM", "CARDINALITY", "TOP_HITS" ]
             },
             "doc" : "Aggregation type for the metric."
+          }, {
+            "name" : "k",
+            "type" : "int",
+            "doc" : "Param k for top_hits",
+            "optional" : true
+          }, {
+            "name" : "byMember",
+            "type" : "string",
+            "doc" : "Param by member for top_hits",
+            "optional" : true
           } ]
         }
       },
@@ -191,7 +179,7 @@
       "doc" : "When the index was last updated.",
       "optional" : true
     } ]
-  }, "com.linkedin.metadata.query.Condition", "com.linkedin.metadata.query.Criterion", "com.linkedin.metadata.query.Filter", "com.linkedin.timeseries.AggregationSpec", "com.linkedin.timeseries.CalendarInterval", "com.linkedin.timeseries.CardinalityAggregation", "com.linkedin.timeseries.DateGroupingBucket", "com.linkedin.timeseries.GenericTable", "com.linkedin.timeseries.GroupingBucket", "com.linkedin.timeseries.LatestAggregation", "com.linkedin.timeseries.MetricAggregation", "com.linkedin.timeseries.StringGroupingBucket", "com.linkedin.timeseries.SumAggregation", "com.linkedin.timeseries.TopHitsAggregation" ],
+  }, "com.linkedin.metadata.query.Condition", "com.linkedin.metadata.query.Criterion", "com.linkedin.metadata.query.Filter", "com.linkedin.timeseries.AggregationSpec", "com.linkedin.timeseries.AggregationType", "com.linkedin.timeseries.CalendarInterval", "com.linkedin.timeseries.DateGroupingBucket", "com.linkedin.timeseries.GenericTable", "com.linkedin.timeseries.GroupingBucket", "com.linkedin.timeseries.StringGroupingBucket" ],
   "schema" : {
     "name" : "analytics",
     "namespace" : "com.linkedin.analytics",

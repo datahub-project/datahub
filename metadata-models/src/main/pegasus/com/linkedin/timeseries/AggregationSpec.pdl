@@ -17,10 +17,10 @@ record AggregationSpec {
   /**
    * Param k for top_hits
    */
-   k: optional int
+  k: optional int
 
-   /**
-    * Param by member for top_hits
-    */
-    byMember: optional string
+  /**
+   * Param by member for top_hits
+   */
+  byMember: optional string
 }

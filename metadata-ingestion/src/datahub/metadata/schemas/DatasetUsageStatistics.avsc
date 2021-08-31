@@ -83,7 +83,7 @@
         "null",
         "int"
       ],
-      "doc": " Unique user count ",
+      "doc": "Unique user count",
       "default": null,
       "TemporalStat": {}
     },
@@ -93,7 +93,7 @@
         "null",
         "int"
       ],
-      "doc": " Total SQL query count ",
+      "doc": "Total SQL query count",
       "default": null,
       "TemporalStat": {}
     },
@@ -106,7 +106,7 @@
           "items": "string"
         }
       ],
-      "doc": " Frequent SQL queries; mostly makes sense for datasets in SQL databases ",
+      "doc": "Frequent SQL queries; mostly makes sense for datasets in SQL databases",
       "default": null,
       "TemporalStat": {}
     },
@@ -119,11 +119,12 @@
           "items": {
             "type": "record",
             "name": "DatasetUserUsageCounts",
-            "doc": " Records a single user's usage counts for a given resource ",
+            "doc": "Records a single user's usage counts for a given resource",
             "fields": [
               {
                 "name": "user",
                 "type": "string",
+                "doc": "The unique id of the user.",
                 "java": {
                   "class": "com.linkedin.pegasus2avro.common.urn.Urn"
                 }
@@ -131,6 +132,7 @@
               {
                 "name": "count",
                 "type": "int",
+                "doc": "Number of times the dataset has been used by the user.",
                 "TemporalStat": {}
               },
               {
@@ -139,7 +141,7 @@
                   "null",
                   "string"
                 ],
-                "doc": " If user_email is set, we attempt to resolve the user's urn upon ingest ",
+                "doc": "If user_email is set, we attempt to resolve the user's urn upon ingest",
                 "default": null,
                 "TemporalStat": {}
               }
@@ -147,7 +149,7 @@
           }
         }
       ],
-      "doc": " Users within this bucket, with frequency counts ",
+      "doc": "Users within this bucket, with frequency counts",
       "default": null,
       "TemporalStatCollection": {
         "key": "user"
@@ -162,22 +164,24 @@
           "items": {
             "type": "record",
             "name": "DatasetFieldUsageCounts",
-            "doc": " Records field-level usage counts for a given dataset",
+            "doc": "Records field-level usage counts for a given dataset",
             "fields": [
               {
                 "name": "fieldName",
-                "type": "string"
+                "type": "string",
+                "doc": "The name of the field."
               },
               {
                 "name": "count",
                 "type": "int",
+                "doc": "Number of times the field has been used.",
                 "TemporalStat": {}
               }
             ]
           }
         }
       ],
-      "doc": " Field-level usage stats ",
+      "doc": "Field-level usage stats",
       "default": null,
       "TemporalStatCollection": {
         "key": "fieldName"

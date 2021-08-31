@@ -9,6 +9,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.dao.utils.ESUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.Filter;
@@ -65,7 +66,8 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
 
   public ElasticSearchTimeseriesAspectService(@Nonnull RestHighLevelClient searchClient,
       @Nonnull IndexConvention indexConvention, @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
-      int bulkRequestsLimit, int bulkFlushPeriod, int numRetries, long retryInterval) {
+      @Nonnull EntityRegistry entityRegistry, int bulkRequestsLimit, int bulkFlushPeriod, int numRetries,
+      long retryInterval) {
     _indexConvention = indexConvention;
     _indexBuilders = indexBuilders;
     _searchClient = searchClient;
@@ -77,7 +79,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
         .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(retryInterval), numRetries))
         .build();
 
-    _esAggregatedStatsDAO = new ESAggregatedStatsDAO(indexConvention, searchClient);
+    _esAggregatedStatsDAO = new ESAggregatedStatsDAO(indexConvention, searchClient, entityRegistry);
   }
 
   private static EnvelopedAspect parseDocument(@Nonnull SearchHit doc) {

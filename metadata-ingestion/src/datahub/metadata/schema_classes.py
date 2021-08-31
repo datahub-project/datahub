@@ -2809,7 +2809,7 @@ class DatasetFieldProfileClass(DictWrapper):
     
     
 class DatasetFieldUsageCountsClass(DictWrapper):
-    """ Records field-level usage counts for a given dataset"""
+    """Records field-level usage counts for a given dataset"""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetFieldUsageCounts")
     def __init__(self,
@@ -2835,23 +2835,23 @@ class DatasetFieldUsageCountsClass(DictWrapper):
     
     @property
     def fieldName(self) -> str:
-        # No docs available.
+        """Getter: The name of the field."""
         return self._inner_dict.get('fieldName')  # type: ignore
     
     @fieldName.setter
     def fieldName(self, value: str) -> None:
-        # No docs available.
+        """Setter: The name of the field."""
         self._inner_dict['fieldName'] = value
     
     
     @property
     def count(self) -> int:
-        # No docs available.
+        """Getter: Number of times the field has been used."""
         return self._inner_dict.get('count')  # type: ignore
     
     @count.setter
     def count(self, value: int) -> None:
-        # No docs available.
+        """Setter: Number of times the field has been used."""
         self._inner_dict['count'] = value
     
     
@@ -3180,61 +3180,61 @@ class DatasetUsageStatisticsClass(DictWrapper):
     
     @property
     def uniqueUserCount(self) -> Union[None, int]:
-        """Getter:  Unique user count """
+        """Getter: Unique user count"""
         return self._inner_dict.get('uniqueUserCount')  # type: ignore
     
     @uniqueUserCount.setter
     def uniqueUserCount(self, value: Union[None, int]) -> None:
-        """Setter:  Unique user count """
+        """Setter: Unique user count"""
         self._inner_dict['uniqueUserCount'] = value
     
     
     @property
     def totalSqlQueries(self) -> Union[None, int]:
-        """Getter:  Total SQL query count """
+        """Getter: Total SQL query count"""
         return self._inner_dict.get('totalSqlQueries')  # type: ignore
     
     @totalSqlQueries.setter
     def totalSqlQueries(self, value: Union[None, int]) -> None:
-        """Setter:  Total SQL query count """
+        """Setter: Total SQL query count"""
         self._inner_dict['totalSqlQueries'] = value
     
     
     @property
     def topSqlQueries(self) -> Union[None, List[str]]:
-        """Getter:  Frequent SQL queries; mostly makes sense for datasets in SQL databases """
+        """Getter: Frequent SQL queries; mostly makes sense for datasets in SQL databases"""
         return self._inner_dict.get('topSqlQueries')  # type: ignore
     
     @topSqlQueries.setter
     def topSqlQueries(self, value: Union[None, List[str]]) -> None:
-        """Setter:  Frequent SQL queries; mostly makes sense for datasets in SQL databases """
+        """Setter: Frequent SQL queries; mostly makes sense for datasets in SQL databases"""
         self._inner_dict['topSqlQueries'] = value
     
     
     @property
     def userCounts(self) -> Union[None, List["DatasetUserUsageCountsClass"]]:
-        """Getter:  Users within this bucket, with frequency counts """
+        """Getter: Users within this bucket, with frequency counts"""
         return self._inner_dict.get('userCounts')  # type: ignore
     
     @userCounts.setter
     def userCounts(self, value: Union[None, List["DatasetUserUsageCountsClass"]]) -> None:
-        """Setter:  Users within this bucket, with frequency counts """
+        """Setter: Users within this bucket, with frequency counts"""
         self._inner_dict['userCounts'] = value
     
     
     @property
     def fieldCounts(self) -> Union[None, List["DatasetFieldUsageCountsClass"]]:
-        """Getter:  Field-level usage stats """
+        """Getter: Field-level usage stats"""
         return self._inner_dict.get('fieldCounts')  # type: ignore
     
     @fieldCounts.setter
     def fieldCounts(self, value: Union[None, List["DatasetFieldUsageCountsClass"]]) -> None:
-        """Setter:  Field-level usage stats """
+        """Setter: Field-level usage stats"""
         self._inner_dict['fieldCounts'] = value
     
     
 class DatasetUserUsageCountsClass(DictWrapper):
-    """ Records a single user's usage counts for a given resource """
+    """Records a single user's usage counts for a given resource"""
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetUserUsageCounts")
     def __init__(self,
@@ -3263,34 +3263,34 @@ class DatasetUserUsageCountsClass(DictWrapper):
     
     @property
     def user(self) -> str:
-        # No docs available.
+        """Getter: The unique id of the user."""
         return self._inner_dict.get('user')  # type: ignore
     
     @user.setter
     def user(self, value: str) -> None:
-        # No docs available.
+        """Setter: The unique id of the user."""
         self._inner_dict['user'] = value
     
     
     @property
     def count(self) -> int:
-        # No docs available.
+        """Getter: Number of times the dataset has been used by the user."""
         return self._inner_dict.get('count')  # type: ignore
     
     @count.setter
     def count(self, value: int) -> None:
-        # No docs available.
+        """Setter: Number of times the dataset has been used by the user."""
         self._inner_dict['count'] = value
     
     
     @property
     def userEmail(self) -> Union[None, str]:
-        """Getter:  If user_email is set, we attempt to resolve the user's urn upon ingest """
+        """Getter: If user_email is set, we attempt to resolve the user's urn upon ingest"""
         return self._inner_dict.get('userEmail')  # type: ignore
     
     @userEmail.setter
     def userEmail(self, value: Union[None, str]) -> None:
-        """Setter:  If user_email is set, we attempt to resolve the user's urn upon ingest """
+        """Setter: If user_email is set, we attempt to resolve the user's urn upon ingest"""
         self._inner_dict['userEmail'] = value
     
     
