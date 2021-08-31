@@ -171,5 +171,24 @@
       "type":"METADATA",
       "editable":false
     }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:7",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":true,
+        "allGroups":false
+      },
+      "privileges":[
+        "VIEW_ANALYTICS",
+        "MANAGE_POLICIES"
+      ],
+      "displayName":"All Users - Default Platform Privileges - Manage Policies & View Analytics",
+      "description":"Grants full ability to manage policies and view analytics to ALL users of DataHub. Change this policy to alter that behavior.",
+      "state":"ACTIVE",
+      "type":"PLATFORM",
+      "editable":true
+    }
   }
 ]
