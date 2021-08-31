@@ -78,6 +78,8 @@ sink:
 
 Ensure that databricks-dbapi is installed. If not, use ```pip install databricks-dbapi``` to install.
 
+Use the ```http_path``` from your Databricks cluster in the following recipe. See [here](https://docs.databricks.com/integrations/bi/jdbc-odbc-bi.html#get-server-hostname-port-http-path-and-jdbc-url) for instructions to find ```http_path```.
+
 ```yml
 source:
   type: hive
@@ -92,9 +94,7 @@ source:
         http_path: 'sql/protocolv1/o/xxxyyyzzzaaasa/1234-567890-hello123'
 
 sink:
-  type: "datahub-rest"
-  config:
-    server: "http://<datahubip>:8080"
+  # sink configs
 ```
 </details>
 
