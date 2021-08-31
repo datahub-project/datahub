@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 public class BootstrapManagerApplicationListener implements ApplicationListener<ContextRefreshedEvent> {
 
   @Autowired
-  @Qualifier("bootManager")
+  @Qualifier("bootstrapManager")
   private BootstrapManager _bootstrapManager;
 
   @Override

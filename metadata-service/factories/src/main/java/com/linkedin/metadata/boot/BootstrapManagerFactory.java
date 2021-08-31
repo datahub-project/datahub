@@ -21,7 +21,7 @@ public class BootstrapManagerFactory {
   @Qualifier("entityService")
   private EntityService _entityService;
 
-  @Bean(name = "bootManager")
+  @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
   protected BootstrapManager createInstance() {
