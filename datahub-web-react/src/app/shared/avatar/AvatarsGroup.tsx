@@ -12,6 +12,7 @@ type Props = {
     size?: AvatarSize;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, size }: Props) {
     if (!owners || owners.length === 0) {
         return null;

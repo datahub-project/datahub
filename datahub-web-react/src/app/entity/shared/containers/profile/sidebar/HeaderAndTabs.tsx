@@ -17,11 +17,9 @@ const ResizableDiv = styled.div<{ width }>`
 const HeaderAndTabs = ({ children }: Props) => {
     const initialWidth = 70 / (100 / document.documentElement.clientWidth);
 
-
     const [sidebarWidth, setSidebarWidth] = useState(initialWidth);
 
     const cbHandleMouseMove = useCallback((e) => {
-
         const offsetRight = e.clientX - document.body.offsetLeft;
 
         const minWidthVw = 70;
