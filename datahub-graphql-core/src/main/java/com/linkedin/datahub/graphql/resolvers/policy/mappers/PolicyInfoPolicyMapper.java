@@ -64,8 +64,6 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
 
   private ResourceFilter mapResources(final DataHubResourceFilter resourceFilter) {
     final ResourceFilter result = new ResourceFilter();
-    // This is an implicit mapping between GQL EntityType and Entity Name as known by GMS.
-    // Be careful about maintaining this contract.
     result.setAllResources(resourceFilter.isAllResources());
     if (resourceFilter.hasType()) {
       result.setType(resourceFilter.getType());
