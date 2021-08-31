@@ -1,11 +1,9 @@
 package com.linkedin.datahub.graphql.types.dataset;
 
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
@@ -19,20 +17,20 @@ import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetUpdateInputSnapshotMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
-import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetUpdateInputMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
-import com.linkedin.dataset.client.Datasets;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
+import com.linkedin.metadata.snapshot.DatasetSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
 
@@ -94,7 +92,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                 .map(gmsDataset ->
                     gmsDataset == null ? null : DataFetcherResult.<Dataset>newResult()
                         .data(DatasetSnapshotMapper.map(gmsDataset.getValue().getDatasetSnapshot()))
-                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataset.getValue().getDatasetSnapshot()))
+                        .localContext(AspectExtractor.extractAspects(gmsDataset.getValue().getDatasetSnapshot()))
                         .build()
                 )
                 .collect(Collectors.toList());
@@ -139,18 +137,7 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
                 facetFilters,
                 start,
                 count);
-        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<Dataset> datasets = batchLoad(urns, context)
-            .stream().map(datasetDataFetcherResult -> datasetDataFetcherResult.getData()).collect(Collectors.toList());
-        final BrowseResults browseResults = new BrowseResults();
-        browseResults.setStart(result.getFrom());
-        browseResults.setCount(result.getPageSize());
-        browseResults.setTotal(result.getNumEntities());
-        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
-        browseResults.setEntities(datasets.stream()
-                .map(dataset -> (com.linkedin.datahub.graphql.generated.Entity) dataset)
-                .collect(Collectors.toList()));
-        return browseResults;
+        return BrowseResultMapper.map(result);
     }
 
     @Override
@@ -163,39 +150,12 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     public Dataset update(@Nonnull DatasetUpdateInput input, @Nonnull QueryContext context) throws Exception {
         // TODO: Verify that updater is owner.
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final com.linkedin.dataset.Dataset partialDataset = DatasetUpdateInputMapper.map(input, actor);
-        partialDataset.setUrn(DatasetUrn.createFromString(input.getUrn()));
-
-
-        // TODO: Migrate inner mappers to InputModelMappers & remove
-        // Create Audit Stamp
-        final AuditStamp auditStamp = new AuditStamp();
-        auditStamp.setActor(actor, SetMode.IGNORE_NULL);
-        auditStamp.setTime(System.currentTimeMillis());
-
-        if (partialDataset.hasDeprecation()) {
-            partialDataset.getDeprecation().setActor(actor, SetMode.IGNORE_NULL);
-        }
-
-        if (partialDataset.hasEditableSchemaMetadata()) {
-            partialDataset.getEditableSchemaMetadata().setLastModified(auditStamp);
-            if (!partialDataset.getEditableSchemaMetadata().hasCreated()) {
-                partialDataset.getEditableSchemaMetadata().setCreated(auditStamp);
-            }
-        }
-
-        if (partialDataset.hasEditableProperties()) {
-            partialDataset.getEditableProperties().setLastModified(auditStamp);
-            if (!partialDataset.getEditableProperties().hasCreated()) {
-                partialDataset.getEditableProperties().setCreated(auditStamp);
-            }
-        }
-
-        partialDataset.setLastModified(auditStamp);
+        final DatasetSnapshot datasetSnapshot = DatasetUpdateInputSnapshotMapper.map(input, actor);
+        final Snapshot snapshot = Snapshot.create(datasetSnapshot);
 
         try {
             Entity entity = new Entity();
-            entity.setValue(Snapshot.create(Datasets.toSnapshot(partialDataset.getUrn(), partialDataset)));
+            entity.setValue(snapshot);
             _datasetsClient.update(entity);
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);

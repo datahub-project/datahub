@@ -2,32 +2,27 @@ import React, { useMemo } from 'react';
 import { XYChart, LineSeries, CrossHair, XAxis, YAxis } from '@data-ui/xy-chart';
 import { scaleOrdinal } from '@vx/scale';
 
-import {
-    TimeSeriesChart as TimeSeriesChartType,
-    DateInterval,
-    NumericDataPoint,
-    NamedLine,
-} from '../../../types.generated';
+import { TimeSeriesChart as TimeSeriesChartType, NumericDataPoint, NamedLine } from '../../../types.generated';
 import { lineColors } from './lineColors';
 import Legend from './Legend';
+import { INTERVAL_TO_SECONDS } from '../../shared/time/timeUtils';
 
 type Props = {
     chartData: TimeSeriesChartType;
     width: number;
     height: number;
+    hideLegend?: boolean;
+    style?: {
+        axisColor?: string;
+        axisWidth?: number;
+        lineColor?: string;
+        lineWidth?: string;
+        crossHairLineColor?: string;
+    };
+    insertBlankPoints?: boolean;
 };
 
 const MARGIN_SIZE = 32;
-
-const INTERVAL_TO_SECONDS = {
-    [DateInterval.Second]: 1,
-    [DateInterval.Minute]: 60,
-    [DateInterval.Hour]: 3600,
-    [DateInterval.Day]: 86400,
-    [DateInterval.Week]: 604800,
-    [DateInterval.Month]: 2419200,
-    [DateInterval.Year]: 31536000,
-};
 
 function insertBlankAt(ts: number, newLine: Array<NumericDataPoint>) {
     const dateString = new Date(ts).toString();
@@ -40,14 +35,17 @@ function insertBlankAt(ts: number, newLine: Array<NumericDataPoint>) {
     newLine.push({ x: dateString, y: 0 });
 }
 
-function extrapolatedPoints(chartData: TimeSeriesChartType) {
+function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: boolean) {
+    if (!insertBlankPoints) {
+        return chartData.lines;
+    }
+
     const startDate = new Date(Number(chartData.dateRange.start));
     const endDate = new Date(Number(chartData.dateRange.end));
     const intervalMs = INTERVAL_TO_SECONDS[chartData.interval] * 1000;
     const returnLines: NamedLine[] = [];
     chartData.lines.forEach((line) => {
         const newLine = [...line.data];
-        console.log(newLine, endDate);
         for (let i = endDate.getTime(); i > startDate.getTime(); i -= intervalMs) {
             const pointOverlap = line.data.filter((point) => {
                 return Math.abs(new Date(point.x).getTime() - i) > intervalMs;
@@ -84,17 +82,18 @@ function extrapolatedPoints(chartData: TimeSeriesChartType) {
     return returnLines;
 }
 
-export const TimeSeriesChart = ({ chartData, width, height }: Props) => {
+export const TimeSeriesChart = ({ chartData, width, height, hideLegend, style, insertBlankPoints }: Props) => {
     const ordinalColorScale = scaleOrdinal<string, string>({
         domain: chartData.lines.map((data) => data.name),
         range: lineColors.slice(0, chartData.lines.length),
     });
 
-    const extrapolatedData = useMemo(() => extrapolatedPoints(chartData), [chartData]);
+    const lines = useMemo(() => computeLines(chartData, insertBlankPoints || false), [chartData, insertBlankPoints]);
 
     return (
         <>
             <XYChart
+                eventTrigger="container"
                 ariaLabel={chartData.title}
                 width={width}
                 height={height}
@@ -107,20 +106,24 @@ export const TimeSeriesChart = ({ chartData, width, height }: Props) => {
                         <div>{datum.y}</div>
                     </div>
                 )}
-                snapTooltipToDataX
+                snapTooltipToDataX={false}
             >
-                <XAxis />
-                <YAxis />
-                {extrapolatedData.map((line, i) => (
+                <XAxis axisStyles={{ stroke: style && style.axisColor, strokeWidth: style && style.axisWidth }} />
+                <YAxis axisStyles={{ stroke: style && style.axisColor, strokeWidth: style && style.axisWidth }} />
+                {lines.map((line, i) => (
                     <LineSeries
                         showPoints
                         data={line.data.map((point) => ({ x: new Date(point.x).getTime().toString(), y: point.y }))}
-                        stroke={lineColors[i]}
+                        stroke={(style && style.lineColor) || lineColors[i]}
                     />
                 ))}
-                <CrossHair showHorizontalLine={false} fullHeight stroke="pink" />
+                <CrossHair
+                    showHorizontalLine={false}
+                    fullHeight
+                    stroke={(style && style.crossHairLineColor) || '#D8D8D8'}
+                />
             </XYChart>
-            <Legend ordinalScale={ordinalColorScale} />
+            {!hideLegend && <Legend ordinalScale={ordinalColorScale} />}
         </>
     );
 };

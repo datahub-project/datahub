@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import List
+from typing import Iterator, List, Optional, Tuple
 
 import docker
 
@@ -40,7 +40,9 @@ MIN_MEMORY_NEEDED = 3.8  # GB
 
 
 @contextmanager
-def get_client_with_error():
+def get_client_with_error() -> Iterator[
+    Tuple[docker.DockerClient, Optional[Exception]]
+]:
     try:
         docker_cli = docker.from_env()
     except docker.errors.DockerException as error:

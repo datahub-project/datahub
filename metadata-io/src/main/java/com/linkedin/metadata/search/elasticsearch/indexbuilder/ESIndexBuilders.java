@@ -7,16 +7,19 @@ import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import org.elasticsearch.client.RestHighLevelClient;
 
+
 @RequiredArgsConstructor
 public class ESIndexBuilders {
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient searchClient;
   private final IndexConvention indexConvention;
+  private final SettingsBuilder settingsBuilder;
 
   public void buildAll() {
-    for (EntitySpec entitySpec : entityRegistry.getEntitySpecs()) {
+    for (EntitySpec entitySpec : entityRegistry.getEntitySpecs().values()) {
       try {
-        new EntityIndexBuilder(searchClient, entitySpec, indexConvention.getIndexName(entitySpec)).buildIndex();
+        new EntityIndexBuilder(searchClient, entitySpec, settingsBuilder,
+            indexConvention.getIndexName(entitySpec)).buildIndex();
       } catch (IOException e) {
         e.printStackTrace();
       }

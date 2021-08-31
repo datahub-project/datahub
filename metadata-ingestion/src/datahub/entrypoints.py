@@ -1,22 +1,22 @@
 import logging
 import os
-import pathlib
 import sys
 
 import click
 import stackprinter
-from pydantic import ValidationError
 
 import datahub as datahub_package
 from datahub.cli.check_cli import check
+from datahub.cli.cli_utils import DATAHUB_CONFIG_PATH, write_datahub_config
+from datahub.cli.delete_cli import delete
 from datahub.cli.docker import docker
-from datahub.configuration.config_loader import load_config_file
-from datahub.ingestion.run.pipeline import Pipeline
+from datahub.cli.ingest_cli import ingest
 
 logger = logging.getLogger(__name__)
 
 # Configure some loggers.
-logging.getLogger("urllib3").setLevel(logging.WARN)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("snowflake").setLevel(level=logging.WARNING)
 # logging.getLogger("botocore").setLevel(logging.INFO)
 # logging.getLogger("google").setLevel(logging.INFO)
 
@@ -60,36 +60,29 @@ def version() -> None:
 
 
 @datahub.command()
-@click.option(
-    "-c",
-    "--config",
-    type=click.Path(exists=True, dir_okay=False),
-    help="Config file in .toml or .yaml format.",
-    required=True,
-)
-def ingest(config: str) -> None:
-    """Ingest metadata into DataHub."""
-    logger.debug("DataHub CLI version: %s", datahub_package.nice_version_name())
+def init() -> None:
+    """Configure which datahub instance to connect to"""
+    if os.path.isfile(DATAHUB_CONFIG_PATH):
+        click.confirm(f"{DATAHUB_CONFIG_PATH} already exists. Overwrite?", abort=True)
 
-    config_file = pathlib.Path(config)
-    pipeline_config = load_config_file(config_file)
+    click.echo("Configure which datahub instance to connect to")
+    host = click.prompt(
+        "Enter your DataHub host", type=str, default="http://localhost:8080"
+    )
+    token = click.prompt(
+        "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)",
+        type=str,
+        default="",
+    )
+    write_datahub_config(host, token)
 
-    try:
-        logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(pipeline_config)
-    except ValidationError as e:
-        click.echo(e, err=True)
-        sys.exit(1)
-
-    logger.info("Starting metadata ingestion")
-    pipeline.run()
-    logger.info("Finished metadata ingestion")
-    ret = pipeline.pretty_print_summary()
-    sys.exit(ret)
+    click.echo(f"Written to {DATAHUB_CONFIG_PATH}")
 
 
 datahub.add_command(check)
 datahub.add_command(docker)
+datahub.add_command(ingest)
+datahub.add_command(delete)
 
 
 def main(**kwargs):

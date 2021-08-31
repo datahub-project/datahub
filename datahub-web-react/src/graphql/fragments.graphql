@@ -101,6 +101,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     platform {
         name
         info {
+            displayName
             logoUrl
         }
     }
@@ -461,4 +462,67 @@ fragment schemaMetadataFields on SchemaMetadata {
         }
     }
     primaryKeys
+}
+
+fragment nonRecursiveMLModel on MLModel {
+    urn
+    type
+    name
+    description
+    origin
+    platform {
+        name
+        info {
+            logoUrl
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    properties {
+        description
+        date
+        version
+        type
+        trainingMetrics {
+            name
+            description
+            value
+        }
+        hyperParams {
+            name
+            description
+            value
+        }
+        mlFeatures
+        groups {
+            urn
+            name
+            description
+        }
+        customProperties {
+            key
+            value
+        }
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+}
+
+fragment nonRecursiveMLModelGroupFields on MLModelGroup {
+    urn
+    type
+    name
+    description
+    origin
+    platform {
+        name
+        info {
+            logoUrl
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
 }

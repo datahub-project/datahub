@@ -22,7 +22,7 @@ from ingest_api.helper.models import (FieldParam, create_dataset_params,
                                       dataset_status_params, determine_type)
 
 # when DEBUG = true, im not running ingest_api from container, but from localhost python interpreter, hence need to change the endpoint used.
-DEBUG = True
+DEBUG = False
 if environ.get("DATAHUB_URL") is not None:
     datahub_url = os.environ["DATAHUB_URL"]
 else:

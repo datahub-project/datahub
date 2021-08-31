@@ -1,0 +1,10 @@
+namespace com.linkedin.mxe
+
+/**
+ * Generic record structure for serializing an Aspect
+ **/
+record GenericAspect {
+    value: bytes
+
+    contentType: string
+}

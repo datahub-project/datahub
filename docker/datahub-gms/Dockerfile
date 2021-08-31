@@ -12,11 +12,12 @@ RUN apk --no-cache add curl tar \
 FROM adoptopenjdk/openjdk8:alpine-slim as prod-build
 RUN apk --no-cache add perl
 COPY . /datahub-src
-RUN cd /datahub-src && ./gradlew :gms:war:build -x test
-RUN cp /datahub-src/gms/war/build/libs/war.war /war.war
+RUN cd /datahub-src && ./gradlew :metadata-service:war:build -x test
+RUN cp /datahub-src/metadata-service/war/build/libs/war.war /war.war
 
 FROM base as prod-install
 COPY --from=prod-build /war.war /datahub/datahub-gms/bin/war.war
+COPY --from=prod-build /datahub-src/metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
 COPY --from=prod-build /datahub-src/docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
 

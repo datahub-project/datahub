@@ -94,7 +94,8 @@
                   "nativeDataType": "int",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 },
                 {
                   "fieldPath": "flightdate",
@@ -109,7 +110,8 @@
                   "nativeDataType": "string",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 },
                 {
                   "fieldPath": "uniquecarrier",
@@ -124,7 +126,8 @@
                   "nativeDataType": "string",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 },
                 {
                   "fieldPath": "airlineid",
@@ -139,7 +142,8 @@
                   "nativeDataType": "int",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 },
                 {
                   "fieldPath": "carrier",
@@ -154,7 +158,8 @@
                   "nativeDataType": "string",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 },
                 {
                   "fieldPath": "flightnum",
@@ -169,7 +174,8 @@
                   "nativeDataType": "string",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 },
                 {
                   "fieldPath": "origin",
@@ -184,7 +190,8 @@
                   "nativeDataType": "string",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 }
               ],
               "primaryKeys": null,
@@ -194,7 +201,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -292,7 +300,8 @@
                   "nativeDataType": "array<struct<name:string,position:array<double>,location:array<double>>>",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 }
               ],
               "primaryKeys": null,
@@ -302,7 +311,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -398,7 +408,8 @@
                   "nativeDataType": "int",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 },
                 {
                   "fieldPath": "quarter",
@@ -413,7 +424,8 @@
                   "nativeDataType": "int",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 },
                 {
                   "fieldPath": "month",
@@ -428,7 +440,8 @@
                   "nativeDataType": "int",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 },
                 {
                   "fieldPath": "dayofmonth",
@@ -443,7 +456,8 @@
                   "nativeDataType": "int",
                   "recursive": false,
                   "globalTags": null,
-                  "glossaryTerms": null
+                  "glossaryTerms": null,
+                  "isPartOfKey": false
                 }
               ],
               "primaryKeys": null,
@@ -453,7 +467,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -469,7 +484,7 @@
                 "modified": "2021-06-10 16:55:35.307000",
                 "command": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-1.py"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
               "name": "test-job-1",
               "description": "The first test job",
               "project": null
@@ -478,7 +493,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -494,7 +510,7 @@
                 "modified": "2021-06-10 16:58:32.469000",
                 "command": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-2.py"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2",
               "description": "The second test job",
               "project": null
@@ -503,7 +519,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -519,7 +536,7 @@
                 "transformType": "Filter",
                 "nodeId": "Transform0"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:Filter-Transform0",
               "description": null,
               "type": {
@@ -541,7 +558,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -557,7 +575,7 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform1"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform1",
               "description": null,
               "type": {
@@ -579,7 +597,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -595,7 +614,7 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform2"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform2",
               "description": null,
               "type": {
@@ -617,7 +636,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -634,7 +654,7 @@
                 "transformType": "Join",
                 "nodeId": "Transform3"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:Join-Transform3",
               "description": null,
               "type": {
@@ -656,7 +676,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -672,7 +693,7 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform4"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform4",
               "description": null,
               "type": {
@@ -692,7 +713,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -708,7 +730,7 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform5"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform5",
               "description": null,
               "type": {
@@ -728,7 +750,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -758,7 +781,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -776,7 +800,7 @@
                 "transformType": "SplitFields",
                 "nodeId": "Transform0"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:SplitFields-Transform0",
               "description": null,
               "type": {
@@ -798,7 +822,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -814,7 +839,7 @@
                 "transformType": "ApplyMapping",
                 "nodeId": "Transform1"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:ApplyMapping-Transform1",
               "description": null,
               "type": {
@@ -836,7 +861,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -852,7 +878,7 @@
                 "transformType": "FillMissingValues",
                 "nodeId": "Transform2"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:FillMissingValues-Transform2",
               "description": null,
               "type": {
@@ -874,7 +900,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -890,7 +917,7 @@
                 "transformType": "SelectFields",
                 "nodeId": "Transform3"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
               "name": "test-job-2:SelectFields-Transform3",
               "description": null,
               "type": {
@@ -914,7 +941,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -944,6 +972,7 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   }
 ]

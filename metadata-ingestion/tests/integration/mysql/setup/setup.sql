@@ -24,7 +24,7 @@ insert into metadata_aspect (urn, aspect, version, metadata, createdon, createdb
   'urn:li:corpuser:datahub',
   'com.linkedin.identity.CorpUserEditableInfo',
   0,
-  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"}',
+  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"}',
   now(),
   'urn:li:principal:datahub'
 );
@@ -46,3 +46,64 @@ CREATE TABLE metadata_index (
 
 -- create view for testing
 CREATE VIEW metadata_index_view AS SELECT id, urn, path, doubleVal FROM metadata_index;
+
+-- Some sample data, sourced from https://github.com/dalers/mywind.
+
+
+SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;
+SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
+SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='TRADITIONAL,ALLOW_INVALID_DATES';
+
+DROP SCHEMA IF EXISTS `northwind` ;
+CREATE SCHEMA IF NOT EXISTS `northwind` DEFAULT CHARACTER SET latin1 ;
+USE `northwind` ;
+
+-- -----------------------------------------------------
+-- Table `northwind`.`customers`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `northwind`.`customers` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `company` VARCHAR(50) NULL DEFAULT NULL,
+  `last_name` VARCHAR(50) NULL DEFAULT NULL,
+  `first_name` VARCHAR(50) NULL DEFAULT NULL,
+  `email_address` VARCHAR(50) NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `company` (`company` ASC),
+  INDEX `first_name` (`first_name` ASC),
+  INDEX `last_name` (`last_name` ASC))
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
+-- Now, the actual sample data.
+
+USE `northwind`;
+
+#
+# Dumping data for table 'customers'
+#
+
+INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (1, 'Company A', 'Bedecs', 'Anna', NULL);
+INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (2, 'Company B', 'Gratacos Solsona', 'Antonio', NULL);
+INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (3, 'Company C', 'Axen', 'Thomas', NULL);
+INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (4, 'Company D', 'Lee', 'Christina', NULL);
+INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (5, 'Company E', 'Donnell', 'Martin', NULL);
+# 5 records
+
+-- -----------------------------------------------------
+-- Schema for testing different scenarios
+-- -----------------------------------------------------
+
+DROP SCHEMA IF EXISTS `test_cases` ;
+CREATE SCHEMA IF NOT EXISTS `test_cases` DEFAULT CHARACTER SET latin1 ;
+USE `test_cases` ;
+
+-- no data in `test_cases`.`test_empty`
+
+CREATE TABLE IF NOT EXISTS `test_cases`.`test_empty` (
+  `dummy` VARCHAR(50) NULL DEFAULT NULL)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
+
+SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
+SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;

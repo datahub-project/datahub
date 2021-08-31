@@ -27,7 +27,6 @@ dependencies {
     play('net.minidev:json-smart:2.4.1')
     play('io.netty:netty-all:4.1.44.Final')
   }
-  play project(":datahub-dao")
   play project(":datahub-graphql-core")
 
   play externalDependency.jsonSchemaInferrer
@@ -44,7 +43,7 @@ dependencies {
   play externalDependency.playPac4j
   play externalDependency.shiroCore
   play externalDependency.playCache
-
+  play externalDependency.playWs
   play externalDependency.kafkaClients
 
   playTest externalDependency.mockito

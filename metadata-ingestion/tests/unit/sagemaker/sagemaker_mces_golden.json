@@ -19,7 +19,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -41,7 +42,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -63,7 +65,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -74,7 +77,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "sagemaker/test-2"
+                "/sagemaker/test-2"
               ]
             }
           },
@@ -98,7 +101,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -117,7 +121,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -136,7 +141,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -155,7 +161,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -174,7 +181,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -185,7 +193,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "sagemaker/test-1"
+                "/sagemaker/test-1"
               ]
             }
           },
@@ -210,7 +218,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -229,7 +238,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -248,7 +258,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -267,7 +278,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -278,7 +290,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "sagemaker/test"
+                "/sagemaker/test"
               ]
             }
           },
@@ -302,7 +314,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -326,7 +339,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -349,7 +363,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -374,7 +389,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -399,7 +415,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -422,7 +439,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -445,7 +463,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -468,7 +487,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -491,7 +511,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -514,7 +535,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -537,7 +559,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -565,7 +588,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -592,7 +616,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -615,7 +640,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -638,7 +664,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -661,7 +688,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -684,7 +712,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -707,7 +736,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -730,7 +760,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -753,7 +784,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -779,7 +811,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -802,7 +835,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -822,7 +856,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -869,7 +904,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "auto_ml/an-auto-ml-job"
+                "/auto_ml/an-auto-ml-job"
               ]
             }
           },
@@ -887,7 +922,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -907,7 +943,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -936,7 +973,7 @@
                 "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
                 "jobType": "compilation"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/compilation-jobs/a-compilation-job",
               "name": "a-compilation-job",
               "description": null,
               "type": {
@@ -949,7 +986,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "compilation/a-compilation-job"
+                "/compilation/a-compilation-job"
               ]
             }
           },
@@ -969,7 +1006,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -989,7 +1027,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1017,7 +1056,7 @@
                 "PresetDeploymentOutput": "{'Type': 'GreengrassV2Component', 'Artifact': 'arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/some-artifact', 'Status': 'COMPLETED', 'StatusMessage': 'string'}",
                 "jobType": "edge_packaging"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/edge-packaging-jobs/an-edge-packaging-job",
               "name": "an-edge-packaging-job",
               "description": null,
               "type": {
@@ -1030,7 +1069,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "edge_packaging/an-edge-packaging-job"
+                "/edge_packaging/an-edge-packaging-job"
               ]
             }
           },
@@ -1047,7 +1086,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1067,7 +1107,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1095,7 +1136,7 @@
                 "FailureReason": "string",
                 "jobType": "hyper_parameter_tuning"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/hyper-tuning-jobs/a-hyper-parameter-tuning-job",
               "name": "a-hyper-parameter-tuning-job",
               "description": null,
               "type": {
@@ -1108,7 +1149,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "hyper_parameter_tuning/a-hyper-parameter-tuning-job"
+                "/hyper_parameter_tuning/a-hyper-parameter-tuning-job"
               ]
             }
           },
@@ -1122,7 +1163,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1142,7 +1184,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1173,7 +1216,7 @@
                 "LabelingJobOutput": "{'OutputDatasetS3Uri': 's3://labeling-job/output-dataset.tar.gz', 'FinalActiveLearningModelArn': 'arn:aws:sagemaker:us-west-2:123412341234:labeling-job/final-active-learning-model'}",
                 "jobType": "labeling"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/labeling-jobs/a-labeling-job",
               "name": "a-labeling-job",
               "description": null,
               "type": {
@@ -1186,7 +1229,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "labeling/a-labeling-job"
+                "/labeling/a-labeling-job"
               ]
             }
           },
@@ -1206,7 +1249,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1226,7 +1270,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1260,7 +1305,7 @@
                 "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job",
                 "jobType": "processing"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/processing-jobs/a-processing-job",
               "name": "a-processing-job",
               "description": null,
               "type": {
@@ -1273,7 +1318,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "processing/a-processing-job"
+                "/processing/a-processing-job"
               ]
             }
           },
@@ -1292,7 +1337,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1312,7 +1358,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1332,7 +1379,7 @@
                 "TrainingJobStatus": "InProgress",
                 "SecondaryStatus": "Starting",
                 "FailureReason": "string",
-                "HyperParameters": "{'string': 'string'}",
+                "HyperParameters": "{'parameter-1': 'some-value', 'parameter-2': 'another-value'}",
                 "AlgorithmSpecification": "{'TrainingImage': 'string', 'AlgorithmName': 'string', 'TrainingInputMode': 'Pipe', 'MetricDefinitions': [{'Name': 'string', 'Regex': 'string'}], 'EnableSageMakerMetricsTimeSeries': True}",
                 "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
                 "InputDataConfig": "[{'ChannelName': 'string', 'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://training-job/input-dataset.tar.gz', 'S3DataDistributionType': 'FullyReplicated', 'AttributeNames': ['string']}, 'FileSystemDataSource': {'FileSystemId': 'abcdefgihjklmnopqrstuvwxyz', 'FileSystemAccessMode': 'rw', 'FileSystemType': 'EFS', 'DirectoryPath': 'string'}}, 'ContentType': 'string', 'CompressionType': 'None', 'RecordWrapperType': 'None', 'InputMode': 'Pipe', 'ShuffleConfig': {'Seed': 123}}]",
@@ -1345,7 +1392,7 @@
                 "TrainingEndTime": "2015-01-01 00:00:00+00:00",
                 "LastModifiedTime": "2015-01-01 00:00:00+00:00",
                 "SecondaryStatusTransitions": "[{'Status': 'Starting', 'StartTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'EndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'StatusMessage': 'string'}]",
-                "FinalMetricDataList": "[{'MetricName': 'string', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
+                "FinalMetricDataList": "[{'MetricName': 'some-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}, {'MetricName': 'another-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}, {'MetricName': 'some-metric', 'Value': 0.0, 'Timestamp': datetime.datetime(2014, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
                 "EnableNetworkIsolation": "True",
                 "EnableInterContainerTrafficEncryption": "True",
                 "EnableManagedSpotTraining": "True",
@@ -1365,7 +1412,7 @@
                 "Environment": "{'string': 'string'}",
                 "jobType": "training"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/jobs/a-training-job",
               "name": "a-training-job",
               "description": null,
               "type": {
@@ -1378,7 +1425,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "training/a-training-job"
+                "/training/a-training-job"
               ]
             }
           },
@@ -1402,7 +1449,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1422,7 +1470,8 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1455,7 +1504,7 @@
                 "ExperimentConfig": "{'ExperimentName': 'string', 'TrialName': 'string', 'TrialComponentDisplayName': 'string'}",
                 "jobType": "transform"
               },
-              "externalUrl": null,
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/transform-jobs/a-transform-job",
               "name": "a-transform-job",
               "description": null,
               "type": {
@@ -1468,7 +1517,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "transform/a-transform-job"
+                "/transform/a-transform-job"
               ]
             }
           },
@@ -1489,13 +1538,14 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
-        "urn": "urn:li:mlModelDeployment:(sagemaker,the-first-endpoint,PROD)",
+        "urn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-first-endpoint,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
@@ -1509,6 +1559,7 @@
                 "LastModifiedTime": "2015-01-01 00:00:00+00:00",
                 "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
               },
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/endpoints/the-first-endpoint",
               "description": null,
               "createdAt": 1420070400000,
               "version": null,
@@ -1518,13 +1569,14 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
-        "urn": "urn:li:mlModelDeployment:(sagemaker,the-second-endpoint,PROD)",
+        "urn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-second-endpoint,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
@@ -1538,6 +1590,7 @@
                 "LastModifiedTime": "2015-01-01 00:00:00+00:00",
                 "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
               },
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/endpoints/the-second-endpoint",
               "description": null,
               "createdAt": 1420070400000,
               "version": null,
@@ -1547,7 +1600,56 @@
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot": {
+        "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.ml.metadata.MLModelGroupProperties": {
+              "customProperties": {
+                "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
+                "ModelPackageGroupDescription": "Just a model package group.",
+                "CreatedBy": "{'UserProfileArn': 'arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user', 'UserProfileName': 'some-user', 'DomainId': 'some-domain'}",
+                "ModelPackageGroupStatus": "Completed"
+              },
+              "description": "Just a model package group.",
+              "createdAt": 1420070400000,
+              "version": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:some-user",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown",
+                "impersonator": null
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "/sagemaker/a-model-package-group"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1566,26 +1668,67 @@
                 "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
                 "EnableNetworkIsolation": "True"
               },
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-first-model",
               "description": null,
               "date": 1420070400000,
               "version": null,
               "type": null,
               "hyperParameters": null,
+              "hyperParams": [
+                {
+                  "name": "parameter-1",
+                  "description": null,
+                  "value": "some-value",
+                  "createdAt": null
+                },
+                {
+                  "name": "parameter-2",
+                  "description": null,
+                  "value": "another-value",
+                  "createdAt": null
+                }
+              ],
+              "trainingMetrics": [
+                {
+                  "name": "another-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "createdAt": null
+                },
+                {
+                  "name": "some-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "createdAt": null
+                }
+              ],
+              "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],
               "deployments": [
-                "urn:li:mlModelDeployment:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
+                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
               ],
               "trainingJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
               ],
-              "downstreamJobs": []
+              "downstreamJobs": [],
+              "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "/sagemaker/a-model-package-group/the-first-model"
+              ]
             }
           }
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   },
   {
     "auditHeader": null,
@@ -1604,15 +1747,45 @@
                 "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
                 "EnableNetworkIsolation": "False"
               },
+              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-second-model",
               "description": null,
               "date": 1420070400000,
               "version": null,
               "type": null,
               "hyperParameters": null,
+              "hyperParams": [
+                {
+                  "name": "parameter-1",
+                  "description": null,
+                  "value": "some-value",
+                  "createdAt": null
+                },
+                {
+                  "name": "parameter-2",
+                  "description": null,
+                  "value": "another-value",
+                  "createdAt": null
+                }
+              ],
+              "trainingMetrics": [
+                {
+                  "name": "another-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "createdAt": null
+                },
+                {
+                  "name": "some-metric",
+                  "description": null,
+                  "value": "1.0",
+                  "createdAt": null
+                }
+              ],
+              "onlineMetrics": null,
               "mlFeatures": null,
               "tags": [],
               "deployments": [
-                "urn:li:mlModelDeployment:(sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
+                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
               ],
               "trainingJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
@@ -1620,56 +1793,23 @@
               "downstreamJobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
                 "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot": {
-        "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLModelGroupProperties": {
-              "customProperties": {
-                "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
-                "ModelPackageGroupDescription": "Just a model package group.",
-                "CreatedBy": "{'UserProfileArn': 'arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user', 'UserProfileName': 'some-user', 'DomainId': 'some-domain'}",
-                "ModelPackageGroupStatus": "Completed"
-              },
-              "description": "Just a model package group.",
-              "createdAt": 1420070400000,
-              "version": null,
-              "models": [
-                "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
-                "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)"
+              ],
+              "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
               ]
             }
           },
           {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [
-                {
-                  "owner": "some-user",
-                  "type": "DATAOWNER",
-                  "source": null
-                }
-              ],
-              "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              }
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": [
+                "/sagemaker/a-model-package-group/the-second-model"
+              ]
             }
           }
         ]
       }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": null
   }
 ]

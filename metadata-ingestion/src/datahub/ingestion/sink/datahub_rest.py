@@ -3,10 +3,14 @@ from dataclasses import dataclass
 from typing import Optional, Union
 
 from datahub.configuration.common import ConfigModel, OperationalError
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 
 logger = logging.getLogger(__name__)
@@ -17,6 +21,7 @@ class DatahubRestSinkConfig(ConfigModel):
 
     server: str = "http://localhost:8080"
     token: Optional[str]
+    timeout_sec: Optional[int]
 
 
 @dataclass
@@ -29,7 +34,13 @@ class DatahubRestSink(Sink):
         super().__init__(ctx)
         self.config = config
         self.report = SinkReport()
-        self.emitter = DatahubRestEmitter(self.config.server, self.config.token)
+        self.emitter = DatahubRestEmitter(
+            self.config.server,
+            self.config.token,
+            connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
+            read_timeout_sec=self.config.timeout_sec,
+        )
+        self.emitter.test_connection()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "DatahubRestSink":
@@ -44,7 +55,14 @@ class DatahubRestSink(Sink):
 
     def write_record_async(
         self,
-        record_envelope: RecordEnvelope[Union[MetadataChangeEvent, UsageAggregation]],
+        record_envelope: RecordEnvelope[
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposal,
+                MetadataChangeProposalWrapper,
+                UsageAggregation,
+            ]
+        ],
         write_callback: WriteCallback,
     ) -> None:
         record = record_envelope.record

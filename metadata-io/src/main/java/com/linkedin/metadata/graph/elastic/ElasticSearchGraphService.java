@@ -1,11 +1,12 @@
 package com.linkedin.metadata.graph.elastic;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
@@ -13,7 +14,7 @@ import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -21,6 +22,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +35,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.indices.CreateIndexRequest;
-import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 
@@ -93,7 +93,7 @@ public class ElasticSearchGraphService implements GraphService {
   }
 
   @Nonnull
-  public List<String> findRelatedUrns(
+  public RelatedEntitiesResult findRelatedEntities(
       @Nullable final String sourceType,
       @Nonnull final Filter sourceEntityFilter,
       @Nullable final String destinationType,
@@ -118,13 +118,25 @@ public class ElasticSearchGraphService implements GraphService {
     );
 
     if (response == null) {
-      return ImmutableList.of();
+      return new RelatedEntitiesResult(offset, 0, 0, ImmutableList.of());
     }
 
-    return Arrays.stream(response.getHits().getHits())
-        .map(hit -> ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null))
+    int totalCount = (int) response.getHits().getTotalHits().value;
+    final List<RelatedEntity> relationships = Arrays.stream(response.getHits().getHits())
+        .map(hit -> {
+          final String urnStr = ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null);
+          final String relationshipType = (String) hit.getSourceAsMap().get("relationshipType");
+          if (urnStr == null || relationshipType == null) {
+            log.error(String.format(
+                "Found null urn string or relationship type in Elastic index. urnStr: %s, relationshipType: %s", urnStr, relationshipType));
+            return null;
+          }
+          return new RelatedEntity(relationshipType, urnStr);
+        })
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
+
+    return new RelatedEntitiesResult(offset, relationships.size(), totalCount, relationships);
   }
 
   private Filter createUrnFilter(@Nonnull final Urn urn) {
@@ -190,36 +202,12 @@ public class ElasticSearchGraphService implements GraphService {
   @Override
   public void configure() {
     log.info("Setting up elastic graph index");
-    boolean exists = false;
     try {
-      exists = searchClient.indices().exists(
-          new GetIndexRequest(_indexConvention.getIndexName(INDEX_NAME)), RequestOptions.DEFAULT);
+      new IndexBuilder(searchClient, _indexConvention.getIndexName(INDEX_NAME),
+          GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap()).buildIndex();
     } catch (IOException e) {
-      log.error("ERROR: Failed to set up elasticsearch graph index. Could not check if the index exists");
       e.printStackTrace();
-      return;
     }
-
-    // If index doesn't exist, create index
-    if (!exists) {
-      log.info("Elastic Graph Index does not exist. Creating.");
-      CreateIndexRequest createIndexRequest = new CreateIndexRequest(_indexConvention.getIndexName(INDEX_NAME));
-
-      createIndexRequest.mapping(GraphRelationshipMappingsBuilder.getMappings());
-      createIndexRequest.settings(SettingsBuilder.getSettings());
-
-      try {
-        searchClient.indices().create(createIndexRequest, RequestOptions.DEFAULT);
-      } catch (IOException e) {
-        log.error("ERROR: Failed to set up elasticsearch graph index. Could not create the index.");
-        e.printStackTrace();
-        return;
-      }
-
-      log.info("Successfully Created Elastic Graph Index");
-    }
-
-    return;
   }
 
   @Override

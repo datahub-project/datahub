@@ -17,8 +17,8 @@ public class UpstreamEntityRelationshipsMapper implements ModelMapper<com.linked
     @Override
     public UpstreamEntityRelationships apply(@Nonnull final com.linkedin.common.EntityRelationships input) {
         final UpstreamEntityRelationships result = new UpstreamEntityRelationships();
-        result.setEntities(input.getEntities().stream().map(
-                EntityRelationshipMapper::map
+        result.setEntities(input.getRelationships().stream().map(
+                EntityRelationshipLegacyMapper::map
         ).collect(Collectors.toList()));
         return result;
     }

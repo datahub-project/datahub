@@ -55,7 +55,7 @@ export class DataJobEntity implements Entity<DataJob> {
             <Preview
                 urn={data.urn}
                 name={data.info?.name || ''}
-                description={data.info?.description}
+                description={data.editableProperties?.description || data.info?.description}
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}
@@ -73,7 +73,7 @@ export class DataJobEntity implements Entity<DataJob> {
             <Preview
                 urn={data.urn}
                 name={data.info?.name || ''}
-                description={data.info?.description}
+                description={data.editableProperties?.description || data.info?.description}
                 platformName={platformName}
                 platformLogo={getLogoFromPlatform(data.dataFlow?.orchestrator || '')}
                 owners={data.ownership?.owners}

@@ -34,7 +34,7 @@ export const AnalyticsPage = () => {
                     <Alert type="error" message={highlightError?.message || 'Highlights failed to load'} />
                 )}
                 {(IS_DEV ? sampleHighlights : highlightData?.getHighlights)?.map((highlight) => (
-                    <Highlight highlight={highlight} />
+                    <Highlight highlight={highlight} shortenValue />
                 ))}
             </HighlightGroup>
             <>

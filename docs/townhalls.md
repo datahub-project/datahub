@@ -5,7 +5,7 @@ Currently it's held on the fourth Friday of every month (with some exceptions su
 It's the perfect venue to meet the team behind DataHub and other users, as well as to ask higher-level questions, such as roadmap and product direction.
 From time to time we also use the opportunity to showcase upcoming features.
 
-## Coming up - Jul 23rd, 2021 @ 9 AM US Pacific
+## Coming up - Sep 24th, 2021 @ 9 AM US Pacific
 
 ## Meeting Invite
 
@@ -16,11 +16,7 @@ You can join with this link https://zoom.datahubproject.io, or [signup](https://
 
 ## Agenda
 
-- Project Updates by Shirshanka
-   - Release highlights
-- Deep Dive: Data Observability: Phase 1 by Harshal Sheth, Dexter Lee (Acryl Data)
-- Case Study: Building User Feedback into DataHub by Melinda Cardenas (NY Times)
-- Demo: AWS SageMaker integration for Models and Features by Kevin Hu (Acryl Data)
+- Stay Tuned!
 
 ## Past Meetings
 

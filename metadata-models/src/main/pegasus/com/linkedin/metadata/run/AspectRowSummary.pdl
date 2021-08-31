@@ -1,0 +1,11 @@
+namespace com.linkedin.metadata.run
+
+record AspectRowSummary {
+    runId: string
+    aspectName: string
+    urn: string
+    timestamp: long
+    metadata: string
+    version: long
+    keyAspect: boolean
+}

@@ -25,9 +25,8 @@ public class CentralLogoutController extends LogoutController {
 
     _isOidcEnabled = config.hasPath("auth.oidc.enabled") && config.getBoolean("auth.oidc.enabled");
 
-    String baseUrl = _authBaseUrl;
-    setDefaultUrl(baseUrl);
-    setLogoutUrlPattern(baseUrl + ".*");
+    setDefaultUrl(_authBaseUrl);
+    setLogoutUrlPattern(_authBaseUrl + ".*");
     setLocalLogout(true);
     setCentralLogout(true);
 

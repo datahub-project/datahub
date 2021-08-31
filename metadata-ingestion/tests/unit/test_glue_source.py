@@ -4,7 +4,11 @@ from botocore.stub import Stubber
 from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.glue import GlueSource, GlueSourceConfig, get_column_type
+from datahub.ingestion.source.aws.glue import (
+    GlueSource,
+    GlueSourceConfig,
+    get_column_type,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     MapTypeClass,
@@ -126,7 +130,7 @@ def test_glue_ingest(tmp_path, pytestconfig):
             )
 
             mce_objects = [
-                wu.mce.to_obj() for wu in glue_source_instance.get_workunits()
+                wu.metadata.to_obj() for wu in glue_source_instance.get_workunits()
             ]
 
             with open(str(tmp_path / "glue_mces.json"), "w") as f:
@@ -139,3 +143,29 @@ def test_glue_ingest(tmp_path, pytestconfig):
         output_path=tmp_path / "glue_mces.json",
         golden_path=test_resources_dir / "glue_mces_golden.json",
     )
+
+
+def test_underlying_platform_takes_precendence():
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-west-2", underlying_platform="athena"),
+    )
+    assert source.get_underlying_platform() == "athena"
+
+
+def test_underlying_platform_cannot_be_other_than_athena():
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2", underlying_platform="data-warehouse"
+        ),
+    )
+    assert source.get_underlying_platform() == "glue"
+
+
+def test_without_underlying_platform():
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-west-2"),
+    )
+    assert source.get_underlying_platform() == "glue"

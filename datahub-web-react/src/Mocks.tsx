@@ -9,8 +9,20 @@ import {
     GetSearchResultsQuery,
 } from './graphql/search.generated';
 import { GetUserDocument } from './graphql/user.generated';
-import { Dataset, DataFlow, DataJob, GlossaryTerm, EntityType, PlatformType } from './types.generated';
+import {
+    Dataset,
+    DataFlow,
+    DataJob,
+    GlossaryTerm,
+    EntityType,
+    PlatformType,
+    MlModel,
+    MlModelGroup,
+} from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
+import { GetMlModelDocument } from './graphql/mlModel.generated';
+import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
+import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
 
 const user1 = {
     username: 'sdas',
@@ -80,6 +92,7 @@ const dataset1 = {
         name: 'HDFS',
         type: EntityType.DataPlatform,
         info: {
+            displayName: 'HDFS',
             type: PlatformType.FileSystem,
             datasetNameDelimiter: '.',
             logoUrl: '',
@@ -140,6 +153,18 @@ const dataset1 = {
         ],
     },
     usageStats: null,
+    datasetProfiles: [
+        {
+            timestampMillis: 0,
+            rowCount: 10,
+            columnCount: 5,
+            fieldProfiles: [
+                {
+                    fieldPath: 'testColumn',
+                },
+            ],
+        },
+    ],
 };
 
 const dataset2 = {
@@ -149,6 +174,7 @@ const dataset2 = {
         urn: 'urn:li:dataPlatform:mysql',
         name: 'MySQL',
         info: {
+            displayName: 'MySQL',
             type: PlatformType.RelationalDb,
             datasetNameDelimiter: '.',
             logoUrl: '',
@@ -189,6 +215,24 @@ const dataset2 = {
         },
     },
     usageStats: null,
+    datasetProfiles: [
+        {
+            timestampMillis: 0,
+            rowCount: 10,
+            columnCount: 5,
+            fieldProfiles: [
+                {
+                    fieldPath: 'testColumn',
+                    min: '3',
+                    max: '4',
+                    median: '6',
+                    stdev: '1.2',
+                    nullProportion: 0.56,
+                    sampleValues: ['value1', 'value2', 'value3'],
+                },
+            ],
+        },
+    ],
 };
 
 export const dataset3 = {
@@ -199,6 +243,7 @@ export const dataset3 = {
         urn: 'urn:li:dataPlatform:kafka',
         name: 'Kafka',
         info: {
+            displayName: 'Kafka',
             type: PlatformType.MessageBroker,
             datasetNameDelimiter: '.',
             logoUrl: '',
@@ -257,6 +302,7 @@ export const dataset3 = {
                     type: EntityType.GlossaryTerm,
                     urn: 'urn:li:glossaryTerm:sample-glossary-term',
                     name: 'sample-glossary-term',
+                    hierarchicalName: 'example.sample-glossary-term',
                     glossaryTermInfo: {
                         definition: 'sample definition',
                         termSource: 'sample term source',
@@ -285,6 +331,28 @@ export const dataset3 = {
     editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,
+    datasetProfiles: [
+        {
+            rowCount: 10,
+            columnCount: 5,
+            timestampMillis: 0,
+            fieldProfiles: [
+                {
+                    fieldPath: 'testColumn',
+                    uniqueCount: 1,
+                    uniqueProportion: 0.129,
+                    nullCount: 2,
+                    nullProportion: 0.56,
+                    min: '3',
+                    max: '4',
+                    mean: '5',
+                    median: '6',
+                    stdev: '1.2',
+                    sampleValues: ['value1', 'value2', 'value3'],
+                },
+            ],
+        },
+    ],
 } as Dataset;
 
 export const dataset4 = {
@@ -463,6 +531,7 @@ const glossaryTerm1 = {
     urn: 'urn:li:glossaryTerm:1',
     type: EntityType.GlossaryTerm,
     name: 'Another glossary term',
+    hierarchicalName: 'example.AnotherGlossaryTerm',
     ownership: {
         owners: [
             {
@@ -488,6 +557,98 @@ const glossaryTerm1 = {
         sourceRef: 'sourceRef',
         sourceURI: 'sourceURI',
     },
+} as GlossaryTerm;
+
+const glossaryTerm2 = {
+    urn: 'urn:li:glossaryTerm:example.glossaryterm1',
+    type: 'GLOSSARY_TERM',
+    name: 'glossaryterm1',
+    hierarchicalName: 'example.glossaryterm1',
+    ownership: null,
+    glossaryTermInfo: {
+        definition: 'is A relation glossary term 1',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                __typename: 'StringMapEntry',
+            },
+        ],
+        __typename: 'GlossaryTermInfo',
+    },
+    isRealtedTerms: {
+        start: 0,
+        count: 0,
+        total: 0,
+        relationships: [
+            {
+                entity: {
+                    urn: 'urn:li:glossaryTerm:schema.Field16Schema_v1',
+                    __typename: 'GlossaryTerm',
+                },
+            },
+        ],
+        __typename: 'EntityRelationshipsResult',
+    },
+    hasRelatedTerms: {
+        start: 0,
+        count: 0,
+        total: 0,
+        relationships: [
+            {
+                entity: {
+                    urn: 'urn:li:glossaryTerm:example.glossaryterm2',
+                    __typename: 'GlossaryTerm',
+                },
+            },
+        ],
+        __typename: 'EntityRelationshipsResult',
+    },
+    __typename: 'GlossaryTerm',
+};
+
+const glossaryTerm3 = {
+    urn: 'urn:li:glossaryTerm:example.glossaryterm2',
+    type: 'GLOSSARY_TERM',
+    name: 'glossaryterm2',
+    hierarchicalName: 'example.glossaryterm2',
+    ownership: null,
+    glossaryTermInfo: {
+        definition: 'has A relation glossary term 2',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                __typename: 'StringMapEntry',
+            },
+        ],
+        __typename: 'GlossaryTermInfo',
+    },
+    glossaryRelatedTerms: {
+        isRelatedTerms: null,
+        hasRelatedTerms: [
+            {
+                urn: 'urn:li:glossaryTerm:example.glossaryterm3',
+                name: 'glossaryterm3',
+                __typename: 'GlossaryTerm',
+            },
+            {
+                urn: 'urn:li:glossaryTerm:example.glossaryterm4',
+                name: 'glossaryterm4',
+                __typename: 'GlossaryTerm',
+            },
+        ],
+        __typename: 'GlossaryRelatedTerms',
+    },
+    __typename: 'GlossaryTerm',
 } as GlossaryTerm;
 
 const sampleTag = {
@@ -742,6 +903,125 @@ dataJob1.upstreamLineage = {
         },
     ],
 };
+
+export const mlModel = {
+    __typename: 'MLModel',
+    urn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+    type: EntityType.Mlmodel,
+    name: 'trust model',
+    description: 'a ml trust model',
+    origin: 'PROD',
+    platform: {
+        urn: 'urn:li:dataPlatform:kafka',
+        name: 'Kafka',
+        info: {
+            type: PlatformType.MessageBroker,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
+        type: EntityType.DataPlatform,
+    },
+    tags: [],
+    properties: {
+        description: 'a ml trust model',
+        date: null,
+        version: '1',
+        type: 'model type',
+        trainingMetrics: null,
+        hyperParams: null,
+        mlFeatures: null,
+        groups: null,
+        customProperties: null,
+    },
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    upstreamLineage: [],
+    downstreamLineage: [],
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
+    },
+} as MlModel;
+
+export const mlModelGroup = {
+    __typename: 'MLModelGroup',
+    urn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
+    type: EntityType.MlmodelGroup,
+    name: 'trust model group',
+    description: 'a ml trust model group',
+    origin: 'PROD',
+    platform: {
+        urn: 'urn:li:dataPlatform:kafka',
+        name: 'Kafka',
+        info: {
+            type: PlatformType.MessageBroker,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
+        type: EntityType.DataPlatform,
+    },
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    upstreamLineage: null,
+    downstreamLineage: null,
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                },
+            },
+        ],
+    },
+} as MlModelGroup;
+
 /*
     Define mock data to be returned by Apollo MockProvider. 
 */
@@ -949,6 +1229,30 @@ export const mocks = [
     },
     {
         request: {
+            query: GetAutoCompleteAllResultsDocument,
+            variables: {
+                input: {
+                    query: 't',
+                    limit: 30,
+                },
+            },
+        },
+        result: {
+            data: {
+                autoCompleteForAll: {
+                    query: 't',
+                    suggestions: [
+                        {
+                            type: EntityType.Dataset,
+                            suggestions: ['The Great Test Dataset', 'Some other test'],
+                        },
+                    ],
+                },
+            },
+        },
+    },
+    {
+        request: {
             query: GetAutoCompleteResultsDocument,
             variables: {
                 input: {
@@ -1093,7 +1397,7 @@ export const mocks = [
             variables: {
                 input: {
                     type: 'GLOSSARY_TERM',
-                    query: 'tags:abc-sample-tag',
+                    query: 'tags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
                     filters: [],
@@ -1138,6 +1442,32 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetGlossaryTermDocument,
+            variables: {
+                urn: 'urn:li:glossaryTerm:example.glossaryterm1',
+            },
+        },
+        result: {
+            data: {
+                glossaryTerm: { ...glossaryTerm2 },
+            } as GetGlossaryTermQuery,
+        },
+    },
+    {
+        request: {
+            query: GetGlossaryTermDocument,
+            variables: {
+                urn: 'urn:li:glossaryTerm:example.glossaryterm2',
+            },
+        },
+        result: {
+            data: {
+                glossaryTerm: { ...glossaryTerm3 },
+            },
         },
     },
     {
@@ -1275,7 +1605,7 @@ export const mocks = [
             variables: {
                 input: {
                     type: 'CORP_USER',
-                    query: 'tags:abc-sample-tag',
+                    query: 'tags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
                     filters: [],
@@ -1302,7 +1632,7 @@ export const mocks = [
             variables: {
                 input: {
                     type: 'DATASET',
-                    query: 'tags:abc-sample-tag',
+                    query: 'tags:"abc-sample-tag"',
                     start: 0,
                     count: 1,
                     filters: [],
@@ -1510,6 +1840,36 @@ export const mocks = [
             data: {
                 dataJob: {
                     ...dataJob1,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetMlModelDocument,
+            variables: {
+                urn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+            },
+        },
+        result: {
+            data: {
+                mlModel: {
+                    ...mlModel,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetMlModelGroupDocument,
+            variables: {
+                urn: mlModelGroup.urn,
+            },
+        },
+        result: {
+            data: {
+                mlModelGroup: {
+                    ...mlModelGroup,
                 },
             },
         },

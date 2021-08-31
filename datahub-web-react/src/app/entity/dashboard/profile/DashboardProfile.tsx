@@ -1,10 +1,6 @@
 import { Alert } from 'antd';
 import React from 'react';
-import {
-    GetDashboardDocument,
-    useGetDashboardQuery,
-    useUpdateDashboardMutation,
-} from '../../../../graphql/dashboard.generated';
+import { useGetDashboardQuery, useUpdateDashboardMutation } from '../../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, GlobalTags } from '../../../../types.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import { EntityProfile } from '../../../shared/EntityProfile';
@@ -28,18 +24,7 @@ const ENABLED_TAB_TYPES = [TabType.Ownership, TabType.Charts, TabType.Properties
 export default function DashboardProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetDashboardQuery({ variables: { urn } });
     const [updateDashboard] = useUpdateDashboardMutation({
-        update(cache, { data: newDashboard }) {
-            cache.modify({
-                fields: {
-                    dashboard() {
-                        cache.writeQuery({
-                            query: GetDashboardDocument,
-                            data: { dashboard: { ...newDashboard?.updateDashboard } },
-                        });
-                    },
-                },
-            });
-        },
+        refetchQueries: () => ['getDashboard'],
     });
 
     if (error || (!loading && !error && !data)) {

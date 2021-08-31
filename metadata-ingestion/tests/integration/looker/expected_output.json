@@ -34,7 +34,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -70,22 +75,6 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:etl",
-                                "type": "DATAOWNER",
-                                "source": null
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
-                        }
-                    }
-                },
-                {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
                     }
@@ -93,6 +82,11 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "properties": null
+    }
 }
 ]

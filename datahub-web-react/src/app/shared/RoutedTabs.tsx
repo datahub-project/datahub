@@ -35,6 +35,7 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
         <div>
             <Tabs
                 defaultActiveKey={activePath}
+                activeKey={activePath}
                 size="large"
                 onTabClick={(tab: string) => onTabChange && onTabChange(tab)}
                 onChange={(newPath) => history.push(`${url}/${newPath}`)}

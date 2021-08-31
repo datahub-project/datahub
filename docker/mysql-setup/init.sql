@@ -1,5 +1,5 @@
 -- create datahub database
-CREATE DATABASE IF NOT EXISTS DATAHUB_DB_NAME;
+CREATE DATABASE IF NOT EXISTS DATAHUB_DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE DATAHUB_DB_NAME;
 
 -- create metadata aspect table
@@ -28,7 +28,7 @@ INSERT INTO temp_metadata_aspect_v2 (urn, aspect, version, metadata, createdon, 
   'urn:li:corpuser:datahub',
   'corpUserEditableInfo',
   0,
-  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"}',
+  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"}',
   now(),
   'urn:li:principal:datahub'
 );

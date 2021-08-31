@@ -18,7 +18,7 @@ Currently, configuring an analytics provider requires that you fork DataHub & mo
 
 ### Mixpanel
 
-1. Open `datahub-web/src/conf/analytics.ts`
+1. Open `datahub-web-react/src/conf/analytics.ts`
 2. Uncomment the `mixpanel` field within the `config` object.
 3. Replace the sample `token` with the API token provided by Mixpanel.
 4. Rebuild & redeploy `datahub-frontend-react` to start tracking.
@@ -33,7 +33,7 @@ const config: any = {
 
 ### Amplitude
 
-1. Open `datahub-web/src/conf/analytics.ts`
+1. Open `datahub-web-react/src/conf/analytics.ts`
 2. Uncomment the `amplitude` field within the `config` object.
 3. Replace the sample `apiKey` with the key provided by Amplitude.
 4. Rebuild & redeploy `datahub-frontend-react` to start tracking.
@@ -53,7 +53,7 @@ const config: any = {
 -   This plugin requires use of Univeral Analytics and does not yet support GA4. To create a Universal Analytics Property, follow [this guide](https://www.analyticsmania.com/other-posts/how-to-create-a-universal-analytics-property/).
 -   Google Analytics lacks robust support for custom event properties. For that reason many of the DataHub events discussed above will not be fully populated. Instead, we map certain fields of the DataHub event to the standard `category`, `action`, `label` fields required by GA.
 
-1. Open `datahub-web/src/conf/analytics.ts`
+1. Open `datahub-web-react/src/conf/analytics.ts`
 2. Uncomment the `googleAnalytics` field within the `config` object.
 3. Replace the sample `trackingId` with the one provided by Google Analytics.
 4. Rebuild & redeploy `datahub-frontend-react` to start tracking.
@@ -145,7 +145,7 @@ analytics.event({ type: EventType.MyNewEvent, ...my event fields });
 
 To log events to the console for debugging / verification purposes
 
-1. Open `datahub-web/src/conf/analytics.ts`
+1. Open `datahub-web-react/src/conf/analytics.ts`
 2. Uncomment `logging: true` within the `config` object.
 3. Rebuild & redeploy `datahub-frontend-react` to start logging all events to your browser's console.
 

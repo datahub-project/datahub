@@ -1,0 +1,5 @@
+namespace com.linkedin.timeseries
+
+record TimeseriesAspectBase {
+  timestampMillis: long
+}

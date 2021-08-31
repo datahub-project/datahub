@@ -66,7 +66,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                 );
             })}
             <MenuItem danger key="logout" tabIndex={0}>
-                <a href="/centralLogout" onClick={handleLogout}>
+                <a href="/logOut" onClick={handleLogout}>
                     Logout
                 </a>
             </MenuItem>

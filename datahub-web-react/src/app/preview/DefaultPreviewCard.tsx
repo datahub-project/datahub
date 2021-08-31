@@ -6,6 +6,7 @@ import { GlobalTags, Owner, GlossaryTerms } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
+import MarkdownViewer from '../entity/shared/MarkdownViewer';
 
 interface Props {
     name: string;
@@ -30,6 +31,13 @@ const DescriptionParagraph = styled(Typography.Paragraph)`
     }
 `;
 
+const DescriptionMarkdownViewer = styled(MarkdownViewer)`
+    &&& {
+        margin-bottom: 0px;
+        padding-left: 8px;
+    }
+`;
+
 const PreviewImage = styled(Image)`
     max-height: 48px;
     width: auto;
@@ -37,7 +45,7 @@ const PreviewImage = styled(Image)`
 `;
 
 const styles = {
-    row: { width: '100%', marginBottom: '0px' },
+    row: { width: '100%', marginBottom: '20px' },
     leftColumn: { maxWidth: '75%' },
     rightColumn: { maxWidth: '25%' },
     name: { fontSize: '18px' },
@@ -68,7 +76,7 @@ export default function DefaultPreviewCard({
             <Space direction="vertical" align="start" size={28} style={styles.leftColumn}>
                 <Link to={url}>
                     <Space direction="horizontal" size={20} align="center">
-                        {logoUrl ? <PreviewImage src={logoUrl} preview /> : logoComponent || ''}
+                        {logoUrl ? <PreviewImage preview={false} src={logoUrl} /> : logoComponent || ''}
 
                         <Space direction="vertical" size={8}>
                             <Typography.Text strong style={styles.name}>
@@ -78,7 +86,7 @@ export default function DefaultPreviewCard({
                                 <Space split={<Divider type="vertical" />} size={16}>
                                     <Typography.Text>{type}</Typography.Text>
                                     <Typography.Text strong>{platform}</Typography.Text>
-                                    {qualifier && <Tag>{qualifier}</Tag>}
+                                    {!!qualifier && <Tag>{qualifier}</Tag>}
                                 </Space>
                             )}
                         </Space>
@@ -88,7 +96,7 @@ export default function DefaultPreviewCard({
                     {description.length === 0 ? (
                         <DescriptionParagraph type="secondary">No description</DescriptionParagraph>
                     ) : (
-                        <DescriptionParagraph>{description}</DescriptionParagraph>
+                        <DescriptionMarkdownViewer source={description} />
                     )}
                     {snippet}
                 </div>
