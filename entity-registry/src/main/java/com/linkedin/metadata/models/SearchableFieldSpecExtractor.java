@@ -83,9 +83,10 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
             currentSchema.getDereferencedType(), path.toString());
     if (_searchFieldNamesToPatch.containsKey(annotation.getFieldName()) && !_searchFieldNamesToPatch.get(
         annotation.getFieldName()).equals(context.getSchemaPathSpec().toString())) {
-      throw new ModelValidationException(
-          String.format("Entity has multiple searchable fields with the same field name %s",
-              annotation.getFieldName()));
+      return;
+      //      throw new ModelValidationException(
+//          String.format("Entity has multiple searchable fields with the same field name %s",
+//              annotation.getFieldName()));
     }
     final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
     _specs.add(fieldSpec);

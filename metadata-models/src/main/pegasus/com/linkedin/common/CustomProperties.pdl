@@ -8,7 +8,9 @@ record CustomProperties {
    * Custom property bag.
    */
   @Searchable = {
-    "queryByDefault": true
+    "/map": {
+      "queryByDefault": true
+    }
   }
   customProperties: map[string, string] = { }
 }
