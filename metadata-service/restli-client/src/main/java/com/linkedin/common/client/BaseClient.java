@@ -24,8 +24,7 @@ public abstract class BaseClient implements AutoCloseable {
       final AbstractRequestBuilder<?, ?, ? extends Request<T>> requestBuilder,
       final String actor) throws RemoteInvocationException {
     try {
-      // Hack there should be a better way to inject headers on all requests.
-      // Actor = CorpUserUrn associated with the user. Should do minimal corp user urn to username conversion.
+      // Actor = CorpUserUrn associated with the user.
       requestBuilder.addHeader("actor", actor);
       return _client.sendRequest(requestBuilder.build()).getResponse();
     } catch (RemoteInvocationException e) {
