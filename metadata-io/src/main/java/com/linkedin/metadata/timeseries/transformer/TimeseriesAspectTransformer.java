@@ -7,11 +7,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataMap;
-import com.linkedin.data.schema.RecordDataSchema;
-import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.models.AspectSpec;
@@ -61,7 +57,7 @@ public class TimeseriesAspectTransformer {
 
     // Create new rows for the member collection fields.
     final Map<TemporalStatCollectionFieldSpec, List<Object>> temporalStatCollectionFields =
-        FieldExtractor.extractFieldArrays(timeseriesAspect, aspectSpec.getTemporalStatCollectionFieldSpecs());
+        FieldExtractor.extractFields(timeseriesAspect, aspectSpec.getTemporalStatCollectionFieldSpecs());
     temporalStatCollectionFields.forEach(
         (key, values) -> finalDocuments.addAll(getTemporalStatCollectionDocuments(key, values, commonDocument)));
     return finalDocuments;
@@ -128,9 +124,9 @@ public class TimeseriesAspectTransformer {
       final Object value, final ObjectNode temporalInfoDocument) {
     ObjectNode finalDocument = JsonNodeFactory.instance.objectNode();
     finalDocument.setAll(temporalInfoDocument);
-    RecordTemplate collectionComponent = getRecord((RecordDataSchema) fieldSpec.getPegasusSchema(), (DataMap) value);
+    RecordTemplate collectionComponent = (RecordTemplate) value;
     ObjectNode componentDocument = JsonNodeFactory.instance.objectNode();
-    Optional<Object> key = FieldExtractor.extractField(collectionComponent, fieldSpec.getKeyPath());
+    Optional<Object> key = RecordUtils.getFieldValue(collectionComponent, fieldSpec.getKeyPath());
     if (!key.isPresent()) {
       throw new IllegalArgumentException(
           String.format("Key %s for temporal stat collection %s is missing", fieldSpec.getKeyPath(),
@@ -144,14 +140,5 @@ public class TimeseriesAspectTransformer {
     finalDocument.set(fieldSpec.getName(), componentDocument);
     finalDocument.set(MappingsBuilder.IS_EXPLODED_FIELD, JsonNodeFactory.instance.booleanNode(true));
     return finalDocument;
-  }
-
-  private static RecordTemplate getRecord(RecordDataSchema dataSchema, DataMap objectDataMap) {
-    try {
-      return (RecordTemplate) DataTemplateUtil.templateConstructor(
-          PegasusUtils.getDataTemplateClassFromSchema(dataSchema, RecordTemplate.class)).newInstance(objectDataMap);
-    } catch (Exception e) {
-      throw new RuntimeException(String.format("Error while extracting collection object: %s", e));
-    }
   }
 }
