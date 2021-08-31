@@ -64,7 +64,7 @@ public class DataHubGraphQLError implements GraphQLError {
 
   @Override
   public String toString() {
-    return "ExceptionWhileDataFetching{"
+    return "DataHubGraphQLError{"
         + "path="
         + path
         + ", code="
