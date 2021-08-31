@@ -122,7 +122,6 @@ public class GmsGraphQLEngine {
 
     private static final Logger _logger = LoggerFactory.getLogger(GmsGraphQLEngine.class.getName());
 
-    private final Authorizer authorizer;
     private final AnalyticsService analyticsService;
 
     private final DatasetType datasetType;
@@ -176,12 +175,11 @@ public class GmsGraphQLEngine {
      */
     public final List<BrowsableEntityType<?>> browsableTypes;
 
-    public GmsGraphQLEngine(final Authorizer authorizer) {
-        this(authorizer, null);
+    public GmsGraphQLEngine() {
+        this(null);
     }
 
-    public GmsGraphQLEngine(final Authorizer authorizer, final AnalyticsService analyticsService) {
-        this.authorizer = authorizer;
+    public GmsGraphQLEngine(final AnalyticsService analyticsService) {
         this.analyticsService = analyticsService;
         this.datasetType = new DatasetType(GmsClientFactory.getEntitiesClient());
         this.corpUserType = new CorpUserType(GmsClientFactory.getEntitiesClient());

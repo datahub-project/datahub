@@ -37,8 +37,8 @@ public class GraphQLEngineFactory {
   @Nonnull
   protected GraphQLEngine getInstance() {
     if (isAnalyticsEnabled) {
-      return new GmsGraphQLEngine(authorizationManager, new AnalyticsService(elasticClient, indexConvention.getPrefix())).builder().build();
+      return new GmsGraphQLEngine(new AnalyticsService(elasticClient, indexConvention.getPrefix())).builder().build();
     }
-    return new GmsGraphQLEngine(authorizationManager).builder().build();
+    return new GmsGraphQLEngine().builder().build();
   }
 }
