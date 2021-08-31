@@ -9,11 +9,9 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { SearchBar } from '../search/SearchBar';
 import { GetSearchResultsQuery, useGetAutoCompleteAllResultsLazyQuery } from '../../graphql/search.generated';
-import { useIsAnalyticsEnabledQuery } from '../../graphql/analytics.generated';
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
-import AnalyticsLink from '../search/AnalyticsLink';
 
 const Background = styled.div`
     width: 100%;
@@ -114,12 +112,9 @@ function sortRandom() {
 export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const user = useGetAuthenticatedUser();
+    const user = useGetAuthenticatedUser()?.corpUser;
     const [getAutoCompleteResultsForAll, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
     const themeConfig = useTheme();
-
-    const { data } = useIsAnalyticsEnabledQuery({ fetchPolicy: 'no-cache' });
-    const isAnalyticsEnabled = (data && data.isAnalyticsEnabled) || false;
 
     const onSearch = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
@@ -192,7 +187,6 @@ export const HomePageHeader = () => {
                     )}
                 </WelcomeText>
                 <NavGroup>
-                    {isAnalyticsEnabled && <AnalyticsLink />}
                     <ManageAccount
                         urn={user?.urn || ''}
                         pictureLink={user?.editableInfo?.pictureLink || ''}

@@ -12,6 +12,7 @@ import { SearchPage } from './search/SearchPage';
 import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
 import { useGetAuthenticatedUser } from './useGetAuthenticatedUser';
 import { PoliciesPage } from './policy/PoliciesPage';
+import { useIsAnalyticsEnabledQuery } from '../graphql/analytics.generated';
 
 // import { useGetAuthenticatedUser } from './useGetAuthenticatedUser';
 
@@ -23,10 +24,12 @@ export const ProtectedRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
     const [adminConsoleOpen, setAdminConsoleOpen] = useState(false);
+    const { data: isAnalyticsEnabledData } = useIsAnalyticsEnabledQuery({ fetchPolicy: 'no-cache' });
 
-    const isAnalyticsEnabled = (me && me.features.showAnalytics) || false;
-    const isAdminConsoleEnabled = (me && me.features.showAdminConsole) || false;
-    const isPolicyBuilderEnabled = (me && me.features.showPolicyBuilder) || false;
+    const isAnalyticsEnabled = isAnalyticsEnabledData?.isAnalyticsEnabled;
+    const showAnalytics = (me && me.features.showAnalytics) || isAnalyticsEnabled || false;
+    const showPolicyBuilder = (me && me.features.showPolicyBuilder) || false;
+    const showAdminConsole = showAnalytics || showPolicyBuilder;
 
     const onMenuItemClick = () => {
         setAdminConsoleOpen(false);
@@ -42,7 +45,7 @@ export const ProtectedRoutes = (): JSX.Element => {
 
     return (
         <Layout style={{ height: '100%', width: '100%' }}>
-            {isAdminConsoleEnabled && (
+            {showAdminConsole && (
                 <Sider
                     zeroWidthTriggerStyle={{ top: '20%' }}
                     collapsible
@@ -66,14 +69,14 @@ export const ProtectedRoutes = (): JSX.Element => {
                     >
                         <br />
                         <br />
-                        {isAnalyticsEnabled && (
+                        {showAnalytics && (
                             <Menu.Item key="analytics" icon={<BarChartOutlined />}>
                                 <Link onClick={onMenuItemClick} to="/analytics">
                                     Analytics
                                 </Link>
                             </Menu.Item>
                         )}
-                        {isPolicyBuilderEnabled && (
+                        {showPolicyBuilder && (
                             <Menu.Item key="policies" icon={<BankOutlined />}>
                                 <Link onClick={onMenuItemClick} to="/policies">
                                     Policies
