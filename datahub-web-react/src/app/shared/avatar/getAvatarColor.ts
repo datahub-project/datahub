@@ -20,6 +20,5 @@ export default function getAvatarColor(name?: string) {
     if (!name) {
         return ANTD_GRAY[7];
     }
-    console.log(hashString(name) % lineColors.length);
     return lineColors[hashString(name) % lineColors.length];
 }

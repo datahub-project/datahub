@@ -16,7 +16,6 @@ export default function AvatarsGroup({ owners, entityRegistry, maxCount = 6, siz
     if (!owners || owners.length === 0) {
         return null;
     }
-    console.log(size);
     return (
         <SpacedAvatarGroup maxCount={maxCount}>
             {(owners || [])?.map((owner, key) => (

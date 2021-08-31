@@ -17,12 +17,10 @@ const ResizableDiv = styled.div<{ width }>`
 const HeaderAndTabs = ({ children }: Props) => {
     const initialWidth = 70 / (100 / document.documentElement.clientWidth);
 
-    console.log(`why are we re-rendering?`);
 
     const [sidebarWidth, setSidebarWidth] = useState(initialWidth);
 
     const cbHandleMouseMove = useCallback((e) => {
-        console.log('mouse move');
 
         const offsetRight = e.clientX - document.body.offsetLeft;
 
@@ -33,7 +31,6 @@ const HeaderAndTabs = ({ children }: Props) => {
         const maxWidthPx = maxWidthVw / (100 / document.documentElement.clientWidth);
 
         if (offsetRight > minWidthPx && offsetRight < maxWidthPx) {
-            console.log(`Setting sidebar width ${offsetRight}`);
             setSidebarWidth(offsetRight);
         }
     }, []);
