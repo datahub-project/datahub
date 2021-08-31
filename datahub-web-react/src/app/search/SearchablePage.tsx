@@ -67,7 +67,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     };
 
     return (
-        <span>
+        <>
             <SearchHeader
                 initialQuery={initialQuery as string}
                 placeholderText={themeConfig.content.search.searchbarMessage}
@@ -84,7 +84,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
                 entityRegistry={entityRegistry}
             />
             <div style={styles.children}>{children}</div>
-        </span>
+        </>
     );
 };
 

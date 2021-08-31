@@ -212,7 +212,6 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         return true;
     }
 
-
     // Returns a disjunction of conjunctive sets of privileges. TODO: model this more legibly..
     private List<List<String>> getRequiredPrivileges(final DatasetUpdateInput updateInput) {
         List<List<String>> orPrivileges = new ArrayList<>();

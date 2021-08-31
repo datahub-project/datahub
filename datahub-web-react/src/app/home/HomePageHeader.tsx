@@ -9,9 +9,11 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { SearchBar } from '../search/SearchBar';
 import { GetSearchResultsQuery, useGetAutoCompleteAllResultsLazyQuery } from '../../graphql/search.generated';
+import { useIsAnalyticsEnabledQuery } from '../../graphql/analytics.generated';
 import { useGetAllEntitySearchResults } from '../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
+import AnalyticsLink from '../search/AnalyticsLink';
 
 const Background = styled.div`
     width: 100%;
@@ -72,6 +74,10 @@ const NavGroup = styled.div`
     justify-content: center;
 `;
 
+const SuggestionsContainer = styled.div`
+    height: 140px;
+`;
+
 function getSuggestionFieldsFromResult(result: GetSearchResultsQuery | undefined): string[] {
     return (
         (result?.search?.searchResults
@@ -108,9 +114,12 @@ function sortRandom() {
 export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const user = useGetAuthenticatedUser()?.corpUser;
+    const user = useGetAuthenticatedUser();
     const [getAutoCompleteResultsForAll, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
     const themeConfig = useTheme();
+
+    const { data } = useIsAnalyticsEnabledQuery({ fetchPolicy: 'no-cache' });
+    const isAnalyticsEnabled = (data && data.isAnalyticsEnabled) || false;
 
     const onSearch = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
@@ -136,6 +145,7 @@ export const HomePageHeader = () => {
                 variables: {
                     input: {
                         query,
+                        limit: 30,
                     },
                 },
             });
@@ -175,13 +185,14 @@ export const HomePageHeader = () => {
         <Background>
             <Row justify="space-between" style={styles.navBar}>
                 <WelcomeText>
-                    {user && (
+                    {!!user && (
                         <>
                             Welcome back, <b>{user.info?.firstName || user.username}</b>.
                         </>
                     )}
                 </WelcomeText>
                 <NavGroup>
+                    {isAnalyticsEnabled && <AnalyticsLink />}
                     <ManageAccount
                         urn={user?.urn || ''}
                         pictureLink={user?.editableInfo?.pictureLink || ''}
@@ -191,7 +202,7 @@ export const HomePageHeader = () => {
             </Row>
             <HeaderContainer>
                 <Image src={themeConfig.assets.logoUrl} preview={false} style={styles.logoImage} />
-                {themeConfig.content.subtitle && (
+                {!!themeConfig.content.subtitle && (
                     <Typography.Text style={styles.subtitle}>{themeConfig.content.subtitle}</Typography.Text>
                 )}
                 <SearchBar
@@ -202,37 +213,41 @@ export const HomePageHeader = () => {
                     autoCompleteStyle={styles.searchBox}
                     entityRegistry={entityRegistry}
                 />
-                {suggestionsToShow.length === 0 && !suggestionsLoading && (
-                    <SubHeaderTextNoResults>{themeConfig.content.homepage.homepageMessage}</SubHeaderTextNoResults>
-                )}
-                {suggestionsToShow.length > 0 && !suggestionsLoading && (
-                    <Typography.Text style={styles.subHeaderLabel}>Try searching for...</Typography.Text>
-                )}
             </HeaderContainer>
-            {suggestionsToShow.length > 0 && !suggestionsLoading && (
-                <CarouselContainer>
-                    <Carousel autoplay effect="fade">
-                        {suggestionsToShow.length > 0 &&
-                            suggestionsToShow.slice(0, 3).map((suggestion) => (
-                                <CarouselElement key={suggestion}>
-                                    <Button
-                                        type="text"
-                                        onClick={() =>
-                                            navigateToSearchUrl({
-                                                type: undefined,
-                                                query: suggestion,
-                                                history,
-                                                entityRegistry,
-                                            })
-                                        }
-                                    >
-                                        <SubHeaderText>{truncate(suggestion, 40)}</SubHeaderText>
-                                    </Button>
-                                </CarouselElement>
-                            ))}
-                    </Carousel>
-                </CarouselContainer>
-            )}
+            <SuggestionsContainer>
+                <HeaderContainer>
+                    {suggestionsToShow.length === 0 && !suggestionsLoading && (
+                        <SubHeaderTextNoResults>{themeConfig.content.homepage.homepageMessage}</SubHeaderTextNoResults>
+                    )}
+                    {suggestionsToShow.length > 0 && !suggestionsLoading && (
+                        <Typography.Text style={styles.subHeaderLabel}>Try searching for...</Typography.Text>
+                    )}
+                </HeaderContainer>
+                {suggestionsToShow.length > 0 && !suggestionsLoading && (
+                    <CarouselContainer>
+                        <Carousel autoplay effect="fade">
+                            {suggestionsToShow.length > 0 &&
+                                suggestionsToShow.slice(0, 3).map((suggestion) => (
+                                    <CarouselElement key={suggestion}>
+                                        <Button
+                                            type="text"
+                                            onClick={() =>
+                                                navigateToSearchUrl({
+                                                    type: undefined,
+                                                    query: suggestion,
+                                                    history,
+                                                    entityRegistry,
+                                                })
+                                            }
+                                        >
+                                            <SubHeaderText>{truncate(suggestion, 40)}</SubHeaderText>
+                                        </Button>
+                                    </CarouselElement>
+                                ))}
+                        </Carousel>
+                    </CarouselContainer>
+                )}
+            </SuggestionsContainer>
         </Background>
     );
 };

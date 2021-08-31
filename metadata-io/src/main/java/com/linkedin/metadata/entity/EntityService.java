@@ -312,7 +312,6 @@ public abstract class EntityService {
     final List<RecordTemplate> aspectRecordsToIngest =
         com.linkedin.metadata.dao.utils.ModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
-    // Add the Key Aspect if it does not already exist. Is there somewhere else we can add this?
     final String keyAspectName = getKeyAspectName(urn);
     if (getLatestAspect(urn, keyAspectName) == null) {
       aspectRecordsToIngest.add(buildKeyAspect(urn));

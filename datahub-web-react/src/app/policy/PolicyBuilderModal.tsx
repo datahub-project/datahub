@@ -26,6 +26,10 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
         setActiveStepIndex(activeStepIndex - 1);
     };
 
+    const onCreatePolicy = () => {
+        onSave(policy);
+    };
+
     const setPolicyType = (type: PolicyType) => {
         // Important. If the policy type itself is changing, we need to clear state.
         if (type === PolicyType.Platform) {
@@ -93,10 +97,6 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
 
     // Construct final set of steps.
     const policySteps = [typeStep(), privilegeStep(), actorStep()];
-
-    const onCreatePolicy = () => {
-        onSave(policy);
-    };
 
     const activeStep = policySteps[activeStepIndex];
 

@@ -20,9 +20,6 @@ const ThinDivider = styled(Divider)`
 `;
 
 // TODO: Cleanup styling.
-// TODO: Actually show the users, groups, and resources the policy applies to. (With links)
-
-// TODO: Ask to confirm before deleting a policy.
 export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, onRemove, onToggleActive }: Props) {
     const isActive = policy.state === 'ACTIVE';
 
