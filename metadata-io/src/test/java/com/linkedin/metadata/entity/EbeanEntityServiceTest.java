@@ -63,6 +63,7 @@ public class EbeanEntityServiceTest {
       new ConfigEntityRegistry(Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
   private final EntityRegistry _testEntityRegistry =
       new MergedEntityRegistry(_snapshotEntityRegistry, _configEntityRegistry);
+  private final List<BeforeUpdateFunction> _beforeUpdateFunctions = Collections.emptyList();
   private EbeanEntityService _entityService;
   private EbeanAspectDao _aspectDao;
   private EbeanServer _server;
@@ -99,7 +100,7 @@ public class EbeanEntityServiceTest {
     _mockProducer = mock(EntityEventProducer.class);
     _aspectDao = new EbeanAspectDao(_server);
     _aspectDao.setConnectionValidated(true);
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _beforeUpdateFunctions);
   }
 
   @Test
