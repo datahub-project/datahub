@@ -136,7 +136,8 @@ public class TimeseriesAspectTransformer {
           String.format("Key %s for temporal stat collection %s is missing", fieldSpec.getKeyPath(),
               fieldSpec.getName()));
     }
-    componentDocument.set("key", JsonNodeFactory.instance.textNode(key.get().toString()));
+    componentDocument.set(fieldSpec.getTemporalStatCollectionAnnotation().getKey(),
+        JsonNodeFactory.instance.textNode(key.get().toString()));
     Map<TemporalStatFieldSpec, List<Object>> statFields =
         FieldExtractor.extractFields(collectionComponent, fieldSpec.getTemporalStats());
     statFields.forEach((k, v) -> setTemporalStatField(componentDocument, k, v));

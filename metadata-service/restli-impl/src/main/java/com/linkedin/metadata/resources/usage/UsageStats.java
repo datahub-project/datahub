@@ -158,6 +158,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         }
       }
       usageAggregation.setMetrics(usageAggregationMetrics);
+      buckets.add(usageAggregation);
     }
 
     return buckets;

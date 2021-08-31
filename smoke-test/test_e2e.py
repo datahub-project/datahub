@@ -204,7 +204,7 @@ def test_gms_usage_fetch():
 
     data = response.json()["value"]
 
-    assert len(data["buckets"]) == 3
+    assert len(data["buckets"]) == 6
     assert data["buckets"][0]["metrics"]["topSqlQueries"]
 
     fields = data["aggregations"].pop("fields")
