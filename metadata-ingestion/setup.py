@@ -40,7 +40,7 @@ framework_common = {
     "expandvars>=0.6.5",
     "avro-gen3==0.6.0",
     "avro-python3>=1.8.2",
-    "python-dateutil",
+    "python-dateutil>=2.8.0",
     "stackprinter",
     "tabulate",
 }
@@ -76,6 +76,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Source plugins
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
+    "azure": set(),
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": {"google-cloud-logging", "cachetools"},
     "dbt": set(),
@@ -86,7 +87,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.10"
+        "acryl-pyhive[hive]>=0.6.11"
     },
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests"},
@@ -217,6 +218,7 @@ entry_points = {
         "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
+        "azure = datahub.ingestion.source.identity.azure:AzureSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",

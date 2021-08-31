@@ -82,7 +82,6 @@
     <async-supported>true</async-supported>
   </filter>
 
-
   <!-- filter mappings -->
   <filter-mapping>
     <filter-name>AuthenticationFilter</filter-name> <!-- mandatory -->

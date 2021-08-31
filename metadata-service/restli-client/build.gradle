@@ -10,9 +10,6 @@ dependencies {
 
   compile externalDependency.gmaDaoApi
   compile externalDependency.gmaRestliResources
-  compile externalDependency.lombok
-  annotationProcessor externalDependency.lombok
-
 
   compile spec.product.pegasus.restliClient
 }

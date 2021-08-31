@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+
 @Slf4j
 @RestController
 public class GraphQLController {
@@ -34,7 +35,7 @@ public class GraphQLController {
   @Inject
   AuthorizationManager _authManager;
 
-  @PostMapping("/graphql")
+  @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> postGraphQL(HttpEntity<String> httpEntity) {
 
     String jsonStr = httpEntity.getBody();
@@ -107,6 +108,6 @@ public class GraphQLController {
 
   @GetMapping("/graphql")
   void getGraphQL(HttpServletRequest request, HttpServletResponse response) {
-    System.out.println("GET am graphql!");
+    throw new UnsupportedOperationException("GraphQL gets not supported.");
   }
 }

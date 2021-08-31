@@ -30,7 +30,6 @@ public class GraphQLEngineFactory {
   @Autowired
   private AuthorizationManager authorizationManager;
 
-
   @Value("${ANALYTICS_ENABLED:true}")
   private Boolean isAnalyticsEnabled;
 

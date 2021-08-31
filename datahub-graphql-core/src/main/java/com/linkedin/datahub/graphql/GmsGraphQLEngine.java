@@ -123,6 +123,7 @@ public class GmsGraphQLEngine {
     private static final Logger _logger = LoggerFactory.getLogger(GmsGraphQLEngine.class.getName());
 
     private final Authorizer authorizer;
+    private final AnalyticsService analyticsService;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -144,8 +145,6 @@ public class GmsGraphQLEngine {
     private final GlossaryTermType glossaryTermType;
     private final AspectType aspectType;
     private final UsageType usageType;
-
-    private final AnalyticsService analyticsService;
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -298,15 +297,11 @@ public class GmsGraphQLEngine {
 
     private void configureAnalyticsResolvers(final RuntimeWiring.Builder builder) {
         final boolean isAnalyticsEnabled = analyticsService != null;
-        builder.type("Query", typeWiring -> typeWiring
-            .dataFetcher("isAnalyticsEnabled", new IsAnalyticsEnabledResolver(isAnalyticsEnabled)))
-        .type("AnalyticsChart", typeWiring -> typeWiring
-            .typeResolver(new AnalyticsChartTypeResolver())
-        );
+        builder.type("Query", typeWiring -> typeWiring.dataFetcher("isAnalyticsEnabled", new IsAnalyticsEnabledResolver(isAnalyticsEnabled)))
+            .type("AnalyticsChart", typeWiring -> typeWiring.typeResolver(new AnalyticsChartTypeResolver()));
         if (isAnalyticsEnabled) {
-            builder.type("Query", typeWiring -> typeWiring
-                .dataFetcher("getAnalyticsCharts", new GetChartsResolver(analyticsService))
-                .dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService)));
+            builder.type("Query",
+                typeWiring -> typeWiring.dataFetcher("getAnalyticsCharts", new GetChartsResolver(analyticsService)).dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService)));
         }
     }
 
@@ -809,5 +804,4 @@ public class GmsGraphQLEngine {
             }
         }), loaderOptions);
     }
-
 }
