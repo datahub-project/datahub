@@ -23,14 +23,14 @@ public class AuthenticationFilter implements Filter {
     String principal = null;
     if (request instanceof HttpServletRequest) {
       HttpServletRequest httpRequest = (HttpServletRequest) request;
-      principal = httpRequest.getHeader("X-DataHub-Principal");
+      principal = httpRequest.getHeader("X-DataHub-Actor");
     }
     if (principal != null) {
       // Save actor to ThreadLocal context.
-      AuthenticationContext.setPrincipal(principal);
+      AuthenticationContext.setActor(principal);
     } else {
       // TODO: Remove DataHub as the default actor once authentication at metadata-service is complete.
-      AuthenticationContext.setPrincipal("urn:li:corpuser:datahub");
+      AuthenticationContext.setActor("urn:li:corpuser:datahub");
     }
     chain.doFilter(request, response);
     AuthenticationContext.remove();

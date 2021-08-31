@@ -116,7 +116,7 @@ public class Application extends Controller {
             .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         )
-        .addHeader("X-DataHub-Principal", ctx().session().get(ACTOR)) // TODO: Replace with a token to GMS.
+        .addHeader("X-DataHub-Actor", ctx().session().get(ACTOR)) // TODO: Replace with a token to GMS.
         .setBody(new InMemoryBodyWritable(ByteString.fromByteBuffer(request().body().asBytes().asByteBuffer()), "application/json"))
         .execute()
         .thenApply(apiResponse -> {

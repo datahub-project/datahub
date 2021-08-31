@@ -1,18 +1,18 @@
 package com.datahub.metadata.authentication;
 
 public class AuthenticationContext {
-  private static final ThreadLocal<String> PRINCIPAL = new ThreadLocal<String>();
+  private static final ThreadLocal<String> ACTOR = new ThreadLocal<String>();
 
-  public static String getPrincipal() {
-    return PRINCIPAL.get();
+  public static String getActor() {
+    return ACTOR.get();
   }
 
-  public static void setPrincipal(String principal) {
-    PRINCIPAL.set(principal);
+  public static void setActor(String actor) {
+    ACTOR.set(actor);
   }
 
   public static void remove() {
-    PRINCIPAL.remove();
+    ACTOR.remove();
   }
 
   private AuthenticationContext() { }

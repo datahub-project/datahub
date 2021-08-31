@@ -301,7 +301,8 @@ public class GmsGraphQLEngine {
             .type("AnalyticsChart", typeWiring -> typeWiring.typeResolver(new AnalyticsChartTypeResolver()));
         if (isAnalyticsEnabled) {
             builder.type("Query",
-                typeWiring -> typeWiring.dataFetcher("getAnalyticsCharts", new GetChartsResolver(analyticsService)).dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService)));
+                typeWiring -> typeWiring.dataFetcher("getAnalyticsCharts", new GetChartsResolver(analyticsService))
+                    .dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService)));
         }
     }
 

@@ -73,7 +73,7 @@ public class GraphQLController {
     /*
      * Init QueryContext
      */
-    SpringQueryContext context = new SpringQueryContext(true, AuthenticationContext.getPrincipal(), _authManager);
+    SpringQueryContext context = new SpringQueryContext(true, AuthenticationContext.getActor(), _authManager);
 
     return CompletableFuture.supplyAsync(() -> {
       /*

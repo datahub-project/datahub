@@ -14,4 +14,8 @@ public class MockAuthorizationManager implements Authorizer {
     return new AuthorizationResult(null, null, AuthorizationResult.Type.ALLOW);
   }
 
+  @Override
+  public AuthorizationMode mode() {
+    return AuthorizationMode.ALLOW_ALL;
+  }
 }
