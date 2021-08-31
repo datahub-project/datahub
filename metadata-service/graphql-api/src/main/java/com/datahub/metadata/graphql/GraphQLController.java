@@ -29,7 +29,7 @@ public class GraphQLController {
   @Inject
   GraphQLEngine _engine;
 
-  @PostMapping("/graphql")
+  @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> postGraphQL(HttpEntity<String> httpEntity) {
 
     String jsonStr = httpEntity.getBody();
