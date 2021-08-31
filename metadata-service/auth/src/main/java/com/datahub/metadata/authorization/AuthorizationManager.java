@@ -32,6 +32,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 /**
  * The Authorizer is a singleton class responsible for authorizing
@@ -46,8 +48,6 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthorizationManager implements Authorizer {
 
   private static final String INACTIVE_POLICY_STATE = "INACTIVE"; // TODO move to PolicyUtils.
-
-  private static final String SYSTEM_PRINCIPAL = "urn:li:corpuser:system";
 
   // Maps privilege name to the associated set of policies for fast access. Not concurrent data structure because writes are always against the entire thing.
   // We can improve in the future by syncing only policy updates, instead of everything.
@@ -192,7 +192,7 @@ public class AuthorizationManager implements Authorizer {
     // How can we do this without special purpose logic.
     try {
       // Fetch the latest version of "ownership" aspect.
-      final VersionedAspect aspect = _aspectClient.getAspect(resource.getUrn(), "ownership", 0L, SYSTEM_PRINCIPAL);
+      final VersionedAspect aspect = _aspectClient.getAspect(resource.getUrn(), "ownership", 0L, SYSTEM_ACTOR);
       final Ownership ownership = aspect.getAspect().getOwnership();
 
       if (isUserOwner(principal, ownership)) {
@@ -235,7 +235,7 @@ public class AuthorizationManager implements Authorizer {
   private Optional<GroupMembership> resolveGroupMembership(final Urn urn) {
     // 1. get user snapshot.
     try {
-      final CorpUserSnapshot corpUser = _entityClient.get(urn, SYSTEM_PRINCIPAL).getValue().getCorpUserSnapshot();
+      final CorpUserSnapshot corpUser = _entityClient.get(urn, SYSTEM_ACTOR).getValue().getCorpUserSnapshot();
       for (CorpUserAspect aspect : corpUser.getAspects()) {
         if (aspect.isGroupMembership()) {
           // Found group membership.
@@ -276,8 +276,9 @@ public class AuthorizationManager implements Authorizer {
         while (start < total) {
           try {
             log.debug(String.format("Batch fetching policies. start: %s, count: %s ", start, count));
-            final ListUrnsResult policyUrns = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, SYSTEM_PRINCIPAL);
-            final Map<Urn, Entity> policyEntities = _entityClient.batchGet(new HashSet<>(policyUrns.getEntities()), SYSTEM_PRINCIPAL);
+            final ListUrnsResult policyUrns = _entityClient.listUrns(POLICY_ENTITY_NAME, start, count, SYSTEM_ACTOR);
+            final Map<Urn, Entity> policyEntities = _entityClient.batchGet(new HashSet<>(policyUrns.getEntities()),
+                SYSTEM_ACTOR);
 
             addPoliciesToCache(newCache, policyEntities
                 .values()

@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.authorization;
+package com.linkedin.metadata.authorization;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Collection;
@@ -12,8 +12,6 @@ import lombok.Getter;
 
 /**
  * This policies config file defines the base set of privileges that DataHub supports.
- *
- * TODO: Move this into a common utility module so that GMS could presumably use it.
  */
 public class PoliciesConfig {
 

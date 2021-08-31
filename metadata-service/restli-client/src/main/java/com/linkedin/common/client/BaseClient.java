@@ -1,6 +1,7 @@
 package com.linkedin.common.client;
 
 import com.linkedin.common.callback.FutureCallback;
+import com.linkedin.metadata.Constants;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.AbstractRequestBuilder;
 import com.linkedin.restli.client.Client;
@@ -25,7 +26,7 @@ public abstract class BaseClient implements AutoCloseable {
       final String actor) throws RemoteInvocationException {
     try {
       // Actor = CorpUserUrn associated with the initiator of the request.
-      requestBuilder.addHeader("actor", actor);
+      requestBuilder.addHeader(Constants.ACTOR_HEADER_NAME, actor);
       return _client.sendRequest(requestBuilder.build()).getResponse();
     } catch (RemoteInvocationException e) {
       if (e instanceof RestLiResponseException) {

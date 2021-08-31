@@ -5,7 +5,7 @@ import com.datahub.metadata.authorization.AuthorizationResult;
 import com.datahub.metadata.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;

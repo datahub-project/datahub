@@ -5,7 +5,7 @@ import com.datahub.metadata.authorization.AuthorizationResult;
 import com.datahub.metadata.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.FeatureFlags;

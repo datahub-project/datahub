@@ -5,6 +5,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
@@ -54,8 +55,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   private static final String PARAM_PROPOSAL = "proposal";
   private static final String PARAM_START_TIME_MILLIS = "startTimeMillis";
   private static final String PARAM_END_TIME_MILLIS = "endTimeMillis";
-
-  private static final String DEFAULT_ACTOR = "urn:li:principal:UNKNOWN";
 
   private final Clock _clock = Clock.systemUTC();
 
@@ -125,7 +124,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       throws URISyntaxException {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
-    final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(DEFAULT_ACTOR));
+    // TODO: Use the actor present in the IC.
+    final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(
+        Constants.UNKNOWN_ACTOR));
     final List<MetadataChangeProposal> additionalChanges = getAdditionalChanges(metadataChangeProposal);
 
     return RestliUtils.toTask(() -> {

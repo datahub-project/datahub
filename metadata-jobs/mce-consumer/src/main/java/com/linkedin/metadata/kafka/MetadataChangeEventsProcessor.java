@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -88,7 +89,7 @@ public class MetadataChangeEventsProcessor {
   private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws RemoteInvocationException {
     final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
     final Entity entity = new Entity().setValue(snapshotUnion);
-    // TODO Get this from the event itself.
-    entityClient.updateWithSystemMetadata(entity, metadataChangeEvent.getSystemMetadata(), "system");
+    // TODO: Get the actor identity from the event header itself.
+    entityClient.updateWithSystemMetadata(entity, metadataChangeEvent.getSystemMetadata(), Constants.SYSTEM_ACTOR);
   }
 }
