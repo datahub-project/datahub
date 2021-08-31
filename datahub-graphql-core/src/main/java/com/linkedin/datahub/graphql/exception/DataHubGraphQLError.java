@@ -15,15 +15,15 @@ import static graphql.Assert.*;
 
 
 @PublicApi
-public class CustomGraphQLError implements GraphQLError {
+public class DataHubGraphQLError implements GraphQLError {
 
   private final String message;
   private final List<Object> path;
-  private final CustomGraphQLErrorCode errorCode;
+  private final DataHubGraphQLErrorCode errorCode;
   private final List<SourceLocation> locations;
   private final Map<String, Object> extensions;
 
-  public CustomGraphQLError(String message, ResultPath path, SourceLocation sourceLocation, CustomGraphQLErrorCode errorCode) {
+  public DataHubGraphQLError(String message, ResultPath path, SourceLocation sourceLocation, DataHubGraphQLErrorCode errorCode) {
     this.path = assertNotNull(path).toList();
     this.errorCode = assertNotNull(errorCode);
     this.locations = Collections.singletonList(sourceLocation);
@@ -31,7 +31,7 @@ public class CustomGraphQLError implements GraphQLError {
     this.extensions = buildExtensions(errorCode);
   }
 
-  private Map<String, Object> buildExtensions(CustomGraphQLErrorCode errorCode) {
+  private Map<String, Object> buildExtensions(DataHubGraphQLErrorCode errorCode) {
     final Map<String, Object> extensions = new LinkedHashMap<>();
     extensions.put("code", errorCode.getCode());
     return extensions;

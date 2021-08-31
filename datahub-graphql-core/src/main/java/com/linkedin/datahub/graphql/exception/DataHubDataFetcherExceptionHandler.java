@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @PublicApi
 @Slf4j
-public class CustomDataFetcherExceptionHandler implements DataFetcherExceptionHandler {
+public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionHandler {
 
   @Override
   public DataFetcherExceptionHandlerResult onException(DataFetcherExceptionHandlerParameters handlerParameters) {
@@ -20,17 +20,17 @@ public class CustomDataFetcherExceptionHandler implements DataFetcherExceptionHa
 
     log.error("Failed to execute DataFetcher", exception);
 
-    CustomGraphQLErrorCode errorCode = CustomGraphQLErrorCode.SERVER_ERROR;
+    DataHubGraphQLErrorCode errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
 
-    if (exception instanceof CustomGraphQLException) {
-      errorCode = ((CustomGraphQLException) exception).errorCode();
+    if (exception instanceof DataHubGraphQLException) {
+      errorCode = ((DataHubGraphQLException) exception).errorCode();
     }
 
-    if (exception.getCause() instanceof CustomGraphQLException) {
-      errorCode = ((CustomGraphQLException) exception.getCause()).errorCode();
+    if (exception.getCause() instanceof DataHubGraphQLException) {
+      errorCode = ((DataHubGraphQLException) exception.getCause()).errorCode();
     }
 
-    CustomGraphQLError error = new CustomGraphQLError(exception.getMessage(), path, sourceLocation, errorCode);
+    DataHubGraphQLError error = new DataHubGraphQLError(exception.getMessage(), path, sourceLocation, errorCode);
     return DataFetcherExceptionHandlerResult.newResult().error(error).build();
   }
 }

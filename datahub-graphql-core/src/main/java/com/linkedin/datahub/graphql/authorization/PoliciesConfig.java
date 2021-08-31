@@ -157,7 +157,6 @@ public class PoliciesConfig {
   @Getter
   @AllArgsConstructor
   public static class Privilege {
-
     private String type;
     private String displayName;
     private String description;
@@ -171,7 +170,6 @@ public class PoliciesConfig {
   @Getter
   @AllArgsConstructor
   public static class ResourcePrivileges {
-
     private String resourceType;
     private String resourceTypeDisplayName;
     private String resourceTypeDescription;

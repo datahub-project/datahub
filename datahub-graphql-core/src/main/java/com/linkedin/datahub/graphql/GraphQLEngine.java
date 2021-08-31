@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql;
 
-import com.linkedin.datahub.graphql.exception.CustomDataFetcherExceptionHandler;
+import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
@@ -60,7 +60,7 @@ public class GraphQLEngine {
          * Instantiate engine
          */
         _graphQL = new GraphQL.Builder(graphQLSchema)
-            .defaultDataFetcherExceptionHandler(new CustomDataFetcherExceptionHandler())
+            .defaultDataFetcherExceptionHandler(new DataHubDataFetcherExceptionHandler())
             .build();
     }
 
