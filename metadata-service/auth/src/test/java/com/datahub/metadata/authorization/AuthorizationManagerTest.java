@@ -115,6 +115,22 @@ public class AuthorizationManagerTest {
     assertEquals(_authorizationManager.authorize(request).getType(), AuthorizationResult.Type.DENY);
   }
 
+  @Test
+  public void testAllowAllMode() throws Exception {
+
+    _authorizationManager.setMode(Authorizer.AuthorizationMode.ALLOW_ALL);
+
+    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+
+    // Policy for this privilege is inactive.
+    AuthorizationRequest request = new AuthorizationRequest(
+        "urn:li:corpuser:test",
+        "EDIT_ENTITY_OWNERS",
+        Optional.of(resourceSpec)
+    );
+
+    assertEquals(_authorizationManager.authorize(request).getType(), AuthorizationResult.Type.DENY);
+  }
 
   @Test
   public void testInvalidateCache() throws Exception {
