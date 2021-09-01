@@ -183,6 +183,12 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
 
 :::
 
+### Running on Docker locally
+
+If you are looking to run Airflow and DataHub using docker locally, follow the guide [here](../docker/airflow/local_airflow.md). Otherwise proceed to follow the instructions below.
+
+### Setting up Airflow to use DataHub as Lineage Backend
+
 1. You need to install the required dependency in your airflow. See https://registry.astronomer.io/providers/datahub/modules/datahublineagebackend
 
 ```shell

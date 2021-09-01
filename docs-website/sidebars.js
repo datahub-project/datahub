@@ -122,6 +122,7 @@ module.exports = {
       "docs/how/delete-metadata",
       "datahub-web-react/src/app/analytics/README",
       "metadata-ingestion/developing",
+      "docker/airflow/local_airflow",
     ],
     Components: [
       "datahub-web-react/README",
