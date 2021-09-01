@@ -37,7 +37,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 ### Business Glossary File Format
 
-The business glossary file format should be pretty easy to understand using the sample business glossary checked in [here](../examples/bootstrap_data/business_glossary.py)
+The business glossary file format should be pretty easy to understand using the sample business glossary checked in [here](../examples/bootstrap_data/business_glossary.yml)
 
 ## Compatibility
 
