@@ -6,7 +6,6 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.aspect.DataHubPolicyAspect;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.snapshot.DataHubPolicySnapshot;
 import com.linkedin.policy.DataHubPolicyInfo;

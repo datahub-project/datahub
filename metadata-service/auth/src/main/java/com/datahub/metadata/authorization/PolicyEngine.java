@@ -47,7 +47,7 @@ public class PolicyEngine {
     final PolicyEvaluationContext context = new PolicyEvaluationContext();
 
     // If policy is inactive, simply return DENY.
-    if (PoliciesConfig.INACTIVE_POLICY_STATE.equals( policy.getState())) {
+    if (PoliciesConfig.INACTIVE_POLICY_STATE.equals(policy.getState())) {
       return PolicyEvaluationResult.DENIED;
     }
 

@@ -620,7 +620,7 @@ public class EbeanEntityServiceTest {
     _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
     // List aspects urns
-    ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(),0, 2);
+    ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(),  0, 2);
 
     assertEquals(0, (int) batch1.getStart());
     assertEquals(2, (int) batch1.getCount());
@@ -629,7 +629,7 @@ public class EbeanEntityServiceTest {
     assertEquals(entityUrn1.toString(), batch1.getEntities().get(0).toString());
     assertEquals(entityUrn2.toString(), batch1.getEntities().get(1).toString());
 
-    ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(),2, 2);
+    ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(),  2, 2);
 
     assertEquals(2, (int) batch2.getStart());
     assertEquals(1, (int) batch2.getCount());
