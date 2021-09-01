@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { getByText, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import React from 'react';
 import { mocks } from '../../../../../../Mocks';
 import { EntityType } from '../../../../../../types.generated';
