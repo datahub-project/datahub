@@ -1,6 +1,5 @@
 {
     "styles": {
-        "border-radius-base": "4px",
         "layout-header-background": "#333E4C",
         "layout-header-color": "white",
         "layout-body-background": "#333E4C",

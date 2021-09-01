@@ -47,6 +47,10 @@ def make_user_urn(username: str) -> str:
     return f"urn:li:corpuser:{username}"
 
 
+def make_group_urn(groupname: str) -> str:
+    return f"urn:li:corpGroup:{groupname}"
+
+
 def make_tag_urn(tag: str) -> str:
     return f"urn:li:tag:{tag}"
 

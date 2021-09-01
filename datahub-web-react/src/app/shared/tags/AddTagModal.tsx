@@ -104,7 +104,9 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
             okText="Add"
             footer={
                 <>
-                    <Button onClick={onClose}>Cancel</Button>
+                    <Button onClick={onClose} type="text">
+                        Cancel
+                    </Button>
                     <Button onClick={onOk} disabled={selectedTagValue.length === 0 || disableAdd}>
                         Add
                     </Button>

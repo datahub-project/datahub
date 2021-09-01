@@ -11,7 +11,12 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
 
 const styles = {
-    children: { marginTop: 80 },
+    children: {
+        flex: '1',
+        marginTop: 60,
+        display: 'flex',
+        flexDirection: 'column' as const,
+    },
 };
 
 interface Props extends React.PropsWithChildren<any> {

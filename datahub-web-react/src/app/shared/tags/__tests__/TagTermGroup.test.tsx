@@ -92,9 +92,9 @@ describe('TagTermGroup', () => {
                 <TagTermGroup uneditableTags={globalTags1} editableTags={globalTags2} canRemove canAdd />
             </TestPageContainer>,
         );
-        expect(queryByText('+ Add Tag')).toBeInTheDocument();
+        expect(queryByText('Add Tag')).toBeInTheDocument();
         expect(queryByText('Find a tag')).not.toBeInTheDocument();
-        const AddTagButton = getByText('+ Add Tag');
+        const AddTagButton = getByText('Add Tag');
         fireEvent.click(AddTagButton);
         expect(queryByText('Find a tag')).toBeInTheDocument();
     });

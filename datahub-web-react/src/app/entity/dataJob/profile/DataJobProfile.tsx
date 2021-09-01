@@ -1,13 +1,13 @@
 import React from 'react';
 import { Alert } from 'antd';
 import { useGetDataJobQuery, useUpdateDataJobMutation } from '../../../../graphql/dataJob.generated';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { DataJob, EntityType, GlobalTags } from '../../../../types.generated';
 import DataJobHeader from './DataJobHeader';
 import { Message } from '../../../shared/Message';
 import TagTermGroup from '../../../shared/tags/TagTermGroup';
-import { Properties as PropertiesView } from '../../shared/Properties';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
+import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
@@ -67,7 +67,7 @@ export const DataJobProfile = ({ urn }: { urn: string }): JSX.Element => {
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dataJob && (
-                <EntityProfile
+                <LegacyEntityProfile
                     tags={
                         <TagTermGroup
                             editableTags={data.dataJob?.globalTags as GlobalTags}
