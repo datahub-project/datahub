@@ -1,4 +1,4 @@
-# Fine-Grained Access Policies
+# Policies Guide
 
 ## Introduction 
 
