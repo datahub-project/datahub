@@ -15,6 +15,9 @@ import lombok.Getter;
  */
 public class PoliciesConfig {
 
+  public static final String PLATFORM_POLICY_TYPE = "PLATFORM";
+  public static final String METADATA_POLICY_TYPE = "METADATA";
+  public static final String ACTIVE_POLICY_STATE = "ACTIVE";
   public static final String INACTIVE_POLICY_STATE = "INACTIVE";
 
   // Platform Privileges //

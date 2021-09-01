@@ -7,6 +7,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -44,6 +45,11 @@ public class PolicyEngine {
       final Optional<ResourceSpec> resource) {
 
     final PolicyEvaluationContext context = new PolicyEvaluationContext();
+
+    // If policy is inactive, simply return DENY.
+    if (PoliciesConfig.INACTIVE_POLICY_STATE.equals( policy.getState())) {
+      return PolicyEvaluationResult.DENIED;
+    }
 
     // If the privilege is not in scope, deny the request.
     if (!isPrivilegeMatch(privilege, policy.getPrivileges(), context)) {
