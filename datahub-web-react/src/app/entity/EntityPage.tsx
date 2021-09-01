@@ -35,6 +35,12 @@ export const EntityPage = ({ entityType }: Props) => {
         });
     }, [entityType, urn]);
 
+    // show new page for datasets
+    if (entityType === EntityType.Dataset) {
+        return <SearchablePage>{entityRegistry.renderProfile(entityType, urn)}</SearchablePage>;
+    }
+
+    // show legacy page for other entities
     return (
         <ContainerPage isBrowsable={isBrowsable} urn={urn} type={entityType} lineageSupported={isLineageSupported}>
             {isLineageMode && isLineageSupported ? (

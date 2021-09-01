@@ -63,7 +63,7 @@ const defaultProps = {
 /**
  * A default container view for presenting Entity details.
  */
-export const EntityProfile = ({
+export const LegacyEntityProfile = ({
     title,
     tags,
     header,
@@ -119,4 +119,4 @@ export const EntityProfile = ({
     );
 };
 
-EntityProfile.defaultProps = defaultProps;
+LegacyEntityProfile.defaultProps = defaultProps;

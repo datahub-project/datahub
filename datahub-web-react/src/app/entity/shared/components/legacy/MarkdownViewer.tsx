@@ -69,6 +69,8 @@ const MarkdownView = styled(MDEditor.Markdown)`
     word-wrap: break-word;
     max-width: 100%;
     height: auto;
+    font-size: 12px;
+    font-weight: 400;
 `;
 
 export type Props = {
