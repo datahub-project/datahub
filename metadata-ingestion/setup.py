@@ -95,7 +95,6 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "looker": {"looker-sdk==21.6.0"},
     "lookml": {"lkml>=1.1.0", "sql-metadata==2.2.1"},
-    "metadata-business-glossary": set(),
     "mongodb": {"pymongo>=3.11"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
