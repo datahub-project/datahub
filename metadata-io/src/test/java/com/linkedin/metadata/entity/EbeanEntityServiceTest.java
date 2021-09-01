@@ -357,7 +357,7 @@ public class EbeanEntityServiceTest {
     datasetProfile.setColumnCount(15);
     MetadataChangeProposal gmce = new MetadataChangeProposal();
     gmce.setEntityUrn(entityUrn);
-    gmce.setChangeType(ChangeType.CREATE);
+    gmce.setChangeType(ChangeType.UPSERT);
     gmce.setEntityType("dataset");
     gmce.setAspectName("datasetProfile");
     JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();

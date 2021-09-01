@@ -365,20 +365,16 @@ public class EbeanEntityService extends EntityService {
     }
 
     if (metadataChangeProposal.getChangeType() != ChangeType.UPSERT) {
-      log.error("Only upsert operation is supported");
       throw new UnsupportedOperationException("Only upsert operation is supported");
     }
 
     if (!metadataChangeProposal.hasAspectName() || !metadataChangeProposal.hasAspect()) {
-      log.error("Aspect and aspect name is required for create and update operations");
       throw new UnsupportedOperationException("Aspect and aspect name is required for create and update operations");
     }
 
     AspectSpec aspectSpec = entitySpec.getAspectSpec(metadataChangeProposal.getAspectName());
 
     if (aspectSpec == null) {
-      log.error("Unknown aspect {} for entity {}", metadataChangeProposal.getAspectName(),
-          metadataChangeProposal.getEntityType());
       throw new RuntimeException(String.format("Unknown aspect {} for entity {}", metadataChangeProposal.getAspectName(),
           metadataChangeProposal.getEntityType()));
     }
@@ -390,8 +386,6 @@ public class EbeanEntityService extends EntityService {
       aspect = GenericAspectUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
           metadataChangeProposal.getAspect().getContentType(), aspectSpec);
     } catch (ModelConversionException e) {
-      log.error("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
-          metadataChangeProposal.getAspectName());
       throw new RuntimeException(String.format("Could not deserialize {} for aspect {}", metadataChangeProposal.getAspect().getValue(),
           metadataChangeProposal.getAspectName()));
     }
