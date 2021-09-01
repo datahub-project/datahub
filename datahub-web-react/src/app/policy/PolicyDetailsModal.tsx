@@ -28,8 +28,9 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
 
     const entityRegistry = useEntityRegistry();
 
-    const { config } = useAppConfig();
-    const policiesConfig = config?.policiesConfig;
+    const {
+        config: { policiesConfig },
+    } = useAppConfig();
 
     const activeActionButton = isActive ? (
         <Button onClick={() => onToggleActive(false)} style={{ color: 'red' }}>
@@ -79,7 +80,7 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
                                 <Tag>
                                     {mapResourceTypeToDisplayName(
                                         policy.resources?.type || '',
-                                        policiesConfig?.resourcePrivileges || [],
+                                        policiesConfig.resourcePrivileges || [],
                                     )}
                                 </Tag>
                             </div>

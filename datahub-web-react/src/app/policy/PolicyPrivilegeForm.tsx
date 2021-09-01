@@ -28,8 +28,9 @@ export default function PolicyPrivilegeForm({
     setPrivileges,
 }: Props) {
     const [search, { data: searchData, loading: searchLoading }] = useGetSearchResultsLazyQuery();
-    const { config } = useAppConfig();
-    const policiesConfig = config?.policiesConfig;
+    const {
+        config: { policiesConfig },
+    } = useAppConfig();
 
     const entityRegistry = useEntityRegistry();
     const assetSearchResults = searchData?.search?.searchResults;
@@ -50,9 +51,9 @@ export default function PolicyPrivilegeForm({
             ? platformPrivileges
             : mapResourceTypeToPrivileges(resources.type, resourcePrivileges);
 
-    const resourceTypeSelectValue = policiesConfig && resources.type;
+    const resourceTypeSelectValue = resources.type;
     const resourceSelectValue = resources.allResources ? ['All'] : resources.resources || [];
-    const privilegesSelectValue = policiesConfig && privileges;
+    const privilegesSelectValue = privileges;
 
     const onSelectPrivilege = (privilege: string) => {
         if (privilege === 'All') {
