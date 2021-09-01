@@ -5,7 +5,7 @@ import { EntityType, Dashboard } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/capitalizeFirstLetter';
 import { AvatarsGroup } from '../../../shared/avatar';
-import UpdatableDescription from '../../shared/UpdatableDescription';
+import UpdatableDescription from '../../shared/components/legacy/UpdatableDescription';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 
 const styles = {

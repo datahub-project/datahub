@@ -18,7 +18,7 @@ export default function LineageViz({
 }: TreeProps) {
     const [windowWidth, windowHeight] = useWindowSize();
 
-    const height = windowHeight - 133;
+    const height = windowHeight - 111;
     const width = windowWidth;
     const initialTransform = {
         scaleX: 2 / 3,

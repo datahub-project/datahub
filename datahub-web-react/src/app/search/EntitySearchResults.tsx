@@ -27,7 +27,7 @@ const ResultList = styled(List)`
     &&& {
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
-        margin-top: 12px;
+        margin-top: 8px;
         padding: 16px 32px;
         box-shadow: ${(props) => props.theme.styles['box-shadow']};
     }
@@ -37,6 +37,10 @@ const ApplyButton = styled(Button)`
     && {
         margin: 20px 25px 0 25px;
     }
+`;
+
+const ThinDivider = styled(Divider)`
+    margin: 12px;
 `;
 
 interface Props {
@@ -173,7 +177,7 @@ export const EntitySearchResults = ({
                         <List.Item onClick={() => onResultClick(item, index)}>
                             {entityRegistry.renderSearchResult(type, item)}
                         </List.Item>
-                        {index < results.length - 1 && <Divider />}
+                        {index < results.length - 1 && <ThinDivider />}
                     </>
                 )}
                 bordered

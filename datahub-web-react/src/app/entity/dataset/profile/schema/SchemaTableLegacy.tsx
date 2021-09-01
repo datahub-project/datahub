@@ -101,7 +101,7 @@ export type Props = {
     usageStats?: UsageQueryResult | null;
 };
 const USAGE_BAR_MAX_WIDTH = 50;
-export default function SchemaTable({
+export default function SchemaTableLegacy({
     rows,
     onUpdateDescription,
     onUpdateTags,

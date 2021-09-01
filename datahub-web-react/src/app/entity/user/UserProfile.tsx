@@ -7,7 +7,7 @@ import { useGetUserQuery } from '../../../graphql/user.generated';
 import { useGetAllEntitySearchResults } from '../../../utils/customGraphQL/useGetAllEntitySearchResults';
 import { Message } from '../../shared/Message';
 import RelatedEntityResults from '../../shared/entitySearch/RelatedEntityResults';
-import { EntityProfile } from '../../shared/EntityProfile';
+import { LegacyEntityProfile } from '../../shared/LegacyEntityProfile';
 import { CorpUser, EntityType, SearchResult } from '../../../types.generated';
 
 const messageStyle = { marginTop: '10%' };
@@ -80,7 +80,12 @@ export default function UserProfile() {
         <>
             {contentLoading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data.corpUser && (
-                <EntityProfile title="" tags={null} header={getHeader(data.corpUser as CorpUser)} tabs={getTabs()} />
+                <LegacyEntityProfile
+                    title=""
+                    tags={null}
+                    header={getHeader(data.corpUser as CorpUser)}
+                    tabs={getTabs()}
+                />
             )}
         </>
     );

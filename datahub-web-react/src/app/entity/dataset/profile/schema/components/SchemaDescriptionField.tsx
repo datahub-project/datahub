@@ -5,15 +5,14 @@ import styled from 'styled-components';
 import { FetchResult } from '@apollo/client';
 
 import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
-import UpdateDescriptionModal from '../../../../shared/DescriptionModal';
-import MarkdownViewer from '../../../../shared/MarkdownViewer';
+import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
+import StripMarkdownText from '../../../../shared/components/styled/StripMarkdownText';
+import MarkdownViewer from '../../../../shared/components/legacy/MarkdownViewer';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
-    padding: 2px;
-    margin-top: 4px;
-    margin-left: 8px;
     display: none;
+    margin-left: 4px;
 `;
 
 const AddNewDescription = styled(Tag)`
@@ -24,12 +23,12 @@ const AddNewDescription = styled(Tag)`
 const DescriptionContainer = styled.div`
     position: relative;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     width: 100%;
     height: 100%;
     min-height: 22px;
     &:hover ${EditIcon} {
-        display: block;
+        display: inline-block;
     }
 
     &:hover ${AddNewDescription} {
@@ -53,6 +52,7 @@ const DescriptionContainer = styled.div`
 
 const DescriptionText = styled(MarkdownViewer)`
     padding-right: 8px;
+    display: block;
 `;
 
 const EditedLabel = styled(Typography.Text)`
@@ -81,6 +81,7 @@ export default function DescriptionField({
     original,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
+    const [expanded, setExpanded] = useState(false);
 
     const onCloseModal = () => setShowAddModal(false);
 
@@ -97,6 +98,10 @@ export default function DescriptionField({
         onCloseModal();
     };
 
+    const EditButton =
+        (editable && description && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />) ||
+        undefined;
+
     return (
         <DescriptionContainer
             onClick={(e) => {
@@ -104,8 +109,41 @@ export default function DescriptionField({
                 e.stopPropagation();
             }}
         >
-            <DescriptionText source={description} />
-            {editable && description && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />}
+            {expanded ? (
+                <>
+                    <DescriptionText source={description} />
+                    <div>
+                        <Typography.Link
+                            onClick={() => {
+                                setExpanded(false);
+                            }}
+                        >
+                            Read Less
+                        </Typography.Link>
+                        {EditButton}
+                    </div>
+                </>
+            ) : (
+                <>
+                    <StripMarkdownText
+                        limit={80}
+                        readMore={
+                            <>
+                                <Typography.Link
+                                    onClick={() => {
+                                        setExpanded(true);
+                                    }}
+                                >
+                                    Read More
+                                </Typography.Link>
+                            </>
+                        }
+                        suffix={EditButton}
+                    >
+                        {description}
+                    </StripMarkdownText>
+                </>
+            )}
             {editable && isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <div>

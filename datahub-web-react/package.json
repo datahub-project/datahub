@@ -44,6 +44,7 @@
         "apollo-link": "^1.2.14",
         "apollo-link-error": "^1.1.13",
         "apollo-link-http": "^1.5.17",
+        "color-hash": "^2.0.1",
         "craco-antd": "^1.19.0",
         "cypress": "7.3.0",
         "d3-scale": "^3.3.0",
@@ -67,6 +68,8 @@
         "react-router": "^5.2.0",
         "react-router-dom": "^5.1.6",
         "react-scripts": "4.0.3",
+        "react-syntax-highlighter": "^15.4.4",
+        "remove-markdown": "^0.3.0",
         "sinon": "^11.1.1",
         "start-server-and-test": "1.12.2",
         "styled-components": "^5.2.1",
@@ -132,6 +135,6 @@
         "prettier": "^2.3.0"
     },
     "resolutions": {
-        "@ant-design/colors": "5.0.0"
+        "@ant-design/colors": "6.0.0"
     }
 }
