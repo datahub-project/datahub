@@ -53,7 +53,7 @@ Our open sourcing [blog post](https://engineering.linkedin.com/blog/2020/open-so
  - **Basic information**: ownershp, dimensions, formula, input & output datasets, dashboards
  - **Institutional knowledge**: support for adding free form doc to any metric
 
-## Fine-Grained Access Control
+## Fine-Grained Access Controls
 
 DataHub also provides mechanisms to control *who* has access to *which* metadata entities via UI & API. Using this functionality,
 admins of DataHub can define policies such as 
