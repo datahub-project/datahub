@@ -4,10 +4,14 @@
 # Do not modify manually!
 
 # fmt: off
-from .....schema_classes import MetadataAuditEventClass
+from .....schema_classes import GenericAspectClass
 from .....schema_classes import MetadataChangeEventClass
+from .....schema_classes import MetadataChangeProposalClass
+from .....schema_classes import SystemMetadataClass
 
 
-MetadataAuditEvent = MetadataAuditEventClass
+GenericAspect = GenericAspectClass
 MetadataChangeEvent = MetadataChangeEventClass
+MetadataChangeProposal = MetadataChangeProposalClass
+SystemMetadata = SystemMetadataClass
 # fmt: on

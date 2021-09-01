@@ -31,15 +31,4 @@ record MLModelGroupProperties includes CustomProperties {
    * Version of the MLModelGroup
    */
   version: optional VersionTag
-
-  /**
-   * Models in the group
-   */
-  @Relationship = {
-    "/*": {
-      "name": "Includes",
-      "entityTypes": [ "mlModel" ]
-    }
-  }
-  models: array[Urn] = [ ]
 }

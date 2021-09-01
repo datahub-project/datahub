@@ -1,10 +1,6 @@
 import React from 'react';
 import { Alert } from 'antd';
-import {
-    useGetDatasetQuery,
-    useUpdateDatasetMutation,
-    GetDatasetDocument,
-} from '../../../../graphql/dataset.generated';
+import { useGetDatasetQuery, useUpdateDatasetMutation } from '../../../../graphql/dataset.generated';
 import { Ownership as OwnershipView } from '../../shared/Ownership';
 import SchemaView from './schema/Schema';
 import { EntityProfile } from '../../../shared/EntityProfile';
@@ -20,6 +16,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
 import QueriesTab from './QueriesTab';
+import StatsView from './stats/Stats';
 
 export enum TabType {
     Ownership = 'Ownership',
@@ -28,6 +25,7 @@ export enum TabType {
     Properties = 'Properties',
     Documents = 'Documents',
     Queries = 'Queries',
+    Stats = 'Stats',
 }
 
 const EMPTY_ARR: never[] = [];
@@ -42,22 +40,11 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
 
     const user = useGetAuthenticatedUser();
     const [updateDataset] = useUpdateDatasetMutation({
-        update(cache, { data: newDataset }) {
-            cache.modify({
-                fields: {
-                    dataset() {
-                        cache.writeQuery({
-                            query: GetDatasetDocument,
-                            data: { dataset: { ...newDataset?.updateDataset, usageStats: data?.dataset?.usageStats } },
-                        });
-                    },
-                },
-            });
-        },
+        refetchQueries: () => ['getDataset'],
     });
     const isLineageMode = useIsLineageMode();
 
-    if (error || (!loading && !error && !data)) {
+    if (!loading && error) {
         return <Alert type="error" message={error?.message || `Entity failed to load for urn ${urn}`} />;
     }
 
@@ -68,6 +55,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         upstreamLineage,
         downstreamLineage,
         properties,
+        datasetProfiles,
         institutionalMemory,
         schema,
         schemaMetadata,
@@ -75,7 +63,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         editableSchemaMetadata,
         usageStats,
     }: Dataset & { previousSchemaMetadata: SchemaMetadata }) => {
-        return [
+        const tabs = [
             {
                 name: TabType.Schema,
                 path: TabType.Schema.toLowerCase(),
@@ -153,6 +141,15 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 ),
             },
         ];
+
+        if (datasetProfiles && datasetProfiles.length) {
+            tabs.unshift({
+                name: TabType.Stats,
+                path: TabType.Stats.toLowerCase(),
+                content: <StatsView urn={urn} profile={datasetProfiles[0]} />,
+            });
+        }
+        return tabs;
     };
 
     return (

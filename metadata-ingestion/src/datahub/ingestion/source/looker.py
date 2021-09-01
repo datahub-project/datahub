@@ -15,9 +15,9 @@ from looker_sdk.sdk.api31.models import (
     Query,
 )
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -31,9 +31,6 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,7 +44,7 @@ class LookerDashboardSourceConfig(ConfigModel):
     actor: str = "urn:li:corpuser:etl"
     dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    env: str = DEFAULT_ENV
+    env: str = builder.DEFAULT_ENV
 
 
 @dataclass
@@ -91,10 +88,9 @@ class LookerDashboardElement:
         # A dashboard element can use a look or just a raw query against an explore
         return f"dashboard_elements.{self.id}"
 
-    def get_view_urns(self, platform_name: str) -> List[str]:
+    def get_view_urns(self, platform_name: str, env: str) -> List[str]:
         return [
-            f"urn:li:dataset:(urn:li:dataPlatform:{platform_name},{v},PROD)"
-            for v in self.looker_views
+            builder.make_dataset_urn(platform_name, v, env) for v in self.looker_views
         ]
 
 
@@ -161,7 +157,6 @@ class LookerDashboardSource(Source):
             # We are not going to support parsing arbitrary Looker expressions here, so going to ignore these fields for now
             if "dimension" in field:
                 dimension = field["dimension"]
-                expression = field["expression"]  # noqa: F841
                 custom_field_to_underlying_field[dimension] = None
 
         # A query uses fields defined in views, find the views those fields use
@@ -298,7 +293,9 @@ class LookerDashboardSource(Source):
     def _make_chart_mce(
         self, dashboard_element: LookerDashboardElement
     ) -> MetadataChangeEvent:
-        chart_urn = f"urn:li:chart:({self.source_config.platform_name},{dashboard_element.get_urn_element_id()})"
+        chart_urn = builder.make_chart_urn(
+            self.source_config.platform_name, dashboard_element.get_urn_element_id()
+        )
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
@@ -312,7 +309,9 @@ class LookerDashboardSource(Source):
             title=dashboard_element.title or "",
             lastModified=ChangeAuditStamps(),
             chartUrl=dashboard_element.url(self.source_config.base_url),
-            inputs=dashboard_element.get_view_urns(self.source_config.platform_name),
+            inputs=dashboard_element.get_view_urns(
+                self.source_config.platform_name, self.source_config.env
+            ),
         )
         chart_snapshot.aspects.append(chart_info)
 
@@ -321,14 +320,15 @@ class LookerDashboardSource(Source):
     def _make_dashboard_and_chart_mces(
         self, looker_dashboard: LookerDashboard
     ) -> List[MetadataChangeEvent]:
-        actor = self.source_config.actor
 
         chart_mces = [
             self._make_chart_mce(element)
             for element in looker_dashboard.dashboard_elements
         ]
 
-        dashboard_urn = f"urn:li:dashboard:({self.source_config.platform_name},{looker_dashboard.get_urn_dashboard_id()})"
+        dashboard_urn = builder.make_dashboard_urn(
+            self.source_config.platform_name, looker_dashboard.get_urn_dashboard_id()
+        )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
             aspects=[],
@@ -343,12 +343,6 @@ class LookerDashboardSource(Source):
         )
 
         dashboard_snapshot.aspects.append(dashboard_info)
-        owners = [OwnerClass(owner=actor, type=OwnershipTypeClass.DATAOWNER)]
-        dashboard_snapshot.aspects.append(
-            OwnershipClass(
-                owners=owners,
-            )
-        )
         dashboard_snapshot.aspects.append(Status(removed=looker_dashboard.is_deleted))
 
         dashboard_mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)

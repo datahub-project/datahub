@@ -68,7 +68,7 @@ def check() -> None:
     docker_check_impl()
 
 
-def should_use_neo4j_for_graph_service(graph_service_override):
+def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) -> bool:
     if graph_service_override is not None:
         if graph_service_override == "elasticsearch":
             click.echo("Starting with elasticsearch due to graph-service-impl param\n")
@@ -83,12 +83,13 @@ def should_use_neo4j_for_graph_service(graph_service_override):
                 "`elasticsearch`\n",
                 fg="red",
             )
+            raise ValueError(f"invalid graph service option: {graph_service_override}")
     with get_client_with_error() as (client, error):
         if error:
             click.secho(
                 "Docker doesn't seem to be running. Did you start it?", fg="red"
             )
-            return
+            raise error
 
         if len(client.volumes.list(filters={"name": "datahub_neo4jdata"})) > 0:
             click.echo(
@@ -146,7 +147,7 @@ def quickstart(
     build_locally: bool,
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
-    graph_service_impl: str,
+    graph_service_impl: Optional[str],
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
 
@@ -267,6 +268,10 @@ def quickstart(
         "Ingest some demo data using `datahub docker ingest-sample-data`,\n"
         "or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.",
         fg="green",
+    )
+    click.secho(
+        "Need support? Get in touch on Slack: https://slack.datahubproject.io/",
+        fg="magenta",
     )
 
 

@@ -18,26 +18,23 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobSnapshotMapper;
+import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobUpdateInputSnapshotMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.generated.DataJobUpdateInput;
 import com.linkedin.datahub.graphql.types.MutableType;
-import com.linkedin.datahub.graphql.types.datajob.mappers.DataJobUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
-import com.linkedin.datahub.graphql.types.mappers.BrowseResultMetadataMapper;
+import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.aspect.DataJobAspect;
-import com.linkedin.metadata.dao.utils.ModelUtils;
-import com.linkedin.metadata.extractor.SnapshotToAspectMap;
+import com.linkedin.metadata.extractor.AspectExtractor;
+import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.snapshot.DataJobSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -94,7 +91,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                 .map(gmsDataJob -> gmsDataJob == null ? null
                     : DataFetcherResult.<DataJob>newResult()
                         .data(DataJobSnapshotMapper.map(gmsDataJob.getValue().getDataJobSnapshot()))
-                        .localContext(SnapshotToAspectMap.extractAspectMap(gmsDataJob.getValue().getDataJobSnapshot()))
+                        .localContext(AspectExtractor.extractAspects(gmsDataJob.getValue().getDataJobSnapshot()))
                         .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {
@@ -144,18 +141,7 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
                 facetFilters,
                 start,
                 count);
-        final List<String> urns = result.getEntities().stream().map(entity -> entity.getUrn().toString()).collect(Collectors.toList());
-        final List<DataJob> dataJobs = batchLoad(urns, context).stream().map(dataFetcherResult -> dataFetcherResult.getData()).collect(
-            Collectors.toList());
-        final BrowseResults browseResults = new BrowseResults();
-        browseResults.setStart(result.getFrom());
-        browseResults.setCount(result.getPageSize());
-        browseResults.setTotal(result.getNumEntities());
-        browseResults.setMetadata(BrowseResultMetadataMapper.map(result.getMetadata()));
-        browseResults.setEntities(dataJobs.stream()
-                .map(dataset -> (com.linkedin.datahub.graphql.generated.Entity) dataset)
-                .collect(Collectors.toList()));
-        return browseResults;
+        return BrowseResultMapper.map(result);
     }
 
     @Override
@@ -164,39 +150,16 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
         return BrowsePathsMapper.map(result);
     }
 
-    @Nonnull
-    public static DataJobSnapshot toSnapshot(@Nonnull com.linkedin.datajob.DataJob dataJob, @Nonnull DataJobUrn urn) {
-        final List<DataJobAspect> aspects = new ArrayList<>();
-        if (dataJob.hasInfo()) {
-            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getInfo()));
-        }
-        if (dataJob.hasInputOutput()) {
-            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getInputOutput()));
-        }
-        if (dataJob.hasOwnership()) {
-            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getOwnership()));
-        }
-        if (dataJob.hasStatus()) {
-            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getStatus()));
-        }
-        if (dataJob.hasGlobalTags()) {
-            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getGlobalTags()));
-        }
-        if (dataJob.hasEditableProperties()) {
-            aspects.add(ModelUtils.newAspectUnion(DataJobAspect.class, dataJob.getEditableProperties()));
-        }
-        return ModelUtils.newSnapshot(DataJobSnapshot.class, urn, aspects);
-    }
-
     @Override
     public DataJob update(@Nonnull DataJobUpdateInput input, @Nonnull QueryContext context) throws Exception {
 
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActor());
-        final com.linkedin.datajob.DataJob partialDataJob = DataJobUpdateInputMapper.map(input, actor);
+        final DataJobSnapshot dataJobSnapshot = DataJobUpdateInputSnapshotMapper.map(input, actor);
+        final Snapshot snapshot = Snapshot.create(dataJobSnapshot);
 
         try {
             Entity entity = new Entity();
-            entity.setValue(Snapshot.create(toSnapshot(partialDataJob, DataJobUrn.createFromString(input.getUrn()))));
+            entity.setValue(snapshot);
             _dataJobsClient.update(entity);
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", input.getUrn()), e);

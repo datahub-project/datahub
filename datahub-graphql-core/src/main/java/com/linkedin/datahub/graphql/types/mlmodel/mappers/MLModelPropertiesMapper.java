@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
 
+import com.linkedin.datahub.graphql.generated.MLModelGroup;
+import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import java.util.stream.Collectors;
 
 import com.linkedin.common.urn.Urn;
@@ -27,9 +29,27 @@ public class MLModelPropertiesMapper implements ModelMapper<com.linkedin.ml.meta
             result.setVersion(mlModelProperties.getVersion().getVersionTag());
         }
         result.setType(mlModelProperties.getType());
-        if (mlModelProperties.getHyperParameters() != null) {
-            result.setHyperParameters(HyperParameterMapMapper.map(mlModelProperties.getHyperParameters()));
+        if (mlModelProperties.getHyperParams() != null) {
+            result.setHyperParams(mlModelProperties.getHyperParams().stream().map(
+                param -> MLHyperParamMapper.map(param)).collect(Collectors.toList()));
         }
+
+        result.setCustomProperties(StringMapMapper.map(mlModelProperties.getCustomProperties()));
+
+        if (mlModelProperties.getTrainingMetrics() != null) {
+            result.setTrainingMetrics(mlModelProperties.getTrainingMetrics().stream().map(metric ->
+                MLMetricMapper.map(metric)
+            ).collect(Collectors.toList()));
+        }
+
+        if (mlModelProperties.getGroups() != null) {
+          result.setGroups(mlModelProperties.getGroups().stream().map(group -> {
+              final MLModelGroup subgroup = new MLModelGroup();
+              subgroup.setUrn(group.toString());
+              return subgroup;
+          }).collect(Collectors.toList()));
+        }
+
         if (mlModelProperties.getMlFeatures() != null) {
             result.setMlFeatures(mlModelProperties
                 .getMlFeatures()

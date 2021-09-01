@@ -3,10 +3,12 @@ import unittest.mock
 from datetime import datetime, timedelta, timezone
 
 import jsonpickle
+import pydantic
+import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.bigquery_usage import (
+from datahub.ingestion.source.usage.bigquery_usage import (
     BigQueryUsageConfig,
     BigQueryUsageSource,
 )
@@ -15,14 +17,26 @@ from tests.test_helpers import mce_helpers
 WRITE_REFERENCE_FILE = False
 
 
-def test_config_time_defaults():
+def test_bq_usage_config():
     config = BigQueryUsageConfig.parse_obj(
         dict(
             project_id="sample-bigquery-project-name-1234",
             bucket_duration="HOUR",
+            end_time="2021-07-20T00:00:00Z",
         )
     )
     assert (config.end_time - config.start_time) == timedelta(hours=1)
+    assert config.projects == ["sample-bigquery-project-name-1234"]
+
+
+def test_bq_timezone_validation():
+    with pytest.raises(pydantic.ValidationError, match="UTC"):
+        BigQueryUsageConfig.parse_obj(
+            dict(
+                project_id="sample-bigquery-project-name-1234",
+                start_time="2021-07-20T00:00:00",
+            )
+        )
 
 
 def test_bq_usage_source(pytestconfig, tmp_path):
@@ -36,12 +50,16 @@ def test_bq_usage_source(pytestconfig, tmp_path):
     if WRITE_REFERENCE_FILE:
         source = BigQueryUsageSource.create(
             dict(
-                project_id="harshal-playground-306419",
+                projects=[
+                    "harshal-playground-306419",
+                ],
                 start_time=datetime.now(tz=timezone.utc) - timedelta(days=25),
             ),
             PipelineContext(run_id="bq-usage-test"),
         )
-        entries = list(source._get_bigquery_log_entries())
+        entries = list(
+            source._get_bigquery_log_entries(source._make_bigquery_clients())
+        )
 
         entries = [entry._replace(logger=None) for entry in entries]
         log_entries = jsonpickle.encode(entries, indent=4)
@@ -49,7 +67,7 @@ def test_bq_usage_source(pytestconfig, tmp_path):
             logs.write(log_entries)
 
     with unittest.mock.patch(
-        "datahub.ingestion.source.bigquery_usage.GCPLoggingClient", autospec=True
+        "datahub.ingestion.source.usage.bigquery_usage.GCPLoggingClient", autospec=True
     ) as MockClient:
         # Add mock BigQuery API responses.
         with bigquery_reference_logs_path.open() as logs:
@@ -62,7 +80,11 @@ def test_bq_usage_source(pytestconfig, tmp_path):
                 "run_id": "test-bigquery-usage",
                 "source": {
                     "type": "bigquery-usage",
-                    "config": {"project_id": "sample-bigquery-project-1234"},
+                    "config": {
+                        "projects": ["sample-bigquery-project-1234"],
+                        "start_time": "2021-01-01T00:00Z",
+                        "end_time": "2021-07-01T00:00Z",
+                    },
                 },
                 "sink": {
                     "type": "file",

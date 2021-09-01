@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Any, Mapping
 
 list_feature_groups_response = {
     "FeatureGroupSummaries": [
@@ -823,7 +824,7 @@ describe_training_job_response = {
     "TrainingJobStatus": "InProgress",  # 'InProgress'|'Completed'|'Failed'|'Stopping'|'Stopped'
     "SecondaryStatus": "Starting",  # 'Starting'|'LaunchingMLInstances'|'PreparingTrainingStack'|'Downloading'|'DownloadingTrainingImage'|'Training'|'Uploading'|'Stopping'|'Stopped'|'MaxRuntimeExceeded'|'Completed'|'Failed'|'Interrupted'|'MaxWaitTimeExceeded'|'Updating'|'Restarting'
     "FailureReason": "string",
-    "HyperParameters": {"string": "string"},
+    "HyperParameters": {"parameter-1": "some-value", "parameter-2": "another-value"},
     "AlgorithmSpecification": {
         "TrainingImage": "string",
         "AlgorithmName": "string",
@@ -893,9 +894,19 @@ describe_training_job_response = {
     ],
     "FinalMetricDataList": [
         {
-            "MetricName": "string",
+            "MetricName": "some-metric",
             "Value": 1.0,
             "Timestamp": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "MetricName": "another-metric",
+            "Value": 1.0,
+            "Timestamp": datetime(2015, 1, 1, tzinfo=timezone.utc),
+        },
+        {
+            "MetricName": "some-metric",
+            "Value": 0.0,
+            "Timestamp": datetime(2014, 1, 1, tzinfo=timezone.utc),
         },
     ],
     "EnableNetworkIsolation": True,  # True|False
@@ -1170,7 +1181,7 @@ describe_transform_job_response = {
     },
 }
 
-job_stubs = {
+job_stubs: Mapping[str, Mapping[str, Any]] = {
     "auto_ml": {
         "list": list_auto_ml_jobs_response,
         "describe": describe_auto_ml_job_response,

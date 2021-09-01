@@ -70,6 +70,8 @@ public class DashboardSnapshotMapper implements ModelMapper<DashboardSnapshot, D
             return chart;
         }).collect(Collectors.toList()));
         if (info.hasExternalUrl()) {
+            result.setExternalUrl(info.getExternalUrl().toString());
+        } else if (info.hasDashboardUrl()) {
             // TODO: Migrate to using the External URL field for consistency.
             result.setExternalUrl(info.getDashboardUrl().toString());
         }

@@ -1,5 +1,0 @@
-{
-  "cacheFolder": "tmp/codegen",
-  "output": "types/codegen",
-  "collectionType": "Restli.Common.CollectionResponse"
-}

@@ -36,7 +36,7 @@ Dependencies:
 
 ### Ingesting demo data.
 
-If you want to test ingesting some data once DataHub is up, see [Ingestion](ingestion/README.md) for more details.
+If you want to test ingesting some data once DataHub is up, use the `./docker/ingestion/ingestion.sh` script or `datahub docker ingest-sample-data`. See the [quickstart guide](../docs/quickstart.md) for more details.
 
 ## Using Docker Images During Development
 

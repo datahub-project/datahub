@@ -1,3 +1,4 @@
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/feast for complete documentation
 source:
   type: feast
   config:
@@ -5,6 +6,7 @@ source:
     env: "PROD" # Optional, default is "PROD"
     use_local_build: False # Whether to build Feast ingestion image locally, default is False
 
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:

@@ -1,0 +1,36 @@
+apply plugin: 'war'
+
+ext.apiProject = project(':metadata-service:restli-api')
+
+dependencies {
+  runtime project(':metadata-service:factories')
+  runtime project(':metadata-service:servlet')
+  runtime project(':metadata-service:auth')
+  runtime project(':metadata-service:graphql-api')
+  runtime project(':metadata-jobs:mce-consumer')
+  runtime project(':metadata-jobs:mae-consumer')
+
+  runtime externalDependency.h2
+  runtime externalDependency.logbackClassic
+  runtime externalDependency.mariadbConnector
+  runtime externalDependency.mysqlConnector
+  runtime externalDependency.postgresql
+  runtime externalDependency.springWebMVC
+
+  runtime spec.product.pegasus.restliDocgen
+  runtime spec.product.pegasus.restliSpringBridge
+}
+
+configurations {
+  jetty8
+}
+
+dependencies {
+  jetty8 "org.eclipse.jetty:jetty-runner:9.4.18.v20190429"
+}
+
+task run(type: JavaExec, dependsOn: build) {
+  main = "org.eclipse.jetty.runner.Runner"
+  args = [war.archivePath]
+  classpath configurations.jetty8
+}

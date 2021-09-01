@@ -33,7 +33,7 @@ record CorpUserInfo {
     "fieldType": "KEYWORD",
     "queryByDefault": true
   }
-  email: EmailAddress
+  email: optional EmailAddress
 
   /**
    * title of this user

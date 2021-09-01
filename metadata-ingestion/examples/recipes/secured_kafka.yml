@@ -1,3 +1,4 @@
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/kafka for complete documentation
 source:
   type: "kafka"
   config:
@@ -5,21 +6,22 @@ source:
       bootstrap: "broker:9092"
       consumer_config:
         # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serde-consumer
-        security.protocol: ssl
-        ssl.ca.location: certificate_ca.pem
-        ssl.certificate.location: certificate.pem
-        ssl.key.location: private_key.pem
-        ssl.key.password: XXXXXXX
-      schema_registry_url: http://localhost:8081
+        security.protocol: "ssl"
+        ssl.ca.location: "certificate_ca.pem"
+        ssl.certificate.location: "certificate.pem"
+        ssl.key.location: "private_key.pem"
+        ssl.key.password: "XXXXXXX"
+      schema_registry_url: "http://localhost:8081"
       schema_registry_config:
         # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
         # Most of these config keys are optional.
-        ssl.ca.location: certificate_ca.pem
-        ssl.certificate.location: certificate.pem
-        ssl.key.location: private_key.pem
-        ssl.key.password: XXXXXXX
-        basic.auth.user.info: user:secret # optional
+        ssl.ca.location: "certificate_ca.pem"
+        ssl.certificate.location: "certificate.pem"
+        ssl.key.location: "private_key.pem"
+        ssl.key.password: "XXXXXXX"
+        basic.auth.user.info: "user:secret" # optional
 
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-kafka"
   config:
@@ -27,17 +29,17 @@ sink:
       bootstrap: "broker:9092"
       producer_config:
         # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#serde-consumer
-        security.protocol: ssl
-        ssl.ca.location: certificate_ca.pem
-        ssl.certificate.location: certificate.pem
-        ssl.key.location: private_key.pem
-        ssl.key.password: XXXXXXX
-      schema_registry_url: http://localhost:8081
+        security.protocol: "ssl"
+        ssl.ca.location: "certificate_ca.pem"
+        ssl.certificate.location: "certificate.pem"
+        ssl.key.location: "private_key.pem"
+        ssl.key.password: "XXXXXXX"
+      schema_registry_url: "http://localhost:8081"
       schema_registry_config:
         # See https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient
         # Most of these config keys are optional.
-        ssl.ca.location: certificate_ca.pem
-        ssl.certificate.location: certificate.pem
-        ssl.key.location: private_key.pem
-        ssl.key.password: XXXXXXX
-        basic.auth.user.info: user:secret
+        ssl.ca.location: "certificate_ca.pem"
+        ssl.certificate.location: "certificate.pem"
+        ssl.key.location: "private_key.pem"
+        ssl.key.password: "XXXXXXX"
+        basic.auth.user.info: "user:secret"

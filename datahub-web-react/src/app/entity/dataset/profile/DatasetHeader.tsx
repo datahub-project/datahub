@@ -55,13 +55,13 @@ export default function DatasetHeader({
                             </Typography.Text>
                         </div>
                         <Space direction="horizontal">
-                            {platformLogoUrl && (
+                            {!!platformLogoUrl && (
                                 <PreviewImage preview={false} src={platformLogoUrl} placeholder alt={platformName} />
                             )}
                             <Typography.Text style={{ fontSize: 16 }}>{platformName}</Typography.Text>
                         </Space>
                     </HeaderInfoItem>
-                    {usageStats?.aggregations?.totalSqlQueries && (
+                    {usageStats?.aggregations?.totalSqlQueries ? (
                         <HeaderInfoItem>
                             <div>
                                 <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
@@ -74,8 +74,8 @@ export default function DatasetHeader({
                                 </Typography.Text>
                             </span>
                         </HeaderInfoItem>
-                    )}
-                    {(usageStats?.aggregations?.users?.length || 0) > 0 && (
+                    ) : null}
+                    {(usageStats?.aggregations?.users?.length || 0) > 0 ? (
                         <HeaderInfoItem>
                             <div>
                                 <Typography.Text strong type="secondary" style={{ fontSize: 11 }}>
@@ -86,7 +86,7 @@ export default function DatasetHeader({
                                 <UsageFacepile users={usageStats?.aggregations?.users} />
                             </div>
                         </HeaderInfoItem>
-                    )}
+                    ) : null}
                 </HeaderInfoItems>
                 <UpdatableDescription
                     isCompact={isCompact}
@@ -98,18 +98,18 @@ export default function DatasetHeader({
                 />
                 <AvatarsGroup owners={ownership?.owners} entityRegistry={entityRegistry} size="large" />
                 <div>
-                    {deprecation?.deprecated && (
+                    {!!deprecation?.deprecated && (
                         <Popover
                             placement="bottomLeft"
                             content={
                                 <>
                                     <Typography.Paragraph>By: {deprecation?.actor}</Typography.Paragraph>
-                                    {deprecation.decommissionTime && (
+                                    {!!deprecation.decommissionTime && (
                                         <Typography.Paragraph>
                                             On: {new Date(deprecation?.decommissionTime).toUTCString()}
                                         </Typography.Paragraph>
                                     )}
-                                    {deprecation?.note && (
+                                    {!!deprecation?.note && (
                                         <Typography.Paragraph>{deprecation.note}</Typography.Paragraph>
                                     )}
                                 </>

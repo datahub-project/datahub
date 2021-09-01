@@ -14,6 +14,8 @@ from ......schema_classes import IntendedUseClass
 from ......schema_classes import IntendedUserTypeClass
 from ......schema_classes import MLFeaturePropertiesClass
 from ......schema_classes import MLFeatureTablePropertiesClass
+from ......schema_classes import MLHyperParamClass
+from ......schema_classes import MLMetricClass
 from ......schema_classes import MLModelDeploymentPropertiesClass
 from ......schema_classes import MLModelFactorPromptsClass
 from ......schema_classes import MLModelFactorsClass
@@ -38,6 +40,8 @@ IntendedUse = IntendedUseClass
 IntendedUserType = IntendedUserTypeClass
 MLFeatureProperties = MLFeaturePropertiesClass
 MLFeatureTableProperties = MLFeatureTablePropertiesClass
+MLHyperParam = MLHyperParamClass
+MLMetric = MLMetricClass
 MLModelDeploymentProperties = MLModelDeploymentPropertiesClass
 MLModelFactorPrompts = MLModelFactorPromptsClass
 MLModelFactors = MLModelFactorsClass

@@ -7,16 +7,23 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
+                        "displayName": null,
                         "email": "simpons-group",
                         "admins": [],
                         "members": [],
-                        "groups": []
+                        "groups": [],
+                        "description": null
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -42,7 +49,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -68,7 +80,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -94,7 +111,12 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "properties": null
+    }
 },
 {
     "auditHeader": null,
@@ -120,6 +142,11 @@
             ]
         }
     },
-    "proposedDelta": null
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "properties": null
+    }
 }
 ]

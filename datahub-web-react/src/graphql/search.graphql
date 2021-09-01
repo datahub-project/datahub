@@ -35,6 +35,9 @@ query getSearchResults($input: SearchInput!) {
                             logoUrl
                         }
                     }
+                    editableProperties {
+                        description
+                    }
                     platformNativeType
                     tags
                     properties {
@@ -65,6 +68,36 @@ query getSearchResults($input: SearchInput!) {
                         pictureLink
                     }
                 }
+                ... on CorpGroup {
+                    name
+                    info {
+                        displayName
+                        description
+                    }
+                    relationships(types: ["IsMemberOfGroup"], direction: INCOMING) {
+                        relationships {
+                            type
+                            direction
+                            entity {
+                                urn
+                                type
+                                ... on CorpUser {
+                                    username
+                                    info {
+                                        active
+                                        displayName
+                                        title
+                                        firstName
+                                        lastName
+                                    }
+                                    editableInfo {
+                                        pictureLink
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 ... on Dashboard {
                     urn
                     type
@@ -84,6 +117,9 @@ query getSearchResults($input: SearchInput!) {
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                    editableProperties {
+                        description
                     }
                 }
                 ... on Chart {
@@ -107,6 +143,9 @@ query getSearchResults($input: SearchInput!) {
                     globalTags {
                         ...globalTagsFields
                     }
+                    editableProperties {
+                        description
+                    }
                 }
                 ... on DataFlow {
                     urn
@@ -124,6 +163,9 @@ query getSearchResults($input: SearchInput!) {
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                    editableProperties {
+                        description
                     }
                 }
                 ... on DataJob {
@@ -150,6 +192,9 @@ query getSearchResults($input: SearchInput!) {
                     }
                     globalTags {
                         ...globalTagsFields
+                    }
+                    editableProperties {
+                        description
                     }
                 }
                 ... on GlossaryTerm {
@@ -181,6 +226,34 @@ query getSearchResults($input: SearchInput!) {
                     }
                     ownership {
                         ...ownershipFields
+                    }
+                }
+                ... on MLModel {
+                    name
+                    description
+                    origin
+                    ownership {
+                        ...ownershipFields
+                    }
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
+                    }
+                }
+                ... on MLModelGroup {
+                    name
+                    origin
+                    description
+                    ownership {
+                        ...ownershipFields
+                    }
+                    platform {
+                        name
+                        info {
+                            logoUrl
+                        }
                     }
                 }
             }

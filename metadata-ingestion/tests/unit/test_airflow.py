@@ -37,6 +37,13 @@ datahub_rest_connection_config = Connection(
     host="http://test_host:8080/",
     extra=None,
 )
+datahub_rest_connection_config_with_timeout = Connection(
+    conn_id="datahub_rest_test",
+    conn_type="datahub_rest",
+    host="http://test_host:8080/",
+    extra=json.dumps({"timeout_sec": 5}),
+)
+
 datahub_kafka_connection_config = Connection(
     conn_id="datahub_kafka_test",
     conn_type="datahub_kafka",
@@ -66,7 +73,18 @@ def test_dags_load_with_no_errors(pytestconfig):
     )
 
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
-    assert dag_bag.import_errors == {}
+
+    import_errors = dag_bag.import_errors
+    if airflow.version.version.startswith("1"):
+        # The TaskFlow API is new in Airflow 2.x, so we don't expect that demo DAG
+        # to work on earlier versions.
+        import_errors = {
+            dag_filename: dag_errors
+            for dag_filename, dag_errors in import_errors.items()
+            if "taskflow" not in dag_filename
+        }
+
+    assert import_errors == {}
     assert len(dag_bag.dag_ids) > 0
 
 
@@ -80,18 +98,31 @@ def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
         yield conn
 
 
-@mock.patch("datahub_provider.hooks.datahub.DatahubRestEmitter", autospec=True)
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
 def test_datahub_rest_hook(mock_emitter):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
-        mock_emitter.assert_called_once_with(config.host, None)
+        mock_emitter.assert_called_once_with(config.host, None, None)
         instance = mock_emitter.return_value
         instance.emit_mce.assert_called_with(lineage_mce)
 
 
-@mock.patch("datahub_provider.hooks.datahub.DatahubKafkaEmitter", autospec=True)
+@mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
+def test_datahub_rest_hook_with_timeout(mock_emitter):
+    with patch_airflow_connection(
+        datahub_rest_connection_config_with_timeout
+    ) as config:
+        hook = DatahubRestHook(config.conn_id)
+        hook.emit_mces([lineage_mce])
+
+        mock_emitter.assert_called_once_with(config.host, None, 5)
+        instance = mock_emitter.return_value
+        instance.emit_mce.assert_called_with(lineage_mce)
+
+
+@mock.patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter", autospec=True)
 def test_datahub_kafka_hook(mock_emitter):
     with patch_airflow_connection(datahub_kafka_connection_config) as config:
         hook = DatahubKafkaHook(config.conn_id)
@@ -169,6 +200,7 @@ def test_hook_airflow_ui(hook):
 def test_lineage_backend(mock_emit, inlets, outlets):
     DEFAULT_DATE = days_ago(2)
 
+    # Using autospec on xcom_pull and xcom_push methods fails on Python 3.6.
     with mock.patch.dict(
         os.environ,
         {
@@ -178,8 +210,8 @@ def test_lineage_backend(mock_emit, inlets, outlets):
                 {"graceful_exceptions": False}
             ),
         },
-    ), mock.patch("airflow.models.BaseOperator.xcom_pull", autospec=True), mock.patch(
-        "airflow.models.BaseOperator.xcom_push", autospec=True
+    ), mock.patch("airflow.models.BaseOperator.xcom_pull"), mock.patch(
+        "airflow.models.BaseOperator.xcom_push"
     ), patch_airflow_connection(
         datahub_rest_connection_config
     ):

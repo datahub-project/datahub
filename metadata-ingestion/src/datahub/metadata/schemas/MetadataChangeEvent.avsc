@@ -592,7 +592,7 @@
                     "type": "record",
                     "name": "Status",
                     "namespace": "com.linkedin.pegasus2avro.common",
-                    "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+                    "doc": "The status metadata of an entity, e.g. dataset, metric, feature, etc.\nThis aspect is used to represent soft deletes conventionally.",
                     "fields": [
                       {
                         "name": "removed",
@@ -709,7 +709,10 @@
                       {
                         "name": "name",
                         "type": "string",
-                        "doc": "The name of the AD/LDAP group."
+                        "doc": "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub.",
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
+                        }
                       }
                     ],
                     "Aspect": {
@@ -723,9 +726,25 @@
                     "doc": "group of corpUser, it may contains nested group",
                     "fields": [
                       {
+                        "name": "displayName",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "The name to use when displaying the group.",
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
+                        }
+                      },
+                      {
                         "name": "email",
-                        "type": "string",
-                        "doc": "email of this group"
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "email of this group",
+                        "default": null
                       },
                       {
                         "name": "admins",
@@ -773,6 +792,18 @@
                             ],
                             "name": "IsPartOf"
                           }
+                        }
+                      },
+                      {
+                        "name": "description",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "A description of the group.",
+                        "default": null,
+                        "Searchable": {
+                          "fieldType": "TEXT_PARTIAL"
                         }
                       }
                     ],
@@ -864,8 +895,12 @@
                       },
                       {
                         "name": "email",
-                        "type": "string",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
                         "doc": "email address of this user",
+                        "default": null,
                         "Searchable": {
                           "fieldType": "KEYWORD",
                           "queryByDefault": true
@@ -1021,7 +1056,7 @@
                         "name": "pictureLink",
                         "type": "string",
                         "doc": "A URL which points to a picture which user wants to set as a profile photo",
-                        "default": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png",
+                        "default": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png",
                         "java": {
                           "class": "com.linkedin.pegasus2avro.common.url.Url",
                           "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
@@ -1033,6 +1068,32 @@
                         "com.linkedin.pegasus2avro.common.CorpuserUrn"
                       ],
                       "name": "corpUserEditableInfo"
+                    }
+                  },
+                  {
+                    "type": "record",
+                    "name": "GroupMembership",
+                    "namespace": "com.linkedin.pegasus2avro.identity",
+                    "doc": "Carries information about the CorpGroups a user is in.",
+                    "fields": [
+                      {
+                        "name": "groups",
+                        "type": {
+                          "type": "array",
+                          "items": "string"
+                        },
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "corpGroup"
+                            ],
+                            "name": "IsMemberOfGroup"
+                          }
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "groupMembership"
                     }
                   },
                   "com.linkedin.pegasus2avro.common.GlobalTags",
@@ -2397,6 +2458,15 @@
                                 "name": "documentSchema",
                                 "type": "string",
                                 "doc": "The native kafka document schema. This is a human readable avro document schema."
+                              },
+                              {
+                                "name": "keySchema",
+                                "type": [
+                                  "null",
+                                  "string"
+                                ],
+                                "doc": "The native kafka key schema as retrieved from Schema Registry",
+                                "default": null
                               }
                             ]
                           },
@@ -2699,6 +2769,10 @@
                                                 "name": "urn",
                                                 "type": "string",
                                                 "doc": "Urn of the applied glossary term",
+                                                "Searchable": {
+                                                  "fieldName": "glossaryTerms",
+                                                  "fieldType": "URN_PARTIAL"
+                                                },
                                                 "java": {
                                                   "class": "com.linkedin.pegasus2avro.common.urn.GlossaryTermUrn"
                                                 }
@@ -2720,7 +2794,20 @@
                                   }
                                 ],
                                 "doc": "Glossary terms associated with the field",
-                                "default": null
+                                "default": null,
+                                "Searchable": {
+                                  "/terms/*/urn": {
+                                    "boostScore": 0.5,
+                                    "fieldName": "fieldGlossaryTerms",
+                                    "fieldType": "URN_PARTIAL"
+                                  }
+                                }
+                              },
+                              {
+                                "name": "isPartOfKey",
+                                "type": "boolean",
+                                "doc": "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields",
+                                "default": false
                               }
                             ]
                           }
@@ -3249,6 +3336,19 @@
                         "default": {}
                       },
                       {
+                        "name": "externalUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL where the reference exist",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
                         "name": "description",
                         "type": [
                           "null",
@@ -3321,7 +3421,125 @@
                             ]
                           }
                         ],
-                        "doc": "Hyper Parameters of the MLModel",
+                        "doc": "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
+                        "default": null
+                      },
+                      {
+                        "name": "hyperParams",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "MLHyperParam",
+                              "doc": "Properties associated with an ML Hyper Param",
+                              "fields": [
+                                {
+                                  "name": "name",
+                                  "type": "string",
+                                  "doc": "Name of the MLHyperParam"
+                                },
+                                {
+                                  "name": "description",
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "doc": "Documentation of the MLHyperParam",
+                                  "default": null
+                                },
+                                {
+                                  "name": "value",
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "doc": "The value of the MLHyperParam",
+                                  "default": null
+                                },
+                                {
+                                  "name": "createdAt",
+                                  "type": [
+                                    "null",
+                                    "long"
+                                  ],
+                                  "doc": "Date when the MLHyperParam was developed",
+                                  "default": null
+                                }
+                              ],
+                              "Aspect": {
+                                "name": "mlHyperParam"
+                              }
+                            }
+                          }
+                        ],
+                        "doc": "Hyperparameters of the MLModel",
+                        "default": null
+                      },
+                      {
+                        "name": "trainingMetrics",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "MLMetric",
+                              "doc": "Properties associated with an ML Metric",
+                              "fields": [
+                                {
+                                  "name": "name",
+                                  "type": "string",
+                                  "doc": "Name of the mlMetric"
+                                },
+                                {
+                                  "name": "description",
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "doc": "Documentation of the mlMetric",
+                                  "default": null
+                                },
+                                {
+                                  "name": "value",
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "doc": "The value of the mlMetric",
+                                  "default": null
+                                },
+                                {
+                                  "name": "createdAt",
+                                  "type": [
+                                    "null",
+                                    "long"
+                                  ],
+                                  "doc": "Date when the mlMetric was developed",
+                                  "default": null
+                                }
+                              ],
+                              "Aspect": {
+                                "name": "mlMetric"
+                              }
+                            }
+                          }
+                        ],
+                        "doc": "Metrics of the MLModel used in training",
+                        "default": null
+                      },
+                      {
+                        "name": "onlineMetrics",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "MLMetric"
+                          }
+                        ],
+                        "doc": "Metrics of the MLModel used in production",
                         "default": null
                       },
                       {
@@ -3402,6 +3620,26 @@
                               "dataJob"
                             ],
                             "name": "UsedBy"
+                          }
+                        }
+                      },
+                      {
+                        "name": "groups",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Groups the model belongs to",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "mlModelGroup"
+                            ],
+                            "name": "MemberOf"
                           }
                         }
                       }
@@ -4488,6 +4726,19 @@
                         "default": {}
                       },
                       {
+                        "name": "externalUrl",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "URL where the reference exist",
+                        "default": null,
+                        "java": {
+                          "class": "com.linkedin.pegasus2avro.common.url.Url",
+                          "coercerClass": "com.linkedin.pegasus2avro.common.url.UrlCoercer"
+                        }
+                      },
+                      {
                         "name": "description",
                         "type": [
                           "null",
@@ -4674,23 +4925,6 @@
                         ],
                         "doc": "Version of the MLModelGroup",
                         "default": null
-                      },
-                      {
-                        "name": "models",
-                        "type": {
-                          "type": "array",
-                          "items": "string"
-                        },
-                        "doc": "Models in the group",
-                        "default": [],
-                        "Relationship": {
-                          "/*": {
-                            "entityTypes": [
-                              "mlModel"
-                            ],
-                            "name": "Includes"
-                          }
-                        }
                       }
                     ],
                     "Aspect": {
@@ -4891,6 +5125,15 @@
                         },
                         "doc": "A key-value map to capture any other non-standardized properties for the glossary term",
                         "default": {}
+                      },
+                      {
+                        "name": "rawSchema",
+                        "type": [
+                          "null",
+                          "string"
+                        ],
+                        "doc": "Schema definition of the glossary term",
+                        "default": null
                       }
                     ],
                     "Aspect": {
@@ -4899,7 +5142,72 @@
                   },
                   "com.linkedin.pegasus2avro.common.Ownership",
                   "com.linkedin.pegasus2avro.common.Status",
-                  "com.linkedin.pegasus2avro.common.BrowsePaths"
+                  "com.linkedin.pegasus2avro.common.BrowsePaths",
+                  {
+                    "type": "record",
+                    "name": "GlossaryRelatedTerms",
+                    "namespace": "com.linkedin.pegasus2avro.glossary",
+                    "doc": "Has A / Is A lineage information about a glossary Term reporting the lineage",
+                    "fields": [
+                      {
+                        "name": "isRelatedTerms",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "The relationship Is A with glossary term",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "glossaryTerm"
+                            ],
+                            "name": "IsA"
+                          }
+                        },
+                        "Searchable": {
+                          "/*": {
+                            "boostScore": 2.0,
+                            "fieldName": "isRelatedTerms",
+                            "fieldType": "URN"
+                          }
+                        }
+                      },
+                      {
+                        "name": "hasRelatedTerms",
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "The relationship Has A with glossary term",
+                        "default": null,
+                        "Relationship": {
+                          "/*": {
+                            "entityTypes": [
+                              "glossaryTerm"
+                            ],
+                            "name": "HasA"
+                          }
+                        },
+                        "Searchable": {
+                          "/*": {
+                            "boostScore": 2.0,
+                            "fieldName": "hasRelatedTerms",
+                            "fieldType": "URN"
+                          }
+                        }
+                      }
+                    ],
+                    "Aspect": {
+                      "name": "glossaryRelatedTerms"
+                    }
+                  }
                 ]
               },
               "doc": "The list of metadata aspects associated with the GlossaryTerm. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4998,6 +5306,51 @@
         "null"
       ],
       "doc": "Delta of the proposed metadata partial update.",
+      "default": null
+    },
+    {
+      "name": "systemMetadata",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "SystemMetadata",
+          "doc": "Kafka event for proposing a metadata change for an entity. A corresponding MetadataAuditEvent is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeEvent will be emitted instead.",
+          "fields": [
+            {
+              "name": "lastObserved",
+              "type": [
+                "long",
+                "null"
+              ],
+              "doc": "The timestamp the metadata was observed at",
+              "default": 0
+            },
+            {
+              "name": "runId",
+              "type": [
+                "string",
+                "null"
+              ],
+              "doc": "The run id that produced the metadata",
+              "default": "no-run-id-provided"
+            },
+            {
+              "name": "properties",
+              "type": [
+                "null",
+                {
+                  "type": "map",
+                  "values": "string"
+                }
+              ],
+              "doc": "Additional properties",
+              "default": null
+            }
+          ]
+        }
+      ],
+      "doc": "Metadata around how the snapshot was ingested",
       "default": null
     }
   ]

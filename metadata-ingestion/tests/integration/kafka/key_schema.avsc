@@ -1,0 +1,15 @@
+{
+  "namespace": "io.codebrews.createuserrequest",
+  "type": "record",
+  "name": "UserKey",
+  "fields": [
+    {
+      "name": "id",
+      "type": "long"
+    },
+    {
+      "name": "namespace",
+      "type": "string"
+    }
+  ]
+}

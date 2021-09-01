@@ -11,7 +11,7 @@ import play.Logger;
 import play.mvc.Controller;
 import play.mvc.Result;
 import play.mvc.Security;
-import react.auth.Authenticator;
+import auth.Authenticator;
 
 import javax.annotation.Nonnull;
 import javax.inject.Inject;

@@ -1,22 +1,12 @@
 package com.linkedin.metadata.search.transformer;
 
-import com.datahub.test.BrowsePaths;
-import com.datahub.test.KeyPartEnum;
-import com.datahub.test.SimpleNestedRecord1;
-import com.datahub.test.SimpleNestedRecord2;
-import com.datahub.test.SimpleNestedRecord2Array;
-import com.datahub.test.TestEntityAspect;
-import com.datahub.test.TestEntityAspectArray;
-import com.datahub.test.TestEntityInfo;
-import com.datahub.test.TestEntityKey;
 import com.datahub.test.TestEntitySnapshot;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.collect.ImmutableList;
-import com.linkedin.common.urn.TestEntityUrn;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.TestEntitySpecBuilder;
+import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.models.EntitySpec;
 import java.io.IOException;
 import java.util.Optional;
@@ -32,9 +22,9 @@ public class SearchDocumentTransformerTest {
 
   @Test
   public void testTransform() throws IOException {
-    TestEntitySnapshot snapshot = buildSnapshot();
+    TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
-    Optional<String> result = SearchDocumentTransformer.transform(snapshot, testEntitySpec);
+    Optional<String> result = SearchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
     assertTrue(result.isPresent());
     ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
     assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
@@ -59,28 +49,21 @@ public class SearchDocumentTransformerTest {
     assertEquals(browsePaths.get(1).asText(), "d/e/f");
   }
 
-  private TestEntitySnapshot buildSnapshot() {
-    TestEntitySnapshot snapshot = new TestEntitySnapshot();
-    TestEntityUrn urn = new TestEntityUrn("key", "urn", "VALUE_1");
-    snapshot.setUrn(urn);
-
-    TestEntityKey testEntityKey =
-        new TestEntityKey().setKeyPart1("key").setKeyPart2(urn).setKeyPart3(KeyPartEnum.VALUE_1);
-
-    TestEntityInfo testEntityInfo = new TestEntityInfo();
-    testEntityInfo.setTextField("test");
-    testEntityInfo.setTextArrayField(new StringArray(ImmutableList.of("testArray1", "testArray2")));
-    testEntityInfo.setNestedRecordField(new SimpleNestedRecord1().setNestedIntegerField(1).setNestedForeignKey(urn));
-    testEntityInfo.setNestedRecordArrayField(new SimpleNestedRecord2Array(
-        ImmutableList.of(new SimpleNestedRecord2().setNestedArrayStringField("nestedArray1"),
-            new SimpleNestedRecord2().setNestedArrayStringField("nestedArray2"))));
-
-    BrowsePaths browsePaths = new BrowsePaths().setPaths(new StringArray(ImmutableList.of("/a/b/c", "d/e/f")));
-
-    TestEntityAspectArray aspects = new TestEntityAspectArray(
-        ImmutableList.of(TestEntityAspect.create(testEntityKey), TestEntityAspect.create(testEntityInfo),
-            TestEntityAspect.create(browsePaths)));
-    snapshot.setAspects(aspects);
-    return snapshot;
+  @Test
+  public void testTransformForDelete() throws IOException {
+    TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
+    EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
+    Optional<String> result = SearchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, true);
+    assertTrue(result.isPresent());
+    ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
+    assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
+    parsedJson.get("keyPart1").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("keyPart3").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("textFieldOverride").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("foreignKey").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("textArrayField").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("browsePaths").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("nestedArrayStringField").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("nestedIntegerField").getNodeType().equals(JsonNodeType.NULL);
   }
 }

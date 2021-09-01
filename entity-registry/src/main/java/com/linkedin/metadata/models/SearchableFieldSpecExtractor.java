@@ -47,7 +47,7 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
       }
 
       // Next, check resolved properties for annotations on primitives.
-      final Map<String, Object> resolvedProperties = getResolvedProperties(currentSchema);
+      final Map<String, Object> resolvedProperties = FieldSpecUtils.getResolvedProperties(currentSchema);
       final Object resolvedAnnotationObj = resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
 
       if (resolvedAnnotationObj != null) {
@@ -73,7 +73,7 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
     final SearchableAnnotation annotation =
         SearchableAnnotation.fromPegasusAnnotationObject(
             annotationObj,
-            getSchemaFieldName(path),
+            FieldSpecUtils.getSchemaFieldName(path),
             currentSchema.getDereferencedType(), path.toString());
     if (_searchFieldNamesToPatch.containsKey(annotation.getFieldName())
         && !_searchFieldNamesToPatch.get(annotation.getFieldName()).equals(context.getSchemaPathSpec().toString())) {
@@ -94,19 +94,6 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
   @Override
   public SchemaVisitorTraversalResult getSchemaVisitorTraversalResult() {
     return new SchemaVisitorTraversalResult();
-  }
-
-  private String getSchemaFieldName(PathSpec pathSpec) {
-    List<String> components = pathSpec.getPathComponents();
-    String lastComponent = components.get(components.size() - 1);
-    if (lastComponent.equals("*")) {
-      return components.get(components.size() - 2);
-    }
-    return lastComponent;
-  }
-
-  private Map<String, Object> getResolvedProperties(final DataSchema schema) {
-    return !schema.getResolvedProperties().isEmpty() ? schema.getResolvedProperties() : schema.getProperties();
   }
 
   private Boolean isValidComplexType(final ComplexDataSchema schema) {

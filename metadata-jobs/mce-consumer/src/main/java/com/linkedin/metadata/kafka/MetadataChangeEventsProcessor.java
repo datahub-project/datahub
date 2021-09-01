@@ -1,9 +1,9 @@
 package com.linkedin.metadata.kafka;
 
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.kafka.config.MetadataChangeEventsProcessorCondition;
+import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Conditional(MetadataChangeEventsProcessorCondition.class)
+@Conditional(MetadataChangeProposalProcessorCondition.class)
 @EnableKafka
 public class MetadataChangeEventsProcessor {
 
@@ -42,8 +42,8 @@ public class MetadataChangeEventsProcessor {
     this.kafkaTemplate = kafkaTemplate;
   }
 
-  @KafkaListener(id = "${KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}", topics = "${KAFKA_MCE_TOPIC_NAME:"
-      + Topics.METADATA_CHANGE_EVENT + "}", containerFactory = "mceKafkaContainerFactory")
+  @KafkaListener(id = "${METADATA_CHANGE_EVENT_KAFKA_CONSUMER_GROUP_ID:mce-consumer-job-client}", topics =
+      "${KAFKA_MCE_TOPIC_NAME:" + Topics.METADATA_CHANGE_EVENT + "}", containerFactory = "mceKafkaContainerFactory")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     log.debug("Record ", record);
@@ -88,6 +88,6 @@ public class MetadataChangeEventsProcessor {
   private void processProposedSnapshot(@Nonnull MetadataChangeEvent metadataChangeEvent) throws RemoteInvocationException {
     final Snapshot snapshotUnion = metadataChangeEvent.getProposedSnapshot();
     final Entity entity = new Entity().setValue(snapshotUnion);
-    entityClient.update(entity);
+    entityClient.updateWithSystemMetadata(entity, metadataChangeEvent.getSystemMetadata());
   }
 }
