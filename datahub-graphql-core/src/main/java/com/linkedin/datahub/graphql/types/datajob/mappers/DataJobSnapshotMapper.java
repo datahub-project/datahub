@@ -89,6 +89,11 @@ public class DataJobSnapshotMapper implements ModelMapper<DataJobSnapshot, DataJ
             dataset.setUrn(urn.toString());
             return dataset;
         }).collect(Collectors.toList()));
+        result.setInputDatajobs(inputOutput.getInputDatajobs().stream().map(urn -> {
+            final DataJob dataJob = new DataJob();
+            dataJob.setUrn(urn.toString());
+            return dataJob;
+        }).collect(Collectors.toList()));
 
         return result;
     }

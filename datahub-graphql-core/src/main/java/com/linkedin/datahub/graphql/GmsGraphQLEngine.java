@@ -627,6 +627,12 @@ public class GmsGraphQLEngine {
                                 .map(Dataset::getUrn)
                                 .collect(Collectors.toList())))
                 )
+                .dataFetcher("inputDatajobs", new AuthenticatedResolver<>(
+                    new LoadableTypeBatchResolver<>(dataJobType,
+                        (env) -> ((DataJobInputOutput) env.getSource()).getInputDatajobs().stream()
+                            .map(DataJob::getUrn)
+                            .collect(Collectors.toList())))
+                )
             );
     }
 
