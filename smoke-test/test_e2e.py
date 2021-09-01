@@ -728,3 +728,42 @@ def test_frontend_app_config(frontend_session):
     assert res_data["data"]["appConfig"]
     assert res_data["data"]["appConfig"]["analyticsConfig"]["enabled"] is True
     assert res_data["data"]["appConfig"]["policiesConfig"]["enabled"] is True
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_frontend_me_query(frontend_session):
+
+    json = {
+        "query": """query me {\n
+            me {\n
+                corpUser {\n
+                  urn\n
+                  username\n
+                  editableInfo {\n
+                      pictureLink\n
+                  }\n
+                  info {\n
+                      firstName\n
+                      fullName\n
+                      title\n
+                      email\n
+                  }\n
+                }\n
+                platformPrivileges {\n
+                  viewAnalytics
+                  managePolicies
+                }\n
+            }\n
+        }"""
+    }
+
+    response = frontend_session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["me"]["corpUser"]["urn"] == "urn:li:corpuser:datahub"
+    assert res_data["data"]["me"]["platformPrivileges"]["viewAnalytics"] is True
+    assert res_data["data"]["me"]["platformPrivileges"]["managePolicies"] is True
