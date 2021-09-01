@@ -37,14 +37,15 @@ import io.ebean.EbeanServer;
 import io.ebean.EbeanServerFactory;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
+import org.mockito.Mockito;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nonnull;
-import org.mockito.Mockito;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -63,7 +64,7 @@ public class EbeanEntityServiceTest {
       new ConfigEntityRegistry(Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
   private final EntityRegistry _testEntityRegistry =
       new MergedEntityRegistry(_snapshotEntityRegistry, _configEntityRegistry);
-  private final List<BeforeUpdateFunction> _beforeUpdateFunctions = Collections.emptyList();
+  private BeforeUpdateFunction _beforeUpdateFunction = null;
   private EbeanEntityService _entityService;
   private EbeanAspectDao _aspectDao;
   private EbeanServer _server;
@@ -100,7 +101,8 @@ public class EbeanEntityServiceTest {
     _mockProducer = mock(EntityEventProducer.class);
     _aspectDao = new EbeanAspectDao(_server);
     _aspectDao.setConnectionValidated(true);
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _beforeUpdateFunctions);
+    _beforeUpdateFunction = null;
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, null);
   }
 
   @Test
@@ -592,6 +594,41 @@ public class EbeanEntityServiceTest {
 
     RecordTemplate deletedKeyAspect = _entityService.getAspect(entityUrn1, "corpUserKey", 0);
     assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
+  }
+
+
+  // Tests
+  // An existing aspect and a new one with the wrong state
+  // An existing aspect and a new one with the correct state
+
+  @Test
+  public void testInjestAspectWithCustomLogicThatThrows() throws Exception {
+    BeforeUpdateFunction ignoreIfEmailContainsTest = (oldValue, newValue) -> {
+      if (newValue.data().getString("email").contains("test")) {
+        return oldValue.get();
+      }
+      return newValue;
+    };
+
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, ignoreIfEmailContainsTest);
+
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+
+    // Ingest CorpUserInfo Aspect #1
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
+    SystemMetadata metadata1 = new SystemMetadata();
+    _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+
+    // Ingest CorpUserInfo Aspect #2
+    CorpUserInfo writeAspect2 = createCorpUserInfo("disallowedEmail@test.com");
+    SystemMetadata metadata2 = new SystemMetadata();
+
+    _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
+
+    RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn, aspectName, 0);
+
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
   }
 
   @Nonnull

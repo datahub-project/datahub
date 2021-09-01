@@ -56,15 +56,15 @@ public class EbeanEntityService extends EntityService {
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
 
   private final EbeanAspectDao _entityDao;
-  private List<BeforeUpdateFunction> _beforeUpdateFunctionLambdas;
+  private BeforeUpdateFunction _beforeUpdateFunction;
   private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
   private Boolean _alwaysEmitAuditEvent = false;
 
   public EbeanEntityService(@Nonnull final EbeanAspectDao entityDao, @Nonnull final EntityEventProducer eventProducer,
-                            @Nonnull final EntityRegistry entityRegistry, @Nonnull final List<BeforeUpdateFunction> beforeUpdateEntityLambdas) {
+      @Nonnull final EntityRegistry entityRegistry, @Nullable final BeforeUpdateFunction beforeUpdateFunction) {
     super(eventProducer, entityRegistry);
     _entityDao = entityDao;
-    _beforeUpdateFunctionLambdas = beforeUpdateEntityLambdas;
+    _beforeUpdateFunction = beforeUpdateFunction;
   }
 
   @Override
@@ -235,13 +235,13 @@ public class EbeanEntityService extends EntityService {
       final RecordTemplate oldValue =
           latest == null ? null : toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
 
-      final RecordTemplate nv = _beforeUpdateFunctionLambdas
-              .stream()
-              .reduce(newValue, (record, lambda) -> lambda.apply(Optional.of(oldValue), record) , (x, y) -> x);
+      // 3. Run user defined behaviour on old and new record.
+      RecordTemplate modifiedValue = _beforeUpdateFunction == null ?
+          newValue : _beforeUpdateFunction.apply(Optional.ofNullable(oldValue), newValue);
 
-      // 3. If there is no difference between existing and new, we just update
+      // 4. If there is no difference between existing and new, we just update
       // the lastObserved in system metadata. RunId should stay as the original runId
-      if (oldValue != null && DataTemplateUtil.areEqual(oldValue, nv)) {
+      if (oldValue != null && DataTemplateUtil.areEqual(oldValue, modifiedValue)) {
         SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemMetadata());
         latestSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
 
@@ -259,11 +259,11 @@ public class EbeanEntityService extends EntityService {
       _entityDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : toJsonAspect(oldValue),
           latest == null ? null : latest.getCreatedBy(), latest == null ? null : latest.getCreatedFor(),
           latest == null ? null : latest.getCreatedOn(), latest == null ? null : latest.getSystemMetadata(),
-          toJsonAspect(nv), auditStamp.getActor().toString(),
+          toJsonAspect(modifiedValue), auditStamp.getActor().toString(),
           auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
           new Timestamp(auditStamp.getTime()), toJsonAspect(providedSystemMetadata));
 
-      return new UpdateAspectResult(urn, oldValue, nv,
+      return new UpdateAspectResult(urn, oldValue, modifiedValue,
           latest == null ? null : EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
           MetadataAuditOperation.UPDATE);
     }, maxTransactionRetry);
