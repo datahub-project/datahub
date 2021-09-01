@@ -30,7 +30,7 @@ public class GraphQLEngineFactory {
   @Autowired
   private AuthorizationManager authorizationManager;
 
-  @Value("${ANALYTICS_ENABLED:true}")
+  @Value("${ANALYTICS_ENABLED:true}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
   @Bean(name = "graphQLEngine")

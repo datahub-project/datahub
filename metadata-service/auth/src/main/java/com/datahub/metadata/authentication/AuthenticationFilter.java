@@ -30,8 +30,7 @@ public class AuthenticationFilter implements Filter {
       // Save actor to ThreadLocal context.
       AuthenticationContext.setActor(principal);
     } else {
-      // TODO: Remove DataHub as the default actor once authentication at metadata-service is complete.
-      AuthenticationContext.setActor(Constants.DATAHUB_ACTOR);
+      AuthenticationContext.remove();
     }
     chain.doFilter(request, response);
     AuthenticationContext.remove();
