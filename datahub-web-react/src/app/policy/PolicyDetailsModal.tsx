@@ -25,6 +25,7 @@ const ThinDivider = styled(Divider)`
 export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, onRemove, onToggleActive }: Props) {
     const isActive = policy.state === 'ACTIVE';
     const isMetadataPolicy = policy.type === PolicyType.Metadata;
+    const isEditable = policy.editable;
 
     const entityRegistry = useEntityRegistry();
 
@@ -33,20 +34,30 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
     } = useAppConfig();
 
     const activeActionButton = isActive ? (
-        <Button onClick={() => onToggleActive(false)} style={{ color: 'red' }}>
+        <Button
+            disabled={!isEditable}
+            onClick={() => onToggleActive(false)}
+            style={{ color: isEditable ? 'red' : 'gray' }}
+        >
             Deactivate
         </Button>
     ) : (
-        <Button onClick={() => onToggleActive(true)} style={{ color: 'green' }}>
+        <Button
+            disabled={!isEditable}
+            onClick={() => onToggleActive(true)}
+            style={{ color: isEditable ? 'green' : 'gray' }}
+        >
             Activate
         </Button>
     );
 
     const actionButtons = (
         <Space direction="horizontal">
-            <Button onClick={onEdit}>Edit</Button>
+            <Button disabled={!isEditable} onClick={onEdit}>
+                Edit
+            </Button>
             {activeActionButton}
-            <Button style={{ color: 'red' }} onClick={onRemove}>
+            <Button disabled={!isEditable} style={{ color: isEditable ? 'red' : 'gray' }} onClick={onRemove}>
                 Delete
             </Button>
             <Button onClick={onClose}>Cancel</Button>

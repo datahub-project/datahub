@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Col, Layout, List, message, Pagination, Row, Typography } from 'antd';
+import { Button, Col, Layout, List, message, Modal, Pagination, Row, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { SearchablePage } from '../search/SearchablePage';
@@ -124,10 +124,19 @@ export const PoliciesPage = () => {
     };
 
     const onRemovePolicy = () => {
-        // TODO: Add a warning modal.
         if (focusPolicyUrn) {
-            deletePolicy({ variables: { urn: focusPolicyUrn } });
-            onCancelViewPolicy();
+            Modal.confirm({
+                title: `Delete ${focusPolicy.name}`,
+                content: `Are you sure you want to remove policy?`,
+                onOk() {
+                    deletePolicy({ variables: { urn: focusPolicyUrn } });
+                    onCancelViewPolicy();
+                },
+                onCancel() {},
+                okText: 'Yes',
+                maskClosable: true,
+                closable: true,
+            });
         }
     };
 
@@ -171,6 +180,9 @@ export const PoliciesPage = () => {
 
     return (
         <SearchablePage>
+            {policiesLoading && <Message type="loading" content="Loading your policies..." />}
+            {policiesError && message.error('Failed to load your Policies :(')}
+            {updateError && message.error('Failed to update the policy :(')}
             <Layout style={{ padding: 40 }}>
                 <Row justify="center">
                     <Col sm={24} md={24} lg={20} xl={20}>
@@ -180,9 +192,6 @@ export const PoliciesPage = () => {
                         <Button onClick={onClickNewPolicy} style={{ marginBottom: 16 }} data-testid="add-policy-button">
                             + New Policy
                         </Button>
-                        {policiesLoading && <Message type="loading" content="Loading..." />}
-                        {policiesError && message.error('Failed to load your Policies :(')}
-                        {updateError && message.error('Failed to successfully update the policy :(')}
                         <PolicyList
                             bordered
                             dataSource={policies}

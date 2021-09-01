@@ -7,16 +7,22 @@ type Props = {
     onView: () => void;
 };
 
+const inactiveTextColor = '#808080';
+
 // TODO: Cleanup the styling.
 export default function PolicyListItem({ policy, onView }: Props) {
     const isActive = policy.state === PolicyState.Active;
+    const isEditable = policy.editable;
+    const titleColor = isEditable ? undefined : inactiveTextColor;
 
     const policyPreview = () => {
         return (
             <Row justify="space-between" style={{ width: '100%', paddingTop: 20, paddingBottom: 20 }}>
                 <Space direction="vertical" align="start">
                     <Button type="text" style={{ padding: 0 }} onClick={onView}>
-                        <Typography.Title level={4}>{policy.name}</Typography.Title>
+                        <Typography.Title level={4} style={{ color: titleColor }}>
+                            {policy.name}
+                        </Typography.Title>
                     </Button>
                     <Typography.Text type="secondary">{policy.description}</Typography.Text>
                 </Space>
