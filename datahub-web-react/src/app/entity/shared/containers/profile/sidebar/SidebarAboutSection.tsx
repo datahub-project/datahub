@@ -40,7 +40,7 @@ export const SidebarAboutSection = () => {
     const { entityData } = useEntityData();
     const routeToTab = useRouteToTab();
 
-    const description = entityData?.editableProperties?.description;
+    const description = entityData?.editableProperties?.description || entityData?.description;
     const links = entityData?.institutionalMemory?.elements || [];
 
     const isUntouched = !description && !(links?.length > 0);

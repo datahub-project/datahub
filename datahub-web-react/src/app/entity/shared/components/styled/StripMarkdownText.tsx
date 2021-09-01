@@ -17,14 +17,18 @@ export type Props = {
     limit?: number;
 };
 
-export default function NoMarkdownViewer({ children, readMore, suffix, limit }: Props) {
-    let plainText = removeMd(children || '', {
+export const removeMarkdown = (text: string) => {
+    return removeMd(text, {
         stripListLeaders: true,
         gfm: true,
         useImgAltText: true,
     })
         .replace(/\n*\n/g, ' • ') // replace linebreaks with •
         .replace(/^•/, ''); // remove first •
+};
+
+export default function NoMarkdownViewer({ children, readMore, suffix, limit }: Props) {
+    let plainText = removeMarkdown(children || '');
 
     if (limit) {
         let abridgedPlainText = plainText.substring(0, limit);
