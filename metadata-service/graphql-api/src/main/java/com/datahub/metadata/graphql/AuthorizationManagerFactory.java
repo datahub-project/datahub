@@ -41,6 +41,6 @@ public class AuthorizationManagerFactory {
         ? AuthorizationManager.AuthorizationMode.DEFAULT
         : AuthorizationManager.AuthorizationMode.ALLOW_ALL;
 
-    return new AuthorizationManager(entityClient, aspectClient, policyCacheRefreshIntervalSeconds, mode);
+    return new AuthorizationManager(entityClient, aspectClient, 10, policyCacheRefreshIntervalSeconds, mode);
   }
 }

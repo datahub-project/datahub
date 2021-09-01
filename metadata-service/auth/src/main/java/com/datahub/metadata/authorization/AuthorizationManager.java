@@ -45,15 +45,16 @@ public class AuthorizationManager implements Authorizer {
   private final PolicyRefreshRunnable _policyRefreshRunnable;
 
   private final PolicyEngine _policyEngine;
-  private final AuthorizationMode _mode;
+  private AuthorizationMode _mode;
 
   public AuthorizationManager(
       final EntityClient entityClient,
       final AspectClient aspectClient,
+      final int delayIntervalSeconds,
       final int refreshIntervalSeconds,
       final AuthorizationMode mode) {
     _policyRefreshRunnable = new PolicyRefreshRunnable(entityClient, _policyCache);
-    _refreshExecutorService.scheduleAtFixedRate(_policyRefreshRunnable, 10, refreshIntervalSeconds, TimeUnit.SECONDS);
+    _refreshExecutorService.scheduleAtFixedRate(_policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
     _mode = mode;
     _policyEngine = new PolicyEngine(entityClient, aspectClient);
   }
@@ -62,14 +63,10 @@ public class AuthorizationManager implements Authorizer {
     // 1. Fetch the policies relevant to the requested privilege.
     final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(request.privilege(), new ArrayList<>());
 
-    // 2. Evaluate each active policies.
+    // 2. Evaluate each policy.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
-      if (PoliciesConfig.INACTIVE_POLICY_STATE.equals(policy.getState())) {
-        // Skip inactive policies. They should not be enforced.
-        continue;
-      }
       if (isRequestGranted(policy, request)) {
-        // Short circuit. - Policy has granted privileges to this actor.
+        // Short circuit if policy has granted privileges to this actor.
         return new AuthorizationResult(request, Optional.of(policy), AuthorizationResult.Type.ALLOW);
       }
     }
@@ -87,6 +84,10 @@ public class AuthorizationManager implements Authorizer {
   @Override
   public AuthorizationMode mode() {
     return _mode;
+  }
+
+  public void setMode(final AuthorizationMode mode) {
+    _mode = mode;
   }
 
   /**
