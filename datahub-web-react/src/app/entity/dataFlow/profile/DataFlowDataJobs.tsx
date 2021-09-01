@@ -1,7 +1,8 @@
 import { List, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { EntityType, EntityRelationshipLegacy } from '../../../../types.generated';
+import { EntityType, EntityRelationshipLegacy, DataJob } from '../../../../types.generated';
+import { topologicalSort } from '../../../../utils/sort/topologicalSort';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
 
@@ -27,13 +28,15 @@ export type Props = {
     dataJobs?: (EntityRelationshipLegacy | null)[] | null;
 };
 
-export default function DataFlowDataJobs({ dataJobs }: Props) {
+export function DataFlowDataJobs({ dataJobs }: Props) {
     const entityRegistry = useEntityRegistry();
-    const dataJobsSource = dataJobs?.filter((d) => !!d?.entity).map((d) => d?.entity);
+    const nodes = dataJobs?.map((relationship) => relationship?.entity as DataJob) || [];
+    const sortedDataJobs = topologicalSort(nodes);
+
     return (
         <DataJobsList
             bordered
-            dataSource={dataJobsSource || []}
+            dataSource={sortedDataJobs}
             header={
                 <Typography.Title level={3}>{entityRegistry.getCollectionName(EntityType.DataJob)}</Typography.Title>
             }
