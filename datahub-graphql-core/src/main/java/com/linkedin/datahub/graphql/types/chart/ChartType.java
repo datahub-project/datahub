@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.chart;
 import com.datahub.metadata.authorization.AuthorizationRequest;
 import com.datahub.metadata.authorization.AuthorizationResult;
 import com.datahub.metadata.authorization.Authorizer;
+import com.datahub.metadata.authorization.ResourceSpec;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.ChartUrn;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -198,7 +199,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
         final String resourceUrn = update.getUrn();
         final String resourceType = PoliciesConfig.CHART_PRIVILEGES.getResourceType();
         final List<List<String>> requiredPrivileges = getRequiredPrivileges(update);
-        final AuthorizationRequest.ResourceSpec resourceSpec = new AuthorizationRequest.ResourceSpec(resourceType, resourceUrn);
+        final ResourceSpec resourceSpec = new ResourceSpec(resourceType, resourceUrn);
 
         for (List<String> privilegeGroup : requiredPrivileges) {
             if (isAuthorized(principal, privilegeGroup, resourceSpec, authorizer)) {
@@ -211,7 +212,7 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
     private boolean isAuthorized(
         String principal,
         List<String> privilegeGroup,
-        AuthorizationRequest.ResourceSpec resourceSpec,
+        ResourceSpec resourceSpec,
         Authorizer authorizer) {
         // Each privilege in a group _must_ all be true to permit the operation.
         for (final String privilege : privilegeGroup) {

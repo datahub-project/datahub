@@ -598,7 +598,7 @@ public class EbeanEntityService extends EntityService {
 
     final ListUrnsResult result = new ListUrnsResult();
     result.setStart(start);
-    result.setCount(keyAspectList.getPageSize());
+    result.setCount(keyAspectList.getValues().size());
     result.setTotal(keyAspectList.getTotalCount());
 
     // Extract urns

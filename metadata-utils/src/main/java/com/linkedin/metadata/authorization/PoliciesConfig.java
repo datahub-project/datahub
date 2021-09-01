@@ -15,6 +15,8 @@ import lombok.Getter;
  */
 public class PoliciesConfig {
 
+  public static final String INACTIVE_POLICY_STATE = "INACTIVE";
+
   // Platform Privileges //
 
   public static final Privilege MANAGE_POLICIES_PRIVILEGE = Privilege.of(
