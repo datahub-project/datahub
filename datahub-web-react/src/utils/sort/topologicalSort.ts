@@ -1,4 +1,4 @@
-import { DataJob, EntityRelationshipLegacy } from '../../types.generated';
+import { DataJob } from '../../types.generated';
 
 function topologicalSortVisit(nodeUrn: string, result: string[], visited: string[], nodes: DataJob[]) {
     if (result.indexOf(nodeUrn) !== -1 || visited.indexOf(nodeUrn) !== -1) {
@@ -20,8 +20,7 @@ function topologicalSortVisit(nodeUrn: string, result: string[], visited: string
     result.push(nodeUrn);
 }
 
-export function topologicalSort(input: Array<EntityRelationshipLegacy | null>) {
-    const nodes = input.map((relationship) => relationship?.entity as DataJob);
+export function topologicalSort(nodes: Array<DataJob>) {
     const result: string[] = [];
     const visited: string[] = [];
 
