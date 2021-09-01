@@ -89,17 +89,9 @@ public class EntityKeyUtils {
   public static Urn convertEntityKeyToUrn(@Nonnull final RecordTemplate keyAspect, @Nonnull final String entityName) {
     final List<String> urnParts = new ArrayList<>();
     for (RecordDataSchema.Field field : keyAspect.schema().getFields()) {
-      // For each field, simply stringify it, URL encode it, and place it in the URN.
-      // In the future we should consider an alternate methodology, such as hashing.
       Object value = keyAspect.data().get(field.getName());
       String valueString = value.toString();
-      try {
-        String urlEncodedValueString = URLEncoder.encode(valueString, StandardCharsets.UTF_8.toString());
-        urnParts.add(urlEncodedValueString);
-      } catch (UnsupportedEncodingException e) {
-        throw new RuntimeException(
-            String.format("Failed to convert Entity Key to URN. Unable to URL encode urn part %s", valueString), e);
-      }
+      urnParts.add(valueString); // TODO: Determine whether all fields, including urns, should be URL encoded.
     }
     return Urn.createFromTuple(entityName, urnParts);
   }
