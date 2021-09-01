@@ -1,7 +1,9 @@
-package com.linkedin.datahub.graphql.resolvers.policy;
+package com.linkedin.datahub.graphql.resolvers.config;
 
 import com.datahub.metadata.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
+import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
@@ -12,29 +14,47 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 
-public class PoliciesConfigResolver implements DataFetcher<CompletableFuture<PoliciesConfig>> {
+/**
+ * Resolver responsible for serving app configurations to the React UI.
+ */
+public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfig>> {
+
+  private final Boolean _isAnalyticsEnabled;
+
+  public AppConfigResolver(final Boolean isAnalyticsEnabled) {
+    _isAnalyticsEnabled = isAnalyticsEnabled;
+  }
 
   @Override
-  public CompletableFuture<PoliciesConfig> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<AppConfig> get(final DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
-    final PoliciesConfig config = new PoliciesConfig();
+
+    final AppConfig appConfig = new AppConfig();
+
+    final AnalyticsConfig analyticsConfig = new AnalyticsConfig();
+    analyticsConfig.setEnabled(_isAnalyticsEnabled);
+
+    final PoliciesConfig policiesConfig = new PoliciesConfig();
 
     boolean policiesEnabled = Authorizer.AuthorizationMode.DEFAULT.equals(context.getAuthorizer().mode());
-    config.setEnabled(policiesEnabled);
+    policiesConfig.setEnabled(policiesEnabled);
 
-    config.setPlatformPrivileges(com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_PRIVILEGES
+    policiesConfig.setPlatformPrivileges(com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_PRIVILEGES
         .stream()
         .map(this::mapPrivilege)
         .collect(Collectors.toList()));
 
-    config.setResourcePrivileges(com.linkedin.metadata.authorization.PoliciesConfig.RESOURCE_PRIVILEGES
+    policiesConfig.setResourcePrivileges(com.linkedin.metadata.authorization.PoliciesConfig.RESOURCE_PRIVILEGES
         .stream()
         .map(this::mapResourcePrivileges)
         .collect(Collectors.toList())
     );
 
-    return CompletableFuture.completedFuture(config);
+    appConfig.setAnalyticsConfig(analyticsConfig);
+    appConfig.setPoliciesConfig(policiesConfig);
+
+    return CompletableFuture.completedFuture(appConfig);
   }
 
   private ResourcePrivileges mapResourcePrivileges(

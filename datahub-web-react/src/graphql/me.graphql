@@ -18,10 +18,9 @@ query getMe {
                 skills
             }
         }
-        features {
-            showAdminConsole
-            showAnalytics
-            showPolicyBuilder
+        platformPrivileges {
+            viewAnalytics
+            managePolicies
         }
     }
 }

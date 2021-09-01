@@ -27,27 +27,6 @@ query listPolicies($input: ListPoliciesInput!) {
     }
 }
 
-query policiesConfig {
-    policiesConfig {
-        enabled
-        platformPrivileges {
-            type
-            displayName
-            description
-        }
-        resourcePrivileges {
-            resourceType
-            resourceTypeDisplayName
-            entityType
-            privileges {
-                type
-                displayName
-                description
-            }
-        }
-    }
-}
-
 mutation createPolicy($input: PolicyInput!) {
     createPolicy(input: $input)
 }

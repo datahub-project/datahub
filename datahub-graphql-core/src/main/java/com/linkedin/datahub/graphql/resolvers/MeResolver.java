@@ -5,10 +5,10 @@ import com.datahub.metadata.authorization.AuthorizationResult;
 import com.datahub.metadata.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.PlatformPrivileges;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.generated.FeatureFlags;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserSnapshotMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
@@ -48,15 +48,14 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         final CorpUser corpUser = CorpUserSnapshotMapper.map(gmsUser);
 
         // 2. Get feature flags to apply
-        final FeatureFlags featureFlags = new FeatureFlags();
-        featureFlags.setShowAnalytics(canViewAnalytics(context));
-        featureFlags.setShowAdminConsole(canManagePolicies(context));
-        featureFlags.setShowPolicyBuilder(canManageUsersGroups(context));
+        final PlatformPrivileges platformPrivileges = new PlatformPrivileges();
+        platformPrivileges.setViewAnalytics(canViewAnalytics(context));
+        platformPrivileges.setManagePolicies(canManagePolicies(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();
         authUser.setCorpUser(corpUser);
-        authUser.setFeatures(featureFlags);
+        authUser.setPlatformPrivileges(platformPrivileges);
         return authUser;
       } catch (URISyntaxException | RemoteInvocationException e) {
         throw new RuntimeException("Failed to fetch authenticated user!", e);

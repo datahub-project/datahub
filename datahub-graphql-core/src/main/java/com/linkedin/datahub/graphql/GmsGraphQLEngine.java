@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql;
 
-import com.datahub.metadata.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.analytics.resolver.AnalyticsChartTypeResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetChartsResolver;
@@ -47,7 +46,7 @@ import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
-import com.linkedin.datahub.graphql.resolvers.policy.PoliciesConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
@@ -306,6 +305,8 @@ public class GmsGraphQLEngine {
 
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
+            .dataFetcher("appConfig",
+                new AppConfigResolver(analyticsService != null))
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("search", new AuthenticatedResolver<>(
@@ -362,8 +363,6 @@ public class GmsGraphQLEngine {
                             (env) -> env.getArgument(URN_FIELD_NAME))))
             .dataFetcher("listPolicies",
                 new ListPoliciesResolver(GmsClientFactory.getEntitiesClient()))
-            .dataFetcher("policiesConfig",
-                new PoliciesConfigResolver())
         );
     }
 

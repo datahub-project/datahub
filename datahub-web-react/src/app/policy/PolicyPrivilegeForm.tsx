@@ -2,7 +2,7 @@ import React from 'react';
 import { Form, Select, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { usePoliciesConfigQuery } from '../../graphql/policy.generated';
+import { useAppConfig } from '../useAppConfig';
 import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
 import { ResourceFilter, PolicyType } from '../../types.generated';
 import {
@@ -28,7 +28,8 @@ export default function PolicyPrivilegeForm({
     setPrivileges,
 }: Props) {
     const [search, { data: searchData, loading: searchLoading }] = useGetSearchResultsLazyQuery();
-    const { data: configData } = usePoliciesConfigQuery();
+    const { config } = useAppConfig();
+    const policiesConfig = config?.policiesConfig;
 
     const entityRegistry = useEntityRegistry();
     const assetSearchResults = searchData?.search?.searchResults;
@@ -41,17 +42,17 @@ export default function PolicyPrivilegeForm({
         resources.allResources ||
         (resources.resources && resources.resources?.length > 0);
 
-    const platformPrivileges = (configData && configData?.policiesConfig?.platformPrivileges) || [];
-    const resourcePrivileges = (configData && configData?.policiesConfig?.resourcePrivileges) || [];
+    const platformPrivileges = policiesConfig?.platformPrivileges || [];
+    const resourcePrivileges = policiesConfig?.resourcePrivileges || [];
 
     const privilegeOptions =
         policyType === PolicyType.Platform
             ? platformPrivileges
             : mapResourceTypeToPrivileges(resources.type, resourcePrivileges);
 
-    const resourceTypeSelectValue = configData && resources.type;
+    const resourceTypeSelectValue = policiesConfig && resources.type;
     const resourceSelectValue = resources.allResources ? ['All'] : resources.resources || [];
-    const privilegesSelectValue = configData && privileges;
+    const privilegesSelectValue = policiesConfig && privileges;
 
     const onSelectPrivilege = (privilege: string) => {
         if (privilege === 'All') {

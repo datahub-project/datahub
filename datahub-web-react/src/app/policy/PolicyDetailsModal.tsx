@@ -4,6 +4,8 @@ import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { EntityType, Policy, PolicyType } from '../../types.generated';
+import { useAppConfig } from '../useAppConfig';
+import { mapResourceTypeToDisplayName } from './policyUtils';
 
 type Props = {
     policy: Omit<Policy, 'urn'>;
@@ -22,6 +24,12 @@ const ThinDivider = styled(Divider)`
 // TODO: Cleanup styling.
 export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, onRemove, onToggleActive }: Props) {
     const isActive = policy.state === 'ACTIVE';
+    const isMetadataPolicy = policy.type === PolicyType.Metadata;
+
+    const entityRegistry = useEntityRegistry();
+
+    const { config } = useAppConfig();
+    const policiesConfig = config?.policiesConfig;
 
     const activeActionButton = isActive ? (
         <Button onClick={() => onToggleActive(false)} style={{ color: 'red' }}>
@@ -43,9 +51,6 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
             <Button onClick={onClose}>Cancel</Button>
         </Space>
     );
-
-    const entityRegistry = useEntityRegistry();
-    const isMetadataPolicy = policy.type === PolicyType.Metadata;
 
     return (
         <Modal title={policy.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
@@ -71,7 +76,12 @@ export default function PolicyDetailsModal({ policy, visible, onEdit, onClose, o
                             <div>
                                 <Typography.Title level={5}>Asset Type</Typography.Title>
                                 <ThinDivider />
-                                <Tag>{policy.resources?.type}</Tag>
+                                <Tag>
+                                    {mapResourceTypeToDisplayName(
+                                        policy.resources?.type || '',
+                                        policiesConfig?.resourcePrivileges || [],
+                                    )}
+                                </Tag>
                             </div>
                             <div>
                                 <Typography.Title level={5}>Assets</Typography.Title>

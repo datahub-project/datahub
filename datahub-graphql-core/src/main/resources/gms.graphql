@@ -190,6 +190,11 @@ enum EntityType {
 type Query {
 
     """
+    Fetch configurations for the DataHub UI.
+    """
+    appConfig: AppConfig
+
+    """
     Fetch details associated with the logged in user.
     """
     me: AuthenticatedUser
@@ -293,12 +298,6 @@ type Query {
     List all DataHub Access Policies.
     """
     listPolicies(input: ListPoliciesInput!): ListPoliciesResult
-
-    """
-    Returns the configurations for the policies experience, including a mapping of Entity Type to
-    corresponding privileges.
-    """
-    policiesConfig: PoliciesConfig
 }
 
 type Mutation {
@@ -322,26 +321,31 @@ type Mutation {
     deletePolicy(urn: String!): String
 }
 
-type AuthenticatedUser {
-  corpUser: CorpUser!
-  features: FeatureFlags!
+type AppConfig {
+  analyticsConfig: AnalyticsConfig!
+  policiesConfig: PoliciesConfig!
 }
 
-type FeatureFlags {
-  """
-  Whether to display the admin console or not.
-  """
-  showAdminConsole: Boolean!
+type AnalyticsConfig {
+  enabled: Boolean!
+}
+
+type AuthenticatedUser {
+  corpUser: CorpUser!
+  platformPrivileges: PlatformPrivileges!
+}
+
+type PlatformPrivileges {
 
   """
-  Whether to display the analytics experience or not.
+  Whether the user should be able to view analytics.
   """
-  showAnalytics: Boolean!
+  viewAnalytics: Boolean!
 
   """
-  Whether to display the policy editor experience or not.
+  Whether the user should be able to manage policies.
   """
-  showPolicyBuilder: Boolean!
+  managePolicies: Boolean!
 }
 
 type AuditStamp {

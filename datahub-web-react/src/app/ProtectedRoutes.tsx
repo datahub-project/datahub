@@ -12,9 +12,7 @@ import { SearchPage } from './search/SearchPage';
 import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
 import { useGetAuthenticatedUser } from './useGetAuthenticatedUser';
 import { PoliciesPage } from './policy/PoliciesPage';
-import { useIsAnalyticsEnabledQuery } from '../graphql/analytics.generated';
-
-// import { useGetAuthenticatedUser } from './useGetAuthenticatedUser';
+import { useAppConfig } from './useAppConfig';
 
 /**
  * Container for all views behind an authentication wall.
@@ -24,11 +22,13 @@ export const ProtectedRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
     const [adminConsoleOpen, setAdminConsoleOpen] = useState(false);
-    const { data: isAnalyticsEnabledData } = useIsAnalyticsEnabledQuery({ fetchPolicy: 'no-cache' });
+    const { config } = useAppConfig();
 
-    const isAnalyticsEnabled = isAnalyticsEnabledData?.isAnalyticsEnabled;
-    const showAnalytics = (me && me.features.showAnalytics) || isAnalyticsEnabled || false;
-    const showPolicyBuilder = (me && me.features.showPolicyBuilder) || false;
+    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
+    const isPoliciesEnabled = config?.policiesConfig.enabled;
+
+    const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
+    const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
     const showAdminConsole = showAnalytics || showPolicyBuilder;
 
     const onMenuItemClick = () => {

@@ -28,6 +28,7 @@ import { MLPrimaryKeyEntity } from './app/entity/mlPrimaryKey/MLPrimaryKeyEntity
 import { MLFeatureTableEntity } from './app/entity/mlFeatureTable/MLFeatureTableEntity';
 import { MLModelEntity } from './app/entity/mlModel/MLModelEntity';
 import { MLModelGroupEntity } from './app/entity/mlModelGroup/MLModelGroupEntity';
+import AppConfigProvider from './AppConfigProvider';
 
 /*
     Construct Apollo Client
@@ -116,7 +117,9 @@ const App: React.VFC = () => {
             <Router>
                 <EntityRegistryContext.Provider value={entityRegistry}>
                     <ApolloProvider client={client}>
-                        <Routes />
+                        <AppConfigProvider>
+                            <Routes />
+                        </AppConfigProvider>
                     </ApolloProvider>
                 </EntityRegistryContext.Provider>
             </Router>
