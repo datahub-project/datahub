@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu } from 'antd';
-import { BankOutlined, BarChartOutlined } from '@ant-design/icons';
+import { BankOutlined, BarChartOutlined, MenuOutlined } from '@ant-design/icons';
 import Sider from 'antd/lib/layout/Sider';
 import { useGetAuthenticatedUser } from './useGetAuthenticatedUser';
 import { useAppConfig } from './useAppConfig';
+import { ANTD_GRAY } from './entity/shared/constants';
 
 /**
  * Container for all views behind an authentication wall.
@@ -38,23 +39,32 @@ export const AdminConsole = (): JSX.Element => {
         <>
             {showAdminConsole && (
                 <Sider
-                    zeroWidthTriggerStyle={{ top: '20%' }}
+                    zeroWidthTriggerStyle={{ top: '90%' }}
                     collapsible
                     collapsed={!adminConsoleOpen}
                     onCollapse={onCollapse}
                     collapsedWidth="0"
+                    trigger={
+                        <div
+                            style={{
+                                backgroundColor: ANTD_GRAY[4],
+                                borderTopRightRadius: 2,
+                                borderBottomRightRadius: 2,
+                            }}
+                        >
+                            <MenuOutlined style={{ color: ANTD_GRAY[9] }} />
+                        </div>
+                    }
                     style={{
                         height: '100vh',
                         position: 'fixed',
                         left: 0,
-                        backgroundColor: 'white',
                         zIndex: 10000000,
                     }}
                 >
                     <Menu
                         selectable={false}
                         mode="inline"
-                        theme="dark"
                         style={{ paddingTop: 28, height: '100%' }}
                         onSelect={onMenuItemClick}
                     >

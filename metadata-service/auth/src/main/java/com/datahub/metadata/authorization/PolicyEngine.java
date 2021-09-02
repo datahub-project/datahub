@@ -71,7 +71,7 @@ public class PolicyEngine {
     }
 
     // If the resource is not in scope, deny the request.
-    if (!isResourceMatch(resource, policy.getResources(), context)) {
+    if (!isResourceMatch(policy.getType(), resource, policy.getResources(), context)) {
       return PolicyEvaluationResult.DENIED;
     }
 
@@ -98,9 +98,14 @@ public class PolicyEngine {
    * Returns true if the resource portion of a DataHub policy matches a the resource being evaluated, false otherwise.
    */
   private boolean isResourceMatch(
+      final String policyType,
       final Optional<ResourceSpec> requestResource,
       final @Nullable DataHubResourceFilter policyResourceFilter,
       final PolicyEvaluationContext context) {
+    if (PoliciesConfig.PLATFORM_POLICY_TYPE.equals(policyType)) {
+      // Currently, platform policies have no associated resource.
+      return true;
+    }
     if (policyResourceFilter == null) {
       // No resource defined on the policy.
       return true;

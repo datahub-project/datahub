@@ -47,7 +47,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             .getCorpUserSnapshot();
         final CorpUser corpUser = CorpUserSnapshotMapper.map(gmsUser);
 
-        // 2. Get feature flags to apply
+        // 2. Get platform privileges
         final PlatformPrivileges platformPrivileges = new PlatformPrivileges();
         platformPrivileges.setViewAnalytics(canViewAnalytics(context));
         platformPrivileges.setManagePolicies(canManagePolicies(context));
