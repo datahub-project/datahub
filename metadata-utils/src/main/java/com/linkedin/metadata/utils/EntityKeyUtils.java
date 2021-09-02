@@ -26,21 +26,21 @@ public class EntityKeyUtils {
 
   @Nonnull
   public static Urn getUrnFromProposal(MetadataChangeProposal metadataChangeProposal, AspectSpec keyAspectSpec) {
+
     if (metadataChangeProposal.hasEntityUrn()) {
       Urn urn = metadataChangeProposal.getEntityUrn();
       // Validate Urn
       try {
         EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec.getPegasusSchema());
       } catch (RuntimeException re) {
-        log.warn("Failed to validate key {}", urn);
-        throw new RuntimeException("Failed to validate key", re);
+        throw new RuntimeException(String.format("Failed to validate entity URN %s", urn), re);
       }
       return urn;
     }
     if (metadataChangeProposal.hasEntityKeyAspect()) {
       RecordTemplate keyAspectRecord = GenericAspectUtils.deserializeAspect(
-              metadataChangeProposal.getAspect().getValue(),
-              metadataChangeProposal.getAspect().getContentType(),
+              metadataChangeProposal.getEntityKeyAspect().getValue(),
+              metadataChangeProposal.getEntityKeyAspect().getContentType(),
               keyAspectSpec);
       return EntityKeyUtils.convertEntityKeyToUrn(keyAspectRecord, metadataChangeProposal.getEntityType());
     }

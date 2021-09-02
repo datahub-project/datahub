@@ -24,7 +24,7 @@ export const AddLinkModal = ({ buttonProps }: { buttonProps?: Record<string, unk
     };
 
     const handleAdd = async (formData: any) => {
-        if (user?.urn) {
+        if (user?.corpUser.urn) {
             const links = entityData?.institutionalMemory?.elements || [];
 
             const newLinks = links.map((link) => {
@@ -37,7 +37,7 @@ export const AddLinkModal = ({ buttonProps }: { buttonProps?: Record<string, unk
             });
 
             newLinks.push({
-                author: user?.urn,
+                author: user?.corpUser.urn,
                 createdAt: Date.now(),
                 ...formData,
             });
