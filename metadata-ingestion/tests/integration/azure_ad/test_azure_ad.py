@@ -5,14 +5,14 @@ from unittest.mock import patch
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.identity.azure import AzureConfig
+from datahub.ingestion.source.identity.azure_ad import AzureADConfig
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2021-08-24 09:00:00"
 
 
-def test_azure_config():
-    config = AzureConfig.parse_obj(
+def test_azure_ad_config():
+    config = AzureADConfig.parse_obj(
         dict(
             client_id="00000000-0000-0000-0000-000000000000",
             tenant_id="00000000-0000-0000-0000-000000000000",
@@ -52,18 +52,20 @@ def test_azure_config():
 
 
 @freeze_time(FROZEN_TIME)
-def test_azure_source_default_configs(pytestconfig, tmp_path):
+def test_azure_ad_source_default_configs(pytestconfig, tmp_path):
 
-    test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/azure"
+    test_resources_dir: pathlib.Path = (
+        pytestconfig.rootpath / "tests/integration/azure_ad"
+    )
 
     with patch(
-        "datahub.ingestion.source.identity.azure.AzureSource.get_token"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource.get_token"
     ) as mock_token, patch(
-        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_users"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_users"
     ) as mock_users, patch(
-        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_groups"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_groups"
     ) as mock_groups, patch(
-        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_group_users"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_group_users"
     ) as mock_group_users:
         mocked_functions(
             test_resources_dir, mock_token, mock_users, mock_groups, mock_group_users
@@ -71,9 +73,9 @@ def test_azure_source_default_configs(pytestconfig, tmp_path):
         # Run an azure usage ingestion run.
         pipeline = Pipeline.create(
             {
-                "run_id": "test-azure",
+                "run_id": "test-azure-ad",
                 "source": {
-                    "type": "azure",
+                    "type": "azure-ad",
                     "config": {
                         "client_id": "00000000-0000-0000-0000-000000000000",
                         "tenant_id": "00000000-0000-0000-0000-000000000000",
@@ -90,7 +92,7 @@ def test_azure_source_default_configs(pytestconfig, tmp_path):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/azure_mces_default_config.json",
+                        "filename": f"{tmp_path}/azure_ad_mces_default_config.json",
                     },
                 },
             }
@@ -100,24 +102,26 @@ def test_azure_source_default_configs(pytestconfig, tmp_path):
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "azure_mces_default_config.json",
-        golden_path=test_resources_dir / "azure_mces_golden_default_config.json",
+        output_path=tmp_path / "azure_ad_mces_default_config.json",
+        golden_path=test_resources_dir / "azure_ad_mces_golden_default_config.json",
     )
 
 
 @freeze_time(FROZEN_TIME)
 def test_azure_source_ingestion_disabled(pytestconfig, tmp_path):
 
-    test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/azure"
+    test_resources_dir: pathlib.Path = (
+        pytestconfig.rootpath / "tests/integration/azure_ad"
+    )
 
     with patch(
-        "datahub.ingestion.source.identity.azure.AzureSource.get_token"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource.get_token"
     ) as mock_token, patch(
-        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_users"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_users"
     ) as mock_users, patch(
-        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_groups"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_groups"
     ) as mock_groups, patch(
-        "datahub.ingestion.source.identity.azure.AzureSource._get_azure_group_users"
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_group_users"
     ) as mock_group_users:
         mocked_functions(
             test_resources_dir, mock_token, mock_users, mock_groups, mock_group_users
@@ -126,9 +130,9 @@ def test_azure_source_ingestion_disabled(pytestconfig, tmp_path):
         # Run an Azure usage ingestion run.
         pipeline = Pipeline.create(
             {
-                "run_id": "test-azure",
+                "run_id": "test-azure-ad",
                 "source": {
-                    "type": "azure",
+                    "type": "azure-ad",
                     "config": {
                         "client_id": "00000000-0000-0000-0000-000000000000",
                         "tenant_id": "00000000-0000-0000-0000-000000000000",
@@ -145,7 +149,7 @@ def test_azure_source_ingestion_disabled(pytestconfig, tmp_path):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/azure_mces_ingestion_disabled.json",
+                        "filename": f"{tmp_path}/azure_ad_mces_ingestion_disabled.json",
                     },
                 },
             }
@@ -155,20 +159,20 @@ def test_azure_source_ingestion_disabled(pytestconfig, tmp_path):
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "azure_mces_ingestion_disabled.json",
-        golden_path=test_resources_dir / "azure_mces_golden_ingestion_disabled.json",
+        output_path=tmp_path / "azure_ad_mces_ingestion_disabled.json",
+        golden_path=test_resources_dir / "azure_ad_mces_golden_ingestion_disabled.json",
     )
 
 
 def load_test_resources(test_resources_dir):
-    azure_users_json_file = test_resources_dir / "azure_users.json"
-    azure_groups_json_file = test_resources_dir / "azure_groups.json"
+    azure_ad_users_json_file = test_resources_dir / "azure_ad_users.json"
+    azure_ad_groups_json_file = test_resources_dir / "azure_ad_groups.json"
 
-    with azure_users_json_file.open() as azure_users_json:
-        reference_users = json.loads(azure_users_json.read())
+    with azure_ad_users_json_file.open() as azure_ad_users_json:
+        reference_users = json.loads(azure_ad_users_json.read())
 
-    with azure_groups_json_file.open() as azure_groups_json:
-        reference_groups = json.loads(azure_groups_json.read())
+    with azure_ad_groups_json_file.open() as azure_ad_groups_json:
+        reference_groups = json.loads(azure_ad_groups_json.read())
 
     return reference_users, reference_groups
 
