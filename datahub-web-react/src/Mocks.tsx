@@ -4,7 +4,7 @@ import { GetDataJobDocument } from './graphql/dataJob.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
 import {
     GetAutoCompleteResultsDocument,
-    GetAutoCompleteAllResultsDocument,
+    GetAutoCompleteMultipleResultsDocument,
     GetSearchResultsDocument,
     GetSearchResultsQuery,
 } from './graphql/search.generated';
@@ -1254,7 +1254,7 @@ export const mocks = [
     },
     {
         request: {
-            query: GetAutoCompleteAllResultsDocument,
+            query: GetAutoCompleteMultipleResultsDocument,
             variables: {
                 input: {
                     query: 't',
@@ -1277,7 +1277,7 @@ export const mocks = [
     },
     {
         request: {
-            query: GetAutoCompleteAllResultsDocument,
+            query: GetAutoCompleteMultipleResultsDocument,
             variables: {
                 input: {
                     query: 't',

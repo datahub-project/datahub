@@ -266,7 +266,7 @@ type Query {
     """
     Autocomplete a search query against DataHub entities
     """
-    autoCompleteForAll(input: AutoCompleteInput!): AutoCompleteAllResults
+    autoCompleteForMultiple(input: AutoCompleteMultipleInput!): AutoCompleteMultipleResults
 
     """
     Browse DataHub entities by path
@@ -291,6 +291,14 @@ type Mutation {
     updateDataFlow(input: DataFlowUpdateInput!): DataFlow
     updateDataJob(input: DataJobUpdateInput!): DataJob
     updateTag(input: TagUpdate!): Tag
+    addLabel(input: LabelUpdateInput!): Boolean
+    removeLabel(input: LabelUpdateInput!): Boolean
+}
+
+type LabelUpdateInput {
+    labelUrn: String!
+    targetUrn: String!
+    subResource: String
 }
 
 type AuditStamp {
@@ -1500,6 +1508,34 @@ input AutoCompleteInput {
 	filters: [FacetFilterInput!]
 }
 
+input AutoCompleteMultipleInput {
+    """
+    Entity types to be autocompleted against.
+    Optional- if none supplied, all searchable types will be autocompleted against
+    """
+    types: [EntityType!]
+
+    """
+    The query string
+    """
+    query: String!
+
+    """
+    An optional field to autocomplete against
+    """
+    field: String
+
+    """
+    The maximum number of autocomplete results
+    """
+    limit: Int
+
+    """
+    Faceted filters applied to autocomplete results
+    """
+    filters: [FacetFilterInput!]
+}
+
 type AutoCompleteResultForEntity {
     """
     Entity type
@@ -1512,7 +1548,7 @@ type AutoCompleteResultForEntity {
     suggestions: [String!]!
 }
 
-type AutoCompleteAllResults {
+type AutoCompleteMultipleResults {
     """
     The query string
     """

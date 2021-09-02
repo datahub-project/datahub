@@ -7,7 +7,7 @@ import { BookOutlined, PlusOutlined } from '@ant-design/icons';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { EntityType, GlobalTags, GlobalTagsUpdate, GlossaryTerms } from '../../../types.generated';
 import { convertTagsForUpdate } from './utils/convertTagsForUpdate';
-import AddTagModal from './AddTagModal';
+import AddTagTermModal from './AddTagTermModal';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { EMPTY_MESSAGES } from '../../entity/shared/constants';
 
@@ -126,7 +126,7 @@ export default function TagTermGroup({
                         Add Tag
                     </Button>
                     {showAddModal && (
-                        <AddTagModal
+                        <AddTagTermModal
                             globalTags={editableTags}
                             updateTags={updateTags}
                             visible

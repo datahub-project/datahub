@@ -4,10 +4,18 @@ import { Button, Modal, Select, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { UpdateDatasetMutation } from '../../../graphql/dataset.generated';
-import { useGetAutoCompleteResultsLazyQuery } from '../../../graphql/search.generated';
-import { GlobalTags, GlobalTagsUpdate, EntityType, TagAssociationUpdate } from '../../../types.generated';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../graphql/search.generated';
+import {
+    GlobalTags,
+    GlobalTagsUpdate,
+    EntityType,
+    TagAssociationUpdate,
+    AutoCompleteResultForEntity,
+} from '../../../types.generated';
 import { convertTagsForUpdate } from './utils/convertTagsForUpdate';
 import CreateTagModal from './CreateTagModal';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { IconStyleType } from '../../entity/Entity';
 
 type AddTagModalProps = {
     globalTags?: GlobalTags | null;
@@ -22,23 +30,47 @@ const TagSelect = styled(Select)`
     width: 480px;
 `;
 
+const SuggestionContainer = styled.div`
+    display: 'flex',
+    flex-direction: 'row',
+    align-items: 'center',
+`;
+
+const SuggestionText = styled.span`
+    margin-left: 10px;
+`;
+
 const CREATE_TAG_VALUE = '____reserved____.createTagValue';
 
-export default function AddTagModal({ updateTags, globalTags, visible, onClose }: AddTagModalProps) {
-    const [getAutoCompleteResults, { loading, data: suggestionsData }] = useGetAutoCompleteResultsLazyQuery({
+const NAME_TYPE_SEPARATOR = '_::_:_::_';
+
+const renderItem = (suggestion: string, icon: JSX.Element, type: string) => ({
+    value: suggestion,
+    label: (
+        <SuggestionContainer>
+            <span>{icon}</span>
+            <SuggestionText>{suggestion}</SuggestionText>
+        </SuggestionContainer>
+    ),
+    type,
+});
+
+export default function AddTagTermModal({ updateTags, globalTags, visible, onClose }: AddTagModalProps) {
+    const [getAutoCompleteResults, { loading, data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery({
         fetchPolicy: 'no-cache',
     });
     const [inputValue, setInputValue] = useState('');
     const [selectedTagValue, setSelectedTagValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [disableAdd, setDisableAdd] = useState(false);
+    const entityRegistry = useEntityRegistry();
 
     const autoComplete = (query: string) => {
         if (query && query !== '') {
             getAutoCompleteResults({
                 variables: {
                     input: {
-                        type: EntityType.Tag,
+                        types: [EntityType.Tag, EntityType.GlossaryTerm],
                         query,
                     },
                 },
@@ -46,14 +78,19 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
         }
     };
 
-    const inputExistsInAutocomplete = suggestionsData?.autoComplete?.suggestions?.some(
-        (result) => result.toLowerCase() === inputValue.toLowerCase(),
-    );
+    const options =
+        suggestionsData?.autoCompleteForMultiple?.suggestions.flatMap((entity: AutoCompleteResultForEntity) =>
+            entity.suggestions.map((suggestion: string) =>
+                renderItem(suggestion, entityRegistry.getIcon(entity.type, 14, IconStyleType.TAB_VIEW), entity.type),
+            ),
+        ) || [];
+
+    const inputExistsInAutocomplete = options.some((option) => option.value.toLowerCase() === inputValue.toLowerCase());
 
     const autocompleteOptions =
-        suggestionsData?.autoComplete?.suggestions.map((result) => (
-            <Select.Option value={result} key={result}>
-                {result}
+        options.map((option) => (
+            <Select.Option value={`${option.value}${NAME_TYPE_SEPARATOR}${option.type}`} key={option.value}>
+                {option.label}
             </Select.Option>
         )) || [];
 
