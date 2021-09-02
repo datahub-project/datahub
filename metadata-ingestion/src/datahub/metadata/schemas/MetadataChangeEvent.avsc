@@ -5385,7 +5385,7 @@
                                     "items": "string"
                                   }
                                 ],
-                                "doc": "A specific set of resources to apply the policy to",
+                                "doc": "A specific set of resources to apply the policy to, e.g. asset urns",
                                 "default": null
                               },
                               {

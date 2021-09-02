@@ -7935,12 +7935,12 @@ class DataHubResourceFilterClass(DictWrapper):
     
     @property
     def resources(self) -> Union[None, List[str]]:
-        """Getter: A specific set of resources to apply the policy to"""
+        """Getter: A specific set of resources to apply the policy to, e.g. asset urns"""
         return self._inner_dict.get('resources')  # type: ignore
     
     @resources.setter
     def resources(self, value: Union[None, List[str]]) -> None:
-        """Setter: A specific set of resources to apply the policy to"""
+        """Setter: A specific set of resources to apply the policy to, e.g. asset urns"""
         self._inner_dict['resources'] = value
     
     
