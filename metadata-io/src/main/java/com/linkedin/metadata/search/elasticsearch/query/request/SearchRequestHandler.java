@@ -113,7 +113,7 @@ public class SearchRequestHandler {
     BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
     // Filter out entities that are marked "removed"
     filterQuery.mustNot(QueryBuilders.matchQuery("removed", true));
-    searchSourceBuilder.query(QueryBuilders.boolQuery().should(getQuery(input)).must(filterQuery));
+    searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input)).must(filterQuery));
 
     getAggregations(filter).forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
