@@ -1,3 +1,5 @@
+import pytest
+
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -50,7 +52,7 @@ def make_dataset_with_owner():
     )
 
 
-def test_simple_dataset_ownership_tranformation(mock_time):
+def test_simple_dataset_ownership_transformation(mock_time):
     no_owner_aspect = make_generic_dataset()
 
     with_owner_aspect = make_dataset_with_owner()
@@ -96,6 +98,12 @@ def test_simple_dataset_ownership_tranformation(mock_time):
     )
     assert first_ownership_aspect
     assert len(first_ownership_aspect.owners) == 2
+    assert all(
+        [
+            owner.type == models.OwnershipTypeClass.DATAOWNER
+            for owner in first_ownership_aspect.owners
+        ]
+    )
 
     # Check the second entry.
     second_ownership_aspect = builder.get_aspect_if_available(
@@ -103,9 +111,53 @@ def test_simple_dataset_ownership_tranformation(mock_time):
     )
     assert second_ownership_aspect
     assert len(second_ownership_aspect.owners) == 3
+    assert all(
+        [
+            owner.type == models.OwnershipTypeClass.DATAOWNER
+            for owner in first_ownership_aspect.owners
+        ]
+    )
 
     # Verify that the third entry is unchanged.
     assert inputs[2] == outputs[2].record
+
+
+def test_simple_dataset_ownership_with_type_transformation(mock_time):
+    input = make_generic_dataset()
+
+    transformer = SimpleAddDatasetOwnership.create(
+        {
+            "owner_urns": [
+                builder.make_user_urn("person1"),
+            ],
+            "ownership_type": "PRODUCER",
+        },
+        PipelineContext(run_id="test"),
+    )
+
+    output = list(transformer.transform([RecordEnvelope(input, metadata={})]))
+
+    assert len(output) == 1
+
+    ownership_aspect = builder.get_aspect_if_available(
+        output[0].record, models.OwnershipClass
+    )
+    assert ownership_aspect
+    assert len(ownership_aspect.owners) == 1
+    assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
+
+
+def test_simple_dataset_ownership_with_invalid_type_transformation(mock_time):
+    with pytest.raises(ValueError):
+        SimpleAddDatasetOwnership.create(
+            {
+                "owner_urns": [
+                    builder.make_user_urn("person1"),
+                ],
+                "ownership_type": "INVALID_TYPE",
+            },
+            PipelineContext(run_id="test"),
+        )
 
 
 def test_simple_remove_dataset_ownership():
@@ -235,7 +287,7 @@ def test_import_resolver():
     assert output
 
 
-def test_pattern_dataset_ownership_tranformation(mock_time):
+def test_pattern_dataset_ownership_transformation(mock_time):
     no_owner_aspect = make_generic_dataset()
 
     with_owner_aspect = models.MetadataChangeEventClass(
@@ -300,6 +352,12 @@ def test_pattern_dataset_ownership_tranformation(mock_time):
     )
     assert first_ownership_aspect
     assert len(first_ownership_aspect.owners) == 1
+    assert all(
+        [
+            owner.type == models.OwnershipTypeClass.DATAOWNER
+            for owner in first_ownership_aspect.owners
+        ]
+    )
 
     # Check the second entry.
     second_ownership_aspect = builder.get_aspect_if_available(
@@ -307,6 +365,54 @@ def test_pattern_dataset_ownership_tranformation(mock_time):
     )
     assert second_ownership_aspect
     assert len(second_ownership_aspect.owners) == 2
+    assert all(
+        [
+            owner.type == models.OwnershipTypeClass.DATAOWNER
+            for owner in first_ownership_aspect.owners
+        ]
+    )
 
     # Verify that the third entry is unchanged.
     assert inputs[2] == outputs[2].record
+
+
+def test_pattern_dataset_ownership_with_type_transformation(mock_time):
+    input = make_generic_dataset()
+
+    transformer = PatternAddDatasetOwnership.create(
+        {
+            "owner_pattern": {
+                "rules": {
+                    ".*example1.*": [builder.make_user_urn("person1")],
+                }
+            },
+            "ownership_type": "PRODUCER",
+        },
+        PipelineContext(run_id="test"),
+    )
+
+    output = list(transformer.transform([RecordEnvelope(input, metadata={})]))
+
+    assert len(output) == 1
+
+    ownership_aspect = builder.get_aspect_if_available(
+        output[0].record, models.OwnershipClass
+    )
+    assert ownership_aspect
+    assert len(ownership_aspect.owners) == 1
+    assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
+
+
+def test_pattern_dataset_ownership_with_invalid_type_transformation(mock_time):
+    with pytest.raises(ValueError):
+        PatternAddDatasetOwnership.create(
+            {
+                "owner_pattern": {
+                    "rules": {
+                        ".*example1.*": [builder.make_user_urn("person1")],
+                    }
+                },
+                "ownership_type": "INVALID_TYPE",
+            },
+            PipelineContext(run_id="test"),
+        )
