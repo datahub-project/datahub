@@ -16,6 +16,7 @@ from datahub.metadata.schema_classes import (
     DatasetFieldUsageCountsClass,
     DatasetUsageStatisticsClass,
     DatasetUserUsageCountsClass,
+    TimeWindowSizeClass,
 )
 
 
@@ -74,7 +75,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
     ) -> MetadataWorkUnit:
         usageStats = DatasetUsageStatisticsClass(
             timestampMillis=int(self.bucket_start_time.timestamp() * 1000),
-            eventGranularity=bucket_duration,
+            eventGranularity=TimeWindowSizeClass(unit=bucket_duration, multiple=1),
             uniqueUserCount=len(self.userFreq),
             totalSqlQueries=self.queryCount,
             topSqlQueries=[
@@ -90,7 +91,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
             ],
             fieldCounts=[
                 DatasetFieldUsageCountsClass(
-                    fieldName=column,
+                    fieldPath=column,
                     count=count,
                 )
                 for column, count in self.columnFreq.most_common()

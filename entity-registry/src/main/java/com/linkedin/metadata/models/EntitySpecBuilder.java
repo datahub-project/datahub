@@ -14,8 +14,8 @@ import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.models.annotation.TemporalStatAnnotation;
-import com.linkedin.metadata.models.annotation.TemporalStatCollectionAnnotation;
+import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
+import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -37,10 +37,10 @@ public class EntitySpecBuilder {
       new PegasusSchemaAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _relationshipHandler =
       new PegasusSchemaAnnotationHandlerImpl(RelationshipAnnotation.ANNOTATION_NAME);
-  public static SchemaAnnotationHandler _temporalStatHandler =
-      new PegasusSchemaAnnotationHandlerImpl(TemporalStatAnnotation.ANNOTATION_NAME);
-  public static SchemaAnnotationHandler _temporalStatCollectionHandler =
-      new PegasusSchemaAnnotationHandlerImpl(TemporalStatCollectionAnnotation.ANNOTATION_NAME);
+  public static SchemaAnnotationHandler _timeseriesFiledAnnotationHandler =
+      new PegasusSchemaAnnotationHandlerImpl(TimeseriesFieldAnnotation.ANNOTATION_NAME);
+  public static SchemaAnnotationHandler _timeseriesFieldCollectionHandler =
+      new PegasusSchemaAnnotationHandlerImpl(TimeseriesFieldCollectionAnnotation.ANNOTATION_NAME);
 
   private final AnnotationExtractionMode _extractionMode;
   private final Set<String> _entityNames = new HashSet<>();
@@ -187,19 +187,20 @@ public class EntitySpecBuilder {
       // Capture the list of entity names from relationships extracted.
       _relationshipFieldSpecs.addAll(relationshipFieldSpecExtractor.getSpecs());
 
-      final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedTemporalStatResult =
-          SchemaAnnotationProcessor.process(ImmutableList.of(_temporalStatHandler, _temporalStatCollectionHandler),
+      final SchemaAnnotationProcessor.SchemaAnnotationProcessResult processedTimeseriesFieldResult =
+          SchemaAnnotationProcessor.process(
+              ImmutableList.of(_timeseriesFiledAnnotationHandler, _timeseriesFieldCollectionHandler),
               aspectRecordSchema, new SchemaAnnotationProcessor.AnnotationProcessOption());
 
-      // Extract Temporal Stat / Stat Collection Field Specs
-      final TemporalStatFieldSpecExtractor temporalStatFieldSpecExtractor = new TemporalStatFieldSpecExtractor();
-      final DataSchemaRichContextTraverser temporalStatFieldSpecTraverser =
-          new DataSchemaRichContextTraverser(temporalStatFieldSpecExtractor);
-      temporalStatFieldSpecTraverser.traverse(processedTemporalStatResult.getResultSchema());
+      // Extract TimeseriesField/ TimeseriesFieldCollection Specs
+      final TimeseriesFieldSpecExtractor timeseriesFieldSpecExtractor = new TimeseriesFieldSpecExtractor();
+      final DataSchemaRichContextTraverser timeseriesFieldSpecTraverser =
+          new DataSchemaRichContextTraverser(timeseriesFieldSpecExtractor);
+      timeseriesFieldSpecTraverser.traverse(processedTimeseriesFieldResult.getResultSchema());
 
       return new AspectSpec(aspectAnnotation, searchableFieldSpecExtractor.getSpecs(),
-          relationshipFieldSpecExtractor.getSpecs(), temporalStatFieldSpecExtractor.getTemporalStatFieldSpecs(),
-          temporalStatFieldSpecExtractor.getTemporalStatCollectionFieldSpecs(), aspectRecordSchema);
+          relationshipFieldSpecExtractor.getSpecs(), timeseriesFieldSpecExtractor.getTimeseriesFieldSpecs(),
+          timeseriesFieldSpecExtractor.get_timeseriesFieldCollectionSpecs(), aspectRecordSchema);
     }
 
     failValidation(String.format("Could not build aspect spec for aspect with name %s. Missing @Aspect annotation.",
@@ -248,8 +249,8 @@ public class EntitySpecBuilder {
           return;
         }
       }
-      failValidation(
-          String.format("Aspect %s is of type temporal but does not include TemporalAspectBase", aspectSpec.getName()));
+      failValidation(String.format("Aspect %s is of type timeseries but does not include TimeseriesAspectBase",
+          aspectSpec.getName()));
     }
   }
 

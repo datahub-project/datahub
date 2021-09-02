@@ -20,10 +20,10 @@ import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.CalendarInterval;
-import com.linkedin.timeseries.DateGroupingBucket;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
-import com.linkedin.timeseries.StringGroupingBucket;
+import com.linkedin.timeseries.GroupingBucketType;
+import com.linkedin.timeseries.TimeWindowSize;
 import com.linkedin.usage.FieldUsageCounts;
 import com.linkedin.usage.FieldUsageCountsArray;
 import com.linkedin.usage.UsageAggregation;
@@ -107,24 +107,25 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private UsageAggregationArray getBuckets(@Nonnull Filter filter, @Nonnull String resource,
       @Nonnull WindowDuration duration) {
     // NOTE: We will not populate the per-bucket userCounts and fieldCounts in this implementation because
-    // (a) it is very expensive to compute the un-explode equivalent queries for temporal stat collections, and
+    // (a) it is very expensive to compute the un-explode equivalent queries for timeseries field collections, and
     // (b) the equivalent data for the whole query will anyways be populated in the `aggregations` part of the results
     // (see getAggregations).
 
     // 1. Construct the aggregation specs for latest value of uniqueUserCount, totalSqlQueries & topSqlQueries.
     AggregationSpec uniqueUserCountAgg =
-        new AggregationSpec().setAggregationType(AggregationType.LATEST).setMemberName("uniqueUserCount");
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("uniqueUserCount");
     AggregationSpec totalSqlQueriesAgg =
-        new AggregationSpec().setAggregationType(AggregationType.LATEST).setMemberName("totalSqlQueries");
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("totalSqlQueries");
     AggregationSpec topSqlQueriesAgg =
-        new AggregationSpec().setAggregationType(AggregationType.LATEST).setMemberName("topSqlQueries");
+        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("topSqlQueries");
     AggregationSpec[] aggregationSpecs =
         new AggregationSpec[]{uniqueUserCountAgg, totalSqlQueriesAgg, topSqlQueriesAgg};
 
     // 2. Construct the Grouping buckets with just the ts bucket.
     GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket.setDateGroupingBucket(
-        new DateGroupingBucket().setKey(ES_FIELD_TIMESTAMP).setGranularity(windowToInterval(duration)));
+    timestampBucket.setKey(ES_FIELD_TIMESTAMP)
+        .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+        .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(windowToInterval(duration)));
     GroupingBucket[] groupingBuckets = new GroupingBucket[]{timestampBucket};
 
     // 3. Query
@@ -141,20 +142,28 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       try {
         usageAggregation.setResource(new Urn(resource));
       } catch (URISyntaxException e) {
-        throw new IllegalArgumentException("Invalid resource" + e);
+        throw new IllegalArgumentException("Invalid resource", e);
       }
       UsageAggregationMetrics usageAggregationMetrics = new UsageAggregationMetrics();
       if (!row.get(1).equals(ES_NULL_VALUE)) {
-        usageAggregationMetrics.setUniqueUserCount(Integer.valueOf(row.get(1)));
+        try {
+          usageAggregationMetrics.setUniqueUserCount(Integer.valueOf(row.get(1)));
+        } catch (NumberFormatException e) {
+          throw new IllegalArgumentException("Failed to convert uniqueUserCount from ES to int", e);
+        }
       }
       if (!row.get(2).equals(ES_NULL_VALUE)) {
-        usageAggregationMetrics.setTotalSqlQueries(Integer.valueOf(row.get(2)));
+        try {
+          usageAggregationMetrics.setTotalSqlQueries(Integer.valueOf(row.get(2)));
+        } catch (NumberFormatException e) {
+          throw new IllegalArgumentException("Failed to convert totalSqlQueries from ES to int", e);
+        }
       }
       if (!row.get(3).equals(ES_NULL_VALUE)) {
         try {
           usageAggregationMetrics.setTopSqlQueries(OBJECT_MAPPER.readValue(row.get(3), StringArray.class));
         } catch (JsonProcessingException e) {
-          throw new IllegalArgumentException("Failed to convert topSqlQueries from ES to object" + e);
+          throw new IllegalArgumentException("Failed to convert topSqlQueries from ES to object", e);
         }
       }
       usageAggregation.setMetrics(usageAggregationMetrics);
@@ -167,12 +176,12 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private List<UserUsageCounts> getUserUsageCounts(Filter filter) {
     // Sum aggregation on userCounts.count
     AggregationSpec sumUserCountsCountAggSpec =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setMemberName("userCounts.count");
+        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("userCounts.count");
     AggregationSpec[] aggregationSpecs = new AggregationSpec[]{sumUserCountsCountAggSpec};
 
     // String grouping bucket on userCounts.user
-    GroupingBucket userGroupingBucket = new GroupingBucket();
-    userGroupingBucket.setStringGroupingBucket(new StringGroupingBucket().setKey("userCounts.user"));
+    GroupingBucket userGroupingBucket =
+        new GroupingBucket().setKey("userCounts.user").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
     GroupingBucket[] groupingBuckets = new GroupingBucket[]{userGroupingBucket};
 
     // Query backend
@@ -189,7 +198,11 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         _logger.error("Failed to convert {} to urn. Exception: {}", row.get(0), e);
       }
       if (!row.get(1).equals(ES_NULL_VALUE)) {
-        userUsageCount.setCount(Integer.valueOf(row.get(1)));
+        try {
+          userUsageCount.setCount(Integer.valueOf(row.get(1)));
+        } catch (NumberFormatException e) {
+          throw new IllegalArgumentException("Failed to convert user usage count from ES to int", e);
+        }
       }
       userUsageCounts.add(userUsageCount);
     }
@@ -199,12 +212,12 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private List<FieldUsageCounts> getFieldUsageCounts(Filter filter) {
     // Sum aggregation on fieldCounts.count
     AggregationSpec sumFieldCountAggSpec =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setMemberName("fieldCounts.count");
+        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("fieldCounts.count");
     AggregationSpec[] aggregationSpecs = new AggregationSpec[]{sumFieldCountAggSpec};
 
     // String grouping bucket on fieldCounts.fieldName
-    GroupingBucket userGroupingBucket = new GroupingBucket();
-    userGroupingBucket.setStringGroupingBucket(new StringGroupingBucket().setKey("fieldCounts.fieldName"));
+    GroupingBucket userGroupingBucket =
+        new GroupingBucket().setKey("fieldCounts.fieldName").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
     GroupingBucket[] groupingBuckets = new GroupingBucket[]{userGroupingBucket};
 
     // Query backend
@@ -218,7 +231,11 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       FieldUsageCounts fieldUsageCount = new FieldUsageCounts();
       fieldUsageCount.setFieldName(row.get(0));
       if (!row.get(1).equals(ES_NULL_VALUE)) {
-        fieldUsageCount.setCount(Integer.valueOf(row.get(1)));
+        try {
+          fieldUsageCount.setCount(Integer.valueOf(row.get(1)));
+        } catch (NumberFormatException e) {
+          throw new IllegalArgumentException("Failed to convert field usage count from ES to int", e);
+        }
       }
       fieldUsageCounts.add(fieldUsageCount);
     }

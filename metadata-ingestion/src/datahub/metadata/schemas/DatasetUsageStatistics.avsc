@@ -14,18 +14,35 @@
       "type": [
         "null",
         {
-          "type": "enum",
-          "name": "CalendarInterval",
+          "type": "record",
+          "name": "TimeWindowSize",
           "namespace": "com.linkedin.pegasus2avro.timeseries",
-          "symbols": [
-            "SECOND",
-            "MINUTE",
-            "HOUR",
-            "DAY",
-            "WEEK",
-            "MONTH",
-            "QUARTER",
-            "YEAR"
+          "doc": "Defines the size of a time window.",
+          "fields": [
+            {
+              "name": "unit",
+              "type": {
+                "type": "enum",
+                "name": "CalendarInterval",
+                "symbols": [
+                  "SECOND",
+                  "MINUTE",
+                  "HOUR",
+                  "DAY",
+                  "WEEK",
+                  "MONTH",
+                  "QUARTER",
+                  "YEAR"
+                ]
+              },
+              "doc": "Interval unit such as minute/hour/day etc."
+            },
+            {
+              "name": "multiple",
+              "type": "int",
+              "doc": "How many units. Defaults to 1.",
+              "default": 1
+            }
           ]
         }
       ],
@@ -61,9 +78,9 @@
                       "doc": "Start time as epoch at UTC."
                     },
                     {
-                      "name": "durationMillis",
-                      "type": "long",
-                      "doc": "End time as epoch at UTC."
+                      "name": "length",
+                      "type": "TimeWindowSize",
+                      "doc": "The length of the window."
                     }
                   ]
                 }
@@ -85,7 +102,7 @@
       ],
       "doc": "Unique user count",
       "default": null,
-      "TemporalStat": {}
+      "TimeseriesField": {}
     },
     {
       "name": "totalSqlQueries",
@@ -95,7 +112,7 @@
       ],
       "doc": "Total SQL query count",
       "default": null,
-      "TemporalStat": {}
+      "TimeseriesField": {}
     },
     {
       "name": "topSqlQueries",
@@ -108,7 +125,7 @@
       ],
       "doc": "Frequent SQL queries; mostly makes sense for datasets in SQL databases",
       "default": null,
-      "TemporalStat": {}
+      "TimeseriesField": {}
     },
     {
       "name": "userCounts",
@@ -133,7 +150,7 @@
                 "name": "count",
                 "type": "int",
                 "doc": "Number of times the dataset has been used by the user.",
-                "TemporalStat": {}
+                "TimeseriesField": {}
               },
               {
                 "name": "userEmail",
@@ -143,7 +160,7 @@
                 ],
                 "doc": "If user_email is set, we attempt to resolve the user's urn upon ingest",
                 "default": null,
-                "TemporalStat": {}
+                "TimeseriesField": {}
               }
             ]
           }
@@ -151,7 +168,7 @@
       ],
       "doc": "Users within this bucket, with frequency counts",
       "default": null,
-      "TemporalStatCollection": {
+      "TimeseriesFieldCollection": {
         "key": "user"
       }
     },
@@ -167,7 +184,7 @@
             "doc": "Records field-level usage counts for a given dataset",
             "fields": [
               {
-                "name": "fieldName",
+                "name": "fieldPath",
                 "type": "string",
                 "doc": "The name of the field."
               },
@@ -175,7 +192,7 @@
                 "name": "count",
                 "type": "int",
                 "doc": "Number of times the field has been used.",
-                "TemporalStat": {}
+                "TimeseriesField": {}
               }
             ]
           }
@@ -183,7 +200,7 @@
       ],
       "doc": "Field-level usage stats",
       "default": null,
-      "TemporalStatCollection": {
+      "TimeseriesFieldCollection": {
         "key": "fieldName"
       }
     }

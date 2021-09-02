@@ -2813,12 +2813,12 @@ class DatasetFieldUsageCountsClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetFieldUsageCounts")
     def __init__(self,
-        fieldName: str,
+        fieldPath: str,
         count: int,
     ):
         super().__init__()
         
-        self.fieldName = fieldName
+        self.fieldPath = fieldPath
         self.count = count
     
     @classmethod
@@ -2829,19 +2829,19 @@ class DatasetFieldUsageCountsClass(DictWrapper):
         return self
     
     def _restore_defaults(self) -> None:
-        self.fieldName = str()
+        self.fieldPath = str()
         self.count = int()
     
     
     @property
-    def fieldName(self) -> str:
+    def fieldPath(self) -> str:
         """Getter: The name of the field."""
-        return self._inner_dict.get('fieldName')  # type: ignore
+        return self._inner_dict.get('fieldPath')  # type: ignore
     
-    @fieldName.setter
-    def fieldName(self, value: str) -> None:
+    @fieldPath.setter
+    def fieldPath(self, value: str) -> None:
         """Setter: The name of the field."""
-        self._inner_dict['fieldName'] = value
+        self._inner_dict['fieldPath'] = value
     
     
     @property
@@ -2875,7 +2875,7 @@ class DatasetProfileClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetProfile")
     def __init__(self,
         timestampMillis: int,
-        eventGranularity: Union[None, Union[str, "CalendarIntervalClass"]]=None,
+        eventGranularity: Union[None, "TimeWindowSizeClass"]=None,
         partitionSpec: Union[None, "PartitionSpecClass"]=None,
         rowCount: Union[None, int]=None,
         columnCount: Union[None, int]=None,
@@ -2918,12 +2918,12 @@ class DatasetProfileClass(DictWrapper):
     
     
     @property
-    def eventGranularity(self) -> Union[None, Union[str, "CalendarIntervalClass"]]:
+    def eventGranularity(self) -> Union[None, "TimeWindowSizeClass"]:
         """Getter: Granularity of the event if applicable"""
         return self._inner_dict.get('eventGranularity')  # type: ignore
     
     @eventGranularity.setter
-    def eventGranularity(self, value: Union[None, Union[str, "CalendarIntervalClass"]]) -> None:
+    def eventGranularity(self, value: Union[None, "TimeWindowSizeClass"]) -> None:
         """Setter: Granularity of the event if applicable"""
         self._inner_dict['eventGranularity'] = value
     
@@ -3108,7 +3108,7 @@ class DatasetUsageStatisticsClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataset.DatasetUsageStatistics")
     def __init__(self,
         timestampMillis: int,
-        eventGranularity: Union[None, Union[str, "CalendarIntervalClass"]]=None,
+        eventGranularity: Union[None, "TimeWindowSizeClass"]=None,
         partitionSpec: Union[None, "PartitionSpecClass"]=None,
         uniqueUserCount: Union[None, int]=None,
         totalSqlQueries: Union[None, int]=None,
@@ -3157,12 +3157,12 @@ class DatasetUsageStatisticsClass(DictWrapper):
     
     
     @property
-    def eventGranularity(self) -> Union[None, Union[str, "CalendarIntervalClass"]]:
+    def eventGranularity(self) -> Union[None, "TimeWindowSizeClass"]:
         """Getter: Granularity of the event if applicable"""
         return self._inner_dict.get('eventGranularity')  # type: ignore
     
     @eventGranularity.setter
-    def eventGranularity(self, value: Union[None, Union[str, "CalendarIntervalClass"]]) -> None:
+    def eventGranularity(self, value: Union[None, "TimeWindowSizeClass"]) -> None:
         """Setter: Granularity of the event if applicable"""
         self._inner_dict['eventGranularity'] = value
     
@@ -9307,12 +9307,12 @@ class TimeWindowClass(DictWrapper):
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.timeseries.TimeWindow")
     def __init__(self,
         startTimeMillis: int,
-        durationMillis: int,
+        length: "TimeWindowSizeClass",
     ):
         super().__init__()
         
         self.startTimeMillis = startTimeMillis
-        self.durationMillis = durationMillis
+        self.length = length
     
     @classmethod
     def construct_with_defaults(cls) -> "TimeWindowClass":
@@ -9323,7 +9323,7 @@ class TimeWindowClass(DictWrapper):
     
     def _restore_defaults(self) -> None:
         self.startTimeMillis = int()
-        self.durationMillis = int()
+        self.length = TimeWindowSizeClass.construct_with_defaults()
     
     
     @property
@@ -9338,14 +9338,65 @@ class TimeWindowClass(DictWrapper):
     
     
     @property
-    def durationMillis(self) -> int:
-        """Getter: End time as epoch at UTC."""
-        return self._inner_dict.get('durationMillis')  # type: ignore
+    def length(self) -> "TimeWindowSizeClass":
+        """Getter: The length of the window."""
+        return self._inner_dict.get('length')  # type: ignore
     
-    @durationMillis.setter
-    def durationMillis(self, value: int) -> None:
-        """Setter: End time as epoch at UTC."""
-        self._inner_dict['durationMillis'] = value
+    @length.setter
+    def length(self, value: "TimeWindowSizeClass") -> None:
+        """Setter: The length of the window."""
+        self._inner_dict['length'] = value
+    
+    
+class TimeWindowSizeClass(DictWrapper):
+    """Defines the size of a time window."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.timeseries.TimeWindowSize")
+    def __init__(self,
+        unit: Union[str, "CalendarIntervalClass"],
+        multiple: Optional[int]=None,
+    ):
+        super().__init__()
+        
+        self.unit = unit
+        if multiple is None:
+            # default: 1
+            self.multiple = self.RECORD_SCHEMA.field_map["multiple"].default
+        else:
+            self.multiple = multiple
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "TimeWindowSizeClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.unit = CalendarIntervalClass.SECOND
+        self.multiple = self.RECORD_SCHEMA.field_map["multiple"].default
+    
+    
+    @property
+    def unit(self) -> Union[str, "CalendarIntervalClass"]:
+        """Getter: Interval unit such as minute/hour/day etc."""
+        return self._inner_dict.get('unit')  # type: ignore
+    
+    @unit.setter
+    def unit(self, value: Union[str, "CalendarIntervalClass"]) -> None:
+        """Setter: Interval unit such as minute/hour/day etc."""
+        self._inner_dict['unit'] = value
+    
+    
+    @property
+    def multiple(self) -> int:
+        """Getter: How many units. Defaults to 1."""
+        return self._inner_dict.get('multiple')  # type: ignore
+    
+    @multiple.setter
+    def multiple(self, value: int) -> None:
+        """Setter: How many units. Defaults to 1."""
+        self._inner_dict['multiple'] = value
     
     
 class FieldUsageCountsClass(DictWrapper):
@@ -9790,6 +9841,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.timeseries.CalendarInterval': CalendarIntervalClass,
     'com.linkedin.pegasus2avro.timeseries.PartitionSpec': PartitionSpecClass,
     'com.linkedin.pegasus2avro.timeseries.TimeWindow': TimeWindowClass,
+    'com.linkedin.pegasus2avro.timeseries.TimeWindowSize': TimeWindowSizeClass,
     'com.linkedin.pegasus2avro.usage.FieldUsageCounts': FieldUsageCountsClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregation': UsageAggregationClass,
     'com.linkedin.pegasus2avro.usage.UsageAggregationMetrics': UsageAggregationMetricsClass,
@@ -9962,6 +10014,7 @@ __SCHEMA_TYPES = {
     'CalendarInterval': CalendarIntervalClass,
     'PartitionSpec': PartitionSpecClass,
     'TimeWindow': TimeWindowClass,
+    'TimeWindowSize': TimeWindowSizeClass,
     'FieldUsageCounts': FieldUsageCountsClass,
     'UsageAggregation': UsageAggregationClass,
     'UsageAggregationMetrics': UsageAggregationMetricsClass,

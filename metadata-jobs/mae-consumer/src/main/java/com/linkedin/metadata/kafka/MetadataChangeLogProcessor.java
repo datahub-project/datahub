@@ -119,7 +119,7 @@ public class MetadataChangeLogProcessor {
           GenericAspectUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
               aspectSpec);
       if (aspectSpec.isTimeseries()) {
-        updateTemporalStats(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
+        updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
             event.getSystemMetadata());
       } else {
         updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect);
@@ -188,17 +188,17 @@ public class MetadataChangeLogProcessor {
   /**
    * Process snapshot and update timseries index
    */
-  private void updateTemporalStats(String entityType, String aspectName, Urn urn, RecordTemplate aspect,
+  private void updateTimeseriesFields(String entityType, String aspectName, Urn urn, RecordTemplate aspect,
       AspectSpec aspectSpec, SystemMetadata systemMetadata) {
-    List<JsonNode> documents;
+    Map<String, JsonNode> documents;
     try {
       documents = TimeseriesAspectTransformer.transform(urn, aspect, aspectSpec, systemMetadata);
     } catch (JsonProcessingException e) {
       log.error("Failed to generate timeseries document from aspect: {}", e.toString());
       return;
     }
-    documents.forEach(document -> {
-      _timeseriesAspectService.upsertDocument(entityType, aspectName, document);
+    documents.entrySet().forEach(document -> {
+      _timeseriesAspectService.upsertDocument(entityType, aspectName, document.getKey(), document.getValue());
     });
   }
 }

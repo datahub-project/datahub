@@ -16,7 +16,7 @@ public interface TimeseriesAspectService {
 
   void configure();
 
-  void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull JsonNode document);
+  void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull String docId, @Nonnull JsonNode document);
 
   List<EnvelopedAspect> getAspectValues(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
       @Nullable Long startTimeMillis, Long endTimeMillis, int limit);

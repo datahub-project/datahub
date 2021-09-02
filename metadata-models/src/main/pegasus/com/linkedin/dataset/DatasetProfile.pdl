@@ -10,14 +10,9 @@ import com.linkedin.timeseries.TimeseriesAspectBase
   "type": "timeseries",
 }
 record DatasetProfile includes TimeseriesAspectBase {
-  @TemporalStat = {}
 	rowCount: optional long
 
-  @TemporalStat = {}
 	columnCount: optional long
 
-  @TemporalStatCollection = {
-   "key": "fieldPath"
-  }
 	fieldProfiles: optional array[DatasetFieldProfile]
 }

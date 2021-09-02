@@ -5691,19 +5691,37 @@
         "type": [
           "null",
           {
-            "type": "enum",
-            "name": "CalendarInterval",
+            "type": "record",
+            "name": "TimeWindowSize",
             "namespace": "com.linkedin.pegasus2avro.timeseries",
-            "symbols": [
-              "SECOND",
-              "MINUTE",
-              "HOUR",
-              "DAY",
-              "WEEK",
-              "MONTH",
-              "QUARTER",
-              "YEAR"
-            ]
+            "fields": [
+              {
+                "type": {
+                  "type": "enum",
+                  "name": "CalendarInterval",
+                  "namespace": "com.linkedin.pegasus2avro.timeseries",
+                  "symbols": [
+                    "SECOND",
+                    "MINUTE",
+                    "HOUR",
+                    "DAY",
+                    "WEEK",
+                    "MONTH",
+                    "QUARTER",
+                    "YEAR"
+                  ]
+                },
+                "name": "unit",
+                "doc": "Interval unit such as minute/hour/day etc."
+              },
+              {
+                "type": "int",
+                "name": "multiple",
+                "default": 1,
+                "doc": "How many units. Defaults to 1."
+              }
+            ],
+            "doc": "Defines the size of a time window."
           }
         ],
         "name": "eventGranularity",
@@ -5737,9 +5755,9 @@
                         "doc": "Start time as epoch at UTC."
                       },
                       {
-                        "type": "long",
-                        "name": "durationMillis",
-                        "doc": "End time as epoch at UTC."
+                        "type": "com.linkedin.pegasus2avro.timeseries.TimeWindowSize",
+                        "name": "length",
+                        "doc": "The length of the window."
                       }
                     ]
                   }
@@ -5757,7 +5775,6 @@
         "doc": "The optional partition specification."
       },
       {
-        "TemporalStat": {},
         "type": [
           "null",
           "long"
@@ -5766,7 +5783,6 @@
         "default": null
       },
       {
-        "TemporalStat": {},
         "type": [
           "null",
           "long"
@@ -5775,9 +5791,6 @@
         "default": null
       },
       {
-        "TemporalStatCollection": {
-          "key": "fieldPath"
-        },
         "type": [
           "null",
           {
@@ -5792,7 +5805,6 @@
                   "name": "fieldPath"
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     "long"
@@ -5801,7 +5813,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     "float"
@@ -5810,7 +5821,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     "long"
@@ -5819,7 +5829,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     "float"
@@ -5828,7 +5837,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     "string"
@@ -5837,7 +5845,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     "string"
@@ -5846,7 +5853,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     "string"
@@ -5855,7 +5861,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     "string"
@@ -5864,7 +5869,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     "string"
@@ -5873,7 +5877,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     {
@@ -5899,7 +5902,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     {
@@ -5925,7 +5927,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     {
@@ -5954,7 +5955,6 @@
                   "default": null
                 },
                 {
-                  "TemporalStat": {},
                   "type": [
                     "null",
                     {
@@ -5993,7 +5993,7 @@
       {
         "type": [
           "null",
-          "com.linkedin.pegasus2avro.timeseries.CalendarInterval"
+          "com.linkedin.pegasus2avro.timeseries.TimeWindowSize"
         ],
         "name": "eventGranularity",
         "default": null,
@@ -6009,7 +6009,7 @@
         "doc": "The optional partition specification."
       },
       {
-        "TemporalStat": {},
+        "TimeseriesField": {},
         "type": [
           "null",
           "int"
@@ -6019,7 +6019,7 @@
         "doc": "Unique user count"
       },
       {
-        "TemporalStat": {},
+        "TimeseriesField": {},
         "type": [
           "null",
           "int"
@@ -6029,7 +6029,7 @@
         "doc": "Total SQL query count"
       },
       {
-        "TemporalStat": {},
+        "TimeseriesField": {},
         "type": [
           "null",
           {
@@ -6042,7 +6042,7 @@
         "doc": "Frequent SQL queries; mostly makes sense for datasets in SQL databases"
       },
       {
-        "TemporalStatCollection": {
+        "TimeseriesFieldCollection": {
           "key": "user"
         },
         "type": [
@@ -6063,13 +6063,13 @@
                   "doc": "The unique id of the user."
                 },
                 {
-                  "TemporalStat": {},
+                  "TimeseriesField": {},
                   "type": "int",
                   "name": "count",
                   "doc": "Number of times the dataset has been used by the user."
                 },
                 {
-                  "TemporalStat": {},
+                  "TimeseriesField": {},
                   "type": [
                     "null",
                     "string"
@@ -6088,7 +6088,7 @@
         "doc": "Users within this bucket, with frequency counts"
       },
       {
-        "TemporalStatCollection": {
+        "TimeseriesFieldCollection": {
           "key": "fieldName"
         },
         "type": [
@@ -6102,11 +6102,11 @@
               "fields": [
                 {
                   "type": "string",
-                  "name": "fieldName",
+                  "name": "fieldPath",
                   "doc": "The name of the field."
                 },
                 {
-                  "TemporalStat": {},
+                  "TimeseriesField": {},
                   "type": "int",
                   "name": "count",
                   "doc": "Number of times the field has been used."

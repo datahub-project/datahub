@@ -7,9 +7,11 @@
 from .....schema_classes import CalendarIntervalClass
 from .....schema_classes import PartitionSpecClass
 from .....schema_classes import TimeWindowClass
+from .....schema_classes import TimeWindowSizeClass
 
 
 CalendarInterval = CalendarIntervalClass
 PartitionSpec = PartitionSpecClass
 TimeWindow = TimeWindowClass
+TimeWindowSize = TimeWindowSizeClass
 # fmt: on

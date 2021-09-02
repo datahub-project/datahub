@@ -73,7 +73,7 @@
           "namespace" : "com.linkedin.timeseries",
           "doc" : "Provides the aggregation specification on a member/field.",
           "fields" : [ {
-            "name" : "memberName",
+            "name" : "fieldPath",
             "type" : "string",
             "doc" : "Name of the member/field."
           }, {
@@ -81,19 +81,9 @@
             "type" : {
               "type" : "enum",
               "name" : "AggregationType",
-              "symbols" : [ "LATEST", "SUM", "CARDINALITY", "TOP_HITS" ]
+              "symbols" : [ "LATEST", "SUM", "CARDINALITY" ]
             },
             "doc" : "Aggregation type for the metric."
-          }, {
-            "name" : "k",
-            "type" : "int",
-            "doc" : "Param k for top_hits",
-            "optional" : true
-          }, {
-            "name" : "byMember",
-            "type" : "string",
-            "doc" : "Param by member for top_hits",
-            "optional" : true
           } ]
         }
       },
@@ -104,36 +94,46 @@
       "type" : {
         "type" : "array",
         "items" : {
-          "type" : "typeref",
+          "type" : "record",
           "name" : "GroupingBucket",
           "namespace" : "com.linkedin.timeseries",
           "doc" : "Defines the group by bucket definitions for time series requests.",
-          "ref" : [ {
-            "type" : "record",
-            "name" : "DateGroupingBucket",
-            "doc" : "Defines a time based grouping bucket.",
-            "fields" : [ {
-              "name" : "key",
-              "type" : "string",
-              "doc" : "Key that specifies the column name to be used as the timestamp field for bucketing."
-            }, {
-              "name" : "granularity",
-              "type" : {
-                "type" : "enum",
-                "name" : "CalendarInterval",
-                "symbols" : [ "SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR" ]
-              },
-              "doc" : "Bucket size (like a day/hour etc)."
-            } ]
+          "fields" : [ {
+            "name" : "type",
+            "type" : {
+              "type" : "enum",
+              "name" : "GroupingBucketType",
+              "doc" : "Defines a grouping bucket type.",
+              "symbols" : [ "DATE_GROUPING_BUCKET", "STRING_GROUPING_BUCKET" ]
+            },
+            "doc" : "Type of the grouping bucket."
           }, {
-            "type" : "record",
-            "name" : "StringGroupingBucket",
-            "doc" : "Defines a string grouping bucket.",
-            "fields" : [ {
-              "name" : "key",
-              "type" : "string",
-              "doc" : "Key that specifies the column name to be used for bucketing."
-            } ]
+            "name" : "key",
+            "type" : "string",
+            "doc" : "Key that specifies the column name to be used as the timestamp field for bucketing."
+          }, {
+            "name" : "timeWindowSize",
+            "type" : {
+              "type" : "record",
+              "name" : "TimeWindowSize",
+              "doc" : "Defines the size of a time window.",
+              "fields" : [ {
+                "name" : "unit",
+                "type" : {
+                  "type" : "enum",
+                  "name" : "CalendarInterval",
+                  "symbols" : [ "SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR" ]
+                },
+                "doc" : "Interval unit such as minute/hour/day etc."
+              }, {
+                "name" : "multiple",
+                "type" : "int",
+                "doc" : "How many units. Defaults to 1.",
+                "default" : 1
+              } ]
+            },
+            "doc" : "Bucket size (like a day/hour etc) for the date grouping buckets.",
+            "optional" : true
           } ]
         }
       },
@@ -179,7 +179,7 @@
       "doc" : "When the index was last updated.",
       "optional" : true
     } ]
-  }, "com.linkedin.metadata.query.Condition", "com.linkedin.metadata.query.Criterion", "com.linkedin.metadata.query.Filter", "com.linkedin.timeseries.AggregationSpec", "com.linkedin.timeseries.AggregationType", "com.linkedin.timeseries.CalendarInterval", "com.linkedin.timeseries.DateGroupingBucket", "com.linkedin.timeseries.GenericTable", "com.linkedin.timeseries.GroupingBucket", "com.linkedin.timeseries.StringGroupingBucket" ],
+  }, "com.linkedin.metadata.query.Condition", "com.linkedin.metadata.query.Criterion", "com.linkedin.metadata.query.Filter", "com.linkedin.timeseries.AggregationSpec", "com.linkedin.timeseries.AggregationType", "com.linkedin.timeseries.CalendarInterval", "com.linkedin.timeseries.GenericTable", "com.linkedin.timeseries.GroupingBucket", "com.linkedin.timeseries.GroupingBucketType", "com.linkedin.timeseries.TimeWindowSize" ],
   "schema" : {
     "name" : "analytics",
     "namespace" : "com.linkedin.analytics",

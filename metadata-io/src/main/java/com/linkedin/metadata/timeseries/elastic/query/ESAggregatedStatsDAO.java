@@ -7,18 +7,17 @@ import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.metadata.dao.exception.ESQueryException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.TemporalStatCollectionFieldSpec;
-import com.linkedin.metadata.models.TemporalStatFieldSpec;
-import com.linkedin.metadata.models.annotation.TemporalStatCollectionAnnotation;
+import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
+import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.utils.elasticsearch.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.timeseries.AggregationSpec;
-import com.linkedin.timeseries.CalendarInterval;
-import com.linkedin.timeseries.DateGroupingBucket;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
+import com.linkedin.timeseries.GroupingBucketType;
+import com.linkedin.timeseries.TimeWindowSize;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -58,6 +57,8 @@ public class ESAggregatedStatsDAO {
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
   private static final String ES_KEYWORD_SUFFIX = ".keyword";
   private static final String ES_AGG_TIMESTAMP = ES_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
+  private static final String ES_AGG_MAX_TIMESTAMP =
+      ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
   private static final int MAX_TERM_BUCKETS = 24 * 60; // minutes in a day.
 
   private final IndexConvention _indexConvention;
@@ -91,21 +92,17 @@ public class ESAggregatedStatsDAO {
       case CARDINALITY:
         prefix = "cardinality_";
         break;
-      case TOP_HITS:
-        prefix = "top_" + aggregationSpec.getK() + "_by_" + aggregationSpec.getByMember() + "_";
-        break;
       default:
         throw new IllegalArgumentException("Unknown AggregationSpec type" + aggregationSpec.getAggregationType());
     }
-    return prefix + aggregationSpec.getMemberName();
+    return prefix + aggregationSpec.getFieldPath();
   }
 
   private static String getGroupingBucketAggName(final GroupingBucket groupingBucket) {
-    if (groupingBucket.isDateGroupingBucket()) {
-      return ES_AGG_TIMESTAMP;
+    if (groupingBucket.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
+      return toEsAggName(ES_AGGREGATION_PREFIX + groupingBucket.getKey());
     }
-    return toEsAggName(
-        ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + groupingBucket.getStringGroupingBucket().getKey());
+    return toEsAggName(ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + groupingBucket.getKey());
   }
 
   private static void rowGenHelper(final Aggregations lowestAggs, final int curLevel, final int lastLevel,
@@ -115,42 +112,7 @@ public class ESAggregatedStatsDAO {
       // (Base-case): We are at the lowest level of nested bucket aggregations.
       // Append member aggregation values to the row and add the row to the output.
       for (AggregationSpec aggregationSpec : aggregationSpecs) {
-        String memberAggName = getAggregationSpecAggESName(aggregationSpec);
-        Object memberAgg = lowestAggs.get(memberAggName);
-        DataSchema.Type memberType = getAggregationSpecMemberType(aspectSpec, aggregationSpec);
-        String value = "NULL";
-        if (memberAgg instanceof ParsedBucketMetricValue) {
-          String[] values = ((ParsedBucketMetricValue) memberAgg).keys();
-          if (values.length > 0) {
-            value = values[0];
-            /*
-            if (memberType == DataSchema.Type.ARRAY) {
-              // This gets extra encapsulated with '["' and '"]' by our transformer. Strip it away.
-              assert (value.length() >= 4);
-              value = value.substring(2, value.length() - 2);
-            }
-            */
-          }
-        } else if (memberAgg instanceof ParsedSum) {
-          // Underling integral type.
-          switch (memberType) {
-            case INT:
-            case LONG:
-              value = String.valueOf((long) ((ParsedSum) memberAgg).getValue());
-              break;
-            case DOUBLE:
-            case FLOAT:
-              value = String.valueOf(((ParsedSum) memberAgg).getValue());
-              break;
-            default:
-              throw new IllegalArgumentException("Unexpected type encountered for sum aggregation: " + memberType);
-          }
-        } else if (memberAgg instanceof ParsedCardinality) {
-          // This will always be a long value as string.
-          value = String.valueOf(((ParsedCardinality) memberAgg).getValue());
-        } else {
-          throw new UnsupportedOperationException("Member aggregations other than latest and sum not supported yet.");
-        }
+        String value = extractAggregationValue(lowestAggs, aspectSpec, aggregationSpec);
         row.push(value);
       }
       // We have a full row now. Append it to the output.
@@ -166,14 +128,16 @@ public class ESAggregatedStatsDAO {
       String curGroupingBucketAggName = getGroupingBucketAggName(curGroupingBucket);
       MultiBucketsAggregation nestedMBAgg = lowestAggs.get(curGroupingBucketAggName);
       for (MultiBucketsAggregation.Bucket b : nestedMBAgg.getBuckets()) {
-        if (curGroupingBucket.isDateGroupingBucket()) {
+        if (curGroupingBucket.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
           long curDateValue = ((ZonedDateTime) b.getKey()).toInstant().toEpochMilli();
           row.push(String.valueOf(curDateValue));
         } else {
           row.push(b.getKeyAsString());
         }
+        // Recurse down
         rowGenHelper(b.getAggregations(), curLevel + 1, lastLevel, rows, row, groupingBuckets, aggregationSpecs,
             aspectSpec);
+        // Remove the row value we have added for this level.
         row.pop();
       }
     } else {
@@ -181,92 +145,84 @@ public class ESAggregatedStatsDAO {
     }
   }
 
-  private static DateHistogramInterval getHistogramInterval(DateGroupingBucket dateGroupingBucket) {
-    CalendarInterval granularity = dateGroupingBucket.getGranularity();
-    switch (granularity) {
+  private static DateHistogramInterval getHistogramInterval(TimeWindowSize timeWindowSize) {
+    int multiple = timeWindowSize.getMultiple();
+    switch (timeWindowSize.getUnit()) {
       case MINUTE:
-        return DateHistogramInterval.MINUTE;
+        return DateHistogramInterval.minutes(multiple);
       case HOUR:
-        return DateHistogramInterval.HOUR;
+        return DateHistogramInterval.hours(multiple);
+      case WEEK:
+        return DateHistogramInterval.weeks(multiple);
       case DAY:
-        return DateHistogramInterval.DAY;
+        return DateHistogramInterval.days(multiple);
       case MONTH:
-        return DateHistogramInterval.MONTH;
+        return new DateHistogramInterval(multiple + "M");
       case QUARTER:
-        return DateHistogramInterval.QUARTER;
+        return new DateHistogramInterval(multiple + "q");
       case YEAR:
-        return DateHistogramInterval.YEAR;
+        return new DateHistogramInterval(multiple + "y");
       default:
-        throw new IllegalArgumentException("Unknown date grouping bucking granularity" + granularity);
+        throw new IllegalArgumentException(
+            "Unknown date grouping bucking time window size unit: " + timeWindowSize.getUnit());
     }
   }
 
-  private static DataSchema.Type getTemporalFieldType(AspectSpec aspectSpec, String memberName) {
-    if (memberName == ES_FIELD_TIMESTAMP) {
+  private static DataSchema.Type getTimeseriesFieldType(AspectSpec aspectSpec, String fieldPath) {
+    if (fieldPath.equals(ES_FIELD_TIMESTAMP)) {
       return DataSchema.Type.LONG;
     }
-    String[] memberParts = memberName.split("\\.");
+    String[] memberParts = fieldPath.split("\\.");
     if (memberParts.length == 1) {
-      // Search in the temporalStatFieldSpecs.
-      for (TemporalStatFieldSpec tsFieldSpec : aspectSpec.getTemporalStatFieldSpecs()) {
-        if (tsFieldSpec.getTemporalStatAnnotation().getStatName().equals(memberParts[0])) {
-          return tsFieldSpec.getPegasusSchema().getType();
-        }
+      // Search in the timeseriesFieldSpecs.
+      TimeseriesFieldSpec timeseriesFieldSpec = aspectSpec.getTimeseriesFieldSpecMap().get(memberParts[0]);
+      if (timeseriesFieldSpec != null) {
+        return timeseriesFieldSpec.getPegasusSchema().getType();
       }
       // Could be the collection itself.
-      for (TemporalStatCollectionFieldSpec statCollectionFieldSpec : aspectSpec.getTemporalStatCollectionFieldSpecs()) {
-        TemporalStatCollectionAnnotation tsCollectionAnnotation =
-            statCollectionFieldSpec.getTemporalStatCollectionAnnotation();
-        if (tsCollectionAnnotation.getCollectionName().equals(memberParts[0])) {
-          return statCollectionFieldSpec.getPegasusSchema().getType();
-        }
+      TimeseriesFieldCollectionSpec timeseriesFieldCollectionSpec =
+          aspectSpec.getTimeseriesFieldCollectionSpecMap().get(memberParts[0]);
+      if (timeseriesFieldCollectionSpec != null) {
+        return timeseriesFieldCollectionSpec.getPegasusSchema().getType();
       }
     } else if (memberParts.length == 2) {
       // This is either a collection key/stat.
-      for (TemporalStatCollectionFieldSpec statCollectionFieldSpec : aspectSpec.getTemporalStatCollectionFieldSpecs()) {
-        TemporalStatCollectionAnnotation tsCollectionAnnotation =
-            statCollectionFieldSpec.getTemporalStatCollectionAnnotation();
-        if (tsCollectionAnnotation.getCollectionName().equals(memberParts[0])) {
-          if (tsCollectionAnnotation.getKey().equals(memberParts[1])) {
-            // Matched against key
-            return DataSchema.Type.STRING;
-          }
-          for (TemporalStatFieldSpec tsFieldSpec : statCollectionFieldSpec.getTemporalStats()) {
-            if (tsFieldSpec.getTemporalStatAnnotation().getStatName().equals(memberParts[1])) {
-              // Matched against one of the member stats.
-              return tsFieldSpec.getPegasusSchema().getType();
-            }
-          }
+      TimeseriesFieldCollectionSpec timeseriesFieldCollectionSpec =
+          aspectSpec.getTimeseriesFieldCollectionSpecMap().get(memberParts[0]);
+      if (timeseriesFieldCollectionSpec != null) {
+        if (timeseriesFieldCollectionSpec.getTimeseriesFieldCollectionAnnotation().getKey().equals(memberParts[1])) {
+          // Matched against the collection stat key.
+          return DataSchema.Type.STRING;
+        }
+        TimeseriesFieldSpec tsFieldSpec = timeseriesFieldCollectionSpec.getTimeseriesFieldSpecMap().get(memberParts[1]);
+        if (tsFieldSpec != null) {
+          // Matched against a collection stat field.
+          return tsFieldSpec.getPegasusSchema().getType();
         }
       }
     }
-    throw new IllegalArgumentException("Unknown TemporalStatField or TemportalStatCollectionField: " + memberName);
+    throw new IllegalArgumentException("Unknown TimeseriesField or TimeseriesFieldCollection: " + fieldPath);
   }
 
   private static DataSchema.Type getGroupingBucketKeyType(@Nonnull AspectSpec aspectSpec,
       @Nonnull GroupingBucket groupingBucket) {
-    String key = groupingBucket.isDateGroupingBucket() ? groupingBucket.getDateGroupingBucket().getKey()
-        : groupingBucket.getStringGroupingBucket().getKey();
-    return getTemporalFieldType(aspectSpec, key);
+    return getTimeseriesFieldType(aspectSpec, groupingBucket.getKey());
   }
 
   private static DataSchema.Type getAggregationSpecMemberType(@Nonnull AspectSpec aspectSpec,
       @Nonnull AggregationSpec aggregationSpec) {
-    return getTemporalFieldType(aspectSpec, aggregationSpec.getMemberName());
+    return getTimeseriesFieldType(aspectSpec, aggregationSpec.getFieldPath());
   }
 
   private static List<String> genColumnNames(GroupingBucket[] groupingBuckets, AggregationSpec[] aggregationSpecs) {
-    List<String> groupingBucketNames = Arrays.stream(groupingBuckets)
-        .map(
-            t -> t.isStringGroupingBucket() ? t.getStringGroupingBucket().getKey() : t.getDateGroupingBucket().getKey())
-        .collect(Collectors.toList());
+    List<String> groupingBucketNames = Arrays.stream(groupingBuckets).map(t -> t.getKey()).collect(Collectors.toList());
 
-    List<String> memberNames = Arrays.stream(aggregationSpecs)
+    List<String> aggregationNames = Arrays.stream(aggregationSpecs)
         .map(ESAggregatedStatsDAO::getAggregationSpecAggDisplayName)
         .collect(Collectors.toList());
 
     List<String> columnNames =
-        Stream.concat(groupingBucketNames.stream(), memberNames.stream()).collect(Collectors.toList());
+        Stream.concat(groupingBucketNames.stream(), aggregationNames.stream()).collect(Collectors.toList());
     return columnNames;
   }
 
@@ -285,7 +241,7 @@ public class ESAggregatedStatsDAO {
           break;
         default:
           // All non-numeric are string types for grouping fields.
-          typeStr = DataSchema.Type.STRING.toString().toLowerCase();
+          typeStr = "string";
           break;
       }
       columnTypes.add(typeStr);
@@ -312,6 +268,38 @@ public class ESAggregatedStatsDAO {
       }
     }
     return columnTypes;
+  }
+
+  private static String extractAggregationValue(@Nonnull final Aggregations aggregations,
+      @Nonnull final AspectSpec aspectSpec, @Nonnull final AggregationSpec aggregationSpec) {
+    String memberAggName = getAggregationSpecAggESName(aggregationSpec);
+    Object memberAgg = aggregations.get(memberAggName);
+    DataSchema.Type memberType = getAggregationSpecMemberType(aspectSpec, aggregationSpec);
+    String defaultValue = "NULL";
+    if (memberAgg instanceof ParsedBucketMetricValue) {
+      String[] values = ((ParsedBucketMetricValue) memberAgg).keys();
+      if (values.length > 0) {
+        return values[0];
+      }
+    } else if (memberAgg instanceof ParsedSum) {
+      // Underling integral type.
+      switch (memberType) {
+        case INT:
+        case LONG:
+          return String.valueOf((long) ((ParsedSum) memberAgg).getValue());
+        case DOUBLE:
+        case FLOAT:
+          return String.valueOf(((ParsedSum) memberAgg).getValue());
+        default:
+          throw new IllegalArgumentException("Unexpected type encountered for sum aggregation: " + memberType);
+      }
+    } else if (memberAgg instanceof ParsedCardinality) {
+      // This will always be a long value as string.
+      return String.valueOf(((ParsedCardinality) memberAgg).getValue());
+    } else {
+      throw new UnsupportedOperationException("Member aggregations other than latest and sum not supported yet.");
+    }
+    return defaultValue;
   }
 
   private AspectSpec getTimeseriesAspectSpec(@Nonnull String entityName, @Nonnull String aspectName) {
@@ -372,26 +360,25 @@ public class ESAggregatedStatsDAO {
 
   private void addAggregationBuildersFromAggregationSpec(AspectSpec aspectSpec, AggregationBuilder baseAggregation,
       AggregationSpec aggregationSpec) {
-    String memberName = aggregationSpec.getMemberName();
-    String esFieldName = memberName;
-    if (!isIntegarlType(getAggregationSpecMemberType(aspectSpec, aggregationSpec))) {
+    String fieldPath = aggregationSpec.getFieldPath();
+    String esFieldName = fieldPath;
+    if (!isIntegralType(getAggregationSpecMemberType(aspectSpec, aggregationSpec))) {
       esFieldName += ES_KEYWORD_SUFFIX;
     }
 
     switch (aggregationSpec.getAggregationType()) {
       case LATEST:
         // Construct the terms aggregation with a max timestamp sub-aggregation.
-        String termsAggName = toEsAggName(ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + memberName);
-        String maxAggName = ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
+        String termsAggName = toEsAggName(ES_AGGREGATION_PREFIX + ES_TERMS_AGGREGATION_PREFIX + fieldPath);
         AggregationBuilder termsAgg = AggregationBuilders.terms(termsAggName)
             .field(esFieldName)
             .size(MAX_TERM_BUCKETS)
-            .subAggregation(AggregationBuilders.max(maxAggName).field(ES_FIELD_TIMESTAMP));
+            .subAggregation(AggregationBuilders.max(ES_AGG_MAX_TIMESTAMP).field(ES_FIELD_TIMESTAMP));
         baseAggregation.subAggregation(termsAgg);
         // Construct the max_bucket pipeline aggregation
         MaxBucketPipelineAggregationBuilder maxBucketPipelineAgg =
             PipelineAggregatorBuilders.maxBucket(getAggregationSpecAggESName(aggregationSpec),
-                termsAggName + ">" + maxAggName);
+                termsAggName + ">" + ES_AGG_MAX_TIMESTAMP);
         baseAggregation.subAggregation(maxBucketPipelineAgg);
         break;
       case SUM:
@@ -404,8 +391,6 @@ public class ESAggregatedStatsDAO {
             AggregationBuilders.cardinality(getAggregationSpecAggESName(aggregationSpec)).field(esFieldName);
         baseAggregation.subAggregation(cardinalityAgg);
         break;
-      case TOP_HITS:
-        throw new UnsupportedOperationException("No support for top_hits aggregation yet");
       default:
         throw new IllegalStateException("Unexpected value: " + aggregationSpec.getAggregationType());
     }
@@ -418,20 +403,19 @@ public class ESAggregatedStatsDAO {
     for (int i = 0; i < groupingBuckets.length; ++i) {
       AggregationBuilder curAggregationBuilder = null;
       GroupingBucket curGroupingBucket = groupingBuckets[i];
-      if (curGroupingBucket.isDateGroupingBucket()) {
+      if (curGroupingBucket.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
         // Process the date grouping bucket using 'date-histogram' aggregation.
-        DateGroupingBucket dateGroupingBucket = curGroupingBucket.getDateGroupingBucket();
-        if (!dateGroupingBucket.getKey().equals(ES_FIELD_TIMESTAMP)) {
+        if (!curGroupingBucket.getKey().equals(ES_FIELD_TIMESTAMP)) {
           throw new IllegalArgumentException("Date Grouping bucket is not:" + ES_FIELD_TIMESTAMP);
         }
         curAggregationBuilder = AggregationBuilders.dateHistogram(ES_AGG_TIMESTAMP)
             .field(ES_FIELD_TIMESTAMP)
-            .calendarInterval(getHistogramInterval(groupingBuckets[0].getDateGroupingBucket()));
-      } else if (curGroupingBucket.isStringGroupingBucket()) {
+            .calendarInterval(getHistogramInterval(curGroupingBucket.getTimeWindowSize()));
+      } else if (curGroupingBucket.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
         // Process the string grouping bucket using the 'terms' aggregation.
-        String fieldName = curGroupingBucket.getStringGroupingBucket().getKey();
+        String fieldName = curGroupingBucket.getKey();
         DataSchema.Type fieldType = getGroupingBucketKeyType(aspectSpec, curGroupingBucket);
-        if (!isIntegarlType(fieldType)) {
+        if (!isIntegralType(fieldType)) {
           fieldName += ES_KEYWORD_SUFFIX;
         }
         curAggregationBuilder = AggregationBuilders.terms(getGroupingBucketAggName(curGroupingBucket))
@@ -446,7 +430,7 @@ public class ESAggregatedStatsDAO {
     return lastAggregationBuilder;
   }
 
-  private boolean isIntegarlType(DataSchema.Type fieldType) {
+  private boolean isIntegralType(DataSchema.Type fieldType) {
     switch (fieldType) {
       case INT:
       case FLOAT:
@@ -462,9 +446,11 @@ public class ESAggregatedStatsDAO {
       AggregationSpec[] aggregationSpecs, AspectSpec aspectSpec) {
     GenericTable resultTable = new GenericTable();
 
+    // 1. Generate the column names.
     List<String> columnNames = genColumnNames(groupingBuckets, aggregationSpecs);
     resultTable.setColumnNames(new StringArray(columnNames));
 
+    // 2. Generate the column types.
     List<String> columnTypes = genColumnTypes(aspectSpec, groupingBuckets, aggregationSpecs);
     resultTable.setColumnTypes(new StringArray(columnTypes));
 

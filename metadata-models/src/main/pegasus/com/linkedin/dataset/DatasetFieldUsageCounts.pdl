@@ -7,11 +7,11 @@ record DatasetFieldUsageCounts {
   /**
    * The name of the field.
    */
-  fieldName: string
+  fieldPath: string
 
   /**
    * Number of times the field has been used.
    */
-  @TemporalStat = {}
+  @TimeseriesField = {}
   count: int
 }

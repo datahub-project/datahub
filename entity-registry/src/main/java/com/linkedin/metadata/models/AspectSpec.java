@@ -14,8 +14,8 @@ public class AspectSpec {
   private final AspectAnnotation _aspectAnnotation;
   private final Map<String, SearchableFieldSpec> _searchableFieldSpecs;
   private final Map<String, RelationshipFieldSpec> _relationshipFieldSpecs;
-  private final Map<String, TemporalStatFieldSpec> _temporalStatFieldSpecs;
-  private final Map<String, TemporalStatCollectionFieldSpec> _temporalStatCollectionFieldSpecs;
+  private final Map<String, TimeseriesFieldSpec> _timeseriesFieldSpecs;
+  private final Map<String, TimeseriesFieldCollectionSpec> _timeseriesFieldCollectionSpecs;
 
   // Classpath & Pegasus-specific: Temporary.
   private final RecordDataSchema _schema;
@@ -23,18 +23,20 @@ public class AspectSpec {
   public AspectSpec(@Nonnull final AspectAnnotation aspectAnnotation,
       @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
       @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpecs,
-      @Nonnull final List<TemporalStatFieldSpec> temporalStatFieldSpecs,
-      @Nonnull final List<TemporalStatCollectionFieldSpec> temporalStatCollectionFieldSpecs,
+      @Nonnull final List<TimeseriesFieldSpec> timeseriesFieldSpecs,
+      @Nonnull final List<TimeseriesFieldCollectionSpec> timeseriesFieldCollectionSpecs,
       final RecordDataSchema schema) {
     _aspectAnnotation = aspectAnnotation;
     _searchableFieldSpecs = searchableFieldSpecs.stream()
         .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
     _relationshipFieldSpecs = relationshipFieldSpecs.stream()
         .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
-    _temporalStatFieldSpecs = temporalStatFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
-    _temporalStatCollectionFieldSpecs = temporalStatCollectionFieldSpecs.stream()
-        .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
+    _timeseriesFieldSpecs = timeseriesFieldSpecs.stream()
+        .collect(Collectors.toMap(spec -> spec.getTimeseriesFieldAnnotation().getStatName(), spec -> spec,
+            (val1, val2) -> val1));
+    _timeseriesFieldCollectionSpecs = timeseriesFieldCollectionSpecs.stream()
+        .collect(Collectors.toMap(spec -> spec.getTimeseriesFieldCollectionAnnotation().getCollectionName(), spec -> spec,
+            (val1, val2) -> val1));
     _schema = schema;
   }
 
@@ -54,12 +56,12 @@ public class AspectSpec {
     return _relationshipFieldSpecs;
   }
 
-  public Map<String, TemporalStatFieldSpec> getTemporalStatFieldSpecMap() {
-    return _temporalStatFieldSpecs;
+  public Map<String, TimeseriesFieldSpec> getTimeseriesFieldSpecMap() {
+    return _timeseriesFieldSpecs;
   }
 
-  public Map<String, TemporalStatCollectionFieldSpec> getTemporalStatCollectionFieldSpecMap() {
-    return _temporalStatCollectionFieldSpecs;
+  public Map<String, TimeseriesFieldCollectionSpec> getTimeseriesFieldCollectionSpecMap() {
+    return _timeseriesFieldCollectionSpecs;
   }
 
   public List<SearchableFieldSpec> getSearchableFieldSpecs() {
@@ -70,12 +72,12 @@ public class AspectSpec {
     return new ArrayList<>(_relationshipFieldSpecs.values());
   }
 
-  public List<TemporalStatFieldSpec> getTemporalStatFieldSpecs() {
-    return new ArrayList<>(_temporalStatFieldSpecs.values());
+  public List<TimeseriesFieldSpec> getTimeseriesFieldSpecs() {
+    return new ArrayList<>(_timeseriesFieldSpecs.values());
   }
 
-  public List<TemporalStatCollectionFieldSpec> getTemporalStatCollectionFieldSpecs() {
-    return new ArrayList<>(_temporalStatCollectionFieldSpecs.values());
+  public List<TimeseriesFieldCollectionSpec> getTimeseriesFieldCollectionSpecs() {
+    return new ArrayList<>(_timeseriesFieldCollectionSpecs.values());
   }
 
   public RecordDataSchema getPegasusSchema() {

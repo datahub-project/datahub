@@ -4,5 +4,4 @@ enum AggregationType {
   LATEST
   SUM
   CARDINALITY
-  TOP_HITS
 }

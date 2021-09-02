@@ -11,11 +11,13 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.FieldExtractor;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.TemporalStatCollectionFieldSpec;
-import com.linkedin.metadata.models.TemporalStatFieldSpec;
+import com.linkedin.metadata.models.TimeseriesFieldCollectionSpec;
+import com.linkedin.metadata.models.TimeseriesFieldSpec;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.util.Pair;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.digest.DigestUtils;
 
 
 /**
@@ -35,11 +38,11 @@ public class TimeseriesAspectTransformer {
   private TimeseriesAspectTransformer() {
   }
 
-  public static List<JsonNode> transform(@Nonnull final Urn urn, @Nonnull final RecordTemplate timeseriesAspect,
+  public static Map<String, JsonNode> transform(@Nonnull final Urn urn, @Nonnull final RecordTemplate timeseriesAspect,
       @Nonnull final AspectSpec aspectSpec, @Nullable final SystemMetadata systemMetadata)
       throws JsonProcessingException {
     ObjectNode commonDocument = getCommonDocument(urn, timeseriesAspect, systemMetadata);
-    List<JsonNode> finalDocuments = new ArrayList<>();
+    Map<String, JsonNode> finalDocuments = new HashMap<>();
 
     // NOTE: We keep the `event` and `systemMetadata` only with the aspect-level record.
     ObjectNode document = JsonNodeFactory.instance.objectNode();
@@ -50,16 +53,16 @@ public class TimeseriesAspectTransformer {
       document.set(MappingsBuilder.SYSTEM_METADATA_FIELD,
           OBJECT_MAPPER.readTree(RecordUtils.toJsonString(systemMetadata)));
     }
-    final Map<TemporalStatFieldSpec, List<Object>> temporalStatFields =
-        FieldExtractor.extractFields(timeseriesAspect, aspectSpec.getTemporalStatFieldSpecs());
-    temporalStatFields.forEach((k, v) -> setTemporalStatField(document, k, v));
-    finalDocuments.add(document);
+    final Map<TimeseriesFieldSpec, List<Object>> timeseriesFieldValueMap =
+        FieldExtractor.extractFields(timeseriesAspect, aspectSpec.getTimeseriesFieldSpecs());
+    timeseriesFieldValueMap.forEach((k, v) -> setTimeseriesField(document, k, v));
+    finalDocuments.put(getDocId(document, null), document);
 
     // Create new rows for the member collection fields.
-    final Map<TemporalStatCollectionFieldSpec, List<Object>> temporalStatCollectionFields =
-        FieldExtractor.extractFields(timeseriesAspect, aspectSpec.getTemporalStatCollectionFieldSpecs());
-    temporalStatCollectionFields.forEach(
-        (key, values) -> finalDocuments.addAll(getTemporalStatCollectionDocuments(key, values, commonDocument)));
+    final Map<TimeseriesFieldCollectionSpec, List<Object>> timeseriesFieldCollectionValueMap =
+        FieldExtractor.extractFields(timeseriesAspect, aspectSpec.getTimeseriesFieldCollectionSpecs());
+    timeseriesFieldCollectionValueMap.forEach(
+        (key, values) -> finalDocuments.putAll(getTimeseriesFieldCollectionDocuments(key, values, commonDocument)));
     return finalDocuments;
   }
 
@@ -74,10 +77,14 @@ public class TimeseriesAspectTransformer {
         (Long) timeseriesAspect.data().get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD));
     document.put(MappingsBuilder.TIMESTAMP_MILLIS_FIELD,
         (Long) timeseriesAspect.data().get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD));
+    Object eventGranularity = timeseriesAspect.data().get(MappingsBuilder.EVENT_GRANULARITY);
+    if (eventGranularity != null) {
+      document.put(MappingsBuilder.EVENT_GRANULARITY, eventGranularity.toString());
+    }
     return document;
   }
 
-  private static void setTemporalStatField(final ObjectNode document, final TemporalStatFieldSpec fieldSpec,
+  private static void setTimeseriesField(final ObjectNode document, final TimeseriesFieldSpec fieldSpec,
       List<Object> valueList) {
     if (valueList.size() == 0) {
       return;
@@ -113,32 +120,49 @@ public class TimeseriesAspectTransformer {
     document.set(fieldSpec.getName(), valueNode);
   }
 
-  private static List<JsonNode> getTemporalStatCollectionDocuments(final TemporalStatCollectionFieldSpec fieldSpec,
-      final List<Object> values, final ObjectNode commonDocument) {
+  private static Map<String, JsonNode> getTimeseriesFieldCollectionDocuments(
+      final TimeseriesFieldCollectionSpec fieldSpec, final List<Object> values, final ObjectNode commonDocument) {
     return values.stream()
-        .map(value -> getTemporalStatCollectionDocument(fieldSpec, value, commonDocument))
-        .collect(Collectors.toList());
+        .map(value -> getTimeseriesFieldCollectionDocument(fieldSpec, value, commonDocument))
+        .collect(Collectors.toMap(keyDocPair -> getDocId(keyDocPair.getSecond(), keyDocPair.getFirst()),
+            keyDocPair -> keyDocPair.getSecond()));
   }
 
-  private static ObjectNode getTemporalStatCollectionDocument(final TemporalStatCollectionFieldSpec fieldSpec,
-      final Object value, final ObjectNode temporalInfoDocument) {
+  private static Pair<String, ObjectNode> getTimeseriesFieldCollectionDocument(
+      final TimeseriesFieldCollectionSpec fieldSpec, final Object value, final ObjectNode timeseriesInfoDocument) {
     ObjectNode finalDocument = JsonNodeFactory.instance.objectNode();
-    finalDocument.setAll(temporalInfoDocument);
+    finalDocument.setAll(timeseriesInfoDocument);
     RecordTemplate collectionComponent = (RecordTemplate) value;
     ObjectNode componentDocument = JsonNodeFactory.instance.objectNode();
     Optional<Object> key = RecordUtils.getFieldValue(collectionComponent, fieldSpec.getKeyPath());
     if (!key.isPresent()) {
       throw new IllegalArgumentException(
-          String.format("Key %s for temporal stat collection %s is missing", fieldSpec.getKeyPath(),
+          String.format("Key %s for timeseries collection field %s is missing", fieldSpec.getKeyPath(),
               fieldSpec.getName()));
     }
-    componentDocument.set(fieldSpec.getTemporalStatCollectionAnnotation().getKey(),
+    componentDocument.set(fieldSpec.getTimeseriesFieldCollectionAnnotation().getKey(),
         JsonNodeFactory.instance.textNode(key.get().toString()));
-    Map<TemporalStatFieldSpec, List<Object>> statFields =
-        FieldExtractor.extractFields(collectionComponent, fieldSpec.getTemporalStats());
-    statFields.forEach((k, v) -> setTemporalStatField(componentDocument, k, v));
+    Map<TimeseriesFieldSpec, List<Object>> statFields = FieldExtractor.extractFields(collectionComponent,
+        new ArrayList<>(fieldSpec.getTimeseriesFieldSpecMap().values()));
+    statFields.forEach((k, v) -> setTimeseriesField(componentDocument, k, v));
     finalDocument.set(fieldSpec.getName(), componentDocument);
     finalDocument.set(MappingsBuilder.IS_EXPLODED_FIELD, JsonNodeFactory.instance.booleanNode(true));
-    return finalDocument;
+    // Return the pair of component key and the document. We use the key later to build the unique docId.
+    return new Pair<>(fieldSpec.getTimeseriesFieldCollectionAnnotation().getCollectionName() + key.get(),
+        finalDocument);
+  }
+
+  private static final String getDocId(@Nonnull JsonNode document, String collectionId) {
+    String docId = document.get(MappingsBuilder.TIMESTAMP_MILLIS_FIELD).toString();
+    JsonNode eventGranularity = document.get(MappingsBuilder.EVENT_GRANULARITY);
+    if (eventGranularity != null) {
+      docId += eventGranularity.toString();
+    }
+    docId += document.get(MappingsBuilder.URN_FIELD).toString();
+    if (collectionId != null) {
+      docId += collectionId;
+    }
+
+    return DigestUtils.md5Hex(docId);
   }
 }

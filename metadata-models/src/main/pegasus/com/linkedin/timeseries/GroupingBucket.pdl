@@ -3,7 +3,19 @@ namespace com.linkedin.timeseries
 /**
  * Defines the group by bucket definitions for time series requests.
  */
-typeref GroupingBucket = union[
-  DateGroupingBucket,
-  StringGroupingBucket
-]
+record GroupingBucket {
+  /**
+   * Type of the grouping bucket.
+   */
+  type: GroupingBucketType
+
+  /**
+   * Key that specifies the column name to be used as the timestamp field for bucketing.
+   */
+  key: string
+
+  /**
+   * Bucket size (like a day/hour etc) for the date grouping buckets.
+   */
+  timeWindowSize: optional TimeWindowSize
+}

@@ -32,7 +32,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.elasticsearch.action.bulk.BackoffPolicy;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.index.IndexRequest;
@@ -114,15 +113,9 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull JsonNode document) {
+  public void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull String docId,
+      @Nonnull JsonNode document) {
     String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
-    String docId;
-    try {
-      docId = toDocId(document);
-    } catch (JsonProcessingException e) {
-      log.error("Failed to get document ID for document: {}", document);
-      return;
-    }
     final IndexRequest indexRequest =
         new IndexRequest(indexName).id(docId).source(document.toString(), XContentType.JSON);
     final UpdateRequest updateRequest = new UpdateRequest(indexName, docId).doc(document.toString(), XContentType.JSON)
@@ -173,10 +166,6 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     return Arrays.stream(hits.getHits())
         .map(ElasticSearchTimeseriesAspectService::parseDocument)
         .collect(Collectors.toList());
-  }
-
-  private String toDocId(@Nonnull final JsonNode document) throws JsonProcessingException {
-    return DigestUtils.md5Hex(String.valueOf(document.hashCode()));
   }
 
   @Override

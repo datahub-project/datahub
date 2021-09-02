@@ -14,12 +14,12 @@ record DatasetUserUsageCounts {
   /**
    * Number of times the dataset has been used by the user.
    */
-  @TemporalStat = {}
+  @TimeseriesField = {}
   count: int
 
   /**
    * If user_email is set, we attempt to resolve the user's urn upon ingest
    */
-  @TemporalStat = {}
+  @TimeseriesField = {}
   userEmail: optional string
 }

@@ -7,7 +7,7 @@ record TimeWindow {
   startTimeMillis: long
 
   /**
-   * End time as epoch at UTC.
+   * The length of the window.
    */
-  durationMillis: long
+  length: TimeWindowSize
 }

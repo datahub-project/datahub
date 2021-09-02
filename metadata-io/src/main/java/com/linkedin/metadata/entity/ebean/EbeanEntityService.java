@@ -41,9 +41,7 @@ import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.parseSystemMetadata;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
+import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
 
 
 /**
@@ -418,24 +416,14 @@ public class EbeanEntityService extends EntityService {
         metadataChangeLog.setSystemMetadata(newSystemMetadata);
       }
 
-      log.debug(String.format("Serialized MCL event: %s", metadataChangeLog.toString()));
-      // Since only temporal aspect are ingested as of now, simply produce mae event for it
+      log.debug(String.format("Serialized MCL event: %s", metadataChangeLog));
+      // Since only timeseries aspects are ingested as of now, simply produce mae event for it
       produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
     } else {
       log.debug(
           String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
               metadataChangeProposal.getAspectName(), entityUrn));
     }
-  }
-
-  @Value
-  private static class UpdateAspectResult {
-    Urn urn;
-    RecordTemplate oldValue;
-    RecordTemplate newValue;
-    SystemMetadata oldSystemMetadata;
-    SystemMetadata newSystemMetadata;
-    MetadataAuditOperation operation;
   }
 
   public RollbackResult deleteAspect(String urn, String aspectName, String runId) {
@@ -570,5 +558,15 @@ public class EbeanEntityService extends EntityService {
     }
 
     return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
+  }
+
+  @Value
+  private static class UpdateAspectResult {
+    Urn urn;
+    RecordTemplate oldValue;
+    RecordTemplate newValue;
+    SystemMetadata oldSystemMetadata;
+    SystemMetadata newSystemMetadata;
+    MetadataAuditOperation operation;
   }
 }

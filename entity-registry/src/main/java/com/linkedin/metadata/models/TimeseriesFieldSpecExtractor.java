@@ -6,8 +6,8 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
-import com.linkedin.metadata.models.annotation.TemporalStatAnnotation;
-import com.linkedin.metadata.models.annotation.TemporalStatCollectionAnnotation;
+import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
+import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -17,14 +17,14 @@ import lombok.Getter;
 
 
 /**
- * Implementation of {@link SchemaVisitor} responsible for extracting {@link TemporalStatFieldSpec} and
- * {@link TemporalStatCollectionFieldSpec} from an aspect schema.
+ * Implementation of {@link SchemaVisitor} responsible for extracting {@link TimeseriesFieldSpec} and
+ * {@link TimeseriesFieldCollectionSpec} from an aspect schema.
  */
 @Getter
-public class TemporalStatFieldSpecExtractor implements SchemaVisitor {
+public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
 
-  private final List<TemporalStatFieldSpec> temporalStatFieldSpecs = new ArrayList<>();
-  private final List<TemporalStatCollectionFieldSpec> temporalStatCollectionFieldSpecs = new ArrayList<>();
+  private final List<TimeseriesFieldSpec> timeseriesFieldSpecs = new ArrayList<>();
+  private final List<TimeseriesFieldCollectionSpec> _timeseriesFieldCollectionSpecs = new ArrayList<>();
   private final Map<String, String> namesToPath = new HashMap<>();
 
   @Override
@@ -40,19 +40,19 @@ public class TemporalStatFieldSpecExtractor implements SchemaVisitor {
 
       // First, check for collection in primary properties
       final Map<String, Object> primaryProperties = context.getEnclosingField().getProperties();
-      final Object temporalStatAnnotationObj = primaryProperties.get(TemporalStatAnnotation.ANNOTATION_NAME);
-      final Object temporalStatCollectionAnnotationObj =
-          primaryProperties.get(TemporalStatCollectionAnnotation.ANNOTATION_NAME);
-      if (currentSchema.getType() == DataSchema.Type.RECORD && temporalStatCollectionAnnotationObj != null) {
-        validateCollectionAnnotation(currentSchema, temporalStatCollectionAnnotationObj,
+      final Object timeseriesFieldAnnotationObj = primaryProperties.get(TimeseriesFieldAnnotation.ANNOTATION_NAME);
+      final Object timeseriesFieldCollectionAnnotationObj =
+          primaryProperties.get(TimeseriesFieldCollectionAnnotation.ANNOTATION_NAME);
+      if (currentSchema.getType() == DataSchema.Type.RECORD && timeseriesFieldCollectionAnnotationObj != null) {
+        validateCollectionAnnotation(currentSchema, timeseriesFieldCollectionAnnotationObj,
             context.getTraversePath().toString());
-        addTemporalStatCollectionFieldSpec(currentSchema, path, temporalStatCollectionAnnotationObj);
-      } else if (temporalStatAnnotationObj != null && !path.getPathComponents()
+        addTimeseriesFieldCollectionSpec(currentSchema, path, timeseriesFieldCollectionAnnotationObj);
+      } else if (timeseriesFieldAnnotationObj != null && !path.getPathComponents()
           .get(path.getPathComponents().size() - 1)
           .equals("*")) { // For arrays make sure to add just the array form
-        addTemporalStatFieldSpec(currentSchema, path, temporalStatAnnotationObj);
+        addTimeseriesFieldSpec(currentSchema, path, timeseriesFieldAnnotationObj);
       } else {
-        addTemporalStatCollectionKey(path);
+        addTimeseriesFieldCollectionKey(path);
       }
     }
   }
@@ -68,14 +68,14 @@ public class TemporalStatFieldSpecExtractor implements SchemaVisitor {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
       throw new ModelValidationException(String.format(
           "Failed to validate @%s annotation declared inside %s: Invalid value type provided (Expected Map)",
-          TemporalStatCollectionAnnotation.ANNOTATION_NAME, pathStr));
+          TimeseriesFieldCollectionAnnotation.ANNOTATION_NAME, pathStr));
     }
   }
 
-  private void addTemporalStatCollectionFieldSpec(DataSchema currentSchema, PathSpec path, Object annotationObj) {
+  private void addTimeseriesFieldCollectionSpec(DataSchema currentSchema, PathSpec path, Object annotationObj) {
     if (currentSchema.getType() == DataSchema.Type.RECORD) {
-      TemporalStatCollectionAnnotation annotation =
-          TemporalStatCollectionAnnotation.fromPegasusAnnotationObject(annotationObj,
+      TimeseriesFieldCollectionAnnotation annotation =
+          TimeseriesFieldCollectionAnnotation.fromPegasusAnnotationObject(annotationObj,
               FieldSpecUtils.getSchemaFieldName(path), path.toString());
       if (namesToPath.containsKey(annotation.getCollectionName()) && !namesToPath.get(annotation.getCollectionName())
           .equals(path.toString())) {
@@ -83,36 +83,37 @@ public class TemporalStatFieldSpecExtractor implements SchemaVisitor {
             String.format("There are multiple fields with the same name: %s", annotation.getCollectionName()));
       }
       namesToPath.put(annotation.getCollectionName(), path.toString());
-      temporalStatCollectionFieldSpecs.add(
-          new TemporalStatCollectionFieldSpec(path, annotation, new ArrayList<>(), currentSchema));
+      _timeseriesFieldCollectionSpecs.add(
+          new TimeseriesFieldCollectionSpec(path, annotation, new HashMap<>(), currentSchema));
     }
   }
 
-  private void addTemporalStatFieldSpec(DataSchema currentSchema, PathSpec path, Object annotationObj) {
+  private void addTimeseriesFieldSpec(DataSchema currentSchema, PathSpec path, Object annotationObj) {
     // First check whether the stat is part of a collection
     String pathStr = path.toString();
-    Optional<TemporalStatCollectionFieldSpec> collectionFieldSpec = temporalStatCollectionFieldSpecs.stream()
+    Optional<TimeseriesFieldCollectionSpec> fieldCollectionSpec = _timeseriesFieldCollectionSpecs.stream()
         .filter(spec -> pathStr.startsWith(spec.getPath().toString()))
         .findFirst();
-    TemporalStatAnnotation annotation =
-        TemporalStatAnnotation.fromPegasusAnnotationObject(annotationObj, FieldSpecUtils.getSchemaFieldName(path),
+    TimeseriesFieldAnnotation annotation =
+        TimeseriesFieldAnnotation.fromPegasusAnnotationObject(annotationObj, FieldSpecUtils.getSchemaFieldName(path),
             path.toString());
-    if (collectionFieldSpec.isPresent()) {
-      collectionFieldSpec.get()
-          .getTemporalStats()
-          .add(new TemporalStatFieldSpec(getRelativePath(path, collectionFieldSpec.get().getPath()), annotation,
-              currentSchema));
+    if (fieldCollectionSpec.isPresent()) {
+      fieldCollectionSpec.get()
+          .getTimeseriesFieldSpecMap()
+          .put(annotation.getStatName(),
+              new TimeseriesFieldSpec(getRelativePath(path, fieldCollectionSpec.get().getPath()), annotation,
+                  currentSchema));
     } else {
       if (path.getPathComponents().contains("*")) {
         throw new ModelValidationException(
-            String.format("No matching collection found for the given temporal stat %s", pathStr));
+            String.format("No matching collection found for the given timeseries field %s", pathStr));
       }
-      temporalStatFieldSpecs.add(new TemporalStatFieldSpec(path, annotation, currentSchema));
+      timeseriesFieldSpecs.add(new TimeseriesFieldSpec(path, annotation, currentSchema));
     }
   }
 
-  private void addTemporalStatCollectionKey(PathSpec path) {
-    for (TemporalStatCollectionFieldSpec spec : temporalStatCollectionFieldSpecs) {
+  private void addTimeseriesFieldCollectionKey(PathSpec path) {
+    for (TimeseriesFieldCollectionSpec spec : _timeseriesFieldCollectionSpecs) {
       if (path.toString().equals(spec.getKeyPathFromAnnotation())) {
         spec.setKeyPath(getRelativePath(path, spec.getPath()));
         return;

@@ -9,7 +9,7 @@ record TimeseriesAspectBase {
   /**
    * Granularity of the event if applicable
    */
-  eventGranularity: optional CalendarInterval
+  eventGranularity: optional TimeWindowSize
 
   /**
    * The optional partition specification.

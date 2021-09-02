@@ -6,7 +6,7 @@ namespace com.datahub.test
 record TestEntityComponentProfile {
   key: string
 
-  @TemporalStat = {}
+  @TimeseriesField = {}
   stat: long
 
   strStat: string

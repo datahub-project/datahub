@@ -8,15 +8,15 @@ import lombok.Value;
 
 
 @Value
-public class TemporalStatAnnotation {
+public class TimeseriesFieldAnnotation {
 
-  public static final String ANNOTATION_NAME = "TemporalStat";
+  public static final String ANNOTATION_NAME = "TimeseriesField";
 
   String statName;
   AggregationType aggregationType;
 
   @Nonnull
-  public static TemporalStatAnnotation fromPegasusAnnotationObject(@Nonnull final Object annotationObj,
+  public static TimeseriesFieldAnnotation fromPegasusAnnotationObject(@Nonnull final Object annotationObj,
       @Nonnull final String schemaFieldName, @Nonnull final String context) {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
       throw new ModelValidationException(
@@ -28,7 +28,7 @@ public class TemporalStatAnnotation {
     final Optional<String> statName = AnnotationUtils.getField(map, "name", String.class);
     final Optional<String> aggregationType = AnnotationUtils.getField(map, "aggregationType", String.class);
 
-    return new TemporalStatAnnotation(statName.orElse(schemaFieldName),
+    return new TimeseriesFieldAnnotation(statName.orElse(schemaFieldName),
         aggregationType.map(AggregationType::valueOf).orElse(AggregationType.LATEST));
   }
 

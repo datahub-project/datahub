@@ -7,20 +7,10 @@ record AggregationSpec {
   /**
    * Name of the member/field.
    */
-  memberName: string
+  fieldPath: string
 
   /**
    * Aggregation type for the metric.
    */
   aggregationType: AggregationType
-
-  /**
-   * Param k for top_hits
-   */
-  k: optional int
-
-  /**
-   * Param by member for top_hits
-   */
-  byMember: optional string
 }

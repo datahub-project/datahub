@@ -13,30 +13,30 @@ record DatasetUsageStatistics includes TimeseriesAspectBase {
   /**
    * Unique user count
    */
-  @TemporalStat = {}
+  @TimeseriesField = {}
   uniqueUserCount: optional int
 
   /**
    * Total SQL query count
    */
-  @TemporalStat = {}
+  @TimeseriesField = {}
   totalSqlQueries: optional int
 
   /**
    * Frequent SQL queries; mostly makes sense for datasets in SQL databases
    */
-  @TemporalStat = {}
+  @TimeseriesField = {}
   topSqlQueries: optional array[string]
 
   /**
    * Users within this bucket, with frequency counts
    */
-  @TemporalStatCollection = {"key":"user"}
+  @TimeseriesFieldCollection = {"key":"user"}
   userCounts: optional array[DatasetUserUsageCounts]
 
   /**
    * Field-level usage stats
    */
-  @TemporalStatCollection = {"key":"fieldName"}
+  @TimeseriesFieldCollection = {"key":"fieldName"}
   fieldCounts: optional array[DatasetFieldUsageCounts]
 }
