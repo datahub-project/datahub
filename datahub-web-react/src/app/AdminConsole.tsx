@@ -1,11 +1,25 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu } from 'antd';
+import styled from 'styled-components';
 import { BankOutlined, BarChartOutlined, MenuOutlined } from '@ant-design/icons';
 import Sider from 'antd/lib/layout/Sider';
 import { useGetAuthenticatedUser } from './useGetAuthenticatedUser';
 import { useAppConfig } from './useAppConfig';
 import { ANTD_GRAY } from './entity/shared/constants';
+
+const ToggleContainer = styled.div`
+    background-color: ${ANTD_GRAY[4]};
+    border-top-right-radius: 2px;
+    border-bottom-right-radius: 2px;
+`;
+
+const ControlMenu = styled(Menu)`
+    padding-top: 28px;
+    height: 100%;
+`;
+
+const ControlSlideOut = styled(Sider)``;
 
 /**
  * Container for all views behind an authentication wall.
@@ -35,41 +49,24 @@ export const AdminConsole = (): JSX.Element => {
         }
     };
 
+    const toggleView = (
+        <ToggleContainer style={{}}>
+            <MenuOutlined style={{ color: ANTD_GRAY[9] }} />
+        </ToggleContainer>
+    );
+
     return (
         <>
             {showAdminConsole && (
-                <Sider
+                <ControlSlideOut
                     zeroWidthTriggerStyle={{ top: '90%' }}
                     collapsible
                     collapsed={!adminConsoleOpen}
                     onCollapse={onCollapse}
                     collapsedWidth="0"
-                    trigger={
-                        <div
-                            style={{
-                                backgroundColor: ANTD_GRAY[4],
-                                borderTopRightRadius: 2,
-                                borderBottomRightRadius: 2,
-                            }}
-                        >
-                            <MenuOutlined style={{ color: ANTD_GRAY[9] }} />
-                        </div>
-                    }
-                    style={{
-                        height: '100vh',
-                        position: 'fixed',
-                        left: 0,
-                        zIndex: 10000000,
-                    }}
+                    trigger={toggleView}
                 >
-                    <Menu
-                        selectable={false}
-                        mode="inline"
-                        style={{ paddingTop: 28, height: '100%' }}
-                        onSelect={onMenuItemClick}
-                    >
-                        <br />
-                        <br />
+                    <ControlMenu selectable={false} mode="inline" onSelect={onMenuItemClick}>
                         {showAnalytics && (
                             <Menu.Item key="analytics" icon={<BarChartOutlined />}>
                                 <Link onClick={onMenuItemClick} to="/analytics">
@@ -84,8 +81,8 @@ export const AdminConsole = (): JSX.Element => {
                                 </Link>
                             </Menu.Item>
                         )}
-                    </Menu>
-                </Sider>
+                    </ControlMenu>
+                </ControlSlideOut>
             )}
         </>
     );

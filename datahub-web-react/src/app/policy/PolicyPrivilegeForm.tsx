@@ -1,6 +1,8 @@
 import React from 'react';
 import { Form, Select, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useAppConfig } from '../useAppConfig';
 import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
@@ -20,6 +22,23 @@ type Props = {
     setPrivileges: (newPrivs: Array<string>) => void;
 };
 
+const PrivilegesForm = styled(Form)`
+    margin: 12px;
+    margin-top: 36px;
+    margin-bottom: 40px;
+`;
+
+const SearchResultContainer = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+`;
+
+/**
+ * Component used to construct the "privileges" and "resources" portion of a DataHub
+ * access Policy.
+ */
 export default function PolicyPrivilegeForm({
     policyType,
     resources: maybeResources,
@@ -27,34 +46,45 @@ export default function PolicyPrivilegeForm({
     privileges,
     setPrivileges,
 }: Props) {
-    const [search, { data: searchData, loading: searchLoading }] = useGetSearchResultsLazyQuery();
+    const entityRegistry = useEntityRegistry();
+
+    // Configuration used for displaying options
     const {
         config: { policiesConfig },
     } = useAppConfig();
 
-    const entityRegistry = useEntityRegistry();
-    const assetSearchResults = searchData?.search?.searchResults;
+    // Search for resources
+    const [search, { data: searchData }] = useGetSearchResultsLazyQuery();
+    const resourceSearchResults = searchData?.search?.searchResults;
 
     const resources = maybeResources || EMPTY_POLICY.resources;
+
+    // Whether to show the "resource type" input.
     const showResourceTypeInput = policyType !== PolicyType.Platform;
+
+    // Whether to show the "resource" input.
     const showResourceInput = showResourceTypeInput && resources.type !== '';
+
+    // Whether to show the "privileges" input.
     const showPrivilegesInput =
         policyType === PolicyType.Platform ||
         resources.allResources ||
         (resources.resources && resources.resources?.length > 0);
 
+    // Construct privilege options for dropdown
     const platformPrivileges = policiesConfig?.platformPrivileges || [];
     const resourcePrivileges = policiesConfig?.resourcePrivileges || [];
-
     const privilegeOptions =
         policyType === PolicyType.Platform
             ? platformPrivileges
             : mapResourceTypeToPrivileges(resources.type, resourcePrivileges);
 
+    // Current Select dropdown values
     const resourceTypeSelectValue = resources.type;
     const resourceSelectValue = resources.allResources ? ['All'] : resources.resources || [];
     const privilegesSelectValue = privileges;
 
+    // When a privilege is selected, add its type to the privileges list
     const onSelectPrivilege = (privilege: string) => {
         if (privilege === 'All') {
             setPrivileges(privilegeOptions.map((priv) => priv.type) as never[]);
@@ -64,6 +94,7 @@ export default function PolicyPrivilegeForm({
         }
     };
 
+    // When a privilege is selected, remove its type from the privileges list
     const onDeselectPrivilege = (privilege: string) => {
         let newPrivs;
         if (privilege === 'All') {
@@ -74,14 +105,15 @@ export default function PolicyPrivilegeForm({
         setPrivileges(newPrivs as never[]);
     };
 
-    const onSelectAsset = (asset: string) => {
-        if (asset === 'All') {
+    // When a resource is selected, add its urn to the list of resources
+    const onSelectResource = (resource: string) => {
+        if (resource === 'All') {
             setResources({
                 ...resources,
                 allResources: true,
             });
         } else {
-            const newAssets = [...(resources.resources || []), asset as string];
+            const newAssets = [...(resources.resources || []), resource as string];
             setResources({
                 ...resources,
                 resources: newAssets,
@@ -89,14 +121,15 @@ export default function PolicyPrivilegeForm({
         }
     };
 
-    const onDeselectAsset = (asset: string) => {
-        if (asset === 'All') {
+    // When a resource is deselected, remove its urn from the list of resources
+    const onDeselectResource = (resource: string) => {
+        if (resource === 'All') {
             setResources({
                 ...resources,
                 allResources: false,
             });
         } else {
-            const newAssets = resources.resources?.filter((urn) => urn !== asset);
+            const newAssets = resources.resources?.filter((urn) => urn !== resource);
             setResources({
                 ...resources,
                 resources: newAssets,
@@ -104,12 +137,12 @@ export default function PolicyPrivilegeForm({
         }
     };
 
+    // Handle resource search, if the resource type has an associated EntityType mapping.
     const handleSearch = (event: any) => {
         const maybeEntityType = mapResourceTypeToEntityType(resources.type, resourcePrivileges);
         if (maybeEntityType) {
             const text = event.target.value as string;
             if (text.length > 2) {
-                // Now we search.. notice that permissioned entities need to be searchable.
                 search({
                     variables: {
                         input: {
@@ -124,12 +157,30 @@ export default function PolicyPrivilegeForm({
         }
     };
 
+    const renderSearchResult = (result) => {
+        return (
+            <SearchResultContainer>
+                {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                <Link
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    to={() => `/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
+                >
+                    View
+                </Link>
+            </SearchResultContainer>
+        );
+    };
+
+    const selectedResourceDisplayName =
+        showResourceInput && mapResourceTypeToDisplayName(resources.type, resourcePrivileges);
+
     return (
-        <Form layout="vertical" initialValues={{}} style={{ margin: 12, marginTop: 36, marginBottom: 40 }}>
+        <PrivilegesForm layout="vertical">
             {showResourceTypeInput && (
-                <Form.Item label={<Typography.Text strong>Asset Type</Typography.Text>} labelAlign="right">
+                <Form.Item label={<Typography.Text strong>Resource Type</Typography.Text>} labelAlign="right">
                     <Typography.Paragraph>
-                        Select the specific type of asset this policy should apply to.
+                        Select the specific type of resource this policy should apply to.
                     </Typography.Paragraph>
                     <Select value={resourceTypeSelectValue} onSelect={(type) => setResources({ ...resources, type })}>
                         {resourcePrivileges.map((resPrivs) => {
@@ -143,17 +194,17 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceInput && (
-                <Form.Item label={<Typography.Text strong>Asset</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>Resource</Typography.Text>}>
                     <Typography.Paragraph>
-                        Search for specific assets the policy should apply to, or select <b>All</b> to apply the policy
-                        to all assets of the given type.
+                        Search for specific resources the policy should apply to, or select <b>All</b> to apply the
+                        policy to all resources of the given type.
                     </Typography.Paragraph>
                     <Select
                         value={resourceSelectValue}
                         mode="multiple"
-                        placeholder="Search for data assets..."
-                        onSelect={(asset: any) => onSelectAsset(asset)}
-                        onDeselect={(asset: any) => onDeselectAsset(asset)}
+                        placeholder={`Search for ${selectedResourceDisplayName}...`}
+                        onSelect={(asset: any) => onSelectResource(asset)}
+                        onDeselect={(asset: any) => onDeselectResource(asset)}
                         onInputKeyDown={handleSearch}
                         tagRender={(tagProps) => (
                             <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
@@ -161,65 +212,34 @@ export default function PolicyPrivilegeForm({
                             </Tag>
                         )}
                     >
-                        {assetSearchResults &&
-                            assetSearchResults.map((result) => (
-                                <Select.Option value={result.entity.urn}>
-                                    <div style={{ margin: 12, display: 'flex', justifyContent: 'space-between' }}>
-                                        {entityRegistry.getDisplayName(result.entity.type, result.entity)}
-                                        <Link
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            to={() =>
-                                                `/${entityRegistry.getPathName(result.entity.type)}/${
-                                                    result.entity.urn
-                                                }`
-                                            }
-                                        >
-                                            View
-                                        </Link>
-                                    </div>
-                                </Select.Option>
-                            ))}
-                        {searchLoading && <Select.Option value="loading">Searching...</Select.Option>}
-                        <Select.Option value="All">{`All ${mapResourceTypeToDisplayName(
-                            resources.type,
-                            resourcePrivileges,
-                        )}`}</Select.Option>
+                        {resourceSearchResults?.map((result) => (
+                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                        ))}
+                        <Select.Option value="All">{`All ${selectedResourceDisplayName}`}</Select.Option>
                     </Select>
                 </Form.Item>
             )}
             {showPrivilegesInput && (
-                <>
-                    <Form.Item
-                        label={<Typography.Text strong>Privileges</Typography.Text>}
-                        rules={[
-                            {
-                                required: true,
-                                message: 'Please select your permissions.',
-                                type: 'array',
-                            },
-                        ]}
+                <Form.Item label={<Typography.Text strong>Privileges</Typography.Text>}>
+                    <Typography.Paragraph>Select a set of privileges to permit.</Typography.Paragraph>
+                    <Select
+                        value={privilegesSelectValue}
+                        mode="multiple"
+                        onSelect={(value: string) => onSelectPrivilege(value)}
+                        onDeselect={(value: any) => onDeselectPrivilege(value)}
+                        tagRender={(tagProps) => (
+                            <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                {tagProps.label}
+                            </Tag>
+                        )}
                     >
-                        <Typography.Paragraph>Select a set of privileges to permit.</Typography.Paragraph>
-                        <Select
-                            value={privilegesSelectValue}
-                            mode="multiple"
-                            onSelect={(value: string) => onSelectPrivilege(value)}
-                            onDeselect={(value: any) => onDeselectPrivilege(value)}
-                            tagRender={(tagProps) => (
-                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                    {tagProps.label}
-                                </Tag>
-                            )}
-                        >
-                            {privilegeOptions.map((priv) => (
-                                <Select.Option value={priv.type}>{priv.displayName}</Select.Option>
-                            ))}
-                            <Select.Option value="All">All Privileges</Select.Option>
-                        </Select>
-                    </Form.Item>
-                </>
+                        {privilegeOptions.map((priv) => (
+                            <Select.Option value={priv.type}>{priv.displayName}</Select.Option>
+                        ))}
+                        <Select.Option value="All">All Privileges</Select.Option>
+                    </Select>
+                </Form.Item>
             )}
-        </Form>
+        </PrivilegesForm>
     );
 }

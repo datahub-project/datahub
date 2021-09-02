@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 
 
 /**
- * Responsible for coordinating boot-time checks.
+ * Responsible for coordinating boot-time logic.
  */
 @Slf4j
 @Component
@@ -27,7 +27,7 @@ public class BootstrapManager {
       try {
         step.execute();
       } catch (Exception e) {
-        log.error(String.format("Unhandled exception while executing boot-up step %s. Exiting...", step.name()), e);
+        log.error(String.format("Caught exception while executing bootstrao step %s. Exiting...", step.name()), e);
         System.exit(1);
       }
     }

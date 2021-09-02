@@ -1,15 +1,22 @@
 import React from 'react';
-import { Button, List, Row, Space, Tag, Typography } from 'antd';
+import styled from 'styled-components';
+
+import { Button, List, Space, Tag, Typography } from 'antd';
 import { Policy, PolicyState } from '../../types.generated';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
 type Props = {
     policy: Policy;
     onView: () => void;
 };
 
-const inactiveTextColor = '#808080';
+const inactiveTextColor = ANTD_GRAY[7];
 
-// TODO: Cleanup the styling.
+const PolicyItemContainer = styled.div`
+    display: flex;
+    justify-content: space-between;
+`;
+
 export default function PolicyListItem({ policy, onView }: Props) {
     const isActive = policy.state === PolicyState.Active;
     const isEditable = policy.editable;
@@ -17,7 +24,7 @@ export default function PolicyListItem({ policy, onView }: Props) {
 
     const policyPreview = () => {
         return (
-            <Row justify="space-between" style={{ width: '100%', paddingTop: 20, paddingBottom: 20 }}>
+            <PolicyItemContainer style={{ width: '100%', paddingTop: 20, paddingBottom: 20 }}>
                 <Space direction="vertical" align="start">
                     <Button type="text" style={{ padding: 0 }} onClick={onView}>
                         <Typography.Title level={4} style={{ color: titleColor }}>
@@ -32,7 +39,7 @@ export default function PolicyListItem({ policy, onView }: Props) {
                         {policy.state}
                     </Tag>
                 </Space>
-            </Row>
+            </PolicyItemContainer>
         );
     };
     return <List.Item>{policyPreview()}</List.Item>;

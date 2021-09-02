@@ -1,22 +1,46 @@
 import React from 'react';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ActorFilter, EntityType, PolicyType, SearchResult } from '../../types.generated';
 import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
 
 type Props = {
-    policyType: string; // TODO Move to enum.
+    policyType: PolicyType;
     actors: ActorFilter;
     setActors: (actors: ActorFilter) => void;
 };
 
-export default function PolicyActorForm({ policyType, actors, setActors }: Props) {
-    const [userSearch, { data: userSearchData, loading: userSearchLoading }] = useGetSearchResultsLazyQuery();
-    const [groupSearch, { data: groupSearchData, loading: groupSearchLoading }] = useGetSearchResultsLazyQuery();
+const SearchSelectContainer = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+`;
 
+const ActorForm = styled(Form)`
+    margin: 12px;
+    margin-top: 36px;
+    margin-bottom: 40px;
+`;
+
+const ActorFormHeader = styled.div`
+    margin-bottom: 28px;
+`;
+
+/**
+ * This component is used to construct the "actors" portion of a DataHub
+ * access Policy by populating an ActorFilter object.
+ */
+export default function PolicyActorForm({ policyType, actors, setActors }: Props) {
     const entityRegistry = useEntityRegistry();
 
+    // Search for actors while building policy.
+    const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
+    const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
+
+    // Toggle the "Owners" switch
     const onToggleAppliesToOwners = (value: boolean) => {
         setActors({
             ...actors,
@@ -24,6 +48,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
+    // When a user search result is selected, add the urn to the ActorFilter
     const onSelectUserActor = (newUser: string) => {
         if (newUser === 'All') {
             setActors({
@@ -39,6 +64,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         }
     };
 
+    // When a user search result is deselected, remove the urn from the ActorFilter
     const onDeselectUserActor = (user: string) => {
         if (user === 'All') {
             setActors({
@@ -54,6 +80,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         }
     };
 
+    // When a group search result is selected, add the urn to the ActorFilter
     const onSelectGroupActor = (newGroup: string) => {
         if (newGroup === 'All') {
             setActors({
@@ -69,6 +96,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         }
     };
 
+    // When a group search result is deselected, remove the urn from the ActorFilter
     const onDeselectGroupActor = (group: string) => {
         if (group === 'All') {
             setActors({
@@ -84,6 +112,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         }
     };
 
+    // Invokes the search API as the user types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
         if (text.length > 2) {
             searchQuery({
@@ -99,19 +128,22 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         }
     };
 
+    // Invokes the user search API as the user types
     const handleUserSearch = (event: any) => {
         const text = event.target.value as string;
         return handleSearch(EntityType.CorpUser, text, userSearch);
     };
 
+    // Invokes the group search API as the user types
     const handleGroupSearch = (event: any) => {
         const text = event.target.value as string;
         return handleSearch(EntityType.CorpGroup, text, groupSearch);
     };
 
+    // Renders a search result in the select dropdown.
     const renderSearchResult = (result: SearchResult) => {
         return (
-            <div style={{ padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <SearchSelectContainer>
                 {entityRegistry.getDisplayName(result.entity.type, result.entity)}
                 <Link
                     target="_blank"
@@ -120,23 +152,27 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 >
                     View
                 </Link>{' '}
-            </div>
+            </SearchSelectContainer>
         );
     };
 
-    const userSearchResults = userSearchData?.search?.searchResults;
-    const groupSearchResults = groupSearchData?.search?.searchResults;
+    // Whether to show "owners" switch.
     const showAppliesToOwners = policyType === PolicyType.Metadata;
 
+    // User and group dropdown search results!
+    const userSearchResults = userSearchData?.search?.searchResults;
+    const groupSearchResults = groupSearchData?.search?.searchResults;
+
+    // Select dropdown values.
     const usersSelectValue = actors.allUsers ? ['All'] : actors.users || [];
     const groupsSelectValue = actors.allGroups ? ['All'] : actors.groups || [];
 
     return (
-        <Form layout="vertical" initialValues={{}} style={{ margin: 12, marginTop: 36, marginBottom: 40 }}>
-            <Typography.Title level={4}>Applies to</Typography.Title>
-            <Typography.Paragraph>
-                Select the users & groups that this policy should be applied to.
-            </Typography.Paragraph>
+        <ActorForm layout="vertical">
+            <ActorFormHeader>
+                <Typography.Title level={4}>Applies to</Typography.Title>
+                <Typography.Paragraph>Select the users & groups that this policy should apply to.</Typography.Paragraph>
+            </ActorFormHeader>
             {showAppliesToOwners && (
                 <Form.Item label={<Typography.Text strong>Owners</Typography.Text>} labelAlign="right">
                     <Typography.Paragraph>
@@ -165,11 +201,9 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         </Tag>
                     )}
                 >
-                    {userSearchResults &&
-                        userSearchResults.map((result) => (
-                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                        ))}
-                    {userSearchLoading && <Select.Option value="loading">Searching...</Select.Option>}
+                    {userSearchResults?.map((result) => (
+                        <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                    ))}
                     <Select.Option value="All">All Users</Select.Option>
                 </Select>
             </Form.Item>
@@ -191,14 +225,12 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         </Tag>
                     )}
                 >
-                    {groupSearchResults &&
-                        groupSearchResults.map((result) => (
-                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                        ))}
-                    {groupSearchLoading && <Select.Option value="loading">Searching...</Select.Option>}
+                    {groupSearchResults?.map((result) => (
+                        <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
+                    ))}
                     <Select.Option value="All">All Groups</Select.Option>
                 </Select>
             </Form.Item>
-        </Form>
+        </ActorForm>
     );
 }

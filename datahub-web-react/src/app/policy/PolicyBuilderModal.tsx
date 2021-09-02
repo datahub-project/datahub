@@ -14,31 +14,39 @@ type Props = {
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
 };
 
+/**
+ * Component used for constructing new policies. The purpose of this flow is to populate or edit a Policy
+ * object through a sequence of steps.
+ */
 export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose, onSave }: Props) {
     // Step control-flow.
     const [activeStepIndex, setActiveStepIndex] = useState(0);
 
+    // Go to next step
     const next = () => {
         setActiveStepIndex(activeStepIndex + 1);
     };
 
+    // Go to previous step
     const prev = () => {
         setActiveStepIndex(activeStepIndex - 1);
     };
 
-    const onCreatePolicy = () => {
+    // Save or create a policy
+    const onSavePolicy = () => {
         onSave(policy);
     };
 
+    // Change the type of policy, either Metadata or Platform
     const setPolicyType = (type: PolicyType) => {
-        // Important. If the policy type itself is changing, we need to clear state.
+        // Important: If the policy type itself is changing, we need to clear policy state.
         if (type === PolicyType.Platform) {
             setPolicy({ ...policy, type, resources: EMPTY_POLICY.resources, privileges: [] });
         }
         setPolicy({ ...policy, type, privileges: [] });
     };
 
-    // Step 0.
+    // Step 1: Choose Policy Type
     const typeStep = () => {
         return {
             title: 'Choose Policy Type',
@@ -52,12 +60,14 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                     setPolicyDescription={(description: string) => setPolicy({ ...policy, description })}
                 />
             ),
-            complete: policy.type && policy.name && policy.name.length > 0,
+            complete: policy.type && policy.name && policy.name.length > 0, // Whether the "next" button should appear.
         };
     };
 
-    const privilegeStepContent = () => {
-        return (
+    // Step 2: Select privileges step.
+    const privilegeStep = () => ({
+        title: 'Configure Privileges',
+        content: (
             <PolicyPrivilegeForm
                 policyType={policy.type}
                 resources={policy.resources!}
@@ -65,17 +75,11 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                 privileges={policy.privileges}
                 setPrivileges={(privileges: string[]) => setPolicy({ ...policy, privileges })}
             />
-        );
-    };
-
-    // Step 1.
-    const privilegeStep = () => ({
-        title: 'Configure Privileges',
-        content: privilegeStepContent(),
-        complete: policy.privileges && policy.privileges.length > 0,
+        ),
+        complete: policy.privileges && policy.privileges.length > 0, // Whether the "next" button should appear.
     });
 
-    // Step 2.
+    // Step 3: Assign Actors Step
     const actorStep = () => {
         return {
             title: 'Assign Users & Groups',
@@ -91,13 +95,14 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                     }
                 />
             ),
-            complete: true,
+            complete: true, // Whether the "next" button should appear.
         };
     };
 
     // Construct final set of steps.
     const policySteps = [typeStep(), privilegeStep(), actorStep()];
 
+    // Get active step.
     const activeStep = policySteps[activeStepIndex];
 
     // Whether we're editing or creating a policy.
@@ -105,7 +110,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
 
     return (
         <Modal
-            title={isEditing ? 'Edit a policy' : 'Create a new Policy'}
+            title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
             visible={visible}
             onCancel={onClose}
             closable
@@ -125,7 +130,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                     </Button>
                 )}
                 {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
-                    <Button type="primary" onClick={onCreatePolicy}>
+                    <Button type="primary" onClick={onSavePolicy}>
                         Save
                     </Button>
                 )}

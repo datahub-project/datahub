@@ -37,6 +37,13 @@ const LogoSearchContainer = styled.div`
     flex: 1;
 `;
 
+const NavGroup = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 200px;
+`;
+
 type Props = {
     initialQuery: string;
     placeholderText: string;
@@ -51,13 +58,6 @@ type Props = {
 const defaultProps = {
     authenticatedUserPictureLink: undefined,
 };
-
-const NavGroup = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 200px;
-`;
 
 /**
  * A header containing a Logo, Search Bar view, & an account management dropdown.

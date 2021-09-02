@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Button, Col, Layout, List, message, Modal, Pagination, Row, Typography } from 'antd';
+import React, { useMemo, useState } from 'react';
+import { Button, List, message, Modal, Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { SearchablePage } from '../search/SearchablePage';
@@ -16,6 +16,22 @@ import {
 import { Message } from '../shared/Message';
 import { EMPTY_POLICY } from './policyUtils';
 
+const PoliciesContainer = styled.div`
+    padding: 40px;
+    padding-left: 120px;
+    padding-right: 120px;
+`;
+
+const PoliciesTitle = styled(Typography.Title)`
+    && {
+        margin-bottom: 24px;
+    }
+`;
+
+const NewPolicyButton = styled(Button)`
+    margin-bottom: 16px;
+`;
+
 const PolicyList = styled(List)`
     &&& {
         width: 100%;
@@ -26,7 +42,12 @@ const PolicyList = styled(List)`
     }
 `;
 
-const DEFAULT_PAGE_SIZE = 5;
+const PaginationContainer = styled.div`
+    display: flex;
+    justify-content: center;
+`;
+
+const DEFAULT_PAGE_SIZE = 10;
 
 const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyInput => {
     let policyInput: PolicyInput = {
@@ -60,12 +81,16 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyInput => {
 // TODO: Cleanup the styling.
 export const PoliciesPage = () => {
     const [page, setPage] = useState(1);
+
+    // Controls whether the editing and details view modals are active.
     const [showPolicyBuilderModal, setShowPolicyBuilderModal] = useState(false);
     const [showViewPolicyModal, setShowViewPolicyModal] = useState(false);
 
+    // Focused policy represents a policy being actively viewed, edited, created via a popup modal.
     const [focusPolicyUrn, setFocusPolicyUrn] = useState<undefined | string>(undefined);
     const [focusPolicy, setFocusPolicy] = useState<Omit<Policy, 'urn'>>(EMPTY_POLICY);
 
+    // Policy list paging.
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
@@ -78,22 +103,25 @@ export const PoliciesPage = () => {
         variables: { input: { start, count: pageSize } },
     });
 
+    const listPoliciesQuery = 'listPolicies';
+
+    // Any time a policy is removed, edited, or created, refetch the list.
     const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation({
-        refetchQueries: () => ['listPolicies'],
+        refetchQueries: () => [listPoliciesQuery],
     });
 
     const [updatePolicy, { error: updatePolicyError }] = useUpdatePolicyMutation({
-        refetchQueries: () => ['listPolicies'],
+        refetchQueries: () => [listPoliciesQuery],
     });
 
     const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation({
-        refetchQueries: () => ['listPolicies'],
+        refetchQueries: () => [listPoliciesQuery],
     });
 
     const updateError = createPolicyError || updatePolicyError || deletePolicyError;
 
     const totalPolicies = policiesData?.listPolicies?.total || 0;
-    const policies = policiesData?.listPolicies?.policies || [];
+    const policies = useMemo(() => policiesData?.listPolicies?.policies || [], [policiesData]);
 
     const onChangePage = (newPage: number) => {
         setPage(newPage);
@@ -124,20 +152,18 @@ export const PoliciesPage = () => {
     };
 
     const onRemovePolicy = () => {
-        if (focusPolicyUrn) {
-            Modal.confirm({
-                title: `Delete ${focusPolicy.name}`,
-                content: `Are you sure you want to remove policy?`,
-                onOk() {
-                    deletePolicy({ variables: { urn: focusPolicyUrn } });
-                    onCancelViewPolicy();
-                },
-                onCancel() {},
-                okText: 'Yes',
-                maskClosable: true,
-                closable: true,
-            });
-        }
+        Modal.confirm({
+            title: `Delete ${focusPolicy.name}`,
+            content: `Are you sure you want to remove policy?`,
+            onOk() {
+                deletePolicy({ variables: { urn: focusPolicyUrn as string } }); // There must be a focus policy urn.
+                onCancelViewPolicy();
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
     };
 
     const onEditPolicy = () => {
@@ -146,32 +172,25 @@ export const PoliciesPage = () => {
     };
 
     const onToggleActive = () => {
-        if (focusPolicyUrn) {
-            const newPolicy = {
-                ...focusPolicy,
-                state: focusPolicy?.state === PolicyState.Active ? PolicyState.Inactive : PolicyState.Active,
-            };
-            updatePolicy({
-                variables: {
-                    urn: focusPolicyUrn,
-                    input: toPolicyInput(newPolicy),
-                },
-            });
-            setShowViewPolicyModal(false);
-        }
-    };
-
-    const setPolicy = (policy: Omit<Policy, 'urn'>) => {
-        setFocusPolicy({
+        const newPolicy = {
             ...focusPolicy,
-            ...policy,
+            state: focusPolicy?.state === PolicyState.Active ? PolicyState.Inactive : PolicyState.Active,
+        };
+        updatePolicy({
+            variables: {
+                urn: focusPolicyUrn as string, // There must be a focus policy urn.
+                input: toPolicyInput(newPolicy),
+            },
         });
+        setShowViewPolicyModal(false);
     };
 
     const onSavePolicy = (savePolicy: Omit<Policy, 'urn'>) => {
         if (focusPolicyUrn) {
+            // If there's an URN associated with the focused policy, then we are editing an existing policy.
             updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } });
         } else {
+            // If there's no URN associated with the focused policy, then we are creating.
             createPolicy({ variables: { input: toPolicyInput(savePolicy) } });
         }
         message.success('Successfully saved policy.');
@@ -182,56 +201,50 @@ export const PoliciesPage = () => {
         <SearchablePage>
             {policiesLoading && <Message type="loading" content="Loading your policies..." />}
             {policiesError && message.error('Failed to load your Policies :(')}
-            {updateError && message.error('Failed to update the policy :(')}
-            <Layout style={{ padding: 40 }}>
-                <Row justify="center">
-                    <Col sm={24} md={24} lg={20} xl={20}>
-                        <Typography.Title level={2} style={{ marginBottom: 24 }}>
-                            Your Policies
-                        </Typography.Title>
-                        <Button onClick={onClickNewPolicy} style={{ marginBottom: 16 }} data-testid="add-policy-button">
-                            + New Policy
-                        </Button>
-                        <PolicyList
-                            bordered
-                            dataSource={policies}
-                            renderItem={(item: unknown) => (
-                                <PolicyListItem policy={item as Policy} onView={() => onViewPolicy(item as Policy)} />
-                            )}
-                        />
-                        {showPolicyBuilderModal && (
-                            <PolicyBuilderModal
-                                policy={focusPolicy || EMPTY_POLICY}
-                                setPolicy={setPolicy}
-                                visible={showPolicyBuilderModal}
-                                onClose={onClosePolicyBuilder}
-                                onSave={onSavePolicy}
-                            />
-                        )}
-                        {showViewPolicyModal && (
-                            <PolicyDetailsModal
-                                policy={focusPolicy}
-                                visible={showViewPolicyModal}
-                                onEdit={onEditPolicy}
-                                onClose={onCancelViewPolicy}
-                                onRemove={onRemovePolicy}
-                                onToggleActive={onToggleActive}
-                            />
-                        )}
-                        <div style={{ justifyContent: 'center', display: 'flex' }}>
-                            <Pagination
-                                style={{ margin: 40 }}
-                                current={page}
-                                pageSize={pageSize}
-                                total={totalPolicies}
-                                showLessItems
-                                onChange={onChangePage}
-                                showSizeChanger={false}
-                            />
-                        </div>
-                    </Col>
-                </Row>
-            </Layout>
+            {updateError && message.error('Failed to update the Policy :(')}
+            <PoliciesContainer>
+                <PoliciesTitle level={2}>Your Policies</PoliciesTitle>
+                <NewPolicyButton onClick={onClickNewPolicy} data-testid="add-policy-button">
+                    + New Policy
+                </NewPolicyButton>
+                <PolicyList
+                    bordered
+                    dataSource={policies}
+                    renderItem={(item: unknown) => (
+                        <PolicyListItem policy={item as Policy} onView={() => onViewPolicy(item as Policy)} />
+                    )}
+                />
+                <PaginationContainer>
+                    <Pagination
+                        style={{ margin: 40 }}
+                        current={page}
+                        pageSize={pageSize}
+                        total={totalPolicies}
+                        showLessItems
+                        onChange={onChangePage}
+                        showSizeChanger={false}
+                    />
+                </PaginationContainer>
+            </PoliciesContainer>
+            {showPolicyBuilderModal && (
+                <PolicyBuilderModal
+                    policy={focusPolicy || EMPTY_POLICY}
+                    setPolicy={setFocusPolicy}
+                    visible={showPolicyBuilderModal}
+                    onClose={onClosePolicyBuilder}
+                    onSave={onSavePolicy}
+                />
+            )}
+            {showViewPolicyModal && (
+                <PolicyDetailsModal
+                    policy={focusPolicy}
+                    visible={showViewPolicyModal}
+                    onEdit={onEditPolicy}
+                    onClose={onCancelViewPolicy}
+                    onRemove={onRemovePolicy}
+                    onToggleActive={onToggleActive}
+                />
+            )}
         </SearchablePage>
     );
 };
