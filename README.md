@@ -5,7 +5,7 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
 export const Logo = (props) => {
   const siteConfig = useDocusaurusContext().siteConfig;
-  return (
+  return (GmsGraphQLEngine.java
     <div style={{display: "flex"}}>
       <ThemedImage
         alt="DataHub Logo"

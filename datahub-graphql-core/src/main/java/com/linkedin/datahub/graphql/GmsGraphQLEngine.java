@@ -736,9 +736,15 @@ public class GmsGraphQLEngine {
             .type("MLModelProperties", typeWiring -> typeWiring
                 .dataFetcher("groups", new AuthenticatedResolver<>(
                     new LoadableTypeBatchResolver<>(mlModelGroupType,
-                        (env) -> ((MLModelProperties) env.getSource()).getGroups().stream()
-                            .map(MLModelGroup::getUrn)
-                            .collect(Collectors.toList())))
+                        (env) -> {
+                            MLModelProperties properties = env.getSource();
+                            if (properties.getGroups() != null) {
+                                return properties.getGroups().stream()
+                                    .map(MLModelGroup::getUrn)
+                                    .collect(Collectors.toList());
+                            }
+                            return null;
+                        }))
                 )
             )
             .type("MLModelGroup", typeWiring -> typeWiring
