@@ -10,8 +10,6 @@ public class ResourceSpec {
   public ResourceSpec(
       @Nonnull final String type,
       @Nonnull final String resource // urn:li:dataset:(123)
-      // final String domain
-      // final String platform - or an additional attributes bag.
   ) {
     _type = type;
     _resource = resource;

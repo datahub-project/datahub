@@ -93,7 +93,6 @@ public class PolicyEngineTest {
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
     resourceFilter.setAllResources(true);
-    resourceFilter.setResources(new UrnArray());
     resourceFilter.setType("dataset");
     dataHubPolicyInfo.setResources(resourceFilter);
 
@@ -673,8 +672,8 @@ public class PolicyEngineTest {
     resourceFilter.setAllResources(false);
     resourceFilter.setType("dataset");
 
-    UrnArray resourceUrns = new UrnArray();
-    resourceUrns.add(Urn.createFromString(RESOURCE_URN)); // Filter applies to specific resource.
+    StringArray resourceUrns = new StringArray();
+    resourceUrns.add(RESOURCE_URN); // Filter applies to specific resource.
     resourceFilter.setResources(resourceUrns);
     dataHubPolicyInfo.setResources(resourceFilter);
 
@@ -714,8 +713,8 @@ public class PolicyEngineTest {
     resourceFilter.setAllResources(false);
     resourceFilter.setType("dataset");
 
-    UrnArray resourceUrns = new UrnArray();
-    resourceUrns.add(Urn.createFromString(RESOURCE_URN)); // Filter applies to specific resource.
+    StringArray resourceUrns = new StringArray();
+    resourceUrns.add(RESOURCE_URN); // Filter applies to specific resource.
     resourceFilter.setResources(resourceUrns);
     dataHubPolicyInfo.setResources(resourceFilter);
 

@@ -1,9 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataflow;
 
-import com.datahub.metadata.authorization.AuthorizationRequest;
-import com.datahub.metadata.authorization.AuthorizationResult;
-import com.datahub.metadata.authorization.Authorizer;
-import com.datahub.metadata.authorization.ResourceSpec;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import com.linkedin.common.urn.CorpuserUrn;
@@ -11,6 +8,9 @@ import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -46,7 +46,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -180,60 +179,37 @@ public class DataFlowType implements SearchableEntityType<DataFlow>, BrowsableEn
 
     private boolean isAuthorized(@Nonnull DataFlowUpdateInput update, @Nonnull QueryContext context) {
         // Decide whether the current principal should be allowed to update the Dataset.
-        // First, check what is being updated.
-        final Authorizer authorizer = context.getAuthorizer();
-        final String principal = context.getActor();
-        final String resourceUrn = update.getUrn();
-        final String resourceType = PoliciesConfig.DATA_FLOW_PRIVILEGES.getResourceType();
-        final List<List<String>> requiredPrivileges = getRequiredPrivileges(update);
-        final ResourceSpec resourceSpec = new ResourceSpec(resourceType, resourceUrn);
-
-        for (List<String> privilegeGroup : requiredPrivileges) {
-            if (isAuthorized(principal, privilegeGroup, resourceSpec, authorizer)) {
-                return true;
-            }
-        }
-        return false;
+        final DisjunctivePrivilegeGroup orPrivilegeGroups = getAuthorizedPrivileges(update);
+        return AuthorizationUtils.isAuthorized(
+            context.getAuthorizer(),
+            context.getActor(),
+            PoliciesConfig.DATA_FLOW_PRIVILEGES.getResourceType(),
+            update.getUrn(),
+            orPrivilegeGroups);
     }
 
-    private boolean isAuthorized(
-        String principal,
-        List<String> privilegeGroup,
-        ResourceSpec resourceSpec,
-        Authorizer authorizer) {
-        // Each privilege in a group _must_ all be true to permit the operation.
-        for (final String privilege : privilegeGroup) {
-            // No "partial" operations. All privileges required for the update must be granted for it to succeed.
-            final AuthorizationRequest request = new AuthorizationRequest(principal, privilege, Optional.of(resourceSpec));
-            final AuthorizationResult result = authorizer.authorize(request);
-            if (AuthorizationResult.Type.DENY.equals(result.getType())) {
-                // Short circuit.
-                return false;
-            }
-        }
-        return true;
-    }
+    private DisjunctivePrivilegeGroup getAuthorizedPrivileges(final DataFlowUpdateInput updateInput) {
 
-    private List<List<String>> getRequiredPrivileges(final DataFlowUpdateInput updateInput) {
-        List<List<String>> orPrivileges = new ArrayList<>();
+        final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+        ));
 
-        List<String> allEntityPrivileges = new ArrayList<>();
-        allEntityPrivileges.add(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType());
-
-        List<String> andPrivileges = new ArrayList<>();
+        List<String> specificPrivileges = new ArrayList<>();
         if (updateInput.getOwnership() != null) {
-            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
         }
         if (updateInput.getEditableProperties() != null) {
-            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType());
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType());
         }
         if (updateInput.getGlobalTags() != null) {
-            andPrivileges.add(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType());
+            specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType());
         }
+        final ConjunctivePrivilegeGroup specificPrivilegeGroup = new ConjunctivePrivilegeGroup(specificPrivileges);
 
-        // If either set of privileges are all true, permit the operation.
-        orPrivileges.add(allEntityPrivileges);
-        orPrivileges.add(andPrivileges);
-        return orPrivileges;
+        // If you either have all entity privileges, or have the specific privileges required, you are authorized.
+        return new DisjunctivePrivilegeGroup(ImmutableList.of(
+            allPrivilegesGroup,
+            specificPrivilegeGroup
+        ));
     }
 }

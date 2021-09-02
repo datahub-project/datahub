@@ -40,7 +40,7 @@ public class PolicyEngine {
 
   public PolicyEvaluationResult evaluatePolicy(
       final DataHubPolicyInfo policy,
-      final String principal,
+      final String actor,
       final String privilege,
       final Optional<ResourceSpec> resource) {
 
@@ -62,7 +62,7 @@ public class PolicyEngine {
     }
 
     // If the actor does not match, deny the request.
-    if (!isActorMatch(principal, policy.getActors(), resource, context)) {
+    if (!isActorMatch(actor, policy.getActors(), resource, context)) {
       return PolicyEvaluationResult.DENIED;
     }
 
@@ -101,7 +101,7 @@ public class PolicyEngine {
         policyResourceFilter.isAllResources()
             || (policyResourceFilter.hasResources() && Objects.requireNonNull(policyResourceFilter.getResources())
         .stream()
-        .anyMatch(resource -> resource.toString().equals(resourceSpec.getResource())));
+        .anyMatch(resource -> resource.equals(resourceSpec.getResource())));
     // If the resource's type and identity match, then the resource matches the policy.
     return resourceTypesMatch && resourceIdentityMatch;
   }
@@ -110,36 +110,36 @@ public class PolicyEngine {
    * Returns true if the actor portion of a DataHub policy matches a the actor being evaluated, false otherwise.
    */
   private boolean isActorMatch(
-      final String principal,
+      final String actor,
       final DataHubActorFilter actorFilter,
       final Optional<ResourceSpec> resourceSpec,
       final PolicyEvaluationContext context) {
 
-    // 1. If the principal is a matching "User" in the actor filter, return true immediately.
-     if (isUserMatch(principal, actorFilter)) {
+    // 1. If the actor is a matching "User" in the actor filter, return true immediately.
+     if (isUserMatch(actor, actorFilter)) {
        return true;
      }
 
-    // 2. If the principal is in a matching "Group" in the actor filter, return true immediately.
-    if (isGroupMatch(principal, actorFilter, context)) {
+    // 2. If the actor is in a matching "Group" in the actor filter, return true immediately.
+    if (isGroupMatch(actor, actorFilter, context)) {
       return true;
     }
 
-    // 3. If the principal is the owner, either directly or indirectly via a group, return true
-    return isOwnerMatch(principal, actorFilter, resourceSpec, context);
+    // 3. If the actor is the owner, either directly or indirectly via a group, return true
+    return isOwnerMatch(actor, actorFilter, resourceSpec, context);
   }
 
-  private boolean isUserMatch(final String principal, final DataHubActorFilter actorFilter) {
-    // If the principal is a matching "User" in the actor filter, return true immediately.
+  private boolean isUserMatch(final String actor, final DataHubActorFilter actorFilter) {
+    // If the actor is a matching "User" in the actor filter, return true immediately.
     return actorFilter.isAllUsers() || (actorFilter.hasUsers() && Objects.requireNonNull(actorFilter.getUsers())
         .stream()
-        .anyMatch(user -> user.toString().equals(principal)));
+        .anyMatch(user -> user.toString().equals(actor)));
   }
 
-  private boolean isGroupMatch(final String principal, final DataHubActorFilter actorFilter, final PolicyEvaluationContext context) {
-    // If the principal is in a matching "Group" in the actor filter, return true immediately.
+  private boolean isGroupMatch(final String actor, final DataHubActorFilter actorFilter, final PolicyEvaluationContext context) {
+    // If the actor is in a matching "Group" in the actor filter, return true immediately.
     if (actorFilter.isAllGroups() || actorFilter.hasGroups()) {
-      final Set<String> groups = resolveGroups(principal, context);
+      final Set<String> groups = resolveGroups(actor, context);
       return actorFilter.isAllGroups() || (actorFilter.hasGroups() && Objects.requireNonNull(actorFilter.getGroups())
           .stream()
           .anyMatch(groupUrn -> groups.contains(groupUrn.toString())));
@@ -149,7 +149,7 @@ public class PolicyEngine {
   }
 
   private boolean isOwnerMatch(
-      final String principal,
+      final String actor,
       final DataHubActorFilter actorFilter,
       final Optional<ResourceSpec> requestResource,
       final PolicyEvaluationContext context) {
@@ -173,11 +173,11 @@ public class PolicyEngine {
 
       final Ownership ownership = aspect.getAspect().getOwnership();
 
-      if (isUserOwner(principal, ownership)) {
+      if (isUserOwner(actor, ownership)) {
         return true;
       }
 
-      final Set<String> groups = resolveGroups(principal, context);
+      final Set<String> groups = resolveGroups(actor, context);
       if (isGroupOwner(groups, ownership)) {
         return true;
       }
@@ -188,15 +188,15 @@ public class PolicyEngine {
     return false;
   }
 
-  private boolean isUserOwner(String principal, Ownership ownership) {
-    return ownership.getOwners().stream().anyMatch(owner -> principal.equals(owner.getOwner().toString()));
+  private boolean isUserOwner(String actor, Ownership ownership) {
+    return ownership.getOwners().stream().anyMatch(owner -> actor.equals(owner.getOwner().toString()));
   }
 
   private boolean isGroupOwner(Set<String> groups, Ownership ownership) {
     return ownership.getOwners().stream().anyMatch(owner -> groups.contains(owner.getOwner().toString()));
   }
 
-  private Set<String> resolveGroups(String principal, PolicyEvaluationContext context) {
+  private Set<String> resolveGroups(String actor, PolicyEvaluationContext context) {
 
     if (context.groups != null) {
       return context.groups;
@@ -204,13 +204,13 @@ public class PolicyEngine {
 
     Set<String> groups = new HashSet<>();
     try {
-      Urn urn = Urn.createFromString(principal);
+      Urn urn = Urn.createFromString(actor);
       Optional<GroupMembership> maybeGroups = resolveGroupMembership(urn);
       maybeGroups.ifPresent(groupMembership -> groupMembership.getGroups().forEach(groupUrn -> groups.add(groupUrn.toString())));
       context.setGroups(groups); // Cache the groups.
       return groups;
     } catch (URISyntaxException e) {
-      log.error(String.format("Failed to bind principal %s to an URN. Denying the authorization request", principal));
+      log.error(String.format("Failed to bind actor %s to an URN. Denying the authorization request", actor));
       return Collections.emptySet();
     }
   }

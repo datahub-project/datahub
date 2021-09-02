@@ -67,10 +67,7 @@ public class PolicyInputInfoMapper implements ModelMapper<PolicyInput, DataHubPo
     result.setType(resourceInput.getType());
     result.setAllResources(resourceInput.getAllResources());
     if (resourceInput.getResources() != null) {
-      result.setResources(new UrnArray(resourceInput.getResources()
-          .stream()
-          .map(this::createUrn)
-          .collect(Collectors.toList())));
+      result.setResources(new StringArray(resourceInput.getResources()));
     }
     return result;
   }

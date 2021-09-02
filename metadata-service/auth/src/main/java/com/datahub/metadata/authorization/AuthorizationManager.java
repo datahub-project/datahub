@@ -95,7 +95,7 @@ public class AuthorizationManager implements Authorizer {
   private boolean isRequestGranted(final DataHubPolicyInfo policy, final AuthorizationRequest request) {
     final PolicyEngine.PolicyEvaluationResult result = _policyEngine.evaluatePolicy(
         policy,
-        request.principal(),
+        request.actor(),
         request.privilege(),
         request.resourceSpec()
     );

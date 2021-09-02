@@ -69,10 +69,7 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
       result.setType(resourceFilter.getType());
     }
     if (resourceFilter.hasResources()) {
-      result.setResources(resourceFilter.getResources()
-          .stream()
-          .map(Urn::toString)
-          .collect(Collectors.toList()));
+      result.setResources(resourceFilter.getResources());
     }
     return result;
   }

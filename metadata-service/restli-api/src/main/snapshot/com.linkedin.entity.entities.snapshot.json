@@ -2027,7 +2027,7 @@
                     "name" : "pictureLink",
                     "type" : "com.linkedin.common.Url",
                     "doc" : "A URL which points to a picture which user wants to set as a profile photo",
-                    "default" : "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"
+                    "default" : "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
@@ -4208,9 +4208,9 @@
                         "name" : "resources",
                         "type" : {
                           "type" : "array",
-                          "items" : "com.linkedin.common.Urn"
+                          "items" : "string"
                         },
-                        "doc" : "A specific set of resources to apply the policy to",
+                        "doc" : "A specific set of resources to apply the policy to, e.g. asset urns",
                         "optional" : true
                       }, {
                         "name" : "allResources",

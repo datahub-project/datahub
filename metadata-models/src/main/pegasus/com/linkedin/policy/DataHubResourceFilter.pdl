@@ -15,9 +15,9 @@ record DataHubResourceFilter {
   type: optional string
 
   /**
-   * A specific set of resources to apply the policy to
+   * A specific set of resources to apply the policy to, e.g. asset urns
    */
-  resources: optional array[Urn]
+  resources: optional array[string]
 
   /**
    * Whether the policy should be applied to all assets matching the filter.
