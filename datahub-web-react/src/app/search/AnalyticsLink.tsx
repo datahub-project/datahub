@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Typography, Tag } from 'antd';
+import { Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
