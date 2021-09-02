@@ -14,7 +14,6 @@ import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -40,7 +39,22 @@ public class PolicyEngine {
 
   public PolicyEvaluationResult evaluatePolicy(
       final DataHubPolicyInfo policy,
-      final String actor,
+      final String actorStr,
+      final String privilege,
+      final Optional<ResourceSpec> resource) {
+    try {
+      // Currently Actor must be an urn. Consider whether this contract should be pushed up.
+      final Urn actor = Urn.createFromString(actorStr);
+      return evaluatePolicy(policy, actor, privilege, resource);
+    } catch (URISyntaxException e) {
+      log.error(String.format("Failed to bind actor %s to an URN. Actors must be URNs. Denying the authorization request", actorStr));
+      return PolicyEvaluationResult.DENIED;
+    }
+  }
+
+  public PolicyEvaluationResult evaluatePolicy(
+      final DataHubPolicyInfo policy,
+      final Urn actor,
       final String privilege,
       final Optional<ResourceSpec> resource) {
 
@@ -110,7 +124,7 @@ public class PolicyEngine {
    * Returns true if the actor portion of a DataHub policy matches a the actor being evaluated, false otherwise.
    */
   private boolean isActorMatch(
-      final String actor,
+      final Urn actor,
       final DataHubActorFilter actorFilter,
       final Optional<ResourceSpec> resourceSpec,
       final PolicyEvaluationContext context) {
@@ -129,27 +143,27 @@ public class PolicyEngine {
     return isOwnerMatch(actor, actorFilter, resourceSpec, context);
   }
 
-  private boolean isUserMatch(final String actor, final DataHubActorFilter actorFilter) {
+  private boolean isUserMatch(final Urn actor, final DataHubActorFilter actorFilter) {
     // If the actor is a matching "User" in the actor filter, return true immediately.
     return actorFilter.isAllUsers() || (actorFilter.hasUsers() && Objects.requireNonNull(actorFilter.getUsers())
         .stream()
-        .anyMatch(user -> user.toString().equals(actor)));
+        .anyMatch(user -> user.equals(actor)));
   }
 
-  private boolean isGroupMatch(final String actor, final DataHubActorFilter actorFilter, final PolicyEvaluationContext context) {
+  private boolean isGroupMatch(final Urn actor, final DataHubActorFilter actorFilter, final PolicyEvaluationContext context) {
     // If the actor is in a matching "Group" in the actor filter, return true immediately.
     if (actorFilter.isAllGroups() || actorFilter.hasGroups()) {
-      final Set<String> groups = resolveGroups(actor, context);
+      final Set<Urn> groups = resolveGroups(actor, context);
       return actorFilter.isAllGroups() || (actorFilter.hasGroups() && Objects.requireNonNull(actorFilter.getGroups())
           .stream()
-          .anyMatch(groupUrn -> groups.contains(groupUrn.toString())));
+          .anyMatch(groups::contains));
     }
     // If there are no groups on the policy, return false for the group match.
     return false;
   }
 
   private boolean isOwnerMatch(
-      final String actor,
+      final Urn actor,
       final DataHubActorFilter actorFilter,
       final Optional<ResourceSpec> requestResource,
       final PolicyEvaluationContext context) {
@@ -177,7 +191,7 @@ public class PolicyEngine {
         return true;
       }
 
-      final Set<String> groups = resolveGroups(actor, context);
+      final Set<Urn> groups = resolveGroups(actor, context);
       if (isGroupOwner(groups, ownership)) {
         return true;
       }
@@ -188,37 +202,31 @@ public class PolicyEngine {
     return false;
   }
 
-  private boolean isUserOwner(String actor, Ownership ownership) {
-    return ownership.getOwners().stream().anyMatch(owner -> actor.equals(owner.getOwner().toString()));
+  private boolean isUserOwner(Urn actor, Ownership ownership) {
+    return ownership.getOwners().stream().anyMatch(owner -> actor.equals(owner.getOwner()));
   }
 
-  private boolean isGroupOwner(Set<String> groups, Ownership ownership) {
-    return ownership.getOwners().stream().anyMatch(owner -> groups.contains(owner.getOwner().toString()));
+  private boolean isGroupOwner(Set<Urn> groups, Ownership ownership) {
+    return ownership.getOwners().stream().anyMatch(owner -> groups.contains(owner.getOwner()));
   }
 
-  private Set<String> resolveGroups(String actor, PolicyEvaluationContext context) {
+  private Set<Urn> resolveGroups(Urn actor, PolicyEvaluationContext context) {
 
     if (context.groups != null) {
       return context.groups;
     }
 
-    Set<String> groups = new HashSet<>();
-    try {
-      Urn urn = Urn.createFromString(actor);
-      Optional<GroupMembership> maybeGroups = resolveGroupMembership(urn);
-      maybeGroups.ifPresent(groupMembership -> groupMembership.getGroups().forEach(groupUrn -> groups.add(groupUrn.toString())));
-      context.setGroups(groups); // Cache the groups.
-      return groups;
-    } catch (URISyntaxException e) {
-      log.error(String.format("Failed to bind actor %s to an URN. Denying the authorization request", actor));
-      return Collections.emptySet();
-    }
+    Set<Urn> groups = new HashSet<>();
+    Optional<GroupMembership> maybeGroups = resolveGroupMembership(actor);
+    maybeGroups.ifPresent(groupMembership -> groups.addAll(groupMembership.getGroups()));
+    context.setGroups(groups); // Cache the groups.
+    return groups;
   }
 
   // TODO: Optimization - Cache the group membership. Refresh periodically.
-  private Optional<GroupMembership> resolveGroupMembership(final Urn urn) {
+  private Optional<GroupMembership> resolveGroupMembership(final Urn actor) {
     try {
-      final CorpUserSnapshot corpUser = _entityClient.get(urn, SYSTEM_ACTOR).getValue().getCorpUserSnapshot();
+      final CorpUserSnapshot corpUser = _entityClient.get(actor, SYSTEM_ACTOR).getValue().getCorpUserSnapshot();
       for (CorpUserAspect aspect : corpUser.getAspects()) {
         if (aspect.isGroupMembership()) {
           // Found group membership.
@@ -227,7 +235,7 @@ public class PolicyEngine {
       }
 
     } catch (RemoteInvocationException e) {
-      throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", urn), e);
+      throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", actor), e);
     }
     return Optional.empty();
   }
@@ -236,8 +244,8 @@ public class PolicyEngine {
    * Class used to store state across a single Policy evaluation.
    */
   static class PolicyEvaluationContext {
-    private Set<String> groups;
-    public void setGroups(Set<String> groups) {
+    private Set<Urn> groups;
+    public void setGroups(Set<Urn> groups) {
       this.groups = groups;
     }
   }
