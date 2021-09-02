@@ -116,7 +116,7 @@ export default function DefaultPreviewCard({
                     <TitleContainer>
                         <PlatformInfo>
                             {logoComponent}
-                            {!!logoUrl && <PreviewImage preview={false} src={logoUrl} placeholder alt={platform} />}
+                            {!!logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform} />}
                             <PlatformText>{platform}</PlatformText>
                             <PlatformDivider />
                             <PlatformText>{type}</PlatformText>
