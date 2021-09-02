@@ -10,12 +10,12 @@ import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.restli.RestliUtils;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.util.GenericAspectUtils;
-import com.linkedin.metadata.utils.mxe.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
@@ -37,6 +37,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.resources.ResourceUtils.*;
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
@@ -145,7 +146,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     }
 
     final List<MetadataChangeProposal> additionalChanges = new ArrayList<>();
-    final Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal);
+
+    final Urn urn = EntityKeyUtils.getUrnFromProposal(
+        metadataChangeProposal,
+        _entityService.getKeyAspectSpec(metadataChangeProposal.getEntityType()));
 
     // TODO: Run these in parallel.
 
@@ -166,13 +170,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
   private MetadataChangeProposal getKeyAspectProposal(Urn urn, MetadataChangeProposal original) {
     final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(urn);
-    final RecordTemplate keyAspect = _entityService.getAspect(urn, keyAspectSpec.getName(), EntityService.LATEST_ASPECT_VERSION);
+    final RecordTemplate keyAspect = _entityService.getAspect(urn, keyAspectSpec.getName(), ASPECT_LATEST_VERSION);
     if (keyAspect == null) {
       try {
         MetadataChangeProposal keyAspectProposal = original.copy();
         GenericAspect aspect = GenericAspectUtils.serializeAspect(
-            com.linkedin.metadata.models.EntityKeyUtils.convertUrnToEntityKey(
-                urn, keyAspectSpec.getPegasusSchema()));
+            EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec.getPegasusSchema()));
         keyAspectProposal.setAspect(aspect);
         keyAspectProposal.setAspectName(keyAspectSpec.getName());
         return keyAspectProposal;
@@ -188,7 +191,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final EntitySpec entitySpec = _entityService.getEntityRegistry().getEntitySpec(urn.getEntityType());
     if (entitySpec.hasAspect(browsePathsAspectName)) {
       final RecordTemplate browsePathAspect =
-          _entityService.getAspect(urn, browsePathsAspectName, EntityService.LATEST_ASPECT_VERSION);
+          _entityService.getAspect(urn, browsePathsAspectName, ASPECT_LATEST_VERSION);
       if (browsePathAspect == null) {
         try {
           MetadataChangeProposal browsePathProposal = original.copy();

@@ -9,13 +9,13 @@ import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntityKeyUtils;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -36,8 +36,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.PegasusUtils.getDataTemplateClassFromSchema;
-import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -76,7 +77,6 @@ public abstract class EntityService {
    * As described above, the latest version of an aspect should <b>always</b> take the value 0, with
    * monotonically increasing version incrementing as usual once the latest version is replaced.
    */
-  public static final long LATEST_ASPECT_VERSION = 0;
 
   private final EntityEventProducer _producer;
   private final EntityRegistry _entityRegistry;
@@ -252,7 +252,7 @@ public abstract class EntityService {
 
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {
     log.debug(String.format("Invoked getLatestAspect with urn %s, aspect %s", urn, aspectName));
-    return getAspect(urn, aspectName, LATEST_ASPECT_VERSION);
+    return getAspect(urn, aspectName, ASPECT_LATEST_VERSION);
   }
 
   public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp,
@@ -347,7 +347,11 @@ public abstract class EntityService {
   }
 
   public AspectSpec getKeyAspectSpec(@Nonnull final Urn urn) {
-    final EntitySpec spec = _entityRegistry.getEntitySpec(urnToEntityName(urn));
+    return getKeyAspectSpec(urnToEntityName(urn));
+  }
+
+  public AspectSpec getKeyAspectSpec(@Nonnull final String entityName) {
+    final EntitySpec spec = _entityRegistry.getEntitySpec(entityName);
     return spec.getKeyAspectSpec();
   }
 

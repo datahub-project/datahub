@@ -1,9 +1,10 @@
-package com.linkedin.metadata.models;
+package com.linkedin.metadata.utils;
 
 import com.datahub.test.KeyPartEnum;
 import com.datahub.test.TestEntityKey;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 import static org.testng.Assert.*;
 
@@ -33,6 +34,6 @@ public class EntityKeyUtilsTest {
     expectedKey.setKeyPart3(KeyPartEnum.VALUE_1);
 
     final RecordTemplate actualKey = EntityKeyUtils.convertUrnToEntityKey(urn, expectedKey.schema());
-    assertEquals(actualKey.data(), expectedKey.data());
+    Assert.assertEquals(actualKey.data(), expectedKey.data());
   }
 }

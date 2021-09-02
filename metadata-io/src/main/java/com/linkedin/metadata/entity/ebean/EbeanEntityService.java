@@ -21,8 +21,8 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
-import com.linkedin.metadata.util.GenericAspectUtils;
-import com.linkedin.metadata.utils.mxe.EntityKeyUtils;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -43,6 +43,7 @@ import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.ebean.EbeanUtils.parseSystemMetadata;
 import static com.linkedin.metadata.entity.ebean.EbeanUtils.toAspectRecord;
 import static com.linkedin.metadata.entity.ebean.EbeanUtils.toJsonAspect;
@@ -79,7 +80,7 @@ public class EbeanEntityService extends EntityService {
     final Set<EbeanAspectV2.PrimaryKey> dbKeys = urns.stream().map(urn -> {
       final Set<String> aspectsToFetch = aspectNames.isEmpty() ? getEntityAspectNames(urn) : aspectNames;
       return aspectsToFetch.stream()
-          .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, LATEST_ASPECT_VERSION))
+          .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
           .collect(Collectors.toList());
     }).flatMap(List::stream).collect(Collectors.toSet());
 
@@ -346,23 +347,7 @@ public class EbeanEntityService extends EntityService {
     EntitySpec entitySpec = getEntityRegistry().getEntitySpec(metadataChangeProposal.getEntityType());
     log.debug("entity spec = {}", entitySpec);
 
-    Urn entityUrn = null;
-
-    if (metadataChangeProposal.hasEntityKeyAspect()) {
-      RecordTemplate keyAspect = GenericAspectUtils.deserializeAspect(metadataChangeProposal.getEntityKeyAspect().getValue(),
-          metadataChangeProposal.getEntityKeyAspect().getContentType(), entitySpec.getKeyAspectSpec());
-      entityUrn = com.linkedin.metadata.models.EntityKeyUtils.convertEntityKeyToUrn(keyAspect, entitySpec.getName());
-    } else {
-      entityUrn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal);
-    }
-
-    // Validate Key
-    try {
-      com.linkedin.metadata.models.EntityKeyUtils.convertUrnToEntityKey(entityUrn, entitySpec.getKeyAspectSpec().getPegasusSchema());
-    } catch (RuntimeException re) {
-      log.warn("Failed to validate key {}", entityUrn);
-      throw new RuntimeException("Failed to validate key", re);
-    }
+    Urn entityUrn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal, entitySpec.getKeyAspectSpec());
 
     if (metadataChangeProposal.getChangeType() != ChangeType.UPSERT) {
       throw new UnsupportedOperationException("Only upsert operation is supported");

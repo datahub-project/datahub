@@ -1,9 +1,12 @@
-package com.linkedin.metadata.models;
+package com.linkedin.metadata.utils;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.MetadataChangeProposal;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -12,11 +15,50 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 public class EntityKeyUtils {
 
   private EntityKeyUtils() {
+  }
+
+  @Nonnull
+  public static Urn getUrnFromProposal(MetadataChangeProposal metadataChangeProposal, AspectSpec keyAspectSpec) {
+    if (metadataChangeProposal.hasEntityUrn()) {
+      Urn urn = metadataChangeProposal.getEntityUrn();
+      // Validate Urn
+      try {
+        EntityKeyUtils.convertUrnToEntityKey(urn, keyAspectSpec.getPegasusSchema());
+      } catch (RuntimeException re) {
+        log.warn("Failed to validate key {}", urn);
+        throw new RuntimeException("Failed to validate key", re);
+      }
+      return urn;
+    }
+    if (metadataChangeProposal.hasEntityKeyAspect()) {
+      RecordTemplate keyAspectRecord = GenericAspectUtils.deserializeAspect(
+              metadataChangeProposal.getAspect().getValue(),
+              metadataChangeProposal.getAspect().getContentType(),
+              keyAspectSpec);
+      return EntityKeyUtils.convertEntityKeyToUrn(keyAspectRecord, metadataChangeProposal.getEntityType());
+    }
+    throw new IllegalArgumentException("One of urn and keyAspect must be set");
+  }
+
+  @Nonnull
+  public static Urn getUrnFromLog(MetadataChangeLog metadataChangeLog) {
+    if (metadataChangeLog.hasEntityUrn() && metadataChangeLog.hasEntityKeyAspect()) {
+      throw new IllegalArgumentException("Urn and keyAspect cannot both be set");
+    }
+    if (metadataChangeLog.hasEntityUrn()) {
+      return metadataChangeLog.getEntityUrn();
+    }
+    if (metadataChangeLog.hasEntityKeyAspect()) {
+      throw new UnsupportedOperationException("Identifying entity with key aspect is not yet supported");
+    }
+    throw new IllegalArgumentException("One of urn and keyAspect must be set");
   }
 
   /**

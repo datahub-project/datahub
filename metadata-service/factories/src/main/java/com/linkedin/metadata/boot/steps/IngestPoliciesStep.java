@@ -9,7 +9,8 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.util.GenericAspectUtils;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -57,7 +58,7 @@ public class IngestPoliciesStep implements BootstrapStep {
       final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
       final AspectSpec keyAspectSpec = _entityService.getKeyAspectSpec(urn);
       GenericAspect aspect = GenericAspectUtils.serializeAspect(
-          com.linkedin.metadata.models.EntityKeyUtils.convertUrnToEntityKey(
+          EntityKeyUtils.convertUrnToEntityKey(
               urn, keyAspectSpec.getPegasusSchema()));
       keyAspectProposal.setAspect(aspect);
       keyAspectProposal.setAspectName(keyAspectSpec.getName());

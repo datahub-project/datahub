@@ -9,8 +9,7 @@ import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInputInfoMapp
 import com.linkedin.entity.client.AspectClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.key.DataHubPolicyKey;
-import com.linkedin.metadata.models.EntityKeyUtils;
-import com.linkedin.metadata.util.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
 import graphql.schema.DataFetcher;
@@ -56,7 +55,7 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
         // Create the Policy key.
         final DataHubPolicyKey key = new DataHubPolicyKey();
         key.setId(uuidStr);
-        proposal.setEntityUrn(EntityKeyUtils.convertEntityKeyToUrn(key, POLICY_ENTITY_NAME));
+        proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
       }
 
       // Create the policy info.

@@ -1,8 +1,7 @@
-package com.linkedin.metadata.util;
+package com.linkedin.metadata.utils;
 
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.mxe.GenericAspect;
