@@ -24,7 +24,7 @@ insert into metadata_aspect (urn, aspect, version, metadata, createdon, createdb
   'urn:li:corpuser:datahub',
   'com.linkedin.identity.CorpUserEditableInfo',
   0,
-  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"}',
+  '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"}',
   now(),
   'urn:li:principal:datahub'
 );
@@ -88,6 +88,22 @@ INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_addr
 INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (4, 'Company D', 'Lee', 'Christina', NULL);
 INSERT INTO `customers` (`id`, `company`, `last_name`, `first_name`, `email_address`) VALUES (5, 'Company E', 'Donnell', 'Martin', NULL);
 # 5 records
+
+-- -----------------------------------------------------
+-- Schema for testing different scenarios
+-- -----------------------------------------------------
+
+DROP SCHEMA IF EXISTS `test_cases` ;
+CREATE SCHEMA IF NOT EXISTS `test_cases` DEFAULT CHARACTER SET latin1 ;
+USE `test_cases` ;
+
+-- no data in `test_cases`.`test_empty`
+
+CREATE TABLE IF NOT EXISTS `test_cases`.`test_empty` (
+  `dummy` VARCHAR(50) NULL DEFAULT NULL)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
 
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;

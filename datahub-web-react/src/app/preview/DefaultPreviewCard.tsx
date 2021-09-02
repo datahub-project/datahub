@@ -1,4 +1,4 @@
-import { Divider, Image, Row, Space, Tag, Typography } from 'antd';
+import { Image, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -6,7 +6,8 @@ import { GlobalTags, Owner, GlossaryTerms } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 import AvatarsGroup from '../shared/avatar/AvatarsGroup';
 import TagTermGroup from '../shared/tags/TagTermGroup';
-import MarkdownViewer from '../entity/shared/MarkdownViewer';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import NoMarkdownViewer from '../entity/shared/components/styled/StripMarkdownText';
 
 interface Props {
     name: string;
@@ -24,35 +25,70 @@ interface Props {
     dataTestID?: string;
 }
 
-const DescriptionParagraph = styled(Typography.Paragraph)`
-    &&& {
-        margin-bottom: 0px;
-        padding-left: 8px;
-    }
+const PreviewContainer = styled.div`
+    margin-bottom: 8px;
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
 `;
 
-const DescriptionMarkdownViewer = styled(MarkdownViewer)`
-    &&& {
-        margin-bottom: 0px;
-        padding-left: 8px;
-    }
+const PlatformInfo = styled.div`
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    height: 24px;
+`;
+
+const TitleContainer = styled.div`
+    margin-bottom: 8px;
 `;
 
 const PreviewImage = styled(Image)`
-    max-height: 48px;
+    max-height: 18px;
     width: auto;
     object-fit: contain;
+    margin-right: 10px;
+    background-color: transparent;
 `;
 
-const styles = {
-    row: { width: '100%', marginBottom: '20px' },
-    leftColumn: { maxWidth: '75%' },
-    rightColumn: { maxWidth: '25%' },
-    name: { fontSize: '18px' },
-    typeName: { color: '#585858' },
-    platformName: { color: '#585858' },
-    ownedBy: { color: '#585858' },
-};
+const EntityTitle = styled(Typography.Text)`
+    &&& {
+        margin-bottom: 0;
+        font-size: 16px;
+        font-weight: 600;
+        vertical-align: middle;
+    }
+`;
+
+const PlatformText = styled(Typography.Text)`
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 700;
+    color: ${ANTD_GRAY[7]};
+`;
+
+const PlatformDivider = styled.div`
+    display: inline-block;
+    padding-left: 10px;
+    margin-right: 10px;
+    border-right: 1px solid ${ANTD_GRAY[4]};
+    height: 21px;
+    vertical-align: text-top;
+`;
+
+const DescriptionContainer = styled.div`
+    margin-top: 5px;
+`;
+
+const AvatarContainer = styled.div`
+    margin-top: 12px;
+`;
+
+const TagContainer = styled.div`
+    display: inline-block;
+    margin-left: 8px;
+    margin-top: -2px;
+`;
 
 export default function DefaultPreviewCard({
     name,
@@ -62,6 +98,8 @@ export default function DefaultPreviewCard({
     description,
     type,
     platform,
+    // TODO(Gabe): support qualifier in the new preview card
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     qualifier,
     tags,
     owners,
@@ -72,42 +110,35 @@ export default function DefaultPreviewCard({
     const entityRegistry = useEntityRegistry();
 
     return (
-        <Row style={styles.row} justify="space-between" data-testid={dataTestID}>
-            <Space direction="vertical" align="start" size={28} style={styles.leftColumn}>
+        <PreviewContainer data-testid={dataTestID}>
+            <div>
                 <Link to={url}>
-                    <Space direction="horizontal" size={20} align="center">
-                        {logoUrl ? <PreviewImage preview={false} src={logoUrl} /> : logoComponent || ''}
-
-                        <Space direction="vertical" size={8}>
-                            <Typography.Text strong style={styles.name}>
-                                {name}
-                            </Typography.Text>
-                            {(type || platform || qualifier) && (
-                                <Space split={<Divider type="vertical" />} size={16}>
-                                    <Typography.Text>{type}</Typography.Text>
-                                    <Typography.Text strong>{platform}</Typography.Text>
-                                    {!!qualifier && <Tag>{qualifier}</Tag>}
-                                </Space>
-                            )}
-                        </Space>
-                    </Space>
+                    <TitleContainer>
+                        <PlatformInfo>
+                            {logoComponent}
+                            {!!logoUrl && <PreviewImage preview={false} src={logoUrl} placeholder alt={platform} />}
+                            <PlatformText>{platform}</PlatformText>
+                            <PlatformDivider />
+                            <PlatformText>{type}</PlatformText>
+                        </PlatformInfo>
+                        <Link to={url}>
+                            <EntityTitle>{name || ' '}</EntityTitle>
+                        </Link>
+                        <TagContainer>
+                            <TagTermGroup glossaryTerms={glossaryTerms} editableTags={tags} maxShow={3} />
+                        </TagContainer>
+                    </TitleContainer>
                 </Link>
-                <div>
-                    {description.length === 0 ? (
-                        <DescriptionParagraph type="secondary">No description</DescriptionParagraph>
-                    ) : (
-                        <DescriptionMarkdownViewer source={description} />
-                    )}
-                    {snippet}
-                </div>
-            </Space>
-            <Space direction="vertical" align="end" size={36} style={styles.rightColumn}>
-                <Space direction="vertical" size={12}>
-                    <Typography.Text strong>{owners && owners.length > 0 ? 'Owned By' : ''}</Typography.Text>
-                    <AvatarsGroup owners={owners} entityRegistry={entityRegistry} maxCount={4} />
-                </Space>
-                <TagTermGroup glossaryTerms={glossaryTerms} editableTags={tags} maxShow={3} />
-            </Space>
-        </Row>
+                {description.length > 0 && (
+                    <DescriptionContainer>
+                        <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
+                    </DescriptionContainer>
+                )}
+            </div>
+            <AvatarContainer>
+                <AvatarsGroup owners={owners} entityRegistry={entityRegistry} maxCount={4} />
+            </AvatarContainer>
+            {snippet}
+        </PreviewContainer>
     );
 }

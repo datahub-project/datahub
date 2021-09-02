@@ -40,7 +40,7 @@ framework_common = {
     "expandvars>=0.6.5",
     "avro-gen3==0.6.0",
     "avro-python3>=1.8.2",
-    "python-dateutil",
+    "python-dateutil>=2.8.0",
     "stackprinter",
     "tabulate",
 }
@@ -79,6 +79,7 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": {"google-cloud-logging", "cachetools"},
+    "datahub-business-glossary": set(),
     "dbt": set(),
     "druid": sql_common | {"pydruid>=0.6.2"},
     "feast": {"docker"},
@@ -87,7 +88,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         # Acryl Data maintains a fork of PyHive, which adds support for table comments
         # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.10"
+        "acryl-pyhive[hive]>=0.6.11"
     },
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests"},
@@ -232,6 +233,7 @@ entry_points = {
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker:LookerDashboardSource",
         "lookml = datahub.ingestion.source.lookml:LookMLSource",
+        "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
         "mongodb = datahub.ingestion.source.mongodb:MongoDBSource",
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",

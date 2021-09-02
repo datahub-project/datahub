@@ -12,7 +12,7 @@ on:
     paths:
       - 'docker/elasticsearch-setup/**'
       - '.github/workflows/docker-elasticsearch-setup.yml'
-      - 'gms/impl/src/main/resources/index/**'
+      - 'metadata-service/restli-impl/src/main/resources/index/**'
   release:
     types: [published, edited]
 

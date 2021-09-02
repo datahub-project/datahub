@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.datajob.mappers;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.GlobalTags;
 
 import com.linkedin.common.Ownership;
@@ -79,16 +80,33 @@ public class DataJobSnapshotMapper implements ModelMapper<DataJobSnapshot, DataJ
 
     private DataJobInputOutput mapDataJobInputOutput(final com.linkedin.datajob.DataJobInputOutput inputOutput) {
         final DataJobInputOutput result = new DataJobInputOutput();
-        result.setInputDatasets(inputOutput.getInputDatasets().stream().map(urn -> {
-            final Dataset dataset = new Dataset();
-            dataset.setUrn(urn.toString());
-            return dataset;
-        }).collect(Collectors.toList()));
-        result.setOutputDatasets(inputOutput.getOutputDatasets().stream().map(urn -> {
-            final Dataset dataset = new Dataset();
-            dataset.setUrn(urn.toString());
-            return dataset;
-        }).collect(Collectors.toList()));
+        if (inputOutput.hasInputDatasets()) {
+            result.setInputDatasets(inputOutput.getInputDatasets().stream().map(urn -> {
+                final Dataset dataset = new Dataset();
+                dataset.setUrn(urn.toString());
+                return dataset;
+            }).collect(Collectors.toList()));
+        } else {
+            result.setInputDatasets(ImmutableList.of());
+        }
+        if (inputOutput.hasOutputDatasets()) {
+            result.setOutputDatasets(inputOutput.getOutputDatasets().stream().map(urn -> {
+                final Dataset dataset = new Dataset();
+                dataset.setUrn(urn.toString());
+                return dataset;
+            }).collect(Collectors.toList()));
+        } else {
+            result.setOutputDatasets(ImmutableList.of());
+        }
+        if (inputOutput.hasInputDatajobs()) {
+            result.setInputDatajobs(inputOutput.getInputDatajobs().stream().map(urn -> {
+                final DataJob dataJob = new DataJob();
+                dataJob.setUrn(urn.toString());
+                return dataJob;
+            }).collect(Collectors.toList()));
+        } else {
+            result.setInputDatajobs(ImmutableList.of());
+        }
 
         return result;
     }

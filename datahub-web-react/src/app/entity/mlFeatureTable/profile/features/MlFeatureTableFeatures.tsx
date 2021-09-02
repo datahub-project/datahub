@@ -5,7 +5,7 @@ import { AlignType } from 'rc-table/lib/interface';
 import styled from 'styled-components';
 import MlFeatureDataTypeIcon from './MlFeatureDataTypeIcon';
 import { MlFeatureDataType, MlPrimaryKey, MlFeature } from '../../../../../types.generated';
-import MarkdownViewer from '../../../shared/MarkdownViewer';
+import MarkdownViewer from '../../../shared/components/legacy/MarkdownViewer';
 
 const FeaturesContainer = styled.div`
     margin-bottom: 100px;

@@ -82,7 +82,7 @@ export function groupByFieldPath(
 
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
         let parentRow: null | ExtendedSchemaFields = null;
-        const row = { children: undefined, ...rows[rowIndex] };
+        const row = { children: undefined, ...rows[rowIndex], depth: 0 };
 
         for (let j = rowIndex - 1; j >= 0; j--) {
             const rowTokens = row.fieldPath.split('.');
@@ -91,7 +91,6 @@ export function groupByFieldPath(
                 // in the case of unions, parent will not be a subset of the child
                 rowTokens.splice(rowTokens.length - 2, 1);
                 const parentPath = rowTokens.join('.');
-                console.log({ parentPath });
 
                 if (rows[j].fieldPath === parentPath) {
                     parentRow = outputRowByPath[rows[j].fieldPath];
@@ -108,6 +107,7 @@ export function groupByFieldPath(
 
         // if the parent field exists in the ouput, add the current row as a child
         if (parentRow) {
+            row.depth = (parentRow.depth || 0) + 1;
             parentRow.children = [...(parentRow.children || []), row];
         } else {
             outputRows.push(row);
