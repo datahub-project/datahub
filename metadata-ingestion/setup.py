@@ -76,7 +76,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Source plugins
     "athena": sql_common | {"PyAthena[SQLAlchemy]"},
-    "azure": set(),
+    "azure-ad": set(),
     "bigquery": sql_common | {"pybigquery >= 0.6.0"},
     "bigquery-usage": {"google-cloud-logging", "cachetools"},
     "datahub-business-glossary": set(),
@@ -219,7 +219,7 @@ entry_points = {
         "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
-        "azure = datahub.ingestion.source.identity.azure:AzureSource",
+        "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "bigquery = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "dbt = datahub.ingestion.source.dbt:DBTSource",

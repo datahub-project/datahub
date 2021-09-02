@@ -21,7 +21,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "test-azure",
+        "runId": "test-azure-ad",
         "properties": null
     }
 },
@@ -47,7 +47,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "test-azure",
+        "runId": "test-azure-ad",
         "properties": null
     }
 },
@@ -86,7 +86,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "test-azure",
+        "runId": "test-azure-ad",
         "properties": null
     }
 },
@@ -125,7 +125,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "test-azure",
+        "runId": "test-azure-ad",
         "properties": null
     }
 }
