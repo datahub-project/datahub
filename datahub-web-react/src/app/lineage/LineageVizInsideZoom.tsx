@@ -2,7 +2,7 @@ import React, { SVGProps, useEffect, useMemo } from 'react';
 import { hierarchy } from '@vx/hierarchy';
 import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { Button, Card } from 'antd';
+import { Button } from 'antd';
 import { ProvidedZoom, TransformMatrix } from '@vx/zoom/lib/types';
 
 import LineageTree from './LineageTree';
@@ -10,10 +10,13 @@ import constructTree from './utils/constructTree';
 import { Direction, EntityAndType, EntitySelectParams, FetchedEntity } from './types';
 import { useEntityRegistry } from '../useEntityRegistry';
 
-const ZoomCard = styled(Card)`
+const ZoomContainer = styled.div`
+    position: relative;
+`;
+
+const ZoomControls = styled.div`
     position: absolute;
-    box-shadow: 4px 4px 4px -1px grey;
-    top: 145px;
+    top: 20px;
     right: 20px;
 `;
 
@@ -72,15 +75,15 @@ export default function LineageVizInsideZoom({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entityAndType?.entity?.urn]);
     return (
-        <>
-            <ZoomCard size="small">
+        <ZoomContainer>
+            <ZoomControls>
                 <ZoomButton onClick={() => zoom.scale({ scaleX: 1.2, scaleY: 1.2 })}>
                     <PlusOutlined />
                 </ZoomButton>
                 <Button onClick={() => zoom.scale({ scaleX: 0.8, scaleY: 0.8 })}>
                     <MinusOutlined />
                 </Button>
-            </ZoomCard>
+            </ZoomControls>
             <RootSvg
                 width={width}
                 height={height}
@@ -103,7 +106,7 @@ export default function LineageVizInsideZoom({
                         markerHeight="10"
                         orient="auto"
                     >
-                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#000" />
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#BFBFBF" />
                     </marker>
                     <marker
                         id="triangle-upstream"
@@ -115,27 +118,36 @@ export default function LineageVizInsideZoom({
                         markerHeight="10"
                         orient="auto"
                     >
-                        <path d="M 0 5 L 10 10 L 10 0 L 0 5 z" fill="#000" />
+                        <path d="M 0 5 L 10 10 L 10 0 L 0 5 z" fill="#BFBFBF" />
                     </marker>
                     <linearGradient id="gradient-Downstream" x1="1" x2="0" y1="0" y2="0">
-                        <stop offset="0%" stopColor="black" />
-                        <stop offset="100%" stopColor="black" stopOpacity="0" />
+                        <stop offset="0%" stopColor="#BFBFBF" />
+                        <stop offset="100%" stopColor="#BFBFBF" stopOpacity="0" />
                     </linearGradient>
                     <linearGradient id="gradient-Upstream" x1="0" x2="1" y1="0" y2="0">
-                        <stop offset="0%" stopColor="black" />
-                        <stop offset="100%" stopColor="black" stopOpacity="0" />
+                        <stop offset="0%" stopColor="#BFBFBF" />
+                        <stop offset="100%" stopColor="#BFBFBF" stopOpacity="0" />
                     </linearGradient>
                     <filter id="shadow1">
                         <feDropShadow
-                            dx="1"
-                            dy="3"
+                            dx="0"
+                            dy="0"
                             stdDeviation="4"
-                            floodColor="rgba(72, 106, 108, 0.25)"
+                            floodColor="rgba(72, 106, 108, 0.15)"
+                            floodOpacity="1"
+                        />
+                    </filter>
+                    <filter id="shadow1-selected">
+                        <feDropShadow
+                            dx="0"
+                            dy="0"
+                            stdDeviation="6"
+                            floodColor="rgba(24, 144, 255, .15)"
                             floodOpacity="1"
                         />
                     </filter>
                 </defs>
-                <rect width={width} height={height} fill="#f6f8fa" />
+                <rect width={width} height={height} fill="#fafafa" />
                 <LineageTree
                     data={upstreamData}
                     zoom={zoom}
@@ -161,6 +173,6 @@ export default function LineageVizInsideZoom({
                     direction={Direction.Downstream}
                 />
             </RootSvg>
-        </>
+        </ZoomContainer>
     );
 }

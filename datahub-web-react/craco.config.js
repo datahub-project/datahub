@@ -1,5 +1,6 @@
 require('dotenv').config();
 const CracoAntDesignPlugin = require('craco-antd');
+const path = require('path');
 
 const themeConfig = require(`./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`);
 
@@ -16,6 +17,7 @@ module.exports = {
         {
             plugin: CracoAntDesignPlugin,
             options: {
+                customizeThemeLessPath: path.join(__dirname, 'src/conf/theme/global-variables.less'),
                 customizeTheme: addLessPrefixToKeys(themeConfig.styles),
             },
         },

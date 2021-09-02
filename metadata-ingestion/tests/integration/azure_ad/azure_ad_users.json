@@ -1,0 +1,28 @@
+[
+    {
+        "displayName": "John Green",
+        "surname": "Green",
+        "givenName": "John",
+        "id": "fa379b0d5435ef74",
+        "userPrincipalName": "johngreen@acryl.io",
+        "businessPhones": [],
+        "jobTitle": null,
+        "mail": "johngreen@acryl.io",
+        "mobilePhone": null,
+        "officeLocation": null,
+        "preferredLanguage": null
+    },
+    {
+        "displayName": "Adam Hall",
+        "surname": "Hall",
+        "givenName": "Adam",
+        "id": "fa379b0d5435ef74",
+        "userPrincipalName": "adamhall@acryl.io",
+        "businessPhones": [],
+        "jobTitle": null,
+        "mail": "adamhall@acryl.io",
+        "mobilePhone": null,
+        "officeLocation": null,
+        "preferredLanguage": null
+    }
+]

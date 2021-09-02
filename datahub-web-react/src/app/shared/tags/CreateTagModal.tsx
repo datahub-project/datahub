@@ -68,7 +68,9 @@ export default function CreateTagModal({
             visible={visible}
             footer={
                 <>
-                    <Button onClick={onBack}>Back</Button>
+                    <Button onClick={onBack} type="text">
+                        Back
+                    </Button>
                     <Button onClick={onOk} disabled={stagedDescription.length === 0 || disableCreate}>
                         Create
                     </Button>
