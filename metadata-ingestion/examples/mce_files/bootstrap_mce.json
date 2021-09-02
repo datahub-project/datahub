@@ -600,6 +600,16 @@
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table where each row represents a single log event",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
                 {
@@ -737,6 +747,16 @@
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table containing all the users created on a single day",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
                 {
@@ -858,6 +878,16 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table containing all the users deleted on a single day",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [

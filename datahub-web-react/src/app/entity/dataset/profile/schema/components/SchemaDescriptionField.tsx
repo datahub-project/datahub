@@ -6,18 +6,21 @@ import { FetchResult } from '@apollo/client';
 
 import { UpdateDatasetMutation } from '../../../../../../graphql/dataset.generated';
 import UpdateDescriptionModal from '../../../../shared/components/legacy/DescriptionModal';
-import StripMarkdownText from '../../../../shared/components/styled/StripMarkdownText';
+import StripMarkdownText, { removeMarkdown } from '../../../../shared/components/styled/StripMarkdownText';
 import MarkdownViewer from '../../../../shared/components/legacy/MarkdownViewer';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
     display: none;
-    margin-left: 4px;
 `;
 
 const AddNewDescription = styled(Tag)`
     cursor: pointer;
     display: none;
+`;
+
+const ExpandedActions = styled.div`
+    height: 10px;
 `;
 
 const DescriptionContainer = styled.div`
@@ -63,6 +66,10 @@ const EditedLabel = styled(Typography.Text)`
     font-style: italic;
 `;
 
+const ReadLessText = styled(Typography.Link)`
+    margin-right: 4px;
+`;
+
 type Props = {
     description: string;
     original?: string | null;
@@ -73,6 +80,8 @@ type Props = {
     isEdited?: boolean;
 };
 
+const ABBREVIATED_LIMIT = 80;
+
 export default function DescriptionField({
     description,
     onUpdate,
@@ -81,7 +90,8 @@ export default function DescriptionField({
     original,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
-    const [expanded, setExpanded] = useState(false);
+    const overLimit = removeMarkdown(description).length > 80;
+    const [expanded, setExpanded] = useState(!overLimit);
 
     const onCloseModal = () => setShowAddModal(false);
 
@@ -112,21 +122,23 @@ export default function DescriptionField({
             {expanded ? (
                 <>
                     <DescriptionText source={description} />
-                    <div>
-                        <Typography.Link
-                            onClick={() => {
-                                setExpanded(false);
-                            }}
-                        >
-                            Read Less
-                        </Typography.Link>
+                    <ExpandedActions>
+                        {overLimit && (
+                            <ReadLessText
+                                onClick={() => {
+                                    setExpanded(false);
+                                }}
+                            >
+                                Read Less
+                            </ReadLessText>
+                        )}
                         {EditButton}
-                    </div>
+                    </ExpandedActions>
                 </>
             ) : (
                 <>
                     <StripMarkdownText
-                        limit={80}
+                        limit={ABBREVIATED_LIMIT}
                         readMore={
                             <>
                                 <Typography.Link

@@ -89,6 +89,9 @@ describe('EntityProfile', () => {
         );
 
         await waitFor(() => expect(getByText('Yet Another Dataset')).toBeInTheDocument());
+        await waitFor(() =>
+            expect(getByText('This and here we have yet another Dataset (YAN). Are there more?')).toBeInTheDocument(),
+        );
     });
 
     it('renders tab content', async () => {

@@ -38,6 +38,7 @@ Sources:
 | [athena](./source_docs/athena.md)               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | [bigquery](./source_docs/bigquery.md)           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
 | [bigquery-usage](./source_docs/bigquery.md)     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
+| [datahub-business-glossary](./source_docs/business_glossary.md)                     | _no additional dependencies_                               | Business Glossary File source                          |
 | [dbt](./source_docs/dbt.md)                     | _no additional dependencies_                               | dbt source                          |
 | [druid](./source_docs/druid.md)                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
 | [feast](./source_docs/feast.md)                 | `pip install 'acryl-datahub[feast]'`                       | Feast source                        |
@@ -182,6 +183,12 @@ If you're simply looking to run ingestion on a schedule, take a look at these sa
 The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
 
 :::
+
+### Running on Docker locally
+
+If you are looking to run Airflow and DataHub using docker locally, follow the guide [here](../docker/airflow/local_airflow.md). Otherwise proceed to follow the instructions below.
+
+### Setting up Airflow to use DataHub as Lineage Backend
 
 1. You need to install the required dependency in your airflow. See https://registry.astronomer.io/providers/datahub/modules/datahublineagebackend
 

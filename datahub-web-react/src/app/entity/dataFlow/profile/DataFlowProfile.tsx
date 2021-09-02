@@ -4,14 +4,13 @@ import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../../grap
 import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { DataFlow, EntityType, GlobalTags } from '../../../../types.generated';
 import DataFlowHeader from './DataFlowHeader';
-import DataFlowDataJobs from './DataFlowDataJobs';
+import { DataFlowDataJobs } from './DataFlowDataJobs';
 import { Message } from '../../../shared/Message';
 import TagTermGroup from '../../../shared/tags/TagTermGroup';
 import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
 import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
-import { topologicalSort } from '../../../../utils/sort/topologicalSort';
 
 /**
  * Responsible for display the DataFlow Page
@@ -63,7 +62,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Task,
                 path: TabType.Task.toLowerCase(),
-                content: <DataFlowDataJobs dataJobs={topologicalSort(dataJobs?.entities || [])} />,
+                content: <DataFlowDataJobs dataJobs={dataJobs?.entities} />,
             },
         ];
     };
