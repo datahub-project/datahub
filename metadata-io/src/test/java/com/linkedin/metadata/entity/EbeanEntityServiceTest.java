@@ -17,6 +17,7 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.entity.ebean.BeforeUpdateLambda;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanEntityService;
@@ -46,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -53,6 +55,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 
@@ -64,7 +67,6 @@ public class EbeanEntityServiceTest {
       new ConfigEntityRegistry(Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
   private final EntityRegistry _testEntityRegistry =
       new MergedEntityRegistry(_snapshotEntityRegistry, _configEntityRegistry);
-  private BeforeUpdateFunction _beforeUpdateFunction = null;
   private EbeanEntityService _entityService;
   private EbeanAspectDao _aspectDao;
   private EbeanServer _server;
@@ -101,7 +103,6 @@ public class EbeanEntityServiceTest {
     _mockProducer = mock(EntityEventProducer.class);
     _aspectDao = new EbeanAspectDao(_server);
     _aspectDao.setConnectionValidated(true);
-    _beforeUpdateFunction = null;
     _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, null);
   }
 
@@ -596,39 +597,56 @@ public class EbeanEntityServiceTest {
     assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
   }
 
-
-  // Tests
-  // An existing aspect and a new one with the wrong state
-  // An existing aspect and a new one with the correct state
+  private final BeforeUpdateLambda _ignoreIfEmailContainsTest = new BeforeUpdateLambda((oldValue, newValue) -> {
+    if (newValue.data().getString("email").contains("test")) {
+      return Optional.empty();
+    }
+    return Optional.of(newValue);
+  });
 
   @Test
-  public void testInjestAspectWithCustomLogicThatThrows() throws Exception {
-    BeforeUpdateFunction ignoreIfEmailContainsTest = (oldValue, newValue) -> {
-      if (newValue.data().getString("email").contains("test")) {
-        return oldValue.get();
-      }
-      return newValue;
-    };
-
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, ignoreIfEmailContainsTest);
+  public void testInjestAspectWithCustomLogicShouldIgnoreUpdate() throws Exception {
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _ignoreIfEmailContainsTest);
 
     Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
 
-    // Ingest CorpUserInfo Aspect #1
+    // Ingest CorpUserInfo Aspect with bad email address
     CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
     String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
     SystemMetadata metadata1 = new SystemMetadata();
     _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn, aspectName, 0);
 
-    // Ingest CorpUserInfo Aspect #2
+    // Should ignore updated aspect with disallowed email address
+    assertNull(readAspectOriginal);
+  }
+
+  @Test
+  public void testInjestAspectWithCustomLogicShouldIgnoreUpdates() throws Exception {
+    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry, _ignoreIfEmailContainsTest);
+
+    Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+
+    // Ingest CorpUserInfo Aspect #1 with correct email address
+    CorpUserInfo writeAspect1 = createCorpUserInfo("email@properemail.com");
+    String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
+    SystemMetadata metadata1 = new SystemMetadata();
+    _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn, aspectName, 0);
+
+    // Shouldn't ignore correct email address
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
+
+    // Ingest CorpUserInfo Aspect #2 with bad email address
     CorpUserInfo writeAspect2 = createCorpUserInfo("disallowedEmail@test.com");
     SystemMetadata metadata2 = new SystemMetadata();
 
     _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
 
-    RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn, aspectName, 0);
+    RecordTemplate readAspectOriginalUnchanged = _entityService.getAspect(entityUrn, aspectName, 0);
 
-    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
+    // Should ignore updated aspect with disallowed email address
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginalUnchanged));
   }
 
   @Nonnull
