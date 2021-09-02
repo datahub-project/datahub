@@ -6,15 +6,19 @@ set -e
 : ${USE_AWS_ELASTICSEARCH:=false}
 
 if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
-    ELASTICSEARCH_PROTOCOL=https
+  ELASTICSEARCH_PROTOCOL=https
 else
-    ELASTICSEARCH_PROTOCOL=http
+  ELASTICSEARCH_PROTOCOL=http
 fi
 
 if [[ -z $ELASTICSEARCH_MASTER_USERNAME ]]; then
+  if [[ -z $ELASTICSEARCH_USERNAME ]]; then
     ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_HOST
+  else
+    ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD@$ELASTICSEARCH_HOST
+  fi
 else
-    ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_MASTER_USERNAME:$ELASTICSEARCH_MASTER_PASSWORD@$ELASTICSEARCH_HOST
+  ELASTICSEARCH_HOST_URL=$ELASTICSEARCH_MASTER_USERNAME:$ELASTICSEARCH_MASTER_PASSWORD@$ELASTICSEARCH_HOST
 fi
 
 function create_datahub_usage_event_datastream() {
@@ -74,7 +78,10 @@ function create_user() {
     -d "{\"password\":\"${ELASTICSEARCH_PASSWORD}\", \"opendistro_security_roles\":[\"${ROLE}\"]}"
 }
 
-create_user || exit 1
+if [[ $CREATE_USER == true ]]; then
+  create_user || exit 1
+fi
+
 if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
   if [[ $USE_AWS_ELASTICSEARCH == false ]]; then
     create_datahub_usage_event_datastream || exit 1
