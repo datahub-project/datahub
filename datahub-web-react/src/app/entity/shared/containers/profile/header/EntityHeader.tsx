@@ -70,9 +70,7 @@ export const EntityHeader = () => {
             <MainHeaderContent>
                 <PlatformContent>
                     <span>
-                        {!!platformLogoUrl && (
-                            <PreviewImage preview={false} src={platformLogoUrl} placeholder alt={platformName} />
-                        )}
+                        {!!platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />}
                     </span>
                     <PlatformText>{platformName}</PlatformText>
                     <PlatformDivider />
