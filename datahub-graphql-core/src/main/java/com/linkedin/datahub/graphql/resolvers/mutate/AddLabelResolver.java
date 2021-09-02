@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +41,9 @@ public class AddLabelResolver implements DataFetcher<CompletableFuture<Boolean>>
 
     String methodName = LabelUtils.entityTypeToMethod.get(labelUrn.getEntityType());
 
-    existingEntity.getClass().getMethod(methodName, null);
+    Method getMethod = existingEntity.getClass().getMethod(methodName, null);
+
+    getMethod()
 
     return CompletableFuture.supplyAsync(() -> {
       try {
