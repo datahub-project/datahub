@@ -21,7 +21,7 @@ This plugin pulls metadata from dbt's artifact files:
   - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
 - target_platform:
   - The data platform you are enriching with dbt metadata.
-  - [data platforms](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/DataPlatformInfo.json)
+  - [data platforms](https://github.com/linkedin/datahub/blob/master/metadata-service/restli-impl/src/main/resources/DataPlatformInfo.json)
 - load_schemas:
   - Load schemas from dbt catalog file, not necessary when the underlying data platform already has this data.
 - use_identifiers:
