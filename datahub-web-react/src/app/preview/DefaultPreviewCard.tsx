@@ -134,11 +134,11 @@ export default function DefaultPreviewCard({
                         <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
+                {snippet}
             </div>
             <AvatarContainer>
                 <AvatarsGroup owners={owners} entityRegistry={entityRegistry} maxCount={4} />
             </AvatarContainer>
-            {snippet}
         </PreviewContainer>
     );
 }
