@@ -14,7 +14,8 @@ import { EMPTY_MESSAGES } from '../../entity/shared/constants';
 type Props = {
     uneditableTags?: GlobalTags | null;
     editableTags?: GlobalTags | null;
-    glossaryTerms?: GlossaryTerms | null;
+    editableGlossaryTerms?: GlossaryTerms | null;
+    uneditableGlossaryTerms?: GlossaryTerms | null;
     canRemove?: boolean;
     canAdd?: boolean;
     showEmptyMessage?: boolean;
@@ -43,7 +44,8 @@ export default function TagTermGroup({
     updateTags,
     onOpenModal,
     maxShow,
-    glossaryTerms,
+    uneditableGlossaryTerms,
+    editableGlossaryTerms,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
@@ -70,7 +72,7 @@ export default function TagTermGroup({
 
     return (
         <TagWrapper>
-            {glossaryTerms?.terms?.map((term) => (
+            {uneditableGlossaryTerms?.terms?.map((term) => (
                 <TagLink
                     to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.term.urn}`}
                     key={term.term.urn}
@@ -128,6 +130,7 @@ export default function TagTermGroup({
                     {showAddModal && (
                         <AddTagTermModal
                             globalTags={editableTags}
+                            glossaryTerms={editableGlossaryTerms}
                             updateTags={updateTags}
                             visible
                             onClose={() => {

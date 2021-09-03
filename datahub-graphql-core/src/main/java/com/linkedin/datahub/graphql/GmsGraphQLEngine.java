@@ -44,6 +44,7 @@ import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLabelResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLabelResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
@@ -342,7 +343,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateDashboard", new AuthenticatedResolver<>(new MutableTypeResolver<>(dashboardType)))
             .dataFetcher("updateDataJob", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataJobType)))
             .dataFetcher("updateDataFlow", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataFlowType)))
-            .dataFetcher("addLabel", new AuthenticatedResolver<>(new AddLabelResolver(entityTypes)))
+            .dataFetcher("addLabel", new AuthenticatedResolver<>(new AddLabelResolver()))
+            .dataFetcher("removeLabel", new AuthenticatedResolver<>(new RemoveLabelResolver()))
         );
     }
 

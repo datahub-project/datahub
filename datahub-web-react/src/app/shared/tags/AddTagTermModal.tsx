@@ -44,6 +44,14 @@ const CREATE_TAG_VALUE = '____reserved____.createTagValue';
 
 const NAME_TYPE_SEPARATOR = '_::_:_::_';
 
+const getSelectedValue = (rawValue: string) => {
+    const [name, type] = rawValue.split(NAME_TYPE_SEPARATOR);
+    return {
+        name,
+        type,
+    };
+};
+
 const renderItem = (suggestion: string, icon: JSX.Element, type: string) => ({
     value: suggestion,
     label: (
@@ -60,7 +68,7 @@ export default function AddTagTermModal({ updateTags, globalTags, visible, onClo
         fetchPolicy: 'no-cache',
     });
     const [inputValue, setInputValue] = useState('');
-    const [selectedTagValue, setSelectedTagValue] = useState('');
+    const [selectedValue, setSelectedValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [disableAdd, setDisableAdd] = useState(false);
     const entityRegistry = useEntityRegistry();
@@ -103,12 +111,13 @@ export default function AddTagTermModal({ updateTags, globalTags, visible, onClo
     }
 
     const onOk = () => {
-        if (!globalTags?.tags?.some((tag) => tag.tag.name === selectedTagValue)) {
+        const { name: selectedName, type: selectedType } = getSelectedValue(selectedValue);
+        if (!globalTags?.tags?.some((tag) => tag.tag.name === selectedValue)) {
             setDisableAdd(true);
             updateTags?.({
                 tags: [
                     ...convertTagsForUpdate(globalTags?.tags || []),
-                    { tag: { urn: `urn:li:tag:${selectedTagValue}`, name: selectedTagValue } },
+                    { tag: { urn: `urn:li:tag:${selectedValue}`, name: selectedValue } },
                 ] as TagAssociationUpdate[],
             }).finally(() => {
                 setDisableAdd(false);
@@ -137,14 +146,14 @@ export default function AddTagTermModal({ updateTags, globalTags, visible, onClo
             title="Add tag"
             visible={visible}
             onCancel={onClose}
-            okButtonProps={{ disabled: selectedTagValue.length === 0 }}
+            okButtonProps={{ disabled: selectedValue.length === 0 }}
             okText="Add"
             footer={
                 <>
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={onOk} disabled={selectedTagValue.length === 0 || disableAdd}>
+                    <Button onClick={onOk} disabled={selectedValue.length === 0 || disableAdd}>
                         Add
                     </Button>
                 </>
@@ -163,7 +172,7 @@ export default function AddTagTermModal({ updateTags, globalTags, visible, onClo
                     setInputValue(value);
                 }}
                 onSelect={(selected) =>
-                    selected === CREATE_TAG_VALUE ? setShowCreateModal(true) : setSelectedTagValue(String(selected))
+                    selected === CREATE_TAG_VALUE ? setShowCreateModal(true) : setSelectedValue(String(selected))
                 }
                 notFoundContent={loading ? 'loading' : 'type to search'}
             >

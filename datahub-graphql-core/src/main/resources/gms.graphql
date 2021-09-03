@@ -295,7 +295,7 @@ type Mutation {
     removeLabel(input: LabelUpdateInput!): Boolean
 }
 
-type LabelUpdateInput {
+input LabelUpdateInput {
     labelUrn: String!
     targetUrn: String!
     subResource: String

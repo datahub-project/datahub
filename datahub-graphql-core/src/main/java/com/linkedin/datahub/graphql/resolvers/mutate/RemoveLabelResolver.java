@@ -10,10 +10,10 @@ import org.slf4j.LoggerFactory;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
-public class AddLabelResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class RemoveLabelResolver implements DataFetcher<CompletableFuture<Boolean>> {
   private static final Logger _logger = LoggerFactory.getLogger(MutableTypeResolver.class.getName());
 
-  public AddLabelResolver() { }
+  public RemoveLabelResolver() { }
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -21,8 +21,8 @@ public class AddLabelResolver implements DataFetcher<CompletableFuture<Boolean>>
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        _logger.debug(String.format("Adding Label. input: %s", input));
-        return LabelUtils.addLabelToEntity(
+        _logger.debug(String.format("Removing Label. input: %s", input));
+        return LabelUtils.removeLabelFromEntity(
             input.getLabelUrn(),
             input.getTargetUrn(),
             input.getSubResource(),
