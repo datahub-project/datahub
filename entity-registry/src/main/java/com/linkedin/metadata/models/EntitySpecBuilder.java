@@ -200,7 +200,7 @@ public class EntitySpecBuilder {
 
       return new AspectSpec(aspectAnnotation, searchableFieldSpecExtractor.getSpecs(),
           relationshipFieldSpecExtractor.getSpecs(), timeseriesFieldSpecExtractor.getTimeseriesFieldSpecs(),
-          timeseriesFieldSpecExtractor.get_timeseriesFieldCollectionSpecs(), aspectRecordSchema);
+          timeseriesFieldSpecExtractor.getTimeseriesFieldCollectionSpecs(), aspectRecordSchema);
     }
 
     failValidation(String.format("Could not build aspect spec for aspect with name %s. Missing @Aspect annotation.",

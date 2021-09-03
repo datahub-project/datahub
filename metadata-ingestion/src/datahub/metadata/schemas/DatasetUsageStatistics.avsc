@@ -201,7 +201,7 @@
       "doc": "Field-level usage stats",
       "default": null,
       "TimeseriesFieldCollection": {
-        "key": "fieldName"
+        "key": "fieldPath"
       }
     }
   ],

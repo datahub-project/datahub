@@ -37,6 +37,6 @@ record DatasetUsageStatistics includes TimeseriesAspectBase {
   /**
    * Field-level usage stats
    */
-  @TimeseriesFieldCollection = {"key":"fieldName"}
+  @TimeseriesFieldCollection = {"key":"fieldPath"}
   fieldCounts: optional array[DatasetFieldUsageCounts]
 }

@@ -6276,7 +6276,7 @@
       },
       {
         "TimeseriesFieldCollection": {
-          "key": "fieldName"
+          "key": "fieldPath"
         },
         "type": [
           "null",

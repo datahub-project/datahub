@@ -6,8 +6,8 @@ import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.annotation.SchemaVisitor;
 import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
-import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
 import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
+import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,7 +24,7 @@ import lombok.Getter;
 public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
 
   private final List<TimeseriesFieldSpec> timeseriesFieldSpecs = new ArrayList<>();
-  private final List<TimeseriesFieldCollectionSpec> _timeseriesFieldCollectionSpecs = new ArrayList<>();
+  private final List<TimeseriesFieldCollectionSpec> timeseriesFieldCollectionSpecs = new ArrayList<>();
   private final Map<String, String> namesToPath = new HashMap<>();
 
   @Override
@@ -83,7 +83,7 @@ public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
             String.format("There are multiple fields with the same name: %s", annotation.getCollectionName()));
       }
       namesToPath.put(annotation.getCollectionName(), path.toString());
-      _timeseriesFieldCollectionSpecs.add(
+      timeseriesFieldCollectionSpecs.add(
           new TimeseriesFieldCollectionSpec(path, annotation, new HashMap<>(), currentSchema));
     }
   }
@@ -91,7 +91,7 @@ public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
   private void addTimeseriesFieldSpec(DataSchema currentSchema, PathSpec path, Object annotationObj) {
     // First check whether the stat is part of a collection
     String pathStr = path.toString();
-    Optional<TimeseriesFieldCollectionSpec> fieldCollectionSpec = _timeseriesFieldCollectionSpecs.stream()
+    Optional<TimeseriesFieldCollectionSpec> fieldCollectionSpec = timeseriesFieldCollectionSpecs.stream()
         .filter(spec -> pathStr.startsWith(spec.getPath().toString()))
         .findFirst();
     TimeseriesFieldAnnotation annotation =
@@ -113,7 +113,7 @@ public class TimeseriesFieldSpecExtractor implements SchemaVisitor {
   }
 
   private void addTimeseriesFieldCollectionKey(PathSpec path) {
-    for (TimeseriesFieldCollectionSpec spec : _timeseriesFieldCollectionSpecs) {
+    for (TimeseriesFieldCollectionSpec spec : timeseriesFieldCollectionSpecs) {
       if (path.toString().equals(spec.getKeyPathFromAnnotation())) {
         spec.setKeyPath(getRelativePath(path, spec.getPath()));
         return;
