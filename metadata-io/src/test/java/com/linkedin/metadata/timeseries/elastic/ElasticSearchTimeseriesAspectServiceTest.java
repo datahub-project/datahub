@@ -22,7 +22,7 @@ import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
-import com.linkedin.metadata.util.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericAspectUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.timeseries.AggregationSpec;

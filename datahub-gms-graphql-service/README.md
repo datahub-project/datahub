@@ -1,5 +1,8 @@
 # DataHub GMS GraphQL Service
 
+> **Disclaimer**: DataHub's standalone GraphQL Service is now deprecated. The GraphQL API is now served from the [Metadata Service](../metadata-service/README.md) directly.
+> To explore the GraphQL Query & Mutation types, visit `<your-datahub-url>/api/graphiql`. 
+
 Datahub GMS GraphQL Service wraps the Generalized Metadata Store (GMS) Rest.li calls around a GraphQL API.
 
 ## Pre-requisites
@@ -318,7 +321,7 @@ Sample Response:
               "urn": "urn:li:corpuser:datahub",
               "username": "datahub",
               "editableInfo": {
-                "pictureLink": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"
+                "pictureLink": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
               },
               "info": {
                 "firstName": null

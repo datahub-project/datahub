@@ -18,6 +18,7 @@ import {
     PlatformType,
     MlModel,
     MlModelGroup,
+    SchemaFieldDataType,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -256,7 +257,7 @@ export const dataset3 = {
     tags: ['Trusted'],
     description: 'This and here we have yet another Dataset (YAN). Are there more?',
     uri: 'www.google.com',
-    properties: [],
+    properties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
     editableProperties: null,
     created: {
         time: 0,
@@ -284,6 +285,7 @@ export const dataset3 = {
         },
     },
     globalTags: {
+        __typename: 'GlobalTags',
         tags: [
             {
                 tag: {
@@ -326,7 +328,53 @@ export const dataset3 = {
             },
         ],
     },
-    schemaMetadata: null,
+    schemaMetadata: {
+        __typename: 'SchemaMetadata',
+        aspectVersion: 0,
+        createdAt: 0,
+        fields: [
+            {
+                nullable: false,
+                recursive: false,
+                fieldPath: 'user_id',
+                description: 'Id of the user created',
+                type: SchemaFieldDataType.String,
+                nativeDataType: 'varchar(100)',
+                isPartOfKey: false,
+                jsonPath: null,
+                globalTags: null,
+                glossaryTerms: null,
+            },
+            {
+                nullable: false,
+                recursive: false,
+                fieldPath: 'user_name',
+                description: 'Name of the user who signed up',
+                type: SchemaFieldDataType.String,
+                nativeDataType: 'boolean',
+                isPartOfKey: false,
+                jsonPath: null,
+                globalTags: null,
+                glossaryTerms: null,
+            },
+        ],
+        hash: '',
+        platformSchema: null,
+        platformUrn: 'urn:li:dataPlatform:hive',
+        created: {
+            actor: 'urn:li:corpuser:jdoe',
+            time: 1581407189000,
+        },
+        cluster: '',
+        name: 'SampleHiveSchema',
+        version: 0,
+        lastModified: {
+            actor: 'urn:li:corpuser:jdoe',
+            time: 1581407189000,
+        },
+        datasetUrn: 'urn:li:dataset:3',
+        primaryKeys: [],
+    },
     previousSchemaMetadata: null,
     editableSchemaMetadata: null,
     deprecation: null,
@@ -819,7 +867,7 @@ export const dataJob2 = {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],
         outputDatasets: [dataset3],
-        inputDatajobs: [],
+        inputDatajobs: [dataJob1],
     },
     upstreamLineage: null,
     downstreamLineage: null,
@@ -875,7 +923,7 @@ export const dataJob3 = {
         __typename: 'DataJobInputOutput',
         inputDatasets: [dataset3],
         outputDatasets: [dataset3],
-        inputDatajobs: [],
+        inputDatajobs: [dataJob2],
     },
     upstreamLineage: null,
     downstreamLineage: null,

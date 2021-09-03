@@ -188,6 +188,17 @@ enum EntityType {
 }
 
 type Query {
+
+    """
+    Fetch configurations for the DataHub UI.
+    """
+    appConfig: AppConfig
+
+    """
+    Fetch details associated with the logged in user.
+    """
+    me: AuthenticatedUser
+
     """
     Fetch a Dataset by primary key
     """
@@ -282,6 +293,11 @@ type Query {
     Fetch a GlossaryTerm by primary key
     """
     glossaryTerm(urn: String!): GlossaryTerm
+
+    """
+    List all DataHub Access Policies.
+    """
+    listPolicies(input: ListPoliciesInput!): ListPoliciesResult
 }
 
 type Mutation {
@@ -291,6 +307,45 @@ type Mutation {
     updateDataFlow(input: DataFlowUpdateInput!): DataFlow
     updateDataJob(input: DataJobUpdateInput!): DataJob
     updateTag(input: TagUpdate!): Tag
+    """
+    Creates a policy and returns the resulting urn.
+    """
+    createPolicy(input: PolicyInput!): String
+    """
+    Updates an existing policy and returns the resulting urn
+    """
+    updatePolicy(urn: String!, input: PolicyInput!): String
+    """
+    Removes an existing policy and returns the policy urn
+    """
+    deletePolicy(urn: String!): String
+}
+
+type AppConfig {
+  analyticsConfig: AnalyticsConfig!
+  policiesConfig: PoliciesConfig!
+}
+
+type AnalyticsConfig {
+  enabled: Boolean!
+}
+
+type AuthenticatedUser {
+  corpUser: CorpUser!
+  platformPrivileges: PlatformPrivileges!
+}
+
+type PlatformPrivileges {
+
+  """
+  Whether the user should be able to view analytics.
+  """
+  viewAnalytics: Boolean!
+
+  """
+  Whether the user should be able to manage policies.
+  """
+  managePolicies: Boolean!
 }
 
 type AuditStamp {
@@ -3252,4 +3307,199 @@ type DatasetProfile implements TimeSeriesAspect {
   columnCount: Long
   fieldProfiles: [DatasetFieldProfile!]
   partitionSpec: PartitionSpec
+}
+
+enum PolicyType {
+  METADATA
+  PLATFORM
+}
+
+enum PolicyState {
+  DRAFT
+  ACTIVE
+  INACTIVE
+}
+
+type Policy {
+  urn: String!
+  type: PolicyType!
+  name: String!
+  state: PolicyState!
+  description: String
+  resources: ResourceFilter
+  privileges: [String!]!
+  actors: ActorFilter!
+  editable: Boolean!
+}
+
+type ResourceFilter {
+  """
+  The type of the resource the policy should apply to. Not required because in the future we want to support
+  filtering by type OR by domain
+  """
+  type: String!
+
+  """
+  A list of specific resource urns to apply the filter to
+  """
+  resources: [String!]
+
+  """
+  Whether of not to apply the filter to all resources of the type
+  """
+  allResources: Boolean!
+}
+
+type ActorFilter {
+  """
+  A specific set of users to apply the policy to (disjunctive)
+  """
+  users: [String!]
+
+  """
+  A specific set of groups to apply the policy to (disjunctive)
+  """
+  groups: [String!]
+
+  """
+  Whether the filter should return true for owners of a particular resource.
+  Only applies to policies of type 'Metadata', which have a resource associated with them.
+  """
+  resourceOwners: Boolean!
+
+  """
+  Whether the filter should apply to all users.
+  """
+  allUsers: Boolean!
+
+  """
+  Whether the filter should apply to all groups.
+  """
+  allGroups: Boolean!
+}
+
+input PolicyInput {
+  type: PolicyType!
+  name: String!
+  state: PolicyState!
+  description: String
+  resources: ResourceFilterInput
+  privileges: [String!]!
+  actors: ActorFilterInput!
+}
+
+input ResourceFilterInput {
+  """
+  The type of the resource the policy should apply to. Not required because in the future we want to support
+  filtering by type OR by domain
+  """
+  type: String!
+
+  """
+  A list of specific resource urns to apply the filter to
+  """
+  resources: [String!]
+
+  """
+  Whether of not to apply the filter to all resources of the type
+  """
+  allResources: Boolean!
+}
+
+input ActorFilterInput {
+  """
+  A specific set of users to apply the policy to (disjunctive)
+  """
+  users: [String!]
+
+  """
+  A specific set of groups to apply the policy to (disjunctive)
+  """
+  groups: [String!]
+
+  """
+  Whether the filter should return true for owners of a particular resource.
+  Only applies to policies of type 'Metadata', which have a resource associated with them.
+  """
+  resourceOwners: Boolean!
+
+  """
+  Whether the filter should apply to all users.
+  """
+  allUsers: Boolean!
+
+  """
+  Whether the filter should apply to all groups.
+  """
+  allGroups: Boolean!
+}
+
+input ListPoliciesInput {
+  start: Int
+  count: Int
+}
+
+type ListPoliciesResult {
+  start: Int!
+  count: Int!
+  total: Int!
+  policies: [Policy!]!
+}
+
+type PoliciesConfig {
+
+  """
+  Whether the policies feature is enabled and should be displayed in the UI
+  """
+  enabled: Boolean!
+
+  """
+  A list of platform privileges to display
+  """
+  platformPrivileges: [Privilege!]!
+
+  """
+  A list of resource privileges to display
+  """
+  resourcePrivileges: [ResourcePrivileges!]!
+
+}
+
+type Privilege {
+  """
+  Standardized privilege type, serving as a unique identifier for a privilege e.g. EDIT_ENTITY
+  """
+  type: String!
+
+  """
+  The name to appear when displaying the privilege, e.g. Edit Entity
+  """
+  displayName: String
+
+  """
+  A description of the privilege to display.
+  """
+  description: String
+}
+
+type ResourcePrivileges {
+  """
+  Resource type associated with the Metadata Privilege.
+  """
+  resourceType: String!
+
+  """
+  The name to used for displaying the resourceType
+  """
+  resourceTypeDisplayName: String
+
+  """
+  An optional entity type to use when performing search and navigation to the entity.
+  """
+  entityType: EntityType
+
+  """
+  A list of privileges that are supported against this resource
+  """
+  privileges: [Privilege!]!
 }

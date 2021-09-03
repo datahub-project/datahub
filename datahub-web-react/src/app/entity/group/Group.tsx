@@ -57,4 +57,8 @@ export class GroupEntity implements Entity<CorpGroup> {
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as CorpGroup);
     };
+
+    displayName = (data: CorpGroup) => {
+        return data.info?.displayName || data.name;
+    };
 }

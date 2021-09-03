@@ -112,4 +112,9 @@ export default class EntityRegistry {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.getLineageVizConfig?.(data) || undefined;
     }
+
+    getDisplayName<T>(type: EntityType, data: T): string {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.displayName(data);
+    }
 }

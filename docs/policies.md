@@ -1,0 +1,110 @@
+# Policies Guide
+
+## Introduction 
+
+DataHub provides the ability to declare fine-grained access control Policies via the UI & GraphQL API.
+Access policies in DataHub define *who* can *do what* to *which resources*. A few policies in plain English include
+
+- Dataset Owners should be allowed to edit documentation, but not Tags. 
+- Jenny, our Data Steward, should be allowed to edit Tags for any Dashboard, but no other metadata.
+- James, a Data Analyst, should be allowed to edit the Links for a specific Data Pipeline he is a downstream consumer of.
+- The Data Platform team should be allowed to manage users & groups, view platform analytics, & manage policies themselves.
+
+In this document, we'll take a deeper look at DataHub Policies & how to use them effectively. 
+
+## What is a Policy?
+
+There are 2 types of Policy within DataHub:
+
+1. Platform Policies
+2. Metadata Policies
+
+We'll briefly describe each. 
+
+### Platform Policies
+
+**Platform** policies determine who has platform-level privileges on DataHub. These privileges include
+
+- Managing Users & Groups
+- Viewing the DataHub Analytics Page
+- Managing Policies themselves
+
+Platform policies can be broken down into 2 parts:
+
+1. **Actors**: Who the policy applies to (Users or Groups)
+2. **Privileges**: Which privileges should be assigned to the Actors (e.g. "View Analytics")
+
+Note that platform policies do not include a specific "target resource" against which the Policies apply. Instead,
+they simply serve to assign specific privileges to DataHub users and groups.
+
+### Metadata Policies
+
+**Metadata** policies determine who can do what to which Metadata Entities. For example, 
+
+- Who can edit Dataset Documentation & Links?
+- Who can add Owners to a Chart?
+- Who can add Tags to a Dashboard?
+
+and so on. 
+
+A Metadata Policy can be broken down into 3 parts:
+
+1. **Actors**: The 'who'. Specific users, groups that the policy applies to.
+2. **Privileges**: The 'what'. What actions are being permitted by a policy, e.g. "Add Tags".
+3. **Resources**: The 'which'. Resources that the policy applies to, e.g. "All Datasets".
+
+> Today, the set of privileges supported includes only *write* privileges. That is, there are no read restrictions implemented yet.
+
+## Managing Policies
+
+Policies can be managed under the `/policies` page, or accessed inside the Control Center, a slide-out menu
+appearing on the left side of the DataHub UI. The `Policies` tab will only be visible to those users having the `MANAGE_POLICIES` privilege.
+
+Out of the box, DataHub is deployed with a set of pre-baked Policies. The set of default policies are created at deploy 
+time and can be found inside the `policies.json` file within `metadata-service/war/src/main/resources/boot`. This set of policies serves the 
+following purposes:
+
+1. Assigns immutable super-user privileges for the root `datahub` user account (Immutable)
+2. Assigns all Platform privileges for all Users by default (Editable)
+
+The reason for #1 is to prevent people from accidentally deleting all policies and getting locked out (`datahub` super user account can be a backup)
+The reason for #2 is to permit administrators to log in via OIDC or another means outside of the `datahub` root account
+when they are bootstrapping with DataHub. This way, those setting up DataHub can start managing policies without friction. 
+Note that these privilege *can* and likely *should* be altered inside the **Policies** page of the UI.
+
+> Pro-Tip: To login using the `datahub` account, simply navigate to `<your-datahub-domain>/login` and enter `datahub`, `datahub`. Note that the password can be customized for your
+deployment by changing the `user.props` file within the `datahub-frontend` module. Notice that JaaS authentication must be enabled. 
+
+## Configuration 
+
+By default, the Policies feature is *enabled*. This means that the deployment will support creating, editing, removing, and 
+most importantly enforcing fine-grained access policies.
+
+In some cases, these capabilities are not desirable. For example, if your company's users are already used to having free reign, you
+may want to keep it that way. Or perhaps it is only your Data Platform team who actively uses DataHub, in which case Policies may be overkill.
+
+For these scenarios, we've provided a back door to disable Policies in your deployment of DataHub. This will completely hide
+the policies management UI and by default will allow all actions on the platform. It will be as though
+each user has *all* privileges, both of the **Platform** & **Metadata** flavor.
+
+To disable Policies, you can simply set the `AUTH_POLICIES_ENABLED` environment variable for the `datahub-gms` service container
+to `false`. For example in your `docker/datahub-gms/docker.env`, you'd place
+
+```
+AUTH_POLICIES_ENABLED=false
+```
+
+## Coming Soon
+
+The DataHub team is hard at work trying to improve the Policies feature. We are planning on building out the following:
+
+- Hide edit action buttons on Entity pages to reflect user privileges
+
+Under consideration
+
+- Ability to define Metadata Policies against multiple resources scoped to a particular "Domains"
+- Ability to define Metadata Policies against multiple reosurces scoped to particular "Containers" (e.g. A "schema", "database", or "collection")
+
+## Feedback / Questions / Concerns
+
+We want to hear from you! For any inquiries, including Feedback, Questions, or Concerns, reach out on Slack!

@@ -4,7 +4,7 @@ import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.dataset.DatasetFieldProfile;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.util.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericAspectUtils;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 

@@ -45,7 +45,7 @@ describe('Glossary Related Terms', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(getByText('Composed Of')).toBeInTheDocument();
-        expect(getByText('Defined in')).toBeInTheDocument();
+        expect(getByText('Contains')).toBeInTheDocument();
+        expect(getByText('Inherits')).toBeInTheDocument();
     });
 });

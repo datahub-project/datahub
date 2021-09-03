@@ -1,25 +1,27 @@
 import * as React from 'react';
-import { Typography } from 'antd';
+import { Typography, Tag } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 const StyledAnalyticsLink = styled(Typography.Text)`
     display: flex;
     margin-right: 20px;
-    text-decoration: underline;
+    text-decoration: none;
     && {
         font-size: 14px;
         color: ${(props) => props.theme.styles['layout-header-color']};
     }
     &&:hover {
-        color: #1890ff;
+        color: #000;
     }
 `;
 
 export default function AnalyticsLink() {
     return (
         <Link to="/analytics">
-            <StyledAnalyticsLink strong>Analytics [beta]</StyledAnalyticsLink>
+            <StyledAnalyticsLink strong>
+                Analytics <Tag>Beta</Tag>
+            </StyledAnalyticsLink>
         </Link>
     );
 }

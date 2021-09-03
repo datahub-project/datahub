@@ -8,7 +8,7 @@ import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
 import com.linkedin.gms.factory.search.SearchServiceFactory;
 import com.linkedin.gms.factory.usage.UsageServiceFactory;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.extractor.AspectExtractor;
 import com.linkedin.metadata.extractor.FieldExtractor;

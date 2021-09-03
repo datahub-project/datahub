@@ -4,3 +4,7 @@ entities:
     aspects:
       - datasetProfile
       - datasetUsageStatistics
+  - name: dataHubPolicy
+    keyAspect: dataHubPolicyKey
+    aspects:
+      - dataHubPolicyInfo

@@ -18,6 +18,8 @@ Moreover, setting `useRandomSampling: False` will sample the first documents fou
 
 Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
 
+Really large schemas will be further truncated to a maximum of 300 schema fields. This is configurable using the `maxSchemaSize` parameter.
+
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
@@ -39,6 +41,7 @@ source:
     # Options
     enableSchemaInference: True
     useRandomSampling: True
+    maxSchemaSize: 300
 
 sink:
   # sink configs
@@ -57,6 +60,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `options`                  |          |                         | Additional options to pass to `pymongo.MongoClient()`.                                                                   |
 | `enableSchemaInference`    |          | `True`                  | Whether to infer schemas.                                                                                                |
 | `schemaSamplingSize`       |          | `1000`                  | Number of documents to use when inferring schema size. If set to `0`, all documents will be scanned.                     |
+| `maxSchemaSize`       |          | `300`                  | Maximum number of fields to include in the schema.                     |
 | `useRandomSampling`        |          | `True`                  | If documents for schema inference should be randomly selected. If `False`, documents will be selected from start.        |
 | `env`                      |          | `"PROD"`                | Environment to use in namespace when constructing URNs.                                                                  |
 | `database_pattern.allow`   |          |                         | List of regex patterns for databases to include in ingestion.                                                                     |

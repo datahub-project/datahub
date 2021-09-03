@@ -69,7 +69,8 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
             final Map<Urn, Entity> glossaryTermMap = _glossaryTermsClient.batchGet(glossaryTermUrns
                     .stream()
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toSet()));
+                    .collect(Collectors.toSet()),
+                context.getActor());
 
             final List<Entity> gmsResults = new ArrayList<>();
             for (GlossaryTermUrn urn : glossaryTermUrns) {
@@ -96,7 +97,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _glossaryTermsClient.search(
-            "glossaryTerm", query, facetFilters, start, count);
+            "glossaryTerm", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -108,7 +109,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final AutoCompleteResult result = _glossaryTermsClient.autoComplete(
-            "glossaryTerm", query, facetFilters, limit);
+            "glossaryTerm", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -125,13 +126,14 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm>, Bro
                 pathStr,
                 facetFilters,
                 start,
-                count);
+                count,
+            context.getActor());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
-        final StringArray result = _glossaryTermsClient.getBrowsePaths(GlossaryTermUtils.getGlossaryTermUrn(urn));
+        final StringArray result = _glossaryTermsClient.getBrowsePaths(GlossaryTermUtils.getGlossaryTermUrn(urn), context.getActor());
         return BrowsePathsMapper.map(result);
     }
 

@@ -1,13 +1,15 @@
-import { Modal, Tag } from 'antd';
+import { Modal, Tag, Typography, Button, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { BookOutlined, PlusOutlined } from '@ant-design/icons';
 
-import { BookOutlined } from '@ant-design/icons';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { EntityType, GlobalTags, GlobalTagsUpdate, GlossaryTerms } from '../../../types.generated';
 import { convertTagsForUpdate } from './utils/convertTagsForUpdate';
 import AddTagModal from './AddTagModal';
+import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
+import { EMPTY_MESSAGES } from '../../entity/shared/constants';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -15,13 +17,20 @@ type Props = {
     glossaryTerms?: GlossaryTerms | null;
     canRemove?: boolean;
     canAdd?: boolean;
+    showEmptyMessage?: boolean;
+    buttonProps?: Record<string, unknown>;
     updateTags?: (update: GlobalTagsUpdate) => Promise<any>;
     onOpenModal?: () => void;
     maxShow?: number;
 };
 
-const AddNewTag = styled(Tag)`
-    cursor: pointer;
+const TagWrapper = styled.div`
+    margin-bottom: -8px;
+`;
+
+const TagLink = styled(Link)`
+    display: inline-block;
+    margin-bottom: 8px;
 `;
 
 export default function TagTermGroup({
@@ -29,6 +38,8 @@ export default function TagTermGroup({
     editableTags,
     canRemove,
     canAdd,
+    showEmptyMessage,
+    buttonProps,
     updateTags,
     onOpenModal,
     maxShow,
@@ -36,6 +47,7 @@ export default function TagTermGroup({
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
+    const tagsEmpty = !editableTags?.tags?.length;
 
     const removeTag = (urnToRemove: string) => {
         onOpenModal?.();
@@ -45,7 +57,16 @@ export default function TagTermGroup({
             title: `Do you want to remove ${tagToRemove?.tag.name} tag?`,
             content: `Are you sure you want to remove the ${tagToRemove?.tag.name} tag?`,
             onOk() {
-                updateTags?.({ tags: convertTagsForUpdate(newTags || []) });
+                updateTags?.({ tags: convertTagsForUpdate(newTags || []) })
+                    .then(({ errors }) => {
+                        if (!errors) {
+                            message.success({ content: 'Removed Tag!', duration: 2 });
+                        }
+                    })
+                    .catch((e) => {
+                        message.destroy();
+                        message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
+                    });
             },
             onCancel() {},
             okText: 'Yes',
@@ -57,28 +78,26 @@ export default function TagTermGroup({
     let renderedTags = 0;
 
     return (
-        <div>
+        <TagWrapper>
             {glossaryTerms?.terms?.map((term) => (
-                <Link
+                <TagLink
                     to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.term.urn}`}
                     key={term.term.urn}
                 >
-                    <Tag color="blue" closable={false}>
+                    <Tag closable={false}>
                         {term.term.name}
                         <BookOutlined style={{ marginLeft: '2%' }} />
                     </Tag>
-                </Link>
+                </TagLink>
             ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
-                        <Tag color="blue" closable={false}>
-                            {tag.tag.name}
-                        </Tag>
-                    </Link>
+                    <TagLink to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
+                        <StyledTag closable={false}>{tag.tag.name}</StyledTag>
+                    </TagLink>
                 );
             })}
             {/* editable tags may be provided by ingestion pipelines or the UI */}
@@ -86,9 +105,9 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
                 return (
-                    <Link to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
-                        <Tag
-                            color="blue"
+                    <TagLink to={`/${entityRegistry.getPathName(EntityType.Tag)}/${tag.tag.urn}`} key={tag.tag.urn}>
+                        <StyledTag
+                            $colorHash={tag.tag.urn}
                             closable={canRemove}
                             onClose={(e) => {
                                 e.preventDefault();
@@ -96,15 +115,25 @@ export default function TagTermGroup({
                             }}
                         >
                             {tag.tag.name}
-                        </Tag>
-                    </Link>
+                        </StyledTag>
+                    </TagLink>
                 );
             })}
+            {showEmptyMessage && canAdd && tagsEmpty && (
+                <Typography.Paragraph type="secondary">
+                    {EMPTY_MESSAGES.tags.title}. {EMPTY_MESSAGES.tags.description}
+                </Typography.Paragraph>
+            )}
             {canAdd && (uneditableTags?.tags?.length || 0) + (editableTags?.tags?.length || 0) < 10 && (
                 <>
-                    <AddNewTag color="success" onClick={() => setShowAddModal(true)}>
-                        + Add Tag
-                    </AddNewTag>
+                    <Button
+                        type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
+                        onClick={() => setShowAddModal(true)}
+                        {...buttonProps}
+                    >
+                        <PlusOutlined />
+                        Add Tag
+                    </Button>
                     {showAddModal && (
                         <AddTagModal
                             globalTags={editableTags}
@@ -118,6 +147,6 @@ export default function TagTermGroup({
                     )}
                 </>
             )}
-        </div>
+        </TagWrapper>
     );
 }
