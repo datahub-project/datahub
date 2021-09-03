@@ -8,7 +8,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.dataplatform.DataPlatformInfo;
-import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.resources.dataplatform.utils.DataPlatformsUtil;
 import java.net.URISyntaxException;

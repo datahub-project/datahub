@@ -15,7 +15,7 @@ import {
     UsageQueryResult,
 } from '../../../../../types.generated';
 import { convertTagsForUpdate } from '../../../../shared/tags/utils/convertTagsForUpdate';
-import SchemaTable from './SchemaTable';
+import SchemaTableLegacy from './SchemaTableLegacy';
 import SchemaHeader from './components/SchemaHeader';
 import SchemaRawView from './components/SchemaRawView';
 import SchemaVersionSummary from './components/SchemaVersionSummary';
@@ -200,7 +200,7 @@ export default function SchemaView({
                 rows.length > 0 && (
                     <>
                         {!editMode && diffSummary ? <SchemaVersionSummary diffSummary={diffSummary} /> : null}
-                        <SchemaTable
+                        <SchemaTableLegacy
                             rows={rows}
                             editMode={editMode}
                             onUpdateDescription={onUpdateDescription}

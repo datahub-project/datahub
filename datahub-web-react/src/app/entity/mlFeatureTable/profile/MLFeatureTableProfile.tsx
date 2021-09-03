@@ -1,11 +1,11 @@
 import React from 'react';
 import { Alert } from 'antd';
 import { useGetMlFeatureTableQuery } from '../../../../graphql/mlFeatureTable.generated';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { MlFeatureTable, MlFeature, MlPrimaryKey, EntityType } from '../../../../types.generated';
 import MLFeatureTableHeader from './MLFeatureTableHeader';
 import { Message } from '../../../shared/Message';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType } from '../../../analytics';
 import { notEmpty } from '../../shared/utils';
@@ -67,7 +67,7 @@ export const MLFeatureTableProfile = ({ urn }: { urn: string }): JSX.Element => 
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.mlFeatureTable && (
-                <EntityProfile
+                <LegacyEntityProfile
                     titleLink={`/${entityRegistry.getPathName(EntityType.MlfeatureTable)}/${urn}`}
                     title={data.mlFeatureTable?.name || ''}
                     tabs={getTabs(data.mlFeatureTable as MlFeatureTable)}

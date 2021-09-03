@@ -1,5 +1,7 @@
 package com.datahub.metadata.graphql;
 
+import com.datahub.metadata.authentication.AuthenticationContext;
+import com.datahub.metadata.authorization.AuthorizationManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,7 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.datahub.metadata.auth.AuthContext;
+
 
 @Slf4j
 @RestController
@@ -30,7 +32,10 @@ public class GraphQLController {
   @Inject
   GraphQLEngine _engine;
 
-  @PostMapping("/graphql")
+  @Inject
+  AuthorizationManager _authManager;
+
+  @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> postGraphQL(HttpEntity<String> httpEntity) {
 
     String jsonStr = httpEntity.getBody();
@@ -68,7 +73,7 @@ public class GraphQLController {
     /*
      * Init QueryContext
      */
-    SpringQueryContext context = new SpringQueryContext(true, AuthContext.getPrincipal());
+    SpringQueryContext context = new SpringQueryContext(true, AuthenticationContext.getActor(), _authManager);
 
     return CompletableFuture.supplyAsync(() -> {
       /*
@@ -103,6 +108,6 @@ public class GraphQLController {
 
   @GetMapping("/graphql")
   void getGraphQL(HttpServletRequest request, HttpServletResponse response) {
-    System.out.println("GET am graphql!");
+    throw new UnsupportedOperationException("GraphQL gets not supported.");
   }
 }

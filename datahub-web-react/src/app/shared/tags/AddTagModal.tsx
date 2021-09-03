@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FetchResult } from '@apollo/client';
-import { Button, Modal, Select, Typography } from 'antd';
+import { Button, message, Modal, Select, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { UpdateDatasetMutation } from '../../../graphql/dataset.generated';
@@ -73,10 +73,20 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
                     ...convertTagsForUpdate(globalTags?.tags || []),
                     { tag: { urn: `urn:li:tag:${selectedTagValue}`, name: selectedTagValue } },
                 ] as TagAssociationUpdate[],
-            }).finally(() => {
-                setDisableAdd(false);
-                onClose();
-            });
+            })
+                .then(({ errors }) => {
+                    if (!errors) {
+                        message.success({ content: 'Added Tag!', duration: 2 });
+                    }
+                })
+                .catch((e) => {
+                    message.destroy();
+                    message.error({ content: `Failed to add tag: \n ${e.message || ''}`, duration: 3 });
+                })
+                .finally(() => {
+                    setDisableAdd(false);
+                    onClose();
+                });
         } else {
             onClose();
         }
@@ -104,7 +114,9 @@ export default function AddTagModal({ updateTags, globalTags, visible, onClose }
             okText="Add"
             footer={
                 <>
-                    <Button onClick={onClose}>Cancel</Button>
+                    <Button onClick={onClose} type="text">
+                        Cancel
+                    </Button>
                     <Button onClick={onOk} disabled={selectedTagValue.length === 0 || disableAdd}>
                         Add
                     </Button>

@@ -57,6 +57,7 @@ source:
     password: password
 
     # Options
+    use_odbc: "True"
     uri_args:
       driver: "ODBC Driver 17 for SQL Server"
       Encrypt: "yes"

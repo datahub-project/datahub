@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography } from 'antd';
-
+import styled from 'styled-components';
 import { Schema, SchemaMetadata } from '../../../../../../types.generated';
 import { diffJson, formatRawSchema, getRawSchema } from '../utils/utils';
 
@@ -13,6 +13,10 @@ type Props = {
     showKeySchema: boolean;
 };
 
+const SchemaContainer = styled.div`
+    padding: 12px;
+`;
+
 export default function SchemaRawView({ schemaDiff, editMode, showKeySchema }: Props) {
     const currentSchemaRaw = formatRawSchema(getRawSchema(schemaDiff.current?.platformSchema, showKeySchema));
 
@@ -21,10 +25,12 @@ export default function SchemaRawView({ schemaDiff, editMode, showKeySchema }: P
         : diffJson(formatRawSchema(getRawSchema(schemaDiff.previous?.platformSchema, showKeySchema)), currentSchemaRaw);
 
     return (
-        <Typography.Text data-testid="schema-raw-view">
-            <pre>
-                <code>{schemaRawDiff}</code>
-            </pre>
-        </Typography.Text>
+        <SchemaContainer>
+            <Typography.Text data-testid="schema-raw-view">
+                <pre>
+                    <code>{schemaRawDiff}</code>
+                </pre>
+            </Typography.Text>
+        </SchemaContainer>
     );
 }

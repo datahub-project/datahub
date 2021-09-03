@@ -1,16 +1,16 @@
 import React from 'react';
 import { Alert } from 'antd';
 import { useGetMlModelQuery } from '../../../../graphql/mlModel.generated';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { MlModel, EntityType } from '../../../../types.generated';
 import MLModelHeader from './MLModelHeader';
 import { Message } from '../../../shared/Message';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType } from '../../../analytics';
 import MLModelSummary from './MLModelSummary';
 import MLModelGroupsTab from './MLModelGroupsTab';
-import { Properties } from '../../shared/Properties';
+import { Properties } from '../../shared/components/legacy/Properties';
 
 const EMPTY_ARR: never[] = [];
 
@@ -74,7 +74,7 @@ export const MLModelProfile = ({ urn }: { urn: string }): JSX.Element => {
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.mlModel && (
-                <EntityProfile
+                <LegacyEntityProfile
                     titleLink={`/${entityRegistry.getPathName(EntityType.Mlmodel)}/${urn}`}
                     title={data.mlModel?.name || ''}
                     tabs={getTabs(data.mlModel as MlModel)}

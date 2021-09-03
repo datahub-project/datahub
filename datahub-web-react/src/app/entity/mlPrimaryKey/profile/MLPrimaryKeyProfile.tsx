@@ -1,5 +1,5 @@
 import React from 'react';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType } from '../../../analytics';
@@ -17,7 +17,7 @@ export const MLPrimaryKeyProfile = ({ urn }: { urn: string }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
     return (
-        <EntityProfile
+        <LegacyEntityProfile
             titleLink={`/${entityRegistry.getPathName(EntityType.MlprimaryKey)}/${urn}`}
             title={urn}
             header={<></>}

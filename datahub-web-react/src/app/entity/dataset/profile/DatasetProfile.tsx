@@ -1,12 +1,12 @@
 import React from 'react';
-import { Alert } from 'antd';
+import { Alert, message } from 'antd';
 import { useGetDatasetQuery, useUpdateDatasetMutation } from '../../../../graphql/dataset.generated';
-import { Ownership as OwnershipView } from '../../shared/Ownership';
+import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
 import SchemaView from './schema/Schema';
-import { EntityProfile } from '../../../shared/EntityProfile';
+import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { Dataset, EntityType, GlobalTags, GlossaryTerms, SchemaMetadata } from '../../../../types.generated';
 import LineageView from './Lineage';
-import { Properties as PropertiesView } from '../../shared/Properties';
+import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
 import DocumentsView from './Documentation';
 import DatasetHeader from './DatasetHeader';
 import { Message } from '../../../shared/Message';
@@ -15,7 +15,6 @@ import useIsLineageMode from '../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
-import QueriesTab from './QueriesTab';
 import StatsView from './stats/Stats';
 
 export enum TabType {
@@ -38,10 +37,15 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
 
     const { loading, error, data } = useGetDatasetQuery({ variables: { urn } });
 
-    const user = useGetAuthenticatedUser();
+    const user = useGetAuthenticatedUser()?.corpUser;
     const [updateDataset] = useUpdateDatasetMutation({
         refetchQueries: () => ['getDataset'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
+        },
     });
+
     const isLineageMode = useIsLineageMode();
 
     if (!loading && error) {
@@ -111,11 +115,6 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
                 content: <LineageView upstreamLineage={upstreamLineage} downstreamLineage={downstreamLineage} />,
             },
             {
-                name: TabType.Queries,
-                path: TabType.Queries.toLowerCase(),
-                content: <QueriesTab usageStats={usageStats} />,
-            },
-            {
                 name: TabType.Properties,
                 path: TabType.Properties.toLowerCase(),
                 content: <PropertiesView properties={properties || EMPTY_ARR} />,
@@ -156,7 +155,7 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.dataset && (
-                <EntityProfile
+                <LegacyEntityProfile
                     titleLink={`/${entityRegistry.getPathName(
                         EntityType.Dataset,
                     )}/${urn}?is_lineage_mode=${isLineageMode}`}

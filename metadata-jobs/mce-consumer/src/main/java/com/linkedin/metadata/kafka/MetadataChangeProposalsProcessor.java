@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka;
 
 import com.linkedin.entity.client.AspectClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
@@ -50,7 +51,8 @@ public class MetadataChangeProposalsProcessor {
     try {
       event = EventUtils.avroToPegasusMCP(record);
       log.debug("MetadataChangeProposal {}", event);
-      aspectClient.ingestProposal(event);
+      // TODO: Get this from the event itself.
+      aspectClient.ingestProposal(event, Constants.SYSTEM_ACTOR);
     } catch (Throwable throwable) {
       log.error("MCP Processor Error", throwable);
       log.error("Message: {}", record);

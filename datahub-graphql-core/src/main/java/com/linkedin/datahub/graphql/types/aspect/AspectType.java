@@ -19,6 +19,7 @@ public class AspectType {
   public AspectType(final AspectClient aspectClient) {
     _aspectClient = aspectClient;
   }
+
   /**
    * Retrieves an list of aspects given a list of {@link VersionedAspectKey} structs. The list returned is expected to
    * be of same length of the list of keys, where nulls are provided in place of an aspect object if an entity cannot be found.
@@ -29,7 +30,7 @@ public class AspectType {
     try {
       return keys.stream().map(key -> {
         try {
-          VersionedAspect entity = _aspectClient.getAspect(key.getUrn(), key.getAspectName(), key.getVersion());
+          VersionedAspect entity = _aspectClient.getAspect(key.getUrn(), key.getAspectName(), key.getVersion(), context.getActor());
           return DataFetcherResult.<Aspect>newResult().data(AspectMapper.map(entity)).build();
         } catch (RemoteInvocationException e) {
           if (e instanceof RestLiResponseException) {

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql;
 
+import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
@@ -10,7 +11,6 @@ import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -59,7 +59,9 @@ public class GraphQLEngine {
         /*
          * Instantiate engine
          */
-        _graphQL = GraphQL.newGraphQL(graphQLSchema).build();
+        _graphQL = new GraphQL.Builder(graphQLSchema)
+            .defaultDataFetcherExceptionHandler(new DataHubDataFetcherExceptionHandler())
+            .build();
     }
 
     public ExecutionResult execute(@Nonnull final String query,

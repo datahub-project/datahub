@@ -1,0 +1,11 @@
+source:
+  type: datahub-business-glossary
+  config:
+    file: ./examples/bootstrap_data/business_glossary.yml
+    
+
+sink:
+  type: datahub-rest 
+  config:
+    server: http://localhost:8080
+
