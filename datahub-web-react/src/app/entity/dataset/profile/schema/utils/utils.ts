@@ -101,7 +101,11 @@ export function groupByFieldPath(
                 // In the case of structs, arrays, etc, parent will be the first token from
                 // the left of this field's name(last token of the path) that does not enclosed in [].
                 let parentPath: null | string = null;
-                for (let lastParentTokenIndex = rowTokens.length - 2; lastParentTokenIndex >= 0; --lastParentTokenIndex) {
+                for (
+                    let lastParentTokenIndex = rowTokens.length - 2;
+                    lastParentTokenIndex >= 0;
+                    --lastParentTokenIndex
+                ) {
                     const lastParentToken: string = rowTokens[lastParentTokenIndex];
                     if (lastParentToken && lastParentToken[0] !== '[') {
                         parentPath = rowTokens.slice(0, lastParentTokenIndex + 1).join('.');
