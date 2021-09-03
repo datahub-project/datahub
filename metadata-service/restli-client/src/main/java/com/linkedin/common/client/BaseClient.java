@@ -7,7 +7,6 @@ import com.linkedin.restli.client.AbstractRequestBuilder;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.Request;
 import com.linkedin.restli.client.Response;
-import com.linkedin.restli.client.RestLiResponseException;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
