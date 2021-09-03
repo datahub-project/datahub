@@ -6,6 +6,7 @@ import akka.stream.Materializer;
 import akka.util.ByteString;
 import auth.Authenticator;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.metadata.Constants;
 import com.linkedin.util.Configuration;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
@@ -116,7 +117,7 @@ public class Application extends Controller {
             .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         )
-        .addHeader("X-DataHub-Principal", ctx().session().get(ACTOR)) // TODO: Replace with a token to GMS.
+        .addHeader(Constants.ACTOR_HEADER_NAME, ctx().session().get(ACTOR)) // TODO: Replace with a token to GMS.
         .setBody(new InMemoryBodyWritable(ByteString.fromByteBuffer(request().body().asBytes().asByteBuffer()), "application/json"))
         .execute()
         .thenApply(apiResponse -> {

@@ -1,4 +1,4 @@
-import { Alert } from 'antd';
+import { Alert, message } from 'antd';
 import React from 'react';
 import { useGetDashboardQuery, useUpdateDashboardMutation } from '../../../../graphql/dashboard.generated';
 import { Dashboard, EntityType, GlobalTags } from '../../../../types.generated';
@@ -25,6 +25,10 @@ export default function DashboardProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetDashboardQuery({ variables: { urn } });
     const [updateDashboard] = useUpdateDashboardMutation({
         refetchQueries: () => ['getDashboard'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
+        },
     });
 
     if (error || (!loading && !error && !data)) {

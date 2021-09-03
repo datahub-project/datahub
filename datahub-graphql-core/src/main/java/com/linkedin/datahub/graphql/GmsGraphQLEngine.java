@@ -35,6 +35,7 @@ import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
+import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
@@ -43,6 +44,10 @@ import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultReso
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
+import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
+import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
@@ -109,82 +114,118 @@ import static graphql.Scalars.GraphQLLong;
 
 /**
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS graph.
+ *
+ * TODO: Accept GMS clients as constructor arguments.
  */
 public class GmsGraphQLEngine {
 
     private static final Logger _logger = LoggerFactory.getLogger(GmsGraphQLEngine.class.getName());
-    private static GraphQLEngine _engine;
-
-    private final DatasetType datasetType = new DatasetType(GmsClientFactory.getEntitiesClient());
-    private final CorpUserType corpUserType = new CorpUserType(GmsClientFactory.getEntitiesClient());
-    private final CorpGroupType corpGroupType = new CorpGroupType(GmsClientFactory.getEntitiesClient());
-    private final ChartType chartType = new ChartType(GmsClientFactory.getEntitiesClient());
-    private final DashboardType dashboardType = new DashboardType(GmsClientFactory.getEntitiesClient());
-    private final DataPlatformType dataPlatformType = new DataPlatformType(GmsClientFactory.getEntitiesClient());
-    private final DownstreamLineageType downstreamLineageType = new DownstreamLineageType(
-            GmsClientFactory.getLineagesClient()
-    );
-    private final UpstreamLineageType upstreamLineageType = new UpstreamLineageType(
-            GmsClientFactory.getLineagesClient()
-    );
-    private final TagType tagType = new TagType(GmsClientFactory.getEntitiesClient());
-    private final MLModelType mlModelType = new MLModelType(GmsClientFactory.getEntitiesClient());
-    private final MLModelGroupType mlModelGroupType = new MLModelGroupType(GmsClientFactory.getEntitiesClient());
-    private final MLFeatureType mlFeatureType = new MLFeatureType(GmsClientFactory.getEntitiesClient());
-    private final MLFeatureTableType mlFeatureTableType = new MLFeatureTableType(GmsClientFactory.getEntitiesClient());
-    private final MLPrimaryKeyType mlPrimaryKeyType = new MLPrimaryKeyType(GmsClientFactory.getEntitiesClient());
-    private final DataFlowType dataFlowType = new DataFlowType(GmsClientFactory.getEntitiesClient());
-    private final DataJobType dataJobType = new DataJobType(GmsClientFactory.getEntitiesClient());
-    private final DataFlowDataJobsRelationshipsType dataFlowDataJobsRelationshipType = new DataFlowDataJobsRelationshipsType(
-            GmsClientFactory.getRelationshipsClient()
-    );
-    private final GlossaryTermType glossaryTermType = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
-    private final AspectType aspectType = new AspectType(GmsClientFactory.getAspectsClient());
-    private final UsageType usageType = new UsageType(GmsClientFactory.getUsageClient());
 
     private final AnalyticsService analyticsService;
+
+    private final DatasetType datasetType;
+    private final CorpUserType corpUserType;
+    private final CorpGroupType corpGroupType;
+    private final ChartType chartType;
+    private final DashboardType dashboardType;
+    private final DataPlatformType dataPlatformType;
+    private final DownstreamLineageType downstreamLineageType;
+    private final UpstreamLineageType upstreamLineageType;
+    private final TagType tagType;
+    private final MLModelType mlModelType;
+    private final MLModelGroupType mlModelGroupType;
+    private final MLFeatureType mlFeatureType;
+    private final MLFeatureTableType mlFeatureTableType;
+    private final MLPrimaryKeyType mlPrimaryKeyType;
+    private final DataFlowType dataFlowType;
+    private final DataJobType dataJobType;
+    private final DataFlowDataJobsRelationshipsType dataFlowDataJobsRelationshipType;
+    private final GlossaryTermType glossaryTermType;
+    private final AspectType aspectType;
+    private final UsageType usageType;
 
     /**
      * Configures the graph objects that can be fetched primary key.
      */
-    public final List<EntityType<?>> entityTypes = ImmutableList.of(datasetType, corpUserType, corpGroupType,
-        dataPlatformType, chartType, dashboardType, tagType, mlModelType, mlModelGroupType, mlFeatureType,
-        mlFeatureTableType, mlPrimaryKeyType, dataFlowType, dataJobType, glossaryTermType
-    );
+    public final List<EntityType<?>> entityTypes;
 
     /**
      * Configures the graph objects that cannot be fetched by primary key
      */
-    public final List<LoadableType<?>> relationshipTypes = ImmutableList.of(downstreamLineageType, upstreamLineageType,
-        dataFlowDataJobsRelationshipType
-    );
+    public final List<LoadableType<?>> relationshipTypes;
 
     /**
      * Configures all graph objects
      */
-    public final List<LoadableType<?>> loadableTypes = Stream.concat(entityTypes.stream(), relationshipTypes.stream()).collect(Collectors.toList());
+    public final List<LoadableType<?>> loadableTypes;
 
     /**
      * Configures the graph objects for owner
      */
-    public final List<LoadableType<?>> ownerTypes = ImmutableList.of(corpUserType, corpGroupType
-    );
+    public final List<LoadableType<?>> ownerTypes;
 
     /**
      * Configures the graph objects that can be searched.
      */
-    public final List<SearchableEntityType<?>> searchableTypes = loadableTypes.stream()
-            .filter(type -> (type instanceof SearchableEntityType<?>))
-            .map(type -> (SearchableEntityType<?>) type)
-            .collect(Collectors.toList());
+    public final List<SearchableEntityType<?>> searchableTypes;
 
     /**
      * Configures the graph objects that can be browsed.
      */
-    public final List<BrowsableEntityType<?>> browsableTypes = loadableTypes.stream()
+    public final List<BrowsableEntityType<?>> browsableTypes;
+
+    public GmsGraphQLEngine() {
+        this(null);
+    }
+
+    public GmsGraphQLEngine(final AnalyticsService analyticsService) {
+        this.analyticsService = analyticsService;
+        this.datasetType = new DatasetType(GmsClientFactory.getEntitiesClient());
+        this.corpUserType = new CorpUserType(GmsClientFactory.getEntitiesClient());
+        this.corpGroupType = new CorpGroupType(GmsClientFactory.getEntitiesClient());
+        this.chartType = new ChartType(GmsClientFactory.getEntitiesClient());
+        this.dashboardType = new DashboardType(GmsClientFactory.getEntitiesClient());
+        this.dataPlatformType = new DataPlatformType(GmsClientFactory.getEntitiesClient());
+        this.downstreamLineageType = new DownstreamLineageType(
+            GmsClientFactory.getLineagesClient()
+        );
+        this.upstreamLineageType = new UpstreamLineageType(
+            GmsClientFactory.getLineagesClient()
+        );
+        this.tagType = new TagType(GmsClientFactory.getEntitiesClient());
+        this.mlModelType = new MLModelType(GmsClientFactory.getEntitiesClient());
+        this.mlModelGroupType = new MLModelGroupType(GmsClientFactory.getEntitiesClient());
+        this.mlFeatureType = new MLFeatureType(GmsClientFactory.getEntitiesClient());
+        this.mlFeatureTableType = new MLFeatureTableType(GmsClientFactory.getEntitiesClient());
+        this.mlPrimaryKeyType = new MLPrimaryKeyType(GmsClientFactory.getEntitiesClient());
+        this.dataFlowType = new DataFlowType(GmsClientFactory.getEntitiesClient());
+        this.dataJobType = new DataJobType(GmsClientFactory.getEntitiesClient());
+        this.dataFlowDataJobsRelationshipType = new DataFlowDataJobsRelationshipsType(
+            GmsClientFactory.getRelationshipsClient()
+        );
+        this.glossaryTermType = new GlossaryTermType(GmsClientFactory.getEntitiesClient());
+        this.aspectType = new AspectType(GmsClientFactory.getAspectsClient());
+        this.usageType = new UsageType(GmsClientFactory.getUsageClient());
+
+        // Init Lists
+        this.entityTypes = ImmutableList.of(datasetType, corpUserType, corpGroupType,
+            dataPlatformType, chartType, dashboardType, tagType, mlModelType, mlModelGroupType, mlFeatureType,
+            mlFeatureTableType, mlPrimaryKeyType, dataFlowType, dataJobType, glossaryTermType
+        );
+        this.relationshipTypes = ImmutableList.of(downstreamLineageType, upstreamLineageType,
+            dataFlowDataJobsRelationshipType
+        );
+        this.loadableTypes = Stream.concat(entityTypes.stream(), relationshipTypes.stream()).collect(Collectors.toList());
+        this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
+        this.searchableTypes = loadableTypes.stream()
+            .filter(type -> (type instanceof SearchableEntityType<?>))
+            .map(type -> (SearchableEntityType<?>) type)
+            .collect(Collectors.toList());
+        this.browsableTypes = loadableTypes.stream()
             .filter(type -> (type instanceof BrowsableEntityType<?>))
             .map(type -> (BrowsableEntityType<?>) type)
             .collect(Collectors.toList());
+    }
 
     public static String schema() {
         String defaultSchemaString;
@@ -253,31 +294,21 @@ public class GmsGraphQLEngine {
 
     private void configureAnalyticsResolvers(final RuntimeWiring.Builder builder) {
         final boolean isAnalyticsEnabled = analyticsService != null;
-        builder.type("Query", typeWiring -> typeWiring
-            .dataFetcher("isAnalyticsEnabled", new IsAnalyticsEnabledResolver(isAnalyticsEnabled)))
-        .type("AnalyticsChart", typeWiring -> typeWiring
-            .typeResolver(new AnalyticsChartTypeResolver())
-        );
+        builder.type("Query", typeWiring -> typeWiring.dataFetcher("isAnalyticsEnabled", new IsAnalyticsEnabledResolver(isAnalyticsEnabled)))
+            .type("AnalyticsChart", typeWiring -> typeWiring.typeResolver(new AnalyticsChartTypeResolver()));
         if (isAnalyticsEnabled) {
-            builder.type("Query", typeWiring -> typeWiring
-                .dataFetcher("getAnalyticsCharts", new GetChartsResolver(analyticsService))
-                .dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService)));
+            builder.type("Query",
+                typeWiring -> typeWiring.dataFetcher("getAnalyticsCharts", new GetChartsResolver(analyticsService))
+                    .dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService)));
         }
-    }
-
-    public static GraphQLEngine get() {
-        if (_engine == null) {
-            synchronized (GmsGraphQLEngine.class) {
-                if (_engine == null) {
-                    _engine = new GmsGraphQLEngine().builder().build();
-                }
-            }
-        }
-        return _engine;
     }
 
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
+            .dataFetcher("appConfig",
+                new AppConfigResolver(analyticsService != null))
+            .dataFetcher("me", new AuthenticatedResolver<>(
+                    new MeResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("search", new AuthenticatedResolver<>(
                     new SearchResolver(searchableTypes)))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
@@ -330,6 +361,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("mlModelGroup", new AuthenticatedResolver<>(
                     new LoadableTypeResolver<>(mlModelGroupType,
                             (env) -> env.getArgument(URN_FIELD_NAME))))
+            .dataFetcher("listPolicies",
+                new ListPoliciesResolver(GmsClientFactory.getEntitiesClient()))
         );
     }
 
@@ -341,6 +374,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher("updateDashboard", new AuthenticatedResolver<>(new MutableTypeResolver<>(dashboardType)))
                 .dataFetcher("updateDataJob", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataJobType)))
                 .dataFetcher("updateDataFlow", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataFlowType)))
+                .dataFetcher("createPolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
+                .dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
+                .dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
         );
     }
 
@@ -700,9 +736,15 @@ public class GmsGraphQLEngine {
             .type("MLModelProperties", typeWiring -> typeWiring
                 .dataFetcher("groups", new AuthenticatedResolver<>(
                     new LoadableTypeBatchResolver<>(mlModelGroupType,
-                        (env) -> ((MLModelProperties) env.getSource()).getGroups().stream()
-                            .map(MLModelGroup::getUrn)
-                            .collect(Collectors.toList())))
+                        (env) -> {
+                            MLModelProperties properties = env.getSource();
+                            if (properties.getGroups() != null) {
+                                return properties.getGroups().stream()
+                                    .map(MLModelGroup::getUrn)
+                                    .collect(Collectors.toList());
+                            }
+                            return null;
+                        }))
                 )
             )
             .type("MLModelGroup", typeWiring -> typeWiring
@@ -772,13 +814,4 @@ public class GmsGraphQLEngine {
             }
         }), loaderOptions);
     }
-
-    public GmsGraphQLEngine() {
-        this.analyticsService = null;
-    }
-
-    public GmsGraphQLEngine(final AnalyticsService analyticsService) {
-        this.analyticsService = analyticsService;
-    }
-
 }

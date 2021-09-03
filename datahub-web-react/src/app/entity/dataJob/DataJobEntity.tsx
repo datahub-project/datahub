@@ -97,4 +97,8 @@ export class DataJobEntity implements Entity<DataJob> {
             platform: entity.dataFlow?.orchestrator || '',
         };
     };
+
+    displayName = (data: DataJob) => {
+        return data.info?.name || data.urn;
+    };
 }

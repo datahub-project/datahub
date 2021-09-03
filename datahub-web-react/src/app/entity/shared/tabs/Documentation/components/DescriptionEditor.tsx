@@ -34,7 +34,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
             if (onComplete) onComplete();
         } catch (e) {
             message.destroy();
-            message.error({ content: `Error updating description: \n ${e.message || ''}`, duration: 2 });
+            message.error({ content: `Failed to update description: \n ${e.message || ''}`, duration: 2 });
         }
     };
 

@@ -3,7 +3,7 @@ package com.linkedin.metadata.entity.ebean;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -11,7 +11,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.PegasusUtils.getDataTemplateClassFromSchema;
+import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
 import static com.linkedin.metadata.entity.EntityService.*;
 
 

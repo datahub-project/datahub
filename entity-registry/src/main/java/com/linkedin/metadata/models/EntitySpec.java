@@ -20,6 +20,8 @@ public interface EntitySpec {
 
     Map<String, AspectSpec> getAspectSpecMap();
 
+    Boolean hasAspect(String name);
+
     AspectSpec getAspectSpec(String name);
 
     RecordDataSchema getSnapshotSchema();

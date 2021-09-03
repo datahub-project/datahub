@@ -4208,6 +4208,39 @@ class DataFlowKeyClass(DictWrapper):
         self._inner_dict['cluster'] = value
     
     
+class DataHubPolicyKeyClass(DictWrapper):
+    """Key for a DataHub Policy"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.DataHubPolicyKey")
+    def __init__(self,
+        id: str,
+    ):
+        super().__init__()
+        
+        self.id = id
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "DataHubPolicyKeyClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.id = str()
+    
+    
+    @property
+    def id(self) -> str:
+        """Getter: A unique id for the DataHub access policy record. Generated on the server side at policy creation time."""
+        return self._inner_dict.get('id')  # type: ignore
+    
+    @id.setter
+    def id(self, value: str) -> None:
+        """Setter: A unique id for the DataHub access policy record. Generated on the server side at policy creation time."""
+        self._inner_dict['id'] = value
+    
+    
 class DataJobKeyClass(DictWrapper):
     """Key for a Data Job"""
     
@@ -5067,6 +5100,53 @@ class DataFlowSnapshotClass(DictWrapper):
     @aspects.setter
     def aspects(self, value: List[Union["DataFlowKeyClass", "DataFlowInfoClass", "EditableDataFlowPropertiesClass", "OwnershipClass", "StatusClass", "GlobalTagsClass", "BrowsePathsClass"]]) -> None:
         """Setter: The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."""
+        self._inner_dict['aspects'] = value
+    
+    
+class DataHubPolicySnapshotClass(DictWrapper):
+    """A metadata snapshot for DataHub Access Policy data."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.snapshot.DataHubPolicySnapshot")
+    def __init__(self,
+        urn: str,
+        aspects: List[Union["DataHubPolicyKeyClass", "DataHubPolicyInfoClass"]],
+    ):
+        super().__init__()
+        
+        self.urn = urn
+        self.aspects = aspects
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "DataHubPolicySnapshotClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.urn = str()
+        self.aspects = list()
+    
+    
+    @property
+    def urn(self) -> str:
+        """Getter: URN for the entity the metadata snapshot is associated with."""
+        return self._inner_dict.get('urn')  # type: ignore
+    
+    @urn.setter
+    def urn(self, value: str) -> None:
+        """Setter: URN for the entity the metadata snapshot is associated with."""
+        self._inner_dict['urn'] = value
+    
+    
+    @property
+    def aspects(self) -> List[Union["DataHubPolicyKeyClass", "DataHubPolicyInfoClass"]]:
+        """Getter: The list of metadata aspects associated with the DataHub access policy."""
+        return self._inner_dict.get('aspects')  # type: ignore
+    
+    @aspects.setter
+    def aspects(self, value: List[Union["DataHubPolicyKeyClass", "DataHubPolicyInfoClass"]]) -> None:
+        """Setter: The list of metadata aspects associated with the DataHub access policy."""
         self._inner_dict['aspects'] = value
     
     
@@ -7288,7 +7368,7 @@ class MetadataChangeEventClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.mxe.MetadataChangeEvent")
     def __init__(self,
-        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"],
+        proposedSnapshot: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "DataHubPolicySnapshotClass"],
         auditHeader: Union[None, "KafkaAuditHeaderClass"]=None,
         proposedDelta: None=None,
         systemMetadata: Union[None, "SystemMetadataClass"]=None,
@@ -7326,12 +7406,12 @@ class MetadataChangeEventClass(DictWrapper):
     
     
     @property
-    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]:
+    def proposedSnapshot(self) -> Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "DataHubPolicySnapshotClass"]:
         """Getter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         return self._inner_dict.get('proposedSnapshot')  # type: ignore
     
     @proposedSnapshot.setter
-    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass"]) -> None:
+    def proposedSnapshot(self, value: Union["ChartSnapshotClass", "CorpGroupSnapshotClass", "CorpUserSnapshotClass", "DashboardSnapshotClass", "DataFlowSnapshotClass", "DataJobSnapshotClass", "DatasetSnapshotClass", "DataProcessSnapshotClass", "DataPlatformSnapshotClass", "MLModelSnapshotClass", "MLPrimaryKeySnapshotClass", "MLFeatureSnapshotClass", "MLFeatureTableSnapshotClass", "MLModelDeploymentSnapshotClass", "MLModelGroupSnapshotClass", "TagSnapshotClass", "GlossaryTermSnapshotClass", "GlossaryNodeSnapshotClass", "DataHubPolicySnapshotClass"]) -> None:
         """Setter: Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot."""
         self._inner_dict['proposedSnapshot'] = value
     
@@ -7566,6 +7646,313 @@ class SystemMetadataClass(DictWrapper):
     def properties(self, value: Union[None, Dict[str, str]]) -> None:
         """Setter: Additional properties"""
         self._inner_dict['properties'] = value
+    
+    
+class DataHubActorFilterClass(DictWrapper):
+    """Information used to filter DataHub actors."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.policy.DataHubActorFilter")
+    def __init__(self,
+        users: Union[None, List[str]]=None,
+        groups: Union[None, List[str]]=None,
+        resourceOwners: Optional[bool]=None,
+        allUsers: Optional[bool]=None,
+        allGroups: Optional[bool]=None,
+    ):
+        super().__init__()
+        
+        self.users = users
+        self.groups = groups
+        if resourceOwners is None:
+            # default: False
+            self.resourceOwners = self.RECORD_SCHEMA.field_map["resourceOwners"].default
+        else:
+            self.resourceOwners = resourceOwners
+        if allUsers is None:
+            # default: False
+            self.allUsers = self.RECORD_SCHEMA.field_map["allUsers"].default
+        else:
+            self.allUsers = allUsers
+        if allGroups is None:
+            # default: False
+            self.allGroups = self.RECORD_SCHEMA.field_map["allGroups"].default
+        else:
+            self.allGroups = allGroups
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "DataHubActorFilterClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.users = self.RECORD_SCHEMA.field_map["users"].default
+        self.groups = self.RECORD_SCHEMA.field_map["groups"].default
+        self.resourceOwners = self.RECORD_SCHEMA.field_map["resourceOwners"].default
+        self.allUsers = self.RECORD_SCHEMA.field_map["allUsers"].default
+        self.allGroups = self.RECORD_SCHEMA.field_map["allGroups"].default
+    
+    
+    @property
+    def users(self) -> Union[None, List[str]]:
+        """Getter: A specific set of users to apply the policy to (disjunctive)"""
+        return self._inner_dict.get('users')  # type: ignore
+    
+    @users.setter
+    def users(self, value: Union[None, List[str]]) -> None:
+        """Setter: A specific set of users to apply the policy to (disjunctive)"""
+        self._inner_dict['users'] = value
+    
+    
+    @property
+    def groups(self) -> Union[None, List[str]]:
+        """Getter: A specific set of groups to apply the policy to (disjunctive)"""
+        return self._inner_dict.get('groups')  # type: ignore
+    
+    @groups.setter
+    def groups(self, value: Union[None, List[str]]) -> None:
+        """Setter: A specific set of groups to apply the policy to (disjunctive)"""
+        self._inner_dict['groups'] = value
+    
+    
+    @property
+    def resourceOwners(self) -> bool:
+        """Getter: Whether the filter should return true for owners of a particular resource.
+    Only applies to policies of type 'Metadata', which have a resource associated with them."""
+        return self._inner_dict.get('resourceOwners')  # type: ignore
+    
+    @resourceOwners.setter
+    def resourceOwners(self, value: bool) -> None:
+        """Setter: Whether the filter should return true for owners of a particular resource.
+    Only applies to policies of type 'Metadata', which have a resource associated with them."""
+        self._inner_dict['resourceOwners'] = value
+    
+    
+    @property
+    def allUsers(self) -> bool:
+        """Getter: Whether the filter should apply to all users."""
+        return self._inner_dict.get('allUsers')  # type: ignore
+    
+    @allUsers.setter
+    def allUsers(self, value: bool) -> None:
+        """Setter: Whether the filter should apply to all users."""
+        self._inner_dict['allUsers'] = value
+    
+    
+    @property
+    def allGroups(self) -> bool:
+        """Getter: Whether the filter should apply to all groups."""
+        return self._inner_dict.get('allGroups')  # type: ignore
+    
+    @allGroups.setter
+    def allGroups(self, value: bool) -> None:
+        """Setter: Whether the filter should apply to all groups."""
+        self._inner_dict['allGroups'] = value
+    
+    
+class DataHubPolicyInfoClass(DictWrapper):
+    """Information about a DataHub (UI) access policy."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.policy.DataHubPolicyInfo")
+    def __init__(self,
+        displayName: str,
+        description: str,
+        type: str,
+        state: str,
+        privileges: List[str],
+        actors: "DataHubActorFilterClass",
+        resources: Union[None, "DataHubResourceFilterClass"]=None,
+        editable: Optional[bool]=None,
+    ):
+        super().__init__()
+        
+        self.displayName = displayName
+        self.description = description
+        self.type = type
+        self.state = state
+        self.resources = resources
+        self.privileges = privileges
+        self.actors = actors
+        if editable is None:
+            # default: True
+            self.editable = self.RECORD_SCHEMA.field_map["editable"].default
+        else:
+            self.editable = editable
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "DataHubPolicyInfoClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.displayName = str()
+        self.description = str()
+        self.type = str()
+        self.state = str()
+        self.resources = self.RECORD_SCHEMA.field_map["resources"].default
+        self.privileges = list()
+        self.actors = DataHubActorFilterClass.construct_with_defaults()
+        self.editable = self.RECORD_SCHEMA.field_map["editable"].default
+    
+    
+    @property
+    def displayName(self) -> str:
+        """Getter: Display name of the Policy"""
+        return self._inner_dict.get('displayName')  # type: ignore
+    
+    @displayName.setter
+    def displayName(self, value: str) -> None:
+        """Setter: Display name of the Policy"""
+        self._inner_dict['displayName'] = value
+    
+    
+    @property
+    def description(self) -> str:
+        """Getter: Description of the Policy"""
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: str) -> None:
+        """Setter: Description of the Policy"""
+        self._inner_dict['description'] = value
+    
+    
+    @property
+    def type(self) -> str:
+        """Getter: The type of policy"""
+        return self._inner_dict.get('type')  # type: ignore
+    
+    @type.setter
+    def type(self, value: str) -> None:
+        """Setter: The type of policy"""
+        self._inner_dict['type'] = value
+    
+    
+    @property
+    def state(self) -> str:
+        """Getter: The state of policy, ACTIVE or INACTIVE"""
+        return self._inner_dict.get('state')  # type: ignore
+    
+    @state.setter
+    def state(self, value: str) -> None:
+        """Setter: The state of policy, ACTIVE or INACTIVE"""
+        self._inner_dict['state'] = value
+    
+    
+    @property
+    def resources(self) -> Union[None, "DataHubResourceFilterClass"]:
+        """Getter: The resource that the policy applies to. Not required for some 'Platform' privileges."""
+        return self._inner_dict.get('resources')  # type: ignore
+    
+    @resources.setter
+    def resources(self, value: Union[None, "DataHubResourceFilterClass"]) -> None:
+        """Setter: The resource that the policy applies to. Not required for some 'Platform' privileges."""
+        self._inner_dict['resources'] = value
+    
+    
+    @property
+    def privileges(self) -> List[str]:
+        """Getter: The privileges that the policy grants."""
+        return self._inner_dict.get('privileges')  # type: ignore
+    
+    @privileges.setter
+    def privileges(self, value: List[str]) -> None:
+        """Setter: The privileges that the policy grants."""
+        self._inner_dict['privileges'] = value
+    
+    
+    @property
+    def actors(self) -> "DataHubActorFilterClass":
+        """Getter: The actors that the policy applies to."""
+        return self._inner_dict.get('actors')  # type: ignore
+    
+    @actors.setter
+    def actors(self, value: "DataHubActorFilterClass") -> None:
+        """Setter: The actors that the policy applies to."""
+        self._inner_dict['actors'] = value
+    
+    
+    @property
+    def editable(self) -> bool:
+        """Getter: Whether the policy should be editable via the UI"""
+        return self._inner_dict.get('editable')  # type: ignore
+    
+    @editable.setter
+    def editable(self, value: bool) -> None:
+        """Setter: Whether the policy should be editable via the UI"""
+        self._inner_dict['editable'] = value
+    
+    
+class DataHubResourceFilterClass(DictWrapper):
+    """Information used to filter DataHub resource."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.policy.DataHubResourceFilter")
+    def __init__(self,
+        type: Union[None, str]=None,
+        resources: Union[None, List[str]]=None,
+        allResources: Optional[bool]=None,
+    ):
+        super().__init__()
+        
+        self.type = type
+        self.resources = resources
+        if allResources is None:
+            # default: False
+            self.allResources = self.RECORD_SCHEMA.field_map["allResources"].default
+        else:
+            self.allResources = allResources
+    
+    @classmethod
+    def construct_with_defaults(cls) -> "DataHubResourceFilterClass":
+        self = cls.construct({})
+        self._restore_defaults()
+        
+        return self
+    
+    def _restore_defaults(self) -> None:
+        self.type = self.RECORD_SCHEMA.field_map["type"].default
+        self.resources = self.RECORD_SCHEMA.field_map["resources"].default
+        self.allResources = self.RECORD_SCHEMA.field_map["allResources"].default
+    
+    
+    @property
+    def type(self) -> Union[None, str]:
+        """Getter: The type of resource that the policy applies to. This will most often be a data asset entity name, for
+    example 'dataset'. It is not strictly required because in the future we will want to support filtering a resource
+    by domain, as well."""
+        return self._inner_dict.get('type')  # type: ignore
+    
+    @type.setter
+    def type(self, value: Union[None, str]) -> None:
+        """Setter: The type of resource that the policy applies to. This will most often be a data asset entity name, for
+    example 'dataset'. It is not strictly required because in the future we will want to support filtering a resource
+    by domain, as well."""
+        self._inner_dict['type'] = value
+    
+    
+    @property
+    def resources(self) -> Union[None, List[str]]:
+        """Getter: A specific set of resources to apply the policy to, e.g. asset urns"""
+        return self._inner_dict.get('resources')  # type: ignore
+    
+    @resources.setter
+    def resources(self, value: Union[None, List[str]]) -> None:
+        """Setter: A specific set of resources to apply the policy to, e.g. asset urns"""
+        self._inner_dict['resources'] = value
+    
+    
+    @property
+    def allResources(self) -> bool:
+        """Getter: Whether the policy should be applied to all assets matching the filter."""
+        return self._inner_dict.get('allResources')  # type: ignore
+    
+    @allResources.setter
+    def allResources(self, value: bool) -> None:
+        """Setter: Whether the policy should be applied to all assets matching the filter."""
+        self._inner_dict['allResources'] = value
     
     
 class ArrayTypeClass(DictWrapper):
@@ -9319,6 +9706,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.key.CorpUserKey': CorpUserKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.DashboardKey': DashboardKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.DataFlowKey': DataFlowKeyClass,
+    'com.linkedin.pegasus2avro.metadata.key.DataHubPolicyKey': DataHubPolicyKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.DataJobKey': DataJobKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.DataPlatformKey': DataPlatformKeyClass,
     'com.linkedin.pegasus2avro.metadata.key.DataProcessKey': DataProcessKeyClass,
@@ -9337,6 +9725,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot': CorpUserSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot': DashboardSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot': DataFlowSnapshotClass,
+    'com.linkedin.pegasus2avro.metadata.snapshot.DataHubPolicySnapshot': DataHubPolicySnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot': DataJobSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot': DataPlatformSnapshotClass,
     'com.linkedin.pegasus2avro.metadata.snapshot.DataProcessSnapshot': DataProcessSnapshotClass,
@@ -9378,6 +9767,9 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.mxe.MetadataChangeEvent': MetadataChangeEventClass,
     'com.linkedin.pegasus2avro.mxe.MetadataChangeProposal': MetadataChangeProposalClass,
     'com.linkedin.pegasus2avro.mxe.SystemMetadata': SystemMetadataClass,
+    'com.linkedin.pegasus2avro.policy.DataHubActorFilter': DataHubActorFilterClass,
+    'com.linkedin.pegasus2avro.policy.DataHubPolicyInfo': DataHubPolicyInfoClass,
+    'com.linkedin.pegasus2avro.policy.DataHubResourceFilter': DataHubResourceFilterClass,
     'com.linkedin.pegasus2avro.schema.ArrayType': ArrayTypeClass,
     'com.linkedin.pegasus2avro.schema.BinaryJsonSchema': BinaryJsonSchemaClass,
     'com.linkedin.pegasus2avro.schema.BooleanType': BooleanTypeClass,
@@ -9485,6 +9877,7 @@ __SCHEMA_TYPES = {
     'CorpUserKey': CorpUserKeyClass,
     'DashboardKey': DashboardKeyClass,
     'DataFlowKey': DataFlowKeyClass,
+    'DataHubPolicyKey': DataHubPolicyKeyClass,
     'DataJobKey': DataJobKeyClass,
     'DataPlatformKey': DataPlatformKeyClass,
     'DataProcessKey': DataProcessKeyClass,
@@ -9503,6 +9896,7 @@ __SCHEMA_TYPES = {
     'CorpUserSnapshot': CorpUserSnapshotClass,
     'DashboardSnapshot': DashboardSnapshotClass,
     'DataFlowSnapshot': DataFlowSnapshotClass,
+    'DataHubPolicySnapshot': DataHubPolicySnapshotClass,
     'DataJobSnapshot': DataJobSnapshotClass,
     'DataPlatformSnapshot': DataPlatformSnapshotClass,
     'DataProcessSnapshot': DataProcessSnapshotClass,
@@ -9544,6 +9938,9 @@ __SCHEMA_TYPES = {
     'MetadataChangeEvent': MetadataChangeEventClass,
     'MetadataChangeProposal': MetadataChangeProposalClass,
     'SystemMetadata': SystemMetadataClass,
+    'DataHubActorFilter': DataHubActorFilterClass,
+    'DataHubPolicyInfo': DataHubPolicyInfoClass,
+    'DataHubResourceFilter': DataHubResourceFilterClass,
     'ArrayType': ArrayTypeClass,
     'BinaryJsonSchema': BinaryJsonSchemaClass,
     'BooleanType': BooleanTypeClass,

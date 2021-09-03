@@ -9,7 +9,7 @@ import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class LoggingFilter implements Filter {
+public class RestliLoggingFilter implements Filter {
 
   private static final String START_TIME = "startTime";
 
