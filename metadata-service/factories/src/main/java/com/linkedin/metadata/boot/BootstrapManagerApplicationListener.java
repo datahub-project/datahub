@@ -22,7 +22,6 @@ public class BootstrapManagerApplicationListener implements ApplicationListener<
 
   @Override
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
-    System.out.println("Started the application you idiot");
     _bootstrapManager.start();
   }
 }
