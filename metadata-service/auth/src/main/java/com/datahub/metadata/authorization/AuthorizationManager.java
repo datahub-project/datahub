@@ -11,7 +11,6 @@ import com.linkedin.metadata.aspect.DataHubPolicyAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.snapshot.DataHubPolicySnapshot;
-import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.r2.RemoteInvocationException;
 import java.util.ArrayList;
@@ -90,8 +89,8 @@ public class AuthorizationManager implements Authorizer {
 
     final List<Urn> authorizedUsers = new ArrayList<>();
     final List<Urn> authorizedGroups = new ArrayList<>();
-    Boolean allUsers = false;
-    Boolean allGroups = false;
+    boolean allUsers = false;
+    boolean allGroups = false;
 
     // Step 2: For each policy, determine whether the resource is a match.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {
@@ -99,55 +98,22 @@ public class AuthorizationManager implements Authorizer {
         // Policy is not active, skip.
         continue;
       }
-      if (_policyEngine.policyMatchesResource(policy, resourceSpec)) {
-        // Step 3: For each matching policy, find actors that are authorized.
-        final AuthorizedActors authorizedPolicyActors = authorizedActors(policy, resourceSpec);
-        authorizedUsers.addAll(authorizedPolicyActors.getUsers());
-        authorizedGroups.addAll(authorizedPolicyActors.getGroups());
-        if (authorizedPolicyActors.allUsers()) {
-          allUsers = true;
-        }
-        if (authorizedPolicyActors.allGroups()) {
-          allGroups = true;
-        }
+
+      final PolicyEngine.PolicyActors matchingActors = _policyEngine.getMatchingActors(policy, resourceSpec);
+
+      // Step 3: For each matching policy, add actors that are authorized.
+      authorizedUsers.addAll(matchingActors.getUsers());
+      authorizedGroups.addAll(matchingActors.getGroups());
+      if (matchingActors.allUsers()) {
+        allUsers = true;
+      }
+      if (matchingActors.allGroups()) {
+        allGroups = true;
       }
     }
 
     // Step 4: Return all authorized users and groups.
-    return new AuthorizedActors(authorizedUsers, authorizedGroups, allUsers, allGroups);
-  }
-
-  private AuthorizedActors authorizedActors(final DataHubPolicyInfo policy, final Optional<ResourceSpec> resourceSpec) throws RuntimeException {
-
-    // Retrieve all authorized actors for a policy.
-    final DataHubActorFilter actorFilter = policy.getActors();
-
-    final List<Urn> users = new ArrayList<>();
-    final List<Urn> groups = new ArrayList<>();
-
-    // 1. Populate actors listed on the policy directly.
-    if (actorFilter.hasUsers()) {
-      users.addAll(actorFilter.getUsers());
-    }
-    if (actorFilter.hasGroups()) {
-      groups.addAll(actorFilter.getGroups());
-    }
-
-    // 2. Fetch Actors based on resource ownership.
-    if (actorFilter.isResourceOwners() && resourceSpec.isPresent()) {
-      try {
-        final Ownership ownership = _ownershipClient.getLatestOwnership(resourceSpec.get().getResource());
-        if (ownership != null) {
-          users.addAll(userOwners(ownership));
-          groups.addAll(groupOwners(ownership));
-        }
-      } catch (RemoteInvocationException e) {
-        // Throw an error, as we are not able to fully resolve the authorized policy actors.
-        throw new RuntimeException("Failed to retrieve ownership when resolving authorized actors.", e);
-      }
-    }
-
-    return new AuthorizedActors(users, groups, actorFilter.isAllUsers(), actorFilter.isAllGroups());
+    return new AuthorizedActors(privilege, authorizedUsers, authorizedGroups, allUsers, allGroups);
   }
 
   /**
@@ -288,17 +254,26 @@ public class AuthorizationManager implements Authorizer {
         .collect(Collectors.toList());
   }
 
+  /**
+   * Class used to represent all users authorized to perform a particular privilege.
+   */
   public static class AuthorizedActors {
+    final String _privilege;
     final List<Urn> _users;
     final List<Urn> _groups;
     final Boolean _allUsers;
     final Boolean _allGroups;
 
-    public AuthorizedActors(final List<Urn> users, final List<Urn> groups, final Boolean allUsers, final Boolean allGroups) {
+    public AuthorizedActors(final String privilege, final List<Urn> users, final List<Urn> groups, final Boolean allUsers, final Boolean allGroups) {
+      _privilege = privilege;
       _users = users;
       _groups = groups;
       _allUsers = allUsers;
       _allGroups = allGroups;
+    }
+
+    public String getPrivilege() {
+      return _privilege;
     }
 
     public List<Urn> getUsers() {
@@ -317,4 +292,5 @@ public class AuthorizationManager implements Authorizer {
       return _allGroups;
     }
   }
+
 }
