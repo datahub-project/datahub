@@ -3,6 +3,7 @@ package com.datahub.metadata.graphql;
 import com.datahub.metadata.authorization.AuthorizationManager;
 import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.OwnershipClient;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -41,6 +42,8 @@ public class AuthorizationManagerFactory {
         ? AuthorizationManager.AuthorizationMode.DEFAULT
         : AuthorizationManager.AuthorizationMode.ALLOW_ALL;
 
-    return new AuthorizationManager(entityClient, aspectClient, 10, policyCacheRefreshIntervalSeconds, mode);
+    final OwnershipClient ownershipClient = new OwnershipClient(aspectClient);
+
+    return new AuthorizationManager(entityClient, ownershipClient, 10, policyCacheRefreshIntervalSeconds, mode);
   }
 }
