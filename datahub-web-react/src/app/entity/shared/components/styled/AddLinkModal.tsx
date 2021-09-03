@@ -37,7 +37,7 @@ export const AddLinkModal = ({ buttonProps }: { buttonProps?: Record<string, unk
             });
 
             newLinks.push({
-                author: user?.corpUser,
+                author: user?.corpUser.urn,
                 createdAt: Date.now(),
                 ...formData,
             });
