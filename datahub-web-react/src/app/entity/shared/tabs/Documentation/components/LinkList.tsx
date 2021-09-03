@@ -55,7 +55,6 @@ export const LinkList = () => {
             message.success({ content: 'Link Deleted', duration: 2 });
         } catch (e: unknown) {
             message.destroy();
-            message.destroy();
             if (e instanceof Error) {
                 message.error({ content: `Error deleting link: \n ${e.message || ''}`, duration: 2 });
             }
