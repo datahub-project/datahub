@@ -39,6 +39,7 @@ dependencies {
   compile externalDependency.gmaRestliResources
   compile externalDependency.gmaRestliResourcesDataTemplate
   compile externalDependency.neo4jJavaDriver
+  compile externalDependency.opentelemetryAnnotations
 
   annotationProcessor externalDependency.lombok
 

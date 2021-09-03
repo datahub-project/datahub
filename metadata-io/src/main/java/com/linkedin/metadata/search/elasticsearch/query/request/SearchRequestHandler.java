@@ -18,6 +18,7 @@ import com.linkedin.metadata.query.MatchedFieldArray;
 import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -102,6 +103,7 @@ public class SearchRequestHandler {
    * @return a valid search request
    */
   @Nonnull
+  @WithSpan
   public SearchRequest getSearchRequest(@Nonnull String input, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     SearchRequest searchRequest = new SearchRequest();
@@ -191,6 +193,7 @@ public class SearchRequestHandler {
     return highlightBuilder;
   }
 
+  @WithSpan
   public SearchResult extractResult(@Nonnull SearchResponse searchResponse, int from, int size) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     List<Urn> resultList = getResults(searchResponse);
