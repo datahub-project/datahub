@@ -1,0 +1,194 @@
+[
+  {
+    "urn": "urn:li:dataHubPolicy:0",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[
+          "urn:li:corpuser:datahub"
+        ]
+      },
+      "privileges":[
+        "MANAGE_POLICIES",
+        "MANAGE_USERS_AND_GROUPS",
+        "VIEW_ANALYTICS"
+      ],
+      "displayName":"Root User - All Platform Privileges",
+      "description":"Grants full platform privileges to root datahub super user.",
+      "state":"ACTIVE",
+      "type":"PLATFORM",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:1",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[
+          "urn:li:corpuser:datahub"
+        ]
+      },
+      "privileges":[
+        "EDIT_ENTITY"
+      ],
+      "displayName":"Root User - Edit All Datasets",
+      "resources":{
+        "type":"dataset",
+        "allResources":true
+      },
+      "description":"Grants full edit privileges for Datasets to root 'datahub' root user.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:2",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[
+          "urn:li:corpuser:datahub"
+        ]
+      },
+      "privileges":[
+        "EDIT_ENTITY"
+      ],
+      "displayName":"Root User - Edit All Dashboards",
+      "resources":{
+        "type":"dashboard",
+        "allResources":true
+      },
+      "description":"Grants full edit privileges for Dashboards to root datahub super user.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:3",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[
+          "urn:li:corpuser:datahub"
+        ]
+      },
+      "privileges":[
+        "EDIT_ENTITY"
+      ],
+      "displayName":"Root User - Edit All Charts",
+      "resources":{
+        "type":"chart",
+        "allResources":true
+      },
+      "description":"Grants full edit privileges for Charts to root datahub super user.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:4",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[
+          "urn:li:corpuser:datahub"
+        ]
+      },
+      "privileges":[
+        "EDIT_ENTITY"
+      ],
+      "displayName":"Root User - Edit All Tags",
+      "resources":{
+        "type":"tag",
+        "allResources":true
+      },
+      "description":"Grants full edit privileges for Tags to root datahub super user.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:5",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[
+          "urn:li:corpuser:datahub"
+        ]
+      },
+      "privileges":[
+        "EDIT_ENTITY"
+      ],
+      "displayName":"Root User - Edit All Data Pipelines",
+      "resources":{
+        "type":"dataFlow",
+        "allResources":true
+      },
+      "description":"Grants full edit privileges for Data Pipelines to root datahub super user.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:6",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[
+          "urn:li:corpuser:datahub"
+        ]
+      },
+      "privileges":[
+        "EDIT_ENTITY"
+      ],
+      "displayName":"Root User - Edit All Data Tasks",
+      "resources":{
+        "type":"dataJob",
+        "allResources":true
+      },
+      "description":"Grants full edit privileges for Data Tasks to root datahub super user.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:7",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":true,
+        "allGroups":false
+      },
+      "privileges":[
+        "VIEW_ANALYTICS",
+        "MANAGE_POLICIES"
+      ],
+      "displayName":"All Users - Default Platform Privileges - Manage Policies & View Analytics",
+      "description":"Grants full ability to manage policies and view analytics to ALL users of DataHub. Change this policy to alter that behavior.",
+      "state":"ACTIVE",
+      "type":"PLATFORM",
+      "editable":true
+    }
+  }
+]

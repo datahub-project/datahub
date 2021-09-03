@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipsResult;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
@@ -30,6 +31,7 @@ public class EntityRelationshipsResultResolver implements DataFetcher<Completabl
 
   @Override
   public CompletableFuture<EntityRelationshipsResult> get(DataFetchingEnvironment environment) {
+      final QueryContext context = (QueryContext) environment.getContext();
       final String urn = ((Entity) environment.getSource()).getUrn();
       final List<String> relationshipTypes = environment.getArgument("types");
       final String relationshipDirection = environment.getArgument("direction");
@@ -42,7 +44,8 @@ public class EntityRelationshipsResultResolver implements DataFetcher<Completabl
               relationshipTypes,
               resolvedDirection,
               start,
-              count
+              count,
+              context.getActor()
             ),
           resolvedDirection
       ));
@@ -53,9 +56,10 @@ public class EntityRelationshipsResultResolver implements DataFetcher<Completabl
       final List<String> types,
       final RelationshipDirection direction,
       final Integer start,
-      final Integer count) {
+      final Integer count,
+      final String actor) {
     try {
-      return _client.getRelationships(urn, direction, types, start, count);
+      return _client.getRelationships(urn, direction, types, start, count, actor);
     } catch (RemoteInvocationException | URISyntaxException e) {
       throw new RuntimeException("Failed to retrieve aspects from GMS", e);
     }

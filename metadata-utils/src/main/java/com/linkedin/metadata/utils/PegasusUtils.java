@@ -1,4 +1,4 @@
-package com.linkedin.metadata;
+package com.linkedin.metadata.utils;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;

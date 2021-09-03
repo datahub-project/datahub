@@ -1,4 +1,4 @@
-import { Alert } from 'antd';
+import { Alert, message } from 'antd';
 import React from 'react';
 import { Chart, EntityType, GlobalTags } from '../../../../types.generated';
 import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
@@ -25,6 +25,10 @@ export default function ChartProfile({ urn }: { urn: string }) {
     const { loading, error, data } = useGetChartQuery({ variables: { urn } });
     const [updateChart] = useUpdateChartMutation({
         refetchQueries: () => ['getChart'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
+        },
     });
 
     if (error || (!loading && !error && !data)) {

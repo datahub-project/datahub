@@ -70,4 +70,8 @@ export class MLModelEntity implements Entity<MlModel> {
             platform: entity.platform.name,
         };
     };
+
+    displayName = (data: MlModel) => {
+        return data.name;
+    };
 }

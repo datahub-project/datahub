@@ -39,7 +39,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
-    const user = useGetAuthenticatedUser();
+    const user = useGetAuthenticatedUser()?.corpUser;
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteAllResultsLazyQuery();
 
     const search = (query: string, type?: EntityType) => {

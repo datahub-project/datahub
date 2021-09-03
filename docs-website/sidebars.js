@@ -57,6 +57,7 @@ module.exports = {
       "docs/quickstart",
       "docs/debugging",
       "metadata-ingestion/README",
+      "docs/policies",
     ],
     Architecture: [
       "docs/architecture/architecture",

@@ -55,4 +55,8 @@ export class TagEntity implements Entity<Tag> {
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as Tag);
     };
+
+    displayName = (data: Tag) => {
+        return data.name;
+    };
 }

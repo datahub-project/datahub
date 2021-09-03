@@ -46,7 +46,8 @@ public class DataPlatformType implements EntityType<DataPlatform> {
             final Map<Urn, com.linkedin.entity.Entity> dataPlatformMap = _entityClient.batchGet(dataPlatformUrns
                 .stream()
                 .filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
+                .collect(Collectors.toSet()),
+            context.getActor());
 
             final List<com.linkedin.entity.Entity> gmsResults = new ArrayList<>();
             for (Urn urn : dataPlatformUrns) {

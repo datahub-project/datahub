@@ -5,7 +5,7 @@ import com.linkedin.data.it.IterationOrder;
 import com.linkedin.data.it.ObjectIterator;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.models.FieldSpec;
 import java.util.HashMap;
