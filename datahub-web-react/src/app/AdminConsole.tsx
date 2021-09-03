@@ -19,7 +19,14 @@ const ControlMenu = styled(Menu)`
     height: 100%;
 `;
 
-const ControlSlideOut = styled(Sider)``;
+const ControlSlideOut = styled(Sider)`
+    && {
+        height: 100vh;
+        position: fixed;
+        left: 0px;
+        z-index: 10000;
+    }
+`;
 
 /**
  * Container for all views behind an authentication wall.
@@ -59,7 +66,7 @@ export const AdminConsole = (): JSX.Element => {
         <>
             {showAdminConsole && (
                 <ControlSlideOut
-                    zeroWidthTriggerStyle={{ top: '90%' }}
+                    zeroWidthTriggerStyle={{ top: '50%' }}
                     collapsible
                     collapsed={!adminConsoleOpen}
                     onCollapse={onCollapse}
