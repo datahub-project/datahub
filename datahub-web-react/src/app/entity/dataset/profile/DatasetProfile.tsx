@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'antd';
+import { Alert, message } from 'antd';
 import { useGetDatasetQuery, useUpdateDatasetMutation } from '../../../../graphql/dataset.generated';
 import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
 import SchemaView from './schema/Schema';
@@ -40,7 +40,10 @@ export const DatasetProfile = ({ urn }: { urn: string }): JSX.Element => {
     const user = useGetAuthenticatedUser()?.corpUser;
     const [updateDataset] = useUpdateDatasetMutation({
         refetchQueries: () => ['getDataset'],
-        onError: () => {},
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
+        },
     });
 
     const isLineageMode = useIsLineageMode();

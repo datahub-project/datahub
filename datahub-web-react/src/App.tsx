@@ -34,21 +34,7 @@ import { MLModelGroupEntity } from './app/entity/mlModelGroup/MLModelGroupEntity
 */
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
-const handleErrorCode = (errorCode: number, response) => {
-    switch (errorCode) {
-        case 403:
-            if (response) {
-                // At this point, we assume the error is handled. Only do this for Authorization errors for now.
-                response.errors = undefined;
-            }
-            message.warn('Unauthorized to perform this action. Please contact your DataHub administrator.');
-            break;
-        default:
-            break;
-    }
-};
-
-const errorLink = onError(({ graphQLErrors, networkError, response }) => {
+const errorLink = onError(({ graphQLErrors, networkError }) => {
     if (networkError) {
         const serverError = networkError as ServerError;
         if (serverError.statusCode === 401) {
@@ -57,13 +43,13 @@ const errorLink = onError(({ graphQLErrors, networkError, response }) => {
             window.location.replace(PageRoutes.AUTHENTICATE);
         }
     }
-    if (graphQLErrors) {
-        graphQLErrors.forEach(({ extensions }) => {
-            const errorCode = extensions && (extensions.code as number);
-            if (errorCode) {
-                handleErrorCode(errorCode, response);
-            }
-        });
+    if (graphQLErrors && graphQLErrors.length) {
+        const firstError = graphQLErrors[0];
+        const { extensions } = firstError;
+        console.log(firstError);
+        const errorCode = extensions && (extensions.code as number);
+        // Fallback in case the calling component does not handle.
+        message.error(`${firstError.message} (code ${errorCode})`, 3);
     }
 });
 

@@ -1,4 +1,4 @@
-import { Modal, Tag, Typography, Button } from 'antd';
+import { Modal, Tag, Typography, Button, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -57,7 +57,16 @@ export default function TagTermGroup({
             title: `Do you want to remove ${tagToRemove?.tag.name} tag?`,
             content: `Are you sure you want to remove the ${tagToRemove?.tag.name} tag?`,
             onOk() {
-                updateTags?.({ tags: convertTagsForUpdate(newTags || []) });
+                updateTags?.({ tags: convertTagsForUpdate(newTags || []) })
+                    .then(({ errors }) => {
+                        if (!errors) {
+                            message.success({ content: 'Removed Tag!', duration: 2 });
+                        }
+                    })
+                    .catch((e) => {
+                        message.destroy();
+                        message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
+                    });
             },
             onCancel() {},
             okText: 'Yes',

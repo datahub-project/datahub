@@ -12,7 +12,7 @@ type Props = {
     setActors: (actors: ActorFilter) => void;
 };
 
-const SearchSelectContainer = styled.div`
+const SearchResultContainer = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -30,7 +30,7 @@ const ActorFormHeader = styled.div`
 `;
 
 /**
- * This component is used to construct the "actors" portion of a DataHub
+ * Component used to construct the "actors" portion of a DataHub
  * access Policy by populating an ActorFilter object.
  */
 export default function PolicyActorForm({ policyType, actors, setActors }: Props) {
@@ -143,7 +143,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     // Renders a search result in the select dropdown.
     const renderSearchResult = (result: SearchResult) => {
         return (
-            <SearchSelectContainer>
+            <SearchResultContainer>
                 {entityRegistry.getDisplayName(result.entity.type, result.entity)}
                 <Link
                     target="_blank"
@@ -152,7 +152,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 >
                     View
                 </Link>{' '}
-            </SearchSelectContainer>
+            </SearchResultContainer>
         );
     };
 
