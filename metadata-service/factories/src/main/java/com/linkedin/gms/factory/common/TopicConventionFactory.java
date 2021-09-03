@@ -32,7 +32,7 @@ public class TopicConventionFactory {
   @Value("${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}")
   private String metadataChangeLogName;
 
-  @Value("${METADATA_CHANGE_LOG_LIMITED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES + "}")
+  @Value("${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES + "}")
   private String metadataChangeLogLimitedName;
 
   @Value("${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.FAILED_METADATA_CHANGE_PROPOSAL + "}")
