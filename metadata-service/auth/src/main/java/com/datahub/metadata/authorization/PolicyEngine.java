@@ -2,11 +2,10 @@ package com.datahub.metadata.authorization;
 
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.aspect.CorpUserAspect;
-import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.policy.DataHubActorFilter;
@@ -28,13 +27,13 @@ import static com.linkedin.metadata.Constants.*;
 public class PolicyEngine {
 
   private final EntityClient _entityClient;
-  private final AspectClient _aspectClient;
+  private final OwnershipClient _ownershipClient;
 
   public PolicyEngine(
       final EntityClient entityClient,
-      final AspectClient aspectClient) {
+      final OwnershipClient ownershipClient) {
     _entityClient = entityClient;
-    _aspectClient = aspectClient;
+    _ownershipClient = ownershipClient;
   }
 
   public PolicyEvaluationResult evaluatePolicy(
@@ -71,7 +70,7 @@ public class PolicyEngine {
     }
 
     // If the resource is not in scope, deny the request.
-    if (!isResourceMatch(policy.getType(), resource, policy.getResources(), context)) {
+    if (!isResourceMatch(policy.getType(), policy.getResources(), resource, context)) {
       return PolicyEvaluationResult.DENIED;
     }
 
@@ -82,6 +81,18 @@ public class PolicyEngine {
 
     // All portions of the Policy match. Grant the request.
     return PolicyEvaluationResult.GRANTED;
+  }
+
+
+  /**
+   * Returns true if the policy matches the resource spec, false otherwise.
+   *
+   * If the policy is of type "PLATFORM", the resource will always match (since there's no resource).
+   * If the policy is of type "METADATA", the resourceSpec parameter will be matched against the
+   * resource filter defined on the policy.
+   */
+  public Boolean policyMatchesResource(final DataHubPolicyInfo policy, final Optional<ResourceSpec> resourceSpec) {
+    return isResourceMatch(policy.getType(), policy.getResources(), resourceSpec, new PolicyEvaluationContext());
   }
 
   /**
@@ -99,8 +110,8 @@ public class PolicyEngine {
    */
   private boolean isResourceMatch(
       final String policyType,
-      final Optional<ResourceSpec> requestResource,
       final @Nullable DataHubResourceFilter policyResourceFilter,
+      final Optional<ResourceSpec> requestResource,
       final PolicyEvaluationContext context) {
     if (PoliciesConfig.PLATFORM_POLICY_TYPE.equals(policyType)) {
       // Currently, platform policies have no associated resource.
@@ -180,29 +191,24 @@ public class PolicyEngine {
 
     // Otherwise, evaluate ownership match.
     final ResourceSpec resourceSpec = requestResource.get();
-
     try {
-
-      // Fetch the latest version of "ownership" aspect for the resource.
-      final VersionedAspect aspect = _aspectClient.getAspect(
-          resourceSpec.getResource(),
-          OWNERSHIP_ASPECT_NAME,
-          ASPECT_LATEST_VERSION,
-          SYSTEM_ACTOR);
-
-      final Ownership ownership = aspect.getAspect().getOwnership();
-
-      if (isUserOwner(actor, ownership)) {
-        return true;
-      }
-
-      final Set<Urn> groups = resolveGroups(actor, context);
-      if (isGroupOwner(groups, ownership)) {
-        return true;
+      final Ownership ownership = _ownershipClient.getLatestOwnership(resourceSpec.getResource());
+      if (ownership != null) {
+        return isActorOwner(actor, ownership, context);
       }
     } catch (Exception e) {
-      // todo: specifically catch the 404 returned by GMS when ownership does not exist.
       log.error(String.format("Failed to resolve Ownership of resource with URN %s. Returning DENY.", resourceSpec.getResource()), e);
+    }
+    return false;
+  }
+
+  private boolean isActorOwner(Urn actor, Ownership ownership, PolicyEvaluationContext context) {
+    if (isUserOwner(actor, ownership)) {
+      return true;
+    }
+    final Set<Urn> groups = resolveGroups(actor, context);
+    if (isGroupOwner(groups, ownership)) {
+      return true;
     }
     return false;
   }

@@ -12,6 +12,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.aspect.Aspect;
@@ -52,7 +53,7 @@ public class PolicyEngineTest {
   public void setupTest() throws Exception {
     _entityClient = Mockito.mock(EntityClient.class);
     _aspectClient = Mockito.mock(AspectClient.class);
-    _policyEngine = new PolicyEngine(_entityClient, _aspectClient);
+    _policyEngine = new PolicyEngine(_entityClient, new OwnershipClient(_aspectClient));
 
     // Init mocks.
     final CorpUserSnapshot authorizedUser = createDataHubSnapshot();
