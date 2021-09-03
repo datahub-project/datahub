@@ -1,5 +1,6 @@
 package com.linkedin.entity.client;
 
+import com.linkedin.common.client.BaseClient;
 import com.linkedin.entity.AspectsDoGetTimeseriesAspectValuesRequestBuilder;
 import com.linkedin.entity.AspectsDoIngestProposalRequestBuilder;
 import com.linkedin.entity.AspectsGetRequestBuilder;
@@ -13,36 +14,35 @@ import com.linkedin.restli.client.Response;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
-public class AspectClient {
+public class AspectClient extends BaseClient {
 
   private static final AspectsRequestBuilders ASPECTS_REQUEST_BUILDERS = new AspectsRequestBuilders();
 
-  private final Client _client;
-  private final Logger _logger = LoggerFactory.getLogger("AspectClient");
-
   public AspectClient(@Nonnull final Client restliClient) {
-    _client = restliClient;
+    super(restliClient);
   }
 
   /**
-   * Gets aspect at veresion for an entity
+   * Gets aspect at version for an entity
    *
    * @param urn urn for the entity
    * @return list of paths given urn
    * @throws RemoteInvocationException on remote request error.
    */
   @Nonnull
-  public VersionedAspect getAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version)
+  public VersionedAspect getAspect(
+      @Nonnull String urn,
+      @Nonnull String aspect,
+      @Nonnull Long version,
+      @Nonnull String actor)
       throws RemoteInvocationException {
 
     AspectsGetRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS.get().id(urn).aspectParam(aspect).versionParam(version);
 
-    return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+    return sendClientRequest(requestBuilder, actor).getEntity();
   }
 
   /**
@@ -54,12 +54,20 @@ public class AspectClient {
    * @param startTimeMillis the earliest desired event time of the aspect value in milliseconds.
    * @param endTimeMillis the latest desired event time of the aspect value in milliseconds.
    * @param limit the maximum number of desired aspect values.
+   * @param actor the actor associated with the request [internal]
    * @return  the list of EnvelopedAspect values satisfying the input parameters.
    * @throws RemoteInvocationException on remote request error.
    */
   @Nonnull
-  public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
-      @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit)
+  public List<EnvelopedAspect> getTimeseriesAspectValues(
+      @Nonnull String urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis,
+      @Nullable Integer limit,
+      @Nullable String actor
+  )
       throws RemoteInvocationException {
 
     AspectsDoGetTimeseriesAspectValuesRequestBuilder requestBuilder =
@@ -79,18 +87,16 @@ public class AspectClient {
     if (limit != null) {
       requestBuilder.limitParam(limit);
     }
-
-    return _client.sendRequest(requestBuilder.build()).getResponse().getEntity().getValues();
+    return sendClientRequest(requestBuilder, actor).getEntity().getValues();
   }
 
   /**
    * Ingest a MetadataChangeProposal event.
    */
-  public Response<Void> ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal)
+  public Response<String> ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal, @Nonnull final String actor)
       throws RemoteInvocationException {
-    final AspectsDoIngestProposalRequestBuilder requestBuilder =
-        ASPECTS_REQUEST_BUILDERS.actionIngestProposal().proposalParam(metadataChangeProposal);
-
-    return _client.sendRequest(requestBuilder.build()).getResponse();
+    final AspectsDoIngestProposalRequestBuilder requestBuilder = ASPECTS_REQUEST_BUILDERS.actionIngestProposal()
+            .proposalParam(metadataChangeProposal);
+    return sendClientRequest(requestBuilder, actor);
   }
 }

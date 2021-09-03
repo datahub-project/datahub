@@ -66,7 +66,8 @@ public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>,
             final Map<Urn, Entity> mlFeatureTableMap = _mlFeatureTableClient.batchGet(mlFeatureTableUrns
                 .stream()
                 .filter(Objects::nonNull)
-                .collect(Collectors.toSet()));
+                .collect(Collectors.toSet()),
+            context.getActor());
 
             final List<Entity> gmsResults = mlFeatureTableUrns.stream()
                 .map(featureTableUrn -> mlFeatureTableMap.getOrDefault(featureTableUrn, null)).collect(Collectors.toList());
@@ -90,7 +91,7 @@ public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>,
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _mlFeatureTableClient.search("mlFeatureTable", query, facetFilters, start, count);
+        final SearchResult searchResult = _mlFeatureTableClient.search("mlFeatureTable", query, facetFilters, start, count, context.getActor());
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -101,7 +102,7 @@ public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>,
                                             int limit,
                                             @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final AutoCompleteResult result = _mlFeatureTableClient.autoComplete("mlFeatureTable", query, facetFilters, limit);
+        final AutoCompleteResult result = _mlFeatureTableClient.autoComplete("mlFeatureTable", query, facetFilters, limit, context.getActor());
         return AutoCompleteResultsMapper.map(result);
     }
 
@@ -118,13 +119,14 @@ public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable>,
                 pathStr,
                 facetFilters,
                 start,
-                count);
+                count,
+            context.getActor());
         return BrowseResultMapper.map(result);
     }
 
     @Override
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
-        final StringArray result = _mlFeatureTableClient.getBrowsePaths(MLModelUtils.getUrn(urn));
+        final StringArray result = _mlFeatureTableClient.getBrowsePaths(MLModelUtils.getUrn(urn), context.getActor());
         return BrowsePathsMapper.map(result);
     }
 }

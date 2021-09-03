@@ -2027,7 +2027,7 @@
                     "name" : "pictureLink",
                     "type" : "com.linkedin.common.Url",
                     "doc" : "A URL which points to a picture which user wants to set as a profile photo",
-                    "default" : "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"
+                    "default" : "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
@@ -4142,10 +4142,154 @@
             "keyAspect" : "glossaryNodeKey",
             "name" : "glossaryNode"
           }
+        }, {
+          "type" : "record",
+          "name" : "DataHubPolicySnapshot",
+          "doc" : "A metadata snapshot for DataHub Access Policy data.",
+          "fields" : [ {
+            "name" : "urn",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "URN for the entity the metadata snapshot is associated with."
+          }, {
+            "name" : "aspects",
+            "type" : {
+              "type" : "array",
+              "items" : {
+                "type" : "typeref",
+                "name" : "DataHubPolicyAspect",
+                "namespace" : "com.linkedin.metadata.aspect",
+                "doc" : "A union of all supported metadata aspects for a DataHub access policy.",
+                "ref" : [ {
+                  "type" : "record",
+                  "name" : "DataHubPolicyKey",
+                  "namespace" : "com.linkedin.metadata.key",
+                  "doc" : "Key for a DataHub Policy",
+                  "fields" : [ {
+                    "name" : "id",
+                    "type" : "string",
+                    "doc" : "A unique id for the DataHub access policy record. Generated on the server side at policy creation time."
+                  } ],
+                  "Aspect" : {
+                    "name" : "dataHubPolicyKey"
+                  }
+                }, {
+                  "type" : "record",
+                  "name" : "DataHubPolicyInfo",
+                  "namespace" : "com.linkedin.policy",
+                  "doc" : "Information about a DataHub (UI) access policy.",
+                  "fields" : [ {
+                    "name" : "displayName",
+                    "type" : "string",
+                    "doc" : "Display name of the Policy"
+                  }, {
+                    "name" : "description",
+                    "type" : "string",
+                    "doc" : "Description of the Policy"
+                  }, {
+                    "name" : "type",
+                    "type" : "string",
+                    "doc" : "The type of policy"
+                  }, {
+                    "name" : "state",
+                    "type" : "string",
+                    "doc" : "The state of policy, ACTIVE or INACTIVE"
+                  }, {
+                    "name" : "resources",
+                    "type" : {
+                      "type" : "record",
+                      "name" : "DataHubResourceFilter",
+                      "doc" : "Information used to filter DataHub resource.",
+                      "fields" : [ {
+                        "name" : "type",
+                        "type" : "string",
+                        "doc" : "The type of resource that the policy applies to. This will most often be a data asset entity name, for\nexample 'dataset'. It is not strictly required because in the future we will want to support filtering a resource\nby domain, as well.",
+                        "optional" : true
+                      }, {
+                        "name" : "resources",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "string"
+                        },
+                        "doc" : "A specific set of resources to apply the policy to, e.g. asset urns",
+                        "optional" : true
+                      }, {
+                        "name" : "allResources",
+                        "type" : "boolean",
+                        "doc" : "Whether the policy should be applied to all assets matching the filter.",
+                        "default" : false
+                      } ]
+                    },
+                    "doc" : "The resource that the policy applies to. Not required for some 'Platform' privileges.",
+                    "optional" : true
+                  }, {
+                    "name" : "privileges",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "string"
+                    },
+                    "doc" : "The privileges that the policy grants."
+                  }, {
+                    "name" : "actors",
+                    "type" : {
+                      "type" : "record",
+                      "name" : "DataHubActorFilter",
+                      "doc" : "Information used to filter DataHub actors.",
+                      "fields" : [ {
+                        "name" : "users",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "com.linkedin.common.Urn"
+                        },
+                        "doc" : "A specific set of users to apply the policy to (disjunctive)",
+                        "optional" : true
+                      }, {
+                        "name" : "groups",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "com.linkedin.common.Urn"
+                        },
+                        "doc" : "A specific set of groups to apply the policy to (disjunctive)",
+                        "optional" : true
+                      }, {
+                        "name" : "resourceOwners",
+                        "type" : "boolean",
+                        "doc" : "Whether the filter should return true for owners of a particular resource.\nOnly applies to policies of type 'Metadata', which have a resource associated with them.",
+                        "default" : false
+                      }, {
+                        "name" : "allUsers",
+                        "type" : "boolean",
+                        "doc" : "Whether the filter should apply to all users.",
+                        "default" : false
+                      }, {
+                        "name" : "allGroups",
+                        "type" : "boolean",
+                        "doc" : "Whether the filter should apply to all groups.",
+                        "default" : false
+                      } ]
+                    },
+                    "doc" : "The actors that the policy applies to."
+                  }, {
+                    "name" : "editable",
+                    "type" : "boolean",
+                    "doc" : "Whether the policy should be editable via the UI",
+                    "default" : true
+                  } ],
+                  "Aspect" : {
+                    "name" : "dataHubPolicyInfo"
+                  }
+                } ]
+              }
+            },
+            "doc" : "The list of metadata aspects associated with the DataHub access policy."
+          } ],
+          "Entity" : {
+            "keyAspect" : "dataHubPolicyKey",
+            "name" : "dataHubPolicy"
+          }
         } ]
       }
     } ]
-  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryRelatedTerms", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.GroupMembership", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", {
+  }, "com.linkedin.glossary.GlossaryNodeInfo", "com.linkedin.glossary.GlossaryRelatedTerms", "com.linkedin.glossary.GlossaryTermInfo", "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.GroupMembership", "com.linkedin.metadata.aspect.ChartAspect", "com.linkedin.metadata.aspect.CorpGroupAspect", "com.linkedin.metadata.aspect.CorpUserAspect", "com.linkedin.metadata.aspect.DashboardAspect", "com.linkedin.metadata.aspect.DataFlowAspect", "com.linkedin.metadata.aspect.DataHubPolicyAspect", "com.linkedin.metadata.aspect.DataJobAspect", "com.linkedin.metadata.aspect.DataPlatformAspect", "com.linkedin.metadata.aspect.DataProcessAspect", "com.linkedin.metadata.aspect.DatasetAspect", "com.linkedin.metadata.aspect.GlossaryNodeAspect", "com.linkedin.metadata.aspect.GlossaryTermAspect", "com.linkedin.metadata.aspect.MLFeatureAspect", "com.linkedin.metadata.aspect.MLFeatureTableAspect", "com.linkedin.metadata.aspect.MLModelAspect", "com.linkedin.metadata.aspect.MLModelDeploymentAspect", "com.linkedin.metadata.aspect.MLModelGroupAspect", "com.linkedin.metadata.aspect.MLPrimaryKeyAspect", "com.linkedin.metadata.aspect.TagAspect", {
     "type" : "record",
     "name" : "BrowseResult",
     "namespace" : "com.linkedin.metadata.browse",
@@ -4229,7 +4373,7 @@
       "type" : "int",
       "doc" : "The total number of elements (entities + groups) directly under queried path"
     } ]
-  }, "com.linkedin.metadata.browse.BrowseResultEntity", "com.linkedin.metadata.browse.BrowseResultGroup", "com.linkedin.metadata.browse.BrowseResultMetadata", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLFeatureTableKey", "com.linkedin.metadata.key.MLModelDeploymentKey", "com.linkedin.metadata.key.MLModelGroupKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.MLPrimaryKeyKey", "com.linkedin.metadata.key.TagKey", {
+  }, "com.linkedin.metadata.browse.BrowseResultEntity", "com.linkedin.metadata.browse.BrowseResultGroup", "com.linkedin.metadata.browse.BrowseResultMetadata", "com.linkedin.metadata.key.ChartKey", "com.linkedin.metadata.key.CorpGroupKey", "com.linkedin.metadata.key.CorpUserKey", "com.linkedin.metadata.key.DashboardKey", "com.linkedin.metadata.key.DataFlowKey", "com.linkedin.metadata.key.DataHubPolicyKey", "com.linkedin.metadata.key.DataJobKey", "com.linkedin.metadata.key.DataPlatformKey", "com.linkedin.metadata.key.DataProcessKey", "com.linkedin.metadata.key.DatasetKey", "com.linkedin.metadata.key.GlossaryNodeKey", "com.linkedin.metadata.key.GlossaryTermKey", "com.linkedin.metadata.key.MLFeatureKey", "com.linkedin.metadata.key.MLFeatureTableKey", "com.linkedin.metadata.key.MLModelDeploymentKey", "com.linkedin.metadata.key.MLModelGroupKey", "com.linkedin.metadata.key.MLModelKey", "com.linkedin.metadata.key.MLPrimaryKeyKey", "com.linkedin.metadata.key.TagKey", {
     "type" : "record",
     "name" : "AggregationMetadata",
     "namespace" : "com.linkedin.metadata.query",
@@ -4310,6 +4454,31 @@
         "items" : "Criterion"
       },
       "doc" : "A list of criteria the filter applies to the query"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "ListUrnsResult",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The model for listing a set of entity urns.",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "A list of entities returned from the list"
+    }, {
+      "name" : "start",
+      "type" : "int",
+      "doc" : "Offset of the first entity in the result"
+    }, {
+      "name" : "count",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "total",
+      "type" : "int",
+      "doc" : "The total number of entities directly under searched path"
     } ]
   }, {
     "type" : "record",
@@ -4425,7 +4594,7 @@
       "name" : "rows",
       "type" : "long"
     } ]
-  }, "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
+  }, "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataHubPolicySnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
     "type" : "record",
     "name" : "SystemMetadata",
     "namespace" : "com.linkedin.mxe",
@@ -4451,7 +4620,7 @@
       "doc" : "Additional properties",
       "optional" : true
     } ]
-  }, "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "entities",
     "namespace" : "com.linkedin.entity",
@@ -4569,6 +4738,19 @@
           "type" : "com.linkedin.mxe.SystemMetadata",
           "optional" : true
         } ]
+      }, {
+        "name" : "listUrns",
+        "parameters" : [ {
+          "name" : "entity",
+          "type" : "string"
+        }, {
+          "name" : "start",
+          "type" : "int"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.query.ListUrnsResult"
       }, {
         "name" : "search",
         "parameters" : [ {

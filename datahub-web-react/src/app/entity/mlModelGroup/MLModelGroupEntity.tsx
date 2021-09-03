@@ -70,4 +70,8 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             platform: entity.platform.name,
         };
     };
+
+    displayName = (data: MlModelGroup) => {
+        return data.name;
+    };
 }

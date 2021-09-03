@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 
@@ -27,7 +28,7 @@ public class GMSDisableWriteModeStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        _entityClient.setWritable(false);
+        _entityClient.setWritable(false, Constants.SYSTEM_ACTOR);
       } catch (Exception e) {
         e.printStackTrace();
         context.report().addLine("Failed to turn write mode off in GMS");

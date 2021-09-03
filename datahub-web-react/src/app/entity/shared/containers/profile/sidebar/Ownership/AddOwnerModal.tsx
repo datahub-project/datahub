@@ -35,7 +35,6 @@ export const AddOwnerModal = ({ visible, onClose, owners, updateOwnership }: Pro
                 owner: `urn:li:${row.type === EntityType.CorpGroup ? 'corpGroup' : 'corpuser'}:${row.ldap}`,
                 type: row.role,
             });
-
             updateOwnership({ owners: updatedOwners });
         }
         onClose();

@@ -14,6 +14,13 @@ if (process.env.REACT_APP_MOCK === 'true' || process.env.REACT_APP_MOCK === 'cy'
             }),
         );
         app.use(
+            '/authenticate',
+            createProxyMiddleware({
+                target: 'http://localhost:9002',
+                changeOrigin: true,
+            }),
+        );
+        app.use(
             '/api/v2/graphql',
             createProxyMiddleware({
                 target: 'http://localhost:9002',

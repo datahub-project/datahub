@@ -96,9 +96,22 @@ export function groupByFieldPath(
                     parentRow = outputRowByPath[rows[j].fieldPath];
                     break;
                 }
-            } else if (!isQualifyingUnionField) {
-                // in the case of structs, arrays, etc, parent will be a subset
-                if (row.fieldPath.indexOf(rows[j].fieldPath) >= 0) {
+            } else {
+                // In the case of structs, arrays, etc, parent will be the first token from
+                // the left of this field's name(last token of the path) that does not enclosed in [].
+                let parentPath: null | string = null;
+                for (
+                    let lastParentTokenIndex = rowTokens.length - 2;
+                    lastParentTokenIndex >= 0;
+                    --lastParentTokenIndex
+                ) {
+                    const lastParentToken: string = rowTokens[lastParentTokenIndex];
+                    if (lastParentToken && lastParentToken[0] !== '[') {
+                        parentPath = rowTokens.slice(0, lastParentTokenIndex + 1).join('.');
+                        break;
+                    }
+                }
+                if (parentPath && rows[j].fieldPath === parentPath) {
                     parentRow = outputRowByPath[rows[j].fieldPath];
                     break;
                 }
