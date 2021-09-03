@@ -24,6 +24,8 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
   private final List<SearchableFieldSpec> _specs = new ArrayList<>();
   private final Map<String, String> _searchFieldNamesToPatch = new HashMap<>();
 
+  private static final String MAP = "map";
+
   public List<SearchableFieldSpec> getSpecs() {
     return _specs;
   }
@@ -65,9 +67,17 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
     if (primaryAnnotationObj != null) {
       validatePropertiesAnnotation(currentSchema, primaryAnnotationObj, context.getTraversePath().toString());
-      if (currentSchema.getDereferencedType() == DataSchema.Type.MAP) {
-        return primaryAnnotationObj;
+      // Unfortunately, annotations on collections always need to be a nested map (byproduct of making overrides work)
+      // As such, for annotation maps, we make it a single entry map, where the key has no meaning
+      if (currentSchema.getDereferencedType() == DataSchema.Type.MAP && primaryAnnotationObj instanceof Map
+          && !((Map) primaryAnnotationObj).isEmpty()) {
+        return ((Map<?, ?>) primaryAnnotationObj).entrySet().stream().findFirst().get().getValue();
       }
+    }
+
+    // Check if the path has map in it. Individual values of the maps (actual maps are caught above) can be ignored
+    if (context.getTraversePath().contains(MAP)) {
+      return null;
     }
 
     // Next, check resolved properties for annotations on primitives.
@@ -83,10 +93,9 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
             currentSchema.getDereferencedType(), path.toString());
     if (_searchFieldNamesToPatch.containsKey(annotation.getFieldName()) && !_searchFieldNamesToPatch.get(
         annotation.getFieldName()).equals(context.getSchemaPathSpec().toString())) {
-      return;
-      //      throw new ModelValidationException(
-//          String.format("Entity has multiple searchable fields with the same field name %s",
-//              annotation.getFieldName()));
+      throw new ModelValidationException(
+          String.format("Entity has multiple searchable fields with the same field name %s",
+              annotation.getFieldName()));
     }
     final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
     _specs.add(fieldSpec);
