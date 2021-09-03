@@ -3718,7 +3718,7 @@ class CorpUserEditableInfoClass(DictWrapper):
         else:
             self.skills = skills
         if pictureLink is None:
-            # default: 'https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png'
+            # default: 'https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png'
             self.pictureLink = self.RECORD_SCHEMA.field_map["pictureLink"].default
         else:
             self.pictureLink = pictureLink

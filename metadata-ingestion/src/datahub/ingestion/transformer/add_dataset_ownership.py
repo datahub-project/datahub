@@ -1,4 +1,4 @@
-from typing import Callable, List, Union
+from typing import Callable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel, KeyValuePattern
@@ -57,7 +57,11 @@ class AddDatasetOwnership(DatasetTransformer):
         return mce
 
 
-class SimpleDatasetOwnershipConfig(ConfigModel):
+class DatasetOwnershipBaseConfig(ConfigModel):
+    ownership_type: Optional[str] = OwnershipTypeClass.DATAOWNER
+
+
+class SimpleDatasetOwnershipConfig(DatasetOwnershipBaseConfig):
     owner_urns: List[str]
     default_actor: str = builder.make_user_urn("etl")
 
@@ -66,8 +70,12 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
     """Transformer that adds a specified set of owners to each dataset."""
 
     def __init__(self, config: SimpleDatasetOwnershipConfig, ctx: PipelineContext):
+        ownership_type = builder.validate_ownership_type(config.ownership_type)
         owners = [
-            OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
+            OwnerClass(
+                owner=owner,
+                type=ownership_type,
+            )
             for owner in config.owner_urns
         ]
 
@@ -85,7 +93,7 @@ class SimpleAddDatasetOwnership(AddDatasetOwnership):
         return cls(config, ctx)
 
 
-class PatternDatasetOwnershipConfig(ConfigModel):
+class PatternDatasetOwnershipConfig(DatasetOwnershipBaseConfig):
     owner_pattern: KeyValuePattern = KeyValuePattern.all()
     default_actor: str = builder.make_user_urn("etl")
 
@@ -93,18 +101,30 @@ class PatternDatasetOwnershipConfig(ConfigModel):
 class PatternAddDatasetOwnership(AddDatasetOwnership):
     """Transformer that adds a specified set of owners to each dataset."""
 
-    def getOwners(self, key, owner_pattern):
+    def getOwners(
+        self,
+        key: str,
+        owner_pattern: KeyValuePattern,
+        ownership_type: Optional[str] = None,
+    ) -> List[OwnerClass]:
         owners = [
-            OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
+            OwnerClass(
+                owner=owner,
+                type=builder.validate_ownership_type(ownership_type),
+            )
             for owner in owner_pattern.value(key)
         ]
         return owners
 
     def __init__(self, config: PatternDatasetOwnershipConfig, ctx: PipelineContext):
+        ownership_type = builder.validate_ownership_type(config.ownership_type)
         owner_pattern = config.owner_pattern
         generic_config = AddDatasetOwnershipConfig(
             get_owners_to_add=lambda _: [
-                OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)
+                OwnerClass(
+                    owner=owner,
+                    type=ownership_type,
+                )
                 for owner in owner_pattern.value(_.urn)
             ],
             default_actor=config.default_actor,

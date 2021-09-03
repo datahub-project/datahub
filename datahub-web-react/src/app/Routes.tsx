@@ -36,7 +36,7 @@ export const Routes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
     return (
-        <div>
+        <>
             <Switch>
                 <ProtectedRoute isLoggedIn={isLoggedIn} exact path="/" render={() => <HomePage />} />
 
@@ -64,6 +64,6 @@ export const Routes = (): JSX.Element => {
                 <Route path={PageRoutes.ASSETS} component={() => <Redirect to="/" />} exact />
                 <Route component={NoPageFound} />
             </Switch>
-        </div>
+        </>
     );
 };
