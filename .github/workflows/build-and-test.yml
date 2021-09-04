@@ -29,6 +29,11 @@ jobs:
           python-version: "3.6"
       - name: Gradle build (and test)
         run: ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test Results
+          path: "**/build/reports/tests/test/**"
       - name: Ensure codegen is updated
         run: |
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
