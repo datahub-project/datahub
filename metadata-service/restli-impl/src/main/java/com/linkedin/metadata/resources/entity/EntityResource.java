@@ -301,12 +301,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = "getTotalEntityCount")
   @Nonnull
+  @WithSpan
   public Task<Long> getTotalEntityCount(@ActionParam(PARAM_ENTITY) @Nonnull String entityName) {
     return RestliUtil.toTask(() -> _searchService.docCount(entityName));
   }
 
   @Action(name = "batchGetTotalEntityCount")
   @Nonnull
+  @WithSpan
   public Task<LongMap> batchGetTotalEntityCount(@ActionParam(PARAM_ENTITIES) @Nonnull String[] entityNames) {
     return RestliUtil.toTask(() -> new LongMap(
         Arrays.stream(entityNames).collect(Collectors.toMap(Function.identity(), _searchService::docCount))));
@@ -314,12 +316,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
   @Action(name = ACTION_LIST_URNS)
   @Nonnull
+  @WithSpan
   public Task<ListUrnsResult> listUrns(
       @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count
   ) throws URISyntaxException {
     log.info("LIST URNS for {} with start {} and count {}", entityName, start, count);
-    return RestliUtils.toTask(() -> _entityService.listUrns(entityName, start, count));
+    return RestliUtil.toTask(() -> _entityService.listUrns(entityName, start, count), "listUrns");
   }
 }
