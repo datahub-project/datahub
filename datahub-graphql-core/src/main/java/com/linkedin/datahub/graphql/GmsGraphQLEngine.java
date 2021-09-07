@@ -386,9 +386,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeTag", new AuthenticatedResolver<>(new RemoveTagResolver(entityService)))
             .dataFetcher("addTerm", new AuthenticatedResolver<>(new AddTermResolver(entityService)))
             .dataFetcher("removeTerm", new AuthenticatedResolver<>(new RemoveTermResolver(entityService)))
-						.dataFetcher("createPolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
-						.dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
-						.dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
+            .dataFetcher("createPolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("updatePolicy", new UpsertPolicyResolver(GmsClientFactory.getAspectsClient()))
+            .dataFetcher("deletePolicy", new DeletePolicyResolver(GmsClientFactory.getEntitiesClient()))
         );
     }
 

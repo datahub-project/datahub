@@ -39,8 +39,7 @@ public class GraphQLEngine {
 
     private GraphQLEngine(@Nonnull final List<String> schemas,
                           @Nonnull final RuntimeWiring runtimeWiring,
-                          @Nonnull final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers
-    ) {
+                          @Nonnull final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers) {
 
         _dataLoaderSuppliers = dataLoaderSuppliers;
 
