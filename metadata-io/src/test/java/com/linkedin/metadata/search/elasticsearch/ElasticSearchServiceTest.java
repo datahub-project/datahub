@@ -114,11 +114,13 @@ public class ElasticSearchServiceTest {
 
     Urn urn2 = new TestEntityUrn("test", "testUrn2", "VALUE_2");
     ObjectNode document2 = JsonNodeFactory.instance.objectNode();
-    document2.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
+    document2.set("urn", JsonNodeFactory.instance.textNode(urn2.toString()));
     document2.set("keyPart1", JsonNodeFactory.instance.textNode("random"));
     document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
     document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    TimeUnit.SECONDS.sleep(5);
+
     searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0), urn);
