@@ -1,11 +1,14 @@
 package com.datahub.metadata.authorization;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.common.Owner;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.metadata.aspect.DataHubPolicyAspect;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.snapshot.DataHubPolicySnapshot;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -36,6 +39,9 @@ import static com.linkedin.metadata.Constants.*;
 @Slf4j
 public class AuthorizationManager implements Authorizer {
 
+  // Used for resolving resource ownership.
+  private final OwnershipClient _ownershipClient;
+
   // Maps privilege name to the associated set of policies for fast access.
   // Not concurrent data structure because writes are always against the entire thing.
   private final Map<String, List<DataHubPolicyInfo>> _policyCache = new HashMap<>(); // Shared Policy Cache.
@@ -48,14 +54,15 @@ public class AuthorizationManager implements Authorizer {
 
   public AuthorizationManager(
       final EntityClient entityClient,
-      final AspectClient aspectClient,
+      final OwnershipClient ownershipClient,
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds,
       final AuthorizationMode mode) {
+    _ownershipClient = ownershipClient;
     _policyRefreshRunnable = new PolicyRefreshRunnable(entityClient, _policyCache);
     _refreshExecutorService.scheduleAtFixedRate(_policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
     _mode = mode;
-    _policyEngine = new PolicyEngine(entityClient, aspectClient);
+    _policyEngine = new PolicyEngine(entityClient, ownershipClient);
   }
 
   public AuthorizationResult authorize(final AuthorizationRequest request) {
@@ -70,6 +77,43 @@ public class AuthorizationManager implements Authorizer {
       }
     }
     return new AuthorizationResult(request, Optional.empty(), AuthorizationResult.Type.DENY);
+  }
+
+  /**
+   * Retrieves the current list of actors authorized to for a particular privilege against
+   * an optional resource
+   */
+  public AuthorizedActors authorizedActors(final String privilege, final Optional<ResourceSpec> resourceSpec) throws RuntimeException {
+    // Step 1: Find policies granting the privilege.
+    final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(privilege, new ArrayList<>());
+
+    final List<Urn> authorizedUsers = new ArrayList<>();
+    final List<Urn> authorizedGroups = new ArrayList<>();
+    boolean allUsers = false;
+    boolean allGroups = false;
+
+    // Step 2: For each policy, determine whether the resource is a match.
+    for (DataHubPolicyInfo policy : policiesToEvaluate) {
+      if (!PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState())) {
+        // Policy is not active, skip.
+        continue;
+      }
+
+      final PolicyEngine.PolicyActors matchingActors = _policyEngine.getMatchingActors(policy, resourceSpec);
+
+      // Step 3: For each matching policy, add actors that are authorized.
+      authorizedUsers.addAll(matchingActors.getUsers());
+      authorizedGroups.addAll(matchingActors.getGroups());
+      if (matchingActors.allUsers()) {
+        allUsers = true;
+      }
+      if (matchingActors.allGroups()) {
+        allGroups = true;
+      }
+    }
+
+    // Step 4: Return all authorized users and groups.
+    return new AuthorizedActors(privilege, authorizedUsers, authorizedGroups, allUsers, allGroups);
   }
 
   /**
@@ -93,6 +137,9 @@ public class AuthorizationManager implements Authorizer {
    * Returns true if a policy grants the requested privilege for a given actor and resource.
    */
   private boolean isRequestGranted(final DataHubPolicyInfo policy, final AuthorizationRequest request) {
+    if (AuthorizationMode.ALLOW_ALL.equals(mode())) {
+      return true;
+    }
     final PolicyEngine.PolicyEvaluationResult result = _policyEngine.evaluatePolicy(
         policy,
         request.actor(),
@@ -190,4 +237,60 @@ public class AuthorizationManager implements Authorizer {
       }
     }
   }
+
+  private List<Urn> userOwners(final Ownership ownership) {
+    return ownership.getOwners()
+        .stream()
+        .filter(owner -> CORP_USER_ENTITY_NAME.equals(owner.getOwner().getEntityType()))
+        .map(Owner::getOwner)
+        .collect(Collectors.toList());
+  }
+
+  private List<Urn> groupOwners(final Ownership ownership) {
+    return ownership.getOwners()
+        .stream()
+        .filter(owner -> CORP_GROUP_ENTITY_NAME.equals(owner.getOwner().getEntityType()))
+        .map(Owner::getOwner)
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Class used to represent all users authorized to perform a particular privilege.
+   */
+  public static class AuthorizedActors {
+    final String _privilege;
+    final List<Urn> _users;
+    final List<Urn> _groups;
+    final Boolean _allUsers;
+    final Boolean _allGroups;
+
+    public AuthorizedActors(final String privilege, final List<Urn> users, final List<Urn> groups, final Boolean allUsers, final Boolean allGroups) {
+      _privilege = privilege;
+      _users = users;
+      _groups = groups;
+      _allUsers = allUsers;
+      _allGroups = allGroups;
+    }
+
+    public String getPrivilege() {
+      return _privilege;
+    }
+
+    public List<Urn> getUsers() {
+      return _users;
+    }
+
+    public List<Urn> getGroups() {
+      return _groups;
+    }
+
+    public Boolean allUsers() {
+      return _allUsers;
+    }
+
+    public Boolean allGroups() {
+      return _allGroups;
+    }
+  }
+
 }
