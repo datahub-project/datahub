@@ -64,11 +64,11 @@ public class GraphQLController {
      * Extract "variables" map
      */
     JsonNode variablesJson = bodyJson.get("variables");
-    final Map<String, Object> variables = variablesJson != null
+    final Map<String, Object> variables = (variablesJson != null && !variablesJson.isNull())
       ? new ObjectMapper().convertValue(variablesJson, new TypeReference<Map<String, Object>>() { })
       : Collections.emptyMap();
 
-    log.debug(String.format("Executing graphQL query: %s, variables: %s", queryJson, variablesJson));
+    log.debug(String.format("Executing graphQL query: %s, variables: %s", queryJson, variables));
 
     /*
      * Init QueryContext
