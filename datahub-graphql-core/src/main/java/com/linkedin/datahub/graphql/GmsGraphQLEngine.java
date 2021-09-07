@@ -42,9 +42,11 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AddLabelResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLabelResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
@@ -85,6 +87,7 @@ import com.linkedin.datahub.graphql.types.lineage.DataFlowDataJobsRelationshipsT
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 
 import com.linkedin.datahub.graphql.types.usage.UsageType;
+import com.linkedin.metadata.entity.EntityService;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.ArrayList;
@@ -145,6 +148,7 @@ public class GmsGraphQLEngine {
     private final UsageType usageType = new UsageType(GmsClientFactory.getUsageClient());
 
     private final AnalyticsService analyticsService;
+    private final EntityService entityService;
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -343,8 +347,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateDashboard", new AuthenticatedResolver<>(new MutableTypeResolver<>(dashboardType)))
             .dataFetcher("updateDataJob", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataJobType)))
             .dataFetcher("updateDataFlow", new AuthenticatedResolver<>(new MutableTypeResolver<>(dataFlowType)))
-            .dataFetcher("addLabel", new AuthenticatedResolver<>(new AddLabelResolver()))
-            .dataFetcher("removeLabel", new AuthenticatedResolver<>(new RemoveLabelResolver()))
+            .dataFetcher("addTag", new AuthenticatedResolver<>(new AddTagResolver(entityService)))
+            .dataFetcher("removeTag", new AuthenticatedResolver<>(new RemoveTagResolver(entityService)))
+            .dataFetcher("addTerm", new AuthenticatedResolver<>(new AddTermResolver(entityService)))
+            .dataFetcher("removeTerm", new AuthenticatedResolver<>(new RemoveTermResolver(entityService)))
         );
     }
 
@@ -773,10 +779,12 @@ public class GmsGraphQLEngine {
 
     public GmsGraphQLEngine() {
         this.analyticsService = null;
+        this.entityService = null;
     }
 
-    public GmsGraphQLEngine(final AnalyticsService analyticsService) {
+    public GmsGraphQLEngine(final AnalyticsService analyticsService, final EntityService entityService) {
         this.analyticsService = analyticsService;
+        this.entityService = entityService;
     }
 
 }

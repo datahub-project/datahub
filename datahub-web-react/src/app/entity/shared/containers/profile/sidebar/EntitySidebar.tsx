@@ -29,7 +29,7 @@ export const EntitySidebar = <T,>({ sidebarSections }: Props) => {
                 if (section.shouldHide?.(entityData, baseEntity) === true) {
                     return null;
                 }
-                return <section.component />;
+                return <section.component properties={section.properties} />;
             })}
         </ContentContainer>
     );

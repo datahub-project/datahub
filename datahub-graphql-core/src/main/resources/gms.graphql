@@ -291,13 +291,23 @@ type Mutation {
     updateDataFlow(input: DataFlowUpdateInput!): DataFlow
     updateDataJob(input: DataJobUpdateInput!): DataJob
     updateTag(input: TagUpdate!): Tag
-    addLabel(input: LabelUpdateInput!): Boolean
-    removeLabel(input: LabelUpdateInput!): Boolean
+    addTag(input: TagUpdateInput!): Boolean
+    removeTag(input: TagUpdateInput!): Boolean
+    addTerm(input: TermUpdateInput!): Boolean
+    removeTerm(input: TermUpdateInput!): Boolean
 }
 
-input LabelUpdateInput {
-    labelUrn: String!
+input TermUpdateInput {
+    termUrn: String!
     targetUrn: String!
+    subResourceType: String
+    subResource: String
+}
+
+input TagUpdateInput {
+    tagUrn: String!
+    targetUrn: String!
+    subResourceType: String
     subResource: String
 }
 
@@ -882,6 +892,11 @@ type EditableSchemaFieldInfo {
     Tags associated with the field
     """
     globalTags: GlobalTags
+
+    """
+    Glossary terms associated with the field
+    """
+    glossaryTerms: GlossaryTerms
 }
 
 enum SchemaFieldDataType {

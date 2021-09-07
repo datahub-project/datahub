@@ -1,29 +1,24 @@
 import React, { useState } from 'react';
-import { FetchResult } from '@apollo/client';
 import { Button, Modal, Select, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { UpdateDatasetMutation } from '../../../graphql/dataset.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../graphql/search.generated';
-import {
-    GlobalTags,
-    GlobalTagsUpdate,
-    EntityType,
-    TagAssociationUpdate,
-    AutoCompleteResultForEntity,
-} from '../../../types.generated';
-import { convertTagsForUpdate } from './utils/convertTagsForUpdate';
+import { GlobalTags, EntityType, AutoCompleteResultForEntity, GlossaryTerms } from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { IconStyleType } from '../../entity/Entity';
+import { useAddTagMutation, useAddTermMutation } from '../../../graphql/mutations.generated';
+import analytics, { EventType, EntityActionType } from '../../analytics';
 
 type AddTagModalProps = {
     globalTags?: GlobalTags | null;
-    updateTags?: (
-        update: GlobalTagsUpdate,
-    ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>>>;
+    glossaryTerms?: GlossaryTerms | null;
     visible: boolean;
     onClose: () => void;
+    entityUrn: string;
+    entityType: EntityType;
+    entitySubresource?: string;
+    type?: EntityType;
 };
 
 const TagSelect = styled(Select)`
@@ -63,7 +58,16 @@ const renderItem = (suggestion: string, icon: JSX.Element, type: string) => ({
     type,
 });
 
-export default function AddTagTermModal({ updateTags, globalTags, visible, onClose }: AddTagModalProps) {
+export default function AddTagTermModal({
+    globalTags,
+    glossaryTerms,
+    visible,
+    onClose,
+    entityUrn,
+    entityType,
+    entitySubresource,
+    type = EntityType.Tag,
+}: AddTagModalProps) {
     const [getAutoCompleteResults, { loading, data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery({
         fetchPolicy: 'no-cache',
     });
@@ -72,13 +76,15 @@ export default function AddTagTermModal({ updateTags, globalTags, visible, onClo
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [disableAdd, setDisableAdd] = useState(false);
     const entityRegistry = useEntityRegistry();
+    const [addTagMutation] = useAddTagMutation();
+    const [addTermMutation] = useAddTermMutation();
 
     const autoComplete = (query: string) => {
         if (query && query !== '') {
             getAutoCompleteResults({
                 variables: {
                     input: {
-                        types: [EntityType.Tag, EntityType.GlossaryTerm],
+                        types: [type],
                         query,
                     },
                 },
@@ -102,7 +108,7 @@ export default function AddTagTermModal({ updateTags, globalTags, visible, onClo
             </Select.Option>
         )) || [];
 
-    if (!inputExistsInAutocomplete && inputValue.length > 0 && !loading) {
+    if (!inputExistsInAutocomplete && inputValue.length > 0 && !loading && type === EntityType.Tag) {
         autocompleteOptions.push(
             <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
                 <Typography.Link> Create {inputValue}</Typography.Link>
@@ -112,38 +118,81 @@ export default function AddTagTermModal({ updateTags, globalTags, visible, onClo
 
     const onOk = () => {
         const { name: selectedName, type: selectedType } = getSelectedValue(selectedValue);
-        if (!globalTags?.tags?.some((tag) => tag.tag.name === selectedValue)) {
-            setDisableAdd(true);
-            updateTags?.({
-                tags: [
-                    ...convertTagsForUpdate(globalTags?.tags || []),
-                    { tag: { urn: `urn:li:tag:${selectedValue}`, name: selectedValue } },
-                ] as TagAssociationUpdate[],
-            }).finally(() => {
-                setDisableAdd(false);
+        let mutation: ((input: any) => Promise<any>) | null = null;
+
+        if (selectedType === EntityType.Tag) {
+            mutation = addTagMutation;
+            if (globalTags?.tags?.some((tag) => tag.tag.name === selectedName)) {
                 onClose();
-            });
-        } else {
-            onClose();
+                return;
+            }
         }
+        if (selectedType === EntityType.GlossaryTerm) {
+            mutation = addTermMutation;
+            if (glossaryTerms?.terms?.some((term) => term.term.name === selectedName)) {
+                onClose();
+                return;
+            }
+        }
+
+        if (!entityUrn || !mutation) {
+            onClose();
+            return;
+        }
+
+        setDisableAdd(true);
+
+        let urnToAdd = '';
+        let input = {};
+        if (selectedType === EntityType.Tag) {
+            urnToAdd = `urn:li:tag:${selectedName}`;
+            input = {
+                tagUrn: urnToAdd,
+                targetUrn: entityUrn,
+                subResource: entitySubresource,
+            };
+        }
+        if (selectedType === EntityType.GlossaryTerm) {
+            urnToAdd = `urn:li:glossaryTerm:${selectedName}`;
+            input = {
+                termUrn: urnToAdd,
+                targetUrn: entityUrn,
+                subResource: entitySubresource,
+            };
+        }
+
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateTags,
+            entityType,
+            entityUrn,
+        });
+        mutation({
+            variables: {
+                input,
+            },
+        }).finally(() => {
+            setDisableAdd(false);
+            onClose();
+        });
     };
 
     if (showCreateModal) {
         return (
             <CreateTagModal
-                updateTags={updateTags}
-                globalTags={globalTags}
                 visible={visible}
                 onClose={onClose}
                 onBack={() => setShowCreateModal(false)}
                 tagName={inputValue}
+                entityUrn={entityUrn}
+                entitySubresource={entitySubresource}
             />
         );
     }
 
     return (
         <Modal
-            title="Add tag"
+            title={`Add ${entityRegistry.getEntityName(type)}`}
             visible={visible}
             onCancel={onClose}
             okButtonProps={{ disabled: selectedValue.length === 0 }}
@@ -163,7 +212,7 @@ export default function AddTagTermModal({ updateTags, globalTags, visible, onClo
                 allowClear
                 autoFocus
                 showSearch
-                placeholder="Find a tag"
+                placeholder={`Find a ${entityRegistry.getEntityName(type)?.toLowerCase()}`}
                 defaultActiveFirstOption={false}
                 showArrow={false}
                 filterOption={false}
