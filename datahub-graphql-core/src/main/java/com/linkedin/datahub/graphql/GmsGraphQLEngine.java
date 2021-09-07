@@ -91,6 +91,7 @@ import com.linkedin.datahub.graphql.types.usage.UsageType;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.ArrayList;
+import java.util.Collections;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
@@ -743,7 +744,7 @@ public class GmsGraphQLEngine {
                                     .map(MLModelGroup::getUrn)
                                     .collect(Collectors.toList());
                             }
-                            return null;
+                            return Collections.emptyList();
                         }))
                 )
             )
