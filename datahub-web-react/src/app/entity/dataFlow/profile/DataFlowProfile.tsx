@@ -1,17 +1,16 @@
 import React from 'react';
-import { Alert } from 'antd';
+import { Alert, message } from 'antd';
 import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../../graphql/dataFlow.generated';
 import { LegacyEntityProfile } from '../../../shared/LegacyEntityProfile';
 import { DataFlow, EntityType, GlobalTags } from '../../../../types.generated';
 import DataFlowHeader from './DataFlowHeader';
-import DataFlowDataJobs from './DataFlowDataJobs';
+import { DataFlowDataJobs } from './DataFlowDataJobs';
 import { Message } from '../../../shared/Message';
 import TagTermGroup from '../../../shared/tags/TagTermGroup';
 import { Properties as PropertiesView } from '../../shared/components/legacy/Properties';
 import { Ownership as OwnershipView } from '../../shared/components/legacy/Ownership';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../analytics';
-import { topologicalSort } from '../../../../utils/sort/topologicalSort';
 
 /**
  * Responsible for display the DataFlow Page
@@ -26,6 +25,10 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
     const { loading, error, data, refetch } = useGetDataFlowQuery({ variables: { urn } });
     const [updateDataFlow] = useUpdateDataFlowMutation({
         refetchQueries: () => ['getDataFlow'],
+        onError: (e) => {
+            message.destroy();
+            message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
+        },
     });
 
     if (error || (!loading && !error && !data)) {
@@ -63,7 +66,7 @@ export const DataFlowProfile = ({ urn }: { urn: string }): JSX.Element => {
             {
                 name: TabType.Task,
                 path: TabType.Task.toLowerCase(),
-                content: <DataFlowDataJobs dataJobs={topologicalSort(dataJobs?.entities || [])} />,
+                content: <DataFlowDataJobs dataJobs={dataJobs?.entities} />,
             },
         ];
     };

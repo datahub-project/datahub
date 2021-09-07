@@ -60,4 +60,8 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             />
         );
     };
+
+    displayName = (data: GlossaryTerm) => {
+        return data.name;
+    };
 }

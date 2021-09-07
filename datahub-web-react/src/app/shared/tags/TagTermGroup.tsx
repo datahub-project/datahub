@@ -1,4 +1,4 @@
-import { Modal, Tag, Typography, Button } from 'antd';
+import { Modal, Tag, Typography, Button, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';

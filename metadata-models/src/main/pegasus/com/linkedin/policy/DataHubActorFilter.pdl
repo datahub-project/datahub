@@ -1,0 +1,35 @@
+namespace com.linkedin.policy
+
+import com.linkedin.common.Urn
+
+/**
+ * Information used to filter DataHub actors.
+ */
+record DataHubActorFilter {
+
+  /**
+   * A specific set of users to apply the policy to (disjunctive)
+   */
+  users: optional array[Urn]
+
+  /**
+   * A specific set of groups to apply the policy to (disjunctive)
+   */
+  groups: optional array[Urn]
+
+  /**
+   * Whether the filter should return true for owners of a particular resource.
+   * Only applies to policies of type 'Metadata', which have a resource associated with them.
+   */
+  resourceOwners: boolean = false
+
+  /**
+   * Whether the filter should apply to all users.
+   */
+  allUsers: boolean = false
+
+  /**
+   * Whether the filter should apply to all groups.
+   */
+  allGroups: boolean = false
+}

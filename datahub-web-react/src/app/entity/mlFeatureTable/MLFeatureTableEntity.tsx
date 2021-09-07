@@ -78,4 +78,8 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             platform: entity.platform.name,
         };
     };
+
+    displayName = (data: MlFeatureTable) => {
+        return data.name;
+    };
 }

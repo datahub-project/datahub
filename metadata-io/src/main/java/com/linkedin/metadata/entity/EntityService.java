@@ -9,15 +9,16 @@ import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.PegasusUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.event.EntityEventProducer;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntityKeyUtils;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.MetadataAuditOperation;
@@ -35,8 +36,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.PegasusUtils.getDataTemplateClassFromSchema;
-import static com.linkedin.metadata.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
@@ -75,7 +77,6 @@ public abstract class EntityService {
    * As described above, the latest version of an aspect should <b>always</b> take the value 0, with
    * monotonically increasing version incrementing as usual once the latest version is replaced.
    */
-  public static final long LATEST_ASPECT_VERSION = 0;
 
   private final EntityEventProducer _producer;
   private final EntityRegistry _entityRegistry;
@@ -176,6 +177,15 @@ public abstract class EntityService {
       final boolean emitMae);
 
   /**
+   * Lists the entity URNs found in storage.
+   *
+   * @param entityName the name associated with the entity
+   * @param start the start offset
+   * @param count the count
+   */
+  public abstract ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count);
+
+  /**
    * Default implementations. Subclasses should feel free to override if it's more efficient to do so.
    */
   public Entity getEntity(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
@@ -242,7 +252,7 @@ public abstract class EntityService {
 
   public RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName) {
     log.debug(String.format("Invoked getLatestAspect with urn %s, aspect %s", urn, aspectName));
-    return getAspect(urn, aspectName, LATEST_ASPECT_VERSION);
+    return getAspect(urn, aspectName, ASPECT_LATEST_VERSION);
   }
 
   public void ingestEntities(@Nonnull final List<Entity> entities, @Nonnull final AuditStamp auditStamp,
@@ -293,7 +303,9 @@ public abstract class EntityService {
             .collect(Collectors.toList())));
   }
 
-  private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp,
+  private void ingestSnapshotUnion(
+      @Nonnull final Snapshot snapshotUnion,
+      @Nonnull final AuditStamp auditStamp,
       SystemMetadata systemMetadata) {
     final RecordTemplate snapshotRecord = RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion);
     final Urn urn = com.linkedin.metadata.dao.utils.ModelUtils.getUrnFromSnapshot(snapshotRecord);
@@ -332,6 +344,15 @@ public abstract class EntityService {
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     final RecordDataSchema keySchema = keySpec.getPegasusSchema();
     return EntityKeyUtils.convertUrnToEntityKey(urn, keySchema);
+  }
+
+  public AspectSpec getKeyAspectSpec(@Nonnull final Urn urn) {
+    return getKeyAspectSpec(urnToEntityName(urn));
+  }
+
+  public AspectSpec getKeyAspectSpec(@Nonnull final String entityName) {
+    final EntitySpec spec = _entityRegistry.getEntitySpec(entityName);
+    return spec.getKeyAspectSpec();
   }
 
   public String getKeyAspectName(@Nonnull final Urn urn) {
@@ -396,7 +417,7 @@ public abstract class EntityService {
     _emitAspectSpecificAuditEvent = emitAspectSpecificAuditEvent;
   }
 
-  protected EntityRegistry getEntityRegistry() {
+  public EntityRegistry getEntityRegistry() {
     return _entityRegistry;
   }
 
@@ -410,7 +431,7 @@ public abstract class EntityService {
 
   public abstract void setWritable(boolean canWrite);
 
-  public abstract void ingestProposal(MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp);
+  public abstract Urn ingestProposal(MetadataChangeProposal metadataChangeProposal, AuditStamp auditStamp);
 
   public abstract RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId);
 

@@ -1,5 +1,6 @@
 package com.datahub.metadata.graphql;
 
+import com.datahub.metadata.authorization.AuthorizationManager;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -18,7 +19,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Bean;
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, EntityServiceFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, EntityServiceFactory.class, AuthorizationManagerFactory.class})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -32,8 +33,10 @@ public class GraphQLEngineFactory {
   @Qualifier("entityService")
   private EntityService _entityService;
 
+  @Autowired
+  private AuthorizationManager authorizationManager;
 
-  @Value("${ANALYTICS_ENABLED:true}")
+  @Value("${ANALYTICS_ENABLED:true}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
   @Bean(name = "graphQLEngine")

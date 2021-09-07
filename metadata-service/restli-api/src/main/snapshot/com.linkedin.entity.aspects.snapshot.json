@@ -3040,7 +3040,8 @@
         "parameters" : [ {
           "name" : "proposal",
           "type" : "com.linkedin.mxe.MetadataChangeProposal"
-        } ]
+        } ],
+        "returns" : "string"
       } ],
       "entity" : {
         "path" : "/aspects/{aspectsId}"

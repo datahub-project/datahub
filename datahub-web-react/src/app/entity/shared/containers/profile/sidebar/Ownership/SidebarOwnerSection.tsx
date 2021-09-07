@@ -1,4 +1,4 @@
-import { Typography, Button } from 'antd';
+import { Typography, Button, message } from 'antd';
 import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 
@@ -24,7 +24,12 @@ export const SidebarOwnerSection = () => {
             entityType: EntityType.Dataset,
             entityUrn: urn,
         });
-        return updateEntity({ variables: { input: { urn, ownership: update } } });
+        updateEntity({ variables: { input: { urn, ownership: update } } })
+            .then(() => message.success({ content: 'Updated!', duration: 2 }))
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to update: \n ${e.message || ''}`, duration: 3 });
+            });
     };
 
     return (

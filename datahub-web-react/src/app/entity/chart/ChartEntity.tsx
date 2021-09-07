@@ -86,4 +86,8 @@ export class ChartEntity implements Entity<Chart> {
             platform: entity.tool,
         };
     };
+
+    displayName = (data: Chart) => {
+        return data.info?.name || data.urn;
+    };
 }
