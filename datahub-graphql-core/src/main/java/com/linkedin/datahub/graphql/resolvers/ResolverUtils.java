@@ -66,7 +66,7 @@ public class ResolverUtils {
         return facetFilters;
     }
 
-    public static Object constructAspectFromDataElement(DataElement aspectDataElement)
+    private static Object constructAspectFromDataElement(DataElement aspectDataElement)
         throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, InstantiationException {
         String restliAspectClassName = aspectDataElement.getSchema().getUnionMemberKey();
         // construct the restli aspect class from the aspect's DataMap stored in local context

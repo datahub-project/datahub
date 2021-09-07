@@ -37,16 +37,13 @@ public class GraphQLEngine {
 
     private final GraphQL _graphQL;
     private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _dataLoaderSuppliers;
-    private EntityService _entityService;
 
     private GraphQLEngine(@Nonnull final List<String> schemas,
                           @Nonnull final RuntimeWiring runtimeWiring,
-                          @Nonnull final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers,
-                          @Nullable  final EntityService entityService
+                          @Nonnull final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers
     ) {
 
         _dataLoaderSuppliers = dataLoaderSuppliers;
-        _entityService = entityService;
 
         /*
          * Parse schema
@@ -95,10 +92,6 @@ public class GraphQLEngine {
         return _graphQL;
     }
 
-    public EntityService getEntityService() {
-        return _entityService;
-    }
-
     public static Builder builder() {
         return new Builder();
     }
@@ -108,7 +101,6 @@ public class GraphQLEngine {
      */
     public static class Builder {
 
-        private EntityService _entityService;
         private final List<String> _schemas = new ArrayList<>();
         private final Map<String, Function<QueryContext, DataLoader<?, ?>>> _loaderSuppliers = new HashMap<>();
         private final RuntimeWiring.Builder _runtimeWiringBuilder = newRuntimeWiring();
@@ -159,16 +151,11 @@ public class GraphQLEngine {
             return this;
         }
 
-        public Builder configureEntityService(final EntityService entityService) {
-          _entityService = entityService;
-          return this;
-        }
-
         /**
          * Builds a {@link GraphQLEngine}.
          */
         public GraphQLEngine build() {
-            return new GraphQLEngine(_schemas, _runtimeWiringBuilder.build(), _loaderSuppliers, _entityService);
+            return new GraphQLEngine(_schemas, _runtimeWiringBuilder.build(), _loaderSuppliers);
         }
     }
 

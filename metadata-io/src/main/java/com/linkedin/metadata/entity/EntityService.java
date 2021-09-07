@@ -118,7 +118,7 @@ public abstract class EntityService {
 
   /**
    * Retrieves a list of all aspects belonging to an entity of a particular type, sorted by urn.
-   *
+   datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GraphQLEngine.java*
    * Note that once we drop support for legacy 'getAllDataPlatforms' endpoint,
    * we can drop support for this unless otherwise required. Only visible for backwards compatibility.
    *

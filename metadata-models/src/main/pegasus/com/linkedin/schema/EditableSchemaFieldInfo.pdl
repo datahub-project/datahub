@@ -39,7 +39,7 @@ record EditableSchemaFieldInfo {
    */
    @Searchable = {
     "/terms/*/urn": {
-      "fieldName": "fieldGlossaryTerms",
+      "fieldName": "editedFieldGlossaryTerms",
       "fieldType": "URN_PARTIAL",
       "boostScore": 0.5
     }
