@@ -1,5 +1,6 @@
 package com.datahub.metadata.authorization;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -12,6 +13,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.aspect.Aspect;
@@ -23,6 +25,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
+import java.util.Collections;
 import java.util.Optional;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -52,7 +55,7 @@ public class PolicyEngineTest {
   public void setupTest() throws Exception {
     _entityClient = Mockito.mock(EntityClient.class);
     _aspectClient = Mockito.mock(AspectClient.class);
-    _policyEngine = new PolicyEngine(_entityClient, _aspectClient);
+    _policyEngine = new PolicyEngine(_entityClient, new OwnershipClient(_aspectClient));
 
     // Init mocks.
     final CorpUserSnapshot authorizedUser = createDataHubSnapshot();
@@ -728,6 +731,126 @@ public class PolicyEngineTest {
         ))
     );
     assertFalse(result.isGranted());
+
+    // Verify no network calls
+    verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
+  }
+
+  @Test
+  public void testGetMatchingActorsResourceMatch() throws Exception {
+
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(true);
+    actorFilter.setUsers(new UrnArray(
+        ImmutableList.of(
+            Urn.createFromString("urn:li:corpuser:user1"),
+            Urn.createFromString("urn:li:corpuser:user2")
+        )
+    ));
+    actorFilter.setGroups(new UrnArray(
+        ImmutableList.of(
+            Urn.createFromString("urn:li:corpGroup:group1"),
+            Urn.createFromString("urn:li:corpGroup:group2")
+        )
+    ));
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(false);
+    resourceFilter.setType("dataset");
+    StringArray resourceUrns = new StringArray();
+    resourceUrns.add(RESOURCE_URN); // Filter applies to specific resource.
+    resourceFilter.setResources(resourceUrns);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    PolicyEngine.PolicyActors actors = _policyEngine.getMatchingActors(
+        dataHubPolicyInfo,
+        Optional.of(new ResourceSpec(
+            "dataset",
+            RESOURCE_URN // A resource covered by the policy.
+        ))
+    );
+
+    assertTrue(actors.allUsers());
+    assertTrue(actors.allGroups());
+
+    assertEquals(actors.getUsers(), ImmutableList.of(
+        Urn.createFromString("urn:li:corpuser:user1"),
+        Urn.createFromString("urn:li:corpuser:user2"),
+        Urn.createFromString(AUTHORIZED_PRINCIPAL) // Resource Owner
+    ));
+
+    assertEquals(actors.getGroups(), ImmutableList.of(
+        Urn.createFromString("urn:li:corpGroup:group1"),
+        Urn.createFromString("urn:li:corpGroup:group2"),
+        Urn.createFromString(AUTHORIZED_GROUP) // Resource Owner
+    ));
+
+    // Verify aspect client called, entity client not called.
+    verify(_aspectClient, times(1)).getAspect(any(), any(), any(), any());
+    verify(_entityClient, times(0)).get(eq(Urn.createFromString(AUTHORIZED_PRINCIPAL)), any());
+  }
+
+  @Test
+  public void testGetMatchingActorsNoResourceMatch() throws Exception {
+
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(true);
+    actorFilter.setUsers(new UrnArray(
+        ImmutableList.of(
+            Urn.createFromString("urn:li:corpuser:user1"),
+            Urn.createFromString("urn:li:corpuser:user2")
+        )
+    ));
+    actorFilter.setGroups(new UrnArray(
+        ImmutableList.of(
+            Urn.createFromString("urn:li:corpGroup:group1"),
+            Urn.createFromString("urn:li:corpGroup:group2")
+        )
+    ));
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(false);
+    resourceFilter.setType("dataset");
+    StringArray resourceUrns = new StringArray();
+    resourceUrns.add(RESOURCE_URN);
+    resourceFilter.setResources(resourceUrns);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    PolicyEngine.PolicyActors actors = _policyEngine.getMatchingActors(
+        dataHubPolicyInfo,
+        Optional.of(new ResourceSpec(
+            "dataset",
+            "urn:li:dataset:random" // A resource not covered by the policy.
+        ))
+    );
+
+    assertFalse(actors.allUsers());
+    assertFalse(actors.allGroups());
+    assertEquals(actors.getUsers(), Collections.emptyList());
+    assertEquals(actors.getGroups(), Collections.emptyList());
 
     // Verify no network calls
     verify(_aspectClient, times(0)).getAspect(any(), any(), any(), any());

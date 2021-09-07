@@ -1,12 +1,12 @@
 package com.datahub.metadata.authorization;
 
+import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.client.AspectClient;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.OwnershipClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.aspect.CorpUserAspect;
-import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.policy.DataHubActorFilter;
@@ -14,11 +14,13 @@ import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,13 +30,13 @@ import static com.linkedin.metadata.Constants.*;
 public class PolicyEngine {
 
   private final EntityClient _entityClient;
-  private final AspectClient _aspectClient;
+  private final OwnershipClient _ownershipClient;
 
   public PolicyEngine(
       final EntityClient entityClient,
-      final AspectClient aspectClient) {
+      final OwnershipClient ownershipClient) {
     _entityClient = entityClient;
-    _aspectClient = aspectClient;
+    _ownershipClient = ownershipClient;
   }
 
   public PolicyEvaluationResult evaluatePolicy(
@@ -71,7 +73,7 @@ public class PolicyEngine {
     }
 
     // If the resource is not in scope, deny the request.
-    if (!isResourceMatch(policy.getType(), resource, policy.getResources(), context)) {
+    if (!isResourceMatch(policy.getType(), policy.getResources(), resource, context)) {
       return PolicyEvaluationResult.DENIED;
     }
 
@@ -82,6 +84,59 @@ public class PolicyEngine {
 
     // All portions of the Policy match. Grant the request.
     return PolicyEvaluationResult.GRANTED;
+  }
+
+  public PolicyActors getMatchingActors(final DataHubPolicyInfo policy, final Optional<ResourceSpec> resource) {
+    final List<Urn> users = new ArrayList<>();
+    final List<Urn> groups = new ArrayList<>();
+    boolean allUsers = false;
+    boolean allGroups = false;
+    if (policyMatchesResource(policy, resource)) {
+      // Step 3: For each matching policy, find actors that are authorized.
+      final DataHubActorFilter actorFilter = policy.getActors();
+
+      // 0. Determine if we have a wildcard policy.
+      if (actorFilter.isAllUsers()) {
+        allUsers = true;
+      }
+      if (actorFilter.isAllUsers()) {
+        allGroups = true;
+      }
+
+      // 1. Populate actors listed on the policy directly.
+      if (actorFilter.hasUsers()) {
+        users.addAll(actorFilter.getUsers());
+      }
+      if (actorFilter.hasGroups()) {
+        groups.addAll(actorFilter.getGroups());
+      }
+
+      // 2. Fetch Actors based on resource ownership.
+      if (actorFilter.isResourceOwners() && resource.isPresent()) {
+        try {
+          final Ownership ownership = _ownershipClient.getLatestOwnership(resource.get().getResource());
+          if (ownership != null) {
+            users.addAll(userOwners(ownership));
+            groups.addAll(groupOwners(ownership));
+          }
+        } catch (RemoteInvocationException e) {
+          // Throw an error, as we are not able to fully resolve the authorized policy actors.
+          throw new RuntimeException("Failed to retrieve ownership when resolving authorized actors.", e);
+        }
+      }
+    }
+    return new PolicyActors(users, groups, allUsers, allGroups);
+  }
+
+  /**
+   * Returns true if the policy matches the resource spec, false otherwise.
+   *
+   * If the policy is of type "PLATFORM", the resource will always match (since there's no resource).
+   * If the policy is of type "METADATA", the resourceSpec parameter will be matched against the
+   * resource filter defined on the policy.
+   */
+  public Boolean policyMatchesResource(final DataHubPolicyInfo policy, final Optional<ResourceSpec> resourceSpec) {
+    return isResourceMatch(policy.getType(), policy.getResources(), resourceSpec, new PolicyEvaluationContext());
   }
 
   /**
@@ -99,8 +154,8 @@ public class PolicyEngine {
    */
   private boolean isResourceMatch(
       final String policyType,
-      final Optional<ResourceSpec> requestResource,
       final @Nullable DataHubResourceFilter policyResourceFilter,
+      final Optional<ResourceSpec> requestResource,
       final PolicyEvaluationContext context) {
     if (PoliciesConfig.PLATFORM_POLICY_TYPE.equals(policyType)) {
       // Currently, platform policies have no associated resource.
@@ -180,29 +235,24 @@ public class PolicyEngine {
 
     // Otherwise, evaluate ownership match.
     final ResourceSpec resourceSpec = requestResource.get();
-
     try {
-
-      // Fetch the latest version of "ownership" aspect for the resource.
-      final VersionedAspect aspect = _aspectClient.getAspect(
-          resourceSpec.getResource(),
-          OWNERSHIP_ASPECT_NAME,
-          ASPECT_LATEST_VERSION,
-          SYSTEM_ACTOR);
-
-      final Ownership ownership = aspect.getAspect().getOwnership();
-
-      if (isUserOwner(actor, ownership)) {
-        return true;
-      }
-
-      final Set<Urn> groups = resolveGroups(actor, context);
-      if (isGroupOwner(groups, ownership)) {
-        return true;
+      final Ownership ownership = _ownershipClient.getLatestOwnership(resourceSpec.getResource());
+      if (ownership != null) {
+        return isActorOwner(actor, ownership, context);
       }
     } catch (Exception e) {
-      // todo: specifically catch the 404 returned by GMS when ownership does not exist.
       log.error(String.format("Failed to resolve Ownership of resource with URN %s. Returning DENY.", resourceSpec.getResource()), e);
+    }
+    return false;
+  }
+
+  private boolean isActorOwner(Urn actor, Ownership ownership, PolicyEvaluationContext context) {
+    if (isUserOwner(actor, ownership)) {
+      return true;
+    }
+    final Set<Urn> groups = resolveGroups(actor, context);
+    if (isGroupOwner(groups, ownership)) {
+      return true;
     }
     return false;
   }
@@ -271,5 +321,54 @@ public class PolicyEngine {
     public boolean isGranted() {
       return this.isGranted;
     }
+  }
+
+  /**
+   * Class used to represent all valid users of a policy.
+   */
+  public static class PolicyActors {
+    final List<Urn> _users;
+    final List<Urn> _groups;
+    final Boolean _allUsers;
+    final Boolean _allGroups;
+
+    public PolicyActors(final List<Urn> users, final List<Urn> groups, final Boolean allUsers, final Boolean allGroups) {
+      _users = users;
+      _groups = groups;
+      _allUsers = allUsers;
+      _allGroups = allGroups;
+    }
+
+    public List<Urn> getUsers() {
+      return _users;
+    }
+
+    public List<Urn> getGroups() {
+      return _groups;
+    }
+
+    public Boolean allUsers() {
+      return _allUsers;
+    }
+
+    public Boolean allGroups() {
+      return _allGroups;
+    }
+  }
+
+  private List<Urn> userOwners(final Ownership ownership) {
+    return ownership.getOwners()
+        .stream()
+        .filter(owner -> CORP_USER_ENTITY_NAME.equals(owner.getOwner().getEntityType()))
+        .map(Owner::getOwner)
+        .collect(Collectors.toList());
+  }
+
+  private List<Urn> groupOwners(final Ownership ownership) {
+    return ownership.getOwners()
+        .stream()
+        .filter(owner -> CORP_GROUP_ENTITY_NAME.equals(owner.getOwner().getEntityType()))
+        .map(Owner::getOwner)
+        .collect(Collectors.toList());
   }
 }
