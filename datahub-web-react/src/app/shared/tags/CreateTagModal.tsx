@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Input, Modal, Space } from 'antd';
+import { message, Button, Input, Modal, Space } from 'antd';
 import styled from 'styled-components';
 
 import { useUpdateTagMutation } from '../../../graphql/tag.generated';
@@ -44,22 +44,28 @@ export default function CreateTagModal({
                     description: stagedDescription,
                 },
             },
-        }).then(() => {
-            // then apply the tag to the dataset
-            addTagMutation({
-                variables: {
-                    input: {
-                        tagUrn,
-                        targetUrn: entityUrn,
-                        subResource: entitySubresource,
+        })
+            .then(() => {
+                // then apply the tag to the dataset
+                addTagMutation({
+                    variables: {
+                        input: {
+                            tagUrn,
+                            targetUrn: entityUrn,
+                            subResource: entitySubresource,
+                        },
                     },
-                },
-            }).finally(() => {
-                // and finally close the modal
-                setDisableCreate(false);
+                }).finally(() => {
+                    // and finally close the modal
+                    setDisableCreate(false);
+                    onClose();
+                });
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
                 onClose();
             });
-        });
     };
 
     return (

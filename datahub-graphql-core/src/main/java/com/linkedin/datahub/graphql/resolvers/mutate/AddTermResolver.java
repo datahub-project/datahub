@@ -27,15 +27,15 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final TermUpdateInput input = bindArgument(environment.getArgument("input"), TermUpdateInput.class);
+    Urn termUrn = Urn.createFromString(input.getTermUrn());
+    Urn targetUrn = Urn.createFromString(input.getTargetUrn());
+
+    if (!LabelUtils.isAuthorizedToUpdateTerms(environment.getContext(), targetUrn, input.getSubResource())) {
+      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        Urn termUrn = Urn.createFromString(input.getTermUrn());
-        Urn targetUrn = Urn.createFromString(input.getTargetUrn());
-
-        if (!LabelUtils.isAuthorizedToUpdateTerms(environment.getContext(), targetUrn, input.getSubResource())) {
-          throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-        }
         if (!termUrn.getEntityType().equals("glossaryTerm")) {
           _logger.error(String.format("Failed to add %s. It is not a glossary term urn.", termUrn.toString()));
           return false;
