@@ -217,7 +217,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
     // String grouping bucket on fieldCounts.fieldName
     GroupingBucket userGroupingBucket =
-        new GroupingBucket().setKey("fieldCounts.fieldName").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
+        new GroupingBucket().setKey("fieldCounts.fieldPath").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
     GroupingBucket[] groupingBuckets = new GroupingBucket[]{userGroupingBucket};
 
     // Query backend
@@ -319,7 +319,6 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   }
 
   private void ingest(@Nonnull UsageAggregation bucket) {
-    // TODO attempt to resolve users into emails
     _usageService.upsertDocument(bucket);
   }
 
