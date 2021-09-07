@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.WebApplicationContext;
 
 
 /**
@@ -16,12 +17,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class BootstrapManagerApplicationListener implements ApplicationListener<ContextRefreshedEvent> {
 
+  private static final String ROOT_WEB_APPLICATION_CONTEXT_ID = String.format("%s:", WebApplicationContext.class.getName());
+
   @Autowired
   @Qualifier("bootstrapManager")
   private BootstrapManager _bootstrapManager;
 
   @Override
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
-    _bootstrapManager.start();
+    if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
+      _bootstrapManager.start();
+    }
   }
 }
