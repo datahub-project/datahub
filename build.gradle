@@ -121,6 +121,7 @@ project.ext.externalDependency = [
     'testContainers': 'org.testcontainers:testcontainers:1.15.1',
     'testContainersJunit': 'org.testcontainers:junit-jupiter:1.15.1',
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:1.15.3',
+    'testContainersCassandra': 'org.testcontainers:cassandra:1.15.3',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14'
 ]
 
