@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.TagUpdateInput;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.TermUpdateInput;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
@@ -31,6 +31,12 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
     return CompletableFuture.supplyAsync(() -> {
       try {
         Urn termUrn = Urn.createFromString(input.getTermUrn());
+        Urn targetUrn = Urn.createFromString(input.getTargetUrn());
+
+        if (!LabelUtils.isAuthorizedToUpdateTerms(environment.getContext(), targetUrn, input.getSubResource())) {
+          throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
+
         if (!termUrn.getEntityType().equals("glossaryTerm")) {
           _logger.error(String.format("Failed to remove %s. It is not a glossary term urn.", termUrn.toString()));
           return false;
@@ -40,7 +46,7 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
         LabelUtils.removeTermFromTarget(
             termUrn,
-            Urn.createFromString(input.getTargetUrn()),
+            targetUrn,
             input.getSubResource(),
             actor,
             _entityService

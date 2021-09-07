@@ -181,7 +181,7 @@ public class GmsGraphQLEngine {
     public final List<BrowsableEntityType<?>> browsableTypes;
 
     public GmsGraphQLEngine() {
-        this(null);
+        this(null, null);
     }
 
     public GmsGraphQLEngine(final AnalyticsService analyticsService, final EntityService entityService) {

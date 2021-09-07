@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -11,7 +12,12 @@ import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.entity.Entity;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.schema.EditableSchemaFieldInfo;
@@ -19,11 +25,16 @@ import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import java.net.URISyntaxException;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 public class LabelUtils {
+  private static final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+      PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+  ));
+
   private LabelUtils() { }
 
   public static final String GLOSSARY_TERM_ASPECT_NAME = "glossaryTerms";
@@ -272,5 +283,47 @@ public class LabelUtils {
     auditStamp.setTime(System.currentTimeMillis());
     auditStamp.setActor(actor);
     return auditStamp;
+  }
+
+  public static boolean isAuthorizedToUpdateTags(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
+
+    Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
+    // Decide whether the current principal should be allowed to update the Dataset.
+    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+        allPrivilegesGroup,
+        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema ?
+            PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType() :
+            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType()))
+    ));
+
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActor(),
+        targetUrn.getEntityType(),
+        targetUrn.toString(),
+        orPrivilegeGroups);
+  }
+
+  public static boolean isAuthorizedToUpdateTerms(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
+
+    Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
+
+    // Decide whether the current principal should be allowed to update the Dataset.
+    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+        allPrivilegesGroup,
+        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema ?
+            PoliciesConfig.EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType() :
+            PoliciesConfig.EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()
+            ))
+    ));
+
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActor(),
+        targetUrn.getEntityType(),
+        targetUrn.toString(),
+        orPrivilegeGroups);
   }
 }

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.TermUpdateInput;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
@@ -30,6 +31,11 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
     return CompletableFuture.supplyAsync(() -> {
       try {
         Urn termUrn = Urn.createFromString(input.getTermUrn());
+        Urn targetUrn = Urn.createFromString(input.getTargetUrn());
+
+        if (!LabelUtils.isAuthorizedToUpdateTerms(environment.getContext(), targetUrn, input.getSubResource())) {
+          throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
         if (!termUrn.getEntityType().equals("glossaryTerm")) {
           _logger.error(String.format("Failed to add %s. It is not a glossary term urn.", termUrn.toString()));
           return false;
@@ -38,8 +44,8 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
         _logger.info(String.format("Adding Term. input: %s", input));
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
         LabelUtils.addTermToTarget(
-            Urn.createFromString(input.getTermUrn()),
-            Urn.createFromString(input.getTargetUrn()),
+            termUrn,
+            targetUrn,
             input.getSubResource(),
             actor,
             _entityService

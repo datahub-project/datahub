@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Modal, Select, Typography } from 'antd';
+import { message, Button, Modal, Select, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../graphql/search.generated';
@@ -171,10 +171,20 @@ export default function AddTagTermModal({
             variables: {
                 input,
             },
-        }).finally(() => {
-            setDisableAdd(false);
-            onClose();
-        });
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({ content: 'Added!', duration: 2 });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to add: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                setDisableAdd(false);
+                onClose();
+            });
     };
 
     if (showCreateModal) {

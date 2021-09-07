@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.TagUpdateInput;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
@@ -30,6 +31,12 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
     return CompletableFuture.supplyAsync(() -> {
       try {
         Urn tagUrn = Urn.createFromString(input.getTagUrn());
+        Urn targetUrn = Urn.createFromString(input.getTargetUrn());
+
+        if (!LabelUtils.isAuthorizedToUpdateTags(environment.getContext(), targetUrn, input.getSubResource())) {
+          throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
+
         if (!tagUrn.getEntityType().equals("tag")) {
           _logger.error(String.format("Failed to remove %s. It is not a tag urn.", tagUrn.toString()));
           return false;
@@ -39,7 +46,7 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActor());
         LabelUtils.removeTagFromTarget(
             tagUrn,
-            Urn.createFromString(input.getTargetUrn()),
+            targetUrn,
             input.getSubResource(),
             actor,
             _entityService

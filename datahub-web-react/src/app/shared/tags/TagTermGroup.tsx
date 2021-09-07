@@ -78,7 +78,17 @@ export default function TagTermGroup({
                                 subResource: entitySubresource,
                             },
                         },
-                    }).then(refetch);
+                    })
+                        .then(({ errors }) => {
+                            if (!errors) {
+                                message.success({ content: 'Removed Tag!', duration: 2 });
+                            }
+                        })
+                        .then(refetch)
+                        .catch((e) => {
+                            message.destroy();
+                            message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
+                        });
                 }
             },
             onCancel() {},
@@ -104,7 +114,17 @@ export default function TagTermGroup({
                                 subResource: entitySubresource,
                             },
                         },
-                    }).then(refetch);
+                    })
+                        .then(({ errors }) => {
+                            if (!errors) {
+                                message.success({ content: 'Removed Term!', duration: 2 });
+                            }
+                        })
+                        .then(refetch)
+                        .catch((e) => {
+                            message.destroy();
+                            message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
+                        });
                 }
             },
             onCancel() {},
