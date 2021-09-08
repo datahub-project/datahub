@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 
 
 public class LabelUtils {
-  private static final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+  private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
       PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
   ));
 
@@ -52,14 +52,16 @@ public class LabelUtils {
   ) {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
-          (com.linkedin.common.GlossaryTerms) getAspectFromEntity(targetUrn.toString(), GLOSSARY_TERM_ASPECT_NAME, entityService, new GlossaryTerms());
+          (com.linkedin.common.GlossaryTerms) getAspectFromEntity(
+              targetUrn.toString(), GLOSSARY_TERM_ASPECT_NAME, entityService, new GlossaryTerms());
       terms.setAuditStamp(getAuditStamp(actor));
 
       removeTermIfExists(terms, labelUrn);
       persistAspect(targetUrn, terms, actor, entityService);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
+              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
       if (!editableFieldInfo.hasGlossaryTerms()) {
         editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
@@ -88,7 +90,8 @@ public class LabelUtils {
       persistAspect(targetUrn, tags, actor, entityService);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
+              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
 
       if (!editableFieldInfo.hasGlobalTags()) {
@@ -117,7 +120,8 @@ public class LabelUtils {
       persistAspect(targetUrn, tags, actor, entityService);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
+              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
 
       if (!editableFieldInfo.hasGlobalTags()) {
@@ -149,7 +153,8 @@ public class LabelUtils {
       persistAspect(targetUrn, terms, actor, entityService);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
+              targetUrn.toString(), SCHEMA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
 
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
       if (!editableFieldInfo.hasGlossaryTerms()) {
@@ -291,10 +296,10 @@ public class LabelUtils {
     // Decide whether the current principal should be allowed to update the Dataset.
     // If you either have all entity privileges, or have the specific privileges required, you are authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        allPrivilegesGroup,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema ?
-            PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType() :
-            PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType()))
+        ALL_PRIVILEGES_GROUP,
+        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema
+            ? PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType()
+            : PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType()))
     ));
 
     return AuthorizationUtils.isAuthorized(
@@ -312,10 +317,10 @@ public class LabelUtils {
     // Decide whether the current principal should be allowed to update the Dataset.
     // If you either have all entity privileges, or have the specific privileges required, you are authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        allPrivilegesGroup,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema ?
-            PoliciesConfig.EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType() :
-            PoliciesConfig.EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()
+        ALL_PRIVILEGES_GROUP,
+        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema
+                ? PoliciesConfig.EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType()
+                : PoliciesConfig.EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()
             ))
     ));
 
