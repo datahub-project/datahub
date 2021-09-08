@@ -17,7 +17,6 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import java.util.Collections;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import org.apache.http.HttpHost;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
@@ -108,7 +107,6 @@ public class ElasticSearchServiceTest {
     document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
     _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(_searchClient);
-    TimeUnit.SECONDS.sleep(2);  // for some reason we still need to wait here though we 'syncAfterWrite'
 
     searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);

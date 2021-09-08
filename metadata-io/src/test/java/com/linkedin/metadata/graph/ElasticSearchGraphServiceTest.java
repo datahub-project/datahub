@@ -18,11 +18,14 @@ import org.testng.annotations.BeforeTest;
 
 import javax.annotation.Nonnull;
 
+import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
+
 public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   private ElasticsearchContainer _elasticsearchContainer;
   private RestHighLevelClient _searchClient;
-  private IndexConvention _indexConvention;
+  private final IndexConvention _indexConvention = new IndexConventionImpl(null);
+  private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
 
   private static final String IMAGE_NAME = "docker.elastic.co/elasticsearch/elasticsearch:7.9.3";
@@ -36,7 +39,6 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @BeforeTest
   public void setup() {
-    _indexConvention = new IndexConventionImpl(null);
     _elasticsearchContainer = new ElasticsearchContainer(IMAGE_NAME);
     _elasticsearchContainer.start();
     _searchClient = buildRestClient();
@@ -76,6 +78,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @Override
   protected void syncAfterWrite() throws Exception {
-    ElasticSearchTestUtils.syncAfterWrite(_searchClient);
+    ElasticSearchTestUtils.syncAfterWrite(_searchClient, _indexName);
   }
+
 }
