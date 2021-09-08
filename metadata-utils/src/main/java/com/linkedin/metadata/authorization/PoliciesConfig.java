@@ -81,6 +81,7 @@ public class PoliciesConfig {
       "The ability to edit any information about an asset. Super user privileges.");
 
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES = ImmutableList.of(
+      EDIT_ENTITY_TAGS_PRIVILEGE,
       EDIT_ENTITY_OWNERS_PRIVILEGE,
       EDIT_ENTITY_DOCS_PRIVILEGE,
       EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
