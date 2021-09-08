@@ -153,6 +153,11 @@
                       "namespace": "com.linkedin.pegasus2avro.chart",
                       "fields": [
                         {
+                          "Searchable": {
+                            "/*": {
+                              "queryByDefault": true
+                            }
+                          },
                           "type": {
                             "type": "map",
                             "values": "string"
@@ -1174,6 +1179,11 @@
                       "namespace": "com.linkedin.pegasus2avro.dashboard",
                       "fields": [
                         {
+                          "Searchable": {
+                            "/*": {
+                              "queryByDefault": true
+                            }
+                          },
                           "type": {
                             "type": "map",
                             "values": "string"
@@ -1405,6 +1415,11 @@
                       "namespace": "com.linkedin.pegasus2avro.datajob",
                       "fields": [
                         {
+                          "Searchable": {
+                            "/*": {
+                              "queryByDefault": true
+                            }
+                          },
                           "type": {
                             "type": "map",
                             "values": "string"
@@ -1599,6 +1614,11 @@
                       "namespace": "com.linkedin.pegasus2avro.datajob",
                       "fields": [
                         {
+                          "Searchable": {
+                            "/*": {
+                              "queryByDefault": true
+                            }
+                          },
                           "type": {
                             "type": "map",
                             "values": "string"
@@ -1961,6 +1981,11 @@
                       "namespace": "com.linkedin.pegasus2avro.dataset",
                       "fields": [
                         {
+                          "Searchable": {
+                            "/*": {
+                              "queryByDefault": true
+                            }
+                          },
                           "type": {
                             "type": "map",
                             "values": "string"
@@ -3376,6 +3401,11 @@
                       "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                       "fields": [
                         {
+                          "Searchable": {
+                            "/*": {
+                              "queryByDefault": true
+                            }
+                          },
                           "type": {
                             "type": "map",
                             "values": "string"
@@ -4634,6 +4664,11 @@
                       "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                       "fields": [
                         {
+                          "Searchable": {
+                            "/*": {
+                              "queryByDefault": true
+                            }
+                          },
                           "type": {
                             "type": "map",
                             "values": "string"
@@ -4778,6 +4813,11 @@
                       "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                       "fields": [
                         {
+                          "Searchable": {
+                            "/*": {
+                              "queryByDefault": true
+                            }
+                          },
                           "type": {
                             "type": "map",
                             "values": "string"
@@ -4949,6 +4989,11 @@
                       "namespace": "com.linkedin.pegasus2avro.ml.metadata",
                       "fields": [
                         {
+                          "Searchable": {
+                            "/*": {
+                              "queryByDefault": true
+                            }
+                          },
                           "type": {
                             "type": "map",
                             "values": "string"
