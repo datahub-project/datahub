@@ -144,6 +144,7 @@ module.exports = {
       "docs/how/migrating-graph-service-implementation",
       "docs/advanced/mcp-mcl",
       "docs/advanced/field-path-spec-v2",
+      "docs/advanced/monitoring",
       // WIP "docs/advanced/backfilling",
       // WIP "docs/advanced/derived-aspects",
       // WIP "docs/advanced/entity-hierarchy",
@@ -172,6 +173,7 @@ module.exports = {
       // - "docker/mysql/README",
       // - "docker/neo4j/README",
       // - "docker/postgres/README",
+      // - "perf-test/README",
     ],
     Community: [
       "docs/slack",

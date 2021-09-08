@@ -1,11 +1,13 @@
 package com.linkedin.metadata.graph.elastic;
 
+import com.codahale.metrics.Timer;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
 import com.linkedin.metadata.query.RelationshipFilter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -20,7 +22,7 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
-import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
+import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 
 
 /**
@@ -81,7 +83,7 @@ public class ESGraphQueryDAO {
 
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
-    try {
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esQuery").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       return searchResponse;
     } catch (IOException e) {

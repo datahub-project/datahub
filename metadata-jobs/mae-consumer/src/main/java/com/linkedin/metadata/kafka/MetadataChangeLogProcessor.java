@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka;
 
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
@@ -27,6 +29,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
@@ -65,6 +68,9 @@ public class MetadataChangeLogProcessor {
   private final TimeseriesAspectService _timeseriesAspectService;
   private final EntityRegistry _entityRegistry;
 
+  private final Histogram kafkaLagStats =
+      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+
   @Autowired
   public MetadataChangeLogProcessor(GraphService graphService, SearchService searchService,
       TimeseriesAspectService timeseriesAspectService, EntityRegistry entityRegistry) {
@@ -81,6 +87,7 @@ public class MetadataChangeLogProcessor {
       "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
           + "}"}, containerFactory = "avroSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final GenericRecord record = consumerRecord.value();
     log.debug("Got Generic MCL");
 

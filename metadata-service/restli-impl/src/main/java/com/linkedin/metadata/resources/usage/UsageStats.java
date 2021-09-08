@@ -1,5 +1,6 @@
 package com.linkedin.metadata.resources.usage;
 
+import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.WindowDuration;
@@ -9,7 +10,7 @@ import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.restli.RestliUtils;
+import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
 import com.linkedin.metadata.usage.UsageService;
 import com.linkedin.parseq.Task;
@@ -34,6 +35,7 @@ import com.linkedin.usage.UsageQueryResultAggregations;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -41,13 +43,13 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 
 /**
  * Rest.li entry point: /usageStats
  */
+@Slf4j
 @RestLiSimpleResource(name = "usageStats", namespace = "com.linkedin.usage")
 public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -67,7 +69,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private static final String USAGE_STATS_ASPECT_NAME = "datasetUsageStatistics";
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
   private static final String ES_NULL_VALUE = "NULL";
-  private final Logger _logger = LoggerFactory.getLogger(UsageStats.class.getName());
+
   @Inject
   @Named("usageService")
   private UsageService _usageService;
@@ -77,14 +79,15 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
   @Action(name = ACTION_BATCH_INGEST)
   @Nonnull
+  @WithSpan
   public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {
-    _logger.info("Ingesting {} usage stats aggregations", buckets.length);
-    return RestliUtils.toTask(() -> {
+    log.info("Ingesting {} usage stats aggregations", buckets.length);
+    return RestliUtil.toTask(() -> {
       for (UsageAggregation agg : buckets) {
         this.ingest(agg);
       }
       return null;
-    });
+    }, MetricRegistry.name(this.getClass(), "batchIngest"));
   }
 
   private CalendarInterval windowToInterval(@Nonnull WindowDuration duration) {
@@ -195,7 +198,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       try {
         userUsageCount.setUser(new Urn(row.get(0)));
       } catch (URISyntaxException e) {
-        _logger.error("Failed to convert {} to urn. Exception: {}", row.get(0), e);
+        log.error("Failed to convert {} to urn. Exception: {}", row.get(0), e);
       }
       if (!row.get(1).equals(ES_NULL_VALUE)) {
         try {
@@ -257,13 +260,14 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
   @Action(name = ACTION_QUERY)
   @Nonnull
+  @WithSpan
   public Task<UsageQueryResult> query(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
       @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration,
       @ActionParam(PARAM_START_TIME) @com.linkedin.restli.server.annotations.Optional Long startTime,
       @ActionParam(PARAM_END_TIME) @com.linkedin.restli.server.annotations.Optional Long endTime,
       @ActionParam(PARAM_MAX_BUCKETS) @com.linkedin.restli.server.annotations.Optional Integer maxBuckets) {
-    _logger.info("Attempting to query usage stats");
-    return RestliUtils.toTask(() -> {
+    log.info("Attempting to query usage stats");
+    return RestliUtil.toTask(() -> {
       // 1. Populate the filter. This is common for all queries.
       Filter filter = new Filter();
       ArrayList<Criterion> criteria = new ArrayList<>();
@@ -307,11 +311,12 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
       // 5. Populate and return the result.
       return new UsageQueryResult().setBuckets(buckets).setAggregations(aggregations);
-    });
+    }, MetricRegistry.name(this.getClass(), "query"));
   }
 
   @Action(name = ACTION_QUERY_RANGE)
   @Nonnull
+  @WithSpan
   public Task<UsageQueryResult> queryRange(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
       @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration, @ActionParam(PARAM_RANGE) UsageTimeRange range) {
     final long now = Instant.now().toEpochMilli();
