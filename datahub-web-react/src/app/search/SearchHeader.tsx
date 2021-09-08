@@ -8,6 +8,7 @@ import { ManageAccount } from '../shared/ManageAccount';
 import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
 
 const { Header } = Layout;
 
@@ -90,6 +91,7 @@ export const SearchHeader = ({
                 />
             </LogoSearchContainer>
             <NavGroup>
+                <AdminHeaderLinks />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
             </NavGroup>
         </Header>
