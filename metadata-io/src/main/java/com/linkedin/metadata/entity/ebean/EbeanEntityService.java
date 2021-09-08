@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.ebean;
 
+import com.codahale.metrics.Timer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -23,10 +24,12 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -196,13 +199,16 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   @Nonnull
+  @WithSpan
   public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
       @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp,
       @Nonnull final SystemMetadata systemMetadata) {
 
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
+    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
     UpdateAspectResult result = ingestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata,
         DEFAULT_MAX_TRANSACTION_RETRY);
+    ingestToLocalDBTimer.stop();
 
     final RecordTemplate oldValue = result.getOldValue();
     final RecordTemplate updatedValue = result.getNewValue();
@@ -210,12 +216,14 @@ public class EbeanEntityService extends EntityService {
     // 5. Produce MAE after a successful update
     if (oldValue != updatedValue || _alwaysEmitAuditEvent) {
       log.debug(String.format("Producing MetadataAuditEvent for ingested aspect %s, urn %s", aspectName, urn));
+      Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
       if (aspectName.equals(getKeyAspectName(urn))) {
         produceMetadataAuditEventForKey(urn, result.getNewSystemMetadata());
       } else {
         produceMetadataAuditEvent(urn, oldValue, updatedValue, result.getOldSystemMetadata(),
             result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
       }
+      produceMAETimer.stop();
     } else {
       log.debug(
           String.format("Skipped producing MetadataAuditEvent for ingested aspect %s, urn %s. Aspect has not changed.",
@@ -389,9 +397,11 @@ public class EbeanEntityService extends EntityService {
     SystemMetadata newSystemMetadata = systemMetadata;
 
     if (!aspectSpec.isTimeseries()) {
+      Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestProposalToLocalDB").time();
       UpdateAspectResult result =
           ingestAspectToLocalDB(entityUrn, metadataChangeProposal.getAspectName(), ignored -> aspect, auditStamp,
               systemMetadata, DEFAULT_MAX_TRANSACTION_RETRY);
+      ingestToLocalDBTimer.stop();
       oldAspect = result.oldValue;
       oldSystemMetadata = result.oldSystemMetadata;
       newAspect = result.newValue;

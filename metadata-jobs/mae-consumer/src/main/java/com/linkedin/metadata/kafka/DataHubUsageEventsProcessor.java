@@ -1,11 +1,14 @@
 package com.linkedin.metadata.kafka;
 
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.MetricRegistry;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.kafka.config.DataHubUsageEventsProcessorCondition;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.kafka.elasticsearch.JsonElasticEvent;
 import com.linkedin.metadata.kafka.transformer.DataHubUsageEventTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.Topics;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -28,6 +31,9 @@ public class DataHubUsageEventsProcessor {
   private final DataHubUsageEventTransformer dataHubUsageEventTransformer;
   private final String indexName;
 
+  private final Histogram kafkaLagStats =
+      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+
   public DataHubUsageEventsProcessor(
       ElasticsearchConnector elasticSearchConnector,
       DataHubUsageEventTransformer dataHubUsageEventTransformer,
@@ -40,6 +46,7 @@ public class DataHubUsageEventsProcessor {
   @KafkaListener(id = "${DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_ID:datahub-usage-event-consumer-job-client}", topics =
       "${DATAHUB_USAGE_EVENT_NAME:" + Topics.DATAHUB_USAGE_EVENT + "}", containerFactory = "stringSerializedKafkaListener")
   public void consume(final ConsumerRecord<String, String> consumerRecord) {
+    kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
     final String record = consumerRecord.value();
     log.debug("Got DHUE");
 
