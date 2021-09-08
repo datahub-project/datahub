@@ -35,7 +35,6 @@ dependencies {
   implementation group: 'com.datastax.oss', name: 'java-driver-core', version: '4.13.0'
   implementation "com.datastax.oss:java-driver-query-builder:4.13.0"
 
-
   testCompile externalDependency.testng
   testCompile externalDependency.h2
   testCompile externalDependency.neo4jHarness
