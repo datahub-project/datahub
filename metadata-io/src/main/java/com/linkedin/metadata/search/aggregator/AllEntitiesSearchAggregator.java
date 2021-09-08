@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.elasticsearch.aggregator;
+package com.linkedin.metadata.search.aggregator;
 
 import com.codahale.metrics.Timer;
 import com.linkedin.common.UrnArray;
@@ -14,6 +14,7 @@ import com.linkedin.metadata.search.MatchMetadata;
 import com.linkedin.metadata.search.MatchMetadataArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -36,13 +37,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AllEntitiesSearchAggregator {
   private final EntityRegistry _entityRegistry;
-  private final ESSearchDAO _esSearchDAO;
+  private final SearchService _searchService;
   private final Map<String, Set<String>> _filtersPerEntity;
   private final Map<String, String> _filtersToDisplayName;
 
-  public AllEntitiesSearchAggregator(EntityRegistry entityRegistry, ESSearchDAO esSearchDAO) {
+  public AllEntitiesSearchAggregator(EntityRegistry entityRegistry, SearchService searchService) {
     _entityRegistry = entityRegistry;
-    _esSearchDAO = esSearchDAO;
+    _searchService = searchService;
     _filtersPerEntity = getFiltersPerEntity(entityRegistry);
     _filtersToDisplayName = getFilterToDisplayName(entityRegistry);
   }
@@ -83,7 +84,7 @@ public class AllEntitiesSearchAggregator {
     Map<String, SearchResult> searchResults;
     try(Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
       searchResults = nonEmptyEntities.stream()
-          .map(entity -> new Pair<>(entity, _esSearchDAO.search(entity, input, postFilters, sortCriterion, 0, from + size)))
+          .map(entity -> new Pair<>(entity, _searchService.search(entity, input, postFilters, sortCriterion, 0, from + size)))
           .filter(pair -> pair.getValue().getNumEntities() > 0)
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }
@@ -179,7 +180,7 @@ public class AllEntitiesSearchAggregator {
     return _entityRegistry.getEntitySpecs()
         .keySet()
         .stream()
-        .filter(entity -> _esSearchDAO.docCount(entity) > 0)
+        .filter(entity -> _searchService.docCount(entity) > 0)
         .collect(Collectors.toList());
   }
 }
