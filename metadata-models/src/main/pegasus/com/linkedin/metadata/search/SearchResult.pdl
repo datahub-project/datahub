@@ -1,4 +1,4 @@
-namespace com.linkedin.metadata.query
+namespace com.linkedin.metadata.search
 
 import com.linkedin.common.Urn
 

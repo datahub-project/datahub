@@ -4,7 +4,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -58,6 +57,22 @@ public interface SearchService {
    */
   @Nonnull
   SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion, int from, int size);
+
+  /**
+   * Gets a list of documents that match given search request across multiple entities. The results are aggregated and filters are applied to the
+   * search hits and not the aggregation results.
+   *
+   * @param entities list of entities to search (If empty, searches across all entities)
+   * @param input the search input text
+   * @param postFilters the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size);
 
   /**

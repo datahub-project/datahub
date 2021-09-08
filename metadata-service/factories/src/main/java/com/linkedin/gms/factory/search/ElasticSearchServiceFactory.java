@@ -5,6 +5,7 @@ import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.aggregator.AllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
@@ -56,10 +57,10 @@ public class ElasticSearchServiceFactory {
   @Bean(name = "elasticSearchService")
   @Nonnull
   protected ElasticSearchService getInstance() {
+    ESSearchDAO esSearchDAO = new ESSearchDAO(entityRegistry, searchClient, indexConvention);
     return new ElasticSearchService(new ESIndexBuilders(entityRegistry, searchClient, indexConvention, settingsBuilder),
-        new ESSearchDAO(entityRegistry, searchClient, indexConvention),
-        new ESBrowseDAO(entityRegistry, searchClient, indexConvention),
+        esSearchDAO, new ESBrowseDAO(entityRegistry, searchClient, indexConvention),
         new ESWriteDAO(entityRegistry, searchClient, indexConvention, bulkRequestsLimit, bulkFlushPeriod, numRetries,
-            retryInterval));
+            retryInterval), new AllEntitiesSearchAggregator(entityRegistry, esSearchDAO));
   }
 }

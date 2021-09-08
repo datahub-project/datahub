@@ -8,16 +8,16 @@ import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SearchResults;
-import com.linkedin.metadata.query.MatchMetadata;
-import com.linkedin.metadata.query.SearchResultMetadata;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.metadata.search.MatchMetadata;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.restli.common.CollectionResponse;
-
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Stream;
-import javax.annotation.Nonnull;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 
 
 public class SearchResultsMapper<T extends RecordTemplate, E extends Entity> {
@@ -53,13 +53,13 @@ public class SearchResultsMapper<T extends RecordTemplate, E extends Entity> {
     return result;
   }
 
-  private FacetMetadata mapFacet(com.linkedin.metadata.query.AggregationMetadata aggregationMetadata) {
+  private FacetMetadata mapFacet(com.linkedin.metadata.search.AggregationMetadata aggregationMetadata) {
     final FacetMetadata facetMetadata = new FacetMetadata();
     facetMetadata.setField(aggregationMetadata.getName());
-    facetMetadata.setAggregations(aggregationMetadata.getAggregations()
-        .entrySet()
+    facetMetadata.setAggregations(aggregationMetadata.getFilterValues()
         .stream()
-        .map(entry -> new AggregationMetadata(entry.getKey(), entry.getValue()))
+        .map(filterValue -> new AggregationMetadata(filterValue.getValue(), filterValue.getFacetCount(),
+            filterValue.getEntity() == null ? null : UrnToEntityMapper.map(filterValue.getEntity())))
         .collect(Collectors.toList()));
     return facetMetadata;
   }

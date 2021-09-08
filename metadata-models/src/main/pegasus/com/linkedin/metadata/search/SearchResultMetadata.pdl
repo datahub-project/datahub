@@ -1,4 +1,4 @@
-namespace com.linkedin.metadata.query
+namespace com.linkedin.metadata.search
 
 import com.linkedin.common.Urn
 
@@ -10,18 +10,7 @@ record SearchResultMetadata {
   /**
    * A list of search result metadata such as aggregations
    */
-  searchResultMetadatas: array[record AggregationMetadata {
-
-    /**
-     * The name of the aggregation, e.g, platform, origin
-     */
-    name: string
-
-    /**
-     * List of aggregations showing the number of documents falling into each bucket. e.g, for platform aggregation, the bucket can be hive, kafka, etc
-     */
-    aggregations: map[string, long]
-  }]
+  searchResultMetadatas: array[AggregationMetadata] = []
 
   /**
    * A list of urns corresponding to search documents (in order) as returned by the search index

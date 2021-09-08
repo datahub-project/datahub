@@ -1,8 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
-import com.linkedin.datahub.graphql.generated.SearchInput;
+import com.linkedin.datahub.graphql.generated.SearchMultipleInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -10,7 +9,9 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,11 +20,11 @@ import static org.apache.commons.lang3.StringUtils.isBlank;
 
 
 /**
- * Resolver responsible for resolving the 'search' field of the Query type
+ * Resolver responsible for resolving 'searchForAll' field of the Query type
  */
 @Slf4j
 @RequiredArgsConstructor
-public class SearchResolver implements DataFetcher<CompletableFuture<SearchResults>> {
+public class SearchForMultipleResolver implements DataFetcher<CompletableFuture<SearchResults>> {
 
   private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
@@ -32,8 +33,11 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
 
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
-    final SearchInput input = bindArgument(environment.getArgument("input"), SearchInput.class);
-    final String entityName = EntityTypeMapper.getName(input.getType());
+    final SearchMultipleInput input = bindArgument(environment.getArgument("input"), SearchMultipleInput.class);
+
+    List<String> entityTypes = input.getTypes() == null ? null
+        : input.getTypes().stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
     if (isBlank(sanitizedQuery)) {
@@ -46,17 +50,18 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        log.debug("Executing search. entity type {}, query {}, filters: {}, start: {}, count: {}", input.getType(),
-            input.getQuery(), input.getFilters(), start, count);
-        return UrnSearchResultsMapper.map(
-            _entityClient.search(entityName, sanitizedQuery, ResolverUtils.buildFilter(input.getFilters()), start,
-                count, ResolverUtils.getActor(environment)));
+        log.debug(
+            "Executing search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
+            input.getTypes(), input.getQuery(), input.getFilters(), start, count);
+        return UrnSearchResultsMapper.map(_entityClient.searchAcrossEntities(entityTypes, sanitizedQuery,
+            ResolverUtils.buildFilter(input.getFilters()), start, count, ResolverUtils.getActor(environment)));
       } catch (Exception e) {
-        log.error("Failed to execute search: entity type {}, query {}, filters: {}, start: {}, count: {}",
-            input.getType(), input.getQuery(), input.getFilters(), start, count);
+        log.error(
+            "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",
+            input.getTypes(), input.getQuery(), input.getFilters(), start, count);
         throw new RuntimeException(
-            "Failed to execute search: " + String.format("entity type %s, query %s, filters: %s, start: %s, count: %s",
-                input.getType(), input.getQuery(), input.getFilters(), start, count), e);
+            "Failed to execute search: " + String.format("entity types %s, query %s, filters: %s, start: %s, count: %s",
+                input.getTypes(), input.getQuery(), input.getFilters(), start, count), e);
       }
     });
   }

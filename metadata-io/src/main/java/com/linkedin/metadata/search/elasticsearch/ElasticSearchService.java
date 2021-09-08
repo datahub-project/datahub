@@ -4,9 +4,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.SearchResult;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.elasticsearch.aggregator.AllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -26,6 +27,7 @@ public class ElasticSearchService implements SearchService {
   private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
   private final ESWriteDAO esWriteDAO;
+  private final AllEntitiesSearchAggregator aggregator;
 
   @Override
   public void configure() {
@@ -63,6 +65,16 @@ public class ElasticSearchService implements SearchService {
         "Searching Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entityName, input, postFilters, sortCriterion, from, size));
     return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size);
+  }
+
+  @Nonnull
+  @Override
+  public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
+      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int from, int size) {
+    log.debug(String.format(
+        "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
+        entities, input, postFilters, sortCriterion, from, size));
+    return aggregator.search(entities, input, postFilters, sortCriterion, from, size);
   }
 
   @Nonnull

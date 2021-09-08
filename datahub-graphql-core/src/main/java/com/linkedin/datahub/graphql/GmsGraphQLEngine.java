@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.analytics.resolver.GetChartsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetHighlightsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.IsAnalyticsEnabledResolver;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
@@ -48,6 +49,7 @@ import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
+import com.linkedin.datahub.graphql.resolvers.search.SearchForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
@@ -92,6 +94,7 @@ import graphql.execution.DataFetcherResult;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.ArrayList;
 import java.util.Collections;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
 import org.dataloader.DataLoader;
@@ -118,9 +121,8 @@ import static graphql.Scalars.GraphQLLong;
  *
  * TODO: Accept GMS clients as constructor arguments.
  */
+@Slf4j
 public class GmsGraphQLEngine {
-
-    private static final Logger _logger = LoggerFactory.getLogger(GmsGraphQLEngine.class.getName());
 
     private final AnalyticsService analyticsService;
 
@@ -311,7 +313,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("me", new AuthenticatedResolver<>(
                     new MeResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("search", new AuthenticatedResolver<>(
-                    new SearchResolver(searchableTypes)))
+                    new SearchResolver(GmsClientFactory.getEntitiesClient())))
+            .dataFetcher("searchForMultiple", new AuthenticatedResolver<>(
+                    new SearchForMultipleResolver(GmsClientFactory.getEntitiesClient())))
             .dataFetcher("autoComplete", new AuthenticatedResolver<>(
                     new AutoCompleteResolver(searchableTypes)))
             .dataFetcher("autoCompleteForAll", new AuthenticatedResolver<>(
@@ -388,6 +392,13 @@ public class GmsGraphQLEngine {
                     new EntityTypeResolver(
                         entityTypes.stream().collect(Collectors.toList()),
                         (env) -> ((SearchResult) env.getSource()).getEntity()))
+                )
+            )
+            .type("AggregationMetadata", typeWiring -> typeWiring
+                .dataFetcher("entity", new AuthenticatedResolver<>(
+                    new EntityTypeResolver(
+                        entityTypes.stream().collect(Collectors.toList()),
+                        (env) -> ((AggregationMetadata) env.getSource()).getEntity()))
                 )
             )
             .type("BrowseResults", typeWiring -> typeWiring
@@ -781,10 +792,10 @@ public class GmsGraphQLEngine {
         DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
         return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {
             try {
-                _logger.debug(String.format("Batch loading entities of type: %s, keys: %s", graphType.name(), keys));
+                log.debug(String.format("Batch loading entities of type: %s, keys: %s", graphType.name(), keys));
                 return graphType.batchLoad(keys, context.getContext());
             } catch (Exception e) {
-                _logger.error(String.format("Failed to load Entities of type: %s, keys: %s", graphType.name(), keys) + " " + e.getMessage());
+                log.error(String.format("Failed to load Entities of type: %s, keys: %s", graphType.name(), keys) + " " + e.getMessage());
                 throw new RuntimeException(String.format("Failed to retrieve entities of type %s", graphType.name()), e);
             }
         }), loaderOptions);
@@ -795,10 +806,10 @@ public class GmsGraphQLEngine {
         DataLoaderOptions loaderOptions = DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
         return DataLoader.newDataLoader((keys, context) -> CompletableFuture.supplyAsync(() -> {
             try {
-                _logger.debug(String.format("Batch loading aspects with keys: %s", keys));
+                log.debug(String.format("Batch loading aspects with keys: %s", keys));
                 return aspectType.batchLoad(keys, context.getContext());
             } catch (Exception e) {
-                _logger.error(String.format("Failed to load Aspect for entity. keys: %s", keys) + " " + e.getMessage());
+                log.error(String.format("Failed to load Aspect for entity. keys: %s", keys) + " " + e.getMessage());
                 throw new RuntimeException(String.format("Failed to retrieve entities of type Aspect", e));
             }
         }), loaderOptions);

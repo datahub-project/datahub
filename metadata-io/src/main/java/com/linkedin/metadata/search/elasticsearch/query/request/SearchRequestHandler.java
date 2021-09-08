@@ -7,17 +7,19 @@ import com.linkedin.metadata.dao.utils.ESUtils;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.query.AggregationMetadata;
-import com.linkedin.metadata.query.AggregationMetadataArray;
 import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.Filter;
-import com.linkedin.metadata.query.MatchMetadata;
-import com.linkedin.metadata.query.MatchMetadataArray;
-import com.linkedin.metadata.query.MatchedField;
-import com.linkedin.metadata.query.MatchedFieldArray;
-import com.linkedin.metadata.query.SearchResult;
-import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.MatchMetadata;
+import com.linkedin.metadata.search.MatchMetadataArray;
+import com.linkedin.metadata.search.MatchedField;
+import com.linkedin.metadata.search.MatchedFieldArray;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.utils.SearchUtil;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -61,12 +63,18 @@ public class SearchRequestHandler {
   private final EntitySpec _entitySpec;
   private final Set<String> _facetFields;
   private final Set<String> _defaultQueryFieldNames;
+  private final Map<String, String> _filtersToDisplayName;
   private final int _maxTermBucketSize = 100;
 
   private SearchRequestHandler(@Nonnull EntitySpec entitySpec) {
     _entitySpec = entitySpec;
     _facetFields = getFacetFields();
     _defaultQueryFieldNames = getDefaultQueryFieldNames();
+    _filtersToDisplayName = _entitySpec.getSearchableFieldSpecs()
+        .stream()
+        .filter(spec -> spec.getSearchableAnnotation().isAddToFilters())
+        .collect(Collectors.toMap(spec -> spec.getSearchableAnnotation().getFieldName(),
+            spec -> spec.getSearchableAnnotation().getFilterName()));
   }
 
   public static SearchRequestHandler getBuilder(@Nonnull EntitySpec entitySpec) {
@@ -265,8 +273,10 @@ public class SearchRequestHandler {
       if (oneTermAggResult.isEmpty()) {
         continue;
       }
-      final AggregationMetadata aggregationMetadata =
-          new AggregationMetadata().setName(entry.getKey()).setAggregations(new LongMap(oneTermAggResult));
+      final AggregationMetadata aggregationMetadata = new AggregationMetadata().setName(entry.getKey())
+          .setDisplayName(_filtersToDisplayName.get(entry.getKey()))
+          .setAggregations(new LongMap(oneTermAggResult))
+          .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(oneTermAggResult)));
       aggregationMetadataList.add(aggregationMetadata);
     }
 
