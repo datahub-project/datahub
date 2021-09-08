@@ -1,8 +1,9 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react';
+import { MockedProvider } from '@apollo/client/testing';
+
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 import { sampleSchema, sampleSchemaWithTags } from '../stories/sampleSchema';
-import { MockedProvider } from '@apollo/client/testing';
 import { mocks } from '../../../../../Mocks';
 import { SchemaTab } from '../../../shared/tabs/Dataset/Schema/SchemaTab';
 import EntityContext from '../../../shared/EntityContext';
@@ -10,7 +11,7 @@ import { EntityType, SchemaMetadata } from '../../../../../types.generated';
 
 describe('Schema', () => {
     it('renders', () => {
-        const { getByText, queryAllByTestId } = render(
+        const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <EntityContext.Provider

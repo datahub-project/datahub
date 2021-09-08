@@ -1263,7 +1263,7 @@ export const mocks = [
         },
         result: {
             data: {
-                autoCompleteForAll: {
+                autoCompleteForMultiple: {
                     query: 't',
                     suggestions: [
                         {
@@ -1287,7 +1287,7 @@ export const mocks = [
         },
         result: {
             data: {
-                autoCompleteForAll: {
+                autoCompleteForMultiple: {
                     query: 't',
                     suggestions: [
                         {

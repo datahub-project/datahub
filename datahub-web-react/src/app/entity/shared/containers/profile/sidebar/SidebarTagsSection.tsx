@@ -4,8 +4,8 @@ import { SidebarHeader } from './SidebarHeader';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 
 export const SidebarTagsSection = ({ properties }: { properties?: any }) => {
-    const canAddTag = properties.hasTags;
-    const canAddTerm = properties.hasTerms;
+    const canAddTag = properties?.hasTags;
+    const canAddTerm = properties?.hasTerms;
 
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
