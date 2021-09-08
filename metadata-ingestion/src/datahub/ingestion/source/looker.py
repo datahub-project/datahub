@@ -377,8 +377,8 @@ class LookerDashboardSource(Source):
             description=dashboard.description,
             dashboard_elements=dashboard_elements,
             created_at=dashboard.created_at,
-            is_deleted=dashboard.deleted or False,
-            is_hidden=dashboard.deleted or False,
+            is_deleted=dashboard.deleted if dashboard.deleted is not None else False,
+            is_hidden=dashboard.deleted if dashboard.deleted is not None else False,
         )
         return looker_dashboard
 
